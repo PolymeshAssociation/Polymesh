@@ -1041,6 +1041,7 @@
             "usage_fee": "Balance",
             "version": "MetaVersion"
         },
+        "Tax": "Permill",
         "TargetIdentities": {
             "identities": "Vec<IdentitityId>",
             "treatment": "TargetTreatment"
@@ -1050,6 +1051,29 @@
                 "Include",
                 "Exclude"
             ]
+        },
+        "CAKind": {
+            "_enum": [
+                "PredictableBenefit",
+                "UnpredictableBenfit",
+                "IssuerNotice",
+                "Reorganization",
+                "Other"
+            ]
+        },
+        "CADetails": "Text",
+        "CorporateAction": {
+            "kind": "CAKind",
+            "record_date": "Option<Moment>",
+            "details": "String",
+            "targets": "TargetIdentities",
+            "default_withholding_tax": "Tax",
+            "withholding_tax": "Vec<(IdentityId, Tax)>"
+        },
+        "LocalCAId": "u32",
+        "CAId": {
+            "ticker": "Ticker",
+            "local_id": "LocalCAId"
         }
     },
     "rpc": {

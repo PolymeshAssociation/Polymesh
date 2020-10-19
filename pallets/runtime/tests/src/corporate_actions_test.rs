@@ -1,15 +1,20 @@
 use super::{
     pips_test::User,
-    storage::{provide_scope_claim_to_multiple_parties, TestStorage},
+    storage::{provide_scope_claim_to_multiple_parties, root, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, StorageDoubleMap};
+use frame_support::{
+    assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResult},
+    StorageDoubleMap, StorageMap,
+};
 use pallet_asset::AssetName;
 use pallet_corporate_actions::{
-    TargetIdentities,
+    CADetails, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
     TargetTreatment::{Exclude, Include},
+    Tax,
 };
-use polymesh_primitives::{AuthorizationData, PortfolioId, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, Moment, PortfolioId, Signatory, Ticker};
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
 use test_client::AccountKeyring;
@@ -18,6 +23,7 @@ type System = frame_system::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
@@ -25,6 +31,11 @@ type CA = pallet_corporate_actions::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
+
+const P0: Permill = Permill::zero();
+const P25: Permill = Permill::from_percent(25);
+const P50: Permill = Permill::from_percent(50);
+const P75: Permill = Permill::from_percent(75);
 
 #[track_caller]
 fn test(logic: impl FnOnce(Ticker, [User; 3])) {
@@ -102,6 +113,23 @@ fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     Identity::accept_authorization(to.signer(), auth_id)
 }
 
+fn init_ca(
+    owner: User,
+    ticker: Ticker,
+    kind: CAKind,
+    date: Option<Moment>,
+    details: String,
+    targets: Option<TargetIdentities>,
+    default_wht: Option<Tax>,
+    wht: Option<Vec<(IdentityId, Tax)>>,
+) -> Result<CorporateAction, DispatchError> {
+    let id = CA::ca_id_sequence(ticker);
+    let sig = owner.signer();
+    let details = CADetails(details.as_bytes().to_vec());
+    CA::initiate_corporate_action(sig, ticker, kind, date, details, targets, default_wht, wht)?;
+    Ok(CA::corporate_actions(ticker, id).unwrap())
+}
+
 #[test]
 fn only_caa_authorized() {
     test(|ticker, [owner, caa, other]| {
@@ -124,11 +152,22 @@ fn only_caa_authorized() {
                     ticker,
                     Permill::zero(),
                 ) $(, $tail)?);
-                // ..., and `set_did_withholding_tax`.
+                // ...`set_did_withholding_tax`,
                 $assert!(CA::set_did_withholding_tax(
                     $user.signer(),
                     ticker,
                     other.did,
+                    None,
+                ) $(, $tail)?);
+                // ..., and `initiate_corporate_action`.
+                $assert!(CA::initiate_corporate_action(
+                    $user.signer(),
+                    ticker,
+                    CAKind::Other,
+                    None,
+                    <_>::default(),
+                    None,
+                    None,
                     None,
                 ) $(, $tail)?);
             };
@@ -237,9 +276,9 @@ fn set_default_targets_works() {
 #[test]
 fn set_default_withholding_tax_works() {
     test(|ticker, [owner, ..]| {
-        let tax = Permill::from_percent(50);
-        assert_ok!(CA::set_default_withholding_tax(owner.signer(), ticker, tax));
-        assert_eq!(CA::default_withholding_tax(ticker), tax);
+        assert_eq!(CA::default_withholding_tax(ticker), P0);
+        assert_ok!(CA::set_default_withholding_tax(owner.signer(), ticker, P50));
+        assert_eq!(CA::default_withholding_tax(ticker), P50);
     });
 }
 
@@ -249,17 +288,196 @@ fn set_did_withholding_tax_works() {
         transfer(&ticker, owner, foo);
         transfer(&ticker, owner, bar);
 
-        let check = |user: User, tax| {
+        let check = |user: User, tax, expect| {
             assert_ok!(CA::set_did_withholding_tax(
                 owner.signer(),
                 ticker,
                 user.did,
                 tax
             ));
-            assert_eq!(CA::did_withholding_tax(ticker, user.did), tax);
+            assert_eq!(CA::did_withholding_tax(ticker), expect);
         };
-        check(foo, Some(Permill::from_percent(25)));
-        check(bar, Some(Permill::from_percent(75)));
-        check(foo, None);
+        check(foo, Some(P25), vec![(foo.did, P25)]);
+        check(bar, Some(P75), vec![(foo.did, P25), (bar.did, P75)]);
+        check(foo, Some(P50), vec![(foo.did, P50), (bar.did, P75)]);
+        check(foo, None, vec![(bar.did, P75)]);
+    });
+}
+
+#[test]
+fn set_max_details_length_only_root() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice).signer();
+        assert_noop!(
+            CA::set_max_details_length(alice, 5),
+            DispatchError::BadOrigin,
+        );
+        assert_ok!(CA::set_max_details_length(root(), 10));
+        assert_eq!(CA::max_details_length(), 10);
+    });
+}
+
+#[test]
+fn initiate_corporate_action_details() {
+    test(|ticker, [owner, ..]| {
+        assert_ok!(CA::set_max_details_length(root(), 2));
+        let init_ca = |details: &str| -> DispatchResult {
+            let ca = init_ca(
+                owner,
+                ticker,
+                CAKind::Other,
+                None,
+                details.to_owned(),
+                None,
+                None,
+                None,
+            )?;
+            assert_eq!(details.as_bytes(), ca.details.as_slice());
+            Ok(())
+        };
+        assert_ok!(init_ca("f"));
+        assert_ok!(init_ca("fo"));
+        assert_noop!(init_ca("foo"), Error::DetailsTooLong);
+        assert_noop!(init_ca("❤️"), Error::DetailsTooLong);
+    });
+}
+
+#[test]
+fn initiate_corporate_action_local_id_overflow() {
+    test(|ticker, [owner, ..]| {
+        CAIdSequence::insert(ticker, LocalCAId(u32::MAX - 2));
+        let init_ca = || {
+            init_ca(
+                owner,
+                ticker,
+                CAKind::Other,
+                None,
+                <_>::default(),
+                None,
+                None,
+                None,
+            )
+        };
+        assert_ok!(init_ca()); // -2; OK
+        assert_ok!(init_ca()); // -1; OK
+        assert_noop!(init_ca(), Error::LocalCAIdOverflow); // 0; Next overflows, so error already.
+    });
+}
+
+#[test]
+fn initiate_corporate_action_record_date() {
+    test(|ticker, [owner, ..]| {
+        let mut checkpoints = 0;
+        let mut check = |date| {
+            let ca = init_ca(
+                owner,
+                ticker,
+                CAKind::Other,
+                date,
+                <_>::default(),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            assert_eq!(date, ca.record_date);
+            if let Some(date) = date {
+                checkpoints += 1;
+                assert_eq!(date, Asset::checkpoint_timestamps(checkpoints));
+            }
+        };
+
+        check(None);
+        check(Some(50));
+        check(Some(100));
+
+        assert_eq!(Asset::total_checkpoints_of(ticker), 2);
+    });
+}
+
+#[test]
+fn initiate_corporate_action_kind() {
+    test(|ticker, [owner, ..]| {
+        for kind in &[
+            CAKind::PredictableBenefit,
+            CAKind::UnpredictableBenfit,
+            CAKind::IssuerNotice,
+            CAKind::Reorganization,
+            CAKind::Other,
+        ] {
+            let ca = init_ca(owner, ticker, *kind, None, <_>::default(), None, None, None).unwrap();
+            assert_eq!(*kind, ca.kind);
+        }
+    });
+}
+
+fn basic_ca(
+    owner: User,
+    ticker: Ticker,
+    targets: Option<TargetIdentities>,
+    default_wht: Option<Tax>,
+    wht: Option<Vec<(IdentityId, Tax)>>,
+) -> CorporateAction {
+    init_ca(
+        owner,
+        ticker,
+        CAKind::Other,
+        None,
+        <_>::default(),
+        targets,
+        default_wht,
+        wht,
+    )
+    .unwrap()
+}
+
+#[test]
+fn initiate_corporate_action_default_tax() {
+    test(|ticker, [owner, ..]| {
+        let ca = |dwt| basic_ca(owner, ticker, None, dwt, None).default_withholding_tax;
+        assert_ok!(CA::set_default_withholding_tax(owner.signer(), ticker, P25));
+        assert_eq!(ca(None), P25);
+        assert_eq!(ca(Some(P50)), P50);
+    });
+}
+
+#[test]
+fn initiate_corporate_action_did_tax() {
+    test(|ticker, [owner, foo, bar]| {
+        let ca = |wt| basic_ca(owner, ticker, None, None, wt).withholding_tax;
+
+        let wts = vec![(foo.did, P25), (bar.did, P75)];
+        for (did, wt) in wts.iter().copied() {
+            assert_ok!(CA::set_did_withholding_tax(
+                owner.signer(),
+                ticker,
+                did,
+                Some(wt)
+            ));
+        }
+        assert_eq!(ca(None), wts);
+
+        let wts = vec![(foo.did, P0), (bar.did, P50)];
+        assert_eq!(ca(Some(wts.clone())), wts);
+    });
+}
+
+#[test]
+fn initiate_corporate_action_targets() {
+    test(|ticker, [owner, foo, bar]| {
+        let ca = |targets| basic_ca(owner, ticker, targets, None, None).targets;
+
+        let t1 = TargetIdentities {
+            treatment: Include,
+            identities: vec![foo.did],
+        };
+        assert_ok!(CA::set_default_targets(owner.signer(), ticker, t1.clone()));
+        assert_eq!(ca(None), t1);
+
+        let t2 = TargetIdentities {
+            treatment: Exclude,
+            identities: vec![bar.did],
+        };
+        assert_eq!(ca(Some(t2.clone())), t2);
     });
 }

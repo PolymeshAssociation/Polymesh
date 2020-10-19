@@ -38,23 +38,30 @@
 #![feature(bool_to_option)]
 
 use codec::{Decode, Encode};
+use core::convert::TryInto;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     weights::Weight,
 };
+use frame_system::ensure_root;
 use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+    GC_DID,
 };
-use polymesh_primitives::{AuthorizationData, IdentityId, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, Moment, Ticker};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
+
+/// Representation of a % to tax, with 10^6 precision.
+pub type Tax = Permill;
 
 /// How should `identities` in `TargetIdentities` be used?
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -83,12 +90,83 @@ pub struct TargetIdentities {
     pub treatment: TargetTreatment,
 }
 
+/// The kind of a `CorporateAction`.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum CAKind {
+    /// A predictable benefit.
+    /// These are known at the time the asset is created.
+    /// Examples include bonds and warrants.
+    PredictableBenefit,
+    /// An unpredictable benefit.
+    /// These are announced during the *"life"* of the asset.
+    /// Examples include dividends, bonus issues.
+    UnpredictableBenfit,
+    /// A notice to the position holders, where the goal is to dessiminate information to them,
+    /// resulting in no change to the securities or cash position of the position holder.
+    /// Examples include Annual General Meetings.
+    IssuerNotice,
+    /// A reorganization of the tokens.
+    /// For example, for every 1 ACME token a holder owns, turn them into 2 tokens.
+    /// These do not really change the position of holders, and is more of an accounting exercise.
+    /// However, a reorganization does increase the supply of tokens, which could matter for indivisible ones.
+    Reorganization,
+    /// Some generic uncategorized CA.
+    /// In other words, none of the above.
+    Other,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug, VecU8StrongTyped)]
+pub struct CADetails(pub Vec<u8>);
+
+/// Details of a generic CA.
+/// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct CorporateAction {
+    /// The kind of CA that this is.
+    pub kind: CAKind,
+    /// Date at which any impact, if any, should be calculated.
+    pub record_date: Option<Moment>,
+    /// Free-form text up to a limit.
+    pub details: CADetails,
+    /// The identities this CA is relevant to.
+    pub targets: TargetIdentities,
+    /// The default withholding tax at the time of CA creation.
+    /// For more on withholding tax, see the `DefaultWitholdingTax` storage item.
+    pub default_withholding_tax: Tax,
+    /// Any per-DID withholding tax overrides in relation to the default.
+    pub withholding_tax: Vec<(IdentityId, Tax)>,
+}
+
+/// A `Ticker`-local CA ID.
+/// By *local*, we mean that the same number might be used for a different `Ticker`
+/// to uniquely identify a different CA.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
+pub struct LocalCAId(pub u32);
+
+/// A unique global identifier for a CA.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct CAId {
+    /// The `Ticker` component used to disambiguate the `local` one.
+    ticker: Ticker,
+    /// The per-`Ticker` local identifier.
+    local_id: LocalCAId,
+}
+
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
+    fn set_max_details_length() -> Weight;
+
     fn reset_caa() -> Weight;
     fn set_default_targets(num_targets: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
     fn set_did_withholding_tax() -> Weight;
+
+    fn initiate_corporate_action() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -105,6 +183,15 @@ type Asset<T> = asset::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
+        /// Determines the maximum number of bytes that the free-form `details` of a CA can store.
+        ///
+        /// Note that this is not the number of `char`s or the number of [graphemes].
+        /// While this may be unnatural in terms of human understanding of a text's length,
+        /// it more closely reflects actual storage costs (`'a'` is cheaper to store than an emoji).
+        ///
+        /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
+        pub MaxDetailsLength get(fn max_details_length) config(): u32;
+
         /// A corporate action agent (CAA) of a ticker, if specified,
         /// that may be different from the asset owner (AO).
         /// If `None`, the AO is the CAA.
@@ -129,14 +216,25 @@ decl_storage! {
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
         ///
         /// (ticker => % to withhold)
-        pub DefaultWitholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Permill;
+        pub DefaultWitholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
 
         /// The amount of tax to withhold ("withholding tax", WT) for a certain ticker x DID.
         /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
         ///
-        /// (ticker => DID => % to withhold)
-        pub DidWitholdingTax get(fn did_withholding_tax):
-            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => Option<Permill>;
+        /// (ticker => [(did, % to withhold)]
+        pub DidWitholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
+
+        /// The next per-`Ticker` CA ID in the sequence.
+        /// The full ID is defined as a combination of `Ticker` and a number in this sequence.
+        pub CAIdSequence get(fn ca_id_sequence): map hasher(blake2_128_concat) Ticker => LocalCAId;
+
+        /// All recorded CAs thus far.
+        /// Only generic information is stored here.
+        /// Specific `CAKind`s, e.g., benefits and corporate ballots, may use additional on-chain storage.
+        ///
+        /// (ticker => local ID => the corporate action)
+        pub CorporateActions get(fn corporate_actions):
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
     }
 }
 
@@ -147,6 +245,15 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        /// Set the max `length` of `details` in terms of bytes.
+        /// May only be called via a PIP.
+        #[weight = <T as Trait>::WeightInfo::set_max_details_length()]
+        pub fn set_max_details_length(origin, length: u32) {
+            ensure_root(origin)?;
+            MaxDetailsLength::put(length);
+            Self::deposit_event(Event::MaxDetailsLengthChanged(GC_DID, length));
+        }
 
         /// Reset the CAA of `ticker` to its owner.
         ///
@@ -195,7 +302,7 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
-        pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Permill) {
+        pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             DefaultWitholdingTax::mutate(ticker, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
@@ -213,28 +320,133 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
-        pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Permill>) {
+        pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DidWitholdingTax::mutate(ticker, taxed_did, |slot| *slot = tax);
+            DidWitholdingTax::mutate(ticker, |whts| {
+                match (whts.iter().position(|(did, _)| did == &taxed_did), tax) {
+                    (None, Some(tax)) => whts.push((taxed_did, tax)),
+                    (Some(idx), None) => drop(whts.swap_remove(idx)),
+                    (Some(idx), Some(tax)) => whts[idx] = (taxed_did, tax),
+                    (None, None) => {}
+                }
+            });
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
+        }
+
+        /// Initiates a CA for `ticker` of `kind` with `details` and other provided arguments.
+        ///
+        /// ## Arguments
+        /// - `ticker` that the CA is made for.
+        /// - `kind` of CA being initiated.
+        /// - `record_date`, if any, to calculate the impact of this CA.
+        ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
+        /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
+        /// - `targets`, if any, which this CA is relevant/irrelevant to.
+        ///    Overrides, if provided, the default at the asset level (`set_default_targets`).
+        /// - `default_wt`, if any, is the default withholding tax to use for this CA.
+        ///    Overrides, if provided, the default at the asset level (`set_default_withholding_tax`).
+        /// - `wt`, if any, provides per-DID withholding tax overrides.
+        ///    Overrides, if provided, the default at the asset level (`set_did_withholding_tax`).
+        ///
+        /// # Errors
+        /// - `DetailsTooLong` if `details.len()` goes beyond `max_details_length`.
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
+        ///   that integer overflow would have occured if instead allowed.
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
+        pub fn initiate_corporate_action(
+            origin,
+            ticker: Ticker,
+            kind: CAKind,
+            record_date: Option<Moment>,
+            details: CADetails,
+            targets: Option<TargetIdentities>,
+            default_wt: Option<Tax>,
+            wt: Option<Vec<(IdentityId, Tax)>>,
+        ) {
+            // Ensure that `details` is short enough.
+            details
+                .len()
+                .try_into()
+                .ok()
+                .filter(|&len: &u32| len <= Self::max_details_length())
+                .ok_or(Error::<T>::DetailsTooLong)?;
+
+            // Ensure that CAA is calling.
+            let caa = Self::ensure_ca_agent(origin, ticker)?;
+
+            // Ensure that the next local CA ID doesn't overflow.
+            let local_id = CAIdSequence::get(ticker);
+            let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
+            let id = CAId { ticker, local_id };
+
+            // Create a checkpoint at `record_date`, if any.
+            if let Some(record_date) = record_date {
+                <Asset<T>>::_create_checkpoint_emit(ticker, record_date, caa)?;
+            }
+
+            // Commit the next local CA ID.
+            CAIdSequence::insert(ticker, next_id);
+
+            // Use asset level defaults if data not provided here.
+            let targets = targets.unwrap_or_else(|| Self::default_target_identities(ticker));
+            let dwt = default_wt.unwrap_or_else(|| Self::default_withholding_tax(ticker));
+            let wt = match wt {
+                None => Self::did_withholding_tax(ticker),
+                Some(mut wt) => {
+                    // Nuke duplicates.
+                    wt.sort_unstable_by_key(|&(did, _)| did);
+                    wt.dedup_by_key(|&mut (did, _)| did);
+                    wt
+                },
+            };
+
+            // Commit CA to storage.
+            CorporateActions::insert(ticker, id.local_id, CorporateAction {
+                kind,
+                record_date,
+                details: details.clone(),
+                targets: targets.clone(),
+                default_withholding_tax: dwt,
+                withholding_tax: wt.clone(),
+            });
+
+            // Emit event.
+            Self::deposit_event(Event::CAInitiated(caa, id, kind, record_date, details, targets, dwt, wt));
         }
     }
 }
 
 decl_event! {
     pub enum Event {
+        /// The maximum length of `details` in bytes was changed.
+        /// (GC DID, new length)
+        MaxDetailsLengthChanged(IdentityId, u32),
         /// The set of default `TargetIdentities` for a ticker changed.
         /// (CAA DID, Ticker, New TargetIdentities)
         DefaultTargetIdentitiesChanged(IdentityId, Ticker, TargetIdentities),
         /// The default withholding tax for a ticker changed.
         /// (CAA DID, Ticker, New Tax).
-        DefaultWithholdingTaxChanged(IdentityId, Ticker, Permill),
+        DefaultWithholdingTaxChanged(IdentityId, Ticker, Tax),
         /// The withholding tax specific to a DID for a ticker changed.
         /// (CAA DID, Ticker, Taxed DID, New Tax).
-        DidWithholdingTaxChanged(IdentityId, Ticker, IdentityId, Option<Permill>),
+        DidWithholdingTaxChanged(IdentityId, Ticker, IdentityId, Option<Tax>),
         /// A new DID was made the CAA.
         /// (New CAA DID, Ticker, New CAA DID).
         CAATransferred(IdentityId, Ticker, IdentityId),
+        /// A CA was initiated.
+        /// (CAA DID, CA id, kind of CA, record date, free-form text, targeted ids,
+        /// withholding tax, per-did tax override)
+        CAInitiated(
+            IdentityId,
+            CAId,
+            CAKind,
+            Option<Moment>,
+            CADetails,
+            TargetIdentities,
+            Tax,
+            Vec<(IdentityId, Tax)>,
+        ),
     }
 }
 
@@ -243,7 +455,12 @@ decl_error! {
         /// The signer is not authorized to act as a CAA for this asset.
         UnauthorizedAsAgent,
         /// The authorization type is not to transfer the CAA to another DID.
-        AuthNotCAATransfer
+        AuthNotCAATransfer,
+        /// The `details` of a CA exceeded the max allowed length.
+        DetailsTooLong,
+        /// There have been too many CAs for this ticker and the ID would overflow.
+        /// This won't occur in practice.
+        LocalCAIdOverflow,
     }
 }
 
