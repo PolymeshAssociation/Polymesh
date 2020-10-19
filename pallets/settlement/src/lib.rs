@@ -47,6 +47,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     traits::{
