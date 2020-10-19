@@ -1831,10 +1831,15 @@ impl<T: Trait> Module<T> {
             // Update the next checkpoint if a schedule exists for the ticker.
             if CheckpointSchedules::contains_key(ticker) {
                 // Compute the next timestamp.
-                let next_timestamp = Self::checkpoint_schedules(ticker)
-                    .next_checkpoint(now)
-                    .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-                NextCheckpoints::insert(ticker, next_timestamp);
+                if let Some(next_timestamp) =
+                    Self::checkpoint_schedules(ticker).next_checkpoint(now)
+                {
+                    // There is a next checkpoint. Store its timestamp.
+                    NextCheckpoints::insert(ticker, next_timestamp);
+                } else {
+                    // There are no more checkpoints in the schedule.
+                    NextCheckpoints::remove(ticker);
+                }
             }
         }
         Ok(())
