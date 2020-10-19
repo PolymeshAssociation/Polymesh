@@ -2780,3 +2780,60 @@ fn next_checkpoint_is_updated_we() {
     );
     assert_eq!(total_supply / 2, Asset::get_balance_at(ticker, bob_did, 2));
 }
+
+#[test]
+fn non_recurring_schedule_works() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(non_recurring_schedule_works_we);
+}
+
+fn non_recurring_schedule_works_we() {
+    // 14 November 2023, 22:13 UTC
+    let start: u64 = 1_700_000_000;
+    // Non-recuring schedule.
+    let period = CalendarPeriod {
+        unit: CalendarUnit::Second,
+        multiplier: 0,
+    };
+    let start_millisecs = start * 1000;
+    Timestamp::set_timestamp(start_millisecs);
+    assert_eq!(
+        start_millisecs,
+        <TestStorage as asset::Trait>::UnixTime::now()
+    );
+    let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let token_name = b"NXT";
+    let ticker = Ticker::try_from(&token_name[..]).unwrap();
+    let total_supply = 1_000_000;
+    assert_ok!(Asset::create_asset(
+        alice_signed.clone(),
+        token_name.into(),
+        ticker,
+        total_supply,
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+    ));
+    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
+    let schedule = CheckpointSchedule { start, period };
+    assert_ok!(Asset::create_checkpoint_schedule(
+        alice_signed,
+        ticker,
+        schedule
+    ));
+    assert_eq!(1, Asset::total_checkpoints_of(&ticker));
+    assert_eq!(start, Asset::checkpoint_timestamps(1));
+    assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
+    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
+    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
+    assert_eq!(
+        None,
+        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
+    );
+    // The schedule will not recur.
+    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
+}
