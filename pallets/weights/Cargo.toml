@@ -9,6 +9,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-identity = { path = "../identity", default-features = false  }
 
 [features]
 default = ["std"]
@@ -17,5 +18,6 @@ std = [
     "frame-support/std",
     "pallet-corporate-actions/std",
     "pallet-timestamp/std",
-    "frame-system/std"
+    "frame-system/std",
+    "pallet-identity/std"
 ]
