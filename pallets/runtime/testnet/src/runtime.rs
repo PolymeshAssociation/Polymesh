@@ -14,6 +14,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
 use pallet_bridge as bridge;
+use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -28,7 +29,6 @@ use pallet_identity::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
-use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;

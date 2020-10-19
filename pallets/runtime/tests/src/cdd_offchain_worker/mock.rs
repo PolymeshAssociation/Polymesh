@@ -23,9 +23,9 @@ use frame_support::{
     weights::{DispatchInfo, RuntimeDbWeight, Weight},
     StorageDoubleMap, StorageMap,
 };
-use pallet_corporate_actions as corporate_actions;
 use frame_system::offchain::*;
 use pallet_cdd_offchain_worker::crypto;
+use pallet_corporate_actions as corporate_actions;
 use pallet_group as group;
 use pallet_identity::{self as identity};
 use pallet_portfolio as portfolio;
@@ -885,7 +885,7 @@ impl ExtBuilder {
                     StakerStatus::<AccountId>::Validator,
                 ),
                 // nominator
-                (   
+                (
                     IdentityId::from(21),
                     account_key_ring.get(&21).unwrap().clone(),
                     account_key_ring.get(&20).unwrap().clone(),

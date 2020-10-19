@@ -50,6 +50,7 @@ use frame_support::{
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::EnsureRoot;
+use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -78,7 +79,6 @@ use sp_runtime::{
     },
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
-use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -780,7 +780,7 @@ where
     type OverarchingCall = Call;
 }
 
-parameter_types!{
+parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
 }

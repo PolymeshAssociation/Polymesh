@@ -316,7 +316,9 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, traits::offchain::OffchainInterface, Context, GC_DID};
+use polymesh_common_utilities::{
+    identity::Trait as IdentityTrait, traits::offchain::OffchainInterface, Context, GC_DID,
+};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
