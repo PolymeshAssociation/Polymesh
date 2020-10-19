@@ -8,11 +8,11 @@ use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
+use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
-use crate::storage::provide_scope_claim_to_multiple_parties;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
