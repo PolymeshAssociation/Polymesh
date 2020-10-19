@@ -1,18 +1,17 @@
 use crate::{
-    committee_test::root,
     contract_test::{compile_module, create_contract_instance, create_se_template},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
+        TestStorage,
     },
 };
 
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, IterableStorageMap, StorageDoubleMap,
-    StorageMap,
+    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -56,6 +55,7 @@ type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
+type PortfolioError = pallet_portfolio::Error<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -202,32 +202,6 @@ fn issuers_can_create_and_rename_tokens() {
     });
 }
 
-/// # TODO
-/// It should be re-enable once issuer claim is re-enabled.
-#[test]
-#[ignore]
-fn non_issuers_cant_create_tokens() {
-    ExtBuilder::default().build().execute_with(|| {
-        let _ = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-
-        // Expected token entry
-        let _ = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-
-        Balances::make_free_balance_be(&AccountKeyring::Bob.public(), 1_000_000);
-
-        let wrong_did = IdentityId::try_from("did:poly:wrong");
-        assert!(wrong_did.is_err());
-    });
-}
-
 #[test]
 fn valid_transfers_pass() {
     ExtBuilder::default()
@@ -303,6 +277,78 @@ fn valid_transfers_pass() {
             let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
             assert_eq!(balance_owner, 1_000_000 - 500);
             assert_eq!(balance_alice, 500);
+        })
+}
+
+#[test]
+fn issuers_can_redeem_tokens() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Alice.public()])
+        .build()
+        .execute_with(|| {
+            let now = Utc::now();
+            Timestamp::set_timestamp(now.timestamp() as u64);
+
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: None,
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(
+                &[owner_did],
+                ticker,
+                AccountKeyring::Alice.public(),
+            );
+
+            // Issuance is successful
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            assert_eq!(Asset::balance_of(&ticker, owner_did), token.total_supply);
+
+            assert_noop!(
+                Asset::redeem(bob_signed.clone(), ticker, token.total_supply),
+                AssetError::Unauthorized
+            );
+
+            assert_noop!(
+                Asset::redeem(owner_signed.clone(), ticker, token.total_supply + 1),
+                PortfolioError::InsufficientPortfolioBalance
+            );
+
+            assert_ok!(Asset::redeem(
+                owner_signed.clone(),
+                ticker,
+                token.total_supply
+            ));
+
+            assert_eq!(Asset::balance_of(&ticker, owner_did), 0);
+            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+
+            assert_noop!(
+                Asset::redeem(owner_signed.clone(), ticker, 1),
+                PortfolioError::InsufficientPortfolioBalance
+            );
         })
 }
 

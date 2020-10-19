@@ -210,7 +210,6 @@ fn should_add_and_verify_compliance_requirement_we() {
             &ticker,
             Some(token_owner_did),
             Some(token_rec_did),
-            None,
         )
     };
     let second_unpassed = |result: AssetComplianceResult| {
@@ -1056,12 +1055,8 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(owner_did),
-        Some(charlie),
-        None,
-    );
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(charlie));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1075,7 +1070,7 @@ fn cm_test_case_9_we() {
     ));
     assert_valid_transfer!(ticker, owner_did, dave, 100);
     let result =
-        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1088,18 +1083,14 @@ fn cm_test_case_9_we() {
         None
     ));
     let result =
-        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve));
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner_did, ferdie, 100);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(owner_did),
-        Some(ferdie),
-        None,
-    );
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(ferdie));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -1166,12 +1157,8 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(owner_did),
-        Some(charlie),
-        None,
-    );
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(charlie));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1193,7 +1180,7 @@ fn cm_test_case_11_we() {
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result =
-        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1215,7 +1202,7 @@ fn cm_test_case_11_we() {
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result =
-        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1291,7 +1278,7 @@ fn cm_test_case_13_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1315,7 +1302,7 @@ fn cm_test_case_13_we() {
     );
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1339,7 +1326,7 @@ fn cm_test_case_13_we() {
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result =
-        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1529,11 +1516,12 @@ fn should_limit_compliance_requirements_complexity_we() {
     ));
 
     // Complexity = 30*1 + 15*2 = 60
+    let other_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did.into(),
+            other_did.into(),
         ),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
@@ -1588,7 +1576,6 @@ fn check_new_return_type_of_rpc() {
             &ticker,
             Some(token_owner_did),
             Some(receiver_did),
-            None,
         );
 
         let expected_result = ImplicitRequirementResult {

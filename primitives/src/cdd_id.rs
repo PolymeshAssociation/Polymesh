@@ -21,21 +21,27 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
 )]
-pub struct InvestorUid([u8; 32]);
+pub struct InvestorUid([u8; 16]);
 
 impl InvestorUid {
     /// Transform into a fixed array of bytes.
     #[inline]
-    pub fn to_bytes(self) -> [u8; 32] {
+    pub fn to_bytes(self) -> [u8; 16] {
         self.0
     }
 }
 
-impl From<[u8; 32]> for InvestorUid {
-    /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
-    fn from(mut s: [u8; 32]) -> Self {
-        s[31] &= 0b0111_1111;
+impl From<[u8; 16]> for InvestorUid {
+    fn from(s: [u8; 16]) -> Self {
         Self(s)
+    }
+}
+
+impl From<[u8; 32]> for InvestorUid {
+    fn from(s: [u8; 32]) -> Self {
+        let mut short: [u8; 16] = Default::default();
+        short.copy_from_slice(&s[..16]);
+        Self(short)
     }
 }
 

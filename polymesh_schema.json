@@ -1,7 +1,7 @@
 {
     "types": {
         "IdentityId": "[u8; 32]",
-        "InvestorUid": "[u8; 32]",
+        "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
@@ -649,7 +649,8 @@
                 "JoinIdentity": "Permissions",
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": "Ticker"
             }
         },
         "AuthIdentifier": {
@@ -674,7 +675,7 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "u32",
-        "ExtVersion":"u32",
+        "ExtVersion": "u32",
         "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
@@ -773,6 +774,7 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
+                "AssetCheckpoint",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
@@ -913,6 +915,25 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "CalendarUnit": {
+            "_enum": [
+                "Second",
+                "Minute",
+                "Hour",
+                "Day",
+                "Week",
+                "Month",
+                "Year"
+            ]
+        },
+        "CalendarPeriod": {
+            "unit": "CalendarUnit",
+            "multiplier": "u64"
+        },
+        "CheckpointSchedule": {
+            "start": "u64",
+            "period": "CalendarPeriod"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
@@ -926,17 +947,17 @@
                 "ExecutionToBeSkipped": "(AccountId, u64)"
             }
         },
-        "AuthorizationStatus": {
+        "AffirmationStatus": {
             "_enum": {
                 "Unknown": "",
                 "Pending": "",
-                "Authorized": "",
+                "Affirmed": "",
                 "Rejected": ""
             }
         },
         "SettlementType": {
             "_enum": {
-                "SettleOnAuthorization": "",
+                "SettleOnAffirmation": "",
                 "SettleOnBlock": "BlockNumber"
             }
         },
@@ -1018,7 +1039,17 @@
         },
         "ExtensionAttributes": {
             "usage_fee": "Balance",
-            "version":"MetaVersion"
+            "version": "MetaVersion"
+        },
+        "TargetIdentities": {
+            "identities": "Vec<IdentitityId>",
+            "treatment": "TargetTreatment"
+        },
+        "TargetTreatment": {
+            "_enum": [
+                "Include",
+                "Exclude"
+            ]
         }
     },
     "rpc": {
@@ -1038,11 +1069,6 @@
                     },
                     {
                         "name": "to_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

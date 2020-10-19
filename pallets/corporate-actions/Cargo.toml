@@ -1,5 +1,5 @@
 [package]
-name = "pallet-asset"
+name = "pallet-corporate-actions"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
@@ -12,20 +12,12 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
-pallet-portfolio = { path = "../portfolio", default-features = false }
-pallet-statistics = { path = "../statistics", default-features = false }
-polymesh-contracts = { path = "../contracts", default-features = false }
+pallet-asset = { path = "../asset", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
-serde_json = "1.0.48"
-rustc-hex = { version = "2.1.0", default-features = false }
-hex-literal = "0.2.1"
-arrayvec = { version = "0.5.1", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -42,9 +34,6 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
 
-# Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
-
 [features]
 default = ["std"]
 no_std = []
@@ -53,14 +42,9 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
-    "polymesh-contracts/std",
-    "pallet-contracts/std",
-    "pallet-portfolio/std",
-    "pallet-session/std",
     "pallet-timestamp/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
-    "rustc-hex/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",
@@ -70,8 +54,4 @@ std = [
     "sp-std/std",
     "sp-version/std",
     "sp-arithmetic/std"
-]
-runtime-benchmarks = [
-    "frame-benchmarking",
-
 ]

@@ -64,7 +64,8 @@ pub trait Trait<V, U> {
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
-    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
+    fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
+    fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
     fn max_number_of_tm_extension() -> u32;
     fn base_transfer(
         from_portfolio: PortfolioId,
