@@ -86,8 +86,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::GetCallMetadata,
-    weights::GetDispatchInfo,
+    traits::{Get, GetCallMetadata},
+    weights::{GetDispatchInfo, Weight},
     StorageDoubleMap, StorageValue,
 };
 use frame_system::ensure_signed;
@@ -193,6 +193,8 @@ decl_storage! {
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
+        /// The last transaction version, used for on_runtime_upgrade
+        TransactionVersion get(fn transaction_version): u32;
     }
 }
 
@@ -202,6 +204,13 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::StorageIterator;
+            use sp_version::RuntimeVersion;
+            let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+            1_000
+        }
 
         /// Creates a multisig
         ///
