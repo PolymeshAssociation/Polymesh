@@ -1,11 +1,11 @@
 use crate::{
-    committee_test::root,
     contract_test::{compile_module, create_contract_instance, create_se_template},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
+        TestStorage,
     },
 };
 
@@ -32,6 +32,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
+    calendar::{CalendarPeriod, CalendarUnit, CheckpointSchedule, FixedOrVariableCalendarUnit},
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
     IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
@@ -2687,4 +2688,152 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::balance_of(&ticker, &bob_2_did), 1000);
             assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
         });
+}
+
+#[test]
+fn next_checkpoint_is_updated() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(next_checkpoint_is_updated_we);
+}
+
+fn next_checkpoint_is_updated_we() {
+    // 14 November 2023, 22:13 UTC
+    let start: u64 = 1_700_000_000;
+    // A period of 42 hours.
+    let period = CalendarPeriod {
+        unit: CalendarUnit::Hour,
+        multiplier: 42,
+    };
+    // The increment in seconds.
+    let period_secs = match period.as_fixed_or_variable() {
+        FixedOrVariableCalendarUnit::Fixed(secs) => secs,
+        _ => panic!("period should be fixed"),
+    };
+    let start_millisecs = start * 1000;
+    Timestamp::set_timestamp(start_millisecs);
+    assert_eq!(
+        start_millisecs,
+        <TestStorage as asset::Trait>::UnixTime::now()
+    );
+    let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let token_name = b"NXT";
+    let ticker = Ticker::try_from(&token_name[..]).unwrap();
+    let total_supply = 1_000_000;
+    assert_ok!(Asset::create_asset(
+        alice_signed.clone(),
+        token_name.into(),
+        ticker,
+        total_supply,
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+    ));
+    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
+    let schedule = CheckpointSchedule { start, period };
+    assert_ok!(Asset::create_checkpoint_schedule(
+        alice_signed,
+        ticker,
+        schedule
+    ));
+    assert_eq!(1, Asset::total_checkpoints_of(&ticker));
+    assert_eq!(start, Asset::checkpoint_timestamps(1));
+    assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
+    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
+    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
+    assert_eq!(
+        Some(start + period_secs),
+        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
+    );
+    assert_eq!(start + period_secs, Asset::next_checkpoints(&ticker));
+    let checkpoint2_secs = start_millisecs + period_secs * 1000;
+    // Make a transaction before the next timestamp.
+    Timestamp::set_timestamp(checkpoint2_secs - 1000);
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
+        &ticker,
+        total_supply / 2,
+    ));
+    // Make another transaction at the checkpoint. The updates are applied after the checkpoint is
+    // recorded.
+    Timestamp::set_timestamp(checkpoint2_secs);
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
+        &ticker,
+        // After this transfer Alice's balance is 0.
+        total_supply / 2,
+    ));
+    // The balance after checkpoint 2.
+    assert_eq!(0, Asset::balance_of(&ticker, alice_did));
+    // Balances at checkpoint 2.
+    assert_eq!(start + 2 * period_secs, Asset::next_checkpoints(&ticker));
+    assert_eq!(2, Asset::total_checkpoints_of(&ticker));
+    assert_eq!(start + period_secs, Asset::checkpoint_timestamps(2));
+    assert_eq!(
+        total_supply / 2,
+        Asset::get_balance_at(ticker, alice_did, 2)
+    );
+    assert_eq!(total_supply / 2, Asset::get_balance_at(ticker, bob_did, 2));
+}
+
+#[test]
+fn non_recurring_schedule_works() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(non_recurring_schedule_works_we);
+}
+
+fn non_recurring_schedule_works_we() {
+    // 14 November 2023, 22:13 UTC
+    let start: u64 = 1_700_000_000;
+    // Non-recuring schedule.
+    let period = CalendarPeriod {
+        unit: CalendarUnit::Second,
+        multiplier: 0,
+    };
+    let start_millisecs = start * 1000;
+    Timestamp::set_timestamp(start_millisecs);
+    assert_eq!(
+        start_millisecs,
+        <TestStorage as asset::Trait>::UnixTime::now()
+    );
+    let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let token_name = b"NXT";
+    let ticker = Ticker::try_from(&token_name[..]).unwrap();
+    let total_supply = 1_000_000;
+    assert_ok!(Asset::create_asset(
+        alice_signed.clone(),
+        token_name.into(),
+        ticker,
+        total_supply,
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+    ));
+    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
+    let schedule = CheckpointSchedule { start, period };
+    assert_ok!(Asset::create_checkpoint_schedule(
+        alice_signed,
+        ticker,
+        schedule
+    ));
+    assert_eq!(1, Asset::total_checkpoints_of(&ticker));
+    assert_eq!(start, Asset::checkpoint_timestamps(1));
+    assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
+    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
+    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
+    assert_eq!(
+        None,
+        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
+    );
+    // The schedule will not recur.
+    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
 }
