@@ -52,8 +52,8 @@ parameter_types! {
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     /// 20 ms is needed to create a block
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
-    // 0.5 ms is needed to process an empty extrinsic
-    pub const ExtrinsicBaseWeight: Weight = 500 * WEIGHT_PER_MICROS;
+    // 0.8 ms is needed to process an empty extrinsic
+    pub const ExtrinsicBaseWeight: Weight = 800 * WEIGHT_PER_MICROS;
     /// When the read/writes are cached, they take 25, 100 microseconds
     /// but when they are uncached, they take 250, 450 microseconds.
     /// Most read/writes are cached in production

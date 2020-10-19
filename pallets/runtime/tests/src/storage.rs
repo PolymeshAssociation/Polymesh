@@ -429,6 +429,7 @@ impl IdentityTrait for TestStorage {
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
 }
 
@@ -844,4 +845,8 @@ pub fn provide_scope_claim_to_multiple_parties(
         let uid = InvestorUid::from(format!("uid_{}", index).as_bytes());
         provide_scope_claim(*id, ticker, uid, cdd_provider);
     });
+}
+
+pub fn root() -> Origin {
+    Origin::from(frame_system::RawOrigin::Root)
 }

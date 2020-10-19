@@ -309,6 +309,7 @@ use frame_support::{
         DispatchClass::Operational,
         Pays, Weight,
     },
+    Twox64Concat,
 };
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
@@ -807,6 +808,8 @@ where
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 pub mod weight {
     use super::*;
 
@@ -1136,7 +1139,7 @@ enum Releases {
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V4_0_0
+        Releases::V5_0_0
     }
 }
 
@@ -1317,18 +1320,13 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
-        /// The map from (wannabe) validators to the status of compliance.
-        pub PermissionedValidators get(fn permissioned_validators):
-            map hasher(twox_64_concat) T::AccountId => bool;
+        /// Entities that are allowed to run operator/validator nodes.
+        pub PermissionedIdentity get(fn permissioned_identity):
+            map hasher(twox_64_concat) IdentityId => bool;
 
         // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
         /// Every validator has commission that should be in the range [0, Cap].
         pub ValidatorCommissionCap get(fn validator_commission_cap) config(): Perbill;
-
-        // TODO: Need to be removed before mainnet launch.
-        // Keeping this to support the `on_runtime_upgrade`.
-        /// Commission rate to be used by all validators.
-        pub ValidatorCommission get(fn validator_commission) config(): Commission;
 
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
@@ -1341,9 +1339,9 @@ decl_storage! {
     }
     add_extra_genesis {
         config(stakers):
-            Vec<(T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
+            Vec<(IdentityId, T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
         build(|config: &GenesisConfig<T>| {
-            for &(ref stash, ref controller, balance, ref status) in &config.stakers {
+            for &(did, ref stash, ref controller, balance, ref status) in &config.stakers {
                 assert!(
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
@@ -1363,10 +1361,12 @@ decl_storage! {
                             T::Origin::from(Some(controller.clone()).into()),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        <Module<T>>::add_permissioned_validator(
-                            frame_system::RawOrigin::Root.into(),
-                            stash.clone()
-                        )
+                        if !<Module<T>>::permissioned_identity(&did) {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::insert(&did, true);
+                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
+                        }
+                        Ok(())
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
@@ -1410,10 +1410,12 @@ decl_event!(
         /// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
         /// from the unlocking queue. [stash, amount]
         Withdrawn(AccountId, Balance),
-        /// An entity has issued a candidacy. See the transaction for who.
-        PermissionedValidatorAdded(Option<IdentityId>, AccountId),
+        /// An DID has issued a candidacy. See the transaction for who.
+        /// GC identity , Validator's identity.
+        PermissionedIdentityAdded(IdentityId, IdentityId),
         /// The given member was removed. See the transaction for who.
-        PermissionedValidatorRemoved(Option<IdentityId>, AccountId),
+        /// GC identity , Validator's identity.
+        PermissionedIdentityRemoved(IdentityId, IdentityId),
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
@@ -1499,6 +1501,12 @@ decl_error! {
         NotExists,
         /// Updates with same value.
         NoChange,
+        /// Given potential validator identity is invalid.
+        InvalidValidatorIdentity,
+        /// Stash is not a part of any allowed identities.
+        StashNotAllowed,
+        /// Stash doesn't have a DID.
+        InvalidStashKey,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission
     }
@@ -1546,11 +1554,16 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::take_storage_value;
+            use polymesh_primitives::migrate::migrate_map_keys_and_value;
+            use frame_support::storage::migration::take_storage_value;
 
             if StorageVersion::get() == Releases::V4_0_0 {
+                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
+                    (<Identity<T>>::get_identity(&k).unwrap_or_default(), v)
+                });
+
+                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
                 if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
                     ValidatorCommissionCap::put(commision);
                 } else {
@@ -2097,40 +2110,39 @@ decl_module! {
             ValidatorCount::mutate(|n| *n += factor * *n);
         }
 
-        /// Governance committee on 2/3 rds majority can introduce a new potential validator
-        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
-        /// validators have completed KYB compliance and considers them for validation.
+        /// Governance committee on 2/3 rds majority can introduce a new potential identity
+        /// to the pool of permissioned entities who can run validators. Staking module uses `PermissionedIdentity`
+        /// to ensure validators have completed KYB compliance and considers them for validation.
         ///
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * identity Validator's IdentityId.
         #[weight = 750_000_000]
-        pub fn add_permissioned_validator(origin, validator: T::AccountId) {
+        pub fn add_permissioned_validator(origin, identity: IdentityId) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
-            // Change validator status to be Permissioned
-            <PermissionedValidators<T>>::insert(&validator, true);
-            let validator_id = <identity::Module<T>>::get_identity(&validator);
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
+            ensure!(!Self::permissioned_identity(&identity), Error::<T>::AlreadyExists);
+            // Validate the cdd status of the identity.
+            ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
+            // Change identity status to be Permissioned
+            PermissionedIdentity::insert(&identity, true);
+            Self::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, identity));
         }
 
-        /// Remove a validator from the pool of validators. Effects are known in the next session.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
+        /// Staking module checks `PermissionedIdentity` to ensure validators have
         /// completed KYB compliance
         ///
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * identity Validator's IdentityId.
         #[weight = 750_000_000]
-        pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
-            T::RequiredRemoveOrigin::ensure_origin(origin.clone())?;
-            let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
-            ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
-            // Change validator status to be Non-Permissioned
-            <PermissionedValidators<T>>::insert(&validator, false);
+        pub fn remove_permissioned_validator(origin, identity: IdentityId) {
+            T::RequiredRemoveOrigin::ensure_origin(origin)?;
+            ensure!(Self::permissioned_identity(&identity), Error::<T>::NotExists);
+            // Change identity status to be Non-Permissioned
+            PermissionedIdentity::insert(&identity, false);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
+            Self::deposit_event(RawEvent::PermissionedIdentityRemoved(GC_DID, identity));
         }
 
         /// Validate the nominators CDD expiry time.
@@ -3391,8 +3403,7 @@ impl<T: Trait> Module<T> {
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter() {
             if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_or_nominator_compliant(&validator)
-                && Self::permissioned_validators(&validator)
+                && Self::is_validator_compliant(&validator)
             {
                 // append self vote
                 let self_vote = (
@@ -3406,7 +3417,7 @@ impl<T: Trait> Module<T> {
         }
 
         let nominator_votes = <Nominators<T>>::iter()
-            .filter(|(nominator, _)| Self::is_validator_or_nominator_compliant(&nominator))
+            .filter(|(nominator, _)| Self::is_nominator_compliant(&nominator))
             .map(|(nominator, nominations)| {
                 let Nominations {
                     submitted_in,
@@ -3575,12 +3586,16 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
-            return <identity::Module<T>>::has_valid_cdd(validator_identity);
-        }
-        false
+    /// Is nominator's `stash` account compliant?
+    pub fn is_nominator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, <Identity<T>>::has_valid_cdd)
+    }
+
+    /// Is validator's `stash` account compliant?
+    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, |id| {
+            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id)
+        })
     }
 
     /// Return reward curve points

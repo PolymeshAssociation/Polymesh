@@ -9,9 +9,9 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-identity = { path = "../identity", default-features = false  }
-pallet-multisig = { path = "../multisig", default-features = false}
+pallet-balances = { path = "../balances", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-multisig = { path = "../multisig", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -49,6 +49,5 @@ std = [
 ]
 
 runtime-benchmarks = [
-    "frame-benchmarking",
-    "pallet-identity/runtime-benchmarks",
+    "frame-benchmarking"
 ]
