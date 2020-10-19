@@ -1032,6 +1032,11 @@
             "from_result": "bool",
             "to_result": "bool"
         },
+        "Payload": {
+            "block_number": "BlockNumber",
+            "nominators": "Vec<AccountId>",
+            "public": "H256"
+        },
         "ExtensionAttributes": {
             "usage_fee": "Balance",
             "version": "MetaVersion"

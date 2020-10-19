@@ -316,7 +316,9 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
+use polymesh_common_utilities::{
+    identity::Trait as IdentityTrait, traits::offchain::OffchainInterface, Context, GC_DID,
+};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
@@ -1967,9 +1969,9 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
+            if let Some(nominate_identity) = <Identity<T>>::get_identity(stash) {
                 let leeway = Self::get_bonding_duration_period() as u32;
-                if <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
+                if <Identity<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
                     let targets = targets.into_iter()
                         .take(MAX_NOMINATIONS)
                         .map(T::Lookup::lookup)
@@ -2168,12 +2170,12 @@ decl_module! {
 
                 if Self::nominators(target).is_some() {
                     // Access the identity of the nominator
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&target) {
+                    if let Some(nominate_identity) = <Identity<T>>::get_identity(&target) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid CDD otherwise it will be removed from the pool of the nominators.
-                        let is_cdded = <identity::Module<T>>::has_valid_cdd(nominate_identity);
+                        let is_cdded = <Identity<T>>::has_valid_cdd(nominate_identity);
                         if !is_cdded {
                             // Un-bonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
@@ -2223,7 +2225,7 @@ decl_module! {
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
+            let id = <Identity<T>>::get_identity(&key);
 
             <MinimumBondThreshold<T>>::put(new_value);
             Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
@@ -2613,35 +2615,26 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> OffchainInterface<T::AccountId> for Module<T> {
     /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
     /// It is recommended to not call this function on-chain. It is a non-deterministic function that is
     /// suitable for off-chain workers only.
-    pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
-        let invalid_nominators = <Nominators<T>>::iter()
-            .filter_map(|(nominator_stash_key, _nominations)| {
-                if let Some(nominate_identity) =
-                    <identity::Module<T>>::get_identity(&(nominator_stash_key))
-                {
-                    if (<identity::Module<T>>::fetch_cdd(
-                        nominate_identity,
-                        buffer.saturated_into::<T::Moment>(),
-                    ))
+    fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
+        <Nominators<T>>::iter()
+            .map(|(stash, _n)| (<Identity<T>>::get_identity(&stash), stash))
+            .filter(|(id, _s)| id.is_some())
+            .filter(|(id, _s)| {
+                (<Identity<T>>::fetch_cdd(id.unwrap(), buffer.saturated_into::<T::Moment>()))
                     .is_none()
-                    {
-                        return Some(nominator_stash_key);
-                    }
-                }
-                None
             })
-            .collect::<Vec<T::AccountId>>();
-        invalid_nominators
+            .map(|(_id, stash)| stash)
+            .collect::<Vec<T::AccountId>>()
     }
 
     /// POLYMESH-NOTE: This is Polymesh specific change.
     /// Here we are assuming that passed targets are always be a those nominators whose cdd
     /// claim get expired or going to expire after the `buffer_time`.
-    pub fn unsafe_validate_cdd_expiry_nominators(targets: Vec<T::AccountId>) -> DispatchResult {
+    fn unchecked_remove_expired_cdd_nominators(targets: &Vec<T::AccountId>) -> DispatchResult {
         // Iterate provided list of accountIds (These accountIds should be stash type account).
         for target in targets.iter() {
             // Un-bonding the balance that bonded with the controller account of a Stash account
@@ -2659,7 +2652,9 @@ impl<T: Trait> Module<T> {
         }
         Ok(())
     }
+}
 
+impl<T: Trait> Module<T> {
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
         // Weight note: consider making the stake accessible through stash.
