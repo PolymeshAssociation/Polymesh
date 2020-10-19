@@ -195,6 +195,12 @@ impl Default for PortfolioNumber {
     }
 }
 
+impl From<u64> for PortfolioNumber {
+    fn from(num: u64) -> Self {
+        Self(num)
+    }
+}
+
 /// TBD
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
