@@ -28,9 +28,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 # Only in STD
+schnorrkel = { version = "0.9.1", default-features = false, optional = true }
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", default-features = false, optional = true  }
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false, optional = true }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "substrate-2", default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -56,9 +56,9 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
-    "substrate-test-runtime-client",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"cryptography"
+    "frame-benchmarking",
+    "cryptography",
+    "schnorrkel",
 ]
