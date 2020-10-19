@@ -1,11 +1,11 @@
 use crate::{
-    committee_test::root,
     contract_test::{compile_module, create_contract_instance, create_se_template},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
+        TestStorage,
     },
 };
 

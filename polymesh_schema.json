@@ -649,7 +649,8 @@
                 "JoinIdentity": "Permissions",
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": "Ticker"
             }
         },
         "AuthIdentifier": {
@@ -674,7 +675,7 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "u32",
-        "ExtVersion":"u32",
+        "ExtVersion": "u32",
         "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
@@ -946,17 +947,17 @@
                 "ExecutionToBeSkipped": "(AccountId, u64)"
             }
         },
-        "AuthorizationStatus": {
+        "AffirmationStatus": {
             "_enum": {
                 "Unknown": "",
                 "Pending": "",
-                "Authorized": "",
+                "Affirmed": "",
                 "Rejected": ""
             }
         },
         "SettlementType": {
             "_enum": {
-                "SettleOnAuthorization": "",
+                "SettleOnAffirmation": "",
                 "SettleOnBlock": "BlockNumber"
             }
         },
@@ -1031,9 +1032,24 @@
             "from_result": "bool",
             "to_result": "bool"
         },
+        "Payload": {
+            "block_number": "BlockNumber",
+            "nominators": "Vec<AccountId>",
+            "public": "H256"
+        },
         "ExtensionAttributes": {
             "usage_fee": "Balance",
-            "version":"MetaVersion"
+            "version": "MetaVersion"
+        },
+        "TargetIdentities": {
+            "identities": "Vec<IdentitityId>",
+            "treatment": "TargetTreatment"
+        },
+        "TargetTreatment": {
+            "_enum": [
+                "Include",
+                "Exclude"
+            ]
         }
     },
     "rpc": {
@@ -1053,11 +1069,6 @@
                     },
                     {
                         "name": "to_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

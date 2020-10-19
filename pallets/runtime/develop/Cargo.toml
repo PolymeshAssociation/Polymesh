@@ -21,6 +21,7 @@ pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
+pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
@@ -37,6 +38,7 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
+pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
@@ -124,6 +126,7 @@ std = [
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",
+    "pallet-corporate-actions/std",
     "pallet-executive/std",
     "pallet-finality-tracker/std",
     "pallet-grandpa/std",
@@ -144,6 +147,7 @@ std = [
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",
+    "pallet-cdd-offchain-worker/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",

@@ -16,7 +16,7 @@
 //! Defines a trait and implementations for storage migration.
 
 use codec::{Decode, Encode};
-use frame_support::migration::{put_storage_value, StorageIterator};
+use frame_support::migration::{put_storage_value, StorageIterator, StorageKeyIterator};
 use frame_support::ReversibleStorageHasher;
 use sp_std::vec::Vec;
 
@@ -85,6 +85,32 @@ pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
             Some((key, new))
         })
         .for_each(|(key, new)| put_storage_value(module, new_item, &key, new));
+}
+
+/// Migrate the key & value of a map `KO, VO` to key & value of type `KN, VN` via `map`.
+/// The map is located in `module::item` and the new map will migrate to `module::new_item`.
+/// This assumes that the hashers are all the same, which is the common case.
+pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
+    module: &[u8],
+    item: &[u8],
+    new_item: &[u8],
+    mut map: F,
+) where
+    F: FnMut(KO, VO) -> (KN, VN),
+    VO: Decode + Encode,
+    VN: Encode + Decode,
+    H: ReversibleStorageHasher,
+    KO: Decode,
+    KN: Decode + Encode,
+{
+    StorageKeyIterator::<KO, VO, H>::new(module, item)
+        .drain()
+        .map(|(key, val)| map(key, val))
+        .for_each(|(kn, vn)| {
+            let kn = kn.using_encoded(H::hash);
+            let kn = kn.as_ref();
+            put_storage_value(module, new_item, &kn, vn);
+        })
 }
 
 /// Migrate the keys of a double map `K1, K2` to keys of type `KN1, KN2` via `map`.

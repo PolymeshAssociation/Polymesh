@@ -24,6 +24,7 @@ pallet-compliance-manager = { path = "../../compliance-manager", default-feature
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0"}
+pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
@@ -40,6 +41,7 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
+pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
@@ -158,6 +160,7 @@ std = [
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
+    "pallet-cdd-offchain-worker/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-api/std",
