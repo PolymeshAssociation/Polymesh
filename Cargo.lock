@@ -4480,6 +4480,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-group",
  "pallet-identity",
+ "pallet-scheduler",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "parity-scale-codec",

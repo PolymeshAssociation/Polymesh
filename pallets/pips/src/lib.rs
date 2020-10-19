@@ -99,6 +99,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
+use pallet_scheduler as scheduler;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
@@ -352,7 +353,7 @@ pub trait Trait:
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
 
-    /// Origin for enacting a referundum.
+    /// Origin for enacting a referendum.
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
@@ -368,6 +369,17 @@ pub trait Trait:
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
+    /// Scheduler of executed and expired proposals.
+    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+
+    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
+    type SchedulerCall: Parameter
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + From<Call<Self>>;
 }
 
 // This module's storage items.
@@ -1011,8 +1023,11 @@ decl_module! {
 
             // 3. Update enactment period & reschule it.
             let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
-            <ExecutionSchedule<T>>::append(new_until, id);
-            Self::remove_pip_from_schedule(old_until, id);
+
+            // <ExecutionSchedule<T>>::append(new_until, id);
+            // Self::remove_pip_from_schedule(old_until, id);
+            Self::cancel_pip(old_until, id);
+            Self::schedule_pip(new_until, id);
 
             // 4. Emit event.
             Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
@@ -1189,6 +1204,13 @@ decl_module! {
                 0
             })
         }
+
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResult {
+            <PipToSchedule<T>>::remove(id);
+            let _ = Self::execute_proposal(id);
+            Ok(())
+        }
     }
 }
 
@@ -1355,9 +1377,22 @@ impl<T: Trait> Module<T> {
 
         Self::update_proposal_state(did, id, ProposalState::Scheduled);
         <PipToSchedule<T>>::insert(id, executed_at);
-        <ExecutionSchedule<T>>::append(executed_at, id);
-        let event = RawEvent::ExecutionScheduled(did, id, Zero::zero(), executed_at);
-        Self::deposit_event(event);
+
+        // <ExecutionSchedule<T>>::append(executed_at, id);
+        let call = Call::<T>::execute_scheduled_pip(id);
+        if let Err(e) = T::Scheduler::schedule(
+            DispatchTime::At(executed_at),
+            None,
+            LOWEST_PRIORITY,
+            RawOrigin::Root.into(),
+            call,
+        ) {
+            // TODO: Emit an error event instead of printing.
+            sp_runtime::print(e);
+        } else {
+            let event = RawEvent::ExecutionScheduled(did, id, Zero::zero(), executed_at);
+            Self::deposit_event(event);
+        }
     }
 
     /// Execute the PIP given by `id`.
