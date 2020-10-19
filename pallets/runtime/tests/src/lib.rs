@@ -18,8 +18,6 @@ mod balances_test;
 #[cfg(test)]
 mod bridge;
 #[cfg(test)]
-mod cdd_offchain_worker;
-#[cfg(test)]
 mod committee_test;
 #[cfg(test)]
 mod compliance_manager_test;

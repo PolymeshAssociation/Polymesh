@@ -14,7 +14,6 @@ pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
-pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
@@ -103,7 +102,6 @@ std = [
     "pallet-balances/std",
     "pallet-sto/std",
     "pallet-bridge/std",
-    "pallet-cdd-offchain-worker/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
