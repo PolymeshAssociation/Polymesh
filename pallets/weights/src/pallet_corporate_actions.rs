@@ -20,4 +20,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     fn initiate_corporate_action() -> Weight {
         999_999_999_999
     }
+    fn link_ca_doc(_: u32) -> Weight {
+        999_999_999_999
+    }
 }

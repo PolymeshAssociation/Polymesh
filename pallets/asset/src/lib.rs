@@ -1322,7 +1322,9 @@ decl_error! {
         /// checkpoints.
         FailedToComputeNextCheckpoint,
         /// The duration of a checkpoint period is too short.
-        CheckpointDurationTooShort
+        CheckpointDurationTooShort,
+        /// The given Document does not exist.
+        NoSuchDoc,
     }
 }
 
@@ -1442,6 +1444,15 @@ impl<T: Trait> Module<T> {
     /// Ensure that `ticker` is a valid created asset.
     fn ensure_asset_exists(ticker: &Ticker) -> DispatchResult {
         ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
+        Ok(())
+    }
+
+    /// Ensure that the document `doc` exists for `ticker`.
+    pub fn ensure_doc_exists(ticker: &Ticker, doc: &DocumentName) -> DispatchResult {
+        ensure!(
+            AssetDocuments::contains_key(ticker, doc),
+            Error::<T>::NoSuchDoc
+        );
         Ok(())
     }
 

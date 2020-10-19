@@ -53,7 +53,7 @@ use polymesh_common_utilities::{
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     GC_DID,
 };
-use polymesh_primitives::{AuthorizationData, IdentityId, Moment, Ticker};
+use polymesh_primitives::{AuthorizationData, DocumentName, IdentityId, Moment, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
@@ -161,9 +161,9 @@ pub struct LocalCAId(pub u32);
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct CAId {
     /// The `Ticker` component used to disambiguate the `local` one.
-    ticker: Ticker,
+    pub ticker: Ticker,
     /// The per-`Ticker` local identifier.
-    local_id: LocalCAId,
+    pub local_id: LocalCAId,
 }
 
 /// Weight abstraction for the corporate actions module.
@@ -176,6 +176,7 @@ pub trait WeightInfo {
     fn set_did_withholding_tax() -> Weight;
 
     fn initiate_corporate_action() -> Weight;
+    fn link_ca_doc(num_docs: u32) -> Weight;
 }
 
 /// The module's configuration trait.
@@ -244,6 +245,13 @@ decl_storage! {
         /// (ticker => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
+
+        /// Associations from CAs to `Document`s via their IDs.
+        /// (CAId => [DocumentName])
+        ///
+        /// The `CorporateActions` map stores `Ticker => LocalId => The CA`,
+        /// so we can infer `Ticker => CAId`. Therefore, we don't need a double map.
+        pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentName>;
     }
 }
 
@@ -425,6 +433,34 @@ decl_module! {
             // Emit event.
             Self::deposit_event(Event::CAInitiated(caa, id, kind, record_date, details, targets, dwt, wt));
         }
+
+        /// Link the given CA `id` to the given `docs`.
+        /// Any previous links for the CA are removed in favor of `docs`.
+        ///
+        /// The workflow here is to add the documents and initiating the CA in any order desired.
+        /// Once both exist, they can now be linked together.
+        ///
+        /// ## Arguments
+        /// - `id` of the CA to associate with `docs`.
+        /// - `docs` to associate with the CA with `id`.
+        ///
+        /// # Errors
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NoSuchCA` if `id` does not identify an existing CA.
+        /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
+        #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
+        pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentName>) {
+            // Ensure that CAA is calling and that CA and the docs exists.
+            let caa = Self::ensure_ca_agent(origin, id.ticker)?;
+            Self::ensure_ca_exists(id)?;
+            for doc in &docs {
+                <Asset<T>>::ensure_doc_exists(&id.ticker, doc)?;
+            }
+
+            // Add the link and emit event.
+            CADocLink::mutate(id, |slot| *slot = docs.clone());
+            Self::deposit_event(Event::CALinkedToDoc(caa, id, docs));
+        }
     }
 }
 
@@ -458,6 +494,9 @@ decl_event! {
             Tax,
             Vec<(IdentityId, Tax)>,
         ),
+        /// A CA was linked to a set of docs.
+        /// (CAA, CA Id, List of doc identifiers)
+        CALinkedToDoc(IdentityId, CAId, Vec<DocumentName>),
     }
 }
 
@@ -475,6 +514,8 @@ decl_error! {
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,
+        /// A CA with the given `CAId` did not exist.
+        NoSuchCA,
     }
 }
 
@@ -494,6 +535,15 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure that a CA with `id` exists, erroring otherwise.
+    fn ensure_ca_exists(id: CAId) -> DispatchResult {
+        ensure!(
+            CorporateActions::contains_key(id.ticker, id.local_id),
+            Error::<T>::NoSuchCA
+        );
+        Ok(())
+    }
+
     /// Change `ticker`'s CAA to `new_caa` and emit an event.
     fn change_ca_agent(did: IdentityId, ticker: Ticker, new_caa: Option<IdentityId>) {
         // Transfer CAA status to `did`.

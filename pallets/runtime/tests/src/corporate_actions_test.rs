@@ -10,11 +10,13 @@ use frame_support::{
 };
 use pallet_asset::AssetName;
 use pallet_corporate_actions::{
-    CADetails, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
+    CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_primitives::{AuthorizationData, IdentityId, Moment, PortfolioId, Signatory, Ticker};
+use polymesh_primitives::{
+    AuthorizationData, Document, DocumentName, IdentityId, Moment, PortfolioId, Signatory, Ticker,
+};
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
 use test_client::AccountKeyring;
@@ -159,7 +161,7 @@ fn only_caa_authorized() {
                     other.did,
                     None,
                 ) $(, $tail)?);
-                // ..., and `initiate_corporate_action`.
+                // ..., `initiate_corporate_action`,
                 $assert!(CA::initiate_corporate_action(
                     $user.signer(),
                     ticker,
@@ -170,6 +172,12 @@ fn only_caa_authorized() {
                     None,
                     None,
                 ) $(, $tail)?);
+                // ..., and `link_ca_doc`.
+                let id = CAId {
+                    ticker,
+                    local_id: LocalCAId(0),
+                };
+                $assert!(CA::link_ca_doc($user.signer(), id, vec![]) $(, $tail)?);
             };
         }
         // Ensures passing for owner, but not to-be-CAA (Bob) and other.
@@ -488,5 +496,49 @@ fn initiate_corporate_action_targets() {
             ca(Some(ids(Exclude, vec![bar.did, foo.did, bar.did]))),
             ids(Exclude, vec![foo.did, bar.did]),
         );
+    });
+}
+
+#[test]
+fn link_ca_docs_works() {
+    test(|ticker, [owner, ..]| {
+        let id = CAId {
+            ticker,
+            local_id: LocalCAId(0),
+        };
+
+        let link = |docs| CA::link_ca_doc(owner.signer(), id, docs);
+        let link_ok = |docs: Vec<_>| {
+            assert_ok!(link(docs.clone()));
+            assert_eq!(CA::ca_doc_link(id), docs);
+        };
+
+        // Link to a CA that doesn't exist, and ensure failure.
+        assert_noop!(link(vec![]), Error::NoSuchCA);
+
+        // Make it exist, and check that linking to no docs works.
+        basic_ca(owner, ticker, None, None, None);
+        link_ok(vec![]);
+
+        // Now link it to docs that don't exist, and ensure failure.
+        let doc_name: DocumentName = b"foo".into();
+        assert_noop!(link(vec![doc_name.clone()]), AssetError::NoSuchDoc);
+
+        // Add the document.
+        let doc = Document {
+            uri: b"https://example.com".into(),
+            content_hash: b"0xdeadbeef".into(),
+        };
+        let docs = vec![(doc_name.clone(), doc)];
+        assert_ok!(Asset::add_documents(owner.signer(), docs, ticker));
+
+        // The document exists, but we add a second one that does not, so still expecting failure.
+        assert_noop!(
+            link(vec![doc_name.clone(), b"bar".into()]),
+            AssetError::NoSuchDoc
+        );
+
+        // Finally, we only link the document, and it all works out.
+        link_ok(vec![doc_name]);
     });
 }
