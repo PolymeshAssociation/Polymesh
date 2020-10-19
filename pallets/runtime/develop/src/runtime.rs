@@ -44,12 +44,27 @@ use polymesh_runtime_common::{
     RocksDbWeight,
 };
 
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+};
+use frame_system::EnsureRoot;
+use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+use pallet_session::historical as pallet_session_historical;
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
     u32_trait::{_1, _2, _4},
     OpaqueMetadata,
 };
+use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::transaction_validity::{
     TransactionPriority, TransactionSource, TransactionValidity,
 };
@@ -64,27 +79,9 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
-use sp_version::RuntimeVersion;
-
-// Comment in the favour of not using the Offchain worker
-//use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
-};
-use pallet_contracts_rpc_runtime_api::ContractExecResult;
-
-use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
-};
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-use pallet_session::historical as pallet_session_historical;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
@@ -389,7 +386,7 @@ impl pallet_staking::Trait for Runtime {
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
-    type SlashCancelOrigin = frame_system::EnsureRoot<AccountId>;
+    type SlashCancelOrigin = EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
     type NextNewSession = Session;
@@ -400,11 +397,11 @@ impl pallet_staking::Trait for Runtime {
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
     type WeightInfo = ();
-    type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredAddOrigin = EnsureRoot<AccountId>;
+    type RequiredRemoveOrigin = EnsureRoot<AccountId>;
+    type RequiredComplianceOrigin = EnsureRoot<AccountId>;
+    type RequiredCommissionOrigin = EnsureRoot<AccountId>;
+    type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -425,11 +422,11 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -447,7 +444,7 @@ macro_rules! committee_config {
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
             // Committee cannot alter its own active membership limit.
-            type LimitOrigin = frame_system::EnsureRoot<AccountId>;
+            type LimitOrigin = EnsureRoot<AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<committee::$instance>;
             type RemoveOrigin = VMO<committee::$instance>;
@@ -465,7 +462,7 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -601,7 +598,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -645,14 +642,12 @@ impl multisig::Trait for Runtime {
     type Event = Event;
 }
 
-parameter_types! {
-    pub const MaxTimelockedTxsPerBlock: u32 = 10;
-}
-
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -706,6 +701,7 @@ impl IdentityTrait for Runtime {
     type ProtocolFee = protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = CorporateAction;
 }
 
 parameter_types! {
@@ -715,6 +711,11 @@ parameter_types! {
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+}
+
+impl pallet_corporate_actions::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
 }
 
 impl exemption::Trait for Runtime {
@@ -730,11 +731,11 @@ impl dividend::Trait for Runtime {
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
     // Cannot alter its own active membership limit.
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
 }
@@ -753,6 +754,22 @@ impl confidential::Trait for Runtime {
 impl PermissionChecker for Runtime {
     type Call = Call;
     type Checker = Identity;
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Runtime {
+    type Event = Event;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
 }
 
 // / A runtime transaction submitter for the cdd_offchain_worker
@@ -849,6 +866,8 @@ construct_runtime!(
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
     }
 );
 
@@ -1208,10 +1227,9 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            primary_issuance_agent: Option<IdentityId>,
         ) -> AssetComplianceResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
         }
     }
 

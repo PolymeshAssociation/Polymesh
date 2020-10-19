@@ -55,8 +55,8 @@ async function main() {
     100
   );
 
-  await authorizeInstruction(api, alice, intructionCounterAB, alice_did);
-  await authorizeInstruction(api, bob, intructionCounterAB, bob_did);
+  await affirmInstruction(api, alice, intructionCounterAB, alice_did);
+  await affirmInstruction(api, bob, intructionCounterAB, bob_did);
 
   //await rejectInstruction(api, bob, intructionCounter);
   //await unathorizeInstruction(api, alice, instructionCounter);
@@ -141,9 +141,9 @@ async function addInstruction(
   return instructionCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter, did) {
+async function affirmInstruction(api, sender, instructionCounter, did) {
 
-  const transaction = await api.tx.settlement.authorizeInstruction(
+  const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -152,9 +152,9 @@ async function authorizeInstruction(api, sender, instructionCounter, did) {
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter, did) {
+async function withdrawInstruction(api, sender, instructionCounter, did) {
 
-  const transaction = await api.tx.settlement.unauthorizeInstruction(
+  const transaction = await api.tx.settlement.withdrawInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );

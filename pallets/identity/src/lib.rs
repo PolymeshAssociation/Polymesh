@@ -71,6 +71,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(or_patterns)]
 
 pub mod types;
 pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
@@ -101,8 +102,8 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
-            TargetIdAuthorization, Trait,
+            AuthorizationNonce, IdentityToCorporateAction, IdentityTrait, RawEvent,
+            SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
@@ -733,56 +734,41 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let signer_key = Signatory::Account(sender.clone());
             let signer_did = Context::current_identity_or::<Self>(&sender)
-                .map_or_else(
-                    |_error| signer_key.clone(),
-                    Signatory::from);
+                .map_or_else(|_error| signer_key.clone(), Signatory::from);
 
             // Get auth by key or by id.
-            let (auth, signer) = Self::maybe_authorization(&signer_did, auth_id)
+            let (auth, signer) = Self::ensure_authorization(&signer_did, auth_id)
                 .map(|a| (a, signer_did))
-                .or_else(|| Self::maybe_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))
-                .ok_or_else(||Error::<T>::AuthorizationDoesNotExist)?;
+                .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
 
-            match signer {
-                Signatory::Identity(did) => {
-                    match auth.authorization_data {
-                        AuthorizationData::TransferTicker(_) =>
-                            T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
-                        AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
-                        AuthorizationData::TransferAssetOwnership(_) =>
-                            T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
-                        AuthorizationData::AddMultiSigSigner(_) =>
-                            T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
-                        AuthorizationData::JoinIdentity(_) =>
-                            Self::join_identity(Signatory::from(did), auth_id),
-                        AuthorizationData::PortfolioCustody(..) =>
-                            T::Portfolio::accept_portfolio_custody(did, auth_id),
-                        AuthorizationData::RotatePrimaryKey(..)
-                        | AuthorizationData::AttestPrimaryKeyRotation(..)
-                        | AuthorizationData::Custom(..)
-                        | AuthorizationData::NoData =>
-                            Err(Error::<T>::UnknownAuthorization.into())
-                    }
-                },
-                Signatory::Account(key) => {
-                    match auth.authorization_data {
-                        AuthorizationData::AddMultiSigSigner(_) =>
-                            T::MultiSig::accept_multisig_signer(Signatory::Account(key), auth_id),
-                        AuthorizationData::RotatePrimaryKey(_identityid) =>
-                            Self::accept_primary_key_rotation(key , auth_id, None),
-                        AuthorizationData::JoinIdentity(_) =>
-                            Self::join_identity(Signatory::Account(key), auth_id),
-                        AuthorizationData::TransferTicker(..)
-                        | AuthorizationData::TransferPrimaryIssuanceAgent(..)
-                        | AuthorizationData::TransferAssetOwnership(..)
-                        | AuthorizationData::AttestPrimaryKeyRotation(..)
-                        | AuthorizationData::PortfolioCustody(..)
-                        | AuthorizationData::Custom(..)
-                        | AuthorizationData::NoData =>
-                            Err(Error::<T>::UnknownAuthorization.into())
-                    }
-                }
+            match (signer, auth.authorization_data) {
+                (sig, AuthorizationData::AddMultiSigSigner(_)) => T::MultiSig::accept_multisig_signer(sig, auth_id),
+                (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferTicker(_)) =>
+                    T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(_)) =>
+                    T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(_)) =>
+                    T::CorporateAction::accept_corporate_action_agent_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(_)) =>
+                    T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::PortfolioCustody(_)) =>
+                    T::Portfolio::accept_portfolio_custody(did, auth_id),
+                (Signatory::Account(key), AuthorizationData::RotatePrimaryKey(_)) =>
+                    Self::accept_primary_key_rotation(key , auth_id, None),
+                (_,
+                    AuthorizationData::AttestPrimaryKeyRotation(..)
+                    | AuthorizationData::Custom(..)
+                    | AuthorizationData::NoData
+                )
+                | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
+                | (Signatory::Account(_),
+                    AuthorizationData::TransferTicker(..)
+                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
+                    | AuthorizationData::TransferCorporateActionAgent(..)
+                    | AuthorizationData::TransferAssetOwnership(..)
+                    | AuthorizationData::PortfolioCustody(..)
+                ) => Err(Error::<T>::UnknownAuthorization.into())
             }
         }
 
@@ -1019,8 +1005,6 @@ decl_error! {
         SenderMustHoldClaimIssuerKey,
         /// Current identity cannot be forwarded, it is not a secondary key of target identity.
         CurrentIdentityCannotBeForwarded,
-        /// The authorization does not exist.
-        AuthorizationDoesNotExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
         /// The target DID has no valid CDD.
@@ -1076,12 +1060,7 @@ impl<T: Trait> Module<T> {
 
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <Authorizations<T>>::contains_key(&signer, auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <Authorizations<T>>::get(&signer, auth_id);
+        let auth = Self::ensure_authorization(&signer, auth_id)?;
 
         let permissions = match auth.authorization_data {
             AuthorizationData::JoinIdentity(permissions) => Ok(permissions),
@@ -1189,12 +1168,7 @@ impl<T: Trait> Module<T> {
         target: Signatory<T::AccountId>,
         auth_id: u64,
     ) -> DispatchResult {
-        ensure!(
-            Self::has_authorization(&target, auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <Authorizations<T>>::get(&target, auth_id);
+        let auth = Self::ensure_authorization(&target, auth_id)?;
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1212,12 +1186,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn ensure_authorization(
+    pub fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Moment>, Error<T>> {
-        Self::maybe_authorization(target, auth_id)
-            .ok_or_else(|| Error::<T>::AuthorizationDoesNotExist)
+    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
+        Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
     fn maybe_authorization(
@@ -1956,25 +1929,7 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        type_of_auth
-            == match authorization_data {
-                AuthorizationData::AttestPrimaryKeyRotation(..) => {
-                    AuthorizationType::AttestPrimaryKeyRotation
-                }
-                AuthorizationData::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
-                AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
-                AuthorizationData::TransferPrimaryIssuanceAgent(..) => {
-                    AuthorizationType::TransferPrimaryIssuanceAgent
-                }
-                AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
-                AuthorizationData::TransferAssetOwnership(..) => {
-                    AuthorizationType::TransferAssetOwnership
-                }
-                AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
-                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
-                AuthorizationData::Custom(..) => AuthorizationType::Custom,
-                AuthorizationData::NoData => AuthorizationType::NoData,
-            }
+        type_of_auth == authorization_data.auth_type()
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
@@ -2083,6 +2038,11 @@ impl<T: Trait> Module<T> {
             secondary_key,
         };
         Ok(origin_data)
+    }
+
+    /// Ensure `origin` is signed and permissioned for this call, returning its DID.
+    pub fn ensure_perms(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+        Self::ensure_origin_call_permissions(origin).map(|x| x.primary_did)
     }
 
     /// Ensures that the did is an active CDD Provider.

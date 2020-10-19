@@ -512,8 +512,8 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function authorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.authorizeInstruction(
+async function affirmInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -521,8 +521,8 @@ async function authorizeInstruction(api, sender, instructionCounter, did) {
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.unauthorizeInstruction(
+async function withdrawInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.withdrawInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -660,8 +660,8 @@ let reqImports = {
   addComplianceRequirement,
   createVenue,
   addInstruction,
-  authorizeInstruction,
-  unauthorizeInstruction,
+  affirmInstruction,
+  withdrawInstruction,
   rejectInstruction,
   claimReceipt,
   generateRandomEntity,

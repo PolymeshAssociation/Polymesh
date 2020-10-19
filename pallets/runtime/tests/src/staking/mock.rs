@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::Trait as IdentityTrait,
+    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -375,6 +375,7 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = Test;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -459,6 +460,12 @@ impl AssetSubTrait for Test {
         Ok(())
     }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
+        Ok(())
+    }
+}
+
+impl IdentityToCorporateAction for Test {
+    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }
@@ -842,18 +849,38 @@ impl ExtBuilder {
             };
             let nominated = if self.nominate { vec![11, 21] } else { vec![] };
             stakers = vec![
-                // (stash, controller, staked_amount, status)
+                // (IdentityId, stash, controller, staked_amount, status)
                 (
+                    IdentityId::from(11),
                     11,
                     10,
                     balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
-                (21, 20, stake_21, StakerStatus::<AccountId>::Validator),
-                (31, 30, stake_31, StakerStatus::<AccountId>::Validator),
-                (41, 40, balance_factor * 1000, status_41),
+                (
+                    IdentityId::from(21),
+                    21,
+                    20,
+                    stake_21,
+                    StakerStatus::<AccountId>::Validator,
+                ),
+                (
+                    IdentityId::from(31),
+                    31,
+                    30,
+                    stake_31,
+                    StakerStatus::<AccountId>::Validator,
+                ),
+                (
+                    IdentityId::from(41),
+                    41,
+                    40,
+                    balance_factor * 1000,
+                    status_41,
+                ),
                 // nominator
                 (
+                    IdentityId::from(101),
                     101,
                     100,
                     balance_factor * 500,
@@ -1079,10 +1106,13 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
         val,
         RewardDestination::Controller,
     ));
-    assert_ok!(Staking::add_permissioned_validator(
-        frame_system::RawOrigin::Root.into(),
-        stash
-    ));
+    let entity_id = Identity::get_identity(&stash).unwrap();
+    if !Staking::permissioned_identity(entity_id) {
+        assert_ok!(Staking::add_permissioned_validator(
+            frame_system::RawOrigin::Root.into(),
+            entity_id
+        ));
+    }
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
@@ -1587,4 +1617,8 @@ pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountI
 
 pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
     get_last_auth(signatory).auth_id
+}
+
+pub fn root() -> Origin {
+    Origin::from(frame_system::RawOrigin::Root)
 }
