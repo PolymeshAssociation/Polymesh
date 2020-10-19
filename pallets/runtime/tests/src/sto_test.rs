@@ -12,6 +12,7 @@ use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
+use crate::storage::provide_scope_claim_to_multiple_parties;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
@@ -25,6 +26,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 #[test]
 fn raise_happy_path_ext() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .set_max_legs_allowed(2)
         .build()
         .execute_with(raise_happy_path);
@@ -32,6 +34,7 @@ fn raise_happy_path_ext() {
 #[test]
 fn raise_unhappy_path_ext() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .set_max_legs_allowed(2)
         .build()
         .execute_with(raise_unhappy_path);
@@ -74,6 +77,11 @@ fn raise_happy_path() {
     let raise_ticker = Ticker::try_from(&[0x02][..]).unwrap();
     create_asset(alice_signed.clone(), offering_ticker, 1_000_000);
     create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
+
+    // Provide scope claim to both the parties of the transaction.
+    let eve = AccountKeyring::Eve.public();
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
@@ -199,6 +207,11 @@ fn raise_unhappy_path() {
 
     let offering_ticker = Ticker::try_from(&[0x03][..]).unwrap();
     let raise_ticker = Ticker::try_from(&[0x04][..]).unwrap();
+
+    // Provide scope claim to both the parties of the transaction.
+    let eve = AccountKeyring::Eve.public();
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
     let check_fundraiser = |tiers, venue, error: DispatchError| {
         assert_noop!(
