@@ -17,7 +17,6 @@ members = [
     "pallets/asset",
     "pallets/balances",
     "pallets/bridge",
-    "pallets/cdd-offchain-worker",
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",

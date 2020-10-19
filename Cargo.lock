@@ -4076,22 +4076,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-cdd-offchain-worker"
-version = "2.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
@@ -4372,8 +4356,8 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-authorship",
@@ -4391,8 +4375,8 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-authorship",
@@ -5419,7 +5403,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
  "pallet-bridge",
- "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5500,7 +5483,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
  "pallet-bridge",
- "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5582,7 +5564,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
  "pallet-bridge",
- "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
