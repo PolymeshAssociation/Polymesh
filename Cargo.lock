@@ -4081,7 +4081,6 @@ version = "2.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "pallet-staking",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -5420,6 +5419,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
  "pallet-bridge",
+ "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5500,6 +5500,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
  "pallet-bridge",
+ "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",

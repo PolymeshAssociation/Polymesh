@@ -16,33 +16,39 @@
 // To make sure we are on the no_std when compiling to wasm
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::Get,
     weights::{DispatchClass, Pays},
-    Parameter,
 };
 use frame_system::{
     self as system, ensure_none,
-    offchain::{CreateSignedTransaction, SubmitTransaction},
+    offchain::{
+        AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer,
+        SigningTypes,
+    },
 };
-use sp_application_crypto::RuntimeAppPublic;
+use polymesh_common_utilities::traits::offchain::OffchainInterface;
+use polymesh_primitives::{Signature, Verify};
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::traits::{Member, SaturatedConversion};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     ValidTransaction,
 };
-use sp_std::prelude::*;
+use sp_runtime::{
+    traits::{SaturatedConversion, Zero},
+    RuntimeDebug,
+};
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// Defines application identifier for crypto keys of this module.
 ///
 /// Every module that deals with signatures needs to declare its unique identifier for
 /// its crypto keys.
-/// When offchain worker is signing transactions it's going to request keys of type
+/// When off-chain worker is signing transactions it's going to request keys of type
 /// `KeyTypeId` from the keystore and use the ones it finds to sign the transaction.
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"cddw");
@@ -51,23 +57,35 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"cddw");
 /// We can use from supported crypto kinds (`sr25519`, `ed25519` and `ecdsa`) and augment
 /// the types with this pallet-specific identifier.
 pub mod crypto {
-    pub use super::KEY_TYPE;
-    mod app_crypto_sr25519 {
-        use super::KEY_TYPE;
-        use sp_runtime::app_crypto::{app_crypto, sr25519};
-        app_crypto!(sr25519, KEY_TYPE);
+    use super::{Signature, Verify, KEY_TYPE};
+    use frame_system::offchain::AppCrypto;
+
+    pub mod sr25519_app {
+        use sp_application_crypto::{app_crypto, sr25519};
+        app_crypto!(sr25519, super::KEY_TYPE);
     }
-    /// An cdd_offchain identifier using sr25519 as its crypto.
-    pub type SignerId = app_crypto_sr25519::Public;
+
+    pub type SignerId = sr25519_app::Public;
+
+    /// An `AppCrypto` type to allow submitting signed transactions using the reporting
+    /// application key as signer.
+    pub struct SignerAppCrypto;
+
+    impl AppCrypto<<Signature as Verify>::Signer, Signature> for SignerAppCrypto {
+        type RuntimeAppPublic = SignerId;
+        type GenericSignature = sp_core::sr25519::Signature;
+        type GenericPublic = sp_core::sr25519::Public;
+    }
 }
 
-pub trait Trait: CreateSignedTransaction<Call<Self>> + pallet_staking::Trait {
-    type SignerId: Member + Parameter + RuntimeAppPublic + Default + Ord;
+pub trait Trait: CreateSignedTransaction<Call<Self>> {
+    /// The identifier type for an off-chain worker.
+    type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    /// The overarching dispatch call type
+    /// The overarching dispatch call type.
     type Call: From<Call<Self>>;
-    /// No. of blocks delayed to execute the off-chain worker
+    /// No. of blocks delayed to execute the off-chain worker.
     type CoolingInterval: Get<Self::BlockNumber>;
     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
     type BufferInterval: Get<Self::BlockNumber>;
@@ -76,6 +94,23 @@ pub trait Trait: CreateSignedTransaction<Call<Self>> + pallet_staking::Trait {
     /// This is exposed so that it can be tuned for particular runtime, when
     /// multiple pallets send unsigned transactions.
     type UnsignedPriority: Get<TransactionPriority>;
+    /// Off-chain interface with staking pallet.
+    type StakingInterface: OffchainInterface<<Self as system::Trait>::AccountId>;
+}
+
+/// Payload used to hold the invalidate nominators
+/// data required to submit a transaction.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct Payload<Public, BlockNumber, AccountId> {
+    pub block_number: BlockNumber,
+    pub nominators: Vec<AccountId>,
+    pub public: Public,
+}
+
+impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public, T::BlockNumber, T::AccountId> {
+    fn public(&self) -> T::Public {
+        self.public.clone()
+    }
 }
 
 decl_storage! {
@@ -117,19 +152,19 @@ decl_module! {
         /// they don't charge fees, we still don't want a single block to contain unlimited
         /// number of such transactions.
         #[weight = (10_000_000, DispatchClass::Operational, Pays::Yes)]
-        fn take_off_invalidate_nominators(origin, _block_number: T::BlockNumber, target: Vec<T::AccountId>, _signature: <T::SignerId as RuntimeAppPublic>::Signature) -> DispatchResult {
+        pub fn submit_unsigned_invalidate_nominators_with_signed_payload(origin, payload: Payload<T::Public, T::BlockNumber, T::AccountId>, _signature: T::Signature) -> DispatchResult {
             // This is an unsigned transaction so origin should be none
             ensure_none(origin)?;
             // apply a sanity check to know whether the length of target list is greater than 0 or not.
-            ensure!(target.len() > 0, Error::<T>::EmptyTargetList);
+            ensure!(payload.nominators.len() > 0, Error::<T>::EmptyTargetList);
             // call the mutable function that will change the list of nominators in the staking pallet
-            let _ = <pallet_staking::Module<T>>::unsafe_validate_cdd_expiry_nominators(target.clone())?;
+            T::StakingInterface::unchecked_remove_expired_cdd_nominators(&payload.nominators)?;
             // now change the block number at which this unsigned transaction get executed.
             let current_block = <system::Module<T>>::block_number();
             <LastExtSubmittedAt<T>>::put(current_block);
             Self::deposit_event(RawEvent::InvalidateNominators(
                 <frame_system::Module<T>>::block_number(),
-                target,
+                payload.nominators,
             ));
             Ok(())
         }
@@ -137,20 +172,14 @@ decl_module! {
 
         fn offchain_worker(block: T::BlockNumber) {
             // Print the debug statement to know that offchain worker initiated
-            debug::native::info!("Hello World from offchain workers!");
+            // Using `native` to avoid increase the size of the WASM blob, Because of this
+            // logs will only be printed during native execution only.
+            debug::native::info!("Execution of the offchain worker starts!");
             if Self::is_unsigned_transaction_allowed(block) {
-                debug::native::info!("Yeah transaction is allowed!");
-                // Fetch all the nominators whose cdd claim get expired or expiry remaining time is less
-                // than the `BufferInterval`. List of the Vec<Stash> get retrieved from the staking module
-                let invalid_nominators = <pallet_staking::Module<T>>::fetch_invalid_cdd_nominators((T::BufferInterval::get()).saturated_into::<u64>());
-                debug::debug!("Invalid nominators are fetched from the staking pallet: {:?}", invalid_nominators);
-                // Avoid calling unsigned transaction when invalid nominators length of `invalid_nominators` vector is 0.
-                if invalid_nominators.len() > 0 {
-                    debug::debug!("Length of the nominators is greater than 0: {:?}", invalid_nominators.len());
-                    let res = Self::remove_invalidate_nominators(block, invalid_nominators);
-                    if let Err(e) = res {
-                        debug::error!("Error: {}", e);
-                    }
+                debug::native::info!("Transaction is allowed to execute as cooling interval passed!");
+                let res = Self::remove_invalidate_nominators(block);
+                if let Err(e) = res {
+                    debug::error!("Error: {:?}", e);
                 }
             }
         }
@@ -165,33 +194,40 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    fn remove_invalidate_nominators(
-        block: T::BlockNumber,
-        invalid_nominators: Vec<T::AccountId>,
-    ) -> Result<(), &'static str> {
-        debug::native::info!("Enter into remove invalidate nominators functions");
+    /// Helper function to generate the unsigned transaction to remove
+    /// the expired cdd'ed nominators.
+    pub fn remove_invalidate_nominators(block_number: T::BlockNumber) -> DispatchResult {
+        debug::native::info!("Execution of invalidate nominators function starts");
         // First we validate whether the transaction proposer is validator or not.
-        // if yes then only the transaction get proposed otherwise not.
+        // if yes then only the invalidate nominators get fetched & transaction get proposed otherwise not.
         ensure!(sp_io::offchain::is_validator(), "Not a validator");
-        // Accessing the first key in the local store to sign the payload
-        if let Some(key) = T::SignerId::all().into_iter().next() {
-            let signature = key
-                .sign(&invalid_nominators.encode())
-                .ok_or("Keys are not present or not able to sign")?;
-            // Retrieve value of invalidate nominators get passed to the `take_off_invalidate_nominators`
-            // i.e a public dispatchable of this pallet. It will be used to remove all the
-            // nominators whom cdd claim got expired. internally it called the staking pallet functionality.
-            // Here we specify the function to be called back on-chain in next block import.
-            let call =
-                Call::take_off_invalidate_nominators(block, invalid_nominators.clone(), signature);
 
-            // Now let's create an unsigned transaction out of this call and submit it to the pool.
-            // By default unsigned transactions are disallowed, so we need to exempt this case
-            // by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
-            // implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
-            // attack vectors. See validation logic docs for more details.
-            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-                .map_err(|()| "Unable to submit unsigned transaction.")?;
+        // Fetch all the nominators whose cdd claim get expired or expiry remaining time is less
+        // than the `BufferInterval`. List of the Vec<Stash> get retrieved from the staking module
+        let invalid_nominators = T::StakingInterface::fetch_invalid_cdd_nominators(
+            (T::BufferInterval::get()).saturated_into::<u64>(),
+        );
+
+        // Avoid calling unsigned transaction when invalid nominators length of `invalid_nominators` vector is 0.
+        if invalid_nominators.len() > Zero::zero() {
+            debug::native::info!("Invalid nominators are fetched from the staking pallet & allowed to execute further: {:?}", invalid_nominators);
+
+            // -- Sign using any accounts
+            let (_, result) = Signer::<T, T::AuthorityId>::any_account()
+                .send_unsigned_transaction(
+                    |account| Payload {
+                        block_number,
+                        nominators: invalid_nominators.clone(),
+                        public: account.public.clone(),
+                    },
+                    |payload, signature| {
+                        Call::submit_unsigned_invalidate_nominators_with_signed_payload(
+                            payload, signature,
+                        )
+                    },
+                )
+                .ok_or("No local accounts accounts available.")?;
+            result.map_err(|()| "Unable to submit transaction")?;
         }
         Ok(())
     }
@@ -206,6 +242,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
     type Call = Call<T>;
 
@@ -216,49 +253,40 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
     /// are being exempted and marked as valid.
     fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
         // Firstly let's check that we call the right function.
-        if let Call::take_off_invalidate_nominators(block_number, target, signature) = call {
+        if let Call::submit_unsigned_invalidate_nominators_with_signed_payload(
+            ref payload,
+            ref signature,
+        ) = call
+        {
             // Now let's check if the transaction has any chance to succeed.
             let last_unsigned_at = <LastExtSubmittedAt<T>>::get();
             ensure!(
-                last_unsigned_at + T::CoolingInterval::get() <= *block_number,
+                last_unsigned_at + T::CoolingInterval::get() <= payload.block_number,
                 InvalidTransaction::Stale
             );
 
             // Let's make sure to reject transactions from the future.
             ensure!(
-                &<system::Module<T>>::block_number() >= block_number,
+                &<system::Module<T>>::block_number() >= &payload.block_number,
                 InvalidTransaction::Future
             );
 
-            // Get the key from the store to verify whether the signed signature is
-            // generated from the validator or not.
-            let signer_id = T::SignerId::all()
-                .into_iter()
-                .next()
-                .ok_or(InvalidTransaction::BadProof)?;
-
-            let signature_valid = target.using_encoded(|encoded_nominators| {
-                signer_id.verify(&encoded_nominators, &signature)
-            });
             // validating signature
-            ensure!(signature_valid, InvalidTransaction::BadProof);
+            ensure!(
+                SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone()),
+                InvalidTransaction::BadProof
+            );
 
-            Ok(ValidTransaction {
-                // We set the priority to the max value - 10000. ~ near to high priority
-                // TODO: We can change after discussion
-                priority: TransactionPriority::max_value() - 10000_u64,
-                requires: vec![],
-                // We set the `provides` tag to be the same as `last_unsigned_at`. This makes
-                // sure only one transaction produced after `last_unsigned_at` will ever
-                // get to the transaction pool and will end up in the block.
-                // We can still have multiple transactions compete for the same "spot",
-                // and the one with higher priority will replace other one in the pool.
-                provides: vec![codec::Encode::encode(&(KEY_TYPE.0, last_unsigned_at))],
-                // The transaction is only valid for next n blocks. After that it's
-                // going to be revalidated by the pool. n = cooling interval
-                longevity: (T::CoolingInterval::get()).saturated_into::<u64>(),
-                propagate: true,
-            })
+            ValidTransaction::with_tag_prefix("CddOffchainWorker")
+                .priority(T::UnsignedPriority::get().saturating_add(
+                    1000 * u64::try_from(payload.nominators.len()).unwrap_or_default(),
+                ))
+                // The transaction is only valid for next 5 blocks. After that it's
+                // going to be revalidated by the pool.
+                .longevity(5)
+                // Not to be propagated to peer nodes.
+                .propagate(false)
+                .build()
         } else {
             InvalidTransaction::Call.into()
         }

@@ -38,6 +38,7 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
+pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
@@ -146,6 +147,7 @@ std = [
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",
+    "pallet-cdd-offchain-worker/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
