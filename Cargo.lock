@@ -3615,7 +3615,7 @@ dependencies = [
  "pallet-confidential",
  "pallet-contracts",
  "pallet-grandpa",
- "pallet-im-online 2.0.0 (git+https://github.com/paritytech/substrate?tag=v2.0.0)",
+ "pallet-im-online",
  "pallet-indices",
  "pallet-session",
  "pallet-timestamp",
@@ -4325,25 +4325,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
-]
-
-[[package]]
-name = "pallet-im-online"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-authorship",
- "pallet-session",
- "parity-scale-codec",
- "serde",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
 ]
 
 [[package]]
@@ -5206,7 +5187,7 @@ dependencies = [
  "pallet-contracts-rpc-runtime-api",
  "pallet-group-rpc",
  "pallet-group-rpc-runtime-api",
- "pallet-im-online 2.0.0",
+ "pallet-im-online",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-staking-rpc-runtime-api",
@@ -5415,7 +5396,7 @@ dependencies = [
  "pallet-group",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
- "pallet-im-online 2.0.0",
+ "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
@@ -5495,7 +5476,7 @@ dependencies = [
  "pallet-group",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
- "pallet-im-online 2.0.0",
+ "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
