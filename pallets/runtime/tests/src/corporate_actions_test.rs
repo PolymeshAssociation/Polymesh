@@ -15,7 +15,7 @@ use pallet_corporate_actions::{
     Tax,
 };
 use polymesh_primitives::{
-    AuthorizationData, Document, DocumentName, IdentityId, Moment, PortfolioId, Signatory, Ticker,
+    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -502,10 +502,8 @@ fn initiate_corporate_action_targets() {
 #[test]
 fn link_ca_docs_works() {
     test(|ticker, [owner, ..]| {
-        let id = CAId {
-            ticker,
-            local_id: LocalCAId(0),
-        };
+        let local_id = LocalCAId(0);
+        let id = CAId { ticker, local_id };
 
         let link = |docs| CA::link_ca_doc(owner.signer(), id, docs);
         let link_ok = |docs: Vec<_>| {
@@ -521,24 +519,23 @@ fn link_ca_docs_works() {
         link_ok(vec![]);
 
         // Now link it to docs that don't exist, and ensure failure.
-        let doc_name: DocumentName = b"foo".into();
-        assert_noop!(link(vec![doc_name.clone()]), AssetError::NoSuchDoc);
+        let id0 = DocumentId(0);
+        assert_noop!(link(vec![id0]), AssetError::NoSuchDoc);
 
         // Add the document.
         let doc = Document {
+            name: b"foo".into(),
             uri: b"https://example.com".into(),
             content_hash: b"0xdeadbeef".into(),
+            doc_type: None,
+            filing_date: None,
         };
-        let docs = vec![(doc_name.clone(), doc)];
-        assert_ok!(Asset::add_documents(owner.signer(), docs, ticker));
+        assert_ok!(Asset::add_documents(owner.signer(), vec![doc], ticker));
 
         // The document exists, but we add a second one that does not, so still expecting failure.
-        assert_noop!(
-            link(vec![doc_name.clone(), b"bar".into()]),
-            AssetError::NoSuchDoc
-        );
+        assert_noop!(link(vec![id0, DocumentId(1)]), AssetError::NoSuchDoc);
 
         // Finally, we only link the document, and it all works out.
-        link_ok(vec![doc_name]);
+        link_ok(vec![id0]);
     });
 }

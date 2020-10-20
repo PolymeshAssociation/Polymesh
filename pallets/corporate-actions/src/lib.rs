@@ -53,7 +53,7 @@ use polymesh_common_utilities::{
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     GC_DID,
 };
-use polymesh_primitives::{AuthorizationData, DocumentName, IdentityId, Moment, Ticker};
+use polymesh_primitives::{AuthorizationData, DocumentId, IdentityId, Moment, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
@@ -247,11 +247,11 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
-        /// (CAId => [DocumentName])
+        /// (CAId => [DocumentId])
         ///
         /// The `CorporateActions` map stores `Ticker => LocalId => The CA`,
         /// so we can infer `Ticker => CAId`. Therefore, we don't need a double map.
-        pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentName>;
+        pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
     }
 }
 
@@ -449,7 +449,7 @@ decl_module! {
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
-        pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentName>) {
+        pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
             let caa = Self::ensure_ca_agent(origin, id.ticker)?;
             Self::ensure_ca_exists(id)?;
@@ -496,7 +496,7 @@ decl_event! {
         ),
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
-        CALinkedToDoc(IdentityId, CAId, Vec<DocumentName>),
+        CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
     }
 }
 
