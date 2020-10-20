@@ -1364,6 +1364,12 @@ impl<T: Trait> Module<T> {
                             }
                             Leg::ConfidentialLeg(leg) => {
                                 let mut tx_data = Self::mercat_tx_data(instruction_id);
+                                if tx_data.len() != 3 {
+                                    return Err((
+                                        leg_id,
+                                        FailureReason::InsufficientMercatAuthorizations,
+                                    ));
+                                }
 
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
