@@ -57,7 +57,7 @@ use polymesh_primitives::{
     PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
-use sp_std::{convert::TryFrom, iter, prelude::Vec};
+use sp_std::{convert::TryFrom, iter, mem, prelude::Vec};
 
 type Identity<T> = identity::Module<T>;
 
@@ -382,9 +382,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
     fn get_next_portfolio_number(did: &IdentityId) -> PortfolioNumber {
-        let num = Self::next_portfolio_number(did);
-        <NextPortfolioNumber>::insert(did, num + 1);
-        num
+        NextPortfolioNumber::mutate(did, |num| mem::replace(num, PortfolioNumber(num.0 + 1)))
     }
 
     /// An RPC function that lists all user-defined portfolio number-name pairs.
