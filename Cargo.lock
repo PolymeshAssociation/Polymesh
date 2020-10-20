@@ -4580,6 +4580,7 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-scheduler",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",

@@ -34,7 +34,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use codec::{Decode, Encode};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    ensure, storage,
+    traits::{
+        schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
+        Get,
+    },
+    weights::Weight,
+    IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
+};
+use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_identity as identity;
+use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
     traits::{
         asset::{Trait as AssetTrait, GAS_LIMIT},
@@ -46,34 +60,30 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
-
-use codec::{Decode, Encode};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure, storage,
-    traits::Get,
-    weights::Weight,
-    IterableStorageDoubleMap, StorageHasher, Twox128,
-};
-use frame_system as system;
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{Verify, Zero};
+use sp_runtime::traits::{Dispatchable, Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
+
 type Identity<T> = identity::Module<T>;
+type System<T> = frame_system::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + scheduler::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
-    /// The maximum number of total legs in scheduled instructions that can be executed in a single block.
-    /// Any excess instructions are scheduled in later blocks.
-    type MaxScheduledInstructionLegsPerBlock: Get<u32>;
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInAInstruction: Get<u32>;
+    /// Scheduler of timelocked bridge transactions.
+    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
+    type SchedulerCall: Parameter
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + From<Call<Self>>;
 }
 
 /// A wrapper for VenueDetails
@@ -405,12 +415,14 @@ decl_error! {
         /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
         LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user
-        PortfolioMismatch
+        PortfolioMismatch,
+        /// The provided settlement block number is in the past and cannot be used by the scheduler.
+        SettleOnPastBlock
     }
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as StoCapped {
+    trait Store for Module<T: Trait> as Settlement {
         /// Info about a venue. venue_id -> venue_details
         VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Venue;
         /// Signers allowed by the venue. (venue_id, signer) -> bool
@@ -441,19 +453,14 @@ decl_storage! {
         VenueCounter get(fn venue_counter) build(|_| 1u64): u64;
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
-        /// The list of scheduled instructions with the block numbers in which those instructions
-        /// become eligible to be executed. BlockNumber -> Vec<instruction_id>
-        ScheduledInstructions get(fn scheduled_instructions): map hasher(twox_64_concat) T::BlockNumber => Vec<u64>;
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        const MaxScheduledInstructionLegsPerBlock: u32 = T::MaxScheduledInstructionLegsPerBlock::get();
 
         const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
 
@@ -856,13 +863,20 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
             Ok(())
         }
+
+        /// An internal call to execute a scheduled settlement instruction.
+        #[weight = 500_000_000]
+        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Ok(Some(Self::execute_instruction(instruction_id).1).into())
+        }
     }
 }
 
 impl<T: Trait> Module<T> {
     /// Ensure origin call permission and the given instruction validity.
     fn ensure_origin_perm_and_instruction_validity(
-        origin: T::Origin,
+        origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
     ) -> Result<IdentityId, DispatchError> {
         let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
@@ -887,6 +901,16 @@ impl<T: Trait> Module<T> {
             u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInAInstruction::get(),
             Error::<T>::LegsCountExceededMaxLimit
         );
+
+        // Ensure that the scheduled block number is in the future so that T::Scheduler::schedule
+        // doesn't fail.
+        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
+            ensure!(
+                *block_number > System::<T>::block_number(),
+                Error::<T>::SettleOnPastBlock
+            );
+        }
+
         // Check if a venue exists and the sender is the creator of the venue
         let mut venue = Self::venue_info(venue_id);
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
@@ -941,9 +965,14 @@ impl<T: Trait> Module<T> {
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            <ScheduledInstructions<T>>::mutate(block_number, |instruction_ids| {
-                instruction_ids.push(instruction_counter)
-            });
+            let call = Call::<T>::execute_scheduled_instruction(instruction_counter).into();
+            T::Scheduler::schedule(
+                DispatchTime::At(block_number),
+                None,
+                LOWEST_PRIORITY,
+                RawOrigin::Root.into(),
+                call,
+            )?;
         }
 
         <InstructionDetails<T>>::insert(instruction_counter, instruction);
@@ -963,34 +992,6 @@ impl<T: Trait> Module<T> {
             legs,
         ));
         Ok(instruction_counter)
-    }
-
-    /// Settles scheduled instructions. This function is called at the start of every block.
-    pub fn on_initialize(block_number: T::BlockNumber) -> Weight {
-        let scheduled_instructions = <ScheduledInstructions<T>>::take(block_number);
-        let mut legs_executed: u32 = 0;
-        let mut weight_for_initialize: Weight = 0;
-        let max_legs = T::MaxScheduledInstructionLegsPerBlock::get();
-
-        for (i, scheduled_tx) in scheduled_instructions.iter().enumerate() {
-            // NB The actual legs executed can be a bit more than max legs allowed since an instruction must be settled atomically.
-            if legs_executed >= max_legs {
-                // If max legs is triggered, the pending instructions in this block are rescheduled at the end of the next block
-                let mut next_block_instructions =
-                    Self::scheduled_instructions(block_number + 1.into());
-                next_block_instructions.extend_from_slice(&scheduled_instructions[i..]);
-                <ScheduledInstructions<T>>::insert(
-                    block_number + 1.into(),
-                    next_block_instructions,
-                );
-                break;
-            }
-            let (temp_legs_executed, temp_weight_for_initialize) =
-                Self::execute_instruction(*scheduled_tx);
-            legs_executed += temp_legs_executed;
-            weight_for_initialize += temp_weight_for_initialize;
-        }
-        weight_for_initialize
     }
 
     fn unsafe_withdraw_instruction(

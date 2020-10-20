@@ -86,7 +86,6 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
 fn next_block() {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
-    Settlement::on_initialize(block_number);
 }
 
 #[test]
