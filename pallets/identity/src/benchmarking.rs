@@ -27,11 +27,11 @@ use schnorrkel::Signature;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
 
-fn make_account_without_did<T: Trait>(
+pub fn make_account_without_did<T: Trait>(
     name: &'static str,
     u: u32,
 ) -> (T::AccountId, RawOrigin<T::AccountId>) {
@@ -41,7 +41,7 @@ fn make_account_without_did<T: Trait>(
     (account, origin)
 }
 
-fn make_account<T: Trait>(
+pub fn make_account<T: Trait>(
     name: &'static str,
     u: u32,
 ) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
@@ -52,7 +52,7 @@ fn make_account<T: Trait>(
     (account, origin, did)
 }
 
-fn make_cdd_account<T: Trait>(u: u32) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
+pub fn make_cdd_account<T: Trait>(u: u32) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
     let (cdd_account, cdd_origin, cdd_did) = make_account::<T>("cdd", u);
     T::CddServiceProviders::add_member(cdd_did).unwrap();
     (cdd_account, cdd_origin, cdd_did)
