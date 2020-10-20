@@ -109,9 +109,7 @@ no_std = [
 ]
 std = [
     "codec/std",
-    "frame-benchmarking/std",
     "frame-support/std",
-    "frame-system-benchmarking/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",

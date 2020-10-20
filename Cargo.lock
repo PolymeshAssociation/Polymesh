@@ -5370,10 +5370,13 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "hex-literal 0.3.1",
  "node-rpc-runtime-api",
  "pallet-asset",
  "pallet-authority-discovery",
