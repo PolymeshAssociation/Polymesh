@@ -46,7 +46,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
@@ -137,7 +137,7 @@ pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
     /// Date at which any impact, if any, should be calculated.
-    pub record_date: Option<Moment>,
+    pub record_date: Option<(Moment, checkpoint::ScheduleId)>,
     /// Free-form text up to a limit.
     pub details: CADetails,
     /// The identities this CA is relevant to.
@@ -190,6 +190,7 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
 
 type Identity<T> = identity::Module<T>;
 type Asset<T> = asset::Module<T>;
+type Checkpoint<T> = checkpoint::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -355,9 +356,9 @@ decl_module! {
         /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
         /// - `targets`, if any, which this CA is relevant/irrelevant to.
         ///    Overrides, if provided, the default at the asset level (`set_default_targets`).
-        /// - `default_wt`, if any, is the default withholding tax to use for this CA.
+        /// - `default_withholding_tax`, if any, is the default withholding tax to use for this CA.
         ///    Overrides, if provided, the default at the asset level (`set_default_withholding_tax`).
-        /// - `wt`, if any, provides per-DID withholding tax overrides.
+        /// - `withholding_tax`, if any, provides per-DID withholding tax overrides.
         ///    Overrides, if provided, the default at the asset level (`set_did_withholding_tax`).
         ///
         /// # Errors
@@ -366,6 +367,7 @@ decl_module! {
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
+        /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
         pub fn initiate_corporate_action(
             origin,
@@ -374,8 +376,8 @@ decl_module! {
             record_date: Option<Moment>,
             details: CADetails,
             targets: Option<TargetIdentities>,
-            default_wt: Option<Tax>,
-            wt: Option<Vec<(IdentityId, Tax)>>,
+            default_withholding_tax: Option<Tax>,
+            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
         ) {
             // Ensure that `details` is short enough.
             details
@@ -394,21 +396,19 @@ decl_module! {
             let id = CAId { ticker, local_id };
 
             // Ensure there are no duplicates in withholding tax overrides.
-            let mut wt = wt;
-            if let Some(wt) = &mut wt {
+            let mut withholding_tax = withholding_tax;
+            if let Some(wt) = &mut withholding_tax {
                 let before = wt.len();
                 wt.sort_unstable_by_key(|&(did, _)| did);
                 wt.dedup_by_key(|&mut (did, _)| did);
                 ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
             }
 
-            // Create a checkpoint at `record_date`, if any.
-            if let Some(record_date) = record_date {
-                // TODO(Centril): This immediately creates a checkpoint, but we want to schedule.
-                // However, checkpoint scheduling needs some changes to support CAs.
-                // Also, we need to consider checkpoint ID reservation.
-                <Asset<T>>::_create_checkpoint_emit(ticker, record_date, caa)?;
-            }
+            // Schedule checkpoint creation at `date`, if any.
+            let record_date = record_date
+                .map(|date| <Checkpoint<T>>::create_schedule_base(caa, ticker, date.into(), false))
+                .transpose()?
+                .map(|s| (s.at, s.id));
 
             // Commit the next local CA ID.
             CAIdSequence::insert(ticker, next_id);
@@ -417,21 +417,24 @@ decl_module! {
             let targets = targets
                 .map(|t| t.dedup())
                 .unwrap_or_else(|| Self::default_target_identities(ticker));
-            let dwt = default_wt.unwrap_or_else(|| Self::default_withholding_tax(ticker));
-            let wt = wt.unwrap_or_else(|| Self::did_withholding_tax(ticker));
+            let default_withholding_tax = default_withholding_tax
+                .unwrap_or_else(|| Self::default_withholding_tax(ticker));
+            let withholding_tax = withholding_tax
+                .unwrap_or_else(|| Self::did_withholding_tax(ticker));
 
             // Commit CA to storage.
-            CorporateActions::insert(ticker, id.local_id, CorporateAction {
+            let ca = CorporateAction {
                 kind,
                 record_date,
-                details: details.clone(),
-                targets: targets.clone(),
-                default_withholding_tax: dwt,
-                withholding_tax: wt.clone(),
-            });
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax,
+            };
+            CorporateActions::insert(ticker, id.local_id, ca.clone());
 
             // Emit event.
-            Self::deposit_event(Event::CAInitiated(caa, id, kind, record_date, details, targets, dwt, wt));
+            Self::deposit_event(Event::CAInitiated(caa, id, ca));
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -482,18 +485,8 @@ decl_event! {
         /// (New CAA DID, Ticker, New CAA DID).
         CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
-        /// (CAA DID, CA id, kind of CA, record date, free-form text, targeted ids,
-        /// withholding tax, per-did tax override)
-        CAInitiated(
-            IdentityId,
-            CAId,
-            CAKind,
-            Option<Moment>,
-            CADetails,
-            TargetIdentities,
-            Tax,
-            Vec<(IdentityId, Tax)>,
-        ),
+        /// (CAA DID, CA id, the CA)
+        CAInitiated(IdentityId, CAId, CorporateAction),
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),

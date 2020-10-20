@@ -10,7 +10,7 @@ use frame_support::{
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::EnsureRoot;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -835,6 +835,7 @@ construct_runtime!(
         Permissions: pallet_permissions::{Module},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );
 

@@ -182,6 +182,17 @@ fn general_testnet_genesis(
                 reserved_country_currency_codes: currency_codes(),
             })
         },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                multiplier: 1,
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
+            })
+        },
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -560,6 +571,17 @@ fn alcyone_testnet_genesis(
                 classic_migration_contract_did: IdentityId::from(1),
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                multiplier: 1,
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {

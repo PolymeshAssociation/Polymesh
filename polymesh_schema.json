@@ -910,6 +910,7 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "Moment": "u64",
         "CalendarUnit": {
             "_enum": [
                 "Second",
@@ -926,8 +927,15 @@
             "multiplier": "u64"
         },
         "CheckpointSchedule": {
-            "start": "u64",
+            "start": "Moment",
             "period": "CalendarPeriod"
+        },
+        "CheckpointId": "u64",
+        "ScheduleId": "u64",
+        "StoredSchedule": {
+            "schedule": "CheckpointSchedule",
+            "id": "ScheduleId",
+            "at": "Moment"
         },
         "InstructionStatus": {
             "_enum": {

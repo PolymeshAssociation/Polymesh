@@ -1,8 +1,14 @@
+use crate::Moment;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::convert::TryFrom;
+
+/// A per-ticker checkpoint ID.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Default, Debug)]
+pub struct CheckpointId(pub u64);
 
 /// Calendar units for timing recurring operations.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -30,6 +36,38 @@ impl Default for CalendarUnit {
     }
 }
 
+impl CalendarUnit {
+    // Returns the number of seconds in the unit.
+    // Variable concepts like Month and Year use 30 and 365 days respectively.
+    const fn seconds_in(self) -> u64 {
+        const S_SEC: u64 = 1;
+        const S_MINUTE: u64 = 60;
+        const S_HOUR: u64 = S_MINUTE * 60;
+        const S_DAY: u64 = S_HOUR * 24;
+        const S_WEEK: u64 = S_DAY * 7;
+        const S_MONTH: u64 = S_DAY * 30;
+        const S_YEAR: u64 = S_DAY * 365;
+        match self {
+            Self::Second => S_SEC,
+            Self::Minute => S_MINUTE,
+            Self::Hour => S_HOUR,
+            Self::Day => S_DAY,
+            Self::Week => S_WEEK,
+            Self::Month => S_MONTH,
+            Self::Year => S_YEAR,
+        }
+    }
+
+    /// Returns the variable unit for this unit, if any.
+    const fn to_variable_unit(self) -> Option<VariableCalendarUnit> {
+        match self {
+            Self::Second | Self::Minute | Self::Hour | Self::Day | Self::Week => None,
+            Self::Month => Some(VariableCalendarUnit::Month),
+            Self::Year => Some(VariableCalendarUnit::Year),
+        }
+    }
+}
+
 /// Calendar units that have variable length.
 pub enum VariableCalendarUnit {
     /// A unit of one month.
@@ -41,7 +79,7 @@ pub enum VariableCalendarUnit {
 /// Either a duration in seconds or a variable length calendar unit.
 pub enum FixedOrVariableCalendarUnit {
     /// A fixed duration in seconds Unix time, not counting leap seconds.
-    Fixed(u64),
+    Fixed(Moment),
     /// A variable length calendar unit.
     Variable(VariableCalendarUnit),
 }
@@ -57,22 +95,27 @@ pub struct CalendarPeriod {
 }
 
 impl CalendarPeriod {
-    /// For fixed length calendar periods (in Unix time, without leap seconds), computes the number
-    /// of seconds they contain. For variable length periods, returns a
-    /// `VariableLengthCalendarPeriod`.
-    pub fn as_fixed_or_variable(&self) -> FixedOrVariableCalendarUnit {
-        match self.unit {
-            CalendarUnit::Second => FixedOrVariableCalendarUnit::Fixed(self.multiplier),
-            CalendarUnit::Minute => FixedOrVariableCalendarUnit::Fixed(self.multiplier * 60),
-            CalendarUnit::Hour => FixedOrVariableCalendarUnit::Fixed(self.multiplier * 60 * 60),
-            CalendarUnit::Day => FixedOrVariableCalendarUnit::Fixed(self.multiplier * 60 * 60 * 24),
-            CalendarUnit::Week => {
-                FixedOrVariableCalendarUnit::Fixed(self.multiplier * 60 * 60 * 24 * 7)
-            }
-            CalendarUnit::Month => {
-                FixedOrVariableCalendarUnit::Variable(VariableCalendarUnit::Month)
-            }
-            CalendarUnit::Year => FixedOrVariableCalendarUnit::Variable(VariableCalendarUnit::Year),
+    /// Returns the complexity of this period.
+    ///
+    /// A non-recurring period has complexity `1`.
+    /// Recurring periods depend on how often they occur in a year.
+    /// For example, one hour is more complex than one month,
+    /// and one hour is more complex than two hours.
+    pub fn complexity(&self) -> u64 {
+        if self.multiplier == 0 {
+            1
+        } else {
+            (CalendarUnit::Year.seconds_in() / self.unit.seconds_in() / self.multiplier).max(2)
+        }
+    }
+
+    /// For fixed length calendar periods (in Unix time, without leap seconds),
+    /// computes the number of seconds they contain.
+    /// For variable length periods, returns a `VariableLengthCalendarPeriod`.
+    pub const fn as_fixed_or_variable(&self) -> FixedOrVariableCalendarUnit {
+        match self.unit.to_variable_unit() {
+            None => FixedOrVariableCalendarUnit::Fixed(self.multiplier * self.unit.seconds_in()),
+            Some(var_unit) => FixedOrVariableCalendarUnit::Variable(var_unit),
         }
     }
 }
@@ -84,9 +127,20 @@ impl CalendarPeriod {
 #[derive(Encode, Decode, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointSchedule {
     /// Unix time in seconds.
-    pub start: u64,
+    pub start: Moment,
     /// The period at which the checkpoint is set to recur after `start`.
     pub period: CalendarPeriod,
+}
+
+/// Create a schedule due exactly at the provided `start: Moment` time.
+impl From<Moment> for CheckpointSchedule {
+    fn from(start: Moment) -> Self {
+        let period = CalendarPeriod {
+            unit: CalendarUnit::Second,
+            multiplier: 0,
+        };
+        Self { start, period }
+    }
 }
 
 impl CheckpointSchedule {
@@ -116,7 +170,7 @@ impl CheckpointSchedule {
     /// * 2020-04-30T00:01:00
     ///
     /// and so on.
-    pub fn next_checkpoint(&self, now_as_secs_utc: u64) -> Option<u64> {
+    pub fn next_checkpoint(&self, now_as_secs_utc: Moment) -> Option<Moment> {
         if self.start > now_as_secs_utc {
             // The start time is in the future.
             return Some(self.start);
@@ -200,7 +254,7 @@ impl CheckpointSchedule {
                         )
                     }
                 };
-                u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
+                Moment::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
             }
         }
     }
