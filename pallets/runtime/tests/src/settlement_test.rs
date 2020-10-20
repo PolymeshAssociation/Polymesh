@@ -3178,7 +3178,7 @@ pub fn create_account_and_mint_token(
         name: token_name.clone().into(),
         owner_did,
         total_supply,
-        divisible: false,
+        divisible: true,
         asset_type: AssetType::default(),
         primary_issuance_agent: Some(owner_did),
         ..Default::default()
@@ -3306,7 +3306,7 @@ fn basic_confidential_settlement() {
 
             // Create an account for Alice and mint 10,000,000 tokens to ACME.
             // let total_supply = 1_1000_000;
-            let total_supply = 5;
+            let total_supply = 500;
             let (
                 tx_id,
                 alice_secret_account,

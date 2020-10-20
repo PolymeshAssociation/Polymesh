@@ -38,11 +38,8 @@ use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait,
-    // constants::currency::ONE_UNIT,
-    identity::Trait as IdentityTrait,
-    CommonTrait,
-    Context,
+    asset::Trait as AssetTrait, constants::currency::ONE_UNIT, identity::Trait as IdentityTrait,
+    CommonTrait, Context,
 };
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
@@ -407,11 +404,12 @@ decl_module! {
                 Error::<T>::UnknownConfidentialAsset
             );
 
-            if T::NonConfidentialAsset::is_divisible(ticker) {
-                // ensure!(
-                //     total_supply % ONE_UNIT.into() == 0.into(),
-                //     Error::<T>::InvalidTotalSupply
-                // );
+            if !T::NonConfidentialAsset::is_divisible(ticker) {
+                ensure!(
+                    // Non-divisible asset amounts must maintain a 6 decimal places of precision.
+                    total_supply % ONE_UNIT.into() == 0.into(),
+                    Error::<T>::InvalidTotalSupply
+                );
             }
 
             // At the moment, mercat lib imposes that balances can be at most u32 integers.
