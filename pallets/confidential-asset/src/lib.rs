@@ -269,7 +269,7 @@ decl_module! {
                 encryption_pub_key: wrapped_enc_pub_key,
             });
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
-            <MercatAccountBalance>::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
+            MercatAccountBalance::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
             Self::deposit_event(RawEvent::AccountCreated(owner_id, account_id, wrapped_enc_balance));
             Ok(())
@@ -431,7 +431,7 @@ decl_module! {
                                         ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
             // Set the total supply (both encrypted and plain).
-            <MercatAccountBalance>::insert(
+            MercatAccountBalance::insert(
                 &owner_did,
                 &account_id,
                 EncryptedBalanceWrapper::from(new_encrypted_balance),
@@ -492,20 +492,12 @@ impl<T: Trait> Module<T> {
     /// Reset `IncomingBalance` and `FailedOutgoingBalance` accumulators, by doing this
     /// we are no longer keeping track of the old/settled transactions.
     fn reset_mercat_pending_state(owner_did: &IdentityId, account_id: &MercatAccountId) {
-        if <IncomingBalance>::contains_key(owner_did, account_id.clone()) {
-            <IncomingBalance>::insert(
-                owner_did,
-                account_id,
-                EncryptedBalanceWrapper::from(EncryptedAmount::default().encode()),
-            );
+        if IncomingBalance::contains_key(owner_did, account_id) {
+            IncomingBalance::remove(owner_did, account_id);
         }
 
-        if <FailedOutgoingBalance>::contains_key(owner_did, account_id.clone()) {
-            <FailedOutgoingBalance>::insert(
-                owner_did,
-                account_id,
-                EncryptedBalanceWrapper::from(EncryptedAmount::default().encode()),
-            );
+        if FailedOutgoingBalance::contains_key(owner_did, account_id) {
+            FailedOutgoingBalance::remove(owner_did, account_id);
         }
     }
 
@@ -516,15 +508,15 @@ impl<T: Trait> Module<T> {
         amount: EncryptedAmount,
     ) -> DispatchResult {
         let current_balance =
-            Self::mercat_account_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
-        <MercatAccountBalance>::insert(
+            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
+        MercatAccountBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from((current_balance + amount).encode()),
         );
 
         // Update the incoming balance accumulator.
-        Ok(Self::add_incoming_balance(owner_did, account_id, amount)?)
+        Self::add_incoming_balance(owner_did, account_id, amount)
     }
 
     /// Subtract the `amount` from the mercat account balance, and update the `PendingOutgoingBalance` accumulator.
@@ -534,8 +526,8 @@ impl<T: Trait> Module<T> {
         amount: EncryptedAmount,
     ) -> DispatchResult {
         let current_balance =
-            Self::mercat_account_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
-        <MercatAccountBalance>::insert(
+            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
+        MercatAccountBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from((current_balance - amount).encode()),
@@ -543,9 +535,9 @@ impl<T: Trait> Module<T> {
 
         // Update the pending balance accumulator.
         let pending_balance =
-            Self::pending_outgoing_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+            Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
 
-        <PendingOutgoingBalance>::insert(
+        PendingOutgoingBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from((pending_balance - amount).encode()),
@@ -560,21 +552,20 @@ impl<T: Trait> Module<T> {
         account_id: &MercatAccountId,
     ) -> Result<EncryptedAmount, DispatchError> {
         let mut current_balance =
-            Self::mercat_account_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
 
-        if <PendingOutgoingBalance>::contains_key(owner_did, account_id.clone()) {
+        if PendingOutgoingBalance::contains_key(owner_did, account_id) {
             current_balance -=
-                Self::pending_outgoing_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+                Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
         }
 
-        if <IncomingBalance>::contains_key(owner_did, account_id.clone()) {
-            current_balance -=
-                Self::incoming_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+        if IncomingBalance::contains_key(owner_did, account_id) {
+            current_balance -= Self::incoming_balance(owner_did, account_id).to_mercat::<T>()?;
         }
 
-        if <FailedOutgoingBalance>::contains_key(owner_did, account_id.clone()) {
+        if FailedOutgoingBalance::contains_key(owner_did, account_id) {
             current_balance -=
-                Self::failed_outgoing_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+                Self::failed_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
         }
         Ok(current_balance)
     }
@@ -589,7 +580,7 @@ impl<T: Trait> Module<T> {
         let account_id = MercatAccountId(wrapped_enc_asset_id.0);
 
         let pending_balances =
-            if <PendingOutgoingBalance>::contains_key(owner_did, account_id.clone()) {
+            if PendingOutgoingBalance::contains_key(owner_did, account_id.clone()) {
                 let pending_balance = Self::pending_outgoing_balance(owner_did, account_id.clone())
                     .to_mercat::<T>()?;
                 pending_balance + amount
@@ -597,9 +588,9 @@ impl<T: Trait> Module<T> {
                 amount
             };
 
-        <PendingOutgoingBalance>::insert(
+        PendingOutgoingBalance::insert(
             owner_did,
-            account_id.clone(),
+            account_id,
             EncryptedBalanceWrapper::from(pending_balances.encode()),
         );
 
@@ -612,15 +603,15 @@ impl<T: Trait> Module<T> {
         account_id: &MercatAccountId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let incoming_balances = if <IncomingBalance>::contains_key(owner_did, account_id.clone()) {
+        let incoming_balances = if IncomingBalance::contains_key(owner_did, account_id) {
             let previous_balance =
-                Self::incoming_balance(owner_did, account_id.clone()).to_mercat::<T>()?;
+                Self::incoming_balance(owner_did, account_id).to_mercat::<T>()?;
             previous_balance + amount
         } else {
             amount
         };
 
-        <IncomingBalance>::insert(
+        IncomingBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from(incoming_balances.encode()),
@@ -636,16 +627,15 @@ impl<T: Trait> Module<T> {
         account_id: &MercatAccountId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let failed_balances =
-            if <FailedOutgoingBalance>::contains_key(owner_did, account_id.clone()) {
-                let failed_balance = Self::failed_outgoing_balance(owner_did, account_id.clone())
-                    .to_mercat::<T>()?;
-                failed_balance + amount
-            } else {
-                amount
-            };
+        let failed_balances = if FailedOutgoingBalance::contains_key(owner_did, account_id) {
+            let failed_balance =
+                Self::failed_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+            failed_balance + amount
+        } else {
+            amount
+        };
 
-        <FailedOutgoingBalance>::insert(
+        FailedOutgoingBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from(failed_balances.encode()),
@@ -656,7 +646,7 @@ impl<T: Trait> Module<T> {
         // pending state by this point.
         let pending_balance =
             Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
-        <PendingOutgoingBalance>::insert(
+        PendingOutgoingBalance::insert(
             owner_did,
             account_id,
             EncryptedBalanceWrapper::from((pending_balance - amount).encode()),
@@ -677,7 +667,7 @@ impl<T: Trait> Module<T> {
         let account_id = MercatAccountId(wrapped_enc_asset_id.0);
 
         let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
-        <TxPendingState>::insert(
+        TxPendingState::insert(
             (owner_did, account_id, instruction_id),
             EncryptedBalanceWrapper::from(pending_state.encode()),
         );
@@ -690,7 +680,7 @@ impl<T: Trait> Module<T> {
         account_id: &MercatAccountId,
         instruction_id: u64,
     ) {
-        <TxPendingState>::remove((owner_did, account_id, instruction_id));
+        TxPendingState::remove((owner_did, account_id, instruction_id));
     }
 }
 
