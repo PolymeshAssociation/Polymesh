@@ -361,13 +361,14 @@ decl_module! {
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
                 match receipt {
-                    Some(receipt) => Settlement::<T>::affirm_with_receipts(
+                    Some(receipt) => Settlement::<T>::affirm_with_receipts_internal(
                         origin,
                         instruction_id,
                         vec![receipt],
-                        portfolios
+                        portfolios,
+                        false
                     ).map_err(|e| e.error)?,
-                    None => Settlement::<T>::affirm_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
+                    None => Settlement::<T>::affirm_instruction_internal(origin, instruction_id, portfolios,false).map_err(|e| e.error)?,
                 };
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {

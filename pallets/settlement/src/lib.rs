@@ -591,22 +591,7 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
-            // Provide affirmation to the instruction
-            Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
-
-            // Execute the instruction if conditions are met
-            let affirms_pending = Self::instruction_affirms_pending(instruction_id);
-            let weight_for_instruction_execution = Self::is_instruction_executed(affirms_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
-
-            weight_for_instruction_execution
-                .map(|info| info
-                    .actual_weight
-                    .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
-                    .into()
-                )
+           Self::affirm_instruction_internal(origin, instruction_id, portfolios, true)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -681,101 +666,7 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
             ]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
-            // Verify that the receipts provided are unique
-            let receipt_ids = receipt_details.iter().map(|receipt| (receipt.signer.clone(), receipt.receipt_uid)).collect::<BTreeSet<_>>();
-
-            ensure!(
-                receipt_ids.len() == receipt_details.len(),
-                Error::<T>::ReceiptAlreadyClaimed
-            );
-
-            let instruction_details = Self::instruction_details(instruction_id);
-
-            // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
-            for portfolio in &portfolios_set {
-                T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
-                let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
-                ensure!(
-                    userr_affirmation == AffirmationStatus::Pending || userr_affirmation == AffirmationStatus::Rejected,
-                    Error::<T>::NoPendingAffirm
-                );
-            }
-
-            // Verify that the receipts are valid
-            for receipt in &receipt_details {
-                ensure!(
-                    Self::venue_signers(&instruction_details.venue_id, &receipt.signer), Error::<T>::UnauthorizedSigner
-                );
-                ensure!(
-                    !Self::receipts_used(&receipt.signer, &receipt.receipt_uid), Error::<T>::ReceiptAlreadyClaimed
-                );
-
-                let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
-                ensure!(portfolios_set.contains(&leg.from), Error::<T>::PortfolioMismatch);
-
-                let msg = Receipt {
-                    receipt_uid: receipt.receipt_uid,
-                    from: leg.from,
-                    to: leg.to,
-                    asset: leg.asset,
-                    amount: leg.amount
-                };
-
-                ensure!(
-                    receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-                    Error::<T>::InvalidSignature
-                );
-            }
-
-            // Lock tokens that do not have a receipt attached to their leg.
-            with_transaction(|| {
-                let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
-                for (leg_id, leg_details) in legs.filter(|(_leg_id, leg_details)| portfolios_set.contains(&leg_details.from)) {
-                    // Receipt for the leg was provided
-                    if let Some(receipt) = receipt_details.iter().find(|receipt| receipt.leg_id == leg_id) {
-                        <InstructionLegStatus<T>>::insert(
-                            instruction_id,
-                            leg_id,
-                            LegStatus::ExecutionToBeSkipped(receipt.signer.clone(), receipt.receipt_uid)
-                        );
-                    } else {
-                        if T::Portfolio::lock_tokens(&leg_details.from, &leg_details.asset, &leg_details.amount).is_err() {
-                            // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                            return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                        }
-                        <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
-
-                    }
-                }
-                Ok(())
-            })?;
-
-            // Update storage
-            let affirms_pending = Self::instruction_affirms_pending(instruction_id).saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-            for portfolio in portfolios_set {
-                <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-                <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
-                Self::deposit_event(RawEvent::InstructionAffirmed(did, portfolio, instruction_id));
-            }
-
-            <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
-            for receipt in &receipt_details {
-                <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
-                Self::deposit_event(RawEvent::ReceiptClaimed(did, instruction_id, receipt.leg_id, receipt.receipt_uid, receipt.signer.clone()));
-            }
-
-            // Execute instruction if conditions are met.
-            let execute_instruction_weight = Self::is_instruction_executed(affirms_pending, instruction_details.settlement_type, instruction_id);
-
-            execute_instruction_weight
-            .map(|info| info
-                .actual_weight
-                .map(|w| w.saturating_add(weight_for::weight_for_affirmation_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())))
-                .into()
-            )
+           Self::affirm_with_receipts_internal(origin, instruction_id, receipt_details, portfolios, true)
         }
 
         /// Claims a signed receipt.
@@ -1369,5 +1260,198 @@ impl<T: Trait> Module<T> {
                 })
             };
         execute_instruction_result
+    }
+
+    pub fn affirm_with_receipts_internal(
+        origin: T::Origin,
+        instruction_id: u64,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        portfolios: Vec<PortfolioId>,
+        ignore_execution: bool,
+    ) -> DispatchResultWithPostInfo {
+        let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+
+        // Verify that the receipts provided are unique
+        let receipt_ids = receipt_details
+            .iter()
+            .map(|receipt| (receipt.signer.clone(), receipt.receipt_uid))
+            .collect::<BTreeSet<_>>();
+
+        ensure!(
+            receipt_ids.len() == receipt_details.len(),
+            Error::<T>::ReceiptAlreadyClaimed
+        );
+
+        let instruction_details = Self::instruction_details(instruction_id);
+
+        // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
+        for portfolio in &portfolios_set {
+            T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
+            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            ensure!(
+                userr_affirmation == AffirmationStatus::Pending
+                    || userr_affirmation == AffirmationStatus::Rejected,
+                Error::<T>::NoPendingAffirm
+            );
+        }
+
+        // Verify that the receipts are valid
+        for receipt in &receipt_details {
+            ensure!(
+                Self::venue_signers(&instruction_details.venue_id, &receipt.signer),
+                Error::<T>::UnauthorizedSigner
+            );
+            ensure!(
+                !Self::receipts_used(&receipt.signer, &receipt.receipt_uid),
+                Error::<T>::ReceiptAlreadyClaimed
+            );
+
+            let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
+            ensure!(
+                portfolios_set.contains(&leg.from),
+                Error::<T>::PortfolioMismatch
+            );
+
+            let msg = Receipt {
+                receipt_uid: receipt.receipt_uid,
+                from: leg.from,
+                to: leg.to,
+                asset: leg.asset,
+                amount: leg.amount,
+            };
+
+            ensure!(
+                receipt.signature.verify(&msg.encode()[..], &receipt.signer),
+                Error::<T>::InvalidSignature
+            );
+        }
+
+        // Lock tokens that do not have a receipt attached to their leg.
+        with_transaction(|| {
+            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
+            for (leg_id, leg_details) in
+                legs.filter(|(_leg_id, leg_details)| portfolios_set.contains(&leg_details.from))
+            {
+                // Receipt for the leg was provided
+                if let Some(receipt) = receipt_details
+                    .iter()
+                    .find(|receipt| receipt.leg_id == leg_id)
+                {
+                    <InstructionLegStatus<T>>::insert(
+                        instruction_id,
+                        leg_id,
+                        LegStatus::ExecutionToBeSkipped(
+                            receipt.signer.clone(),
+                            receipt.receipt_uid,
+                        ),
+                    );
+                } else {
+                    if T::Portfolio::lock_tokens(
+                        &leg_details.from,
+                        &leg_details.asset,
+                        &leg_details.amount,
+                    )
+                    .is_err()
+                    {
+                        // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
+                        return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
+                    }
+                    <InstructionLegStatus<T>>::insert(
+                        instruction_id,
+                        leg_id,
+                        LegStatus::ExecutionPending,
+                    );
+                }
+            }
+            Ok(())
+        })?;
+
+        // Update storage
+        let affirms_pending = Self::instruction_affirms_pending(instruction_id)
+            .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
+        for portfolio in portfolios_set {
+            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAffirmed(
+                did,
+                portfolio,
+                instruction_id,
+            ));
+        }
+
+        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
+        for receipt in &receipt_details {
+            <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
+            Self::deposit_event(RawEvent::ReceiptClaimed(
+                did,
+                instruction_id,
+                receipt.leg_id,
+                receipt.receipt_uid,
+                receipt.signer.clone(),
+            ));
+        }
+
+        // Execute instruction if conditions are met.
+        let execute_instruction_weight = Self::is_instruction_executed(
+            affirms_pending,
+            instruction_details.settlement_type,
+            instruction_id,
+        );
+
+        let execution_result = execute_instruction_weight.map(|info| {
+            info.actual_weight
+                .map(|w| {
+                    w.saturating_add(weight_for::weight_for_affirmation_with_receipts::<T>(
+                        u32::try_from(receipt_details.len()).unwrap_or_default(),
+                    ))
+                })
+                .into()
+        });
+
+        if ignore_execution {
+            return match execution_result {
+                Ok(post_info) => Ok(post_info),
+                Err(e) => Ok(e.post_info),
+            };
+        }
+
+        execution_result
+    }
+
+    pub fn affirm_instruction_internal(
+        origin: T::Origin,
+        instruction_id: u64,
+        portfolios: Vec<PortfolioId>,
+        ignore_execution: bool,
+    ) -> DispatchResultWithPostInfo {
+        let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+
+        // Provide affirmation to the instruction
+        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
+
+        // Execute the instruction if conditions are met
+        let affirms_pending = Self::instruction_affirms_pending(instruction_id);
+        let weight_for_instruction_execution = Self::is_instruction_executed(
+            affirms_pending,
+            Self::instruction_details(instruction_id).settlement_type,
+            instruction_id,
+        );
+
+        let execution_result = weight_for_instruction_execution.map(|info| {
+            info.actual_weight
+                .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
+                .into()
+        });
+
+        if ignore_execution {
+            return match execution_result {
+                Ok(post_info) => Ok(post_info),
+                Err(e) => Ok(e.post_info),
+            };
+        }
+
+        execution_result
     }
 }
