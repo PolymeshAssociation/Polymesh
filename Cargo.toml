@@ -141,7 +141,6 @@ default_identity = [
     "polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
-    "polymesh-runtime-develop/runtime-benchmarks",
     "polymesh-runtime-testnet/runtime-benchmarks"
 ]
 std = [

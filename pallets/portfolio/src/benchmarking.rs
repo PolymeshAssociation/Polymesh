@@ -19,14 +19,10 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
-use polymesh_primitives::{
-    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
-};
-use schnorrkel::Signature;
+use pallet_identity as identity;
+use polymesh_primitives::{IdentityId, InvestorUid, PortfolioName};
 use sp_std::prelude::*;
 
-const SEED: u32 = 0;
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
@@ -35,7 +31,7 @@ fn make_account_without_did<T: Trait>(
     name: &'static str,
     u: u32,
 ) -> (T::AccountId, RawOrigin<T::AccountId>) {
-    let account: T::AccountId = account(name, u, SEED);
+    let account: T::AccountId = account(name, u, 0);
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
     (account, origin)
@@ -47,21 +43,20 @@ fn make_account<T: Trait>(
 ) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
     let (account, origin) = make_account_without_did::<T>(name, u);
     let uid = uid_from_name_and_idx(name, u);
-    let _ = Module::<T>::register_did(origin.clone().into(), uid, vec![]);
-    let did = Module::<T>::get_identity(&account).unwrap();
+    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
+    let did = identity::Module::<T>::get_identity(&account).unwrap();
     (account, origin, did)
 }
 
 benchmarks! {
     _ {}
 
-    register_did {
-        // Number of secondary items.
-        let i in 0 .. 50;
+    create_portfolio {
+        // Length of portfolio name
+        let i in 0 .. 500;
 
-        make_cdd_account::<T>(SEED);
-        let (_, origin) = make_account_without_did::<T>("caller", SEED);
-        let uid = uid_from_name_and_idx("caller", SEED);
-        let secondary_keys = generate_secondary_keys::<T>(i as usize);
-    }: _(origin, uid, secondary_keys)
+        let (_, target_origin, _) = make_account::<T>("target", 0);
+        let portfolio_name = PortfolioName(vec![65u8; i as usize]);
+
+    }: _(target_origin, portfolio_name)
 }
