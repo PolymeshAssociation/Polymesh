@@ -1369,24 +1369,13 @@ impl<T: Trait> Module<T> {
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {
-                                        let result = finalized.decode();
-                                        if result.is_ok() {
-                                            let mut data: &[u8] = &result.unwrap();
-                                            let result = JustifiedTransferTx::decode(&mut data);
-                                            if result.is_ok() {
-                                                result.unwrap()
-                                            } else {
-                                                return Err((
-                                                    leg_id,
-                                                    FailureReason::GetMercatMediatorData,
-                                                ));
-                                            }
-                                        } else {
-                                            return Err((
-                                                leg_id,
-                                                FailureReason::GetMercatMediatorData,
-                                            ));
-                                        }
+                                        finalized.decode()
+                                            .and_then(|d| {
+                                                Ok(JustifiedTransferTx::decode(&mut &d[..]))
+                                            })
+                                            .map_err(|_| {
+                                                (leg_id, FailureReason::GetMercatMediatorData)
+                                            })?
                                     }
                                     _ => {
                                         return Err((
@@ -1394,7 +1383,10 @@ impl<T: Trait> Module<T> {
                                             FailureReason::InsufficientMercatAuthorizations,
                                         ));
                                     }
-                                };
+                                }
+                                .map_err(|_| {
+                                    (leg_id, FailureReason::InsufficientMercatAuthorizations)
+                                })?;
 
                                 // Read the mercat_accounts from the confidential-asset pallet.
                                 let from_mercat_pending_state = Self::get_pending_state(
