@@ -44,6 +44,8 @@ use sp_runtime::traits::{CheckedAdd, CheckedMul};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
+const MAX_TIERS: usize = 10;
+
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
@@ -209,7 +211,7 @@ decl_module! {
             Self::ensure_custody_and_asset(did, offering_portfolio, offering_asset)?;
 
             ensure!(
-                tiers.len() > 0 && tiers.len() <= 10 && tiers.iter().all(|t| t.total > 0.into()),
+                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total > 0.into()),
                 Error::<T>::InvalidPriceTiers
             );
 
