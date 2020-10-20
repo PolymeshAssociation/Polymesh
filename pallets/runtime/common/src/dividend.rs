@@ -51,7 +51,7 @@ use frame_support::{
     traits::UnixTime,
 };
 use frame_system::ensure_signed;
-use pallet_asset::{self as asset, BalanceOf, Trait as AssetTrait};
+use pallet_asset::{self as asset, BalanceOf, DueCheckpointTimestamps, Trait as AssetTrait};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
@@ -150,7 +150,10 @@ decl_module! {
                 } else {
                     let now_as_secs =
                         <T as AssetTrait>::UnixTime::now().as_secs().saturated_into::<u64>();
-                    <asset::Module<T>>::_create_checkpoint(&ticker, now_as_secs)?;
+                    <asset::Module<T>>::_create_checkpoint(&ticker, DueCheckpointTimestamps {
+                        scheduled: now_as_secs,
+                        now: None,
+                    })?;
                     <asset::TotalCheckpoints>::get(&ticker)
                 }
             };
