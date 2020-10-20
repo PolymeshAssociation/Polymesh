@@ -679,17 +679,7 @@ decl_module! {
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let did = Self::ensure_perms_owner(origin, &ticker)?;
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            Self::_create_checkpoint(
-                &ticker,
-                DueCheckpointTimestamps { scheduled: now_as_secs, now: None }
-            )?;
-            Self::deposit_event(RawEvent::CheckpointCreated(
-                did,
-                ticker,
-                Self::total_checkpoints_of(&ticker),
-                now_as_secs
-            ));
-            Ok(())
+            Self::_create_checkpoint_emit(ticker, now_as_secs, did)
         }
 
         /// Creates a checkpoint schedule. Can only be called by the token owner primary or
@@ -1803,6 +1793,18 @@ impl<T: Trait> Module<T> {
             .filter(|pia| *pia == did)
             .or_else(|| Self::is_owner(&ticker, did).then(|| did))
             .ok_or_else(|| Error::<T>::Unauthorized.into())
+    }
+
+    /// Create a checkpoint for `ticker` at `time` with `did` as actor.
+    pub fn _create_checkpoint_emit(ticker: Ticker, time: u64, did: IdentityId) -> DispatchResult {
+        let due_time = DueCheckpointTimestamps {
+            scheduled: time,
+            now: None,
+        };
+        Self::_create_checkpoint(&ticker, due_time)?;
+        let total = Self::total_checkpoints_of(ticker);
+        Self::deposit_event(RawEvent::CheckpointCreated(did, ticker, total, time));
+        Ok(())
     }
 
     /// Creates a checkpoint.
