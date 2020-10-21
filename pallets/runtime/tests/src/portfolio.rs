@@ -50,6 +50,7 @@ fn create_portfolio() -> (Origin, IdentityId, PortfolioNumber) {
     let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let name = PortfolioName::from([42u8].to_vec());
     let num = Portfolio::next_portfolio_number(&owner_did);
+    assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(
         owner_signed.clone(),
         name.clone()
@@ -68,6 +69,10 @@ fn can_create_rename_delete_portfolio() {
             num,
             new_name.clone()
         ));
+        assert_eq!(
+            Portfolio::next_portfolio_number(&owner_did),
+            PortfolioNumber(2)
+        );
         assert_eq!(Portfolio::portfolios(&owner_did, num), new_name);
         assert_ok!(Portfolio::delete_portfolio(owner_signed.clone(), num));
     });
@@ -193,7 +198,7 @@ fn do_move_asset_from_portfolio() {
     assert_err!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
-            &PortfolioId::user_portfolio(owner_did, num + 666),
+            &PortfolioId::user_portfolio(owner_did, PortfolioNumber(666)),
             &ticker,
             &1,
         ),
