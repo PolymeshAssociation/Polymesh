@@ -591,7 +591,14 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-           Self::affirm_instruction_internal(origin, instruction_id, portfolios, true)
+          match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
+                Ok(post_info) => Ok(post_info),
+                Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
+                    Ok(e.post_info)
+                }else {
+                    Err(e)
+                }
+           }
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -666,7 +673,14 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
             ]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-           Self::affirm_with_receipts_internal(origin, instruction_id, receipt_details, portfolios, true)
+           match Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios) {
+                Ok(post_info) => Ok(post_info),
+                Err(e) => if e == Error::<T>::InstructionFailed.into() || e == Error::<T>::UnauthorizedVenue.into() {
+                    Ok(e.post_info)
+                }else {
+                    Err(e)
+                }
+           }
         }
 
         /// Claims a signed receipt.
@@ -1262,12 +1276,11 @@ impl<T: Trait> Module<T> {
         execute_instruction_result
     }
 
-    pub fn affirm_with_receipts_internal(
+    pub fn base_affirm_with_receipts(
         origin: T::Origin,
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        ignore_execution: bool,
     ) -> DispatchResultWithPostInfo {
         let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1399,7 +1412,7 @@ impl<T: Trait> Module<T> {
             instruction_id,
         );
 
-        let execution_result = execute_instruction_weight.map(|info| {
+        execute_instruction_weight.map(|info| {
             info.actual_weight
                 .map(|w| {
                     w.saturating_add(weight_for::weight_for_affirmation_with_receipts::<T>(
@@ -1407,23 +1420,13 @@ impl<T: Trait> Module<T> {
                     ))
                 })
                 .into()
-        });
-
-        if ignore_execution {
-            return match execution_result {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => Ok(e.post_info),
-            };
-        }
-
-        execution_result
+        })
     }
 
-    pub fn affirm_instruction_internal(
+    pub fn base_affirm_instruction(
         origin: T::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
-        ignore_execution: bool,
     ) -> DispatchResultWithPostInfo {
         let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1439,19 +1442,10 @@ impl<T: Trait> Module<T> {
             instruction_id,
         );
 
-        let execution_result = weight_for_instruction_execution.map(|info| {
+        weight_for_instruction_execution.map(|info| {
             info.actual_weight
                 .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
                 .into()
-        });
-
-        if ignore_execution {
-            return match execution_result {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => Ok(e.post_info),
-            };
-        }
-
-        execution_result
+        })
     }
 }
