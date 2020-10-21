@@ -5486,3 +5486,121 @@ fn check_slashing_switch_for_validators_and_nominators() {
             );
         });
 }
+
+
+#[test]
+#[should_panic]
+fn offence_is_blocked_when_slashing_status_is_off() {
+    ExtBuilder::default()
+        .offchain_phragmen_ext()
+        .validator_count(4)
+        .slashing_status(SlashingSwitch::Off)
+        .has_stakers(false)
+        .build()
+        .execute_with(|| {
+            assert_eq!(Staking::slashing_status(), SlashingSwitch::Off);
+
+            let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 10);
+
+            // panic from the impl in mock
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (10, offender_expo.clone()),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(10)],
+            );
+        })
+}
+
+#[test]
+fn check_slashing_for_different_switchs() {
+    ExtBuilder::default()
+        .build_and_execute(|| {
+            mock::start_era(1);
+
+            assert_eq!(Balances::free_balance(11), 1000);
+
+            // Switch to ValidatorAndNominator.
+            assert_ok!(Staking::switch_on_validator_and_nominator_slashing(Origin::from(frame_system::RawOrigin::Root)));
+            assert_eq!(Staking::Slashing_status(), SlashingSwitch::ValidatorAndNominator);
+
+            // Add nominator.
+            
+
+            let exposure = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
+            assert_eq!(Balances::free_balance(101), 2000);
+
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (11, exposure.clone()),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(10)],
+            );
+
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (
+                        21,
+                        Staking::eras_stakers(Staking::active_era().unwrap().index, 21),
+                    ),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(10)],
+            );
+
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (11, exposure.clone()),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(25)],
+            );
+
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (42, exposure.clone()),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(25)],
+            );
+
+            on_offence_now(
+                &[OffenceDetails {
+                    offender: (69, exposure.clone()),
+                    reporters: vec![],
+                }],
+                &[Perbill::from_percent(25)],
+            );
+
+            assert_eq!(mock::Staking::get_unapplied_slashed(&1).len(), 5);
+
+            // fails if list is not sorted
+            assert_noop!(
+                Staking::cancel_deferred_slash(Origin::root(), 1, vec![2, 0, 4]),
+                Error::<Test>::NotSortedAndUnique
+            );
+            // fails if list is not unique
+            assert_noop!(
+                Staking::cancel_deferred_slash(Origin::root(), 1, vec![0, 2, 2]),
+                Error::<Test>::NotSortedAndUnique
+            );
+            // fails if bad index
+            assert_noop!(
+                Staking::cancel_deferred_slash(Origin::root(), 1, vec![1, 2, 3, 4, 5]),
+                Error::<Test>::InvalidSlashIndex
+            );
+
+            assert_ok!(Staking::cancel_deferred_slash(
+                Origin::root(),
+                1,
+                vec![0, 2, 4]
+            ));
+
+            let slashes = mock::Staking::get_unapplied_slashed(&1);
+            assert_eq!(slashes.len(), 2);
+            assert_eq!(slashes[0].validator, 21);
+            assert_eq!(slashes[1].validator, 42);
+        })
+}
