@@ -485,24 +485,6 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// TODO: Need to be removed before mainnet launch.
-// Keeping this to support the `on_runtime_upgrade`.
-/// Commission can be set globally or by validator
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Commission {
-    /// Flag that allow every validator to have individual commission.
-    Individual,
-    /// Every validator has same commission that set globally.
-    Global(Perbill),
-}
-
-impl Default for Commission {
-    fn default() -> Self {
-        Commission::Individual
-    }
-}
-
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
