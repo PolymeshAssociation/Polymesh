@@ -908,6 +908,8 @@ pub trait WeightInfo {
     fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_weaker(v: u32, n: u32) -> Weight;
+    fn switch_on_validator_slashing() -> Weight;
+    fn switch_on_nominator_slashing() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -993,6 +995,12 @@ impl WeightInfo for () {
         1_000_000_000
     }
     fn submit_solution_weaker(_v: u32, _n: u32) -> Weight {
+        1_000_000_000
+    }
+    fn switch_on_validator_slashing() -> Weight {
+        1_000_000_000
+    }
+    fn switch_on_nominator_slashing() -> Weight {
         1_000_000_000
     }
 }
@@ -1121,7 +1129,25 @@ pub enum Forcing {
 
 impl Default for Forcing {
     fn default() -> Self {
-        Forcing::NotForcing
+        Self::NotForcing
+    }
+}
+
+/// Switch that allows changing slashing status.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum SlashingSwitch {
+    /// Switch to change the slashing status for validator/operator.
+    Validator,
+    /// Switch to change the slashing status for Validator & Nominator both.
+    ValidatorAndNominator,
+    /// Neither the validator nor the nominator get slashed.
+    Off,
+}
+
+impl Default for SlashingSwitch {
+    fn default() -> Self {
+        Self::Off
     }
 }
 
@@ -1331,6 +1357,10 @@ decl_storage! {
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
 
+        // Polymesh-Note: Polymesh specific change to provide slashing switch for validators & Nominators.
+        /// It is a one time switch, Once it sets other than `SlashingSwitch::Off` then it can't reset to `SlashingSwitch::Off`.
+        pub SlashingStatus get(fn slashing_status) config(): SlashingSwitch;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1424,6 +1454,10 @@ decl_event!(
         CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// Slashing of validator's stake gets started from the next era.
+        SlashingOfValidatorOn(),
+        /// Slashing of validator's & nominator's stake gets started from the next era.
+        SlashingOfValidatorAndNominatorOn(),
     }
 );
 
@@ -2609,6 +2643,36 @@ decl_module! {
                 is expected."
             );
             Ok(adjustments)
+        }
+
+        /// Start validator slashing from the next era. Only be called by the root.
+        ///
+        /// # Arguments
+        /// * origin - AccountId of root.
+        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        pub fn switch_on_validator_slashing(origin) -> DispatchResult {
+            // Ensure origin should be root.
+            ensure_root(origin)?;
+            // Change the storage by assigning validator slashing status to `true`.
+            SlashingStatus::put(SlashingSwitch::Validator);
+            // Emit event.
+            Self::deposit_event(RawEvent::SlashingOfValidatorOn());
+            Ok(())
+        }
+
+        /// Start validator & nominator slashing from the next era. Only be called by the root.
+        ///
+        /// # Arguments
+        /// * origin - AccountId of root.
+        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        pub fn switch_on_validator_and_nominator_slashing(origin) -> DispatchResult {
+            // Ensure origin should be root.
+            ensure_root(origin)?;
+            // Change the storage by assigning nominator slashing status to `true`.
+            SlashingStatus::put(SlashingSwitch::ValidatorAndNominator);
+            // Emit event.
+            Self::deposit_event(RawEvent::SlashingOfValidatorAndNominatorOn());
+            Ok(())
         }
     }
 }
@@ -3798,7 +3862,8 @@ where
         slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
-        if !Self::can_report() {
+        // No need to run through when Slashing is off.
+        if !Self::can_report() || Self::slashing_status() == SlashingSwitch::Off {
             return Err(());
         }
 
@@ -3840,7 +3905,8 @@ where
             match eras
                 .iter()
                 .rev()
-                .find(|&&(_, ref sesh)| sesh <= &slash_session)
+                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
+                .next()
             {
                 Some(&(ref slash_era, _)) => *slash_era,
                 // before bonding period. defensive - should be filtered out.
@@ -3879,12 +3945,12 @@ where
             });
 
             if let Some(mut unapplied) = unapplied {
-                // `unapplied.others` will always be an empty vector. So skipping consideration of
-                // nominators length (i.e nominators_len).
+                let nominators_len = unapplied.others.len() as u64;
                 let reporters_len = details.reporters.len() as u64;
 
                 {
-                    let rw = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let rw = upper_bound + nominators_len * upper_bound;
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
@@ -3895,8 +3961,8 @@ where
                         let slash_cost = (6, 5);
                         let reward_cost = (2, 2);
                         add_db_reads_writes(
-                            slash_cost.0 + reward_cost.0 * reporters_len,
-                            slash_cost.1 + reward_cost.1 * reporters_len,
+                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
                         );
                     }
                 } else {

@@ -1074,6 +1074,13 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "SlashingSwitch": {
+            "_enum":[
+                "Validator",
+                "ValidatorAndNominator",
+                "Off"
+            ]
         }
     },
     "rpc": {

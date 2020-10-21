@@ -5457,3 +5457,32 @@ fn test_with_multiple_validators_from_entity() {
             assert!(Session::validators().contains(&60));
         });
 }
+
+#[test]
+fn check_slashing_switch_for_validators_and_nominators() {
+    ExtBuilder::default()
+        .slashing_status(SlashingSwitch::Off)
+        .validator_count(5)
+        .build()
+        .execute_with(|| {
+            // check the initial state of the Slashing Switch.
+            assert_eq!(Staking::slashing_status(), SlashingSwitch::Off);
+
+            // change the slashing status for validator.
+            assert_ok!(Staking::switch_on_validator_slashing(Origin::from(
+                frame_system::RawOrigin::Root
+            )));
+
+            assert_eq!(Staking::slashing_status(), SlashingSwitch::Validator);
+
+            // change the slashing status for nominator.
+            assert_ok!(Staking::switch_on_validator_and_nominator_slashing(
+                Origin::from(frame_system::RawOrigin::Root)
+            ));
+
+            assert_eq!(
+                Staking::slashing_status(),
+                SlashingSwitch::ValidatorAndNominator
+            );
+        });
+}
