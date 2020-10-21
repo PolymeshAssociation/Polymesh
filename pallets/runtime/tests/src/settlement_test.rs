@@ -1125,11 +1125,6 @@ fn settle_on_block() {
             ));
 
             assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter]
-            );
-
-            assert_eq!(
                 Settlement::user_affirmations(
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
@@ -1390,11 +1385,6 @@ fn failed_execution() {
                 None,
                 legs.clone()
             ));
-
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter]
-            );
 
             assert_eq!(
                 Settlement::user_affirmations(
@@ -2220,19 +2210,6 @@ fn overload_settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
 
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter, instruction_counter + 2]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1),
-                vec![instruction_counter + 1, instruction_counter + 3]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
-            );
-
             next_block();
             // First Instruction should've settled
             assert_eq!(
@@ -2240,19 +2217,6 @@ fn overload_settle_on_block() {
                 alice_init_balance - 500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 500);
-            assert_eq!(Settlement::scheduled_instructions(block_number).len(), 0);
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1),
-                vec![
-                    instruction_counter + 1,
-                    instruction_counter + 3,
-                    instruction_counter + 2
-                ]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
-            );
 
             next_block();
             // Second instruction should've settled
@@ -2261,18 +2225,6 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1000);
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1).len(),
-                0
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2),
-                vec![instruction_counter + 3, instruction_counter + 2]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3).len(),
-                0
-            );
 
             next_block();
             // Fourth instruction should've settled
@@ -2281,18 +2233,6 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3),
-                vec![instruction_counter + 2]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 4).len(),
-                0
-            );
 
             assert_noop!(
                 Settlement::affirm_instruction(
@@ -2309,18 +2249,6 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3).len(),
-                0
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 4).len(),
-                0
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 5).len(),
-                0
-            );
         });
 }
 

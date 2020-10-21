@@ -101,7 +101,7 @@ impl_outer_dispatch! {
         self::Committee,
         self::DefaultCommittee,
         pallet_scheduler::Scheduler,
-        settlement::Settlement,
+        pallet_settlement::Settlement,
     }
 }
 
@@ -659,6 +659,7 @@ pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
+pub type Settlement = pallet_settlement::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
