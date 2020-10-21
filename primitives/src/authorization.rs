@@ -29,7 +29,6 @@ use sp_std::prelude::*;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
     // TODO: Remove Custom type and move NoData at the start
-
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
@@ -88,7 +87,6 @@ impl<T> AuthorizationData<T> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
     // TODO: Remove Custom type and move NoData at the start
-    
     /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
     /// Authorization to rotate primary key.
