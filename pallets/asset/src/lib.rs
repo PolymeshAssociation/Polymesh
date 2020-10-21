@@ -2040,8 +2040,12 @@ impl<T: Trait> Module<T> {
     }
 
     /// Forces a transfer between two DIDs.
-    pub fn controller_transfer(origin: T::Origin, ticker: Ticker, value: T::Balance, investor_portfolio_id: PortfolioId) ->DispatchResult {
-        
+    pub fn controller_transfer(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: T::Balance,
+        investor_portfolio_id: PortfolioId,
+    ) -> DispatchResult {
         // Ensure we're signed & get did.
         let owner_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
@@ -2050,7 +2054,12 @@ impl<T: Trait> Module<T> {
         ensure!(controller == Ok(owner_did), Error::<T>::Unauthorized);
 
         // transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(investor_portfolio_id, PortfolioId::default_portfolio(owner_did), &ticker, value);
+        Self::unsafe_transfer(
+            investor_portfolio_id,
+            PortfolioId::default_portfolio(owner_did),
+            &ticker,
+            value,
+        );
         Ok(())
     }
 
