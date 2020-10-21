@@ -1074,6 +1074,10 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "PriceTier": {
+            "total": "Balance",
+            "price": "Balance"
         }
     },
     "rpc": {
