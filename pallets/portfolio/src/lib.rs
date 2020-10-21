@@ -441,7 +441,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Makes sure that the `secondary_key` has access to the portfolio.
+    /// Ensure that the `secondary_key` has access to `portfolio`.
     fn ensure_portfolio_perms(
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio: &PortfolioId,
