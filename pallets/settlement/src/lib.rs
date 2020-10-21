@@ -705,7 +705,7 @@ decl_module! {
             // Update the transaction sender's ordering state.
             if let MercatTxData::InitializedTransfer(tx_data) =  &data {
                 let tx = base64::decode(tx_data)
-                    .and_then(|d| Ok(InitializedTransferTx::decode(&mut &d[..])))
+                    .map(|d| InitializedTransferTx::decode(&mut &d[..]))
                     .map_err(|_| Error::<T>::InvalidMercatOrderingState)?;
 
                 if let Ok(init_tx) = tx {
@@ -1370,9 +1370,7 @@ impl<T: Trait> Module<T> {
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {
                                         finalized.decode()
-                                            .and_then(|d| {
-                                                Ok(JustifiedTransferTx::decode(&mut &d[..]))
-                                            })
+                                            .map(|d| JustifiedTransferTx::decode(&mut &d[..]))
                                             .map_err(|_| {
                                                 (leg_id, FailureReason::GetMercatMediatorData)
                                             })?

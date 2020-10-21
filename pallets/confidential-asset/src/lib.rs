@@ -468,7 +468,7 @@ decl_module! {
         pub fn update_account_balance_checkpoint(
             origin,
             account_id: MercatAccountId,
-        ) -> DispatchResult {
+        ) {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
 
@@ -482,8 +482,6 @@ decl_module! {
                 account_id,
                 current_balance
             ));
-
-            Ok(())
         }
     }
 }
