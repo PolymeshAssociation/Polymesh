@@ -650,6 +650,7 @@ impl bridge::Trait for Runtime {
 
 impl portfolio::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
 }
 
 parameter_types! {

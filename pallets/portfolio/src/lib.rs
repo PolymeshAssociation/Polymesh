@@ -49,7 +49,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    IterableStorageDoubleMap,
+    weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -60,7 +60,7 @@ use polymesh_primitives::{
     PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
-use sp_std::{convert::TryFrom, iter, prelude::Vec};
+use sp_std::{iter, prelude::Vec};
 
 type Identity<T> = identity::Module<T>;
 
@@ -73,8 +73,16 @@ pub struct MovePortfolioItem<Balance> {
     pub amount: Balance,
 }
 
+pub trait WeightInfo {
+    fn create_portfolio(i: u32) -> Weight;
+    fn delete_portfolio() -> Weight;
+    fn move_portfolio_funds(i: u32) -> Weight;
+    fn rename_portfolio(i: u32) -> Weight;
+}
+
 pub trait Trait: CommonTrait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -198,7 +206,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a portfolio with the given `name`.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
@@ -224,7 +232,7 @@ decl_module! {
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
@@ -250,7 +258,7 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
-        #[weight = 1_000_000_000 + 10_050_000 * u64::try_from(items.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
             from: PortfolioId,
@@ -310,7 +318,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,

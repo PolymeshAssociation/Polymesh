@@ -5603,6 +5603,7 @@ dependencies = [
  "frame-system",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-timestamp",
 ]
 
