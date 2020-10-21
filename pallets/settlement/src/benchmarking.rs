@@ -97,4 +97,8 @@ benchmarks! {
         let venue_id = create_venue_::<T>("creator", SEED);
         let origin = make_account::<T>("creator", SEED).1;
     }: _(origin, venue_id, Some(venue_details), Some(venue_type))
+
+    add_instruction {
+        
+    }: _(origin, )
 }
