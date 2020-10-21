@@ -18,7 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use pallet_identity::benchmarking::make_account;
 use polymesh_primitives::PortfolioName;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 /// Given a number, this function generates a ticker with
 /// A-Z, least number of characters in Lexicographic order
