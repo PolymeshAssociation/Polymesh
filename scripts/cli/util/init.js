@@ -80,7 +80,7 @@ const createApi = async function () {
   const { types } = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
 
   // Start node instance
-  const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
+  const ws_provider = new reqImports.WsProvider(process.env.WS_PROVIDER || "ws://127.0.0.1:9944/");
   const api = await reqImports.ApiPromise.create({
     types,
     provider: ws_provider,
@@ -196,12 +196,12 @@ const createIdentitiesWithExpiry = async function (
 
   for (let i = 0; i < accounts.length; i++) {
     let account_did = await keyToIdentityIds(api, accounts[i].publicKey);
-   
+
     if(account_did == 0) {
         console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
         const transaction = await api.tx.identity.cddRegisterDid(accounts[i].address, []);
         await sendTx(alice, transaction);
-    } 
+    }
     else {
         console.log('Identity Already Linked.');
     }
@@ -322,7 +322,7 @@ function tickerToDid(ticker) {
 
 // Creates claim compliance for an asset
 async function createClaimCompliance(api, accounts, dids, ticker) {
-  
+
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });

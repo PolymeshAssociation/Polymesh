@@ -56,8 +56,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v9-test-cache-{{ checksum "./rust.version" }}
+            - v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Tests
           command: >-
@@ -81,7 +80,7 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
