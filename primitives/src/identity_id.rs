@@ -185,7 +185,21 @@ impl Printable for IdentityId {
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-pub type PortfolioNumber = u64;
+#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PortfolioNumber(pub u64);
+
+impl Default for PortfolioNumber {
+    fn default() -> Self {
+        Self(1)
+    }
+}
+
+impl From<u64> for PortfolioNumber {
+    fn from(num: u64) -> Self {
+        Self(num)
+    }
+}
 
 /// TBD
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -222,7 +236,7 @@ impl Printable for PortfolioId {
                 sp_io::misc::print_utf8(b"default");
             }
             PortfolioKind::User(num) => {
-                sp_io::misc::print_hex(&num.to_be_bytes());
+                sp_io::misc::print_num(num.0);
             }
         }
     }

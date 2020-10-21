@@ -316,9 +316,7 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait, traits::offchain::OffchainInterface, Context, GC_DID,
-};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
@@ -2612,45 +2610,6 @@ decl_module! {
             );
             Ok(adjustments)
         }
-    }
-}
-
-impl<T: Trait> OffchainInterface<T::AccountId> for Module<T> {
-    /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
-    /// It is recommended to not call this function on-chain. It is a non-deterministic function that is
-    /// suitable for off-chain workers only.
-    fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
-        <Nominators<T>>::iter()
-            .map(|(stash, _n)| (<Identity<T>>::get_identity(&stash), stash))
-            .filter(|(id, _s)| id.is_some())
-            .filter(|(id, _s)| {
-                (<Identity<T>>::fetch_cdd(id.unwrap(), buffer.saturated_into::<T::Moment>()))
-                    .is_none()
-            })
-            .map(|(_id, stash)| stash)
-            .collect::<Vec<T::AccountId>>()
-    }
-
-    /// POLYMESH-NOTE: This is Polymesh specific change.
-    /// Here we are assuming that passed targets are always be a those nominators whose cdd
-    /// claim get expired or going to expire after the `buffer_time`.
-    fn unchecked_remove_expired_cdd_nominators(targets: &Vec<T::AccountId>) -> DispatchResult {
-        // Iterate provided list of accountIds (These accountIds should be stash type account).
-        for target in targets.iter() {
-            // Un-bonding the balance that bonded with the controller account of a Stash account
-            // This unbonded amount only be accessible after completion of the BondingDuration
-            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund.
-
-            let controller = Self::bonded(target).ok_or("not a stash")?;
-            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-            let active_balance = ledger.active;
-            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
-                Self::unbond_balance(controller, &mut ledger, active_balance);
-                // Free the nominator from the valid nominator list
-                <Nominators<T>>::remove(target);
-            }
-        }
-        Ok(())
     }
 }
 

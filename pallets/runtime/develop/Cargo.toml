@@ -17,7 +17,6 @@ polymesh-weights = { path = "../../weights", default-features = false }
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
-pallet-basic-sto = { path = "../../basic-sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
@@ -31,6 +30,7 @@ pallet-permissions = { path = "../../permissions", default-features = false  }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-sto = { path = "../../sto", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
@@ -38,7 +38,6 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
-pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
@@ -118,7 +117,7 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-basic-sto/std",
+    "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
@@ -147,7 +146,6 @@ std = [
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",
-    "pallet-cdd-offchain-worker/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",

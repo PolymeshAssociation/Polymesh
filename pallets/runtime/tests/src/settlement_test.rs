@@ -104,7 +104,7 @@ fn venue_registration() {
                 vec![AccountKeyring::Alice.public(), AccountKeyring::Bob.public()],
                 VenueType::Exchange
             ));
-            let venue_info = Settlement::venue_info(venue_counter);
+            let venue_info = Settlement::venue_info(venue_counter).unwrap();
             assert_eq!(Settlement::venue_counter(), venue_counter + 1);
             assert_eq!(Settlement::user_venues(alice_did), [venue_counter]);
             assert_eq!(venue_info.creator, alice_did);
@@ -143,7 +143,7 @@ fn venue_registration() {
                 Some([0x01].into()),
                 None
             ));
-            let venue_info = Settlement::venue_info(venue_counter);
+            let venue_info = Settlement::venue_info(venue_counter).unwrap();
             assert_eq!(venue_info.creator, alice_did);
             assert_eq!(venue_info.instructions.len(), 0);
             assert_eq!(venue_info.details, [0x01].into());
@@ -423,7 +423,7 @@ fn token_swap() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -738,7 +738,7 @@ fn claiming_receipt() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -1172,7 +1172,7 @@ fn settle_on_block() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -1439,7 +1439,7 @@ fn failed_execution() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-basic-sto"
+name = "pallet-sto"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
@@ -11,6 +11,7 @@ pallet-identity = { path = "../identity", default-features = false  }
 pallet-permissions = { path = "../permissions", default-features = false }
 pallet-settlement = { path = "../settlement", default-features = false  }
 polymesh-common-utilities = { path = "../common", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }

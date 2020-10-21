@@ -229,8 +229,8 @@ mod tests {
     use super::{CalendarPeriod, CalendarUnit, CheckpointSchedule};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
-    fn format_date_time(timestamp: i64) {
-        format!("{}", NaiveDateTime::from_timestamp(timestamp, 0));
+    fn format_date_time(timestamp: i64) -> String {
+        format!("{}", NaiveDateTime::from_timestamp(timestamp, 0))
     }
 
     #[test]
@@ -243,16 +243,29 @@ mod tests {
             start: 60 * 60, // 1:00:00
             period: period_day_seconds,
         };
-        let checkpoint = schedule_day_seconds.next_checkpoint(
+        let checkpoint1 = schedule_day_seconds.next_checkpoint(
+            NaiveDate::from_ymd(1970, 01, 01)
+                .and_time(NaiveTime::from_hms(1, 0, 0))
+                .timestamp() as u64,
+        );
+        assert_eq!(
+            format_date_time(checkpoint1.unwrap() as i64),
+            format_date_time(
+                NaiveDate::from_ymd(1970, 01, 02)
+                    .and_time(NaiveTime::from_hms(1, 0, 0))
+                    .timestamp()
+            )
+        );
+        let checkpoint2 = schedule_day_seconds.next_checkpoint(
             NaiveDate::from_ymd(2020, 12, 12)
                 .and_time(NaiveTime::from_hms(1, 2, 3))
                 .timestamp() as u64,
         );
         assert_eq!(
-            format_date_time(checkpoint.unwrap() as i64),
+            format_date_time(checkpoint2.unwrap() as i64),
             format_date_time(
                 NaiveDate::from_ymd(2020, 12, 13)
-                    .and_time(NaiveTime::from_hms(13, 0, 0))
+                    .and_time(NaiveTime::from_hms(1, 0, 0))
                     .timestamp()
             )
         );
@@ -276,7 +289,7 @@ mod tests {
         assert_eq!(
             format_date_time(checkpoint.unwrap() as i64),
             format_date_time(
-                NaiveDate::from_ymd(1970, 5, 1)
+                NaiveDate::from_ymd(1970, 6, 1)
                     .and_time(NaiveTime::from_hms(0, 0, 0))
                     .timestamp()
             )
@@ -316,7 +329,7 @@ mod tests {
         assert_eq!(
             format_date_time(checkpoint_nonleap_feb.unwrap() as i64),
             format_date_time(
-                NaiveDate::from_ymd(2024, 2, 28)
+                NaiveDate::from_ymd(2025, 2, 28)
                     .and_time(NaiveTime::from_hms(1, 2, 3))
                     .timestamp()
             )

@@ -6,7 +6,6 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
-use pallet_basic_sto as sto;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
@@ -22,6 +21,7 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
+use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
@@ -50,7 +50,6 @@ use frame_support::{
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::EnsureRoot;
-use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -745,29 +744,6 @@ impl PermissionChecker for Runtime {
     type Checker = Identity;
 }
 
-parameter_types! {
-    pub const CoolingInterval: BlockNumber = 3;
-    pub const BufferInterval: BlockNumber = 5;
-    pub const UnsignedPriority: u64 = 2^25;
-}
-
-impl pallet_cdd_offchain_worker::Trait for Runtime {
-    /// SignerId
-    type AuthorityId = CddOffchainWorkerId;
-    /// The overarching event type.
-    type Event = Event;
-    /// The overarching dispatch call type
-    type Call = Call;
-    /// No. of blocks delayed to execute the offchain worker
-    type CoolingInterval = CoolingInterval;
-    /// Buffer given to check the validity of the cdd claim. It is in block numbers.
-    type BufferInterval = BufferInterval;
-    /// A configuration for base priority of unsigned transactions.
-    type UnsignedPriority = UnsignedPriority;
-    /// Staking interface.
-    type StakingInterface = Staking;
-}
-
 impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
@@ -864,7 +840,6 @@ construct_runtime!(
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
-        CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
     }

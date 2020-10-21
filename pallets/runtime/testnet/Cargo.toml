@@ -17,7 +17,7 @@ polymesh-weights = { path = "../../weights", default-features = false }
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
-pallet-basic-sto = { path = "../../basic-sto", default-features = false }
+pallet-sto = { path = "../../sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
@@ -41,7 +41,6 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
-pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
@@ -122,7 +121,7 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-basic-sto/std",
+    "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
@@ -160,7 +159,6 @@ std = [
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
-    "pallet-cdd-offchain-worker/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-api/std",
