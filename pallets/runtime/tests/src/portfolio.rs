@@ -137,15 +137,6 @@ fn do_move_asset_from_portfolio() {
 
     // Attempt to move to a non-existent portfolio.
     assert_err!(
-        Portfolio::move_portfolio_funds(
-            owner_signed.clone(),
-            owner_default_portfolio,
-            PortfolioId::user_portfolio(owner_did, num + 666),
-            vec![MovePortfolioItem { ticker, amount: 1 }]
-        ),
-        Error::PortfolioDoesNotExist
-    );
-    assert_err!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &PortfolioId::user_portfolio(owner_did, num + 666),
