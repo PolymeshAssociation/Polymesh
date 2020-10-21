@@ -195,11 +195,8 @@ decl_storage! {
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for on_runtime_upgrade
-        TransactionVersion get(fn transaction_version): u32;
+        TransactionVersion get(fn transaction_version) config(): u32;
     }
-
-    add_extra_genesis {
-        config(transaction_version): u32;
     }
 }
 
