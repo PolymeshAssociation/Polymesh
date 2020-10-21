@@ -476,7 +476,7 @@ decl_module! {
                 Error::<T>::NotEnoughSigners
             );
 
-            for signer in signers {
+            for signer in &signers {
                 ensure!(<MultiSigSigners<T>>::contains_key(&multisig, &signer), Error::<T>::NotASigner);
             }
 
