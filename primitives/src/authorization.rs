@@ -87,7 +87,9 @@ impl<T> AuthorizationData<T> {
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
-    /// TBD.
+    // TODO: Remove Custom type and move NoData at the start
+    
+    /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
     /// Authorization to rotate primary key.
     RotatePrimaryKey,
