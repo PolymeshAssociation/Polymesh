@@ -194,7 +194,7 @@ decl_storage! {
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
-        /// The last transaction version, used for on_runtime_upgrade
+        /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
     }
     }
