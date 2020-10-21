@@ -82,6 +82,7 @@
 
 use codec::{Decode, Encode, Error as CodecError};
 use core::convert::{From, TryInto};
+use frame_support::storage::unhashed::kill_prefix;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -196,6 +197,10 @@ decl_storage! {
         /// The last transaction version, used for on_runtime_upgrade
         TransactionVersion get(fn transaction_version): u32;
     }
+
+    add_extra_genesis {
+        config(transaction_version): u32;
+    }
 }
 
 decl_module! {
@@ -206,9 +211,24 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::StorageIterator;
             use sp_version::RuntimeVersion;
-            let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+
+            fn kill(item: &[u8]) {
+                use frame_support::{StorageHasher, Twox128};
+                let mut prefix = Vec::new();
+                prefix.extend_from_slice(&Twox128::hash(b"multisig"));
+                prefix.extend_from_slice(&Twox128::hash(item));
+                kill_prefix(&prefix)
+            }
+
+            let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+            if current_version < TransactionVersion::get() {
+                TransactionVersion::set(current_version);
+                kill(b"proposals")
+                kill(b"proposal_detail")
+                kill(b"proposal_ids")
+            }
+
             1_000
         }
 
