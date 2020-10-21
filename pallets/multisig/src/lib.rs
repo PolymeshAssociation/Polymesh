@@ -197,7 +197,6 @@ decl_storage! {
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
     }
-    }
 }
 
 decl_module! {
