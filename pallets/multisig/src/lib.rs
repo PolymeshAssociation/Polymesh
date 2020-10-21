@@ -221,9 +221,9 @@ decl_module! {
             let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             if current_version < TransactionVersion::get() {
                 TransactionVersion::set(current_version);
-                kill(b"proposals")
-                kill(b"proposal_detail")
-                kill(b"proposal_ids")
+               for item in &[b"proposals", b"proposal_detail", b"proposal_ids"] {
+                   kill(*item)
+               }
             }
 
             1_000
