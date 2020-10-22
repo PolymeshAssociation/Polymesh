@@ -477,7 +477,7 @@ decl_module! {
             );
 
             for signer in &signers {
-                ensure!(<MultiSigSigners<T>>::contains_key(&multisig, &signer), Error::<T>::NotASigner);
+                ensure!(<MultiSigSigners<T>>::contains_key(&multisig, signer), Error::<T>::NotASigner);
             }
 
             for signer in signers {

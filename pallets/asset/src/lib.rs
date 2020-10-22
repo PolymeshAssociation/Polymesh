@@ -515,7 +515,7 @@ decl_module! {
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
+            Self::ensure_create_asset_parameters(&ticker, total_supply)?;
 
             // Ensure its registered by DID or at least expired, thus available.
             let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -2263,11 +2263,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(
-        ticker: &Ticker,
-        name: &AssetName,
-        total_supply: T::Balance,
-    ) -> DispatchResult {
+    fn ensure_create_asset_parameters(ticker: &Ticker, total_supply: T::Balance) -> DispatchResult {
         // Ensure that the ticker is new.
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
