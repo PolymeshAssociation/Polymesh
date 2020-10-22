@@ -6,7 +6,6 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
-use pallet_basic_sto as sto;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
@@ -22,6 +21,7 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
+use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
@@ -641,6 +641,7 @@ impl bridge::Trait for Runtime {
 
 impl portfolio::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
 }
 
 parameter_types! {
@@ -1267,6 +1268,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
