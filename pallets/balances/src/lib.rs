@@ -161,8 +161,8 @@
 //!
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
-// TODO: Because of Polymesh custom changes upstream weight calculation get affected to get the right figures
-// need to benchmark the module by keeping custom changes in mind. Specifically CDD check.
+// TODO: Benchmark modified extrinsics. Currently using Substrate values based on non-modified code.
+// Specifically CDD checks should be considered!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
