@@ -79,7 +79,7 @@ pub trait Trait:
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInAInstruction: Get<u32>;
-    /// Scheduler of timelocked bridge transactions.
+    /// Scheduler of settlement instructions.
     type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
