@@ -6,12 +6,15 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize};
+use frame_support::{
+    assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
+};
 use pallet_asset::{self as asset, AssetType};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
+use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, Instruction,
     InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
@@ -42,7 +45,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
-type Scheduler = pallet_scheduler::Module<TestStorage>;
+type Scheduler = scheduler::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -1115,6 +1118,7 @@ fn settle_on_block() {
                 },
             ];
 
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1122,6 +1126,7 @@ fn settle_on_block() {
                 None,
                 legs.clone()
             ));
+            assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
             assert_eq!(
                 Settlement::user_affirmations(
@@ -1377,6 +1382,7 @@ fn failed_execution() {
                 },
             ];
 
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1384,6 +1390,7 @@ fn failed_execution() {
                 None,
                 legs.clone()
             ));
+            assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
             assert_eq!(
                 Settlement::user_affirmations(
@@ -2209,6 +2216,16 @@ fn overload_settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
 
+            assert_eq!(2, scheduler::Agenda::<TestStorage>::get(block_number).len());
+            assert_eq!(
+                2,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
+            );
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
+            );
+
             next_block();
             // First Instruction should've settled
             assert_eq!(
@@ -2216,6 +2233,15 @@ fn overload_settle_on_block() {
                 alice_init_balance - 500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 500);
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
+            assert_eq!(
+                3,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
+            );
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
+            );
 
             next_block();
             // Second instruction should've settled
@@ -2224,6 +2250,15 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1000);
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 1).len());
+            assert_eq!(
+                2,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
+            );
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
+            );
 
             next_block();
             // Fourth instruction should've settled
@@ -2232,6 +2267,15 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 2).len());
+            assert_eq!(
+                1,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
+            );
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
+            );
 
             assert_noop!(
                 Settlement::affirm_instruction(
@@ -2241,6 +2285,7 @@ fn overload_settle_on_block() {
                 ),
                 Error::InstructionSettleBlockPassed
             );
+
             next_block();
             // Third instruction should've settled (Failed due to missing auth)
             assert_eq!(
@@ -2248,6 +2293,15 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 3).len());
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
+            );
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 5).len()
+            );
         });
 }
 
