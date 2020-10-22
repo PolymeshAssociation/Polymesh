@@ -33,13 +33,14 @@ use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_settlement::{
-    self as settlement, weight_for, AuthorizationStatus, Base64Vec, Call as SettlementCall,
-    ConfidentialLeg, Instruction, InstructionStatus, Leg, LegStatus, MercatTxData,
-    NonConfidentialLeg, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueType,
+    self as settlement, weight_for, AuthorizationStatus, Call as SettlementCall, ConfidentialLeg,
+    Instruction, InstructionStatus, Leg, LegStatus, MercatTxData, NonConfidentialLeg, Receipt,
+    ReceiptDetails, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
-    FundingRoundName, IdentityId, PortfolioId, PortfolioName, SecurityToken, Signatory, Ticker,
+    AssetOwnershipRelation, AssetType, AuthorizationData, Base64Vec, Claim, Condition,
+    ConditionType, FundingRoundName, IdentityId, PortfolioId, PortfolioName, SecurityToken,
+    Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
@@ -3417,7 +3418,7 @@ fn basic_confidential_settlement() {
 
             let decoded_initialized_tx = match tx_data {
                 MercatTxData::InitializedTransfer(init) => {
-                    let mut data: &[u8] = &init.decode::<TestStorage>().unwrap();
+                    let mut data: &[u8] = &init.decode().unwrap();
                     InitializedTransferTx::decode(&mut data).unwrap()
                 }
                 _ => {
@@ -3460,7 +3461,7 @@ fn basic_confidential_settlement() {
             let tx_data = tx_data.remove(1);
             let decoded_finalized_tx = match tx_data {
                 MercatTxData::FinalizedTransfer(finalized) => {
-                    let mut data: &[u8] = &finalized.decode::<TestStorage>().unwrap();
+                    let mut data: &[u8] = &finalized.decode().unwrap();
                     FinalizedTransferTx::decode(&mut data).unwrap()
                 }
                 _ => {

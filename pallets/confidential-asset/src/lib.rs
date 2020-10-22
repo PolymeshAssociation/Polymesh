@@ -30,7 +30,9 @@ use cryptography::{
     AssetId,
 };
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::{DispatchResult, DispatchError}, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;

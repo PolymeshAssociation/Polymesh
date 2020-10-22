@@ -31,8 +31,7 @@ pub struct Base64Vec(pub Vec<u8>);
 
 impl Base64Vec {
     pub fn decode(&self) -> Result<Vec<u8>, DecodeBase64Error> {
-        base64::decode(&self.0[..])
-            .map_err(|_| DecodeBase64Error)
+        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error)
     }
 
     pub fn new(inp: Vec<u8>) -> Self {
