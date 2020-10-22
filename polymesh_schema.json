@@ -6,6 +6,7 @@
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
+        "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
