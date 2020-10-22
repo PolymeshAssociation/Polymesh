@@ -44,7 +44,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
     convert::{From, TryFrom},
@@ -184,6 +183,10 @@ decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
 
         /// Contains the mercat accounts for an identity.
+        pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
+            map hasher(twox_64_concat) IdentityId => EncryptionPubKeyWrapper;
+
+        /// Contains the mercat accounts for an identity.
         pub MercatAccounts get(fn mercat_accounts):
             double_map hasher(twox_64_concat) IdentityId,
             hasher(blake2_128_concat) MercatAccountId
@@ -240,6 +243,26 @@ decl_module! {
             <MercatAccountBalance>::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
             Self::deposit_event(RawEvent::AccountCreated(owner_id, account_id, wrapped_enc_balance));
+            Ok(())
+        }
+
+        /// Stores mediator's public key.
+        ///
+        /// # Arguments
+        /// * `public_key` the encryption public key, used during mercat operations.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        #[weight = 1_000_000_000]
+        pub fn add_mediator_mercat_account(origin,
+            public_key: EncryptionPubKeyWrapper,
+        ) -> DispatchResult {
+            let owner_acc = ensure_signed(origin)?;
+            let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+
+            MediatorMercatAccounts::insert(&owner_id, &public_key);
+
+            Self::deposit_event(RawEvent::MediatorAccountCreated(owner_id, public_key));
             Ok(())
         }
 
@@ -417,6 +440,10 @@ impl<T: Trait> Module<T> {
 decl_event! {
     pub enum Event<T> where Balance = <T as CommonTrait>::Balance,
     {
+        /// Event for creation of a Mediator Mercat account.
+        /// caller DID/ owner DID and encryption public key
+        MediatorAccountCreated(IdentityId, EncryptionPubKeyWrapper),
+
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
         AccountCreated(IdentityId, MercatAccountId, EncryptedBalanceWrapper),

@@ -34,7 +34,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use base64;
 use codec::{Decode, Encode};
 use cryptography::mercat::{
     transaction::TransactionValidator, EncryptedAmount, JustifiedTransferTx, PubAccount,

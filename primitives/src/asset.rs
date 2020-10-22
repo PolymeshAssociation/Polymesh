@@ -44,7 +44,7 @@ impl Base64Vec {
 pub struct DecodeBase64Error;
 
 impl From<DecodeBase64Error> for DispatchError {
-    fn from(error: DecodeBase64Error) -> DispatchError {
+    fn from(_: DecodeBase64Error) -> DispatchError {
         DispatchError::Other("Authorization does not exist")
     }
 }
