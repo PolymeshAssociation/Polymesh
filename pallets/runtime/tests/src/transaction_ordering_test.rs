@@ -20,6 +20,7 @@ use cryptography::{
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
+// use frame_support::{assert_err, assert_ok};
 use frame_support::assert_ok;
 use pallet_asset as asset;
 use pallet_balances as balances;
@@ -420,8 +421,12 @@ fn finalize_transaction(
         },
         &mut rng,
     );
+
     if validation_failure_expected {
         assert!(result.is_err());
+        // println!("error: {:#?}", result.unwrap_err());
+        // println!("wat: {:#?}", cryptography::errors::Error::from(cryptography::errors::ErrorKind::CiphertextRefreshmentFinalResponseVerificationError{check: 1}));
+        // assert_err!(result.unwrap_err(), cryptography::errors::Error::from(cryptography::errors::ErrorKind::CiphertextRefreshmentFinalResponseVerificationError{check: 1}));
         return;
     }
 
