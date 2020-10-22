@@ -425,8 +425,8 @@ decl_module! {
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
                                             &asset_mint_proof,
-                                            &Self::mercat_accounts(owner_did, account_id.clone()).to_mercat::<T>()?,
-                                            &Self::mercat_account_balance(owner_did, account_id.clone()).to_mercat::<T>()?,
+                                            &Self::mercat_accounts(owner_did, &account_id).to_mercat::<T>()?,
+                                            &Self::mercat_account_balance(owner_did, &account_id).to_mercat::<T>()?,
                                             &[]
                                         ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
@@ -476,7 +476,7 @@ decl_module! {
 
             // Emit an event and include account's current balance for account owner's information.
             let current_balance =
-                Self::mercat_account_balance(owner_did, account_id.clone());
+                Self::mercat_account_balance(owner_did, &account_id);
             Self::deposit_event(RawEvent::ConfidentialAccountNewCheckpoint(
                 owner_did,
                 account_id,
