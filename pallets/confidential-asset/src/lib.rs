@@ -19,7 +19,6 @@
 //! Polymesh blockchain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use base64;
 use codec::{Decode, Encode};
 use cryptography::{
     mercat::{
@@ -41,7 +40,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, Ticker,
+    AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -54,21 +53,6 @@ use sp_std::{
 pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
-}
-
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
-)]
-pub struct Base64Vec(pub Vec<u8>);
-
-impl Base64Vec {
-    fn decode<T: Trait>(&self) -> Result<Vec<u8>, Error<T>> {
-        base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)
-    }
-
-    fn new(inp: Vec<u8>) -> Self {
-        Self::from(base64::encode(inp))
-    }
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
@@ -326,7 +310,7 @@ decl_module! {
         /// - `TotalSupplyMustBePositive` if total supply is zero.
         /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
         /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
-        /// - `ConfidentialAssetIsInvalid` The ticker is not part of the set of confidential assets.
+        /// - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         ///
         /// # Weight
@@ -363,7 +347,7 @@ decl_module! {
                 Self::confidential_tickers().contains(&AssetId {
                     id: *ticker.as_bytes(),
                 }),
-                Error::<T>::ConfidentialAssetIsInvalid
+                Error::<T>::UnknownConfidentialAsset
             );
 
             if T::NonConfidentialAsset::is_divisible(ticker) {
@@ -449,9 +433,6 @@ decl_error! {
         /// Error during the converting of wrapped data types into mercat data types.
         UnwrapMercatDataError,
 
-        /// Error during the decoding base64 values.
-        DecodeBase64Error,
-
         /// Mercat library has rejected the asset issuance proofs.
         InvalidAccountMintProof,
 
@@ -465,7 +446,7 @@ decl_error! {
         Unauthorized,
 
         /// The provided asset is not among the set of valid asset ids.
-        ConfidentialAssetIsInvalid,
+        UnknownConfidentialAsset,
 
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
         CanSetTotalSupplyOnlyOnce,

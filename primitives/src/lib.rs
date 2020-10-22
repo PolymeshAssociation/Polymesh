@@ -182,7 +182,7 @@ pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 /// Generic asset data types.
 pub mod asset;
 pub use asset::{
-    AssetName, AssetOwnershipRelation, AssetType, FundingRoundName, RestrictionResult,
+    AssetName, AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, RestrictionResult,
     SecurityToken, TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
 };
 

@@ -61,7 +61,7 @@ use polymesh_common_utilities::{
     with_transaction, Context,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{Base64Vec, IdentityId, PortfolioId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
