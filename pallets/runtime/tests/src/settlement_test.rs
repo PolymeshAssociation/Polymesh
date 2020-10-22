@@ -2250,7 +2250,10 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1000);
-            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 1).len());
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
+            );
             assert_eq!(
                 2,
                 scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
@@ -2267,7 +2270,10 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
-            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 2).len());
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
+            );
             assert_eq!(
                 1,
                 scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
@@ -2293,7 +2299,10 @@ fn overload_settle_on_block() {
                 alice_init_balance - 1500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
-            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number + 3).len());
+            assert_eq!(
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
+            );
             assert_eq!(
                 0,
                 scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
