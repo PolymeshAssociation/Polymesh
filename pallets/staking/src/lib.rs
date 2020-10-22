@@ -1559,7 +1559,7 @@ decl_module! {
 
             if StorageVersion::get() == Releases::V4_0_0 {
                 migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
-                    (<Identity<T>>::get_identity(&k).unwrap_or_default(), v)
+                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
                 });
 
                 // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
