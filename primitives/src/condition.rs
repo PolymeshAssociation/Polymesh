@@ -17,7 +17,7 @@ use crate as polymesh_primitives;
 use crate::{
     identity_claim::ClaimOld,
     migrate::{Empty, Migrate},
-    Claim, ClaimType, IdentityId, Ticker,
+    Claim, ClaimType, IdentityId,
 };
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
@@ -51,9 +51,6 @@ pub enum ConditionType {
     IsNoneOf(#[migrate(Claim)] Vec<Claim>),
     /// Condition to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
-    /// Condition to ensure that the target identity has a valid `InvestorUniqueness` claim for the given
-    /// ticker.
-    HasValidProofOfInvestor(Ticker),
 }
 
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
@@ -169,10 +166,6 @@ impl Condition {
             ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
                 claims.len()
             }
-            // NOTE: The complexity of this condition implies the use of cryptography libraries, which
-            // are computational expensive.
-            // So we've added a 10 factor here.
-            ConditionType::HasValidProofOfInvestor(..) => 10,
         };
         (claims_count, self.issuers.len())
     }

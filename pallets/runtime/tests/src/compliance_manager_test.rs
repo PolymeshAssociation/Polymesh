@@ -8,7 +8,7 @@ use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
-    ComplianceRequirementResult, Error as CMError, ImplicitRequirementResult,
+    ComplianceRequirementResult, Error as CMError,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
