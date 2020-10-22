@@ -1081,6 +1081,10 @@
                 "ValidatorAndNominator",
                 "Off"
             ]
+        },
+        "PriceTier": {
+            "total": "Balance",
+            "price": "Balance"
         }
     },
     "rpc": {
