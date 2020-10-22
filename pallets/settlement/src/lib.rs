@@ -89,21 +89,6 @@ pub trait Trait:
     type MaxLegsInAnInstruction: Get<u32>;
 }
 
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
-)]
-pub struct Base64Vec(pub Vec<u8>);
-
-impl Base64Vec {
-    pub fn decode<T: Trait>(&self) -> Result<Vec<u8>, Error<T>> {
-        base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)
-    }
-
-    pub fn new(inp: Vec<u8>) -> Self {
-        Self::from(base64::encode(inp))
-    }
-}
-
 /// The wrapper for confidential transfer data which includes proofs and other related info from mercat library.
 /// Since the values of this type are received as input from user and they are binary data, the `Vec<u8>` will
 /// be a base64 encoded value.
@@ -1337,7 +1322,7 @@ impl<T: Trait> Module<T> {
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {
-                                        let result = finalized.decode::<T>();
+                                        let result = finalized.decode();
                                         if result.is_ok() {
                                             let mut data: &[u8] = &result.unwrap();
                                             let result = JustifiedTransferTx::decode(&mut data);

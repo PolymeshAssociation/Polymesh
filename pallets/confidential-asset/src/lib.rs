@@ -30,7 +30,7 @@ use cryptography::{
     AssetId,
 };
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::{DispatchResult, DispatchError}, ensure,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
@@ -67,9 +67,9 @@ impl From<EncryptionPubKey> for EncryptionPubKeyWrapper {
 
 impl EncryptionPubKeyWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, DispatchError> {
         let mut data: &[u8] = &self.0.decode()?;
-        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -88,9 +88,9 @@ impl From<EncryptedAssetId> for EncryptedAssetIdWrapper {
 
 impl EncryptedAssetIdWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, DispatchError> {
         let mut data: &[u8] = &self.0.decode()?;
-        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -113,9 +113,9 @@ impl From<EncryptedAmount> for EncryptedBalanceWrapper {
 
 impl EncryptedBalanceWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, DispatchError> {
         let mut data: &[u8] = &self.0.decode()?;
-        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -130,10 +130,10 @@ pub struct MercatAccount {
 
 impl MercatAccount {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, DispatchError> {
         Ok(PubAccount {
-            enc_asset_id: self.encrypted_asset_id.to_mercat()?,
-            owner_enc_pub_key: self.encryption_pub_key.to_mercat()?,
+            enc_asset_id: self.encrypted_asset_id.to_mercat::<T>()?,
+            owner_enc_pub_key: self.encryption_pub_key.to_mercat::<T>()?,
         })
     }
 }
@@ -151,9 +151,9 @@ impl From<PubAccountTx> for PubAccountTxWrapper {
 
 impl PubAccountTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, DispatchError> {
         let mut data: &[u8] = &self.0.decode()?;
-        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -170,9 +170,9 @@ impl From<InitializedAssetTx> for InitializedAssetTxWrapper {
 
 impl InitializedAssetTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, DispatchError> {
         let mut data: &[u8] = &self.0.decode()?;
-        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
