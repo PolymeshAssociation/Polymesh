@@ -485,8 +485,7 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// TODO: Need to be removed before mainnet launch.
-// Keeping this to support the `on_runtime_upgrade`.
+// TODO: Remove before mainnet - only used for storage upgrade
 /// Commission can be set globally or by validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

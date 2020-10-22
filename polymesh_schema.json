@@ -859,12 +859,14 @@
                 "AttestPrimaryKeyRotation": "",
                 "RotatePrimaryKey": "",
                 "TransferTicker": "",
+                "TransferPrimaryIssuanceAgent": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
                 "PortfolioCustody": "",
                 "Custom": "",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": ""
             }
         },
         "ProposalDetails": {

@@ -515,7 +515,7 @@ decl_module! {
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
+            Self::ensure_create_asset_parameters(&ticker, total_supply)?;
 
             // Ensure its registered by DID or at least expired, thus available.
             let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -2134,7 +2134,7 @@ impl<T: Trait> Module<T> {
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
         let (res, _gas_spent) =
-            Self::call_extension(extension_caller, dest, 0.into(), GAS_LIMIT, encoded_data);
+            Self::call_extension(extension_caller, dest, GAS_LIMIT, encoded_data);
         if let Ok(is_allowed) = res {
             if is_allowed.is_success() {
                 if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
@@ -2156,11 +2156,9 @@ impl<T: Trait> Module<T> {
     pub fn call_extension(
         from: T::AccountId,
         dest: T::AccountId,
-        _value: T::Balance,
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> (ExecResult, Gas) {
-        // TODO: Fix the value conversion into Currency
         <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data)
     }
 
@@ -2265,11 +2263,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(
-        ticker: &Ticker,
-        name: &AssetName,
-        total_supply: T::Balance,
-    ) -> DispatchResult {
+    fn ensure_create_asset_parameters(ticker: &Ticker, total_supply: T::Balance) -> DispatchResult {
         // Ensure that the ticker is new.
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
@@ -2281,9 +2275,6 @@ impl<T: Trait> Module<T> {
             ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
             Error::<T>::TickerTooLong
         );
-        // Check the name length.
-        // TODO: Limit the maximum size of a name.
-        ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
         // Limit the total supply.
         ensure!(
             total_supply <= MAX_SUPPLY.into(),
