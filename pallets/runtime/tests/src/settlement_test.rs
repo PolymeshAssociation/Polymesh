@@ -5,7 +5,8 @@ use super::{
     },
     ExtBuilder,
 };
-
+use codec::Encode;
+use frame_support::{assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize};
 use pallet_asset::{self as asset, AssetType};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -20,10 +21,6 @@ use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
     Signatory, Ticker,
 };
-
-use codec::Encode;
-use frame_support::dispatch::GetDispatchInfo;
-use frame_support::{assert_noop, assert_ok};
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
@@ -45,6 +42,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -86,6 +84,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
 fn next_block() {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
+    let _ = Scheduler::on_initialize(block_number);
 }
 
 #[test]
