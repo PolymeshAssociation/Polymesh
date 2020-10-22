@@ -2053,12 +2053,9 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
         investor_portfolio_id: PortfolioId,
     ) -> DispatchResult {
-        // Ensure we're signed & get did.
-        let owner_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-        // Ensure that the sender is the PIA or the token owner and returns the PIA address.
-        let controller = Self::ensure_pia_or_owner(&ticker, owner_did);
-        ensure!(controller == Ok(owner_did), Error::<T>::Unauthorized);
+        // Ensure that `origin` is the PIA or the token owner.
+        let owner = Identity::<T>::ensure_perms(origin)?;
+        Self::ensure_pia_or_owner(&ticker, owner)?;
 
         // transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(
