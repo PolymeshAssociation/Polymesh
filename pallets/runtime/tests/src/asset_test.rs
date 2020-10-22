@@ -33,7 +33,7 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CalendarUnit, CheckpointSchedule, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
+    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
     IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
@@ -949,20 +949,20 @@ fn adding_removing_documents() {
         ));
 
         let documents = vec![
-            (
-                b"A".into(),
-                Document {
-                    uri: b"www.a.com".into(),
-                    content_hash: b"0x1".into(),
-                },
-            ),
-            (
-                b"B".into(),
-                Document {
-                    uri: b"www.b.com".into(),
-                    content_hash: b"0x2".into(),
-                },
-            ),
+            Document {
+                name: b"A".into(),
+                uri: b"www.a.com".into(),
+                content_hash: b"0x1".into(),
+                doc_type: Some(b"foo".into()),
+                filing_date: Some(42),
+            },
+            Document {
+                name: b"B".into(),
+                uri: b"www.b.com".into(),
+                content_hash: b"0x2".into(),
+                doc_type: None,
+                filing_date: None,
+            },
         ];
 
         assert_ok!(Asset::add_documents(
@@ -971,18 +971,12 @@ fn adding_removing_documents() {
             ticker
         ));
 
-        assert_eq!(
-            Asset::asset_documents(ticker, DocumentName::from(b"A")),
-            documents[0].1
-        );
-        assert_eq!(
-            Asset::asset_documents(ticker, DocumentName::from(b"B")),
-            documents[1].1
-        );
+        assert_eq!(Asset::asset_documents(ticker, DocumentId(0)), documents[0]);
+        assert_eq!(Asset::asset_documents(ticker, DocumentId(1)), documents[1]);
 
         assert_ok!(Asset::remove_documents(
             owner_signed.clone(),
-            vec![b"A".into(), b"B".into()],
+            (0..=1).map(DocumentId).collect(),
             ticker
         ));
 

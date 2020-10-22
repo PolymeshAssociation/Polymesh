@@ -214,7 +214,7 @@ pub use smart_extension::{
 };
 
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
+pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
