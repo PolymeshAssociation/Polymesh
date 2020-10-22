@@ -571,9 +571,9 @@ impl<T: Trait> Module<T> {
         primary_issuance_agent: Option<IdentityId>,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
-        // To do this, we use `Either<Either<MatchArm1, MatchArm2>, Either<MatchArm3, MatchArm4>>`,
-        // equivalent to a 4-variant enum with iterators in each variant corresponding to the branches below.
-        // For example, `Left(Left(arm1))` and `Right(Left(arm3))` correspond to arms 1 and 3 respectively.
+        // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
+        // equivalent to a 3-variant enum with iterators in each variant corresponding to the branches below.
+        // `Left(Left(arm1))`, `Left(Right(arm2))` and `Right(arm3)` correspond to arms 1, 2 and 3 respectively.
         use either::Either::{Left, Right};
 
         let claims = match &condition.condition_type {

@@ -424,7 +424,7 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity",
+                "IsIdentity": "TargetIdentity"
             }
         },
         "TrustedFor": {
