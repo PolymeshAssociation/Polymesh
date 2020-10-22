@@ -4440,6 +4440,7 @@ dependencies = [
 name = "pallet-portfolio"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
@@ -5470,13 +5471,10 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
- "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
- "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
- "hex-literal 0.3.1",
  "lazy_static",
  "node-rpc-runtime-api",
  "pallet-asset",
@@ -5624,6 +5622,7 @@ dependencies = [
  "frame-system",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-timestamp",
 ]
 

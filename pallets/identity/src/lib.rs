@@ -261,7 +261,7 @@ decl_module! {
             use polymesh_primitives::{
                 identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map_keys, Empty},
+                migrate::{migrate_map,  migrate_double_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
@@ -275,12 +275,13 @@ decl_module! {
             });
 
             // Covert old scopes to new scopes
-            migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
+            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
                 b"Identity", b"Claims",
-                |k1: Claim1stKey, k2: Claim2ndKeyOld| (
+                |k1: Claim1stKey, k2: Claim2ndKeyOld, val: IdentityClaim| Some((
                     k1,
-                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) }
-                )
+                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) },
+                    val
+                ))
             );
 
             migrate_map::<LinkedKeyInfo, _>(
@@ -2021,9 +2022,6 @@ impl<T: Trait> Module<T> {
     }
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
-    ///
-    /// TODO: `Context::current_identity_or` fails for origins that do not have an identity. Hence
-    /// secondary keys without an identity are not functional.
     pub fn ensure_origin_call_permissions(
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
