@@ -5487,7 +5487,6 @@ fn check_slashing_switch_for_validators_and_nominators() {
         });
 }
 
-
 #[test]
 #[should_panic]
 fn offence_is_blocked_when_slashing_status_is_off() {
@@ -5515,92 +5514,53 @@ fn offence_is_blocked_when_slashing_status_is_off() {
 
 #[test]
 fn check_slashing_for_different_switchs() {
-    ExtBuilder::default()
-        .build_and_execute(|| {
-            mock::start_era(1);
+    ExtBuilder::default().build_and_execute(|| {
+        mock::start_era(1);
 
-            assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(21), 2000);
 
-            // Switch to ValidatorAndNominator.
-            assert_ok!(Staking::switch_on_validator_and_nominator_slashing(Origin::from(frame_system::RawOrigin::Root)));
-            assert_eq!(Staking::Slashing_status(), SlashingSwitch::ValidatorAndNominator);
+        // Switch to ValidatorAndNominator.
+        assert_ok!(Staking::switch_on_validator_and_nominator_slashing(
+            Origin::from(frame_system::RawOrigin::Root)
+        ));
+        assert_eq!(
+            Staking::slashing_status(),
+            SlashingSwitch::ValidatorAndNominator
+        );
 
-            // Add nominator.
-            
+        // Add nominator.
+        // add a new candidate for being a nominator. account 3 controlled by 4.
+        bond_nominator_with_expiry(3, 2000, 99999999, vec![11, 21]);
+        add_secondary_key(4, 3);
 
-            let exposure = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
-            assert_eq!(Balances::free_balance(101), 2000);
+        mock::start_era(2);
 
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (11, exposure.clone()),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(10)],
-            );
+        let exposure = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
+        assert_eq!(Balances::free_balance(101), 2000);
 
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (
-                        21,
-                        Staking::eras_stakers(Staking::active_era().unwrap().index, 21),
-                    ),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(10)],
-            );
+        on_offence_now(
+            &[OffenceDetails {
+                offender: (11, exposure.clone()),
+                reporters: vec![],
+            }],
+            &[Perbill::from_percent(10)],
+        );
 
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (11, exposure.clone()),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(25)],
-            );
+        on_offence_now(
+            &[OffenceDetails {
+                offender: (
+                    21,
+                    Staking::eras_stakers(Staking::active_era().unwrap().index, 21),
+                ),
+                reporters: vec![],
+            }],
+            &[Perbill::from_percent(10)],
+        );
 
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (42, exposure.clone()),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(25)],
-            );
+        assert_eq!(Balances::free_balance(11), 900);
+        assert_eq!(Balances::free_balance(4), 1800);
 
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (69, exposure.clone()),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(25)],
-            );
-
-            assert_eq!(mock::Staking::get_unapplied_slashed(&1).len(), 5);
-
-            // fails if list is not sorted
-            assert_noop!(
-                Staking::cancel_deferred_slash(Origin::root(), 1, vec![2, 0, 4]),
-                Error::<Test>::NotSortedAndUnique
-            );
-            // fails if list is not unique
-            assert_noop!(
-                Staking::cancel_deferred_slash(Origin::root(), 1, vec![0, 2, 2]),
-                Error::<Test>::NotSortedAndUnique
-            );
-            // fails if bad index
-            assert_noop!(
-                Staking::cancel_deferred_slash(Origin::root(), 1, vec![1, 2, 3, 4, 5]),
-                Error::<Test>::InvalidSlashIndex
-            );
-
-            assert_ok!(Staking::cancel_deferred_slash(
-                Origin::root(),
-                1,
-                vec![0, 2, 4]
-            ));
-
-            let slashes = mock::Staking::get_unapplied_slashed(&1);
-            assert_eq!(slashes.len(), 2);
-            assert_eq!(slashes[0].validator, 21);
-            assert_eq!(slashes[1].validator, 42);
-        })
+        assert_eq!(Balances::free_balance(21), 1900);
+    })
 }
