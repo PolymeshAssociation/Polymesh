@@ -28,6 +28,7 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
+    // TODO: Remove Custom type and move NoData at the start
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
@@ -50,7 +51,6 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to take custody of a portfolio
     PortfolioCustody(PortfolioId),
     /// Any other authorization
-    /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
     NoData,
@@ -86,7 +86,8 @@ impl<T> AuthorizationData<T> {
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
-    /// TBD.
+    // TODO: Remove Custom type and move NoData at the start
+    /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
     /// Authorization to rotate primary key.
     RotatePrimaryKey,

@@ -482,6 +482,7 @@ impl protocol_fee::Trait for TestStorage {
 
 impl portfolio::Trait for TestStorage {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
 }
 
 parameter_types! {

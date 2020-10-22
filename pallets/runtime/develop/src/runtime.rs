@@ -640,6 +640,7 @@ impl bridge::Trait for Runtime {
 
 impl portfolio::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
 }
 
 parameter_types! {
@@ -1266,6 +1267,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
