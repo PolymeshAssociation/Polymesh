@@ -710,8 +710,8 @@ decl_module! {
 
                 if let Ok(init_tx) = tx {
                     // Temporarily store the current pending state as this instruction's pending state.
-                    <ConfidentialAsset<T>>::set_tx_pending_state(&did, &init_tx.memo.sndr_account_id, instruction_id)?;
-                    <ConfidentialAsset<T>>::add_pending_outgoing_balance(&did, &init_tx.memo.sndr_account_id, init_tx.memo.enc_amount_using_sndr)?;
+                    <ConfidentialAsset<T>>::set_tx_pending_state(&did, &init_tx.memo.sender_account_id, instruction_id)?;
+                    <ConfidentialAsset<T>>::add_pending_outgoing_balance(&did, &init_tx.memo.sender_account_id, init_tx.memo.enc_amount_using_sender)?;
                 }
             }
             MercatTxDataStorage::append(instruction_id, data);
@@ -1213,7 +1213,7 @@ impl<T: Trait> Module<T> {
                                         <ConfidentialAsset<T>>::add_failed_outgoing_balance(
                                             &leg.from.did,
                                             &leg.from_account_id,
-                                            init_tx.memo.enc_amount_using_sndr,
+                                            init_tx.memo.enc_amount_using_sender,
                                         )?;
                                     }
                                 }
@@ -1368,13 +1368,12 @@ impl<T: Trait> Module<T> {
 
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
-                                    MercatTxData::JustifiedTransfer(finalized) => {
-                                        finalized.decode()
-                                            .map(|d| JustifiedTransferTx::decode(&mut &d[..]))
-                                            .map_err(|_| {
-                                                (leg_id, FailureReason::GetMercatMediatorData)
-                                            })?
-                                    }
+                                    MercatTxData::JustifiedTransfer(finalized) => finalized
+                                        .decode()
+                                        .map(|d| JustifiedTransferTx::decode(&mut &d[..]))
+                                        .map_err(|_| {
+                                            (leg_id, FailureReason::GetMercatMediatorData)
+                                        })?,
                                     _ => {
                                         return Err((
                                             leg_id,
@@ -1395,7 +1394,7 @@ impl<T: Trait> Module<T> {
                                 .map_err(|_| (leg_id, FailureReason::ConfidentialTransfer))?;
 
                                 // Get receiver's current balance.
-                                let (to_mercat, to_mercat_balance) =
+                                let (to_mercat, _) =
                                     Self::get_account_and_balance(&leg.to.did, &leg.to_account_id)
                                         .map_err(|_| (leg_id, FailureReason::GetMercatAccount))?;
 
@@ -1408,13 +1407,12 @@ impl<T: Trait> Module<T> {
 
                                 // Verify the proofs.
                                 let mut rng = rng::Rng::default();
-                                let _result = TransactionValidator {}
+                                let _result = TransactionValidator
                                     .verify_transaction(
                                         &decoded_justified_tx,
                                         &from_mercat,
                                         &from_mercat_pending_state,
                                         &to_mercat,
-                                        &to_mercat_balance, // If the only reason we need this is updating balance, we should remove it.
                                         &[],
                                         &mut rng,
                                     )
@@ -1428,7 +1426,7 @@ impl<T: Trait> Module<T> {
                                                     .finalized_data
                                                     .init_data
                                                     .memo
-                                                    .enc_amount_using_sndr,
+                                                    .enc_amount_using_sender,
                                             )
                                             .map_err(|_| (leg_id, FailureReason::GetMercatAccount));
 
@@ -1440,7 +1438,7 @@ impl<T: Trait> Module<T> {
                                                     .finalized_data
                                                     .init_data
                                                     .memo
-                                                    .enc_amount_using_rcvr,
+                                                    .enc_amount_using_receiver,
                                             )
                                             .map_err(|_| (leg_id, FailureReason::GetMercatAccount));
 
@@ -1462,7 +1460,7 @@ impl<T: Trait> Module<T> {
                                                     .finalized_data
                                                     .init_data
                                                     .memo
-                                                    .enc_amount_using_sndr,
+                                                    .enc_amount_using_sender,
                                             );
                                         (leg_id, FailureReason::ConfidentialTransferValidation)
                                     });

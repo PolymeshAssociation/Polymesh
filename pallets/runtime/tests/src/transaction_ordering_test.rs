@@ -75,7 +75,6 @@ struct MediatorCredentials {
 /// Creates a mercat account and returns its secret part (to be stored in the wallet) and
 /// the account creation proofs (to be submitted to the chain).
 pub fn gen_account(
-    tx_id: u32,
     mut rng: &mut StdRng,
     token_name: &[u8],
     valid_asset_ids: Vec<AssetId>,
@@ -85,8 +84,8 @@ pub fn gen_account(
     let elg_secret = ElgamalSecretKey::new(Scalar::random(&mut rng));
     let elg_pub = elg_secret.get_public_key();
     let enc_keys = EncryptionKeys {
-        pblc: elg_pub.into(),
-        scrt: elg_secret.into(),
+        public: elg_pub.into(),
+        secret: elg_secret.into(),
     };
 
     let asset_id = AssetId {
@@ -102,8 +101,8 @@ pub fn gen_account(
         asset_id_witness,
     };
     let valid_asset_ids = convert_asset_ids(valid_asset_ids);
-    let mercat_account_tx = AccountCreator {}
-        .create(tx_id, &secret_account, &valid_asset_ids, &mut rng)
+    let mercat_account_tx = AccountCreator
+        .create(&secret_account, &valid_asset_ids, &mut rng)
         .unwrap();
 
     (secret_account, mercat_account_tx)
@@ -113,15 +112,13 @@ pub fn gen_account(
 /// It then return the secret part of the account, the account id, the public portion of the account and the initial
 /// encrypted balance of zero.
 pub fn init_account(
-    tx_id: u32,
     mut rng: &mut StdRng,
     token_name: &[u8],
     owner: Public,
     did: IdentityId,
 ) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
-    let (secret_account, mercat_account_tx) =
-        gen_account(tx_id, &mut rng, token_name, valid_asset_ids);
+    let (secret_account, mercat_account_tx) = gen_account(&mut rng, token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
@@ -142,22 +139,15 @@ pub fn init_account(
 }
 
 /// Performs mercat account creation, validation, and minting of the account with `total_supply` tokens.
-/// It returns the next transaction id, the secret portion of the account, the account id, the public portion of the account,
+/// It returns the the secret portion of the account, the account id, the public portion of the account,
 /// and the encrypted balance of `total_supply`.
 pub fn create_account_and_mint_token(
     owner: Public,
     owner_did: IdentityId,
     total_supply: u128,
     token_name: Vec<u8>,
-    tx_id: u32,
     mut rng: &mut StdRng,
-) -> (
-    u32,
-    SecAccount,
-    MercatAccountId,
-    PubAccount,
-    EncryptedAmount,
-) {
+) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
     let funding_round_name: FundingRoundName = b"round1".into();
 
     let token = SecurityToken {
@@ -188,8 +178,7 @@ pub fn create_account_and_mint_token(
 
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
 
-    let (secret_account, mercat_account_tx) =
-        gen_account(tx_id, &mut rng, &token_name, valid_asset_ids);
+    let (secret_account, mercat_account_tx) = gen_account(&mut rng, &token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
@@ -199,13 +188,12 @@ pub fn create_account_and_mint_token(
     // Computations that will happen in owner's Wallet.
     let amount: u32 = token.total_supply.try_into().unwrap();
     let issuer_account = Account {
-        scrt: secret_account.clone(),
-        pblc: mercat_account_tx.pub_account.clone(),
+        secret: secret_account.clone(),
+        public: mercat_account_tx.pub_account.clone(),
     };
 
-    let tx_id = tx_id + 1;
-    let initialized_asset_tx = AssetIssuer {}
-        .initialize_asset_transaction(tx_id, &issuer_account, &[], amount, &mut rng)
+    let initialized_asset_tx = AssetIssuer
+        .initialize_asset_transaction(&issuer_account, &[], amount, &mut rng)
         .unwrap();
 
     // Wallet submits the transaction to the chain for verification.
@@ -236,7 +224,6 @@ pub fn create_account_and_mint_token(
     let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
 
     (
-        tx_id,
         secret_account,
         account_id.clone(),
         ConfidentialAsset::mercat_accounts(owner_did, account_id.clone())
@@ -255,7 +242,6 @@ fn initialize_transaction(
     receiver_secret_account: SecAccount,
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
-    tx_id: u32,
     amount: u32,
 ) -> (u64, EncryptedAmount, EncryptedAmount) {
     // The rest of rngs are built from it.
@@ -289,13 +275,11 @@ fn initialize_transaction(
 
     // Sender authorizes.
     // Sender computes the proofs in the wallet.
-    let tx_id = tx_id + 1;
-    let sender_data = CtxSender {}
+    let sender_data = CtxSender
         .create_transaction(
-            tx_id,
             &Account {
-                pblc: sender_creds.public_account.clone(),
-                scrt: sender_secret_account.clone(),
+                public: sender_creds.public_account.clone(),
+                secret: sender_secret_account.clone(),
             },
             &sender_pending_balance,
             &receiver_creds.public_account,
@@ -331,19 +315,18 @@ fn initialize_transaction(
             panic!("Unexpected data type");
         }
     };
-    let sender_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_sndr;
-    let receiver_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_rcvr;
+    let sender_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_sender;
+    let receiver_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_receiver;
 
     // Receiver computes the proofs in the wallet.
     let finalized_tx = MercatTxData::FinalizedTransfer(
         base64::encode(
-            CtxReceiver {}
+            CtxReceiver
                 .finalize_transaction(
-                    tx_id,
                     decoded_initialized_tx,
                     Account {
-                        pblc: receiver_creds.public_account.clone(),
-                        scrt: receiver_secret_account.clone(),
+                        public: receiver_creds.public_account.clone(),
+                        secret: receiver_secret_account.clone(),
                     },
                     amount,
                     &mut rng,
@@ -409,7 +392,7 @@ fn finalize_transaction(
     .to_mercat::<TestStorage>()
     .unwrap();
 
-    let result = CtxMediator {}.justify_transaction(
+    let result = CtxMediator.justify_transaction(
         decoded_finalized_tx.clone(),
         &mediator_secret_account.enc_keys,
         &sender_creds.public_account,
@@ -486,7 +469,6 @@ fn chain_set_up(
 
     // Create an account for Alice and mint `total_supply` tokens to ACME.
     let (
-        tx_id,
         alice_secret_account,
         alice_account_id,
         alice_public_account,
@@ -496,7 +478,6 @@ fn chain_set_up(
         alice_did,
         total_supply,
         token_name.to_vec(),
-        0,
         &mut rng,
     );
 
@@ -508,9 +489,8 @@ fn chain_set_up(
     };
 
     // Create an account for Charlie.
-    let tx_id = tx_id + 1;
     let (charlie_secret_account, _, charlie_public_account, _) =
-        init_account(tx_id, &mut rng, token_name, charlie, charlie_did);
+        init_account(&mut rng, token_name, charlie, charlie_did);
     let charlie_creds = MediatorCredentials {
         mediator_key: AccountKeyring::Charlie,
         mediator_did: charlie_did,
@@ -528,7 +508,6 @@ fn chain_set_up(
 }
 
 fn create_investor_account(
-    tx_id: u32,
     key: AccountKeyring,
 ) -> (SecAccount, AccountCredentials, EncryptedAmount) {
     let mut rng = StdRng::from_seed([10u8; 32]);
@@ -537,7 +516,7 @@ fn create_investor_account(
     let did = register_keyring_account(key).unwrap();
 
     let (secret_account, account_id, public_account, init_balance) =
-        init_account(tx_id, &mut rng, token_name, key.public(), did);
+        init_account(&mut rng, token_name, key.public(), did);
 
     let creds = AccountCredentials {
         key: key,
@@ -570,9 +549,8 @@ fn settle_out_of_order() {
             ) = chain_set_up(10u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
-                create_investor_account(2u32, AccountKeyring::Bob);
+                create_investor_account(AccountKeyring::Bob);
 
-            let tx_id = 1000u32;
             // tx_id:1000 => Alice sends 5 assets to Bob.
             // tx_id:1001 => Alice sends 3 assets to Bob.
             //            => Charlie (the mediator) approves tx_id:1001 first.
@@ -585,12 +563,10 @@ fn settle_out_of_order() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     5,
                 );
 
             let alice_init_balance2 = alice_init_balance - alice_sent_amount_1000;
-            let tx_id = tx_id + 1;
             let (instruction_counter1001, alice_sent_amount_1001, bob_received_amount_1001) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -599,7 +575,6 @@ fn settle_out_of_order() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     3,
                 );
 
@@ -650,12 +625,11 @@ fn double_spending_fails() {
             ) = chain_set_up(10u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
-                create_investor_account(2u32, AccountKeyring::Bob);
+                create_investor_account(AccountKeyring::Bob);
 
             let (dave_secret_account, dave_creds, dave_init_balance) =
-                create_investor_account(3u32, AccountKeyring::Dave);
+                create_investor_account(AccountKeyring::Dave);
 
-            let tx_id = 1000u32;
             // Alice has 10 assets.
             // tx_id:1000 => Alice sends 5 assets to Bob.
             // tx_id:1001 => Alice sends 10 assets to Dave.
@@ -669,11 +643,9 @@ fn double_spending_fails() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     5,
                 );
 
-            let tx_id = tx_id + 1;
             let (instruction_counter1001, alice_sent_amount_1001, dave_received_amount_1001) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -685,7 +657,6 @@ fn double_spending_fails() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id,
                     10,
                 );
 
@@ -736,11 +707,10 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account,
             ) = chain_set_up(90u128);
 
-            let (bob_secret_account, bob_creds, _) =
-                create_investor_account(2u32, AccountKeyring::Bob);
+            let (bob_secret_account, bob_creds, _) = create_investor_account(AccountKeyring::Bob);
 
             let (dave_secret_account, dave_creds, dave_init_balance) =
-                create_investor_account(3u32, AccountKeyring::Dave);
+                create_investor_account(AccountKeyring::Dave);
 
             // Alice, the token issuer, sends 10 tokens to Dave so he has something in his account.
             let (instruction_counter999, alice_sent_amount_999, dave_received_amount_999) =
@@ -751,7 +721,6 @@ fn mercat_whitepaper_scenario1() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    1u32, // tx_id.
                     10,
                 );
             finalize_transaction(
@@ -772,7 +741,6 @@ fn mercat_whitepaper_scenario1() {
             let dave_init_balance = dave_init_balance + dave_received_amount_999;
             let alice_init_balance = alice_init_balance - alice_sent_amount_999;
 
-            let tx_id = 1000u32;
             // tx_id:1000 => Alice sends 10 assets to Bob.
             // tx_id:1001 => Alice receives 8 tokens from Dave.
             // tx_id:1002 => Alice sends 14 tokens to Dave.
@@ -787,12 +755,10 @@ fn mercat_whitepaper_scenario1() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     10,
                 );
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
-            let tx_id = tx_id + 1;
             let (instruction_counter1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     dave_secret_account.clone(),
@@ -801,11 +767,9 @@ fn mercat_whitepaper_scenario1() {
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     8,
                 );
 
-            let tx_id = tx_id + 1;
             let (instruction_counter1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -814,7 +778,6 @@ fn mercat_whitepaper_scenario1() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     14,
                 );
 
@@ -873,10 +836,10 @@ fn mercat_whitepaper_scenario2() {
             ) = chain_set_up(90u128);
 
             let (bob_secret_account, bob_creds, bob_init_balance) =
-                create_investor_account(2u32, AccountKeyring::Bob);
+                create_investor_account(AccountKeyring::Bob);
 
             let (dave_secret_account, dave_creds, dave_init_balance) =
-                create_investor_account(3u32, AccountKeyring::Dave);
+                create_investor_account(AccountKeyring::Dave);
 
             // Alice, the token issuer, sends 10 tokens to Dave so he has something in his account.
             let (instruction_counter999, alice_sent_amount_999, dave_received_amount_999) =
@@ -887,7 +850,6 @@ fn mercat_whitepaper_scenario2() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    1u32, // tx_id.
                     10,
                 );
             finalize_transaction(
@@ -908,7 +870,6 @@ fn mercat_whitepaper_scenario2() {
             let dave_init_balance = dave_init_balance + dave_received_amount_999;
             let alice_init_balance = alice_init_balance - alice_sent_amount_999;
 
-            let tx_id = 1000u32;
             // tx_id:1000 => Alice sends 10 assets to Bob.
             // tx_id:1001 => Alice receives 8 tokens from Dave.
             // tx_id:1002 => Alice sends 14 tokens to Dave.
@@ -926,12 +887,10 @@ fn mercat_whitepaper_scenario2() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     10,
                 );
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
-            let tx_id = tx_id + 1;
             let (instruction_counter1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     dave_secret_account.clone(),
@@ -940,11 +899,9 @@ fn mercat_whitepaper_scenario2() {
                     alice_secret_account.clone(),
                     alice_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     8,
                 );
 
-            let tx_id = tx_id + 1;
             let (instruction_counter1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -953,7 +910,6 @@ fn mercat_whitepaper_scenario2() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     14,
                 );
             let alice_pending_balance = alice_pending_balance - alice_sent_amount_1002;
@@ -990,7 +946,6 @@ fn mercat_whitepaper_scenario2() {
             );
 
             // tx_id:1003 => Alice sends 19 assets to Bob.
-            let tx_id = tx_id + 1;
             let (instruction_counter1003, alice_sent_amount_1003, bob_received_amount_1003) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -999,7 +954,6 @@ fn mercat_whitepaper_scenario2() {
                     bob_secret_account.clone(),
                     bob_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     19,
                 );
 
@@ -1019,7 +973,6 @@ fn mercat_whitepaper_scenario2() {
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1003;
 
             // tx_id:1004 => Alice sends 55 assets to Dave.
-            let tx_id = tx_id + 1;
             let (instruction_counter1004, alice_sent_amount_1004, dave_received_amount_1004) =
                 initialize_transaction(
                     alice_secret_account.clone(),
@@ -1028,7 +981,6 @@ fn mercat_whitepaper_scenario2() {
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
-                    tx_id.clone(),
                     55,
                 );
 

@@ -52,7 +52,6 @@ fn create_confidential_token(token_name: &[u8], ticker: Ticker, keyring: Public)
 }
 
 fn gen_account(
-    tx_id: u32,
     seed: [u8; 32],
     token_name: &[u8],
     valid_asset_ids: Vec<AssetId>,
@@ -63,8 +62,8 @@ fn gen_account(
     let elg_secret = ElgamalSecretKey::new(Scalar::random(&mut rng));
     let elg_pub = elg_secret.get_public_key();
     let enc_keys = EncryptionKeys {
-        pblc: elg_pub.into(),
-        scrt: elg_secret.into(),
+        public: elg_pub.into(),
+        secret: elg_secret.into(),
     };
 
     let asset_id = AssetId {
@@ -76,8 +75,8 @@ fn gen_account(
         asset_id_witness,
     };
     let valid_asset_ids = convert_asset_ids(valid_asset_ids);
-    let mercat_account_tx = AccountCreator {}
-        .create(tx_id, &secret_account, &valid_asset_ids, &mut rng)
+    let mercat_account_tx = AccountCreator
+        .create(&secret_account, &valid_asset_ids, &mut rng)
         .unwrap();
 
     (secret_account, mercat_account_tx)
@@ -277,8 +276,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
 
-        let (scrt_account, mercat_account_tx) = gen_account(
-            0,          // Transaction id. Not important in this test.
+        let (secret_account, mercat_account_tx) = gen_account(
             [10u8; 32], // seed
             &token_names[1][..],
             valid_asset_ids,
@@ -294,18 +292,12 @@ fn issuers_can_create_and_mint_tokens() {
         let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
         let mut rng = StdRng::from_seed([42u8; 32]);
         let issuer_account = Account {
-            scrt: scrt_account.clone(),
-            pblc: mercat_account_tx.pub_account.clone(),
+            secret: secret_account.clone(),
+            public: mercat_account_tx.pub_account.clone(),
         };
 
-        let initialized_asset_tx = AssetIssuer {}
-            .initialize_asset_transaction(
-                1, // Transaction id. Not important in this test.
-                &issuer_account,
-                &[],
-                amount,
-                &mut rng,
-            )
+        let initialized_asset_tx = AssetIssuer
+            .initialize_asset_transaction(&issuer_account, &[], amount, &mut rng)
             .unwrap();
 
         // ------------- END: Computations that will happen in the Wallet ----------
@@ -349,7 +341,11 @@ fn issuers_can_create_and_mint_tokens() {
         let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id)
             .to_mercat::<TestStorage>()
             .unwrap();
-        let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+        let stored_balance = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&stored_balance)
+            .unwrap();
 
         assert_eq!(stored_balance, amount);
     })
@@ -375,12 +371,8 @@ fn account_create_tx() {
         let alice = AccountKeyring::Alice.public();
         let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
 
-        let (scrt_account, mercat_account_tx) = gen_account(
-            0, // Transaction id. Not used in this test.
-            [10u8; 32],
-            &token_names[1][..],
-            valid_asset_ids,
-        );
+        let (secret_account, mercat_account_tx) =
+            gen_account([10u8; 32], &token_names[1][..], valid_asset_ids);
         // ------------- END: Computations that will happen in the Wallet ----------
 
         // Wallet submits the transaction to the chain for verification.
@@ -409,7 +401,11 @@ fn account_create_tx() {
         let stored_balance = ConfidentialAsset::mercat_account_balance(alice_id, account_id)
             .to_mercat::<TestStorage>()
             .unwrap();
-        let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+        let stored_balance = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&stored_balance)
+            .unwrap();
         assert_eq!(stored_balance, 0);
     });
 }

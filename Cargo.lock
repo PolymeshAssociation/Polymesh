@@ -1120,7 +1120,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#26099bbd103fb5529f739b6717006b015f143eea"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups#a7b7efe9a22dfce5ee4befc785c9f030affac713"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1138,7 +1138,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.8.2",
- "sp-std 2.0.0-rc6",
+ "sp-std 2.0.0",
  "zeroize",
 ]
 
@@ -4230,7 +4230,7 @@ name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
  "bulletproofs",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",
@@ -4256,7 +4256,7 @@ name = "pallet-confidential-asset"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
  "curve25519-dalek 2.1.0",
  "frame-benchmarking",
  "frame-support",
@@ -4681,7 +4681,7 @@ name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
@@ -5386,7 +5386,7 @@ version = "2.0.0"
 dependencies = [
  "base64 0.12.3",
  "blake2",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",
@@ -5602,7 +5602,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.12.3",
  "chrono",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
  "curve25519-dalek 2.1.0",
  "env_logger",
  "frame-benchmarking",
@@ -8177,6 +8177,11 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 name = "sp-std"
 version = "2.0.0-rc6"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
+
+[[package]]
+name = "sp-std"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 
 [[package]]
 name = "sp-storage"
