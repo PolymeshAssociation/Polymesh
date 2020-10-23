@@ -34,7 +34,7 @@ impl InvestorUid {
 impl From<[u8; 32]> for InvestorUid {
     /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
     fn from(mut s: [u8; 32]) -> Self {
-        s[31] &= 0b0111_1111;
+        //s[31] &= 0b0111_1111;
         Self(s)
     }
 }

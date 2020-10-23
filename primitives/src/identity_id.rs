@@ -99,11 +99,11 @@ impl sp_std::fmt::Debug for IdentityId {
 
 impl From<u128> for IdentityId {
     fn from(id: u128) -> Self {
-        let encoded_id: [u8; 16] = id.to_le_bytes();
-        let mut did = [0; UUID_LEN];
-        did[16..].copy_from_slice(&encoded_id);
-
-        IdentityId::from_bytes(did)
+        let mut encoded_id = id.encode();
+        encoded_id.resize(32, 0);
+        let mut did = [0; 32];
+        did.copy_from_slice(&encoded_id);
+        IdentityId(did)
     }
 }
 
@@ -157,7 +157,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 impl IdentityId {
     /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
     pub const fn from_bytes(mut s: [u8; UUID_LEN]) -> Self {
-        s[UUID_LEN - 1] &= 0b0111_1111;
+        //s[UUID_LEN - 1] &= 0b0111_1111;
         IdentityId(s)
     }
 }
