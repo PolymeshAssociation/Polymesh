@@ -281,7 +281,7 @@ decl_module! {
                 identity_claim::IdentityClaimOld,
                 migrate::{migrate_map, migrate_double_map_keys}
             };
-            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+            migrate_map::<IdentityClaimOld, _>(b"identity", b"Claims", |raw_key| {
                 Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
                     .ok()
                     .map(|k1| (*k1.target.as_fixed_bytes()).into())
@@ -289,7 +289,7 @@ decl_module! {
 
             // Covert old scopes to new scopes
             migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
-                b"Identity", b"Claims",
+                b"identity", b"Claims",
                 |k1: Claim1stKey, k2: Claim2ndKeyOld| (
                     k1,
                     Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) }
