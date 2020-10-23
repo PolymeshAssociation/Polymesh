@@ -302,7 +302,7 @@ use frame_support::{
     storage::IterableStorageMap,
     traits::{
         Currency, EnsureOrigin, EstimateNextNewSession, Get, Imbalance, LockIdentifier,
-        LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+        LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons, schedule::Anon
     },
     weights::{
         constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
@@ -1042,7 +1042,7 @@ pub trait Trait:
     type SlashDeferDuration: Get<EraIndex>;
 
     /// The origin which can cancel a deferred slash. Root can always do this.
-    type SlashCancelOrigin: EnsureOrigin<Self::Origin>;
+    type SlashCancelOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Interface for interacting with a session module.
     type SessionInterface: self::SessionInterface<Self::AccountId>;
@@ -1064,7 +1064,7 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+    type Call: Dispatchable<Origin=Self::Origin> + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -1103,6 +1103,12 @@ pub trait Trait:
 
     /// Required origin for changing the history depth.
     type RequiredChangeHistoryDepthOrigin: EnsureOrigin<Self::Origin>;
+
+    /// To schedule the rewards for the stakers after the end of era.
+    type RewardScheduler: Anon<Self::BlockNumber, <Self as Trait>::Call, Self::PalletsOrigin>;
+
+    /// Overarching type of all pallets origins.
+	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 /// Mode of era-forcing.
@@ -1346,8 +1352,9 @@ decl_storage! {
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
+                let controller_origin = <Module<T>>::get_origin(controller.clone());
                 let _ = <Module<T>>::bond(
-                    T::Origin::from(Some(stash.clone()).into()),
+                    <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
@@ -1358,7 +1365,7 @@ decl_storage! {
                         // Setting the cap value here.
                         prefs.commission = config.validator_commission_cap;
                         <Module<T>>::validate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
                         if !<Module<T>>::permissioned_identity(&did) {
@@ -1370,7 +1377,7 @@ decl_storage! {
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin,
                             votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
                         )
                     }, _ => Ok(())
@@ -1513,7 +1520,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         /// Number of sessions per era.
         const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -2614,6 +2621,11 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the `T::Origin` for given target AccountId.
+    fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
+        <T as frame_system::Trait>::Origin::from(Some(target).into())
+    }
+
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
         // Weight note: consider making the stake accessible through stash.
@@ -3167,6 +3179,10 @@ impl<T: Trait> Module<T> {
                 era_duration.saturated_into::<u64>(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
+
+            // Schedule Rewards for the validators
+            // 1. Get the No. of validators from the session pallet.
+            let validators = <pallet_session::Module<T>>::validators();
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,
