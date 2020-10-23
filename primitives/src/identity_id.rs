@@ -258,7 +258,7 @@ mod tests {
         println!("Print the un-serialize value: {:?}", identity);
         let serialize = serde_json::to_string(&identity).unwrap();
         let serialize_data =
-            "\"0x00000000000000000000000000000000e7030000000000000000000000000000\"";
+            "\"0xe703000000000000000000000000000000000000000000000000000000000000\"";
         println!("Print the serialize data {:?}", serialize);
         assert_eq!(serialize_data, serialize);
         let deserialize = serde_json::from_str::<IdentityId>(&serialize).unwrap();
@@ -309,5 +309,4 @@ mod tests {
             "DID is not valid UTF-8"
         );
     }
-
 }
