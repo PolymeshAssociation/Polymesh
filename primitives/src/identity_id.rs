@@ -310,24 +310,4 @@ mod tests {
         );
     }
 
-    /// This test double check that value is < 255bit, in order to support direct transformation
-    /// to/from Scalar.
-    #[test]
-    fn scalar_direct_transformation() {
-        let mut raw_did = [0u8; 32];
-        raw_did[31] = 0xF0;
-
-        // From<[u8,32]>
-        let did = IdentityId::from(raw_did.clone());
-        assert_eq!(did.as_fixed_bytes()[31], 0x70);
-
-        // From<&[u8]>
-        let did = IdentityId::try_from(&raw_did[..]).expect("Invalid raw DID");
-        assert_eq!(did.as_fixed_bytes()[31], 0x70);
-
-        // From<&str>
-        let str_did = "did:poly:00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF";
-        let did = IdentityId::try_from(str_did).expect("Invalid string DID");
-        assert_eq!(did.as_fixed_bytes()[31], 0x7F);
-    }
 }
