@@ -99,11 +99,11 @@ impl sp_std::fmt::Debug for IdentityId {
 
 impl From<u128> for IdentityId {
     fn from(id: u128) -> Self {
-        let encoded_id: [u8; 16] = id.to_le_bytes();
-        let mut did = [0; UUID_LEN];
-        did[16..].copy_from_slice(&encoded_id);
-
-        IdentityId::from_bytes(did)
+        let mut encoded_id = id.encode();
+        encoded_id.resize(32, 0);
+        let mut did = [0; 32];
+        did.copy_from_slice(&encoded_id);
+        IdentityId(did)
     }
 }
 
@@ -157,7 +157,7 @@ impl From<[u8; UUID_LEN]> for IdentityId {
 impl IdentityId {
     /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
     pub const fn from_bytes(mut s: [u8; UUID_LEN]) -> Self {
-        s[UUID_LEN - 1] &= 0b0111_1111;
+        //s[UUID_LEN - 1] &= 0b0111_1111;
         IdentityId(s)
     }
 }
@@ -258,7 +258,7 @@ mod tests {
         println!("Print the un-serialize value: {:?}", identity);
         let serialize = serde_json::to_string(&identity).unwrap();
         let serialize_data =
-            "\"0x00000000000000000000000000000000e7030000000000000000000000000000\"";
+            "\"0xe703000000000000000000000000000000000000000000000000000000000000\"";
         println!("Print the serialize data {:?}", serialize);
         assert_eq!(serialize_data, serialize);
         let deserialize = serde_json::from_str::<IdentityId>(&serialize).unwrap();
@@ -308,26 +308,5 @@ mod tests {
             IdentityId::try_from(non_utf8.as_slice()),
             "DID is not valid UTF-8"
         );
-    }
-
-    /// This test double check that value is < 255bit, in order to support direct transformation
-    /// to/from Scalar.
-    #[test]
-    fn scalar_direct_transformation() {
-        let mut raw_did = [0u8; 32];
-        raw_did[31] = 0xF0;
-
-        // From<[u8,32]>
-        let did = IdentityId::from(raw_did.clone());
-        assert_eq!(did.as_fixed_bytes()[31], 0x70);
-
-        // From<&[u8]>
-        let did = IdentityId::try_from(&raw_did[..]).expect("Invalid raw DID");
-        assert_eq!(did.as_fixed_bytes()[31], 0x70);
-
-        // From<&str>
-        let str_did = "did:poly:00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF";
-        let did = IdentityId::try_from(str_did).expect("Invalid string DID");
-        assert_eq!(did.as_fixed_bytes()[31], 0x7F);
     }
 }
