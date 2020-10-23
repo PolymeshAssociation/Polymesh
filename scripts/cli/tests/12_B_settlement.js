@@ -153,48 +153,19 @@ async function addGroupInstruction(
   amount
 ) {
   let instructionCounter = await api.query.settlement.instructionCounter();
-  let leg = {
-    from: group[1],
-    to: group[0],
-    asset: ticker2,
-    amount: amount,
+  let makeLeg = function(i) {
+    let leg = {
+      NonConfidentialLeg: {
+        from: group[0],
+        to: group[i],
+        asset: ticker,
+        amount: amount,
+      }
+    };
+    leg
   };
-
-  let leg2 = {
-    from: group[0],
-    to: group[1],
-    asset: ticker,
-    amount: amount,
-  };
-
-  let leg3 = {
-    from: group[0],
-    to: group[2],
-    asset: ticker,
-    amount: amount,
-  };
-
-  let leg4 = {
-    from: group[0],
-    to: group[3],
-    asset: ticker,
-    amount: amount,
-  };
-
-  let leg5 = {
-    from: group[0],
-    to: group[4],
-    asset: ticker,
-    amount: amount,
-  };
-
-  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, [
-    leg,
-    leg2,
-    leg3,
-    leg4,
-    leg5,
-  ]);
+  let legs = [0, 1, 2, 3, 4].map(makeLeg);
+  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, legs);
 
   let tx = await reqImports.sendTx(sender, transaction);
   if (tx !== -1) reqImports.fail_count--;

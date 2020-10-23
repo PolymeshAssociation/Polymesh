@@ -124,10 +124,12 @@ async function addInstruction(
   let instructionCounter = await api.query.settlement.instructionCounter();
 
   let leg = {
-    from: getDefaultPortfolio(sender_did),
-    to: getDefaultPortfolio(receiver_did),
-    asset: ticker,
-    amount: amount,
+    NonConfidentialLeg: {
+      from: getDefaultPortfolio(sender_did),
+      to: getDefaultPortfolio(receiver_did),
+      asset: ticker,
+      amount: amount,
+    }
   };
 
     transaction = await api.tx.settlement.addInstruction(
