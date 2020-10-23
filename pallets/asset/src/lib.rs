@@ -2060,10 +2060,10 @@ impl<T: Trait> Module<T> {
         // transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(
             investor_portfolio_id,
-            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::default_portfolio(owner),
             &ticker,
             value,
-        );
+        )?;
         Ok(())
     }
 
