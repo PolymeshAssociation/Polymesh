@@ -153,18 +153,24 @@ async function addGroupInstruction(
   amount
 ) {
   let instructionCounter = await api.query.settlement.instructionCounter();
-  let makeLeg = function(i) {
+  let makeLeg = function ([from, to]) {
     let leg = {
       NonConfidentialLeg: {
-        from: group[0],
-        to: group[i],
+        from: group[from],
+        to: group[to],
         asset: ticker,
         amount: amount,
-      }
+      },
     };
-    leg
+    return leg;
   };
-  let legs = [0, 1, 2, 3, 4].map(makeLeg);
+  let legs = [
+    [0, 1],
+    [1, 0],
+    [0, 2],
+    [0, 3],
+    [0, 4],
+  ].map(makeLeg);
   transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, legs);
 
   let tx = await reqImports.sendTx(sender, transaction);
