@@ -878,6 +878,19 @@ pub mod weight {
             .saturating_sub(T::DbWeight::get().reads(compact.edge_count() as Weight))
             .saturating_add(T::DbWeight::get().reads(winners.len() as Weight))
     }
+
+    /// Weight of `payout_stakers()` & `payout_stakers_by_system()` dispatch.
+    pub fn weight_for_payout_stakers<T: Trait>() -> Weight {
+        ((120 * WEIGHT_PER_MICROS
+            + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
+            + T::DbWeight::get().reads(7)
+            + T::DbWeight::get().reads(5)
+                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+            + T::DbWeight::get().writes(3)
+                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1))
+            * 25)
+            / 100
+    }
 }
 
 pub trait WeightInfo {
@@ -1435,6 +1448,8 @@ decl_event!(
         CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// When scheduling of reward payments get interrupted.
+        RewardPaymentSchedulingInterrupted(AccountId, EraIndex, DispatchError),
     }
 );
 
@@ -2397,17 +2412,10 @@ decl_module! {
         /// - Read Each: Bonded, Ledger, Payee, Locks, System Account (5 items)
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
-        #[weight =
-            ((120 * WEIGHT_PER_MICROS
-            + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
-            + T::DbWeight::get().reads(7)
-            + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)) * 25) / 100
-        ]
+        #[weight = weight::weight_for_payout_stakers::<T>()]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
-            // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
-            ensure_root(origin)?;
+            ensure_signed(origin)?;
             Self::do_payout_stakers(validator_stash, era)
         }
 
@@ -2621,6 +2629,16 @@ decl_module! {
                 is expected."
             );
             Ok(adjustments)
+        }
+
+        /// System version of `payout_stakers()`. Only be called by the root origin.
+        /// It is used for scheduling the rewards after the end of an era.
+        #[weight = weight::weight_for_payout_stakers::<T>()]
+        pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
+            ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+            // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
+            ensure_root(origin)?;
+            Self::do_payout_stakers(validator_stash, era)
         }
     }
 }
@@ -3194,19 +3212,22 @@ impl<T: Trait> Module<T> {
                     None,
                     HIGHEST_PRIORITY,
                     RawOrigin::Root.into(),
-                    Call::<T>::payout_stakers(validator_id.clone(), active_era.index).into()
+                    Call::<T>::payout_stakers_by_system(validator_id.clone(), active_era.index).into()
                 ) {
                     Ok(_) => log!(
                         info,
                         "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
-                        validator_id,
+                        &validator_id,
                         schedule_block_no,
                     ),
-                    Err(e) => log!(
-                        error,
-                        "💸 Detected error in scheduling the reward payment: {:?}",
-                        e
-                    )
+                    Err(e) => {
+                        log!(
+                            error,
+                            "💸 Detected error in scheduling the reward payment: {:?}",
+                            e
+                        );
+                        Self::deposit_event(RawEvent::RewardPaymentSchedulingInterrupted(validator_id, active_era.index, e));
+                    }
                 }
             }
 

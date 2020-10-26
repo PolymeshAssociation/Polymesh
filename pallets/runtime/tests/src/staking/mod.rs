@@ -5458,7 +5458,6 @@ fn test_with_multiple_validators_from_entity() {
         });
 }
 
-
 #[test]
 fn test_reward_scheduling() {
     ExtBuilder::default()
@@ -5467,6 +5466,6 @@ fn test_reward_scheduling() {
         .execute_with(|| {
             start_era(1);
 
-            // 
+            //
         });
 }
