@@ -79,7 +79,7 @@ pub struct StoredSchedule {
     /// The ID of the schedule itself.
     /// Not to be confused for a checkpoint's ID.
     pub id: ScheduleId,
-    /// When the checkpoint is next due to be created.
+    /// When the next checkpoint is due to be created.
     /// Used as a cache for more efficient sorting.
     pub at: Moment,
 }
