@@ -485,8 +485,7 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// TODO: Need to be removed before mainnet launch.
-// Keeping this to support the `on_runtime_upgrade`.
+// TODO: Remove before mainnet - only used for storage upgrade
 /// Commission can be set globally or by validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -1129,8 +1128,8 @@ impl Default for Forcing {
     }
 }
 
-/// Switch used to change the `victim` for slashing. Victims can be
-/// `Validator`, Validator and nominator both or none.
+/// Switch used to change the "victim" for slashing. Victims can be
+/// validators, both validators and nominators, or no-one.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SlashingSwitch {
@@ -1588,7 +1587,7 @@ decl_module! {
 
             if StorageVersion::get() == Releases::V4_0_0 {
                 migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
-                    (<Identity<T>>::get_identity(&k).unwrap_or_default(), v)
+                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
                 });
 
                 // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.

@@ -169,7 +169,6 @@ fn general_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
                 versions: vec![
@@ -179,7 +178,6 @@ fn general_testnet_genesis(
                 ],
                 // Always use the first id, whomever that may be.
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
             })
@@ -552,7 +550,6 @@ fn alcyone_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
                 versions: vec![
@@ -560,9 +557,7 @@ fn alcyone_testnet_genesis(
                     (SmartExtensionType::Offerings, 5000),
                     (SmartExtensionType::SmartWallet, 5000),
                 ],
-                // TODO(product_team): Assign to a real person.
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
             })

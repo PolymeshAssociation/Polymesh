@@ -476,9 +476,11 @@ decl_module! {
                 Error::<T>::NotEnoughSigners
             );
 
+            for signer in &signers {
+                ensure!(<MultiSigSigners<T>>::contains_key(&multisig, signer), Error::<T>::NotASigner);
+            }
+
             for signer in signers {
-                //TODO - this allows failure part way through an extrinsic - should either skip, or fail early
-                ensure!(<MultiSigSigners<T>>::contains_key(&multisig, &signer), Error::<T>::NotASigner);
                 Self::unsafe_signer_removal(multisig.clone(), signer);
             }
 
