@@ -347,7 +347,6 @@ decl_storage! {
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
-        // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
         /// AccountId of the multisig creator.
         config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -415,7 +414,7 @@ decl_module! {
                     }
                 });
 
-            // TODO: compute an appropriate weight taking into account the size of the drained map.
+            // No need to calculate correct weight for testnet
             0
         }
 
