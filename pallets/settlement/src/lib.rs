@@ -34,7 +34,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use base64;
 use codec::{Decode, Encode};
 use cryptography::mercat::{
     transaction::TransactionValidator, EncryptedAmount, JustifiedTransferTx, PubAccount,
@@ -61,7 +60,7 @@ use polymesh_common_utilities::{
     with_transaction, Context,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{Base64Vec, IdentityId, PortfolioId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
@@ -95,11 +94,11 @@ pub trait Trait:
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum MercatTxData {
     // The buyer (i.e., the sender), will submit this.
-    InitializedTransfer(Vec<u8>),
+    InitializedTransfer(Base64Vec),
     // The seller (i.e., the receiver) will submit this.
-    FinalizedTransfer(Vec<u8>),
+    FinalizedTransfer(Base64Vec),
     // The exchange (i.e., the mediator) will submit this.
-    JustifiedTransfer(Vec<u8>),
+    JustifiedTransfer(Base64Vec),
 }
 
 /// A wrapper for VenueDetails.
@@ -425,6 +424,8 @@ decl_event!(
 decl_error! {
     /// Errors for the Settlement module.
     pub enum Error for Module<T: Trait> {
+        /// Error during the decoding base64 values.
+        DecodeBase64Error,
         /// We only support one confidential transfer per instruction at the moment.
         MoreThanOneConfidentialLeg,
         /// Certain transfer modes are not yet supported in confidential modes.
@@ -1320,7 +1321,7 @@ impl<T: Trait> Module<T> {
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {
-                                        let result = base64::decode(&finalized);
+                                        let result = finalized.decode();
                                         if result.is_ok() {
                                             let mut data: &[u8] = &result.unwrap();
                                             let result = JustifiedTransferTx::decode(&mut data);

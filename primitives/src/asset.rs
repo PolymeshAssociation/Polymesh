@@ -16,11 +16,38 @@
 #![allow(missing_docs)]
 
 use crate::IdentityId;
+use base64;
 use codec::{Decode, Encode};
+use frame_support::dispatch::DispatchError;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
+
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
+)]
+pub struct Base64Vec(pub Vec<u8>);
+
+impl Base64Vec {
+    pub fn decode(&self) -> Result<Vec<u8>, DecodeBase64Error> {
+        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error)
+    }
+
+    pub fn new(inp: Vec<u8>) -> Self {
+        Self::from(base64::encode(inp))
+    }
+}
+
+/// Status of an Authorization after consume is called on it.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct DecodeBase64Error;
+
+impl From<DecodeBase64Error> for DispatchError {
+    fn from(_: DecodeBase64Error) -> DispatchError {
+        DispatchError::Other("Authorization does not exist")
+    }
+}
 
 /// The type of an asset represented by a token.
 
@@ -120,4 +147,15 @@ impl Default for RestrictionResult {
     fn default() -> Self {
         RestrictionResult::Invalid
     }
+}
+
+pub enum TransactionError {
+    /// 0-6 are used by substrate. Skipping them to avoid confusion
+    ZeroTip = 0,
+    /// Transaction needs an Identity associated to an account.
+    MissingIdentity = 1,
+    /// CDD is required
+    CddRequired = 2,
+    /// Invalid auth id
+    InvalidAuthorization = 3,
 }
