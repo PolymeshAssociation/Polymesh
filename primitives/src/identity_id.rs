@@ -47,7 +47,7 @@ const UUID_LEN: usize = 32usize;
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
 )]
-pub struct IdentityId([u8; UUID_LEN]);
+pub struct IdentityId(pub [u8; UUID_LEN]);
 
 impl IdentityId {
     /// Returns a byte slice of this IdentityId's contents
@@ -103,7 +103,7 @@ impl From<u128> for IdentityId {
         let mut did = [0; UUID_LEN];
         did[16..].copy_from_slice(&encoded_id);
 
-        IdentityId::from_bytes(did)
+        Self(did)
     }
 }
 
@@ -139,7 +139,7 @@ impl TryFrom<&[u8]> for IdentityId {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
             fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
-            Ok(IdentityId::from_bytes(fixed))
+            Ok(Self(fixed))
         } else {
             // case where a string represented as u8 is being converted
             let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
@@ -150,15 +150,7 @@ impl TryFrom<&[u8]> for IdentityId {
 
 impl From<[u8; UUID_LEN]> for IdentityId {
     fn from(s: [u8; UUID_LEN]) -> Self {
-        Self::from_bytes(s)
-    }
-}
-
-impl IdentityId {
-    /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
-    pub const fn from_bytes(mut s: [u8; UUID_LEN]) -> Self {
-        s[UUID_LEN - 1] &= 0b0111_1111;
-        IdentityId(s)
+        Self(s)
     }
 }
 
