@@ -959,9 +959,11 @@
             "to_account_id": "MercatAccountId"
         },
         "Leg": {
-            "NonConfidentialLeg": "NonConfidentialLeg",
-            "ConfidentialLeg": "ConfidentialLeg",
-            "Undefined": ""
+            "_enum": {
+                "NonConfidentialLeg": "NonConfidentialLeg",
+                "ConfidentialLeg": "ConfidentialLeg",
+                "Undefined": ""
+            }
         },
         "Venue": {
             "creator": "IdentityId",

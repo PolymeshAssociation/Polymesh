@@ -123,7 +123,7 @@ async function addInstruction(
 
   let instructionCounter = await api.query.settlement.instructionCounter();
 
-  let leg = {
+  let NonConfidentialLeg = {
     from: getDefaultPortfolio(sender_did),
     to: getDefaultPortfolio(receiver_did),
     asset: ticker,
@@ -134,7 +134,7 @@ async function addInstruction(
       venueCounter,
       0,
       null,
-      [leg]
+      [{"NonConfidentialLeg": NonConfidentialLeg}]
     );
 
     let tx = await reqImports.sendTx(sender, transaction);

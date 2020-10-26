@@ -37,28 +37,12 @@ async function main() {
   process.exit();
 }
 
-<<<<<<< HEAD
-// Attach a secondary key to each DID
-async function addSecondaryKeyRoles(api, accounts, dids, secondary_accounts) {
-
-    for (let i = 0; i < accounts.length; i++) {
-      let signer = {  Account: secondary_accounts[i].publicKey };
-
-      const transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length]);
-      let tx = await reqImports.sendTx(accounts[i], transaction);
-      if(tx !== -1) reqImports.fail_count--;
-
-    }
-
-    return dids;
-=======
 async function setPermissionToSigner(api, accounts, secondary_accounts) {
   for (let i = 0; i < accounts.length; i++) {
     let signer = { Account: secondary_accounts[i].publicKey };
     let transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.total_permissions);
     let tx = await reqImports.sendTx(accounts[i], transaction);
     if(tx !== -1) reqImports.fail_count--;
->>>>>>> develop
   }
 }
 
