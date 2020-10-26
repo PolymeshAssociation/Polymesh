@@ -407,9 +407,6 @@ fn finalize_transaction(
 
     if validation_failure_expected {
         assert!(result.is_err());
-        // println!("error: {:#?}", result.unwrap_err());
-        // println!("wat: {:#?}", cryptography::errors::Error::from(cryptography::errors::ErrorKind::CiphertextRefreshmentFinalResponseVerificationError{check: 1}));
-        // assert_err!(result.unwrap_err(), cryptography::errors::Error::from(cryptography::errors::ErrorKind::CiphertextRefreshmentFinalResponseVerificationError{check: 1}));
         return;
     }
 
@@ -734,7 +731,7 @@ fn mercat_whitepaper_scenario1() {
                 false,
             );
             // Reset Dave's pending state.
-            assert_ok!(ConfidentialAsset::update_account_balance_checkpoint(
+            assert_ok!(ConfidentialAsset::reset_ordering_state(
                 Origin::signed(dave_creds.key.public()),
                 dave_creds.account_id.clone()
             ));
@@ -863,7 +860,7 @@ fn mercat_whitepaper_scenario2() {
                 false,
             );
             // Reset Dave's pending state.
-            assert_ok!(ConfidentialAsset::update_account_balance_checkpoint(
+            assert_ok!(ConfidentialAsset::reset_ordering_state(
                 Origin::signed(dave_creds.key.public()),
                 dave_creds.account_id.clone()
             ));
@@ -958,7 +955,7 @@ fn mercat_whitepaper_scenario2() {
                 );
 
             // Reset Alice's pending state.
-            assert_ok!(ConfidentialAsset::update_account_balance_checkpoint(
+            assert_ok!(ConfidentialAsset::reset_ordering_state(
                 Origin::signed(alice_creds.key.public()),
                 alice_creds.account_id.clone(),
             ));

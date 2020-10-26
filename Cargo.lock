@@ -1120,7 +1120,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups#a7b7efe9a22dfce5ee4befc785c9f030affac713"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#64d7836f2c8f205092a2bca9a0b49d5d3a6ea3ea"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -4230,7 +4230,7 @@ name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
  "bulletproofs",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",
@@ -4256,7 +4256,7 @@ name = "pallet-confidential-asset"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
  "curve25519-dalek 2.1.0",
  "frame-benchmarking",
  "frame-support",
@@ -4681,7 +4681,7 @@ name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
@@ -5386,7 +5386,7 @@ version = "2.0.0"
 dependencies = [
  "base64 0.12.3",
  "blake2",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",
@@ -5602,7 +5602,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.12.3",
  "chrono",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-173/final_cleanups)",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=develop)",
  "curve25519-dalek 2.1.0",
  "env_logger",
  "frame-benchmarking",
