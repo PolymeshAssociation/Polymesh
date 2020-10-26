@@ -704,7 +704,7 @@ decl_module! {
 
             // Update the transaction sender's ordering state.
             if let MercatTxData::InitializedTransfer(tx_data) =  &data {
-                let tx = base64::decode(tx_data)
+                let tx = tx_data.decode()
                     .map(|d| InitializedTransferTx::decode(&mut &d[..]))
                     .map_err(|_| Error::<T>::InvalidMercatOrderingState)?;
 
@@ -1204,7 +1204,8 @@ impl<T: Trait> Module<T> {
                             let tx_data = &Self::mercat_tx_data(instruction_id)[0];
                             match tx_data {
                                 MercatTxData::InitializedTransfer(init_data) => {
-                                    let tx = base64::decode(&init_data)
+                                    let tx = init_data
+                                        .decode()
                                         .and_then(|d| {
                                             Ok(InitializedTransferTx::decode(&mut &d[..]))
                                         })

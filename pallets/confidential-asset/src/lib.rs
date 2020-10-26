@@ -260,7 +260,7 @@ decl_module! {
             let tx = tx.to_mercat::<T>()?;
 
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
-            AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
+            AccountValidator.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id);
             let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key);
             let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
@@ -421,7 +421,7 @@ decl_module! {
 
             let asset_mint_proof = asset_mint_proof.to_mercat::<T>()?;
             let account_id = MercatAccountId(Base64Vec::new(asset_mint_proof.account_id.encode()));
-            let new_encrypted_balance = AssetValidator{}
+            let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
                                             &asset_mint_proof,
@@ -510,7 +510,7 @@ impl<T: Trait> Module<T> {
         MercatAccountBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from((current_balance + amount).encode()),
+            EncryptedBalanceWrapper::from(current_balance + amount),
         );
 
         // Update the incoming balance accumulator.
@@ -528,7 +528,7 @@ impl<T: Trait> Module<T> {
         MercatAccountBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from((current_balance - amount).encode()),
+            EncryptedBalanceWrapper::from(current_balance - amount),
         );
 
         // Update the pending balance accumulator.
@@ -538,7 +538,7 @@ impl<T: Trait> Module<T> {
         PendingOutgoingBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from((pending_balance - amount).encode()),
+            EncryptedBalanceWrapper::from(pending_balance - amount),
         );
         Ok(())
     }
@@ -574,7 +574,7 @@ impl<T: Trait> Module<T> {
         account_id: &EncryptedAssetId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.encode());
+        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
         let account_id = MercatAccountId(wrapped_enc_asset_id.0);
 
         let pending_balances =
@@ -589,7 +589,7 @@ impl<T: Trait> Module<T> {
         PendingOutgoingBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from(pending_balances.encode()),
+            EncryptedBalanceWrapper::from(pending_balances),
         );
 
         Ok(())
@@ -612,7 +612,7 @@ impl<T: Trait> Module<T> {
         IncomingBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from(incoming_balances.encode()),
+            EncryptedBalanceWrapper::from(incoming_balances),
         );
         Ok(())
     }
@@ -636,7 +636,7 @@ impl<T: Trait> Module<T> {
         FailedOutgoingBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from(failed_balances.encode()),
+            EncryptedBalanceWrapper::from(failed_balances),
         );
 
         // We never reset or remove the pending outgoing accumulator.
@@ -647,7 +647,7 @@ impl<T: Trait> Module<T> {
         PendingOutgoingBalance::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from((pending_balance - amount).encode()),
+            EncryptedBalanceWrapper::from(pending_balance - amount),
         );
 
         Ok(())
@@ -661,13 +661,13 @@ impl<T: Trait> Module<T> {
         account_id: &EncryptedAssetId,
         instruction_id: u64,
     ) -> DispatchResult {
-        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.encode());
+        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
         let account_id = MercatAccountId(wrapped_enc_asset_id.0);
 
         let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
         TxPendingState::insert(
             (owner_did, account_id, instruction_id),
-            EncryptedBalanceWrapper::from(pending_state.encode()),
+            EncryptedBalanceWrapper::from(pending_state),
         );
         Ok(())
     }

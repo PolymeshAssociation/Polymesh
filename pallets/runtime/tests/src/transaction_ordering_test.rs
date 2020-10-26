@@ -2,9 +2,10 @@ use super::{
     storage::{default_portfolio_vec, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use base64;
 use codec::{Decode, Encode};
-use confidential_asset::{InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper};
+use confidential_asset::{
+    EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
+};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -20,7 +21,6 @@ use cryptography::{
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
-// use frame_support::{assert_err, assert_ok};
 use frame_support::assert_ok;
 use pallet_asset as asset;
 use pallet_balances as balances;
@@ -31,8 +31,8 @@ use pallet_settlement::{
     self as settlement, ConfidentialLeg, Leg, MercatTxData, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, FundingRoundName, IdentityId, PortfolioId, SecurityToken,
-    Ticker,
+    AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, IdentityId, PortfolioId,
+    SecurityToken, Ticker,
 };
 use rand::prelude::*;
 use sp_core::sr25519::Public;
@@ -122,14 +122,18 @@ pub fn init_account(
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
-        PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode()))
+        PubAccountTxWrapper::from(mercat_account_tx.clone()),
     ));
 
-    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    let account_id = MercatAccountId(
+        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
+            .0
+            .clone(),
+    );
     (
         secret_account,
         account_id.clone(),
-        ConfidentialAsset::mercat_accounts(did, account_id.clone())
+        ConfidentialAsset::mercat_accounts(did, &account_id)
             .to_mercat::<TestStorage>()
             .unwrap(),
         ConfidentialAsset::mercat_account_balance(did, account_id)
@@ -182,7 +186,7 @@ pub fn create_account_and_mint_token(
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
-        PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode()))
+        PubAccountTxWrapper::from(mercat_account_tx.clone()),
     ));
 
     // Computations that will happen in owner's Wallet.
@@ -201,7 +205,7 @@ pub fn create_account_and_mint_token(
         Origin::signed(owner),
         ticker,
         amount.into(), // convert to u128.
-        InitializedAssetTxWrapper::from(base64::encode(initialized_asset_tx.encode())),
+        InitializedAssetTxWrapper::from(initialized_asset_tx),
     ));
 
     // Ensuring that the asset details are set correctly.
@@ -221,7 +225,11 @@ pub fn create_account_and_mint_token(
         })
     );
 
-    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    let account_id = MercatAccountId(
+        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
+            .0
+            .clone(),
+    );
 
     (
         secret_account,
@@ -289,8 +297,7 @@ fn initialize_transaction(
             &mut rng,
         )
         .unwrap();
-    let initialized_tx =
-        MercatTxData::InitializedTransfer(base64::encode(sender_data.encode()).into_bytes());
+    let initialized_tx = MercatTxData::InitializedTransfer(Base64Vec::new(sender_data.encode()));
     // Sender authorizes the instruction and passes in the proofs.
     assert_ok!(Settlement::authorize_confidential_instruction(
         Origin::signed(sender_creds.key.public()),
@@ -308,7 +315,7 @@ fn initialize_transaction(
 
     let decoded_initialized_tx = match tx_data {
         MercatTxData::InitializedTransfer(init) => {
-            let mut data: &[u8] = &base64::decode(&init).unwrap();
+            let mut data: &[u8] = &init.decode().unwrap();
             InitializedTransferTx::decode(&mut data).unwrap()
         }
         _ => {
@@ -319,23 +326,20 @@ fn initialize_transaction(
     let receiver_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_receiver;
 
     // Receiver computes the proofs in the wallet.
-    let finalized_tx = MercatTxData::FinalizedTransfer(
-        base64::encode(
-            CtxReceiver
-                .finalize_transaction(
-                    decoded_initialized_tx,
-                    Account {
-                        public: receiver_creds.public_account.clone(),
-                        secret: receiver_secret_account.clone(),
-                    },
-                    amount,
-                    &mut rng,
-                )
-                .unwrap()
-                .encode(),
-        )
-        .into_bytes(),
-    );
+    let finalized_tx = MercatTxData::FinalizedTransfer(Base64Vec::new(
+        CtxReceiver
+            .finalize_transaction(
+                decoded_initialized_tx,
+                Account {
+                    public: receiver_creds.public_account.clone(),
+                    secret: receiver_secret_account.clone(),
+                },
+                amount,
+                &mut rng,
+            )
+            .unwrap()
+            .encode(),
+    ));
 
     // Receiver submits the proof to the chain.
     assert_ok!(Settlement::authorize_confidential_instruction(
@@ -373,7 +377,7 @@ fn finalize_transaction(
     let tx_data = tx_data.remove(1);
     let decoded_finalized_tx = match tx_data {
         MercatTxData::FinalizedTransfer(finalized) => {
-            let mut data: &[u8] = &base64::decode(&finalized).unwrap();
+            let mut data: &[u8] = &finalized.decode().unwrap();
             FinalizedTransferTx::decode(&mut data).unwrap()
         }
         _ => {
@@ -410,8 +414,7 @@ fn finalize_transaction(
         return;
     }
 
-    let justified_tx =
-        MercatTxData::JustifiedTransfer(base64::encode(result.unwrap().encode()).into_bytes());
+    let justified_tx = MercatTxData::JustifiedTransfer(Base64Vec::new(result.unwrap().encode()));
 
     // Authorize and process the transaction.
     assert_ok!(Settlement::authorize_confidential_instruction(

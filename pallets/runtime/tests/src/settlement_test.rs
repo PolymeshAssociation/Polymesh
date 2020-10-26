@@ -3380,9 +3380,8 @@ fn basic_confidential_settlement() {
                 .unwrap();
             let alice_encrypted_transfer_amount = sender_data.memo.enc_amount_using_sender;
             let bob_encrypted_transfer_amount = sender_data.memo.enc_amount_using_receiver;
-            let initialized_tx = MercatTxData::InitializedTransfer(
-                Base64Vec::new(sender_data.encode()).into_bytes(),
-            );
+            let initialized_tx =
+                MercatTxData::InitializedTransfer(Base64Vec::new(sender_data.encode()));
             // Sender authorizes the instruction and passes in the proofs.
             assert_ok!(Settlement::authorize_confidential_instruction(
                 Origin::signed(AccountKeyring::Alice.public()),
