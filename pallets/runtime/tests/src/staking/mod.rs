@@ -5468,24 +5468,16 @@ fn check_slashing_switch_for_validators_and_nominators() {
             // Check the initial state of the Slashing Switch.
             assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
 
-            // Change the slashing status for validator.
-            assert_ok!(Staking::change_slashing_allowed_for(
-                root(),
-                SlashingSwitch::Validator
-            ));
+            let change_slashing_allowed_for = |switch: SlashingSwitch| {
+                assert_ok!(Staking::change_slashing_allowed_for(
+                    root(),
+                    switch
+                ));
+                assert_eq!(Staking::slashing_allowed_for(), switch);
+            };
 
-            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::Validator);
-
-            // Change the slashing status for nominator.
-            assert_ok!(Staking::change_slashing_allowed_for(
-                root(),
-                SlashingSwitch::ValidatorAndNominator
-            ));
-
-            assert_eq!(
-                Staking::slashing_allowed_for(),
-                SlashingSwitch::ValidatorAndNominator
-            );
+            change_slashing_allowed_for(SlashingSwitch::Validator);
+            change_slashing_allowed_for(SlashingSwitch::ValidatorAndNominator);
         });
 }
 
