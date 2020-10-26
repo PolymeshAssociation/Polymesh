@@ -19,7 +19,6 @@
 //! Polymesh blockchain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use base64;
 use codec::{Decode, Encode};
 use cryptography::{
     mercat::{
@@ -31,7 +30,9 @@ use cryptography::{
     AssetId,
 };
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
@@ -41,9 +42,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, Ticker,
+    AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
     convert::{From, TryFrom},
@@ -57,14 +57,20 @@ pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
-pub struct EncryptionPubKeyWrapper(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
+pub struct EncryptionPubKeyWrapper(pub Base64Vec);
+
+impl From<EncryptionPubKey> for EncryptionPubKeyWrapper {
+    fn from(key: EncryptionPubKey) -> Self {
+        Self(Base64Vec::new(key.encode()))
+    }
+}
 
 impl EncryptionPubKeyWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, Error<T>> {
-        let mut data: &[u8] = &self.0;
-        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, DispatchError> {
+        let mut data: &[u8] = &self.0.decode()?;
+        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -72,35 +78,45 @@ impl EncryptionPubKeyWrapper {
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
 /// Encode and Decode, instead of deriving them. As a result, the `EncodeLike` operator is
 /// not automatically implemented.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
-pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
+pub struct EncryptedAssetIdWrapper(pub Base64Vec);
+
+impl From<EncryptedAssetId> for EncryptedAssetIdWrapper {
+    fn from(asset_id: EncryptedAssetId) -> Self {
+        Self(Base64Vec::new(asset_id.encode()))
+    }
+}
 
 impl EncryptedAssetIdWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
-        let mut data: &[u8] = &self.0;
-        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, DispatchError> {
+        let mut data: &[u8] = &self.0.decode()?;
+        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
 /// Created for better code readability. Its content are the same as the `pallet_confidential_asset::EncryptedAssetIdWrapper`.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
-)]
-pub struct MercatAccountId(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default, PartialOrd, Ord)]
+pub struct MercatAccountId(pub Base64Vec);
 
 /// Wrapper for Ciphertexts that correspond to EncryptedBalance.
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
 /// Encode and Decode, instead of deriving them. As a result, the EncodeLike operator is
 /// not automatically implemented.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
-pub struct EncryptedBalanceWrapper(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
+pub struct EncryptedBalanceWrapper(pub Base64Vec);
+
+impl From<EncryptedAmount> for EncryptedBalanceWrapper {
+    fn from(amount: EncryptedAmount) -> Self {
+        Self(Base64Vec::from(Base64Vec::new(amount.encode())))
+    }
+}
 
 impl EncryptedBalanceWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
-        let mut data: &[u8] = &self.0;
-        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, DispatchError> {
+        let mut data: &[u8] = &self.0.decode()?;
+        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -115,39 +131,49 @@ pub struct MercatAccount {
 
 impl MercatAccount {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, DispatchError> {
         Ok(PubAccount {
-            enc_asset_id: self.encrypted_asset_id.to_mercat()?,
-            owner_enc_pub_key: self.encryption_pub_key.to_mercat()?,
+            enc_asset_id: self.encrypted_asset_id.to_mercat::<T>()?,
+            owner_enc_pub_key: self.encryption_pub_key.to_mercat::<T>()?,
         })
     }
 }
 
 /// Wrapper for the mercat account proof that correspond to base64 encoding of `PubAccountTx`.
 /// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
-pub struct PubAccountTxWrapper(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
+pub struct PubAccountTxWrapper(pub Base64Vec);
+
+impl From<PubAccountTx> for PubAccountTxWrapper {
+    fn from(tx: PubAccountTx) -> Self {
+        Self(Base64Vec::new(tx.encode()))
+    }
+}
 
 impl PubAccountTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, Error<T>> {
-        let mut data: &[u8] =
-            &base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)?;
-        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, DispatchError> {
+        let mut data: &[u8] = &self.0.decode()?;
+        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
 /// Wrapper for the asset issuance proof that correspond to `InitializedAssetTx`.
 /// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
-pub struct InitializedAssetTxWrapper(pub Vec<u8>);
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
+pub struct InitializedAssetTxWrapper(pub Base64Vec);
+
+impl From<InitializedAssetTx> for InitializedAssetTxWrapper {
+    fn from(tx: InitializedAssetTx) -> Self {
+        Self(Base64Vec::new(tx.encode()))
+    }
+}
 
 impl InitializedAssetTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
-        let mut data: &[u8] =
-            &base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)?;
-        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, DispatchError> {
+        let mut data: &[u8] = &self.0.decode()?;
+        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
     }
 }
 
@@ -155,6 +181,10 @@ type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
+
+        /// Contains the mercat accounts for an identity.
+        pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
+            map hasher(twox_64_concat) IdentityId => EncryptionPubKeyWrapper;
 
         /// Contains the mercat accounts for an identity.
         pub MercatAccounts get(fn mercat_accounts):
@@ -202,17 +232,37 @@ decl_module! {
 
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
-            let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
-            let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key.encode());
+            let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id);
+            let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key);
             let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
             <MercatAccounts>::insert(&owner_id, &account_id, MercatAccount {
                 encrypted_asset_id: wrapped_enc_asset_id,
                 encryption_pub_key: wrapped_enc_pub_key,
             });
-            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
+            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
             <MercatAccountBalance>::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
             Self::deposit_event(RawEvent::AccountCreated(owner_id, account_id, wrapped_enc_balance));
+            Ok(())
+        }
+
+        /// Stores mediator's public key.
+        ///
+        /// # Arguments
+        /// * `public_key` the encryption public key, used during mercat operations.
+        ///
+        /// # Errors
+        /// * `BadOrigin` if `origin` isn't signed.
+        #[weight = 1_000_000_000]
+        pub fn add_mediator_mercat_account(origin,
+            public_key: EncryptionPubKeyWrapper,
+        ) -> DispatchResult {
+            let owner_acc = ensure_signed(origin)?;
+            let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+
+            MediatorMercatAccounts::insert(&owner_id, &public_key);
+
+            Self::deposit_event(RawEvent::MediatorAccountCreated(owner_id, public_key));
             Ok(())
         }
 
@@ -285,7 +335,7 @@ decl_module! {
         /// - `TotalSupplyMustBePositive` if total supply is zero.
         /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
         /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
-        /// - `NonConfidentialAssetTotalSupplyCannotBeSet` if this function is called for a non-confidential asset.
+        /// - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         ///
         /// # Weight
@@ -322,7 +372,7 @@ decl_module! {
                 Self::confidential_tickers().contains(&AssetId {
                     id: *ticker.as_bytes(),
                 }),
-                Error::<T>::NonConfidentialAssetTotalSupplyCannotBeSet
+                Error::<T>::UnknownConfidentialAsset
             );
 
             if T::NonConfidentialAsset::is_divisible(ticker) {
@@ -340,7 +390,7 @@ decl_module! {
             );
 
             let asset_mint_proof = asset_mint_proof.to_mercat::<T>()?;
-            let account_id = MercatAccountId::from(asset_mint_proof.account_id.encode());
+            let account_id = MercatAccountId(Base64Vec::new(asset_mint_proof.account_id.encode()));
             let new_encrypted_balance = AssetValidator{}
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
@@ -354,7 +404,7 @@ decl_module! {
             <MercatAccountBalance>::insert(
                 &owner_did,
                 &account_id,
-                EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
+                EncryptedBalanceWrapper::from(new_encrypted_balance),
             );
 
             // This will emit the total supply changed event.
@@ -382,7 +432,7 @@ impl<T: Trait> Module<T> {
         <MercatAccountBalance>::insert(
             owner_did,
             account_id,
-            EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
+            EncryptedBalanceWrapper::from(new_encrypted_balance),
         );
     }
 }
@@ -390,6 +440,10 @@ impl<T: Trait> Module<T> {
 decl_event! {
     pub enum Event<T> where Balance = <T as CommonTrait>::Balance,
     {
+        /// Event for creation of a Mediator Mercat account.
+        /// caller DID/ owner DID and encryption public key
+        MediatorAccountCreated(IdentityId, EncryptionPubKeyWrapper),
+
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
         AccountCreated(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
@@ -408,9 +462,6 @@ decl_error! {
         /// Error during the converting of wrapped data types into mercat data types.
         UnwrapMercatDataError,
 
-        /// Error during the decoding base64 values.
-        DecodeBase64Error,
-
         /// Mercat library has rejected the asset issuance proofs.
         InvalidAccountMintProof,
 
@@ -423,8 +474,8 @@ decl_error! {
         /// The user is not authorized.
         Unauthorized,
 
-        /// Only confidential assets' total supply can change after registering the asset.
-        NonConfidentialAssetTotalSupplyCannotBeSet,
+        /// The provided asset is not among the set of valid asset ids.
+        UnknownConfidentialAsset,
 
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
         CanSetTotalSupplyOnlyOnce,
