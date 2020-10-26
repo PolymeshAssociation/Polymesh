@@ -5457,3 +5457,16 @@ fn test_with_multiple_validators_from_entity() {
             assert!(Session::validators().contains(&60));
         });
 }
+
+
+#[test]
+fn test_reward_scheduling() {
+    ExtBuilder::default()
+        .validator_count(3)
+        .build()
+        .execute_with(|| {
+            start_era(1);
+
+            // 
+        });
+}

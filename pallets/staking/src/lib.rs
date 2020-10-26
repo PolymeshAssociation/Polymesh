@@ -2406,7 +2406,8 @@ decl_module! {
         ]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
-            ensure_signed(origin)?;
+            // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
+            ensure_root(origin)?;
             Self::do_payout_stakers(validator_stash, era)
         }
 
