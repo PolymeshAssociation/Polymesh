@@ -17,6 +17,8 @@
 //!
 //! Offchain settlements are represented via receipts. If a leg has a receipt attached to it, it will not be executed onchain.
 //! All other legs will be executed onchain during settlement.
+//! 
+//! For an overview of the confidential settlement, refer to [Confidential Asset pallet](../pallet_confidential_asset/index.html).
 //!
 //! ## Dispatchable Functions
 //!
