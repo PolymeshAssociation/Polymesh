@@ -5489,8 +5489,6 @@ fn offence_is_blocked_when_slashing_status_is_off() {
         .execute_with(|| {
             assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
             let initial_balance = Balances::free_balance(10);
-            let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 10);
-
             create_on_offence_now(10);
             // No slashing happened.
             assert_eq!(Balances::free_balance(10), initial_balance);
