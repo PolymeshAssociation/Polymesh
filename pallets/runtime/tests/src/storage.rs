@@ -423,6 +423,7 @@ impl pallet_contracts::Trait for TestStorage {
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
+    type Call = Call;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
