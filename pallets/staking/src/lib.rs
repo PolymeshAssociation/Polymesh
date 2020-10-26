@@ -301,8 +301,9 @@ use frame_support::{
     ensure,
     storage::IterableStorageMap,
     traits::{
+        schedule::{Anon, DispatchTime, HIGHEST_PRIORITY},
         Currency, EnsureOrigin, EstimateNextNewSession, Get, Imbalance, LockIdentifier,
-        LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons, schedule::Anon
+        LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
     },
     weights::{
         constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
@@ -311,6 +312,7 @@ use frame_support::{
     },
     Twox64Concat,
 };
+use frame_system::RawOrigin;
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
 };
@@ -1064,7 +1066,10 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable<Origin=Self::Origin> + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+    type Call: Dispatchable<Origin = Self::Origin>
+        + From<Call<Self>>
+        + IsSubType<Call<Self>>
+        + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -1108,7 +1113,7 @@ pub trait Trait:
     type RewardScheduler: Anon<Self::BlockNumber, <Self as Trait>::Call, Self::PalletsOrigin>;
 
     /// Overarching type of all pallets origins.
-	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+    type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 /// Mode of era-forcing.
@@ -3181,8 +3186,29 @@ impl<T: Trait> Module<T> {
             let rest = max_payout.saturating_sub(validator_payout);
 
             // Schedule Rewards for the validators
-            // 1. Get the No. of validators from the session pallet.
-            let validators = <pallet_session::Module<T>>::validators();
+            let next_block_no = <frame_system::Module<T>>::block_number() + 1.into();
+            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+                let schedule_block_no = next_block_no + index.saturated_into::<T::BlockNumber>();
+                match T::RewardScheduler::schedule(
+                    DispatchTime::At(schedule_block_no),
+                    None,
+                    HIGHEST_PRIORITY,
+                    RawOrigin::Root.into(),
+                    Call::<T>::payout_stakers(validator_id.clone(), active_era.index).into()
+                ) {
+                    Ok(_) => log!(
+                        info,
+                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                        validator_id,
+                        schedule_block_no,
+                    ),
+                    Err(e) => log!(
+                        error,
+                        "💸 Detected error in scheduling the reward payment: {:?}",
+                        e
+                    )
+                }
+            }
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,
