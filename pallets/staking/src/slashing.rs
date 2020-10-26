@@ -309,11 +309,8 @@ pub(crate) fn compute_slash<T: Trait>(
     let mut nominators_slashed = Vec::new();
 
     // Polymesh-Note - `SlashingSwitch` decides whether nominator get slashed or not.
-    if <Module<T>>::slashing_status() == SlashingSwitch::ValidatorAndNominator {
+    if <Module<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
         reward_payout += slash_nominators::<T>(params, prior_slash_p, &mut nominators_slashed);
-    } else {
-        // Empty the other stakers array so that only the validator is slashed and not its nominators.
-        nominators_slashed = vec![]
     }
 
     Some(UnappliedSlash {
@@ -635,7 +632,7 @@ pub(crate) fn apply_slash<T: Trait>(unapplied_slash: UnappliedSlash<T::AccountId
     );
 
     // Polymesh-Note - `SlashingSwitch` decides whether nominator get slashed or not.
-    if <Module<T>>::slashing_status() == SlashingSwitch::ValidatorAndNominator {
+    if <Module<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
         for &(ref nominator, nominator_slash) in &unapplied_slash.others {
             do_slash::<T>(
                 &nominator,

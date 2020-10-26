@@ -647,7 +647,7 @@ pub struct ExtBuilder {
     invulnerables: Vec<AccountId>,
     has_stakers: bool,
     max_offchain_iterations: u32,
-    slashing_status: SlashingSwitch,
+    slashing_allowed_for: SlashingSwitch,
 }
 
 impl Default for ExtBuilder {
@@ -667,7 +667,7 @@ impl Default for ExtBuilder {
             invulnerables: vec![],
             has_stakers: true,
             max_offchain_iterations: 0,
-            slashing_status: SlashingSwitch::Validator,
+            slashing_allowed_for: SlashingSwitch::Validator,
         }
     }
 }
@@ -734,8 +734,8 @@ impl ExtBuilder {
             .session_length(5)
             .election_lookahead(3)
     }
-    pub fn slashing_status(mut self, status: SlashingSwitch) -> Self {
-        self.slashing_status = status;
+    pub fn slashing_allowed_for(mut self, status: SlashingSwitch) -> Self {
+        self.slashing_allowed_for = status;
         self
     }
     pub fn set_associated_constants(&self) {
@@ -895,12 +895,12 @@ impl ExtBuilder {
             ];
         }
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers: stakers,
+            stakers,
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
             slash_reward_fraction: Perbill::from_percent(10),
-            slashing_status: self.slashing_status,
+            slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
