@@ -1128,7 +1128,7 @@ impl Default for Forcing {
     }
 }
 
-/// Switch used to change the `victim` for slashing. Victims can be
+/// Switch used to change the "victim" for slashing. Victims can be
 /// validators, both validators and nominators, or no-one.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
