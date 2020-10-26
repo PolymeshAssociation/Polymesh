@@ -417,7 +417,7 @@ decl_module! {
         /// # Weight
         /// `3_000_000_000`
         #[weight = 3_000_000_000]
-        pub fn update_account_balance_checkpoint(
+        pub fn reset_ordering_state(
             origin,
             account_id: MercatAccountId,
         ) {
@@ -429,7 +429,7 @@ decl_module! {
             // Emit an event and include account's current balance for account owner's information.
             let current_balance =
                 Self::mercat_account_balance(owner_did, &account_id);
-            Self::deposit_event(RawEvent::ConfidentialAccountNewCheckpoint(
+            Self::deposit_event(RawEvent::ResetConfidentialAccountOrderingState(
                 owner_did,
                 account_id,
                 current_balance
@@ -645,9 +645,9 @@ decl_event! {
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
         ConfidentialAssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
 
-        /// Event for setting a new checkpoint.
+        /// Event for resetting the ordering state.
         /// caller DID/ owner DID, mercat account id, current encrypted account balance
-        ConfidentialAccountNewCheckpoint(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
+        ResetConfidentialAccountOrderingState(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
     }
 }
 

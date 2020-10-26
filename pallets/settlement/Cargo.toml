@@ -29,7 +29,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-173/final_cleanups", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }

@@ -3484,12 +3484,12 @@ fn basic_confidential_settlement() {
                 alice_encrypted_init_balance - alice_encrypted_transfer_amount;
             assert_eq!(new_alice_balance, expected_alice_balance);
 
-            // let new_alice_balance = alice_secret_account
-            //     .enc_keys
-            //     .secret
-            //     .decrypt(&new_alice_balance)
-            //     .unwrap();
-            // assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
+            let new_alice_balance = alice_secret_account
+                .enc_keys
+                .secret
+                .decrypt(&new_alice_balance)
+                .unwrap();
+            assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
 
             let new_bob_balance =
                 ConfidentialAsset::mercat_account_balance(bob_did, bob_account_id)
@@ -3498,11 +3498,11 @@ fn basic_confidential_settlement() {
 
             let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;
             assert_eq!(new_bob_balance, expected_bob_balance);
-            // let new_bob_balance = bob_secret_account
-            //     .enc_keys
-            //     .secret
-            //     .decrypt(&new_bob_balance)
-            //     .unwrap();
-            // assert_eq!(new_bob_balance, amount);
+            let new_bob_balance = bob_secret_account
+                .enc_keys
+                .secret
+                .decrypt(&new_bob_balance)
+                .unwrap();
+            assert_eq!(new_bob_balance, amount);
         });
 }
