@@ -5469,10 +5469,7 @@ fn check_slashing_switch_for_validators_and_nominators() {
             assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
 
             let change_slashing_allowed_for = |switch: SlashingSwitch| {
-                assert_ok!(Staking::change_slashing_allowed_for(
-                    root(),
-                    switch
-                ));
+                assert_ok!(Staking::change_slashing_allowed_for(root(), switch));
                 assert_eq!(Staking::slashing_allowed_for(), switch);
             };
 
