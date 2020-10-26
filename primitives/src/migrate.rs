@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator, StorageKeyIterator};
+use frame_support::storage::unhashed::kill_prefix;
 use frame_support::{ReversibleStorageHasher, StorageHasher};
 use sp_std::vec::Vec;
 
@@ -164,4 +165,15 @@ where
     }) {
         put_storage_value(module, item, &key, value);
     }
+}
+
+/// Kill a storage item from a module
+pub fn kill_item<H: StorageHasher>(module: &[u8], item: &[u8]) {
+    let module = H::hash(module);
+    let item = H::hash(item);
+    //TODO replace with [u8; N] when const generics lands
+    let mut prefix = Vec::with_capacity(module.as_ref().len() + item.as_ref().len());
+    prefix.extend_from_slice(module.as_ref());
+    prefix.extend_from_slice(item.as_ref());
+    kill_prefix(&prefix)
 }

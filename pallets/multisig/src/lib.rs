@@ -82,14 +82,13 @@
 
 use codec::{Decode, Encode, Error as CodecError};
 use core::convert::{From, TryInto};
-use frame_support::storage::unhashed::kill_prefix;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
-    StorageDoubleMap, StorageValue,
+    StorageDoubleMap, StorageValue, Twox128,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
@@ -208,23 +207,18 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use sp_version::RuntimeVersion;
+            use polymesh_primitives::migrate::kill_item;
 
-            fn kill(item: &[u8]) {
-                use frame_support::{StorageHasher, Twox128};
-                let mut prefix = Vec::new();
-                prefix.extend_from_slice(&Twox128::hash(b"multisig"));
-                prefix.extend_from_slice(&Twox128::hash(item));
-                kill_prefix(&prefix)
-            }
-
+            // Kill pending proposals if the transaction version is upgraded
             let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             if current_version < TransactionVersion::get() {
                 TransactionVersion::set(current_version);
-               for item in &[b"proposals", b"proposal_detail", b"proposal_ids"] {
-                   kill(*item)
-               }
+                for item in &["proposals", "proposal_detail", "proposal_ids"] {
+                    kill_item::<Twox128>(b"MultiSig", item.as_bytes())
+                }
             }
 
+            //TODO placeholder weight
             1_000
         }
 
