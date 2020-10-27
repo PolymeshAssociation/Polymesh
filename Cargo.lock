@@ -4581,7 +4581,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-identity",
- "pallet-scheduler",
  "pallet-session",
  "parity-scale-codec",
  "polymesh-common-utilities",

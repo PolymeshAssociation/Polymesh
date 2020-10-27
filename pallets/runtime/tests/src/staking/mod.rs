@@ -5517,7 +5517,17 @@ fn test_reward_scheduling() {
                 mock::REWARD_REMAINDER_UNBALANCED.with(|v| *v.borrow()),
                 7050
             );
+
             let current_block_no = System::block_number();
+            // Check whether the rewards get scheduled or not.
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 1).len(),
+                1
+            );
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 2).len(),
+                1
+            );
 
             run_to_block_scheduler(current_block_no + 1);
 
