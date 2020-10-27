@@ -88,7 +88,7 @@ use frame_support::{
     ensure,
     traits::{Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
-    StorageDoubleMap, StorageValue, Twox128,
+    StorageDoubleMap, StorageValue,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;

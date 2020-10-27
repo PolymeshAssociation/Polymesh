@@ -582,7 +582,6 @@ decl_module! {
             use frame_support::{
                 storage::{IterableStorageDoubleMap, migration::StorageIterator},
                 traits::ReservableCurrency,
-                Twox128
             };
             use polymesh_primitives::migrate::kill_item;
 
