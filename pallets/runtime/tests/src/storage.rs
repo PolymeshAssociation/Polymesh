@@ -605,6 +605,10 @@ impl pips::Trait for TestStorage {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
+    type ExecutionScheduler = Scheduler;
+    type ExpiryScheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl confidential::Trait for TestStorage {
@@ -762,7 +766,6 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
 pub fn fast_forward_to_block(n: u64) {
     let block_number = frame_system::Module::<TestStorage>::block_number();
     (block_number..n).for_each(|block| {
-        assert_ok!(pips::Module::<TestStorage>::end_block(block));
         frame_system::Module::<TestStorage>::set_block_number(block + 1);
     });
 }

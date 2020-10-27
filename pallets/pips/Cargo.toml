@@ -45,7 +45,6 @@ std = [
     "pallet-balances/std",
     "pallet-group/std",
     "pallet-identity/std",
-    "pallet-scheduler/std",
     "pallet-timestamp/std",
     "pallet-treasury/std",
     "polymesh-common-utilities/std",

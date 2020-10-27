@@ -91,15 +91,18 @@ use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons},
+    traits::{
+        schedule::{DispatchTime, Named as ScheduleNamed, HARD_DEADLINE},
+        Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
+    },
     weights::{DispatchClass, Pays, Weight},
+    Parameter,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
-use pallet_scheduler as scheduler;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
@@ -370,8 +373,19 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    /// Scheduler of executed and expired proposals.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    /// Scheduler of executed proposals.
+    type ExecutionScheduler: ScheduleNamed<
+        Self::BlockNumber,
+        Self::SchedulerCall,
+        Self::SchedulerOrigin,
+    >;
+
+    /// Scheduler of expired proposals.
+    type ExpiryScheduler: ScheduleNamed<
+        Self::BlockNumber,
+        Self::SchedulerCall,
+        Self::SchedulerOrigin,
+    >;
 
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
@@ -439,14 +453,6 @@ decl_storage! {
 
         /// Maps PIPs to the block at which they will be executed, if any.
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
-
-        /// Maps block numbers to list of PIPs which should be executed at the block number.
-        /// block number -> Pip id
-        pub ExecutionSchedule get(fn execution_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
-
-        /// Maps block numbers to list of PIPs which should be expired at the block number.
-        /// block number -> Pip id
-        pub ExpirySchedule get(fn expiry_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPIP`.
@@ -534,6 +540,14 @@ decl_event!(
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
         /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
         SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// Scheduling of the PIP for execution has failed in the scheduler pallet.
+        ExecutionSchedulingFailed(IdentityId, PipId, BlockNumber),
+        /// The PIP has been scheduled for expiry.
+        ExpiryScheduled(IdentityId, PipId, BlockNumber),
+        /// Scheduling of the PIP for expiry has failed in the scheduler pallet.
+        ExpirySchedulingFailed(IdentityId, PipId, BlockNumber),
+        /// Cancelling the PIP execution has failed in the scheduler pallet.
+        ExecutionCancellingFailed(PipId),
     }
 );
 
@@ -781,7 +795,7 @@ decl_module! {
 
             // 5. Schedule for expiry as long as `Pending` at block with number `expiring_at`.
             if let MaybeBlock::Some(expiring_at) = expiry {
-                <ExpirySchedule<T>>::append(expiring_at, id);
+                Self::schedule_pip_for_expiry(id, expiring_at);
             }
 
             // 6. Record the deposit and as a signal if we have a community PIP.
@@ -956,7 +970,7 @@ decl_module! {
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(GC_DID, id);
+            Self::schedule_pip_for_execution(GC_DID, id, MaybeBlock::None);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -1024,10 +1038,10 @@ decl_module! {
             // 3. Update enactment period & reschule it.
             let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
 
-            // <ExecutionSchedule<T>>::append(new_until, id);
-            // Self::remove_pip_from_schedule(old_until, id);
-            Self::cancel_pip(old_until, id);
-            Self::schedule_pip(new_until, id);
+            // TODO: When `reschedule_named` is released into `schedule::Named`, use that instead of
+            // discrete unscheduling and scheduling.
+            Self::unschedule_pip(id);
+            Self::schedule_pip_for_execution(GC_DID, id, MaybeBlock::Some(new_until));
 
             // 4. Emit event.
             Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
@@ -1185,7 +1199,7 @@ decl_module! {
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(GC_DID, pip_id);
+                    Self::schedule_pip_for_execution(GC_DID, pip_id, MaybeBlock::None);
                 }
 
                 let id = Self::snapshot_metadata().map(|m| m.id);
@@ -1196,20 +1210,22 @@ decl_module! {
             })
         }
 
-        /// When constructing a block check if it's time for a ballot to end. If ballot ends,
-        /// proceed to ratification process.
-        fn on_initialize(n: T::BlockNumber) -> Weight {
-            Self::end_block(n).unwrap_or_else(|e| {
-                sp_runtime::print(e);
-                0
-            })
+        /// Internal dispatchable that handles execution of a PIP.
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            <PipToSchedule<T>>::remove(id);
+            Ok(Some(Self::execute_proposal(id)).into())
         }
 
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResult {
-            <PipToSchedule<T>>::remove(id);
-            let _ = Self::execute_proposal(id);
-            Ok(())
+        /// Internal dispatchable that handles expiration of a PIP.
+        // TODO: Compute the actual weight.
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
+        fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
+            ensure_root(origin)?;
+            if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
+                Self::maybe_prune(did, id, ProposalState::Expired);
+            }
         }
     }
 }
@@ -1271,30 +1287,6 @@ impl<T: Trait> Module<T> {
         Ok(pip.proposer)
     }
 
-    /// Runs the following procedure:
-    /// 1. Executes all PIPs scheduled for this block.
-    pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
-        // Some arbitrary number right now, It is subject to change after proper benchmarking
-        let mut weight: Weight = 50_000_000;
-
-        // 1. Execute all PIPs scheduled for this block.
-        <ExecutionSchedule<T>>::take(block_number)
-            .into_iter()
-            .for_each(|id| {
-                <PipToSchedule<T>>::remove(id);
-                weight += Self::execute_proposal(id);
-            });
-
-        // 2. Expire all PIPs scheduled for this block.
-        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        <ExpirySchedule<T>>::take(block_number)
-            .into_iter()
-            .filter(|id| Self::is_proposal_state(*id, ProposalState::Pending).is_ok())
-            .for_each(|id| Self::maybe_prune(did, id, ProposalState::Expired));
-
-        Ok(weight)
-    }
-
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
     fn unsafe_reject_proposal(did: IdentityId, id: PipId) {
         Self::maybe_prune(did, id, ProposalState::Rejected);
@@ -1317,13 +1309,15 @@ impl<T: Trait> Module<T> {
     /// Unschedule PIP with given `id` if it's scheduled for execution.
     fn maybe_unschedule_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Scheduled = state {
-            Self::remove_pip_from_schedule(<PipToSchedule<T>>::take(id).unwrap(), id);
+            Self::unschedule_pip(id);
         }
     }
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
-    fn remove_pip_from_schedule(block_no: T::BlockNumber, id: PipId) {
-        <ExecutionSchedule<T>>::mutate(block_no, |ids| ids.retain(|i| *i != id));
+    fn unschedule_pip(id: PipId) {
+        if let Err(_) = T::ExecutionScheduler::cancel_named(id.encode()) {
+            Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
+        }
     }
 
     /// Remove the PIP with `id` from the snapshot if it is there.
@@ -1370,29 +1364,55 @@ impl<T: Trait> Module<T> {
         Self::prune_data(did, id, new_state, Self::prune_historical_pips());
     }
 
-    fn schedule_pip_for_execution(did: IdentityId, id: PipId) {
-        // Set the default enactment period and move it to `Scheduled`
-        let curr_block_number = <system::Module<T>>::block_number();
-        let executed_at = curr_block_number + Self::default_enactment_period();
-
+    // TODO: the `maybe_at` argument is only required until `schedule::Named::reschedule_named` is
+    // released.
+    fn schedule_pip_for_execution(
+        did: IdentityId,
+        id: PipId,
+        maybe_at: MaybeBlock<T::BlockNumber>,
+    ) {
+        // Set the enactment period and move it to `Scheduled`
+        let at = match maybe_at {
+            MaybeBlock::Some(at) => at,
+            MaybeBlock::None => {
+                <system::Module<T>>::block_number() + Self::default_enactment_period()
+            }
+        };
         Self::update_proposal_state(did, id, ProposalState::Scheduled);
-        <PipToSchedule<T>>::insert(id, executed_at);
+        <PipToSchedule<T>>::insert(id, at);
 
-        // <ExecutionSchedule<T>>::append(executed_at, id);
-        let call = Call::<T>::execute_scheduled_pip(id);
-        if let Err(e) = T::Scheduler::schedule(
-            DispatchTime::At(executed_at),
+        let call = Call::<T>::execute_scheduled_pip(id).into();
+        let event = if let Err(_) = T::ExecutionScheduler::schedule_named(
+            id.encode(),
+            DispatchTime::At(at),
             None,
-            LOWEST_PRIORITY,
+            HARD_DEADLINE,
             RawOrigin::Root.into(),
             call,
         ) {
-            // TODO: Emit an error event instead of printing.
-            sp_runtime::print(e);
+            RawEvent::ExecutionSchedulingFailed(did, id, at)
         } else {
-            let event = RawEvent::ExecutionScheduled(did, id, Zero::zero(), executed_at);
-            Self::deposit_event(event);
-        }
+            RawEvent::ExecutionScheduled(did, id, Zero::zero(), at)
+        };
+        Self::deposit_event(event);
+    }
+
+    fn schedule_pip_for_expiry(id: PipId, at: T::BlockNumber) {
+        let did = GC_DID;
+        let call = Call::<T>::expire_scheduled_pip(did, id).into();
+        let event = if let Err(_) = T::ExpiryScheduler::schedule_named(
+            id.encode(),
+            DispatchTime::At(at),
+            None,
+            HARD_DEADLINE,
+            RawOrigin::Root.into(),
+            call,
+        ) {
+            RawEvent::ExpirySchedulingFailed(did, id, at)
+        } else {
+            RawEvent::ExpiryScheduled(did, id, at)
+        };
+        Self::deposit_event(event);
     }
 
     /// Execute the PIP given by `id`.
