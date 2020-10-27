@@ -169,7 +169,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -472,7 +472,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn set_frozen(
-        origin: T::Origin,
+        origin: <T as frame_system::Trait>::Origin,
         offering_asset: Ticker,
         fundraiser_id: u64,
         frozen: bool,
@@ -509,7 +509,10 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensure that `origin` is permissioned and the PIA, returning its DID.
-    fn ensure_perms_pia(origin: T::Origin, asset: &Ticker) -> Result<IdentityId, DispatchError> {
+    fn ensure_perms_pia(
+        origin: <T as frame_system::Trait>::Origin,
+        asset: &Ticker,
+    ) -> Result<IdentityId, DispatchError> {
         let did = Identity::<T>::ensure_perms(origin)?;
         ensure!(
             T::Asset::primary_issuance_agent(asset).ok_or(Error::<T>::Unauthorized)? == did,
