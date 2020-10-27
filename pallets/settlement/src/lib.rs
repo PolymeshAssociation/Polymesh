@@ -48,7 +48,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_identity as identity;
-use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
     traits::{
         asset::{Trait as AssetTrait, GAS_LIMIT},
@@ -71,7 +70,7 @@ type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + scheduler::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
