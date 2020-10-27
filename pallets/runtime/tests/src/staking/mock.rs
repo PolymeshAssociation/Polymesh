@@ -1642,3 +1642,15 @@ pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
 }
+
+pub fn run_to_block_scheduler(n: u64) {
+    while System::block_number() < n {
+        Staking::on_finalize(System::block_number());
+        Scheduler::on_finalize(System::block_number());
+        System::set_block_number(System::block_number() + 1);
+        Scheduler::on_initialize(System::block_number());
+        Session::on_initialize(System::block_number());
+        Staking::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+    }
+}
