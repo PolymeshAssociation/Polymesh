@@ -1622,7 +1622,7 @@ impl<T: Trait> Module<T> {
         );
 
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
-        let did = IdentityId::from_bytes(blake2_256(&(USER, block_hash, new_nonce).encode()));
+        let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
         // 1.3. Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
