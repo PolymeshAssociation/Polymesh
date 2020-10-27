@@ -26,10 +26,10 @@
 //! [settlement module](../pallet_settlement/index.html). These pallets call out to the
 //! [MERCAT library]https://github.com/PolymathNetwork/cryptography) which is an implementation of the
 //! [MERCAT whitepaper](https://info.polymath.network/hubfs/PDFs/Polymath-MERCAT-Whitepaper-Mediated-Encrypted-Reversible-SeCure-Asset-Transfers.pdf).
-//! 
+//!
 //!
 //! ### Terminology
-//! 
+//!
 //! - The parties:
 //!   - Sender: The party who is sending tokens out of her account. We refer to her as Alice in the
 //!     examples.
@@ -38,18 +38,18 @@
 //!   - Mediator: Also known as the exchange, is the party that preforms compliance checks and
 //!     approves/rejects the transaction. We refer to him as Charlie in the examples.
 //!   - Issuer: The party that mints the tokens into her account.
-//! 
+//!
 //! - Phases of a successful transfer:
 //!   - Mint/issue: deposit tokens to an account
 //!   - Initialize a transfer: Alice indicates that she want to transfer some tokens to Bob.
 //!   - Finalize a transfer: Bob acknowledges that he expects to receive tokens from Alice.
 //!   - Justify a transfer: Charlie approves the transfer.
 //!   - Verification: the chain verifies all the data and updates the encrypted balance of Alice and Bob.
-//! 
+//!
 //! - The workflow: the overall workflow is that at different phases of the transaction, each party
 //!   performs a task locally (e.g., on their wallet), creates a cryptographic proof of their task,
 //!   and submits the proof to the chain for verification.
-//! 
+//!
 //!   There are X different phases for a transaction
 //!     1. A confidential asset is registered but not minted.
 //!     2. Different parties create confidential accounts that can manage the asset locally and submit
@@ -62,7 +62,7 @@
 //!     6. Mediator justifies a transfer locally and submits the proof of correctness.
 //!     7. Once all proofs of steps 4-6 are gathered, the chain verifies them and updates the
 //!        encrypted balance of the Sender and the Receiver.
-//! 
+//!
 //! ### Goals
 //!
 //! The main goal is to enable confidential transfer of tokens such that the amount and the asset type of
@@ -71,14 +71,14 @@
 //! compliance check, and auditing purposes.
 //!
 //! ## Limitations
-//! 
+//!
 //! - In the current implementation, the list of confidential assets cannot change after an account is created.
 //!   Therefore, make sure to create all the confidential assets that you intent to use, before creating accounts.
 //!   This will be fixed in future versions: CRYP-163.
-//! 
+//!
 //! - In the current implementation, you can have only one confidential leg per instruction. This restriction
 //!   might be lifted in future versions: CRYP-TODO.
-//! 
+//!
 //!
 //! ## Implementation Details
 //!
@@ -87,7 +87,7 @@
 //! ## Related Modules
 //!
 //! - [settlement module](../pallet_settlement/index.html): Handles both plain and confidential transfers.
-//! 
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
