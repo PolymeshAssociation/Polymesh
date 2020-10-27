@@ -506,6 +506,14 @@
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
         },
+        "BallotMeta": {
+            "title": "MotionTitle",
+            "motions": "Vec<Motion>"
+        },
+        "BallotRange": {
+            "start": "Moment",
+            "end": "Moment"
+        },
         "MaybeBlock": {
             "_enum": {
                 "Some": "BlockNumber",
@@ -1065,9 +1073,25 @@
             ]
         },
         "CADetails": "Text",
+        "CACheckpoint": {
+            "_enum": {
+                "Scheduled": "ScheduleId",
+                "Existing": "CheckpointId"
+            }
+        },
+        "RecordDate": {
+            "date": "Moment",
+            "checkpoint": "CACheckpoint"
+        },
+        "RecordDateSpec": {
+            "_enum": {
+                "Scheduled": "Moment",
+                "Existing": "CheckpointId"
+            }
+        },
         "CorporateAction": {
             "kind": "CAKind",
-            "record_date": "Option<Moment>",
+            "record_date": "Option<RecordDate>",
             "details": "String",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
