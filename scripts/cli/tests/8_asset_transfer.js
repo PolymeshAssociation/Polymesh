@@ -10,35 +10,36 @@ process.exitCode = 1;
 const prepend = "DEMOAT";
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
   const ticker = `token${prepend}0`.toUpperCase();
   const asset_did = reqImports.tickerToDid(ticker);
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys( api, 3, "master8" );
+  let primary_keys = await reqImports.generateKeys( api, 3, "primary8" );
 
-  let issuer_dids = await reqImports.createIdentities( api, master_keys, testEntities[0] );
+  let issuer_dids = await reqImports.createIdentities( api, primary_keys, testEntities[0] );
 
-  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, master_keys, prepend);
+  await reqImports.issueTokenPerDid( api, primary_keys, prepend);
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", { "Ticker": ticker }, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[1], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", { "Ticker": ticker }, null );
 
   // issuer Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", { "Ticker": ticker }, null );
 
-  await reqImports.createClaimRules( api, master_keys, issuer_dids, prepend );
+  await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
 
-await mintingAsset( api, master_keys[0], issuer_dids[2], prepend );
+  await mintingAsset( api, primary_keys[0], prepend );
 
-  await assetTransfer( api, master_keys[0], issuer_dids[2], prepend );
+  // TODO: Use settlement module
+  // await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -50,27 +51,25 @@ await mintingAsset( api, master_keys[0], issuer_dids[2], prepend );
   process.exit();
 }
 
-async function mintingAsset(api, minter, did, prepend) {
+async function mintingAsset(api, minter, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
-  let nonceObj = {nonce: reqImports.nonces.get(minter.address)};
-  const transaction = await api.tx.asset.issue(ticker, did, 100, "");
-  const result = await reqImports.sendTransaction(transaction, minter, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
+  const transaction = await api.tx.asset.issue(ticker, 100);
+  let tx = await reqImports.sendTx(minter, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
-  reqImports.nonces.set(minter.address, reqImports.nonces.get(minter.address).addn(1));
 }
 
-async function assetTransfer(api, from_account, did, prepend) {
-    const ticker = `token${prepend}0`.toUpperCase();
-    let nonceObj = {nonce: reqImports.nonces.get(from_account)};
-    const transaction = await api.tx.asset.transfer(ticker, did, 100);
-    const result = await reqImports.sendTransaction(transaction, from_account, nonceObj);  
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
+// TODO: Use settlement module
+// async function assetTransfer(api, from_account, did, prepend) {
+//     const ticker = `token${prepend}0`.toUpperCase();
+//     let nonceObj = {nonce: reqImports.nonces.get(from_account)};
+//     const transaction = await api.tx.asset.transfer(ticker, did, 100);
+//     const result = await reqImports.sendTransaction(transaction, from_account, nonceObj);
+//     const passed = result.findRecord('system', 'ExtrinsicSuccess');
+//     if (passed) reqImports.fail_count--;
 
-    reqImports.nonces.set( from_account.address, reqImports.nonces.get(from_account.address).addn(1));
-  
-}
+//     reqImports.nonces.set( from_account.address, reqImports.nonces.get(from_account.address).addn(1));
+
+// }
 
 main().catch(console.error);

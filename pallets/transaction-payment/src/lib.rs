@@ -39,7 +39,7 @@ pub mod runtime_dispatch_info;
 pub use runtime_dispatch_info::RuntimeDispatchInfo;
 
 use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_primitives::{Signatory, TransactionError};
+use polymesh_primitives::TransactionError;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -212,10 +212,6 @@ decl_module! {
             T::WeightToFee::polynomial().to_vec();
 
         // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
-        fn on_runtime_upgrade() -> Weight {
-            NextFeeMultiplier::put(Multiplier::saturating_from_integer(1));
-            1
-        }
 
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
@@ -403,9 +399,7 @@ where
             return Ok((fee, None));
         }
 
-        if let Some(payer_key) =
-            T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
-        {
+        if let Some(payer_key) = T::CddHandler::get_valid_payer(call, &who)? {
             let imbalance = T::Currency::withdraw(
                 &payer_key,
                 fee,

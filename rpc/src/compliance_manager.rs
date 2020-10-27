@@ -19,7 +19,7 @@ use codec::Codec;
 use frame_support::traits::Currency;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_compliance_manager::AssetTransferRulesResult;
+use pallet_compliance_manager::AssetComplianceResult;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -41,9 +41,9 @@ pub trait ComplianceManagerApi<BlockHash, AccountId, T> {
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
         at: Option<BlockHash>,
-    ) -> Result<AssetTransferRulesResult>;
+    ) -> Result<AssetComplianceResult>;
 }
 
 /// An implementation of Compliance manager specific RPC methods.
@@ -78,15 +78,15 @@ where
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<AssetTransferRulesResult> {
+    ) -> Result<AssetComplianceResult> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
                 // If the block hash is not supplied assume the best block.
                 self.client.info().best_hash));
 
-        api.can_transfer(&at, ticker, from_did, to_did, treasury_did)
+        api.can_transfer(&at, ticker, from_did, to_did, primary_issuance_agent)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(1),
                 message: "Unable to fetch transfer status from compliance manager.".into(),

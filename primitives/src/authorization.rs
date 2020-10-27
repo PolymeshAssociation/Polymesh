@@ -15,8 +15,8 @@
 
 use crate::{
     identity_id::IdentityId,
-    signing_key::{Permission, Signatory},
-    Ticker,
+    secondary_key::{Permission, Signatory},
+    PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -28,13 +28,16 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
-    /// CDD provider's attestation to change master key
-    AttestMasterKeyRotation(IdentityId),
-    /// Authorization to change master key
-    RotateMasterKey(IdentityId),
+    /// CDD provider's attestation to change primary key
+    AttestPrimaryKeyRotation(IdentityId),
+    /// Authorization to change primary key
+    RotatePrimaryKey(IdentityId),
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
+    /// Authorization to transfer a token's primary issuance agent.
+    /// Must be issued by the current owner of the token
+    TransferPrimaryIssuanceAgent(Ticker),
     /// Add a signer to multisig
     /// Must be issued to the identity that created the ms (and therefore owns it permanently)
     AddMultiSigSigner(AccountId),
@@ -44,6 +47,8 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to join an Identity
     /// Must be issued by the identity which is being joined
     JoinIdentity(Vec<Permission>),
+    /// Authorization to take custody of a portfolio
+    PortfolioCustody(PortfolioId),
     /// Any other authorization
     /// TODO: Is this used?
     Custom(Ticker),
@@ -51,16 +56,29 @@ pub enum AuthorizationData<AccountId> {
     NoData,
 }
 
+/// Type of authorization.
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
-    AttestMasterKeyRotation,
-    RotateMasterKey,
+    /// TBD.
+    AttestPrimaryKeyRotation,
+    /// Authorization to rotate primary key.
+    RotatePrimaryKey,
+    /// Authorization to transfer a ticker.
     TransferTicker,
+    /// Authorization to transfer a token's primary issuance agent.
+    TransferPrimaryIssuanceAgent,
+    /// Authorization to add some key int a multi signer.
     AddMultiSigSigner,
+    /// Authorization to transfer the asset ownership to other identity.
     TransferAssetOwnership,
+    /// Join Identity authorization.
     JoinIdentity,
+    /// Accept custody of a portfolio
+    PortfolioCustody,
+    /// Customized authorization.
     Custom,
+    /// Undefined authorization.
     NoData,
 }
 

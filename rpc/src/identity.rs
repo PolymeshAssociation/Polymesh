@@ -1,4 +1,6 @@
-pub use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus};
+pub use pallet_identity::types::{
+    AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData,
+};
 use polymesh_primitives::{Authorization, AuthorizationType};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
@@ -6,7 +8,7 @@ pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
@@ -18,7 +20,7 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment> {
+pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> {
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -38,7 +40,7 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningKey, Sign
         &self,
         did: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<DidRecords<AccountId, SigningKey>>;
+    ) -> Result<DidRecords<AccountId, SecondaryKey>>;
 
     /// Retrieve the list of authorizations for a given signatory.
     #[rpc(name = "identity_getFilteredAuthorizations")]
@@ -57,6 +59,19 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningKey, Sign
         dids: Vec<IdentityId>,
         at: Option<BlockHash>,
     ) -> Result<Vec<DidStatus>>;
+
+    /// Provide the `KeyIdentityData` from a given `AccountId`, including:
+    /// - the corresponding DID,
+    /// - whether the `AccountId` is a primary or secondary key,
+    /// - any permissions related to the key.
+    ///
+    /// This is an aggregate call provided for UX convenience.
+    #[rpc(name = "identity_getKeyIdentityData")]
+    fn get_key_identity_data(
+        &self,
+        acc: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<Option<KeyIdentityData<IdentityId>>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -83,13 +98,13 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>
+impl<C, Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>
     IdentityApi<
         <Block as BlockT>::Hash,
         IdentityId,
         Ticker,
         AccountId,
-        SigningKey,
+        SecondaryKey,
         Signatory,
         Moment,
     > for Identity<C, Block>
@@ -98,11 +113,12 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>,
+    C::Api:
+        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
-    SigningKey: Codec,
+    SecondaryKey: Codec,
     Signatory: Codec,
     Moment: Codec,
 {
@@ -144,7 +160,7 @@ where
         &self,
         did: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<DidRecords<AccountId, SigningKey>> {
+    ) -> Result<DidRecords<AccountId, SecondaryKey>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -203,5 +219,20 @@ where
             message: "Unable to fetch dids status".into(),
             data: Some(format!("{:?}", e).into()),
         })
+    }
+
+    fn get_key_identity_data(
+        &self,
+        acc: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Option<KeyIdentityData<IdentityId>>> {
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| {
+                api.get_key_identity_data(at, acc)
+            },
+            "Unable to query `get_key_identity_data`."
+        )
     }
 }

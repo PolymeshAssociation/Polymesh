@@ -46,7 +46,7 @@ use frame_support::traits::Currency;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
@@ -103,8 +103,8 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// The sender is not a token owner.
         NotAnOwner,
         /// Pre-validation checks failed.
@@ -156,7 +156,7 @@ decl_module! {
         /// Used to initialize the STO for a given asset
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner who wants to initialize the sto
+        /// * `origin` Secondary key of the token owner who wants to initialize the sto
         /// * `ticker` Ticker of the token
         /// * `beneficiary_did` DID which holds all the funds collected
         /// * `cap` Total amount of tokens allowed for sale
@@ -180,7 +180,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             let sold:T::Balance = 0.into();
@@ -212,7 +212,7 @@ decl_module! {
         /// Used to buy tokens
         ///
         /// # Arguments
-        /// * `origin` Signing key of the investor
+        /// * `origin` Secondary key of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
@@ -225,7 +225,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender_signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
@@ -277,7 +277,7 @@ decl_module! {
         /// By doing this every operations on given sto_id would get freezed like buy_tokens
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
+        /// * `origin` Secondary key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
         #[weight = 500_000_000]
@@ -289,7 +289,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);
@@ -308,7 +308,7 @@ decl_module! {
         /// By doing this every operations on given sto_id would get un freezed.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
+        /// * `origin` Secondary key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
         #[weight = 500_000_000]
@@ -320,7 +320,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);

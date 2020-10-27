@@ -49,7 +49,7 @@
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_asset::{self as asset, BalanceOf, Trait as AssetTrait};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -128,7 +128,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -208,7 +208,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -251,7 +251,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check if sender wasn't already paid their share
             ensure!(
@@ -325,7 +325,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -383,8 +383,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Claiming unclaimed payouts requires an end date
         NotEnded,
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// The dividend was not found.
         NoSuchDividend,
         /// The user is not an owner of the asset.

@@ -1,6 +1,4 @@
-
-export type SigningItem = {
+export type SecondaryKey = {
     "signer": "Signatory",
-    "signer_type": "SignatoryType",
     "permissions": "Vec<Permission>"
 }

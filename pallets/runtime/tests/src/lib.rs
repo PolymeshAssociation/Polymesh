@@ -3,7 +3,7 @@
 
 pub mod storage;
 pub use storage::{
-    account_from, add_signing_key, get_identity_id, make_account, make_account_with_balance,
+    account_from, add_secondary_key, get_identity_id, make_account, make_account_with_balance,
     make_account_without_cdd, register_keyring_account_with_balance,
     register_keyring_account_without_cdd, TestStorage,
 };
@@ -15,6 +15,8 @@ pub use ext_builder::ExtBuilder;
 mod asset_test;
 #[cfg(test)]
 mod balances_test;
+#[cfg(test)]
+mod basic_sto_test;
 #[cfg(test)]
 mod bridge;
 #[cfg(test)]

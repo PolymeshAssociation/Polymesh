@@ -17,11 +17,18 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
-use sp_runtime::{generic, MultiSignature};
+use blake2::{Blake2b, Digest};
+use curve25519_dalek::scalar::Scalar;
 
 pub use codec::{Compact, Decode, Encode};
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify};
+pub use sp_runtime::{
+    generic,
+    traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
+    MultiSignature,
+};
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
@@ -54,6 +61,7 @@ pub type Index = u32;
 /// App-specific crypto used for reporting equivocation/misbehavior in BABE and
 /// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
 /// account.
+// #[cfg(feature = "std")]
 pub mod report {
     use super::{Signature, Verify};
     use frame_system::offchain::AppCrypto;
@@ -99,6 +107,18 @@ impl From<(u32, u32)> for PosRatio {
     }
 }
 
+/// It creates a scalar from the blake2_512 hash of `data` parameter.
+pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
+    let mut hash = [0u8; 64];
+    hash.copy_from_slice(
+        Blake2b::default()
+            .chain(data.as_ref())
+            .finalize()
+            .as_slice(),
+    );
+    Scalar::from_bytes_mod_order_wide(&hash)
+}
+
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution
 /// to all for one second's worth of an annualised 50% reward be paid to a unit holder (10^11 unit
@@ -118,9 +138,13 @@ pub type BlockId = generic::BlockId<Block>;
 /// Opaque, encoded, unchecked extrinsic.
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
-/// Utility byte container where equality comparision are ignored case.
+/// Utility byte container where equality comparison are ignored case.
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
+
+/// Asset identifiers.
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
 
 /// Role for identities.
 pub mod identity_role;
@@ -128,21 +152,38 @@ pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber};
+pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
 pub use identity::Identity;
 
+/// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
+/// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
+/// Identities.
+pub mod cdd_id;
+pub use cdd_id::{CddId, InvestorUid};
+
+/// Investor Zero Knowledge Proof data
+pub mod investor_zkproof_data;
+pub use investor_zkproof_data::InvestorZKProofData;
+
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 
-/// This module contains entities related with signing keys.
-pub mod signing_key;
-pub use signing_key::{Permission, Signatory, SigningKey};
+// Defining and enumerating jurisdictions.
+pub mod jurisdiction;
+pub use jurisdiction::{CountryCode, JurisdictionName};
+
+/// Utilities for storage migration.
+pub mod migrate;
+
+/// This module contains entities related with secondary keys.
+pub mod secondary_key;
+pub use secondary_key::{Permission, SecondaryKey, Signatory};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
@@ -165,12 +206,15 @@ pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
-pub mod rule;
-pub use rule::{Rule, RuleType};
+pub mod condition;
+pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
-pub mod predicate;
-pub use predicate::{AndPredicate, Context, NotPredicate, OrPredicate, Predicate};
+pub mod proposition;
+pub use proposition::{
+    AndProposition, Context, NotProposition, OrProposition, Proposition,
+    ValidProofOfInvestorProposition,
+};
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -242,10 +286,9 @@ mod tests {
         // let text3 = &b"Lorem Ipsum dolor sit amet";
 
         // From traits.
-        let mut c1 = C::from(text1);
-        let c2: C = text1.into();
-        let _d1 = D::from(text2.to_vec());
-        let _d2: D = text2.to_vec().into();
+        let mut c1 = C::from(text1.as_ref());
+        let c2: C = C::from(text1.as_ref());
+        let _d1 = D::from(text2.as_ref());
 
         // Deref & DerefMut
         let text1_with_zeros = &b"lorem Ipsum \0\0\0\0";

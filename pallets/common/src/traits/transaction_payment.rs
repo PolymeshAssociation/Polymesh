@@ -1,4 +1,4 @@
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::IdentityId;
 
 use frame_support::weights::DispatchInfo;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity};
@@ -7,7 +7,7 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity};
 pub trait CddAndFeeDetails<AccountId, Call> {
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory<AccountId>,
+        caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
     fn clear_context();
     fn set_payer_context(payer: Option<AccountId>);

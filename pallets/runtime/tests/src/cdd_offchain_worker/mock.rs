@@ -24,7 +24,7 @@ use frame_support::{
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
-use pallet_cdd_offchain_worker::{Trait, crypto};
+use pallet_cdd_offchain_worker::{crypto, Trait};
 use pallet_group as group;
 use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
@@ -35,7 +35,7 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
-    transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
 use polymesh_primitives::{IdentityId, Signatory};
@@ -287,10 +287,7 @@ impl IdentityTrait for Test {
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
-    fn get_valid_payer(
-        _: &Call,
-        _: &Signatory<AccountId>,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
+    fn get_valid_payer(_: &Call, _: &AccountId) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
@@ -376,6 +373,23 @@ impl MultiSigSubTrait<AccountId> for Test {
         unimplemented!()
     }
     fn is_signer(key: &AccountId) -> bool {
+        unimplemented!()
+    }
+}
+
+impl PortfolioSubTrait<Balance> for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -625,7 +639,7 @@ impl ExtBuilder {
                     account_key_ring.get(&999).unwrap().clone(),
                     1_000_000_000_000,
                 ),
-            ]
+            ],
         }
         .assimilate_storage(&mut storage);
 
@@ -637,7 +651,7 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity
                 (
                     account_key_ring.get(&1005).unwrap().clone(),

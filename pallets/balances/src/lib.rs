@@ -171,8 +171,8 @@ use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
         BalanceStatus as Status, Currency, ExistenceRequirement, Get, Imbalance, IsDeadAccount,
-        LockIdentifier, LockableCurrency, OnKilledAccount, ReservableCurrency, SignedImbalance,
-        StoredMap, WithdrawReason, WithdrawReasons,
+        LockIdentifier, LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap,
+        WithdrawReason, WithdrawReasons,
     },
     StorageValue,
 };
@@ -183,9 +183,9 @@ use polymesh_common_utilities::{
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, IdentityId, Permission, Signatory};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
@@ -193,7 +193,7 @@ use sp_runtime::{
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result, vec};
+use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 
 pub use polymesh_common_utilities::traits::balances::Trait;
 
@@ -364,7 +364,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)
-                .unwrap_or_else(|_| SystematicIssuers::Committee.as_id());
+                .unwrap_or(GC_DID);
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -1103,6 +1103,9 @@ where
     T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Moment = T::BlockNumber;
+
+    // Polymesh-note: The implementations below differ from substrate in terms
+    // of performance (ours uses in-place modification), but are functionally equivalent.
 
     // Set a lock on the balance of `who`.
     // Is a no-op if lock amount is zero or `reasons` `is_none()`.

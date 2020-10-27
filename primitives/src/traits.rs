@@ -13,11 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity_id::IdentityId;
-
-use frame_support::{dispatch::DispatchError, traits::Currency};
-use sp_std::result;
-
 /// A currency that has a block rewards reserve.
 pub trait BlockRewardsReserveCurrency<Balance, NegativeImbalance> {
     /// An instance of `Drop` for positive imbalance.

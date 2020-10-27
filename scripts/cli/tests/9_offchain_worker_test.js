@@ -45,8 +45,8 @@ async function main() {
 
     // get controller key for nominators
     const controller_keys = await generateEntities(api, controllers);
-    // Add as signing key to the existing did who wants to be a potential nominator
-    await reqImports["addSigningKeys"]( api, stash_nominators, nominator_dids, controller_keys );
+    // Add as secondary key to the existing did who wants to be a potential nominator
+    await reqImports["addSecondaryKeys"]( api, stash_nominators, nominator_dids, controller_keys );
     await reqImports["blockTillPoolEmpty"](api);
 
     await reqImports["authorizeJoinToIdentities"]( api, stash_nominators, nominator_dids, controller_keys);
@@ -147,9 +147,9 @@ async function subscribeCddOffchainWorker(api) {
                     if (typeList[j].type == "Bytes")
                         value = Utils.hexToString(Utils.bytesToHex(events[i].event.data[j]));
                     console.log(`${typeList[j].type} : ${value}`);
-                    eventCount++; 
+                    eventCount++;
                 }
-                console.log("***************************************"); 
+                console.log("***************************************");
             }
         } catch(error) {
             console.log(`Event is not present in this block ${header.number}`);
@@ -157,8 +157,8 @@ async function subscribeCddOffchainWorker(api) {
     }
     if (eventCount >= 5) {
         process.exit(0);
-    } 
+    }
 });
 }
-    
+
 main().catch(console.error);

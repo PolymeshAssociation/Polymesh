@@ -40,12 +40,12 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
     weights::{DispatchClass, Pays},
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{ensure_root, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     constants::TREASURY_MODULE_ID,
     traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context, SystematicIssuers,
+    Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -161,10 +161,9 @@ impl<T: Trait> Module<T> {
             WithdrawReason::Transfer.into(),
             ExistenceRequirement::AllowDeath,
         );
-        let primary_key = <identity::Module<T>>::did_records(target).master_key;
+        let primary_key = <identity::Module<T>>::did_records(target).primary_key;
         let _ = T::Currency::deposit_into_existing(&primary_key, amount);
-        let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
         Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 

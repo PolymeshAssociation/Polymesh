@@ -128,17 +128,17 @@ where
     }
 }
 
-/// A signing key contains a type and a group of permissions.
+/// A secondary key contains a type and a group of permissions.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SigningKey<AccountId> {
+pub struct SecondaryKey<AccountId> {
     pub signer: Signatory<AccountId>,
     pub permissions: Vec<Permission>,
 }
 
-impl<AccountId> SigningKey<AccountId> {
-    /// It creates an 'External' signing key.
+impl<AccountId> SecondaryKey<AccountId> {
+    /// It creates an 'External' secondary key.
     pub fn new(signer: Signatory<AccountId>, permissions: Vec<Permission>) -> Self {
         Self {
             signer,
@@ -146,7 +146,7 @@ impl<AccountId> SigningKey<AccountId> {
         }
     }
 
-    /// Creates a [`SigningKey`] from an `AccountId`.
+    /// Creates a [`SecondaryKey`] from an `AccountId`.
     pub fn from_account_id(s: AccountId) -> Self {
         Self::new(Signatory::Account(s), vec![])
     }
@@ -160,13 +160,13 @@ impl<AccountId> SigningKey<AccountId> {
     }
 }
 
-impl<AccountId> From<IdentityId> for SigningKey<AccountId> {
+impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
     fn from(id: IdentityId) -> Self {
         Self::new(Signatory::Identity(id), vec![])
     }
 }
 
-impl<AccountId> PartialEq for SigningKey<AccountId>
+impl<AccountId> PartialEq for SecondaryKey<AccountId>
 where
     AccountId: PartialEq,
 {
@@ -175,7 +175,7 @@ where
     }
 }
 
-impl<AccountId> PartialEq<IdentityId> for SigningKey<AccountId> {
+impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
     fn eq(&self, other: &IdentityId) -> bool {
         if let Signatory::Identity(id) = self.signer {
             id == *other
@@ -185,7 +185,7 @@ impl<AccountId> PartialEq<IdentityId> for SigningKey<AccountId> {
     }
 }
 
-impl<AccountId> PartialOrd for SigningKey<AccountId>
+impl<AccountId> PartialOrd for SecondaryKey<AccountId>
 where
     AccountId: Ord,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<AccountId> Ord for SigningKey<AccountId>
+impl<AccountId> Ord for SecondaryKey<AccountId>
 where
     AccountId: Ord,
 {
@@ -206,7 +206,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Permission, Signatory, SigningKey};
+    use super::{Permission, SecondaryKey, Signatory};
     use crate::IdentityId;
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -214,25 +214,25 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SigningKey::new(Signatory::Account(key.clone()), vec![]);
-        let rk2 = SigningKey::from_account_id(key.clone());
+        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), vec![]);
+        let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
-        let rk3 = SigningKey::new(
+        let rk3 = SecondaryKey::new(
             Signatory::Account(key.clone()),
             vec![Permission::Operator, Permission::Admin],
         );
         assert_ne!(rk1, rk3);
 
-        let mut rk4 = SigningKey::from_account_id(key);
+        let mut rk4 = SecondaryKey::from_account_id(key);
         rk4.permissions = vec![Permission::Operator, Permission::Admin];
         assert_eq!(rk3, rk4);
 
-        let si1 = SigningKey::from(IdentityId::from(1u128));
-        let si2 = SigningKey::from(IdentityId::from(1u128));
+        let si1 = SecondaryKey::from(IdentityId::from(1u128));
+        let si2 = SecondaryKey::from(IdentityId::from(1u128));
         assert_eq!(si1, si2);
 
-        let si3 = SigningKey::from(IdentityId::from(2u128));
+        let si3 = SecondaryKey::from(IdentityId::from(2u128));
         assert_ne!(si1, si3);
 
         assert_ne!(si1, rk1);
@@ -241,8 +241,8 @@ mod tests {
     #[test]
     fn full_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let full_key = SigningKey::new(Signatory::Account(key.clone()), vec![Permission::Full]);
-        let not_full_key = SigningKey::new(Signatory::Account(key), vec![Permission::Operator]);
+        let full_key = SecondaryKey::new(Signatory::Account(key.clone()), vec![Permission::Full]);
+        let not_full_key = SecondaryKey::new(Signatory::Account(key), vec![Permission::Operator]);
         assert_eq!(full_key.has_permission(Permission::Operator), true);
         assert_eq!(full_key.has_permission(Permission::Admin), true);
 

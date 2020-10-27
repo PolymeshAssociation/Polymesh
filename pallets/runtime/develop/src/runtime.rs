@@ -6,13 +6,14 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
+use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
-    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
@@ -35,7 +36,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningKey, Ticker,
+    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -114,10 +115,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2003,
+    spec_version: 2004,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
+    transaction_version: 2,
 };
 
 /// Native version.
@@ -191,6 +192,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
+    type SystemWeightInfo = ();
 }
 
 parameter_types! {
@@ -202,6 +204,21 @@ impl pallet_babe::Trait for Runtime {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+
+    type KeyOwnerProofSystem = Historical;
+
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
+
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+
+    type HandleEquivocation =
+        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
 }
 
 parameter_types! {
@@ -213,6 +230,7 @@ impl pallet_indices::Trait for Runtime {
     type Currency = Balances;
     type Deposit = IndexDeposit;
     type Event = Event;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -287,6 +305,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -329,6 +348,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -432,7 +452,6 @@ impl pallet_contracts::Trait for Runtime {
     type Time = Timestamp;
     type Randomness = RandomnessCollectiveFlip;
     type Currency = Balances;
-    type Call = Call;
     type Event = Event;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<Runtime>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
@@ -477,7 +496,6 @@ where
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-            pallet_grandpa::ValidateEquivocationReport::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -511,12 +529,18 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+}
+
+impl sto::Trait for Runtime {
+    type Event = Event;
 }
 
 parameter_types! {
@@ -528,6 +552,7 @@ impl pallet_offences::Trait for Runtime {
     type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
     type OnOffenceHandler = Staking;
     type WeightSoftLimit = OffencesWeightSoftLimit;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -560,12 +585,8 @@ impl pallet_grandpa::Trait for Runtime {
         GrandpaId,
     )>>::IdentificationTuple;
 
-    type HandleEquivocation = pallet_grandpa::EquivocationHandler<
-        Self::KeyOwnerIdentification,
-        polymesh_primitives::report::ReporterAppCrypto,
-        Runtime,
-        Offences,
-    >;
+    type HandleEquivocation =
+        pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
 }
 
 impl pallet_authority_discovery::Trait for Runtime {}
@@ -604,20 +625,25 @@ impl portfolio::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl voting::Trait for Runtime {
@@ -633,6 +659,7 @@ impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
@@ -721,7 +748,7 @@ construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         // Must be before session.
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
+        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
 
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
@@ -766,6 +793,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
@@ -796,7 +824,6 @@ pub type SignedExtra = (
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_grandpa::ValidateEquivocationReport<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
@@ -876,7 +903,7 @@ impl_runtime_apis! {
             Grandpa::grandpa_authorities()
         }
 
-        fn submit_report_equivocation_extrinsic(
+        fn submit_report_equivocation_unsigned_extrinsic(
             equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
                 NumberFor<Block>,
@@ -885,7 +912,7 @@ impl_runtime_apis! {
         ) -> Option<()> {
             let key_owner_proof = key_owner_proof.decode()?;
 
-            Grandpa::submit_report_equivocation_extrinsic(
+            Grandpa::submit_unsigned_equivocation_report(
                 equivocation_proof,
                 key_owner_proof,
             )
@@ -923,6 +950,29 @@ impl_runtime_apis! {
         fn current_epoch_start() -> sp_consensus_babe::SlotNumber {
             Babe::current_epoch_start()
         }
+
+        fn generate_key_ownership_proof(
+            _slot_number: sp_consensus_babe::SlotNumber,
+            authority_id: sp_consensus_babe::AuthorityId,
+        ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
+            use codec::Encode;
+
+            Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
+        }
+
+        fn submit_report_equivocation_unsigned_extrinsic(
+            equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
+            key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Babe::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
+        }
     }
 
     impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
@@ -947,12 +997,13 @@ impl_runtime_apis! {
             gas_limit: u64,
             input_data: Vec<u8>,
         ) -> ContractExecResult {
-            let exec_result =
-                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
+            let (exec_result, gas_consumed) =
+                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
-                    status: v.status,
+                    flags: v.flags.bits(),
                     data: v.data,
+                    gas_consumed: gas_consumed,
                 },
                 Err(_) => ContractExecResult::Error,
             }
@@ -1024,7 +1075,7 @@ impl_runtime_apis! {
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1034,7 +1085,7 @@ impl_runtime_apis! {
         Block,
     > for Runtime {
         fn compute_fee(op: ProtocolOp) -> CappedFee {
-            ProtocolFee::compute_fee(op).into()
+            ProtocolFee::compute_fee(&[op]).into()
         }
     }
 
@@ -1044,7 +1095,7 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1057,20 +1108,22 @@ impl_runtime_apis! {
 
         /// RPC call to query the given ticker did
         fn get_asset_did(ticker: Ticker) -> AssetDidResult {
-            match Identity::get_asset_did(ticker) {
-                Ok(did) => Ok(did),
-                Err(_) => Err("Error in computing the given ticker error".into()),
-            }
+            Identity::get_asset_did(ticker)
+                .map_err(|_| "Error in computing the given ticker error".into())
         }
 
-        /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey<AccountId>> {
+        /// Retrieve primary key and secondary keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
             Identity::get_did_records(did)
         }
 
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>> {
+            Identity::get_key_identity_data(acc)
         }
 
         /// Retrieve list of a authorization for a given signatory
@@ -1083,16 +1136,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,
-            ticker: Ticker,
-            from_did: Option<IdentityId>,
-            to_did: Option<IdentityId>,
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
@@ -1105,10 +1160,10 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            treasury_did: Option<IdentityId>,
-        ) -> AssetTransferRulesResult
+            primary_issuance_agent: Option<IdentityId>,
+        ) -> AssetComplianceResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
         }
     }
 

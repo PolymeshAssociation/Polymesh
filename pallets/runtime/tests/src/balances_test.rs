@@ -1,8 +1,5 @@
 use super::{
-    storage::{
-        make_account, make_account_with_balance, make_account_without_cdd,
-        register_keyring_account, EventTest, TestStorage,
-    },
+    storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
 use pallet_balances as balances;
@@ -12,12 +9,12 @@ use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
     assert_err, assert_ok,
-    traits::{Currency, ExistenceRequirement},
+    traits::Currency,
     weights::{DispatchInfo, Weight},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
@@ -48,7 +45,10 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.public();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::Identity(identity::Call::register_did(vec![]));
+            let call = runtime::Call::Identity(identity::Call::register_did(
+                InvestorUid::default(),
+                vec![],
+            ));
 
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -83,7 +83,10 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(vec![]));
+            let call = runtime::Call::Identity(identity::Call::register_did(
+                InvestorUid::default(),
+                vec![],
+            ));
             let len = 10;
             let alice_id = AccountKeyring::Alice.to_account_id();
             assert!(
@@ -176,8 +179,6 @@ fn issue_must_work() {
             assert_eq!(Balances::total_issuance(), ti);
 
             // Funding BRR
-            let eve = AccountKeyring::Eve.public();
-
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
             assert_ok!(Balances::deposit_block_reward_reserve_balance(
                 eve_signed, 500,
@@ -215,7 +216,7 @@ fn issue_must_work() {
 fn burn_account_balance_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_pub = AccountKeyring::Alice.public();
-        let _ = make_account(alice_pub).unwrap();
+        let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
         let burn_amount = 100_000;
@@ -264,7 +265,7 @@ fn transfer_with_memo_we() {
         100,
         memo_1.clone()
     ),);
-    let _ = make_account_with_balance(bob, 0);
+    Balances::make_free_balance_be(&bob, 0);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,

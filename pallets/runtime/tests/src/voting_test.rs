@@ -1,10 +1,10 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;
@@ -16,13 +16,15 @@ type Asset = asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Voting = voting::Module<TestStorage>;
 type Error = voting::Error<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn add_ballot() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -43,7 +45,6 @@ fn add_ballot() {
             true,
             AssetType::default(),
             vec![],
-            None,
             None,
         ));
 
@@ -179,9 +180,10 @@ fn add_ballot() {
 #[test]
 fn cancel_ballot() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -202,7 +204,6 @@ fn cancel_ballot() {
             true,
             AssetType::default(),
             vec![],
-            None,
             None,
         ));
 
@@ -269,10 +270,10 @@ fn cancel_ballot() {
 #[test]
 fn vote() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, tokenholder_did) =
-            make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let tokenholder_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -294,24 +295,23 @@ fn vote() {
             AssetType::default(),
             vec![],
             None,
-            None,
         ));
 
-        let sender_rules = vec![];
-        let receiver_rules = vec![];
+        let sender_conditions = vec![];
+        let receiver_conditions = vec![];
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_acc.clone(),
             ticker,
-            sender_rules,
-            receiver_rules
+            sender_conditions,
+            receiver_conditions
         ));
 
-        assert_ok!(Asset::transfer(
-            token_owner_acc.clone(),
-            ticker,
-            tokenholder_did,
+        assert_ok!(Asset::unsafe_transfer(
+            PortfolioId::default_portfolio(token_owner_did),
+            PortfolioId::default_portfolio(tokenholder_did),
+            &ticker,
             500
         ));
 

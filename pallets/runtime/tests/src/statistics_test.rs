@@ -2,12 +2,11 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, IdentifierType, SecurityToken};
+use frame_support::assert_ok;
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::Ticker;
-
-use frame_support::assert_ok;
+use polymesh_primitives::{AssetIdentifier, PortfolioId, Ticker};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -39,7 +38,7 @@ fn investor_count_per_asset_with_ext() {
         ..Default::default()
     };
 
-    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+    let identifiers = Vec::new();
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
         alice_signed.clone(),
@@ -50,26 +49,34 @@ fn investor_count_per_asset_with_ext() {
         token.asset_type.clone(),
         identifiers.clone(),
         None,
-        None,
     ));
 
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         alice_signed.clone(),
         ticker,
         vec![],
         vec![]
     ));
 
+    let unsafe_transfer = |from, to, value| {
+        assert_ok!(Asset::unsafe_transfer(
+            PortfolioId::default_portfolio(from),
+            PortfolioId::default_portfolio(to),
+            &ticker,
+            value,
+        ));
+    };
+
     // Alice sends some tokens to Bob. Token has only one investor.
-    assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 500));
+    unsafe_transfer(alice_did, bob_did, 500);
     assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
-    assert_ok!(Asset::transfer(alice_signed, ticker, charlie_did, 5000));
+    unsafe_transfer(alice_did, charlie_did, 5000);
     assert_eq!(Statistic::investor_count_per_asset(&ticker), 2);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
-    assert_ok!(Asset::transfer(bob_signed, ticker, charlie_did, 500));
+    unsafe_transfer(bob_did, charlie_did, 500);
     assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
 }

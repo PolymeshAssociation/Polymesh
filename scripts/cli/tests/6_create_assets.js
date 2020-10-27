@@ -14,13 +14,13 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api, 2, "master6");
+  let primary_keys = await reqImports.generateKeys(api, 2, "primary6");
 
-  let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
+  let issuer_dids = await reqImports.createIdentities(api, primary_keys, testEntities[0]);
 
-  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await issueTokenPerDid(api, master_keys, issuer_dids, "DEMOCA");
+  await issueTokenPerDid(api, primary_keys, issuer_dids, "DEMOCA");
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -38,15 +38,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
     const ticker = `token${prepend}${i}`.toUpperCase();
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
     const transaction = api.tx.asset.createAsset(
-      ticker, ticker, 1000000, true, 0, [], "abc", dids[i]
+      ticker, ticker, 1000000, true, 0, [], "abc"
     );
-    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
-
-    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
+    let tx = await reqImports.sendTx(accounts[i], transaction);
+    if(tx !== -1) reqImports.fail_count--;
+   
   }
 }
 

@@ -16,7 +16,7 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUid, Signatory, Ticker};
 
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
@@ -28,6 +28,11 @@ const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+    let name_u = format!("{}-{}", name, u);
+    InvestorUid::from(name_u.as_str())
+}
+
 fn make_account<T: Trait>(
     name: &'static str,
     u: u32,
@@ -35,7 +40,8 @@ fn make_account<T: Trait>(
     let account: T::AccountId = account(name, u, SEED);
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-    let _ = identity::Module::<T>::register_did(origin.clone().into(), vec![]);
+    let uid = uid_from_name_and_idx(name, u);
+    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
     let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
     (account, origin, did)
 }
@@ -55,9 +61,10 @@ fn make_token<T: Trait>(
     let name = AssetName::from(vec![b'N'; token_name_len as usize].as_slice());
     let total_supply: T::Balance = 1_000_000_000.into();
     let asset_type = AssetType::default();
-    let identifiers: Vec<(IdentifierType, AssetIdentifier)> = iter::repeat(Default::default())
-        .take(identifiers_len as usize)
-        .collect();
+    let identifiers: Vec<AssetIdentifier> =
+        iter::repeat(AssetIdentifier::cusip(*b"023135106").unwrap())
+            .take(identifiers_len as usize)
+            .collect();
     let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
     Module::<T>::create_asset(
         origin.into(),
@@ -68,7 +75,6 @@ fn make_token<T: Trait>(
         asset_type,
         identifiers,
         Some(fundr),
-        None,
     )
     .unwrap();
     ticker
@@ -150,11 +156,11 @@ benchmarks! {
         let ticker = Ticker::try_from(vec![b'T'; t as usize].as_slice()).unwrap();
         let total_supply: T::Balance = 1_000_000.into();
         let asset_type = AssetType::default();
-        let identifiers: Vec<(IdentifierType, AssetIdentifier)> =
-            iter::repeat(Default::default()).take(i as usize).collect();
+        let identifiers: Vec<AssetIdentifier> =
+            iter::repeat(AssetIdentifier::cusip(*b"023135106").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;
-    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr), None)
+    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr))
 
     freeze {
         let u in ...;
@@ -201,23 +207,6 @@ benchmarks! {
         let ticker = make_token::<T>(origin.clone(), t, n, i, f);
     }: _(origin, ticker, new_name)
 
-    transfer {
-        let u in ...;
-        // Token name length.
-        let n in 1 .. MAX_NAME_LENGTH;
-        // Ticker length.
-        let t in 1 .. MAX_TICKER_LENGTH as u32;
-        // Length of the vector of identifiers.
-        let i in 1 .. 100;
-        // Funding round name length.
-        let f in 1 .. MAX_NAME_LENGTH;
-        // Token amount.
-        let a in 1 .. 100_000;
-        let (_, alice_origin, _) = make_account::<T>("alice", u);
-        let (_, _, bob_did) = make_account::<T>("bob", u);
-        let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-    }: _(alice_origin, ticker, bob_did, a.into())
-
     issue {
         let u in ...;
         // Token name length.
@@ -231,29 +220,6 @@ benchmarks! {
         // Token amount.
         let a in 1 .. 1_000_000;
         let (_, alice_origin, _) = make_account::<T>("alice", u);
-        let (_, _, bob_did) = make_account::<T>("bob", u);
         let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-    }: _(alice_origin, ticker, bob_did, a.into(), vec![])
-
-    batch_issue {
-        let u in ...;
-        // Token name length.
-        let n in 1 .. MAX_NAME_LENGTH;
-        // Ticker length.
-        let t in 1 .. MAX_TICKER_LENGTH as u32;
-        // Number of investors.
-        let i in 1 .. 100;
-        // Funding round name length.
-        let f in 1 .. MAX_NAME_LENGTH;
-        let alice_origin = make_account::<T>("alice", u).1;
-        let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-        let mut issue_asset_item = Vec::new();
-        for j in 1 .. i {
-            let did = make_account::<T>("investor", u + j).2;
-            issue_asset_item.push(IssueAssetItem {
-                investor_did: did,
-                value: 1_000.into()
-            });
-        }
-    }: _(alice_origin, issue_asset_item, ticker)
+    }: _(alice_origin, ticker, a.into())
 }

@@ -20,7 +20,7 @@ pub mod constants;
 pub mod traits;
 pub use traits::{
     asset, balances, compliance_manager, exemption, governance_group, group, identity, multisig,
-    pip, transaction_payment, CommonTrait,
+    pip, portfolio, transaction_payment, CommonTrait,
 };
 
 pub mod context;
@@ -32,9 +32,8 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
 
-use core::convert::From;
 use polymesh_primitives::IdentityId;
-use sp_runtime::ModuleId;
+use sp_runtime::{DispatchResult, ModuleId};
 
 /// It defines the valid issuers for Systematic Claims.
 ///
@@ -56,6 +55,8 @@ pub enum SystematicIssuers {
     Treasury,
     BlockRewardReserve,
     Settlement,
+    ClassicMigration,
+    FiatTickersReservation,
 }
 
 impl core::fmt::Display for SystematicIssuers {
@@ -66,6 +67,8 @@ impl core::fmt::Display for SystematicIssuers {
             SystematicIssuers::Treasury => "Treasury",
             SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
             SystematicIssuers::Settlement => "Settlement module",
+            SystematicIssuers::ClassicMigration => "Polymath Classic Imports and Reservations",
+            SystematicIssuers::FiatTickersReservation => "Fiat Ticker Reservation",
         };
 
         write!(f, "'{}'", value)
@@ -78,41 +81,65 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::CDDProvider,
     SystematicIssuers::BlockRewardReserve,
     SystematicIssuers::Settlement,
+    SystematicIssuers::ClassicMigration,
+    SystematicIssuers::FiatTickersReservation,
 ];
 
 impl SystematicIssuers {
-    /// It returns the representation of this issuer as a raw public key.
-    pub fn as_bytes(self) -> &'static [u8; 32] {
-        use constants::did::{
-            BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID,
-            SETTLEMENT_MODULE_DID, TREASURY_DID,
-        };
-
+    /// Returns the representation of this issuer as a raw public key.
+    pub const fn as_bytes(self) -> &'static [u8; 32] {
+        use constants::did;
         match self {
-            SystematicIssuers::Committee => GOVERNANCE_COMMITTEE_DID,
-            SystematicIssuers::CDDProvider => CDD_PROVIDERS_DID,
-            SystematicIssuers::Treasury => TREASURY_DID,
-            SystematicIssuers::BlockRewardReserve => BLOCK_REWARD_RESERVE_DID,
-            SystematicIssuers::Settlement => SETTLEMENT_MODULE_DID,
+            SystematicIssuers::Committee => did::GOVERNANCE_COMMITTEE_DID,
+            SystematicIssuers::CDDProvider => did::CDD_PROVIDERS_DID,
+            SystematicIssuers::Treasury => did::TREASURY_DID,
+            SystematicIssuers::BlockRewardReserve => did::BLOCK_REWARD_RESERVE_DID,
+            SystematicIssuers::Settlement => did::SETTLEMENT_MODULE_DID,
+            SystematicIssuers::ClassicMigration => did::CLASSIC_MIGRATION_DID,
+            SystematicIssuers::FiatTickersReservation => did::FIAT_TICKERS_RESERVATION_DID,
         }
     }
 
     /// It returns the Identity Identifier of this issuer.
-    pub fn as_id(self) -> IdentityId {
-        IdentityId::from(*self.as_bytes())
+    pub const fn as_id(self) -> IdentityId {
+        IdentityId::from_bytes(*self.as_bytes())
     }
 
-    pub fn as_module_id(self) -> ModuleId {
-        use constants::{
-            BRR_MODULE_ID, CDD_MODULE_ID, GC_MODULE_ID, SETTLEMENT_MODULE_ID, TREASURY_MODULE_ID,
-        };
-
+    pub const fn as_module_id(self) -> ModuleId {
         match self {
-            SystematicIssuers::Committee => GC_MODULE_ID,
-            SystematicIssuers::CDDProvider => CDD_MODULE_ID,
-            SystematicIssuers::Treasury => TREASURY_MODULE_ID,
-            SystematicIssuers::BlockRewardReserve => BRR_MODULE_ID,
-            SystematicIssuers::Settlement => SETTLEMENT_MODULE_ID,
+            SystematicIssuers::Committee => constants::GC_MODULE_ID,
+            SystematicIssuers::CDDProvider => constants::CDD_MODULE_ID,
+            SystematicIssuers::Treasury => constants::TREASURY_MODULE_ID,
+            SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
+            SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
+            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
+            SystematicIssuers::FiatTickersReservation => {
+                constants::FIAT_TICKERS_RESERVATION_MODULE_ID
+            }
         }
     }
+}
+
+pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
+
+/// Execute the supplied function in a new storage transaction,
+/// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
+///
+/// Transactions can be arbitrarily nested with commits happening to the parent.
+pub fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    use frame_support::storage::{with_transaction, TransactionOutcome};
+    with_transaction(|| match tx() {
+        r @ Ok(_) => TransactionOutcome::Commit(r),
+        r @ Err(_) => TransactionOutcome::Rollback(r),
+    })
+}
+
+/// In one transaction, execute the supplied function `tx` on each element in `iter`.
+///
+/// See `with_transaction` for details.
+pub fn with_each_transaction<A>(
+    iter: impl IntoIterator<Item = A>,
+    tx: impl FnMut(A) -> DispatchResult,
+) -> DispatchResult {
+    with_transaction(|| iter.into_iter().try_for_each(tx))
 }

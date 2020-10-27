@@ -16,7 +16,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::Codec;
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{Balance, IdentityId, PortfolioId, Ticker};
 use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;
@@ -25,10 +25,9 @@ pub type CanTransferResult = Result<u8, Error>;
 sp_api::decl_runtime_apis! {
 
     /// The API to interact with Asset.
-    pub trait AssetApi<AccountId, Balance>
+    pub trait AssetApi<AccountId>
     where
-        AccountId: Codec,
-        Balance: Codec
+        AccountId: Codec
     {
          /// Checks whether a transaction with given parameters can take place or not.
          ///
@@ -36,6 +35,8 @@ sp_api::decl_runtime_apis! {
          ///
          /// In this example we are checking if Alice can transfer 500 of ticket 0x01
          /// from herself (Id=0x2a) to Bob (Id=0x3905)
+         ///
+         /// TODO: update example
          ///
          /// ```ignore
          ///  curl
@@ -53,9 +54,11 @@ sp_api::decl_runtime_apis! {
          /// ```
         fn can_transfer(
             sender: AccountId,
-            ticker: Ticker,
-            from_did: Option<IdentityId>,
-            to_did: Option<IdentityId>,
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
             value: Balance
         ) -> CanTransferResult;
     }

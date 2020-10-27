@@ -13,12 +13,12 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let keys = await reqImports.generateKeys(api, 2, "master1");
+  let keys = await reqImports.generateKeys(api, 2, "primary1");
 
   await reqImports.createIdentities(api, keys, testEntities[0]);
-  
+
   await distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
- 
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -30,19 +30,14 @@ async function main() {
 }
 
 // Sends transfer_amount to accounts[] from alice
-async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
+async function distributePoly( api, accounts, transfer_amount, secondaryEntity ) {
 
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
-   
-    let nonceObj = {nonce: reqImports.nonces.get(signingEntity.address)};
-    //console.log(accounts[i].address, transfer_amount.toString());
-    const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-    const result = await reqImports.sendTransaction(transaction, signingEntity, nonceObj);  
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
 
-    reqImports.nonces.set( signingEntity.address, reqImports.nonces.get(signingEntity.address).addn(1));
+    const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
+    let tx = await reqImports.sendTx(secondaryEntity, transaction);
+    if(tx !== -1) reqImports.fail_count--;
 
   }
 }

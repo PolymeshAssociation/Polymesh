@@ -17,8 +17,8 @@ let current_storage_size = 0;
 let STORAGE_DIR;
 let nonces = new Map();
 let alice, bob, dave;
-let master_keys = [];
-let signing_keys = [];
+let primary_keys = [];
+let secondary_keys = [];
 let claim_keys = [];
 let sk_roles = [[0], [1], [2], [1, 2]];
 
@@ -102,14 +102,14 @@ async function main() {
 
   dave = testEntities[3];
 
-  // Create `n_accounts` master key accounts
+  // Create `n_accounts` primary key accounts
 
-  console.log("Generating Master Keys");
-  master_keys = await reqImports.generateKeys(api, n_accounts, "master");
+  console.log("Generating Primary Keys");
+  primary_keys = await reqImports.generateKeys(api, n_accounts, "primary");
 
-  // Create `n_accounts` signing key accounts
-  console.log("Generating Signing Keys");
-  signing_keys = await reqImports.generateKeys(api, n_accounts, "signing");
+  // Create `n_accounts` secondary key accounts
+  console.log("Generating Secondary Keys");
+  secondary_keys = await reqImports.generateKeys(api, n_accounts, "secondary");
 
 
   // Create `n_accounts` claim key accounts
@@ -128,10 +128,10 @@ async function main() {
     'Complete: DISTRIBUTE POLY                ': (n_accounts * 2),
     'Submit  : CREATE ISSUER IDENTITIES       ': n_accounts + 2,
     'Complete: CREATE ISSUER IDENTITIES       ': n_accounts + 2,
-    'Submit  : ADD SIGNING KEYS               ': n_accounts,
-    'Complete: ADD SIGNING KEYS               ': n_accounts,
-    'Submit  : SET SIGNING KEY ROLES          ': n_accounts,
-    'Complete: SET SIGNING KEY ROLES          ': n_accounts,
+    'Submit  : ADD SECONDARY KEYS               ': n_accounts,
+    'Complete: ADD SECONDARY KEYS               ': n_accounts,
+    'Submit  : SET SECONDARY KEY ROLES          ': n_accounts,
+    'Complete: SET SECONDARY KEY ROLES          ': n_accounts,
     'Submit  : ISSUE SECURITY TOKEN           ': n_accounts,
     'Complete: ISSUE SECURITY TOKEN           ': n_accounts,
     'Submit  : CREATE CLAIM ISSUER IDENTITIES ': n_claim_accounts,
@@ -169,21 +169,21 @@ async function main() {
 
   await createIdentities(api, [charlie, dave], alice, init_bars[4], init_bars[5], fast);
 
-  let issuer_dids = await createIdentities(api, master_keys, alice, init_bars[4], init_bars[5], fast);
+  let issuer_dids = await createIdentities(api, primary_keys, alice, init_bars[4], init_bars[5], fast);
 
   let claim_issuer_dids = await createIdentities(api, claim_keys, alice, init_bars[12], init_bars[13], fast);
 
   await tps(api, [alice, bob], n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
 
-  await distributePoly(api, alice, master_keys.concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
+  await distributePoly(api, alice, primary_keys.concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
 
-  await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
+  await addSecondaryKeys(api, primary_keys, issuer_dids, secondary_keys, init_bars[6], init_bars[7], fast);
 
-  await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[16], init_bars[17], fast);
+  await authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys, init_bars[16], init_bars[17], fast);
 
-  await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
+  await addSecondaryKeyRoles(api, primary_keys, issuer_dids, secondary_keys, init_bars[8], init_bars[9], fast);
 
-  await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
+  await issueTokenPerDid(api, primary_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
 
@@ -206,7 +206,7 @@ async function main() {
 
   console.log("Claims Batch Test");
 
-  await addClaimsBatchToDid(api, master_keys, issuer_dids, 10, fast);
+  await addClaimsBatchToDid(api, primary_keys, issuer_dids, 10, fast);
 
   console.log("Claim Batch Test Completed");
   process.exit();
@@ -347,25 +347,25 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   return dids;
 }
 
-// Attach a signing key to each DID
-async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
-  fail_type["ADD SIGNING KEY"] = 0;
+// Attach a secondary key to each DID
+async function addSecondaryKeys(api, accounts, dids, secondary_accounts, submitBar, completeBar, fast) {
+  fail_type["ADD SECONDARY KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
-    // 1. Add Signing Item to identity.
+    // 1. Add Secondary Item to identity.
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
       await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
             fail_count++;
             completeBar.increment();
-            fail_type["ADD SIGNING KEY"]++;
+            fail_type["ADD SECONDARY KEY"]++;
       } else {  completeBar.increment(); }
 
     }
@@ -374,11 +374,11 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
   }
 }
 
-async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
-  fail_type["AUTH SIGNING KEY"] = 0;
+async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts, submitBar, completeBar, fast) {
+  fail_type["AUTH SECONDARY KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    const auths = await api.query.identity.authorizations.entries({Account: signing_accounts[i].publicKey});
+    const auths = await api.query.identity.authorizations.entries({Account: secondary_accounts[i].publicKey});
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
       if (auths[i][1].auth_id.toNumber() > last_auth_id) {
@@ -387,22 +387,22 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
     }
 
     if (fast) {
-      let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
+      let nonceObj = {nonce: reqImports.nonces.get(secondary_accounts[i].address)};
       const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-      await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);
+      await reqImports.sendTransaction(transaction, secondary_accounts[i], nonceObj);
 
-      reqImports.nonces.set(signing_accounts[i].address, reqImports.nonces.get(signing_accounts[i].address).addn(1));
+      reqImports.nonces.set(secondary_accounts[i].address, reqImports.nonces.get(secondary_accounts[i].address).addn(1));
     } else {
 
-      let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
+      let nonceObj = {nonce: reqImports.nonces.get(secondary_accounts[i].address)};
       const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-      const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);
+      const result = await reqImports.sendTransaction(transaction, secondary_accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
       if (!passed) {
         fail_count++;
         completeBar.increment();
-        fail_type["AUTH SIGNING KEY"]++;
+        fail_type["AUTH SECONDARY KEY"]++;
       } else {  completeBar.increment(); }
 
     }
@@ -413,11 +413,11 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
   return dids;
 }
 
-// Attach a signing key to each DID
-async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
-  fail_type["SET SIGNING KEY ROLES"] = 0;
+// Attach a secondary key to each DID
+async function addSecondaryKeyRoles(api, accounts, dids, secondary_accounts, submitBar, completeBar, fast) {
+  fail_type["SET SECONDARY KEY ROLES"] = 0;
   for (let i = 0; i < accounts.length; i++) {
-    let signer = { Account: signing_accounts[i].publicKey };
+    let signer = { Account: secondary_accounts[i].publicKey };
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
       const transaction = api.tx.identity.setPermissionToSigner( signer, sk_roles[i%sk_roles.length]);
@@ -432,7 +432,7 @@ async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitB
       if (!passed) {
         fail_count++;
         completeBar.increment();
-        fail_type["SET SIGNING KEY ROLES"]++;
+        fail_type["SET SECONDARY KEY ROLES"]++;
       } else {  completeBar.increment(); }
 
     }

@@ -10,6 +10,7 @@ use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::Link
 use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
+use sp_runtime::Storage;
 use std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
 
@@ -40,12 +41,12 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::DividendNew,
-            ProtocolOp::ComplianceManagerAddActiveRule,
+            ProtocolOp::ComplianceManagerAddComplianceRequirement,
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
-            ProtocolOp::IdentitySetMasterKey,
-            ProtocolOp::IdentityAddSigningKeysWithAuthorization,
+            ProtocolOp::IdentitySetPrimaryKey,
+            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
@@ -78,12 +79,19 @@ pub struct ExtBuilder {
     governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
+    /// Maximum number of transfer manager an asset can have.
+    max_no_of_tm_allowed: u32,
+    /// Maximum number of legs a instruction can have.
+    max_no_of_legs: u32,
+    adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
 }
 
 thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
+    pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
+    pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
 }
 
 impl ExtBuilder {
@@ -158,6 +166,18 @@ impl ExtBuilder {
         self
     }
 
+    /// Set maximum of tms allowed for an asset
+    pub fn set_max_tms_allowed(mut self, tm_count: u32) -> Self {
+        self.max_no_of_tm_allowed = tm_count;
+        self
+    }
+
+    /// Set maximum no of legs an instruction can have.
+    pub fn set_max_legs_allowed(mut self, legs_count: u32) -> Self {
+        self.max_no_of_legs = legs_count;
+        self
+    }
+
     pub fn set_protocol_base_fees(mut self, fees: MockProtocolBaseFees) -> Self {
         self.protocol_base_fees = fees;
         self
@@ -168,10 +188,18 @@ impl ExtBuilder {
         self
     }
 
+    /// Provide a closure `with` to run on the storage for final adjustments.
+    pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
+        self.adjust = Some(with);
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
+        MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
+        MAX_NO_OF_LEGS.with(|v| *v.borrow_mut() = self.max_no_of_legs);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {
@@ -267,11 +295,16 @@ impl ExtBuilder {
         .unwrap();
 
         // Asset genesis.
+        let ticker_registration_config = TickerRegistrationConfig {
+            max_ticker_length: 8,
+            registration_length: Some(10000),
+        };
         asset::GenesisConfig::<TestStorage> {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 8,
-                registration_length: Some(10000),
-            },
+            classic_migration_tickers: vec![],
+            classic_migration_contract_did: IdentityId::from(1),
+            classic_migration_tconfig: ticker_registration_config.clone(),
+            ticker_registration_config,
+            reserved_country_currency_codes: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -283,7 +316,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })
@@ -304,7 +337,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })
@@ -347,6 +380,10 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage)
         .unwrap();
+
+        if let Some(adjust) = self.adjust {
+            adjust(&mut storage);
+        }
 
         sp_io::TestExternalities::new(storage)
     }

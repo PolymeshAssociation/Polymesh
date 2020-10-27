@@ -69,7 +69,7 @@ use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     pip::{EnactProposalMaker, PipId},
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
@@ -105,7 +105,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee.
     Members(MemberCount, MemberCount),
@@ -202,8 +202,8 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Only master key of the identity is allowed.
-        OnlyMasterKeyAllowed,
+        /// Only primary key of the identity is allowed.
+        OnlyPrimaryKeyAllowed,
         /// Sender Identity is not part of the committee.
         MemberNotFound,
         /// Last member of the committee can not quit.
@@ -249,9 +249,7 @@ decl_module! {
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
-            let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
-            Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
+            Self::deposit_event(RawEvent::VoteThresholdUpdated(GC_DID, n, d));
         }
 
         /// May be called by any signed account after the voting duration has ended in order to
@@ -677,8 +675,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;
-        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
-        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+        <identity::Module<T>>::add_systematic_cdd_claims(incoming, issuer);
+        <identity::Module<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
 
         <Members<I>>::put(new);
     }
@@ -688,17 +686,15 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
-        if !members.is_empty() {
-            assert!(
-                <Members<I>>::get().is_empty(),
-                "Members are already initialized!"
-            );
-            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
-                members,
-                SystematicIssuers::Committee,
-            );
-            <Members<I>>::put(members);
+        if members.is_empty() {
+            return;
         }
+        assert!(
+            <Members<I>>::get().is_empty(),
+            "Members are already initialized!"
+        );
+        <identity::Module<T>>::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
+        <Members<I>>::put(members);
     }
 }
 

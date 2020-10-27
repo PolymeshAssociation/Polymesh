@@ -47,7 +47,7 @@
 //! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
 //! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
 //! - `reject_as_identity` - Rejects a multisig proposal using the caller's identity.
-//! - `reject_as_key` - Rejects a multisig proposal using the caller's signing key (`AccountId`).
+//! - `reject_as_key` - Rejects a multisig proposal using the caller's secondary key (`AccountId`).
 //! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
 //! signer's identity.
 //! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
@@ -61,7 +61,7 @@
 //! and changes the number of required signatures.
 //! `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
 //! the creator of the multisig.
-//! `make_multisig_master` - Adds a multisig as the master key of the current DID if the current did
+//! `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
 //! is the creator of the multisig.
 //!
 //! ### Other Public Functions
@@ -89,7 +89,7 @@ use frame_support::{
     weights::GetDispatchInfo,
     StorageDoubleMap, StorageValue,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
@@ -181,7 +181,7 @@ decl_storage! {
             double_map hasher(twox_64_concat) T::AccountId, hasher(opaque_blake2_256) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
-        /// Maps a multisig signing key to a multisig address.
+        /// Maps a multisig secondary key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
@@ -322,7 +322,7 @@ decl_module! {
             Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
-        /// Approves a multisig proposal using the caller's signing key (`AccountId`).
+        /// Approves a multisig proposal using the caller's secondary key (`AccountId`).
         ///
         /// # Arguments
         /// * `multisig` - MultiSig address.
@@ -349,7 +349,7 @@ decl_module! {
             Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
-        /// Rejects a multisig proposal using the caller's signing key (`AccountId`).
+        /// Rejects a multisig proposal using the caller's secondary key (`AccountId`).
         ///
         /// # Arguments
         /// * `multisig` - MultiSig address.
@@ -433,7 +433,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(
                     sender_did,
@@ -458,7 +458,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -572,19 +572,19 @@ decl_module! {
             )
         }
 
-        /// Adds a multisig as the master key of the current did if the current did is the creator
+        /// Adds a multisig as the primary key of the current did if the current did is the creator
         /// of the multisig.
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
         #[weight = 300_000_000]
-        pub fn make_multisig_master(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+        pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
-            <Identity<T>>::unsafe_master_key_rotation(
+            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            <Identity<T>>::unsafe_primary_key_rotation(
                 multisig,
                 sender_did,
                 optional_cdd_auth_id
@@ -668,14 +668,14 @@ decl_error! {
         FailedToChargeFee,
         /// Identity provided is not the multisig's creator.
         IdentityNotCreator,
-        /// Changing multisig parameters not allowed since multisig is a master key.
+        /// Changing multisig parameters not allowed since multisig is a primary key.
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
         SignerAlreadyLinked,
         /// Current DID is missing
         MissingCurrentIdentity,
-        /// The function can only be called by the master key of the did
-        NotMasterKey,
+        /// The function can only be called by the primary key of the did
+        NotPrimaryKey,
         /// Proposal was rejected earlier
         ProposalAlreadyRejected,
         /// Proposal has expired
@@ -1010,12 +1010,12 @@ impl<T: Trait> Module<T> {
         );
 
         if let Signatory::Account(key) = &signer {
-            // Don't allow a signer key that is already a signing key on another multisig
+            // Don't allow a signer key that is already a secondary key on another multisig
             ensure!(
                 !<KeyToMultiSig<T>>::contains_key(key),
                 Error::<T>::SignerAlreadyLinked
             );
-            // Don't allow a signer key that is already a signing key on another identity
+            // Don't allow a signer key that is already a secondary key on another identity
             ensure!(
                 !<identity::KeyToIdentityIds<T>>::contains_key(key),
                 Error::<T>::SignerAlreadyLinked
@@ -1062,9 +1062,9 @@ impl<T: Trait> Module<T> {
 
     /// Checks whether changing the list of signers is allowed in a multisig.
     pub fn is_changing_signers_allowed(multisig: &T::AccountId) -> bool {
-        if <Identity<T>>::cdd_auth_for_master_key_rotation() {
+        if <Identity<T>>::cdd_auth_for_primary_key_rotation() {
             if let Some(did) = <Identity<T>>::get_identity(multisig) {
-                if multisig == &<Identity<T>>::did_records(&did).master_key {
+                if multisig == &<Identity<T>>::did_records(&did).primary_key {
                     return false;
                 }
             }

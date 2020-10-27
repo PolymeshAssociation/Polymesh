@@ -1,5 +1,9 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
+};
 use codec::Encode;
+use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -11,9 +15,9 @@ use frame_support::{
     },
     StorageDoubleMap,
 };
-use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -37,7 +41,10 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
+    PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
+};
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
@@ -52,7 +59,9 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
+use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -108,6 +117,7 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         settlement<T>,
+        sto<T>,
         pallet_utility,
         portfolio<T>,
         confidential,
@@ -204,6 +214,7 @@ impl frame_system::Trait for TestStorage {
     /// independent of the logic of that extrinsics. (Roughly max block weight - average on
     /// initialize cost).
     type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
+    type SystemWeightInfo = ();
 }
 
 parameter_types! {
@@ -233,6 +244,7 @@ impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl multisig::Trait for TestStorage {
@@ -241,12 +253,18 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+}
+
+impl sto::Trait for TestStorage {
+    type Event = Event;
 }
 
 impl ChargeTxFee for TestStorage {
@@ -258,13 +276,9 @@ impl ChargeTxFee for TestStorage {
 impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
-        caller: &Signatory<AccountId>,
+        caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        if let Signatory::Account(key) = caller {
-            Ok(Some(*key))
-        } else {
-            Err(InvalidTransaction::Call.into())
-        }
+        Ok(Some(*caller))
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
@@ -369,6 +383,7 @@ impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
+    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
@@ -382,6 +397,11 @@ impl AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
+
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -403,7 +423,6 @@ impl pallet_contracts::Trait for TestStorage {
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
-    type Call = Call;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
@@ -421,12 +440,12 @@ impl pallet_contracts::Trait for TestStorage {
 impl statistics::Trait for TestStorage {}
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl protocol_fee::Trait for TestStorage {
@@ -439,10 +458,15 @@ impl portfolio::Trait for TestStorage {
     type Event = Event;
 }
 
+parameter_types! {
+    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
@@ -529,6 +553,7 @@ impl pallet_session::Trait for TestStorage {
     type SessionHandler = TestSessionHandler;
     type Keys = MockSessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    type WeightInfo = ();
 }
 
 impl dividend::Trait for TestStorage {
@@ -583,16 +608,19 @@ pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
+pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
+    uid: InvestorUid,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000)
+    make_account_with_balance(id, uid, 1_000_000)
 }
 
-/// It creates an Account and registers its DID.
+/// It creates an Account and registers its DID and its InvestorUid.
 pub fn make_account_with_balance(
     id: AccountId,
+    uid: InvestorUid,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
@@ -600,14 +628,25 @@ pub fn make_account_with_balance(
 
     // If we have CDD providers, first of them executes the registration.
     let cdd_providers = CddServiceProvider::get_members();
-    let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
-        let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
-        Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
-    } else {
-        Identity::register_did(signed_id.clone(), vec![])
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).primary_key.0);
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
+
+            // Add CDD Claim
+            let did = Identity::get_identity(&id).unwrap();
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
     };
-    let _ = did_registration.map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
@@ -630,7 +669,8 @@ pub fn register_keyring_account_with_balance(
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
-    make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+    let uid = InvestorUid::from(format!("{}", acc).as_str());
+    make_account_with_balance(acc_pub, uid, balance).map(|(_, id)| id)
 }
 
 pub fn register_keyring_account_without_cdd(
@@ -640,8 +680,8 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
-    let _master_key = Identity::did_records(&did).master_key;
+pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+    let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
@@ -675,5 +715,71 @@ pub fn fast_forward_to_block(n: u64) {
     (block_number..n).for_each(|block| {
         assert_ok!(pips::Module::<TestStorage>::end_block(block));
         frame_system::Module::<TestStorage>::set_block_number(block + 1);
+    });
+}
+
+pub fn fast_forward_blocks(n: u64) {
+    fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
+
+/// Returns a btreeset that contains default portfolio for the identity.
+pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a vector that contains default portfolio for the identity.
+pub fn default_portfolio_vec(did: IdentityId) -> Vec<PortfolioId> {
+    vec![PortfolioId::default_portfolio(did)]
+}
+
+/// Returns a btreeset that contains a portfolio for the identity.
+pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::user_portfolio(did, num)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a vector that contains a portfolio for the identity.
+pub fn user_portfolio_vec(did: IdentityId, num: PortfolioNumber) -> Vec<PortfolioId> {
+    vec![PortfolioId::user_portfolio(did, num)]
+}
+
+pub fn provide_scope_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+    cdd_provider: AccountId,
+) {
+    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
+    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
+    let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+
+    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
+
+    // Add cdd claim first
+    assert_ok!(Identity::add_claim(
+        Origin::signed(cdd_provider),
+        claim_to,
+        Claim::CustomerDueDiligence(cdd_id),
+        None
+    ));
+
+    // Provide the InvestorZKProof.
+    assert_ok!(Identity::add_claim(
+        signed_claim_to,
+        claim_to,
+        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
+        None
+    ));
+}
+
+pub fn provide_scope_claim_to_multiple_parties(
+    parties: &[IdentityId],
+    ticker: Ticker,
+    cdd_provider: AccountId,
+) {
+    parties.iter().enumerate().for_each(|(index, id)| {
+        let uid = InvestorUid::from(format!("uid_{}", index).as_bytes());
+        provide_scope_claim(*id, ticker, uid, cdd_provider);
     });
 }

@@ -1,8 +1,11 @@
+use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
-use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signatory, Signature};
+use polymesh_primitives::{
+    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, Ticker,
+};
 use polymesh_runtime_develop::{
     self as general,
     config::{self as GeneralConfig},
@@ -24,7 +27,10 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-use std::iter;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
+use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -116,6 +122,23 @@ fn polymath_props() -> Properties {
         .clone()
 }
 
+fn currency_codes() -> Vec<Ticker> {
+    // Fiat Currency Struct
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+    pub struct FiatCurrency<String> {
+        pub codes: Vec<String>,
+    }
+
+    let currency_file = include_str!("data/currency_symbols.json");
+    let currency_data: FiatCurrency<String> = serde_json::from_str(&currency_file).unwrap();
+    currency_data
+        .codes
+        .into_iter()
+        .map(|y| y.as_bytes().try_into().unwrap())
+        .collect()
+}
+
 fn general_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
@@ -131,34 +154,46 @@ fn general_testnet_genesis(
 ) -> GeneralConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
-    const BRIDGE_CREATOR_ID: u128 = 6;
-    const BRIDGE_CREATOR_ID_BALANCE: u128 = 1_000 * POLY;
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(GeneralConfig::AssetConfig {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                registration_length: Some(5_184_000_000),
-            },
-        }),
+        asset: {
+            Some(GeneralConfig::AssetConfig {
+                ticker_registration_config: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    registration_length: Some(5_184_000_000),
+                },
+                classic_migration_tconfig: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    // TODO(centril): use values per product team wishes.
+                    registration_length: Some(5_184_000_000),
+                },
+                // Always use the first id, whomever that may be.
+                classic_migration_contract_did: IdentityId::from(1),
+                // TODO(centril): fill with actual data from Ethereum.
+                classic_migration_tickers: vec![],
+                reserved_country_currency_codes: currency_codes(),
+            })
+        },
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
+                    InvestorUid::from(b"uid2".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -166,18 +201,21 @@ fn general_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
                     IdentityId::from(1),
                     IdentityId::from(3),
+                    InvestorUid::from(b"uid3".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_2"),
                     IdentityId::from(1),
                     IdentityId::from(4),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
                     IdentityId::from(1),
                     IdentityId::from(5),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
             ];
@@ -187,12 +225,9 @@ fn general_testnet_genesis(
                 .iter()
                 .map(|x| {
                     identity_counter = identity_counter + 1;
-                    (
-                        x.1.clone(),
-                        IdentityId::from(1),
-                        IdentityId::from(identity_counter),
-                        None,
-                    )
+                    let did = IdentityId::from(identity_counter);
+                    let investor_uid = InvestorUid::from(did.as_ref());
+                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();
 
@@ -202,7 +237,7 @@ fn general_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
                     identity_counter += 1;
@@ -212,7 +247,7 @@ fn general_testnet_genesis(
 
             Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },
@@ -469,32 +504,47 @@ fn alcyone_testnet_genesis(
             code: alcyone::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(AlcyoneConfig::AssetConfig {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                registration_length: Some(5_184_000_000),
-            },
-        }),
+        asset: {
+            Some(AlcyoneConfig::AssetConfig {
+                ticker_registration_config: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    registration_length: Some(5_184_000_000),
+                },
+                classic_migration_tconfig: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    // TODO(centril): use values per product team wishes.
+                    registration_length: Some(5_184_000_000),
+                },
+                // TODO(product_team): Assign to a real person.
+                classic_migration_contract_did: IdentityId::from(1),
+                // TODO(centril): fill with actual data from Ethereum.
+                classic_migration_tickers: vec![],
+                reserved_country_currency_codes: currency_codes(),
+            })
+        },
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
+                    InvestorUid::from(b"uid2".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
                     IdentityId::from(3),
                     IdentityId::from(3),
+                    InvestorUid::from(b"uid3".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -502,18 +552,21 @@ fn alcyone_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("polymath_1"),
                     IdentityId::from(1),
                     IdentityId::from(4),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_2"),
                     IdentityId::from(2),
                     IdentityId::from(5),
+                    InvestorUid::from(b"uid5".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_3"),
                     IdentityId::from(3),
                     IdentityId::from(6),
+                    InvestorUid::from(b"uid6".as_ref()),
                     None,
                 ),
             ];
@@ -523,12 +576,9 @@ fn alcyone_testnet_genesis(
                 .iter()
                 .map(|x| {
                     identity_counter = identity_counter + 1;
-                    (
-                        x.1.clone(),
-                        IdentityId::from(1),
-                        IdentityId::from(identity_counter),
-                        None,
-                    )
+                    let did = IdentityId::from(identity_counter);
+                    let investor_uid = InvestorUid::from(did.as_ref());
+                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();
 
@@ -538,7 +588,7 @@ fn alcyone_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
                     identity_counter += 1;
@@ -548,7 +598,7 @@ fn alcyone_testnet_genesis(
 
             Some(AlcyoneConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },

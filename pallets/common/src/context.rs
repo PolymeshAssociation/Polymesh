@@ -1,5 +1,5 @@
 use crate::traits::identity::IdentityTrait;
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::IdentityId;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 
@@ -114,7 +114,7 @@ mod test {
             false
         }
 
-        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
+        fn is_primary_key(_did: IdentityId, _key: &AccountId) -> bool {
             false
         }
 

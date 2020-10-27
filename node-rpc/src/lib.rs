@@ -33,8 +33,8 @@
 use std::sync::Arc;
 
 use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
-    SigningKey, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey,
+    Signatory, Ticker,
 };
 use sc_client_api::light::{Fetcher, RemoteBlockchain};
 use sc_consensus_babe::Epoch;
@@ -77,6 +77,10 @@ pub struct GrandpaDeps {
     pub shared_voter_state: sc_finality_grandpa::SharedVoterState,
     /// Authority set info.
     pub shared_authority_set: sc_finality_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
+    /// Receives notifications about justification events from Grandpa.
+    pub justification_stream: sc_finality_grandpa::GrandpaJustificationStream<Block>,
+    /// Subscription manager to keep track of pubsub subscribers.
+    pub subscriptions: jsonrpc_pubsub::manager::SubscriptionManager,
 }
 
 /// Full client dependencies
@@ -112,12 +116,12 @@ where
         IdentityId,
         Ticker,
         AccountId,
-        SigningKey<AccountId>,
+        SecondaryKey<AccountId>,
         Signatory<AccountId>,
         Moment,
     >,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
-    C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId, Balance>,
+    C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
     C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,
@@ -158,6 +162,8 @@ where
     let GrandpaDeps {
         shared_voter_state,
         shared_authority_set,
+        justification_stream,
+        subscriptions,
     } = grandpa;
 
     io.extend_with(SystemApi::to_delegate(FullSystem::new(
@@ -182,6 +188,8 @@ where
     io.extend_with(GrandpaApi::to_delegate(GrandpaRpcHandler::new(
         shared_authority_set,
         shared_voter_state,
+        justification_stream,
+        subscriptions,
     )));
     io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
     io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));

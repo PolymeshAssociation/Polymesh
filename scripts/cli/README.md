@@ -16,7 +16,7 @@ To run the three node local Polymesh testnet:
 
 ```shell
 # Orchestrate the environment
-$ ./run.sh 
+$ ./run.sh
 # Viewing Substrate logs
 $ ./node_modules/.bin/pm2 log pmesh-primary-node
 $ ./node_modules/.bin/pm2 log pmesh-peer-node-1
@@ -40,7 +40,7 @@ The test scripts include those named below, and most make up `npm test`:
  - 4_permission_management
  - 5_claim_management
  - 6_create_assets
- - 7_create_claim_rules
+ - 7_create_claim_compliance
  - 8_asset_transfer
  - 9_offchain_worker_test
  - schema_test
@@ -82,7 +82,7 @@ The script can be run against any websocket endpoint, which can be modified by e
 
 Arguments are:
 
-`-n 30` - specifies the number of master key accounts, issuer DIDs and tokens to create
+`-n 30` - specifies the number of primary key accounts, issuer DIDs and tokens to create
 
 `-t 5` - specifies the number of claim issuers to create
 
@@ -104,8 +104,8 @@ Multiple versions of @polkadot/keyring detected, ensure that there is only one v
 Welcome to Polymesh Stats Collector. Creating 30 accounts and DIDs, with 10 claims per DID.
 Unknown types found, no types for MaybeVrf
 Initial storage size (/tmp/pmesh-primary-node): 13.828125MB
-Generating Master Keys
-Generating Signing Keys
+Generating Primary Keys
+Generating Secondary Keys
 Generating Claim Keys
 === Processing Transactions ===
 ████████████████████████████████████████ | Submit  : TPS                             | 30/30
@@ -114,10 +114,10 @@ Generating Claim Keys
 ████████████████████████████████████████ | Complete: DISTRIBUTE POLY                 | 65/65
 ████████████████████████████████████████ | Submit  : CREATE ISSUER IDENTITIES        | 30/30
 ████████████████████████████████████████ | Complete: CREATE ISSUER IDENTITIES        | 30/30
-████████████████████████████████████████ | Submit  : ADD SIGNING KEYS                | 30/30
-████████████████████████████████████████ | Complete: ADD SIGNING KEYS                | 30/30
-████████████████████████████████████████ | Submit  : SET SIGNING KEY ROLES           | 30/30
-████████████████████████████████████████ | Complete: SET SIGNING KEY ROLES           | 30/30
+████████████████████████████████████████ | Submit  : ADD SECONDARY KEYS                | 30/30
+████████████████████████████████████████ | Complete: ADD SECONDARY KEYS                | 30/30
+████████████████████████████████████████ | Submit  : SET SECONDARY KEY ROLES           | 30/30
+████████████████████████████████████████ | Complete: SET SECONDARY KEY ROLES           | 30/30
 ████████████████████████████████████████ | Submit  : ISSUE SECURITY TOKEN            | 30/30
 ████████████████████████████████████████ | Complete: ISSUE SECURITY TOKEN            | 30/30
 ████████████████████████████████████████ | Submit  : CREATE CLAIM ISSUER IDENTITIES  | 5/5
@@ -153,8 +153,8 @@ Multiple versions of @polkadot/keyring detected, ensure that there is only one v
 Welcome to Polymesh Stats Collector. Creating 30 accounts and DIDs, with 10 claims per DID.
 Unknown types found, no types for MaybeVrf
 Initial storage size (/tmp/pmesh-primary-node): 21.9453125MB
-Generating Master Keys
-Generating Signing Keys
+Generating Primary Keys
+Generating Secondary Keys
 Generating Claim Keys
 === Processing Transactions ===
 ████████████████████████████████████████ | Submit  : TPS                             | 30/30
@@ -163,10 +163,10 @@ Generating Claim Keys
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: DISTRIBUTE POLY                 | 0/65
 ████████████████████████████████████████ | Submit  : CREATE ISSUER IDENTITIES        | 30/30
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: CREATE ISSUER IDENTITIES        | 0/30
-████████████████████████████████████████ | Submit  : ADD SIGNING KEYS                | 30/30
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: ADD SIGNING KEYS                | 0/30
-████████████████████████████████████████ | Submit  : SET SIGNING KEY ROLES           | 30/30
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: SET SIGNING KEY ROLES           | 0/30
+████████████████████████████████████████ | Submit  : ADD SECONDARY KEYS                | 30/30
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: ADD SECONDARY KEYS                | 0/30
+████████████████████████████████████████ | Submit  : SET SECONDARY KEY ROLES           | 30/30
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: SET SECONDARY KEY ROLES           | 0/30
 ████████████████████████████████████████ | Submit  : ISSUE SECURITY TOKEN            | 30/30
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ | Complete: ISSUE SECURITY TOKEN            | 0/30
 ████████████████████████████████████████ | Submit  : CREATE CLAIM ISSUER IDENTITIES  | 5/5
@@ -187,4 +187,3 @@ DONE
 Claims Batch Test
 Claim Batch Test Completed
 ```
-

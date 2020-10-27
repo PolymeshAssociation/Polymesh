@@ -60,7 +60,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     storage::StorageMap,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// The module's configuration trait.
@@ -335,7 +335,7 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// sender must be a signing key for DID
+        /// sender must be a secondary key for DID
         InvalidSigner,
         /// Sender must be the token owner
         InvalidOwner,

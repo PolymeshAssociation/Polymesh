@@ -77,7 +77,7 @@
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 
@@ -89,7 +89,7 @@ use frame_support::{
     weights::{DispatchClass, Pays},
     StorageValue,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use sp_std::prelude::*;
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
@@ -166,7 +166,7 @@ decl_module! {
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
             Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         }
 
@@ -212,7 +212,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
             Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
         }
 
@@ -232,7 +232,7 @@ decl_module! {
                 T::MembershipChanged::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
             Self::deposit_event(RawEvent::MembersReset(current_did, members));
         }
 
@@ -244,15 +244,15 @@ decl_module! {
         ///
         /// # Error
         ///
-        /// * Only master key can abdicate.
+        /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_master_key(remove_id, &who),
-                Error::<T,I>::OnlyMasterKeyAllowed);
+            ensure!(<Identity<T>>::is_primary_key(remove_id, &who),
+                Error::<T,I>::OnlyPrimaryKeyAllowed);
 
             let mut members = Self::get_members();
             ensure!(members.contains(&remove_id),
@@ -276,8 +276,8 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
-        /// Only master key of the identity is allowed.
-        OnlyMasterKeyAllowed,
+        /// Only primary key of the identity is allowed.
+        OnlyPrimaryKeyAllowed,
         /// Group member was added already.
         DuplicateMember,
         /// Can't remove a member that doesn't exist.
@@ -341,8 +341,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         <ActiveMembers<I>>::put(&members);
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
-        let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -381,8 +380,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         at: Option<T::Moment>,
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
-        let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
         let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);
         let inactive_member = InactiveMember {

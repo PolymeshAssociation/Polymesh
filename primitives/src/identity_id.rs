@@ -18,7 +18,9 @@ use core::fmt::{Display, Formatter};
 use core::str;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Printable;
 use sp_std::prelude::Vec;
 
@@ -40,7 +42,11 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug, Hash)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
+#[cfg_attr(
+    feature = "std",
+    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
+)]
 pub struct IdentityId([u8; UUID_LEN]);
 
 impl IdentityId {
@@ -55,37 +61,39 @@ impl IdentityId {
     pub fn as_fixed_bytes(&self) -> &[u8; UUID_LEN] {
         &self.0
     }
-}
 
-#[cfg(feature = "std")]
-impl Serialize for IdentityId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
+    /// Transform this IdentityId into raw bytes.
+    #[inline]
+    pub fn to_bytes(self) -> [u8; UUID_LEN] {
+        self.0
     }
-}
 
-#[cfg(feature = "std")]
-impl<'de> Deserialize<'de> for IdentityId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let r = sp_core::bytes::deserialize(deserializer)?;
-        Decode::decode(&mut &r[..])
-            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+    /// Returns an iterator over the slice.
+    #[inline]
+    pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
+        self.0.iter()
     }
-}
 
-impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "did:poly:")?;
         for byte in &self.0 {
             f.write_fmt(format_args!("{:02x}", byte))?;
         }
         Ok(())
+    }
+}
+
+impl Display for IdentityId {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.fmt(f)
+    }
+}
+
+impl sp_std::fmt::Debug for IdentityId {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.fmt(f)
     }
 }
 
@@ -119,13 +127,7 @@ impl TryFrom<&str> for IdentityId {
             .collect::<Result<Vec<u8>, _>>()
             .map_err(|_| "DID code is not a valid hex")?;
 
-        if did_code.len() == UUID_LEN {
-            let mut uuid_fixed = [0; 32];
-            uuid_fixed.copy_from_slice(&did_code);
-            Ok(IdentityId(uuid_fixed))
-        } else {
-            Err("DID code is not a valid did")
-        }
+        IdentityId::try_from(did_code.as_slice())
     }
 }
 
@@ -133,11 +135,11 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        if did.len() == UUID_LEN {
+        if did.len() <= UUID_LEN {
             // case where a 256 bit hash is being converted
-            let mut uuid_fixed = [0; 32];
-            uuid_fixed.copy_from_slice(&did);
-            Ok(IdentityId(uuid_fixed))
+            let mut fixed = [0; 32];
+            fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
+            Ok(IdentityId::from_bytes(fixed))
         } else {
             // case where a string represented as u8 is being converted
             let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
@@ -148,6 +150,14 @@ impl TryFrom<&[u8]> for IdentityId {
 
 impl From<[u8; UUID_LEN]> for IdentityId {
     fn from(s: [u8; UUID_LEN]) -> Self {
+        Self::from_bytes(s)
+    }
+}
+
+impl IdentityId {
+    /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
+    pub const fn from_bytes(mut s: [u8; UUID_LEN]) -> Self {
+        //s[UUID_LEN - 1] &= 0b0111_1111;
         IdentityId(s)
     }
 }
@@ -177,7 +187,8 @@ pub struct PortfolioName(pub Vec<u8>);
 /// The unique ID of a non-default portfolio.
 pub type PortfolioNumber = u64;
 
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+/// TBD
+#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
@@ -193,13 +204,13 @@ impl Default for PortfolioKind {
 }
 
 /// The ID of a portfolio.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio.
-    did: IdentityId,
+    pub did: IdentityId,
     /// The kind of the portfolio: either default or user.
-    kind: PortfolioKind,
+    pub kind: PortfolioKind,
 }
 
 impl Printable for PortfolioId {
@@ -279,14 +290,13 @@ mod tests {
             "Missing 'did:poly:' prefix"
         );
         assert_err!(
-            IdentityId::try_from("did:poly:a4a7".as_bytes()),
+            IdentityId::try_from("did:poly:a4a7"),
             "Invalid length of IdentityId"
         );
 
         assert_err!(
             IdentityId::try_from(
                 "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d097X"
-                    .as_bytes()
             ),
             "DID code is not a valid hex"
         );

@@ -80,7 +80,7 @@ use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
-    CommonTrait, Context, SystematicIssuers,
+    with_transaction, CommonTrait, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -481,7 +481,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -493,7 +493,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -503,10 +503,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `threshold` the new quorum threshold amount value
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::QuorumThresholdChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -515,10 +515,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal duration in blocks
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
+            Self::deposit_event(RawEvent::ProposalDurationChanged(GC_DID, Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -531,7 +531,7 @@ decl_module! {
         #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalDurationChanged(GC_DID, Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
@@ -541,7 +541,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, duration, previous_duration));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which

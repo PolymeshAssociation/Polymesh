@@ -1,5 +1,4 @@
 use super::{
-    ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{register_keyring_account, Call, TestStorage},
     ExtBuilder,
 };
@@ -8,7 +7,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Signatory, SigningKey};
+use polymesh_primitives::{SecondaryKey, Signatory};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -325,7 +324,7 @@ fn remove_multisig_signer() {
 
         // No direct identity for Bob as he is only a signer
         assert_eq!(Identity::get_identity(&AccountKeyring::Bob.public()), None);
-        // No identity as multisig has not been set as a signing / master key
+        // No identity as multisig has not been set as a secondary / primary key
         assert_eq!(Identity::get_identity(&musig_address), None);
 
         let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
@@ -462,7 +461,7 @@ fn add_multisig_signer() {
 
         let root = Origin::from(frame_system::RawOrigin::Root);
 
-        assert_ok!(MultiSig::make_multisig_master(
+        assert_ok!(MultiSig::make_multisig_primary(
             alice.clone(),
             musig_address.clone(),
             None
@@ -623,7 +622,7 @@ fn should_change_all_signers_and_sigs_required() {
 }
 
 #[test]
-fn make_multisig_master() {
+fn make_multisig_primary() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -639,22 +638,22 @@ fn make_multisig_master() {
         ));
 
         assert_eq!(
-            Identity::did_records(alice_did).master_key,
+            Identity::did_records(alice_did).primary_key,
             AccountKeyring::Alice.public()
         );
 
         assert_err!(
-            MultiSig::make_multisig_master(bob.clone(), musig_address.clone(), None),
+            MultiSig::make_multisig_primary(bob.clone(), musig_address.clone(), None),
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::make_multisig_master(
+        assert_ok!(MultiSig::make_multisig_primary(
             alice.clone(),
             musig_address.clone(),
             None
         ));
 
-        assert_eq!(Identity::did_records(alice_did).master_key, musig_address);
+        assert_eq!(Identity::did_records(alice_did).primary_key, musig_address);
     });
 }
 
@@ -674,10 +673,10 @@ fn make_multisig_signer() {
             1,
         ));
 
-        let signing_keys = Identity::did_records(alice_did).signing_keys;
-        assert!(signing_keys
+        let secondary_keys = Identity::did_records(alice_did).secondary_keys;
+        assert!(secondary_keys
             .iter()
-            .find(|si| **si == SigningKey::from_account_id(musig_address))
+            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
             .is_none());
 
         assert_err!(
@@ -690,10 +689,10 @@ fn make_multisig_signer() {
             musig_address.clone(),
         ));
 
-        let signing_keys2 = Identity::did_records(alice_did).signing_keys;
-        assert!(signing_keys2
+        let secondary_keys2 = Identity::did_records(alice_did).secondary_keys;
+        assert!(secondary_keys2
             .iter()
-            .find(|si| **si == SigningKey::from_account_id(musig_address))
+            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
             .is_some());
     });
 }

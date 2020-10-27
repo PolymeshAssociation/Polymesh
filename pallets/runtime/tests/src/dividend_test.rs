@@ -1,10 +1,10 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
 use polymesh_common_utilities::traits::CommonTrait;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
@@ -49,10 +49,10 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 #[test]
 fn correct_dividend_must_work() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (payout_owner_acc, payout_owner_did) =
-            make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let payout_owner_acc = Origin::signed(AccountKeyring::Bob.public());
+        let payout_owner_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -87,7 +87,6 @@ fn correct_dividend_must_work() {
             token.asset_type.clone(),
             vec![],
             None,
-            None,
         ));
 
         assert_ok!(Asset::create_asset(
@@ -99,11 +98,11 @@ fn correct_dividend_must_work() {
             payout_token.asset_type.clone(),
             vec![],
             None,
-            None,
         ));
 
         // Prepare an exempted investor
-        let (investor_acc, investor_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
+        let investor_acc = Origin::signed(AccountKeyring::Charlie.public());
+        let investor_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let investor_account_id = ensure_signed(investor_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&investor_account_id, 1_000_000);
 
@@ -123,14 +122,14 @@ fn correct_dividend_must_work() {
         drop(outer);
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_acc.clone(),
             ticker,
             vec![],
             vec![]
         ));
 
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             payout_owner_acc.clone(),
             payout_ticker,
             vec![],
@@ -138,10 +137,10 @@ fn correct_dividend_must_work() {
         ));
 
         // Transfer tokens to investor
-        assert_ok!(Asset::transfer(
-            token_owner_acc.clone(),
-            ticker,
-            investor_did,
+        assert_ok!(Asset::unsafe_transfer(
+            PortfolioId::default_portfolio(token_owner_did),
+            PortfolioId::default_portfolio(investor_did),
+            &ticker,
             amount_invested
         ));
 
@@ -162,10 +161,10 @@ fn correct_dividend_must_work() {
         };
 
         // Transfer payout tokens to asset owner
-        assert_ok!(Asset::transfer(
-            payout_owner_acc.clone(),
-            payout_ticker,
-            token_owner_did,
+        assert_ok!(Asset::unsafe_transfer(
+            PortfolioId::default_portfolio(payout_owner_did),
+            PortfolioId::default_portfolio(token_owner_did),
+            &payout_ticker,
             dividend.amount
         ));
 

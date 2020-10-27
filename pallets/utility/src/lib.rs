@@ -57,10 +57,10 @@ use frame_support::{
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system as system;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
+    with_transaction,
 };
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
@@ -101,9 +101,12 @@ decl_event! {
     /// Events type.
     pub enum Event
     {
-        /// Batch of dispatches did not complete fully. Index of first failing dispatch given, as
-        /// well as the error.
+        /// Batch of dispatches did not complete fully.
+        /// Index of first failing dispatch given, as well as the error.
         BatchInterrupted(u32, DispatchError),
+        /// Batch of dispatches did not complete fully.
+        /// Includes any failed dispatches with their indices and their associated error.
+        BatchOptimisticFailed(Vec<(u32, DispatchError)>),
         /// Batch of dispatches completed fully with no error.
         BatchCompleted,
     }
@@ -122,6 +125,37 @@ impl<C> UniqueCall<C> {
             nonce,
             call: Box::new(call),
         }
+    }
+}
+
+fn combine_classes(mut classes: impl Iterator<Item = DispatchClass>) -> DispatchClass {
+    let all_operational = classes.all(|class| class == DispatchClass::Operational);
+    if all_operational {
+        DispatchClass::Operational
+    } else {
+        DispatchClass::Normal
+    }
+}
+
+fn batch_weight(calls: &[impl GetDispatchInfo]) -> (Weight, DispatchClass) {
+    let weight = calls
+        .into_iter()
+        .map(|call| call.get_dispatch_info().weight)
+        .fold(550_000_000, |a: Weight, n| a.saturating_add(n))
+        .saturating_add(10_000_000);
+    let class = combine_classes(calls.into_iter().map(|call| call.get_dispatch_info().class));
+    (weight, class)
+}
+
+fn dispatch_call<T: Trait>(
+    origin: T::Origin,
+    is_root: bool,
+    call: <T as Trait>::Call,
+) -> DispatchResultWithPostInfo {
+    if is_root {
+        call.dispatch_bypass_filter(origin)
+    } else {
+        call.dispatch(origin)
     }
 }
 
@@ -150,35 +184,87 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = (
-            calls.iter()
-                .map(|call| call.get_dispatch_info().weight)
-                .fold(550_000_000, |a: Weight, n| a.saturating_add(n).saturating_add(10_000_000)),
-            {
-                let all_operational = calls.iter()
-                    .map(|call| call.get_dispatch_info().class)
-                    .all(|class| class == DispatchClass::Operational);
-                if all_operational {
-                    DispatchClass::Operational
-                } else {
-                    DispatchClass::Normal
-                }
-            },
-        )]
+        #[weight = batch_weight(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
             for (index, call) in calls.into_iter().enumerate() {
-                let result = if is_root {
-                    call.dispatch_bypass_filter(origin.clone())
-                } else {
-                    call.dispatch(origin.clone())
-                };
-                if let Err(e) = result {
+                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
                     Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
                     return Ok(());
                 }
             }
             Self::deposit_event(Event::BatchCompleted);
+        }
+
+        /// Dispatch multiple calls from the sender's origin.
+        ///
+        /// This will execute all calls, in order, stopping at the first failure,
+        /// in which case the state changes are rolled back.
+        /// On failure, an event `BatchInterrupted(failure_idx, error)` is deposited.
+        ///
+        /// May be called from any origin.
+        ///
+        ///# Parameters
+        /// - `calls`: The calls to be dispatched from the same origin.
+        ///
+        /// # Weight
+        /// - The sum of the weights of the `calls`.
+        /// - One event.
+        ///
+        /// This will return `Ok` in all circumstances.
+        /// To determine the success of the batch, an event is deposited.
+        /// If any call failed, then `BatchInterrupted` is deposited.
+        /// If all were successful, then the `BatchCompleted` event is deposited.
+        #[weight = batch_weight(&calls)]
+        pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
+            let is_root = ensure_root(origin.clone()).is_ok();
+            Self::deposit_event(match with_transaction(|| {
+                for (index, call) in calls.into_iter().enumerate() {
+                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                        return Err((index as u32, e.error))
+                    }
+                }
+                Ok(())
+            }) {
+                Ok(()) => Event::BatchCompleted,
+                Err((i, e)) => Event::BatchInterrupted(i, e)
+            });
+        }
+
+        /// Dispatch multiple calls from the sender's origin.
+        ///
+        /// This will execute all calls, in order, irrespective of failures.
+        /// Any failures will be available in a `BatchOptimisticFailed` event.
+        ///
+        /// May be called from any origin.
+        ///
+        ///# Parameters
+        /// - `calls`: The calls to be dispatched from the same origin.
+        ///
+        /// # Weight
+        /// - The sum of the weights of the `calls`.
+        /// - One event.
+        ///
+        /// This will return `Ok` in all circumstances.
+        /// To determine the success of the batch, an event is deposited.
+        /// If any call failed, then `BatchOptimisticFailed` is deposited,
+        /// with a vector of `(index, error)`.
+        /// If all were successful, then the `BatchCompleted` event is deposited.
+        #[weight = batch_weight(&calls)]
+        pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
+            let is_root = ensure_root(origin.clone()).is_ok();
+            // Optimistically (hey, it's in the function name, :wink:) assume no errors.
+            let mut errors = Vec::new();
+            for (index, call) in calls.into_iter().enumerate() {
+                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                    errors.push((index as u32, e.error));
+                }
+            }
+            Self::deposit_event(if errors.is_empty() {
+                Event::BatchCompleted
+            } else {
+                Event::BatchOptimisticFailed(errors)
+            })
         }
 
         /// Relay a call for a target from an origin

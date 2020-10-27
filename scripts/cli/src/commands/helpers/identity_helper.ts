@@ -1,7 +1,7 @@
 import { nonces, sendTransaction } from "../util/init";
 import { IKeyringPair } from "@polkadot/types/types";
 import { ApiPromise } from "@polkadot/api";
-import { SigningItem } from "../types";
+import { SecondaryKey } from "../types";
 
 export default async function createIdentities(
   api: ApiPromise,
@@ -22,7 +22,7 @@ const createIdentitiesWithExpiry = async function (
   api: ApiPromise,
   accounts: IKeyringPair[],
   cdd_provider: IKeyringPair,
-  expiries: SigningItem[],
+  expires: SecondaryKey[],
   topup: boolean
 ) {
   let dids = [];

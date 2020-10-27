@@ -1,6 +1,5 @@
 use super::{
-    ext_builder::PROTOCOL_OP_BASE_FEE,
-    storage::{make_account, make_account_without_cdd, TestStorage},
+    storage::{make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -8,7 +7,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{Signatory, TransactionError};
+use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -16,6 +15,7 @@ use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn cdd_checks() {
@@ -28,21 +28,22 @@ fn cdd_checks() {
             let (alice_signed, alice_did) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
-            let alice_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
+            let alice_account_signatory = AccountId32::from(AccountKeyring::Alice.public().0);
             let _musig_address =
                 MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
-            let (charlie_signed, charlie_did) =
-                make_account(AccountKeyring::Charlie.public()).unwrap();
-            let charlie_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
+            let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
+            let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+            let charlie_account_signatory = AccountId32::from(AccountKeyring::Charlie.public().0);
 
             // register did bypasses cdd checks
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::register_did(Default::default())),
+                    &Call::Identity(identity::Call::register_did(
+                        InvestorUid::default(),
+                        Default::default()
+                    )),
                     &alice_account_signatory
                 ),
                 Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))

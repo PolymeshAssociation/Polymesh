@@ -8,19 +8,19 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api,2, "master5");
+  let primary_keys = await reqImports.generateKeys(api,2, "primary5");
   let claim_keys = await reqImports.generateKeys(api, 2, "claim");
 
   let claim_issuer_dids = await reqImports.createIdentities(api, claim_keys, testEntities[0]);
 
-  let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
+  let issuer_dids = await reqImports.createIdentities(api, primary_keys, testEntities[0]);
 
-  await reqImports.distributePolyBatch( api, master_keys.concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, primary_keys.concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 
@@ -38,14 +38,11 @@ async function main() {
 async function addClaimsToDids(api, accounts, dids, claim_dids) {
     //accounts should have the same length as claim_dids
     for (let i = 0; i < dids.length; i++) {
-        
-        let nonceObj = {nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address)};
-        const transaction = await api.tx.identity.addClaim(dids[i], 0, 0);
-        const result = await reqImports.sendTransaction(transaction, accounts[i%claim_dids.length], nonceObj);  
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
 
-      reqImports.nonces.set(accounts[i%claim_dids.length].address, reqImports.nonces.get(accounts[i%claim_dids.length].address).addn(1));
+        const transaction = await api.tx.identity.addClaim(dids[i], 0, 0);
+        let tx = await reqImports.sendTx(accounts[i%claim_dids.length], transaction);
+        if(tx !== -1) reqImports.fail_count--;
+
     }
   }
 

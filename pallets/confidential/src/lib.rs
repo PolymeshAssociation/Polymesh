@@ -31,13 +31,13 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use sp_std::prelude::*;
 
 pub mod rng;
 pub use rng::native_rng;
 
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, SliceU8StrongTyped)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped)]
@@ -99,7 +99,7 @@ decl_module! {
                 })?;
 
             let ticker_range_proof = TickerRangeProof {
-                initial_message: in_range_proof.init.as_bytes().into(),
+                initial_message: RangeProofInitialMessageWrapper::from(in_range_proof.init.as_bytes().as_ref()),
                 final_response: in_range_proof.response.to_bytes().into(),
                 max_two_exp: 32,
             };
