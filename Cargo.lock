@@ -1120,7 +1120,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#26099bbd103fb5529f739b6717006b015f143eea"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#64d7836f2c8f205092a2bca9a0b49d5d3a6ea3ea"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1138,7 +1138,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.8.2",
- "sp-std 2.0.0-rc6",
+ "sp-std 2.0.0",
  "zeroize",
 ]
 
@@ -8177,6 +8177,11 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 name = "sp-std"
 version = "2.0.0-rc6"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
+
+[[package]]
+name = "sp-std"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 
 [[package]]
 name = "sp-storage"
