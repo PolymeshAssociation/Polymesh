@@ -282,7 +282,7 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use polymesh_primitives::migrate::migrate_map_rename;
 
-            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance", |_| None);
+            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliances", |_| None);
 
             1_000
         }
