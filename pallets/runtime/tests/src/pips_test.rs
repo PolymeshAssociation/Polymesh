@@ -1235,9 +1235,6 @@ fn assert_pruned(id: PipId) {
     assert_eq!(Pips::proposals(id), None);
     assert_vote_details(id, VotingResult::default(), vec![], vec![]);
     assert_eq!(Pips::pip_to_schedule(id), None);
-    for v in <pallet_pips::ExecutionSchedule<TestStorage>>::iter_values() {
-        assert!(v.iter().all(|x| *x != id));
-    }
     assert!(Pips::snapshot_queue().iter().all(|p| p.id != id));
     assert_eq!(Pips::pip_skip_count(id), 0);
 }

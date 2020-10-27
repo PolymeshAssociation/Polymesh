@@ -322,7 +322,12 @@ impl pallet_pips::Trait for Test {
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type ExecutionScheduler = Scheduler;
+    type ExpiryScheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
+
 impl pallet_treasury::Trait for Test {
     type Event = MetaEvent;
     type Currency = pallet_balances::Module<Self>;
@@ -944,6 +949,7 @@ pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
+pub type Scheduler = pallet_scheduler::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
