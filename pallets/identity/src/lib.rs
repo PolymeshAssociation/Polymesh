@@ -115,8 +115,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    IdentityWithRoles as OldDidRecord, InvestorUid, InvestorZKProofData, PalletName, Permissions,
+    Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -258,6 +258,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
                 identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
@@ -294,6 +295,14 @@ decl_module! {
                 b"DidRecords",
                 |_| Empty
             );
+
+            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"Identity", b"DidRecords")
+                .drain()
+                .map(|(key, old)|  (key, DidRecord {
+                    primary_key: old.primary_key,
+                    secondary_keys: old.secondary_keys,
+                }))
+                .for_each(|(key, new)| put_storage_value(b"Identity", b"DidRecords", &key, new));
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
