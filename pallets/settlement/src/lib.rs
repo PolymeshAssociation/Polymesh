@@ -410,7 +410,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as StoCapped {
+    trait Store for Module<T: Trait> as Settlement {
         /// Info about a venue. venue_id -> venue_details
         VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Venue;
         /// Signers authorized by the venue. (venue_id, signer) -> authorized_bool
@@ -458,11 +458,13 @@ decl_module! {
         const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
-            // Delete all settlement data
-            let prefix = Twox128::hash(b"Settlement");
-            storage::unhashed::kill_prefix(&prefix);
+            // Delete all settlement data.
+            // This will be a no-op since the data was being stored under a different module hash.
+            storage::unhashed::kill_prefix(&Twox128::hash(b"Settlement"));
+            // Delete data that was erroneously stored under a different module hash.
+            storage::unhashed::kill_prefix(&Twox128::hash(b"StoCapped"));
 
-            // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
+            // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0.
             <VenueCounter>::put(1);
             <InstructionCounter>::put(1);
 
