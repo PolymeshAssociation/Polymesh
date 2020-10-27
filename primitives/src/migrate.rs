@@ -18,7 +18,7 @@
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator, StorageKeyIterator};
 use frame_support::storage::unhashed::kill_prefix;
-use frame_support::{ReversibleStorageHasher, StorageHasher};
+use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
 use sp_std::vec::Vec;
 
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
@@ -168,12 +168,9 @@ where
 }
 
 /// Kill a storage item from a module
-pub fn kill_item<H: StorageHasher>(module: &[u8], item: &[u8]) {
-    let module = H::hash(module);
-    let item = H::hash(item);
-    //TODO replace with [u8; N] when const generics lands
-    let mut prefix = Vec::with_capacity(module.as_ref().len() + item.as_ref().len());
-    prefix.extend_from_slice(module.as_ref());
-    prefix.extend_from_slice(item.as_ref());
+pub fn kill_item(module: &[u8], item: &[u8]) {
+    let mut prefix = [0u8; 32];
+    prefix[0..16].copy_from_slice(&Twox128::hash(module));
+    prefix[16..32].copy_from_slice(&Twox128::hash(item));
     kill_prefix(&prefix)
 }

@@ -211,10 +211,11 @@ decl_module! {
 
             // Kill pending proposals if the transaction version is upgraded
             let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
-            if current_version < TransactionVersion::get() {
+            let last_version = TransactionVersion::get();
+            if last_version < current_version {
                 TransactionVersion::set(current_version);
-                for item in &["proposals", "proposal_detail", "proposal_ids"] {
-                    kill_item::<Twox128>(b"MultiSig", item.as_bytes())
+                for item in &["proposals", "proposal_detail", "proposal_ids", "Votes"] {
+                    kill_item(b"MultiSig", item.as_bytes())
                 }
             }
 

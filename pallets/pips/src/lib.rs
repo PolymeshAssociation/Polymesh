@@ -614,7 +614,7 @@ decl_module! {
 
             // 2c) Remove items no longer used in V2.
             for item in &["ProposalDuration", "QuorumThreshold"] {
-                kill_item::<Twox128>(b"Pips", item.as_bytes());
+                kill_item(b"Pips", item.as_bytes());
             }
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
