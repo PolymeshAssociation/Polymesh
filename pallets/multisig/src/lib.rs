@@ -214,7 +214,7 @@ decl_module! {
             let last_version = TransactionVersion::get();
             if last_version < current_version {
                 TransactionVersion::set(current_version);
-                for item in &["proposals", "proposal_detail", "proposal_ids", "Votes"] {
+                for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
                     kill_item(b"MultiSig", item.as_bytes())
                 }
             }
