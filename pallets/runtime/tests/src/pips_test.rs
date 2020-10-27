@@ -9,7 +9,7 @@ use super::{
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    traits::{LockableCurrency, WithdrawReasons},
+    traits::{LockableCurrency, OnInitialize, WithdrawReasons},
     StorageDoubleMap, StoragePrefixedMap,
 };
 use frame_system::{self, EventRecord};
@@ -35,6 +35,7 @@ type Treasury = treasury::Module<TestStorage>;
 type Error = pallet_pips::Error<TestStorage>;
 type Deposits = pallet_pips::Deposits<TestStorage>;
 type Votes = pallet_pips::ProposalVotes<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -173,7 +174,7 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
 fn fast_forward_to(n: u64) {
     let block_number = System::block_number();
     (block_number..n).for_each(|block| {
-        assert_ok!(Pips::end_block(block));
+        let _ = Scheduler::on_initialize(block);
         System::set_block_number(block + 1);
     });
 }
