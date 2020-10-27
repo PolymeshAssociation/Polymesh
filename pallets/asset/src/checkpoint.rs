@@ -19,7 +19,7 @@
 //! henceforth called *checkpoints*, of the supply of assets,
 //! and how they were distributed at the time of checkpoint.
 //!
-//! Using the module, users can also schedule checkpointing in the future,
+//! Using the module, users can also schedule checkpoints in the future,
 //! either at fixed points in time (e.g., "next friday"),
 //! or at regular intervals (e.g., "every month").
 //!
@@ -296,7 +296,7 @@ decl_error! {
         /// Failed to compute the next checkpoint.
         /// The schedule does not have any upcoming checkpoints.
         FailedToComputeNextCheckpoint,
-        /// The duration of a checkpoint period is too short.
+        /// The duration of a schedule period is too short.
         ScheduleDurationTooShort,
         /// The set of schedules taken together are too complex.
         /// For example, they are too many, or they occurs too frequently.
