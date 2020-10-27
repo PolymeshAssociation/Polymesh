@@ -3223,7 +3223,7 @@ impl<T: Trait> Module<T> {
                     Err(e) => {
                         log!(
                             error,
-                            "💸 Detected error in scheduling the reward payment: {:?}",
+                            "⛔ Detected error in scheduling the reward payment: {:?}",
                             e
                         );
                         Self::deposit_event(RawEvent::RewardPaymentSchedulingInterrupted(validator_id, active_era.index, e));
