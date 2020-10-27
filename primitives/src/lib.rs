@@ -168,6 +168,10 @@ pub use jurisdiction::{CountryCode, JurisdictionName};
 /// Utilities for storage migration.
 pub mod migrate;
 
+/// Random Number Generator.
+pub mod rng;
+pub use rng::Rng;
+
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
