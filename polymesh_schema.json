@@ -6,6 +6,7 @@
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
+        "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
@@ -859,12 +860,14 @@
                 "AttestPrimaryKeyRotation": "",
                 "RotatePrimaryKey": "",
                 "TransferTicker": "",
+                "TransferPrimaryIssuanceAgent": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
                 "PortfolioCustody": "",
                 "Custom": "",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": ""
             }
         },
         "ProposalDetails": {
@@ -1074,6 +1077,10 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "PriceTier": {
+            "total": "Balance",
+            "price": "Balance"
         }
     },
     "rpc": {

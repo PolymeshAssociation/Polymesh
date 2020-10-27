@@ -47,11 +47,6 @@ where
         }
     }
 
-    /// It checks if this entity contains IdentityRole `role`.
-    pub fn has_role(&self, role: IdentityRole) -> bool {
-        self.roles.contains(&role)
-    }
-
     /// It adds `new_secondary_keys` to `self`.
     /// It also keeps its internal list sorted and removes duplicate elements.
     pub fn add_secondary_keys(
