@@ -132,7 +132,7 @@ decl_storage! {
         /// Checkpoint schedule ID sequence for tickers.
         ///
         /// (ticker) -> schedule ID
-        pub ScheduleIds get(fn schedule_ids):
+        pub ScheduleIdSequence get(fn schedule_id_sequence):
             map hasher(blake2_128_concat) Ticker => ScheduleId;
 
         /// Checkpoint schedules for tickers.
@@ -527,7 +527,7 @@ impl<T: Trait> Module<T> {
 
     /// Advance the checkpoint future ID counter and return the next ID to use.
     fn next_schedule_id(ticker: &Ticker) -> Result<ScheduleId, DispatchError> {
-        ScheduleIds::try_mutate(ticker, |ScheduleId(id)| {
+        ScheduleIdSequence::try_mutate(ticker, |ScheduleId(id)| {
             let next = id.checked_add(1).ok_or(Error::<T>::ScheduleOverflow)?;
             Ok(ScheduleId(mem::replace(id, next)))
         })
