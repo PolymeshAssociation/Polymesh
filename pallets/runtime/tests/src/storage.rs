@@ -101,6 +101,7 @@ impl_outer_dispatch! {
         self::Committee,
         self::DefaultCommittee,
         pallet_scheduler::Scheduler,
+        pallet_settlement::Settlement,
     }
 }
 
@@ -291,15 +292,16 @@ impl multisig::Trait for TestStorage {
 }
 
 parameter_types! {
-    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
     pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
-    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl sto::Trait for TestStorage {
@@ -658,6 +660,7 @@ pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
+pub type Settlement = pallet_settlement::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
