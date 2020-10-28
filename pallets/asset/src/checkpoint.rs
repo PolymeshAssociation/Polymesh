@@ -238,13 +238,12 @@ decl_module! {
 
             // If the ID matches and schedule is removable, it should be removed.
             let schedule_id = (ticker, id);
-            let schedule = Schedules::try_mutate(&ticker, |ss| -> Result<_, DispatchError> {
-                let schedule = ss.iter().position(|s| s.id == id)
+            let schedule = Schedules::try_mutate(&ticker, |ss| {
+                ensure!(ScheduleRemovable::get(schedule_id), Error::<T>::ScheduleNotRemovable);
+                ss.iter().position(|s| s.id == id)
                     // By definiton of `position` being `Some(pos), `.remove(pos)` won't panic.
                     .map(|pos| ss.remove(pos))
-                    .ok_or(Error::<T>::NoSuchSchedule)?;
-                ensure!(ScheduleRemovable::get(schedule_id), Error::<T>::ScheduleNotRemovable);
-                Ok(schedule)
+                    .ok_or(Error::<T>::NoSuchSchedule)
             })?;
 
             // Remove some additional data.
