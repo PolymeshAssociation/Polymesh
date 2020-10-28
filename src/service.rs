@@ -396,41 +396,42 @@ where
             .spawn_blocking("babe-proposer", babe);
     }
 
+    // NB: Authority discovery has been disabled since it's a suspected source of leak in file descriptors.
     // Spawn authority discovery module.
-    if matches!(role, Role::Authority{..} | Role::Sentry {..}) {
-        let (sentries, authority_discovery_role) = match role {
-            sc_service::config::Role::Authority { ref sentry_nodes } => (
-                sentry_nodes.clone(),
-                sc_authority_discovery::Role::Authority(keystore.clone()),
-            ),
-            sc_service::config::Role::Sentry { .. } => {
-                (vec![], sc_authority_discovery::Role::Sentry)
-            }
-            _ => unreachable!("Due to outer matches! constraint; qed."),
-        };
+    // if matches!(role, Role::Authority{..} | Role::Sentry {..}) {
+    //     let (sentries, authority_discovery_role) = match role {
+    //         sc_service::config::Role::Authority { ref sentry_nodes } => (
+    //             sentry_nodes.clone(),
+    //             sc_authority_discovery::Role::Authority(keystore.clone()),
+    //         ),
+    //         sc_service::config::Role::Sentry { .. } => {
+    //             (vec![], sc_authority_discovery::Role::Sentry)
+    //         }
+    //         _ => unreachable!("Due to outer matches! constraint; qed."),
+    //     };
 
-        let dht_event_stream = network
-            .event_stream("authority-discovery")
-            .filter_map(|e| async move {
-                match e {
-                    Event::Dht(e) => Some(e),
-                    _ => None,
-                }
-            })
-            .boxed();
-        let (authority_discovery_worker, _service) = sc_authority_discovery::new_worker_and_service(
-            client.clone(),
-            network.clone(),
-            sentries,
-            dht_event_stream,
-            authority_discovery_role,
-            prometheus_registry.clone(),
-        );
+    //     let dht_event_stream = network
+    //         .event_stream("authority-discovery")
+    //         .filter_map(|e| async move {
+    //             match e {
+    //                 Event::Dht(e) => Some(e),
+    //                 _ => None,
+    //             }
+    //         })
+    //         .boxed();
+    //     let (authority_discovery_worker, _service) = sc_authority_discovery::new_worker_and_service(
+    //         client.clone(),
+    //         network.clone(),
+    //         sentries,
+    //         dht_event_stream,
+    //         authority_discovery_role,
+    //         prometheus_registry.clone(),
+    //     );
 
-        task_manager
-            .spawn_handle()
-            .spawn("authority-discovery-worker", authority_discovery_worker);
-    }
+    //     task_manager
+    //         .spawn_handle()
+    //         .spawn("authority-discovery-worker", authority_discovery_worker);
+    // }
 
     // if the node isn't actively participating in consensus then it doesn't
     // need a keystore, regardless of which protocol we use below.
