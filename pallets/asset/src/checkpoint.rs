@@ -317,6 +317,9 @@ impl<T: Trait> Module<T> {
     /// - `cp` is not a valid checkpoint ID.
     /// - `did` hasn't made transfers in all of `ticker`'s checkpoints.
     /// - `did`'s last transaction was strictly before `cp`, so their balance is the current one.
+    ///
+    /// N.B. in case of `None`, you likely want the current balance instead.
+    /// To compute that, use `Asset::get_balance_at(ticker, did, cp)`, which calls into here.
     pub fn balance_at(ticker: Ticker, did: IdentityId, cp: CheckpointId) -> Option<T::Balance> {
         let ticker_did = (ticker, did);
         if Self::checkpoint_exists(&ticker, cp) && BalanceUpdates::contains_key(&ticker_did) {
