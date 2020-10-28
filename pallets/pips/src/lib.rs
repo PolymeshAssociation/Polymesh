@@ -532,13 +532,13 @@ decl_event!(
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
         /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
         SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
-        /// Scheduling of the PIP for execution has failed in the scheduler pallet.
+        /// Scheduling of the PIP for execution failed in the scheduler pallet.
         ExecutionSchedulingFailed(IdentityId, PipId, BlockNumber),
         /// The PIP has been scheduled for expiry.
         ExpiryScheduled(IdentityId, PipId, BlockNumber),
-        /// Scheduling of the PIP for expiry has failed in the scheduler pallet.
+        /// Scheduling of the PIP for expiry failed in the scheduler pallet.
         ExpirySchedulingFailed(IdentityId, PipId, BlockNumber),
-        /// Cancelling the PIP execution has failed in the scheduler pallet.
+        /// Cancelling the PIP execution failed in the scheduler pallet.
         ExecutionCancellingFailed(PipId),
     }
 );
@@ -1030,8 +1030,8 @@ decl_module! {
             // 3. Update enactment period & reschule it.
             let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
 
-            // TODO: When `reschedule_named` is released into `schedule::Named`, use that instead of
-            // discrete unscheduling and scheduling.
+            // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
+            // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
             Self::unschedule_pip(id);
             Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
 
@@ -1357,8 +1357,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Adds a PIP execution call to the PIP execution schedule.
-    // TODO: the `maybe_at` argument is only required until `schedule::Named::reschedule_named` is
-    // released.
+    // TODO: the `maybe_at` argument is only required until we upgrade to a version of Substrate
+    // containing `schedule::Named::reschedule_named`.
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
             <system::Module<T>>::block_number() + Self::default_enactment_period()
@@ -1464,7 +1464,7 @@ impl<T: Trait> Module<T> {
 
     /// Common method to create a unique name for the scheduler for a PIP.
     fn pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
-        let mut name = Vec::from(&prefix[..]);
+        let mut name = Vec::from(prefix);
         name.append(&mut id.encode());
         name
     }

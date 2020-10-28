@@ -10,7 +10,7 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, OnInitialize, WithdrawReasons},
-    StorageDoubleMap, StoragePrefixedMap,
+    StorageDoubleMap, StorageMap,
 };
 use frame_system::{self, EventRecord};
 use pallet_balances as balances;
@@ -36,6 +36,7 @@ type Error = pallet_pips::Error<TestStorage>;
 type Deposits = pallet_pips::Deposits<TestStorage>;
 type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
+type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -400,8 +401,8 @@ fn default_enactment_period_works_community() {
                 vec![(last_id, SnapshotResult::Approve)]
             ));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
-            assert!(Pips::execution_schedule(expected).contains(&last_id));
             assert_eq!(expected, block_at_approval + period);
+            assert_eq!(1, Agenda::get(expected).len());
         };
         check_community(0);
         check_community(3);
@@ -426,8 +427,8 @@ fn default_enactment_period_works_committee() {
             let block_at_approval = System::block_number();
             assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
-            assert!(Pips::execution_schedule(expected).contains(&last_id));
             assert_eq!(expected, block_at_approval + period);
+            assert_eq!(1, Agenda::get(expected).len());
         };
         check_committee(0);
         check_committee(3);
@@ -1487,10 +1488,10 @@ fn reject_proposal_will_unschedule() {
 
         let check = |id: PipId| {
             let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-            assert_eq!(Pips::execution_schedule(scheduled_at), vec![id]);
+            assert_eq!(1, Agenda::get(scheduled_at).len());
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
-            assert_eq!(Pips::execution_schedule(scheduled_at), Vec::<PipId>::new());
+            assert_eq!(0, Agenda::get(scheduled_at).len());
         };
 
         // Test snapshot method.
@@ -1604,19 +1605,19 @@ fn reschedule_execution_works() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(&rc, 0);
         let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-        assert!(Pips::execution_schedule(scheduled_at).contains(&id));
+        assert_eq!(1, Agenda::get(scheduled_at).len());
 
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, None));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
-        assert!(!Pips::execution_schedule(scheduled_at).contains(&id));
-        assert!(Pips::execution_schedule(next).contains(&id));
+        assert_eq!(0, Agenda::get(scheduled_at).len());
+        assert_eq!(1, Agenda::get(next).len());
 
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, Some(next + 50)));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert!(!Pips::execution_schedule(scheduled_at).contains(&id));
-        assert!(!Pips::execution_schedule(next).contains(&id));
-        assert!(Pips::execution_schedule(next + 50).contains(&id));
+        assert_eq!(0, Agenda::get(scheduled_at).len());
+        assert_eq!(0, Agenda::get(next).len());
+        assert_eq!(1, Agenda::get(next + 50).len());
     });
 }
 
