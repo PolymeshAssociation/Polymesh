@@ -39,7 +39,6 @@
 //! - Other misc storage items as defined in `decl_storage!`.
 
 use codec::{Decode, Encode};
-use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -413,19 +412,17 @@ impl<T: Trait> Module<T> {
 
         // Ensure that ID count won't overflow.
         // After this we're safe and can commit to storage.
-        let mut id_count = Self::next_ids(ticker, end as u64)?;
+        let (id_last, id_seq) = Self::next_cp_ids(ticker, end as u64)?;
 
         // Create checkpoints for due schedules.
         let mut reschedule = Vec::new();
-        for schedule in schedules.drain(..end) {
+        for (schedule, cp_id) in schedules.drain(..end).zip(id_seq) {
             if let Some(at) = schedule.schedule.next_checkpoint(now) {
                 // This schedule is recurring, so we'll need to reschedule.
                 reschedule.push(StoredSchedule { at, ..schedule });
             }
-            let cp_id = id_count;
             Self::create_at(None, *ticker, cp_id, schedule.at);
             SchedulePoints::append((*ticker, schedule.id), cp_id);
-            id_count.0 += 1;
         }
 
         // Reschedule schedules we need to.
@@ -435,6 +432,7 @@ impl<T: Trait> Module<T> {
             .for_each(|s| add_schedule(&mut schedules, s));
 
         // Commit changes to `schedules`.
+        CheckpointIdSequence::insert(ticker, id_last);
         Schedules::insert(ticker, schedules);
         Ok(())
     }
@@ -509,7 +507,8 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         at: Moment,
     ) -> Result<CheckpointId, DispatchError> {
-        let id = Self::next_ids(&ticker, 1)?;
+        let (id, _) = Self::next_cp_ids(&ticker, 1)?;
+        CheckpointIdSequence::insert(ticker, id);
         Self::create_at(Some(actor), ticker, id, at);
         Ok(id)
     }
@@ -533,13 +532,18 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::CheckpointCreated(actor, ticker, id, supply, at));
     }
 
-    /// Reserve `needed` amount of `CheckpointId`s and return the next ID to use.
-    fn next_ids(ticker: &Ticker, needed: u64) -> Result<CheckpointId, DispatchError> {
-        CheckpointIdSequence::try_mutate(ticker, |CheckpointId(slot)| {
-            slot.checked_add(needed)
-                .map(|new| CheckpointId(1.min(needed) + mem::replace(slot, new)))
-                .ok_or_else(|| Error::<T>::CheckpointOverflow.into())
-        })
+    /// Verify that `needed` amount of `CheckpointId`s can be reserved,
+    /// returning the last ID and an iterator over all IDs to reserve.
+    fn next_cp_ids(
+        ticker: &Ticker,
+        needed: u64,
+    ) -> Result<(CheckpointId, impl Iterator<Item = CheckpointId>), DispatchError> {
+        let CheckpointId(id) = CheckpointIdSequence::get(ticker);
+        id.checked_add(needed)
+            .ok_or(Error::<T>::CheckpointOverflow)?;
+        let end = CheckpointId(id + needed);
+        let seq = (0..needed).map(move |offset| CheckpointId(id + 1 + offset));
+        Ok((end, seq))
     }
 
     /// Compute the next checkpoint schedule ID without changing storage.
