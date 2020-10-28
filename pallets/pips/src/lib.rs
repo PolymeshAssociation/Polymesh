@@ -785,7 +785,7 @@ decl_module! {
             });
             ActivePipCount::mutate(|count| *count += 1);
 
-            // 5. Schedule for expiry as long as `Pending` at block with number `expiring_at`.
+            // 5. Schedule for expiry, as long as `Pending`, at block with number `expiring_at`.
             if let MaybeBlock::Some(expiring_at) = expiry {
                 Self::schedule_pip_for_expiry(id, expiring_at);
             }
