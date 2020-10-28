@@ -47,7 +47,7 @@ use frame_support::{
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     traits::{
         asset::{Trait as AssetTrait, GAS_LIMIT},
@@ -597,14 +597,14 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-          match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
+            match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
                 Ok(post_info) => Ok(post_info),
                 Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
                     Ok(e.post_info)
                 }else {
                     Err(e)
                 }
-           }
+            }
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -614,11 +614,11 @@ decl_module! {
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
         #[weight = 25_000_000_000]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_set)
+            Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_set, secondary_key)
         }
 
         /// Rejects an existing instruction.
@@ -630,7 +630,7 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             with_transaction(|| {
@@ -641,7 +641,7 @@ decl_module! {
 
                     match user_affirmation_status {
                         AffirmationStatus::Affirmed => { portfolios_to_be_deny.insert(portfolio); },
-                        AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody(portfolio, did)?,
+                        AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?,
                         _ => return Err(DispatchError::from(Error::<T>::NoPendingAffirm))
                     };
 
@@ -649,7 +649,7 @@ decl_module! {
                     <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
                     <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
                 }
-                Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_to_be_deny)?;
+                Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_to_be_deny, secondary_key)?;
                 Ok(())
             })?;
 
@@ -699,15 +699,15 @@ decl_module! {
         /// * `signed_data` - Signed receipt.
         #[weight = 10_000_000_000]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            T::Portfolio::ensure_portfolio_custody(Self::instruction_legs(&instruction_id, &receipt_details.leg_id).from, did)?;
+            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
-                did,
+                primary_did,
                 instruction_id,
                 receipt_details.leg_id,
                 receipt_details.receipt_uid,
                 receipt_details.signer,
-                receipt_details.signature
+                receipt_details.signature,
+                secondary_key
             )
         }
 
@@ -718,11 +718,11 @@ decl_module! {
         /// * `leg_id` - Target leg id for the receipt
         #[weight = 5_000_000_000]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) -> DispatchResult {
-            let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
             if let LegStatus::ExecutionToBeSkipped(signer, receipt_uid) = Self::instruction_leg_status(instruction_id, leg_id) {
                 let leg = Self::instruction_legs(instruction_id, leg_id);
-                T::Portfolio::ensure_portfolio_custody(leg.from, did)?;
+                T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key.as_ref())?;
                 // Lock tokens that are part of the leg
                 T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)?;
                 <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
@@ -802,10 +802,14 @@ impl<T: Trait> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
         Self::ensure_instruction_validity(instruction_id)?;
-        Ok(did)
+        Ok((primary_did, secondary_key))
     }
 
     /// Returns true if `sender_did` is the owner of `ticker` asset.
@@ -925,7 +929,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // checks custodianship of portfolios and affirmation status
         for portfolio in &portfolios {
-            T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
+            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?;
             ensure!(
                 Self::user_affirmations(portfolio, instruction_id) == AffirmationStatus::Affirmed,
                 Error::<T>::InstructionNotAffirmed
@@ -1113,17 +1117,18 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>
     ) -> DispatchResult {
-        Self::ensure_instruction_validity(instruction_id)?;
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
+
         for portfolio in &portfolios {
+            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?;
             let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
                 userr_affirmation == AffirmationStatus::Pending
                     || userr_affirmation == AffirmationStatus::Rejected,
                 Error::<T>::NoPendingAffirm
             );
-            T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
         }
 
         with_transaction(|| {
@@ -1177,6 +1182,7 @@ impl<T: Trait> Module<T> {
         receipt_uid: u64,
         signer: T::AccountId,
         signature: T::OffChainSignature,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>
     ) -> DispatchResult {
         Self::ensure_instruction_validity(instruction_id)?;
 
@@ -1195,6 +1201,8 @@ impl<T: Trait> Module<T> {
         );
 
         let leg = Self::instruction_legs(instruction_id, leg_id);
+
+        T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key.as_ref())?;
 
         let msg = Receipt {
             receipt_uid,
@@ -1279,7 +1287,7 @@ impl<T: Trait> Module<T> {
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResultWithPostInfo {
-        let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+        let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Verify that the receipts provided are unique
@@ -1297,11 +1305,11 @@ impl<T: Trait> Module<T> {
 
         // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
         for portfolio in &portfolios_set {
-            T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
-            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?;
+            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
-                userr_affirmation == AffirmationStatus::Pending
-                    || userr_affirmation == AffirmationStatus::Rejected,
+                user_affirmation == AffirmationStatus::Pending
+                    || user_affirmation == AffirmationStatus::Rejected,
                 Error::<T>::NoPendingAffirm
             );
         }
@@ -1424,12 +1432,13 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>
     ) -> DispatchResultWithPostInfo {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
+        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set, secondary_key)?;
 
         // Execute the instruction if conditions are met
         let affirms_pending = Self::instruction_affirms_pending(instruction_id);
@@ -1444,5 +1453,18 @@ impl<T: Trait> Module<T> {
                 .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
                 .into()
         })
+    }
+
+    fn ensure_portfolios_and_affirmation_status(
+        instruction_id: u64,
+        portfolios: BTreeSet<PortfolioId>,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        expected_affirmation_states: Vec<AffirmationStatus>
+    ) -> DispatchResult {
+        for portfolio in &portfolios {
+            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?;
+            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            ensure!(valid_affirmation_states.contains(user_affirmation), Error::<T>::UnexpectedAffirmationStatus);
+        }
     }
 }
