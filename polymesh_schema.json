@@ -1078,6 +1078,13 @@
             "ticker": "Ticker",
             "local_id": "LocalCAId"
         },
+        "SlashingSwitch": {
+            "_enum":[
+                "Validator",
+                "ValidatorAndNominator",
+                "None"
+            ]
+        },
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
