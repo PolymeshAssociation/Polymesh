@@ -102,10 +102,11 @@ decl_storage! {
 
         // ------------------------ Checkpoint storage -------------------------
 
-        /// Checkpoints created per token.
+        /// Checkpoints ID generator sequence.
+        /// First ID is 1 instead of 0 for.
         ///
         /// (ticker) -> no. of checkpoints
-        pub Total get(fn total_of):
+        pub CheckpointIdSequence get(fn checkpoint_id_sequence):
             map hasher(blake2_128_concat) Ticker => CheckpointId;
 
         /// Checkpoints where a DID's balance was updated.
@@ -305,6 +306,11 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Does checkpoint with ID `cp_id` exist for `ticker`?
+    pub fn checkpoint_exists(ticker: &Ticker, cp: CheckpointId) -> bool {
+        (CheckpointId(1)..=CheckpointIdSequence::get(ticker)).contains(&cp)
+    }
+
     /// Returns the balance of `did` for `ticker` at first checkpoint ID `>= cp`, if any.
     ///
     /// Reasons for returning `None` include:
@@ -313,10 +319,7 @@ impl<T: Trait> Module<T> {
     /// - `did`'s last transaction was strictly before `cp`, so their balance is the current one.
     pub fn balance_at(ticker: Ticker, did: IdentityId, cp: CheckpointId) -> Option<T::Balance> {
         let ticker_did = (ticker, did);
-        if Total::contains_key(ticker)
-            && (CheckpointId(1)..=Total::get(&ticker)).contains(&cp)
-            && BalanceUpdates::contains_key(&ticker_did)
-        {
+        if Self::checkpoint_exists(&ticker, cp) && BalanceUpdates::contains_key(&ticker_did) {
             // Checkpoint exists and user has some part in that.
             let balance_updates = BalanceUpdates::get(&ticker_did);
             if cp <= balance_updates.last().copied().unwrap_or(CheckpointId(0)) {
@@ -348,14 +351,15 @@ impl<T: Trait> Module<T> {
     ///
     /// * When minting, the total supply of `ticker` is updated **after** this function is called.
     fn update_balances(ticker: &Ticker, updates: &[(IdentityId, T::Balance)]) {
-        if Total::contains_key(ticker) {
-            let last_cp = Total::get(ticker);
-            for (did, balance) in updates {
-                let bal_key = (*ticker, did, last_cp);
-                if !<Balance<T>>::contains_key(bal_key) {
-                    <Balance<T>>::insert(bal_key, balance);
-                    BalanceUpdates::append((*ticker, did), last_cp);
-                }
+        let last_cp = CheckpointIdSequence::get(ticker);
+        if last_cp < CheckpointId(1) {
+            return;
+        }
+        for (did, balance) in updates {
+            let bal_key = (*ticker, did, last_cp);
+            if !<Balance<T>>::contains_key(bal_key) {
+                <Balance<T>>::insert(bal_key, balance);
+                BalanceUpdates::append((*ticker, did), last_cp);
             }
         }
     }
@@ -514,7 +518,7 @@ impl<T: Trait> Module<T> {
 
     /// Reserve `needed` amount of `CheckpointId`s and return the next ID to use.
     fn next_ids(ticker: &Ticker, needed: u64) -> Result<CheckpointId, DispatchError> {
-        Total::try_mutate(ticker, |CheckpointId(slot)| {
+        CheckpointIdSequence::try_mutate(ticker, |CheckpointId(slot)| {
             slot.checked_add(needed)
                 .map(|new| CheckpointId(1.min(needed) + mem::replace(slot, new)))
                 .ok_or_else(|| Error::<T>::CheckpointOverflow.into())

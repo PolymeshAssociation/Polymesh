@@ -421,7 +421,7 @@ fn initiate_corporate_action_record_date() {
         check(Some(50));
         check(Some(100));
 
-        assert_eq!(Checkpoint::total_of(ticker), CheckpointId(2));
+        assert_eq!(Checkpoint::checkpoint_id_sequence(ticker), CheckpointId(2));
     });
 }
 

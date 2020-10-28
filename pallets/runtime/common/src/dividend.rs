@@ -145,7 +145,7 @@ decl_module! {
             let checkpoint_id = if checkpoint_id > CheckpointId(0) {
                 checkpoint_id
             } else {
-                let count = <Checkpoint<T>>::total_of(&ticker);
+                let count = <Checkpoint<T>>::checkpoint_id_sequence(&ticker);
                 if count > CheckpointId(0) {
                     count
                 } else {
@@ -156,7 +156,7 @@ decl_module! {
             };
             // Check if checkpoint exists
             ensure!(
-                <Checkpoint<T>>::total_of(&ticker) >= checkpoint_id,
+                <Checkpoint<T>>::checkpoint_id_sequence(&ticker) >= checkpoint_id,
                 Error::<T>::NoSuchCheckpoint
             );
 

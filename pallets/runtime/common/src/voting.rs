@@ -224,8 +224,8 @@ decl_module! {
             ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
             // Ensure validity of checkpoint
-            ensure!(checkpoint::Total::contains_key(&ticker), Error::<T>::NoCheckpoints);
-            let count = checkpoint::Total::get(&ticker);
+            ensure!(checkpoint::CheckpointIdSequence::contains_key(&ticker), Error::<T>::NoCheckpoints);
+            let count = checkpoint::CheckpointIdSequence::get(&ticker);
             ensure!(ballot.checkpoint_id <= count, Error::<T>::NoCheckpoints);
 
             // Ensure vote is valid

@@ -2803,7 +2803,7 @@ fn next_checkpoint_is_updated_we() {
     ));
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
-    assert_eq!(id, Checkpoint::total_of(&ticker));
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(id));
     assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
@@ -2836,7 +2836,7 @@ fn next_checkpoint_is_updated_we() {
     // Balances at checkpoint 2.
     let id = CheckpointId(2);
     assert_eq!(vec![start + 2 * period_secs], checkpoint_ats(ticker));
-    assert_eq!(id, Checkpoint::total_of(&ticker));
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start + period_secs, Checkpoint::timestamps(id));
     assert_eq!(
         total_supply / 2,
@@ -2890,7 +2890,7 @@ fn non_recurring_schedule_works_we() {
     ));
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
-    assert_eq!(id, Checkpoint::total_of(&ticker));
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(id));
     assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
