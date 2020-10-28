@@ -605,8 +605,7 @@ impl pips::Trait for TestStorage {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
-    type ExecutionScheduler = Scheduler;
-    type ExpiryScheduler = Scheduler;
+    type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }

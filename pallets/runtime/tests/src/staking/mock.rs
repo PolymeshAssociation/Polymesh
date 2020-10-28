@@ -323,8 +323,7 @@ impl pallet_pips::Trait for Test {
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
-    type ExecutionScheduler = Scheduler;
-    type ExpiryScheduler = Scheduler;
+    type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }

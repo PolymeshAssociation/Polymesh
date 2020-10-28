@@ -373,19 +373,11 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    /// Scheduler of executed proposals.
-    type ExecutionScheduler: ScheduleNamed<
-        Self::BlockNumber,
-        Self::SchedulerCall,
-        Self::SchedulerOrigin,
-    >;
-
-    /// Scheduler of expired proposals.
-    type ExpiryScheduler: ScheduleNamed<
-        Self::BlockNumber,
-        Self::SchedulerCall,
-        Self::SchedulerOrigin,
-    >;
+    /// Scheduler of executed or expired proposals. Since the scheduler module does not have
+    /// instances, the names of scheduled tasks should be guaranteed to be unique in this
+    /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
+    /// different.
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
 
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
@@ -970,7 +962,7 @@ decl_module! {
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(GC_DID, id, MaybeBlock::None);
+            Self::schedule_pip_for_execution(GC_DID, id, None);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -1041,7 +1033,7 @@ decl_module! {
             // TODO: When `reschedule_named` is released into `schedule::Named`, use that instead of
             // discrete unscheduling and scheduling.
             Self::unschedule_pip(id);
-            Self::schedule_pip_for_execution(GC_DID, id, MaybeBlock::Some(new_until));
+            Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
 
             // 4. Emit event.
             Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
@@ -1199,7 +1191,7 @@ decl_module! {
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(GC_DID, pip_id, MaybeBlock::None);
+                    Self::schedule_pip_for_execution(GC_DID, pip_id, None);
                 }
 
                 let id = Self::snapshot_metadata().map(|m| m.id);
@@ -1315,7 +1307,7 @@ impl<T: Trait> Module<T> {
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
-        if let Err(_) = T::ExecutionScheduler::cancel_named(id.encode()) {
+        if let Err(_) = T::Scheduler::cancel_named(Self::pip_expiry_name(id)) {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
     }
@@ -1364,26 +1356,19 @@ impl<T: Trait> Module<T> {
         Self::prune_data(did, id, new_state, Self::prune_historical_pips());
     }
 
+    /// Adds a PIP execution call to the PIP execution schedule.
     // TODO: the `maybe_at` argument is only required until `schedule::Named::reschedule_named` is
     // released.
-    fn schedule_pip_for_execution(
-        did: IdentityId,
-        id: PipId,
-        maybe_at: MaybeBlock<T::BlockNumber>,
-    ) {
-        // Set the enactment period and move it to `Scheduled`
-        let at = match maybe_at {
-            MaybeBlock::Some(at) => at,
-            MaybeBlock::None => {
-                <system::Module<T>>::block_number() + Self::default_enactment_period()
-            }
-        };
+    fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
+        let at = maybe_at.unwrap_or_else(|| {
+            <system::Module<T>>::block_number() + Self::default_enactment_period()
+        });
         Self::update_proposal_state(did, id, ProposalState::Scheduled);
         <PipToSchedule<T>>::insert(id, at);
 
         let call = Call::<T>::execute_scheduled_pip(id).into();
-        let event = if let Err(_) = T::ExecutionScheduler::schedule_named(
-            id.encode(),
+        let event = if let Err(_) = T::Scheduler::schedule_named(
+            Self::pip_execution_name(id),
             DispatchTime::At(at),
             None,
             HARD_DEADLINE,
@@ -1397,11 +1382,12 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(event);
     }
 
+    /// Adds a PIP expiry call to the PIP expiry schedule.
     fn schedule_pip_for_expiry(id: PipId, at: T::BlockNumber) {
         let did = GC_DID;
         let call = Call::<T>::expire_scheduled_pip(did, id).into();
-        let event = if let Err(_) = T::ExpiryScheduler::schedule_named(
-            id.encode(),
+        let event = if let Err(_) = T::Scheduler::schedule_named(
+            Self::pip_expiry_name(id),
             DispatchTime::At(at),
             None,
             HARD_DEADLINE,
@@ -1464,6 +1450,23 @@ impl<T: Trait> Module<T> {
         if Self::is_active(state) {
             ActivePipCount::mutate(|count| *count -= 1);
         }
+    }
+
+    /// Converts a PIP ID into a name of a PIP scheduled for execution.
+    fn pip_execution_name(id: PipId) -> Vec<u8> {
+        Self::pip_schedule_name(&b"pip_execute"[..], id)
+    }
+
+    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
+    fn pip_expiry_name(id: PipId) -> Vec<u8> {
+        Self::pip_schedule_name(&b"pip_expire"[..], id)
+    }
+
+    /// Common method to create a unique name for the scheduler for a PIP.
+    fn pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
+        let mut name = Vec::from(&prefix[..]);
+        name.append(&mut id.encode());
+        name
     }
 }
 

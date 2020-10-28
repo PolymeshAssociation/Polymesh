@@ -470,8 +470,7 @@ impl pallet_pips::Trait for Runtime {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
-    type ExecutionScheduler = Scheduler;
-    type ExpiryScheduler = Scheduler;
+    type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
