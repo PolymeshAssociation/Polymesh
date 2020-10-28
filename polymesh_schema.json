@@ -937,6 +937,10 @@
             "id": "ScheduleId",
             "at": "Moment"
         },
+        "ScheduleSpec": {
+            "start": "Option<Moment>",
+            "period": "CalendarPeriod"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",

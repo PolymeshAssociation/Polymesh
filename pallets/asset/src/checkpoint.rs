@@ -52,7 +52,7 @@ use polymesh_common_utilities::{
     CommonTrait, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::{CheckpointId, CheckpointSchedule},
+    calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
     IdentityId, Moment, Ticker,
 };
 use sp_runtime::traits::SaturatedConversion;
@@ -82,6 +82,26 @@ pub struct StoredSchedule {
     /// When the next checkpoint is due to be created.
     /// Used as a cache for more efficient sorting.
     pub at: Moment,
+}
+
+/// Input specification for a checkpoint schedule.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct ScheduleSpec {
+    /// Unix time in seconds.
+    /// When `None`, this is an instruction to use the current time.
+    pub start: Option<Moment>,
+    /// The period at which the checkpoint is set to recur after `start`.
+    pub period: CalendarPeriod,
+}
+
+/// Create a schedule spec due exactly at the provided `start: Moment` time.
+impl From<Moment> for ScheduleSpec {
+    fn from(start: Moment) -> Self {
+        let period = <_>::default();
+        let start = start.into();
+        Self { start, period }
+    }
 }
 
 decl_storage! {
@@ -211,7 +231,7 @@ decl_module! {
         pub fn create_schedule(
             origin,
             ticker: Ticker,
-            schedule: CheckpointSchedule
+            schedule: ScheduleSpec,
         ) {
             let owner = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
             Self::create_schedule_base(owner, ticker, schedule, true)?;
@@ -424,16 +444,21 @@ impl<T: Trait> Module<T> {
     pub fn create_schedule_base(
         did: IdentityId,
         ticker: Ticker,
-        schedule: CheckpointSchedule,
+        schedule: ScheduleSpec,
         removable: bool,
     ) -> Result<StoredSchedule, DispatchError> {
+        let ScheduleSpec { period, start } = schedule;
+        let now = Self::now_unix();
+        let start = start.unwrap_or(now);
+        let schedule = CheckpointSchedule { start, period };
+
         // Check the lower limit of the checkpoint period duration by computing the next
         // checkpoint from the start of the schedule.
-        let oneshot = schedule.period.amount.is_none();
+        let oneshot = period.amount.is_none();
         ensure!(
             oneshot
-                || schedule.next_checkpoint(schedule.start)
-                    >= Some(schedule.start + T::MinCheckpointDurationSecs::get()),
+                || schedule.next_checkpoint(start)
+                    >= Some(start + T::MinCheckpointDurationSecs::get()),
             Error::<T>::ScheduleDurationTooShort
         );
 
@@ -442,7 +467,7 @@ impl<T: Trait> Module<T> {
         schedules
             .iter()
             .map(|s| s.schedule.period.complexity())
-            .try_fold(schedule.period.complexity(), |a, c| a.checked_add(c))
+            .try_fold(period.complexity(), |a, c| a.checked_add(c))
             .filter(|&c| c <= SchedulesMaxComplexity::get())
             .ok_or(Error::<T>::SchedulesTooComplex)?;
 
@@ -453,8 +478,7 @@ impl<T: Trait> Module<T> {
         let id = Self::next_schedule_id(&ticker)?;
 
         // If start is now, create the first checkpoint immediately.
-        let now = Self::now_unix();
-        let instant = schedule.start == now;
+        let instant = start == now;
         if instant {
             SchedulePoints::append((ticker, id), Self::create_at_by(did, ticker, now)?);
         }

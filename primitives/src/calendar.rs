@@ -155,14 +155,6 @@ pub struct CheckpointSchedule {
     pub period: CalendarPeriod,
 }
 
-/// Create a schedule due exactly at the provided `start: Moment` time.
-impl From<Moment> for CheckpointSchedule {
-    fn from(start: Moment) -> Self {
-        let period = <_>::default();
-        Self { start, period }
-    }
-}
-
 impl CheckpointSchedule {
     /// Computes the next checkpoint for the schedule given the current timestamp in seconds Unix
     /// time.

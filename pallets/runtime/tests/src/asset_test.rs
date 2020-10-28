@@ -15,6 +15,7 @@ use frame_support::{
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
+use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
@@ -32,9 +33,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
-    calendar::{
-        CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
-    },
+    calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
     IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
@@ -2796,10 +2795,13 @@ fn next_checkpoint_is_updated_we() {
         None,
     ));
     assert_eq!(Checkpoint::schedules(ticker), Vec::new());
-    let schedule = CheckpointSchedule { start, period };
+    let schedule = ScheduleSpec {
+        start: Some(start),
+        period,
+    };
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
-        schedule.period.complexity()
+        period.complexity()
     ));
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
@@ -2880,10 +2882,13 @@ fn non_recurring_schedule_works_we() {
         None,
     ));
     assert_eq!(Checkpoint::schedules(ticker), Vec::new());
-    let schedule = CheckpointSchedule { start, period };
+    let schedule = ScheduleSpec {
+        start: Some(start),
+        period,
+    };
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
-        schedule.period.complexity()
+        period.complexity()
     ));
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
