@@ -1857,6 +1857,19 @@ impl<T: Trait> Module<T> {
         );
         Ok(primary_did)
     }
+
+    /// Checks whether the sender and the receiver of a transfer have valid scope claims
+    pub fn verify_scope_claims_for_transfer(
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+    ) -> bool {
+        let verify_scope_claim = |did| {
+            let asset_scope = Some(Scope::from(*ticker));
+            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
+        };
+        verify_scope_claim(from_did) && verify_scope_claim(to_did)
+    }
 }
 
 impl<T: Trait> Module<T> {
