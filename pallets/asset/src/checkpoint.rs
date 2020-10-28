@@ -456,43 +456,51 @@ impl<T: Trait> Module<T> {
             .filter(|&c| c <= SchedulesMaxComplexity::get())
             .ok_or(Error::<T>::SchedulesTooComplex)?;
 
-        // Charge the fee for checkpoint creation.
-        T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
-
         // Compute next schedule ID.
         let id = Self::next_schedule_id(&ticker)?;
 
-        // If start is now, create the first checkpoint immediately.
+        // If start is now, we'll create the first checkpoint immediately later at (1).
         let now = Self::now_unix();
         let start = start.unwrap_or(now);
-        let instant = start == now;
-        if instant {
-            SchedulePoints::append((ticker, id), Self::create_at_by(did, ticker, now)?);
+        let cp_id = (start == now)
+            .then(|| Self::next_cp_ids(&ticker, 1).map(|(cp_id, _)| cp_id))
+            .transpose()?;
+
+        // Compute the next timestamp, if needed.
+        // If the start isn't now or this schedule recurs, we'll need to schedule as done in (2).
+        let schedule = CheckpointSchedule { start, period };
+        let future_at = (cp_id.is_none() || period.amount.is_some())
+            .then(|| {
+                schedule
+                    .next_checkpoint(now)
+                    .ok_or(Error::<T>::FailedToComputeNextCheckpoint)
+            })
+            .transpose()?;
+
+        // Charge the fee for checkpoint creation.
+        // N.B. this operation bundles verification + a storage change.
+        // Thus, it must be last, and only storage changes follow.
+        T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
+
+        // (1) Start is now, so create the checkpoint.
+        if let Some(cp_id) = cp_id {
+            CheckpointIdSequence::insert(ticker, cp_id);
+            SchedulePoints::append((ticker, id), cp_id);
+            Self::create_at(Some(did), ticker, cp_id, now);
         }
 
-        let schedule = CheckpointSchedule { start, period };
-        let mk_schedule = |at| StoredSchedule { at, id, schedule };
-        let schedule = if instant && period.amount.is_none() {
-            // Timestamp is instant and non-recurring; we won't be scheduling at all.
-            mk_schedule(now)
-        } else {
-            // Compute the next timestamp.
-            let at = schedule
-                .next_checkpoint(now)
-                .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-
-            // Store removability.
+        // (2) There will be some future checkpoint, so schedule it.
+        let at = future_at.unwrap_or(now);
+        let schedule = StoredSchedule { at, id, schedule };
+        if let Some(_) = future_at {
+            // Store removability + Sort schedule into the queue.
             ScheduleRemovable::insert((ticker, id), removable);
-
-            // Sort schedule into the queue.
-            let schedule = mk_schedule(at);
             Schedules::insert(&ticker, {
                 let mut schedules = schedules;
                 add_schedule(&mut schedules, schedule);
                 schedules
-            });
-            schedule
-        };
+            })
+        }
 
         ScheduleIdSequence::insert(ticker, id);
         Self::deposit_event(RawEvent::ScheduleCreated(did, ticker, schedule));
