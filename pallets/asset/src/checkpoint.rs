@@ -429,7 +429,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<StoredSchedule, DispatchError> {
         // Check the lower limit of the checkpoint period duration by computing the next
         // checkpoint from the start of the schedule.
-        let oneshot = schedule.period.multiplier == 0;
+        let oneshot = schedule.period.amount.is_none();
         ensure!(
             oneshot
                 || schedule.next_checkpoint(schedule.start)

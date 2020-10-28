@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use core::num::NonZeroU64;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
@@ -187,7 +188,7 @@ fn general_testnet_genesis(
             use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
             let period = CalendarPeriod {
                 unit: Week,
-                multiplier: 1,
+                amount: NonZeroU64::new(1),
             };
             Some(GeneralConfig::CheckpointConfig {
                 schedules_max_complexity: period.complexity(),
@@ -578,7 +579,7 @@ fn alcyone_testnet_genesis(
             use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
             let period = CalendarPeriod {
                 unit: Week,
-                multiplier: 1,
+                amount: NonZeroU64::new(1),
             };
             Some(GeneralConfig::CheckpointConfig {
                 schedules_max_complexity: period.complexity(),

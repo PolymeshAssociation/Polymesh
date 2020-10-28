@@ -8,8 +8,8 @@ use crate::{
         Checkpoint, TestStorage,
     },
 };
-
 use chrono::prelude::Utc;
+use core::num::NonZeroU64;
 use frame_support::{
     assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
@@ -2766,10 +2766,10 @@ fn next_checkpoint_is_updated_we() {
     // A period of 42 hours.
     let period = CalendarPeriod {
         unit: CalendarUnit::Hour,
-        multiplier: 42,
+        amount: NonZeroU64::new(42),
     };
     // The increment in seconds.
-    let period_secs = match period.as_fixed_or_variable() {
+    let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {
         FixedOrVariableCalendarUnit::Fixed(secs) => secs,
         _ => panic!("period should be fixed"),
     };
@@ -2856,10 +2856,7 @@ fn non_recurring_schedule_works_we() {
     // 14 November 2023, 22:13 UTC
     let start: u64 = 1_700_000_000;
     // Non-recuring schedule.
-    let period = CalendarPeriod {
-        unit: CalendarUnit::Second,
-        multiplier: 0,
-    };
+    let period = CalendarPeriod::default();
     let start_millisecs = start * 1000;
     Timestamp::set_timestamp(start_millisecs);
     assert_eq!(

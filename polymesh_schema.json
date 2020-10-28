@@ -924,7 +924,7 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "multiplier": "u64"
+            "amount": "Option<NonZeroU64>"
         },
         "CheckpointSchedule": {
             "start": "Moment",
@@ -1075,7 +1075,7 @@
             "local_id": "LocalCAId"
         },
         "SlashingSwitch": {
-            "_enum":[
+            "_enum": [
                 "Validator",
                 "ValidatorAndNominator",
                 "None"
