@@ -650,6 +650,97 @@ fn transfer_ticker() {
 }
 
 #[test]
+fn controller_transfer() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| {
+            let now = Utc::now();
+            Timestamp::set_timestamp(now.timestamp() as u64);
+
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let eve = AccountKeyring::Eve.public();
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[alice_did, owner_did], ticker, eve);
+
+            // Issuance is successful
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            assert_eq!(
+                Asset::balance_of(&ticker, token.owner_did),
+                token.total_supply
+            );
+
+            // Allow all transfers
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                owner_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
+
+            // Should fail as sender matches receiver
+            assert_noop!(
+                Asset::base_transfer(
+                    PortfolioId::default_portfolio(owner_did),
+                    PortfolioId::default_portfolio(owner_did),
+                    &ticker,
+                    500
+                ),
+                AssetError::InvalidTransfer
+            );
+
+            assert_ok!(Asset::base_transfer(
+                PortfolioId::default_portfolio(owner_did),
+                PortfolioId::default_portfolio(alice_did),
+                &ticker,
+                500
+            ));
+
+            let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
+            assert_eq!(balance_owner, 1_000_000 - 500);
+            assert_eq!(balance_alice, 500);
+
+            assert_ok!(Asset::controller_transfer(
+                owner_signed.clone(),
+                ticker,
+                100,
+                PortfolioId::default_portfolio(alice_did),
+            ));
+
+            let new_balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let new_balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
+
+            assert_eq!(new_balance_owner, balance_owner + 100);
+            assert_eq!(new_balance_alice, balance_alice - 100);
+        })
+}
+
+#[test]
 fn transfer_primary_issuance_agent() {
     ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();

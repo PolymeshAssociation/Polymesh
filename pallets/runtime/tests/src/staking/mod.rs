@@ -5457,3 +5457,93 @@ fn test_with_multiple_validators_from_entity() {
             assert!(Session::validators().contains(&60));
         });
 }
+
+#[test]
+fn check_slashing_switch_for_validators_and_nominators() {
+    ExtBuilder::default()
+        .slashing_allowed_for(SlashingSwitch::None)
+        .validator_count(5)
+        .build()
+        .execute_with(|| {
+            // Check the initial state of the Slashing Switch.
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+
+            let change_slashing_allowed_for = |switch: SlashingSwitch| {
+                assert_ok!(Staking::change_slashing_allowed_for(root(), switch));
+                assert_eq!(Staking::slashing_allowed_for(), switch);
+            };
+
+            change_slashing_allowed_for(SlashingSwitch::Validator);
+            change_slashing_allowed_for(SlashingSwitch::ValidatorAndNominator);
+        });
+}
+
+#[test]
+fn offence_is_blocked_when_slashing_status_is_off() {
+    ExtBuilder::default()
+        .offchain_phragmen_ext()
+        .validator_count(4)
+        .slashing_allowed_for(SlashingSwitch::None)
+        .has_stakers(false)
+        .build()
+        .execute_with(|| {
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+            let initial_balance = Balances::free_balance(10);
+            create_on_offence_now(10);
+            // No slashing happened.
+            assert_eq!(Balances::free_balance(10), initial_balance);
+        });
+}
+
+#[test]
+fn check_slashing_for_different_switches() {
+    ExtBuilder::default().build_and_execute(|| {
+        mock::start_era(1);
+
+        assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(21), 2000);
+
+        // Switch to ValidatorAndNominator.
+        assert_ok!(Staking::change_slashing_allowed_for(
+            root(),
+            SlashingSwitch::ValidatorAndNominator
+        ));
+        assert_eq!(
+            Staking::slashing_allowed_for(),
+            SlashingSwitch::ValidatorAndNominator
+        );
+
+        // Add nominator.
+        // add a new candidate for being a nominator. account 3 controlled by 4.
+        bond_nominator_with_expiry(3, 2000, 99999999, vec![11, 21]);
+        add_secondary_key(4, 3);
+
+        mock::start_era(2);
+
+        assert_eq!(Balances::free_balance(101), 2000);
+
+        create_on_offence_now(11);
+
+        create_on_offence_now(21);
+
+        // Balance of account 11 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(11), 900);
+        // Balance of account 4 [nominator] get slashed by 10% i.e 10 % of 2000 (total staked).
+        assert_eq!(Balances::free_balance(4), 1800);
+        // Balance of account 21 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(21), 1900);
+    })
+}
+
+fn create_on_offence_now(offender: u64) {
+    on_offence_now(
+        &[OffenceDetails {
+            offender: (
+                offender,
+                Staking::eras_stakers(Staking::active_era().unwrap().index, offender),
+            ),
+            reporters: vec![],
+        }],
+        &[Perbill::from_percent(10)],
+    );
+}
