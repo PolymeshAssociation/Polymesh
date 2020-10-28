@@ -1237,6 +1237,8 @@ fn assert_pruned(id: PipId) {
     assert_eq!(Pips::proposals(id), None);
     assert_vote_details(id, VotingResult::default(), vec![], vec![]);
     assert_eq!(Pips::pip_to_schedule(id), None);
+    // TODO: Check that the PIP has been removed from the schedule. This should be easily done after
+    // fixing this issue: https://github.com/paritytech/substrate/issues/7449
     assert!(Pips::snapshot_queue().iter().all(|p| p.id != id));
     assert_eq!(Pips::pip_skip_count(id), 0);
 }
