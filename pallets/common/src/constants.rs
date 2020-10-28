@@ -57,6 +57,7 @@ pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa8;
 pub const PORTFOLIO_FAILURE: u8 = 0xa9;
 pub const CUSTODIAN_ERROR: u8 = 0xb0;
+pub const SCOPE_CLAIM_MISSING: u8 = 0xb1;
 
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;

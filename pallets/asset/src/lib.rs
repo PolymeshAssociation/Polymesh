@@ -1621,6 +1621,14 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
+        }
+
         if Portfolio::<T>::ensure_portfolio_transfer_validity(
             &from_portfolio,
             &to_portfolio,
@@ -2212,6 +2220,14 @@ impl<T: Trait> Module<T> {
 
         if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
             return Ok(INVALID_SENDER_DID);
+        }
+
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok(SCOPE_CLAIM_MISSING);
         }
 
         if Portfolio::<T>::ensure_portfolio_custody(

@@ -424,14 +424,7 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity",
-                "HasValidProofOfInvestor": "Ticker"
-            }
-        },
-        "ImplicitRequirementStatus": {
-            "_enum": {
-                "Active": "",
-                "Inactive": ""
+                "IsIdentity": "TargetIdentity"
             }
         },
         "TrustedFor": {
@@ -739,7 +732,6 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
-            "implicit_requirements_result": "Option<ImplicitRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
@@ -1031,10 +1023,6 @@
                 "Exchange"
             ]
         },
-        "ImplicitRequirementResult": {
-            "from_result": "bool",
-            "to_result": "bool"
-        },
         "Payload": {
             "block_number": "BlockNumber",
             "nominators": "Vec<AccountId>",
@@ -1077,6 +1065,13 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "SlashingSwitch": {
+            "_enum":[
+                "Validator",
+                "ValidatorAndNominator",
+                "None"
+            ]
         },
         "PriceTier": {
             "total": "Balance",
