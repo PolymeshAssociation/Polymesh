@@ -496,6 +496,7 @@ impl<T: Trait> Module<T> {
             schedule
         };
 
+        ScheduleIdSequence::insert(ticker, id);
         Self::deposit_event(RawEvent::ScheduleCreated(did, ticker, schedule));
         Ok(schedule)
     }
@@ -541,12 +542,12 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Advance the checkpoint future ID counter and return the next ID to use.
+    /// Compute the next checkpoint schedule ID without changing storage.
+    /// ID of first schedule is 1 rather than 0, which means that no schedules have been made yet.
     fn next_schedule_id(ticker: &Ticker) -> Result<ScheduleId, DispatchError> {
-        ScheduleIdSequence::try_mutate(ticker, |ScheduleId(id)| {
-            let next = id.checked_add(1).ok_or(Error::<T>::ScheduleOverflow)?;
-            Ok(ScheduleId(mem::replace(id, next)))
-        })
+        let ScheduleId(id) = ScheduleIdSequence::get(ticker);
+        let id = id.checked_add(1).ok_or(Error::<T>::ScheduleOverflow)?;
+        Ok(ScheduleId(id))
     }
 
     /// Returns the current UNIX time, i.e. seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.

@@ -400,6 +400,7 @@ fn initiate_corporate_action_record_date() {
             assert_eq!(date, ca.record_date.map(|x| x.0));
             if let (Some(date), Some((date2, id))) = (date, ca.record_date) {
                 cp_id.0 += 1;
+                schedule_id.0 += 1;
 
                 assert_eq!(date, date2);
                 assert_eq!(schedule_id, id);
@@ -412,8 +413,6 @@ fn initiate_corporate_action_record_date() {
                     vec![cp_id]
                 );
                 assert_eq!(date, Checkpoint::timestamps(cp_id));
-
-                schedule_id.0 += 1;
             }
         };
 
