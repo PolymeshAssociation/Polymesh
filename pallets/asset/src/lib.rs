@@ -2054,6 +2054,27 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Forces a transfer between two DIDs.
+    pub fn controller_transfer(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: T::Balance,
+        investor_portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        // Ensure that `origin` is the PIA or the token owner.
+        let owner = Identity::<T>::ensure_perms(origin)?;
+        Self::ensure_pia_or_owner(&ticker, owner)?;
+
+        // transfer `value` of ticker tokens from `investor_did` to controller
+        Self::unsafe_transfer(
+            investor_portfolio_id,
+            PortfolioId::default_portfolio(owner),
+            &ticker,
+            value,
+        )?;
+        Ok(())
+    }
+
     /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
