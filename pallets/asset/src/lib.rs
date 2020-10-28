@@ -151,9 +151,6 @@ pub trait Trait:
 
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
-
-    /// The minimum duration of a checkpoint period, in seconds.
-    type MinCheckpointDurationSecs: Get<u64>;
 }
 
 /// The type of an asset represented by a token.

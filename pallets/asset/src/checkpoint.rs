@@ -448,19 +448,6 @@ impl<T: Trait> Module<T> {
         removable: bool,
     ) -> Result<StoredSchedule, DispatchError> {
         let ScheduleSpec { period, start } = schedule;
-        let now = Self::now_unix();
-        let start = start.unwrap_or(now);
-        let schedule = CheckpointSchedule { start, period };
-
-        // Check the lower limit of the checkpoint period duration by computing the next
-        // checkpoint from the start of the schedule.
-        let oneshot = period.amount.is_none();
-        ensure!(
-            oneshot
-                || schedule.next_checkpoint(start)
-                    >= Some(start + T::MinCheckpointDurationSecs::get()),
-            Error::<T>::ScheduleDurationTooShort
-        );
 
         // Ensure the total complexity for all schedules is not too great.
         let schedules = Schedules::get(ticker);
@@ -478,13 +465,16 @@ impl<T: Trait> Module<T> {
         let id = Self::next_schedule_id(&ticker)?;
 
         // If start is now, create the first checkpoint immediately.
+        let now = Self::now_unix();
+        let start = start.unwrap_or(now);
         let instant = start == now;
         if instant {
             SchedulePoints::append((ticker, id), Self::create_at_by(did, ticker, now)?);
         }
 
+        let schedule = CheckpointSchedule { start, period };
         let mk_schedule = |at| StoredSchedule { at, id, schedule };
-        let schedule = if oneshot && instant {
+        let schedule = if instant && period.amount.is_none() {
             // Timestamp is instant and non-recurring; we won't be scheduling at all.
             mk_schedule(now)
         } else {
