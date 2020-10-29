@@ -356,7 +356,7 @@ pub trait Trait:
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
 
-    /// Origin for enacting a referendum.
+    /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
@@ -1464,8 +1464,9 @@ impl<T: Trait> Module<T> {
 
     /// Common method to create a unique name for the scheduler for a PIP.
     fn pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
-        let mut name = Vec::from(prefix);
-        name.append(&mut id.encode());
+        let mut name = Vec::with_capacity(prefix.len() + id.size_hint());
+        name.extend_from_slice(prefix);
+        id.encode_to(&mut name);
         name
     }
 }
