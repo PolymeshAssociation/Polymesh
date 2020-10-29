@@ -907,6 +907,7 @@ pub trait WeightInfo {
     fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_weaker(v: u32, n: u32) -> Weight;
+    fn change_slashing_allowed_for() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -992,6 +993,9 @@ impl WeightInfo for () {
         1_000_000_000
     }
     fn submit_solution_weaker(_v: u32, _n: u32) -> Weight {
+        1_000_000_000
+    }
+    fn change_slashing_allowed_for() -> Weight {
         1_000_000_000
     }
 }
@@ -1120,7 +1124,26 @@ pub enum Forcing {
 
 impl Default for Forcing {
     fn default() -> Self {
-        Forcing::NotForcing
+        Self::NotForcing
+    }
+}
+
+/// Switch used to change the "victim" for slashing. Victims can be
+/// validators, both validators and nominators, or no-one.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum SlashingSwitch {
+    /// Allow validators but not nominators to get slashed.
+    Validator,
+    /// Allow both validators and nominators to get slashed.
+    ValidatorAndNominator,
+    /// Forbid slashing.
+    None,
+}
+
+impl Default for SlashingSwitch {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -1330,6 +1353,9 @@ decl_storage! {
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
 
+        // Polymesh-Note: Polymesh specific change to provide slashing switch for validators & Nominators.
+        pub SlashingAllowedFor get(fn slashing_allowed_for) config(): SlashingSwitch;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1423,6 +1449,8 @@ decl_event!(
         CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// Update for whom balance get slashed.
+        SlashingAllowedForChanged(SlashingSwitch),
     }
 );
 
@@ -2608,6 +2636,20 @@ decl_module! {
                 is expected."
             );
             Ok(adjustments)
+        }
+
+        // Polymesh-note - Dispatchable to switch the slashing status.
+        /// Switch slashing status on the basis of given `SlashingSwitch`. Only be called by the root.
+        ///
+        /// # Arguments
+        /// * origin - AccountId of root.
+        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        pub fn change_slashing_allowed_for(origin, switch: SlashingSwitch) -> DispatchResult {
+            // Ensure origin should be root.
+            ensure_root(origin)?;
+            SlashingAllowedFor::put(switch);
+            Self::deposit_event(RawEvent::SlashingAllowedForChanged(switch));
+            Ok(())
         }
     }
 }
@@ -3801,6 +3843,12 @@ where
             return Err(());
         }
 
+        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
+        if Self::slashing_allowed_for() == SlashingSwitch::None {
+            // Return `0` weight because no need to run through when Slashing is off.
+            return Ok(Zero::zero());
+        }
+
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;
         let mut add_db_reads_writes = |reads, writes| {
@@ -3839,7 +3887,8 @@ where
             match eras
                 .iter()
                 .rev()
-                .find(|&&(_, ref sesh)| sesh <= &slash_session)
+                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
+                .next()
             {
                 Some(&(ref slash_era, _)) => *slash_era,
                 // before bonding period. defensive - should be filtered out.
@@ -3878,12 +3927,12 @@ where
             });
 
             if let Some(mut unapplied) = unapplied {
-                // `unapplied.others` will always be an empty vector. So skipping consideration of
-                // nominators length (i.e nominators_len).
+                let nominators_len = unapplied.others.len() as u64;
                 let reporters_len = details.reporters.len() as u64;
 
                 {
-                    let rw = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let rw = upper_bound + nominators_len * upper_bound;
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
@@ -3894,8 +3943,8 @@ where
                         let slash_cost = (6, 5);
                         let reward_cost = (2, 2);
                         add_db_reads_writes(
-                            slash_cost.0 + reward_cost.0 * reporters_len,
-                            slash_cost.1 + reward_cost.1 * reporters_len,
+                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
                         );
                     }
                 } else {

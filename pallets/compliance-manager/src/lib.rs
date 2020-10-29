@@ -91,8 +91,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
-    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
-    TrustedIssuer,
+    proposition, Claim, Condition, ConditionType, IdentityId, Ticker, TrustedIssuer,
 };
 use polymesh_primitives_derive::Migrate;
 
@@ -210,16 +209,6 @@ pub struct AssetCompliance {
     pub requirements: Vec<ComplianceRequirement>,
 }
 
-/// Implicit requirement result.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
-pub struct ImplicitRequirementResult {
-    /// Result of implicit condition for the sender of the extrinsic.
-    pub from_result: bool,
-    /// Result of implicit condition for the receiver of the extrinsic.
-    pub to_result: bool,
-}
-
 type Identity<T> = identity::Module<T>;
 
 /// Asset compliance and it's evaluation result
@@ -230,14 +219,6 @@ pub struct AssetComplianceResult {
     pub paused: bool,
     /// List of compliance requirements.
     pub requirements: Vec<ComplianceRequirementResult>,
-    /// It is treated differently from other compliance requirements because
-    /// it doesn't successfully execute the transaction even if it succeed. As txn
-    /// also depends on the successful verification of one of the `requirement` set by
-    /// the asset issuer. But it can fail the txn if it gets failed independently from
-    /// the result of other requirements.
-    ///
-    /// Implicit requirements result.
-    pub implicit_requirements_result: ImplicitRequirementResult,
     // Final evaluation result of the asset compliance
     pub result: bool,
 }
@@ -251,8 +232,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
                 .into_iter()
                 .map(ComplianceRequirementResult::from)
                 .collect(),
-            implicit_requirements_result: ImplicitRequirementResult::default(),
-            result: false,
+            result: asset_compliance.paused,
         }
     }
 }
@@ -566,18 +546,6 @@ impl<T: Trait> Module<T> {
             })
     }
 
-    /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
-    /// Note that this vector could be 0 or 1 items.
-    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> impl Iterator<Item = Claim> {
-        let claim_type = ClaimType::InvestorUniqueness;
-        // NOTE: Ticker length is less by design that IdentityId.
-        let asset_scope = Scope::from(*ticker);
-
-        <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
-            .into_iter()
-            .map(|id_claim| id_claim.claim)
-    }
-
     /// Returns trusted issuers specified in `condition` if any,
     /// or otherwise returns the default trusted issuers for `ticker`.
     /// Defaults are cached in `slot`.
@@ -603,9 +571,9 @@ impl<T: Trait> Module<T> {
         primary_issuance_agent: Option<IdentityId>,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
-        // To do this, we use `Either<Either<MatchArm1, MatchArm2>, Either<MatchArm3, MatchArm4>>`,
-        // equivalent to a 4-variant enum with iterators in each variant corresponding to the branches below.
-        // For example, `Left(Left(arm1))` and `Right(Left(arm3))` correspond to arms 1 and 3 respectively.
+        // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
+        // equivalent to a 3-variant enum with iterators in each variant corresponding to the branches below.
+        // `Left(Left(arm1))`, `Left(Right(arm2))` and `Right(arm3)` correspond to arms 1, 2 and 3 respectively.
         use either::Either::{Left, Right};
 
         let claims = match &condition.condition_type {
@@ -618,10 +586,7 @@ impl<T: Trait> Module<T> {
                     Self::fetch_claims(id, claim, issuers)
                 })))
             }
-            ConditionType::HasValidProofOfInvestor(proof_ticker) => {
-                Right(Left(Self::fetch_confidential_claims(id, proof_ticker)))
-            }
-            ConditionType::IsIdentity(_) => Right(Right(core::iter::empty())),
+            ConditionType::IsIdentity(_) => Right(core::iter::empty()),
         };
 
         proposition::Context {
@@ -706,16 +671,6 @@ impl<T: Trait> Module<T> {
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-        // It is to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim or not).
-        let from_has_scope_claim = Self::has_scope_claim(ticker, from_did_opt);
-        let to_has_scope_claim = Self::has_scope_claim(ticker, to_did_opt);
-        // Assigning the implicit requirement result.
-        asset_compliance_with_results.implicit_requirements_result = ImplicitRequirementResult {
-            from_result: from_has_scope_claim,
-            to_result: to_has_scope_claim,
-        };
-
-        let implicit_result = from_has_scope_claim && to_has_scope_claim;
 
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
@@ -742,10 +697,8 @@ impl<T: Trait> Module<T> {
                     requirements.result = false;
                 }
             }
-            // If the requirements result is positive, update the final result.
-            if requirements.result {
-                asset_compliance_with_results.result = implicit_result;
-            }
+
+            asset_compliance_with_results.result |= requirements.result;
         }
         asset_compliance_with_results
     }
@@ -791,26 +744,6 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
-
-    /// Helper function to know whether the given did has the valid scope claim or not.
-    fn has_scope_claim(ticker: &Ticker, did_opt: Option<IdentityId>) -> bool {
-        did_opt.map_or(false, |did| {
-            // Generate the condition for `HasValidProofOfInvestor` condition type.
-            let condition =
-                &Condition::from_dids(ConditionType::HasValidProofOfInvestor(*ticker), &[did]);
-            Self::is_condition_satisfied(ticker, did, condition, None, &mut None)
-        })
-    }
-
-    /// Know whether sender and receiver has valid scope claim or not before checking the transfer conditions.
-    fn is_sender_and_receiver_has_valid_scope_claim(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-    ) -> bool {
-        // Return the final boolean result.
-        Self::has_scope_claim(ticker, to_did_opt) && Self::has_scope_claim(ticker, from_did_opt)
-    }
 }
 
 impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
@@ -831,23 +764,11 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             ));
         }
 
-        // Check for whether sender & receiver has the scope claim or not if not then fail the txn.
-        // To optimize we are not checking it again and again with the respective conditions, it
-        // gets checked only once and if it is valid then its result is tied up with the conditions result.
-        //
-        // Note - Due to this check `ConditionType::HasValidProofOfInvestor` is an implicit transfer condition and it only
-        // lookup for the claims those are provided by the user itself.
         let mut requirement_count: usize = 0;
         let verify_weight = |count| {
             weight_for::weight_for_verify_restriction::<T>(u64::try_from(count).unwrap_or(0))
         };
 
-        if !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt) {
-            return Ok((
-                ERC1400_TRANSFER_FAILURE,
-                weight_for::weight_for_reading_asset_compliance::<T>(),
-            ));
-        }
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
                 requirement_count += requirement.sender_conditions.len();

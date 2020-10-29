@@ -1621,6 +1621,14 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
+        }
+
         if Portfolio::<T>::ensure_portfolio_transfer_validity(
             &from_portfolio,
             &to_portfolio,
@@ -2046,6 +2054,27 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Forces a transfer between two DIDs.
+    pub fn controller_transfer(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: T::Balance,
+        investor_portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        // Ensure that `origin` is the PIA or the token owner.
+        let owner = Identity::<T>::ensure_perms(origin)?;
+        Self::ensure_pia_or_owner(&ticker, owner)?;
+
+        // transfer `value` of ticker tokens from `investor_did` to controller
+        Self::unsafe_transfer(
+            investor_portfolio_id,
+            PortfolioId::default_portfolio(owner),
+            &ticker,
+            value,
+        )?;
+        Ok(())
+    }
+
     /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
@@ -2191,6 +2220,14 @@ impl<T: Trait> Module<T> {
 
         if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
             return Ok(INVALID_SENDER_DID);
+        }
+
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok(SCOPE_CLAIM_MISSING);
         }
 
         if Portfolio::<T>::ensure_portfolio_custody(

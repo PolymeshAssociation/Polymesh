@@ -1622,7 +1622,7 @@ impl<T: Trait> Module<T> {
         );
 
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
-        let did = IdentityId::from_bytes(blake2_256(&(USER, block_hash, new_nonce).encode()));
+        let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
         // 1.3. Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
@@ -1856,6 +1856,19 @@ impl<T: Trait> Module<T> {
             Error::<T>::DidMustAlreadyExist
         );
         Ok(primary_did)
+    }
+
+    /// Checks whether the sender and the receiver of a transfer have valid scope claims
+    pub fn verify_scope_claims_for_transfer(
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+    ) -> bool {
+        let verify_scope_claim = |did| {
+            let asset_scope = Some(Scope::from(*ticker));
+            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
+        };
+        verify_scope_claim(from_did) && verify_scope_claim(to_did)
     }
 }
 
