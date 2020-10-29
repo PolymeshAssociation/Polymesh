@@ -17,17 +17,17 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
 
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
 
 [features]
 equalize = []

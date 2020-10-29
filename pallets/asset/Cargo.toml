@@ -12,7 +12,7 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
@@ -27,21 +27,21 @@ arrayvec = { version = "0.5.1", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
 libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
 
 # Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50", optional = true }
 
 [features]
 equalize = []

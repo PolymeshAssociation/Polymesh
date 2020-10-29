@@ -14,7 +14,7 @@ proc-macro2 = "1.0.9"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = "3f1341a384559ec046710e2f46eb4a7d9fc52f50" }
 
 [features]
 default = ["std"]
