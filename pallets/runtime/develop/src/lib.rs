@@ -51,6 +51,7 @@ pub mod config {
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
     pub type GrandpaConfig = pallet_grandpa::GenesisConfig;
+    pub type MultiSigConfig = pallet_multisig::GenesisConfig;
 }
 
 pub use sp_runtime::{Perbill, Permill};
