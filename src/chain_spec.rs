@@ -413,7 +413,7 @@ fn general_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
-        multisig: Some(GeneralConfig::ProtocolFeeConfig {
+        multisig: Some(GeneralConfig::MultiSigConfig {
             transaction_version: 1,
         }),
     }
@@ -801,7 +801,7 @@ fn alcyone_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
-        multisig: Some(GeneralConfig::ProtocolFeeConfig {
+        multisig: Some(GeneralConfig::MultiSigConfig {
             transaction_version: 1,
         }),
     }
