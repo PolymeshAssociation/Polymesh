@@ -24,6 +24,7 @@ pub use runtime::{
 #[cfg(feature = "std")]
 pub mod config {
 
+    use asset::checkpoint;
     use pallet_asset as asset;
     use pallet_balances as balances;
     use pallet_committee as committee;
@@ -31,6 +32,7 @@ pub mod config {
     use pallet_protocol_fee as protocol_fee;
 
     pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
+    pub type CheckpointConfig = checkpoint::GenesisConfig;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
     pub type BridgeConfig = pallet_bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;

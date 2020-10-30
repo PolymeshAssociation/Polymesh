@@ -910,6 +910,7 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "Moment": "u64",
         "CalendarUnit": {
             "_enum": [
                 "Second",
@@ -923,10 +924,21 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "multiplier": "u64"
+            "amount": "Option<NonZeroU64>"
         },
         "CheckpointSchedule": {
-            "start": "u64",
+            "start": "Moment",
+            "period": "CalendarPeriod"
+        },
+        "CheckpointId": "u64",
+        "ScheduleId": "u64",
+        "StoredSchedule": {
+            "schedule": "CheckpointSchedule",
+            "id": "ScheduleId",
+            "at": "Moment"
+        },
+        "ScheduleSpec": {
+            "start": "Option<Moment>",
             "period": "CalendarPeriod"
         },
         "InstructionStatus": {
@@ -1067,7 +1079,7 @@
             "local_id": "LocalCAId"
         },
         "SlashingSwitch": {
-            "_enum":[
+            "_enum": [
                 "Validator",
                 "ValidatorAndNominator",
                 "None"
