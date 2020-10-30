@@ -39,6 +39,7 @@
 //! - Other misc storage items as defined in `decl_storage!`.
 
 use codec::{Decode, Encode};
+use core::iter;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -410,19 +411,36 @@ impl<T: Trait> Module<T> {
             return Ok(());
         };
 
+        // Plan for CP creation for due schedules and rescheduling.
+        let mut reschedule = Vec::new();
+        let mut create = Vec::with_capacity(end); // Lower bound; might add more.
+        for store in schedules.drain(..end) {
+            let schedule = store.schedule;
+            // If the schedule is recurring, we'll need to reschedule.
+            if let Some(at) = schedule.next_checkpoint(now) {
+                reschedule.push(StoredSchedule { at, ..store });
+            }
+
+            // Plan for all checkpoints for this schedule.
+            // There might be more than one.
+            // As an example, consider a checkpoint due every day,
+            // and then there's a week without any transactions.
+            create.extend(
+                iter::successors(Some(store.at), |&at| {
+                    schedule.next_checkpoint(at).filter(|&at| at <= now)
+                })
+                .map(|at| (at, store.id)),
+            );
+        }
+
         // Ensure that ID count won't overflow.
         // After this we're safe and can commit to storage.
-        let (id_last, id_seq) = Self::next_cp_ids(ticker, end as u64)?;
+        let (id_last, id_seq) = Self::next_cp_ids(ticker, create.len() as u64)?;
 
-        // Create checkpoints for due schedules.
-        let mut reschedule = Vec::new();
-        for (schedule, cp_id) in schedules.drain(..end).zip(id_seq) {
-            if let Some(at) = schedule.schedule.next_checkpoint(now) {
-                // This schedule is recurring, so we'll need to reschedule.
-                reschedule.push(StoredSchedule { at, ..schedule });
-            }
-            Self::create_at(None, *ticker, cp_id, schedule.at);
-            SchedulePoints::append((*ticker, schedule.id), cp_id);
+        // Create all checkpoints we planned for.
+        for ((at, id), cp_id) in create.into_iter().zip(id_seq) {
+            Self::create_at(None, *ticker, cp_id, at);
+            SchedulePoints::append((*ticker, id), cp_id);
         }
 
         // Reschedule schedules we need to.
