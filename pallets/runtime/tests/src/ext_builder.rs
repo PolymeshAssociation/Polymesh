@@ -101,7 +101,6 @@ thread_local! {
     pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
     pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
-    pub static MIN_CHECKPOINT_DURATION: RefCell<u64> = RefCell::new(0);
 }
 
 impl ExtBuilder {
@@ -217,7 +216,6 @@ impl ExtBuilder {
         NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
         MAX_NO_OF_LEGS.with(|v| *v.borrow_mut() = self.max_no_of_legs);
-        MIN_CHECKPOINT_DURATION.with(|v| *v.borrow_mut() = self.min_checkpoint_duration);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {

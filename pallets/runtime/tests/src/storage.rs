@@ -1,6 +1,6 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, MIN_CHECKPOINT_DURATION,
-    NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
+    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
@@ -15,7 +15,7 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::EnsureRoot;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -102,6 +102,7 @@ impl_outer_dispatch! {
         self::DefaultCommittee,
         pallet_scheduler::Scheduler,
         pallet_settlement::Settlement,
+        checkpoint::Checkpoint,
     }
 }
 
@@ -135,6 +136,7 @@ impl_outer_event! {
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
+        checkpoint<T>,
     }
 }
 
@@ -489,7 +491,6 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
-    pub MinCheckpointDurationSecs: u64 = MIN_CHECKPOINT_DURATION.with(|v| *v.borrow());
 }
 
 impl asset::Trait for TestStorage {
@@ -497,8 +498,7 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
-    type UnixTime = pallet_timestamp::Module<TestStorage>;
-    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
+    type UnixTime = Timestamp;
 }
 
 parameter_types! {
@@ -644,6 +644,7 @@ pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
 pub type Balances = balances::Module<TestStorage>;
 pub type Asset = asset::Module<TestStorage>;
+pub type Checkpoint = checkpoint::Module<TestStorage>;
 pub type MultiSig = multisig::Module<TestStorage>;
 pub type Randomness = pallet_randomness_collective_flip::Module<TestStorage>;
 pub type Timestamp = pallet_timestamp::Module<TestStorage>;

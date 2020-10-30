@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use core::num::NonZeroU64;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
@@ -180,6 +181,17 @@ fn general_testnet_genesis(
                 classic_migration_contract_did: IdentityId::from(1),
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
@@ -560,6 +572,17 @@ fn alcyone_testnet_genesis(
                 classic_migration_contract_did: IdentityId::from(1),
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
