@@ -414,7 +414,7 @@ fn general_testnet_genesis(
         }),
         settlement: Some(Default::default()),
         multisig: Some(GeneralConfig::ProtocolFeeConfig {
-            transaction_version: 1
+            transaction_version: 1,
         }),
     }
 }
@@ -802,7 +802,7 @@ fn alcyone_testnet_genesis(
         }),
         settlement: Some(Default::default()),
         multisig: Some(GeneralConfig::ProtocolFeeConfig {
-            transaction_version: 1
+            transaction_version: 1,
         }),
     }
 }
