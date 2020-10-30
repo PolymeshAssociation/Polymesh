@@ -664,6 +664,13 @@ pub type Settlement = pallet_settlement::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    let uid = InvestorUid::from(format!("{}", id).as_str());
+    make_account_with_uid(id, uid)
+}
+
+pub fn make_account_with_uid(
+    id: AccountId,
     uid: InvestorUid,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, uid, 1_000_000)
