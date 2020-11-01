@@ -880,16 +880,11 @@ pub mod weight {
     }
 
     /// Weight of `payout_stakers()` & `payout_stakers_by_system()` dispatch.
+    // TODO: Weight is dummy, Need to benchamrk to get exact weight for the dispatch.
     pub fn weight_for_payout_stakers<T: Trait>() -> Weight {
-        ((120 * WEIGHT_PER_MICROS
-            + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
-            + T::DbWeight::get().reads(7)
-            + T::DbWeight::get().reads(5)
-                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+        T::DbWeight::get().reads(5) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
             + T::DbWeight::get().writes(3)
-                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1))
-            * 25)
-            / 100
+                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
     }
 }
 
@@ -2631,12 +2626,12 @@ decl_module! {
             Ok(adjustments)
         }
 
+        // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
         /// System version of `payout_stakers()`. Only be called by the root origin.
         /// It is used for scheduling the rewards after the end of an era.
         #[weight = weight::weight_for_payout_stakers::<T>()]
         pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
-            // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
             ensure_root(origin)?;
             Self::do_payout_stakers(validator_stash, era)
         }
