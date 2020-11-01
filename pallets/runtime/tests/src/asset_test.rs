@@ -5,16 +5,17 @@ use crate::{
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
-        TestStorage,
+        Checkpoint, TestStorage,
     },
 };
-
 use chrono::prelude::Utc;
+use core::num::NonZeroU64;
 use frame_support::{
     assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
+use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
@@ -32,7 +33,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
-    calendar::{CalendarPeriod, CalendarUnit, CheckpointSchedule, FixedOrVariableCalendarUnit},
+    calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
     IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
@@ -417,44 +418,20 @@ fn checkpoints_fuzz_test() {
                         1
                     ));
                 }
-                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
+                assert_ok!(Checkpoint::create_checkpoint(owner_signed.clone(), ticker));
+                let bal_at = |id, did| Asset::get_balance_at(ticker, did, CheckpointId(id));
+                let check = |id, idx| {
+                    assert_eq!(bal_at(id, owner_did), owner_balance[idx]);
+                    assert_eq!(bal_at(id, bob_did), bob_balance[idx]);
+                };
                 let x: u64 = u64::try_from(j).unwrap();
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, 0),
-                    owner_balance[j]
-                );
-                assert_eq!(Asset::get_balance_at(ticker, bob_did, 0), bob_balance[j]);
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, 1),
-                    owner_balance[1]
-                );
-                assert_eq!(Asset::get_balance_at(ticker, bob_did, 1), bob_balance[1]);
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, x - 1),
-                    owner_balance[j - 1]
-                );
-                assert_eq!(
-                    Asset::get_balance_at(ticker, bob_did, x - 1),
-                    bob_balance[j - 1]
-                );
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, x),
-                    owner_balance[j]
-                );
-                assert_eq!(Asset::get_balance_at(ticker, bob_did, x), bob_balance[j]);
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, x + 1),
-                    owner_balance[j]
-                );
-                assert_eq!(
-                    Asset::get_balance_at(ticker, bob_did, x + 1),
-                    bob_balance[j]
-                );
-                assert_eq!(
-                    Asset::get_balance_at(ticker, owner_did, 1000),
-                    owner_balance[j]
-                );
-                assert_eq!(Asset::get_balance_at(ticker, bob_did, 1000), bob_balance[j]);
+                check(0, j);
+                check(0, j);
+                check(1, 1);
+                check(x - 1, j - 1);
+                check(x, j);
+                check(x + 1, j);
+                check(1000, j);
             }
         });
     }
@@ -647,6 +624,97 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, bob_did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
     })
+}
+
+#[test]
+fn controller_transfer() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| {
+            let now = Utc::now();
+            Timestamp::set_timestamp(now.timestamp() as u64);
+
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let eve = AccountKeyring::Eve.public();
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[alice_did, owner_did], ticker, eve);
+
+            // Issuance is successful
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            assert_eq!(
+                Asset::balance_of(&ticker, token.owner_did),
+                token.total_supply
+            );
+
+            // Allow all transfers
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                owner_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
+
+            // Should fail as sender matches receiver
+            assert_noop!(
+                Asset::base_transfer(
+                    PortfolioId::default_portfolio(owner_did),
+                    PortfolioId::default_portfolio(owner_did),
+                    &ticker,
+                    500
+                ),
+                AssetError::InvalidTransfer
+            );
+
+            assert_ok!(Asset::base_transfer(
+                PortfolioId::default_portfolio(owner_did),
+                PortfolioId::default_portfolio(alice_did),
+                &ticker,
+                500
+            ));
+
+            let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
+            assert_eq!(balance_owner, 1_000_000 - 500);
+            assert_eq!(balance_alice, 500);
+
+            assert_ok!(Asset::controller_transfer(
+                owner_signed.clone(),
+                ticker,
+                100,
+                PortfolioId::default_portfolio(alice_did),
+            ));
+
+            let new_balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let new_balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
+
+            assert_eq!(new_balance_owner, balance_owner + 100);
+            assert_eq!(new_balance_alice, balance_alice - 100);
+        })
 }
 
 #[test]
@@ -2697,10 +2765,10 @@ fn next_checkpoint_is_updated_we() {
     // A period of 42 hours.
     let period = CalendarPeriod {
         unit: CalendarUnit::Hour,
-        multiplier: 42,
+        amount: NonZeroU64::new(42),
     };
     // The increment in seconds.
-    let period_secs = match period.as_fixed_or_variable() {
+    let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {
         FixedOrVariableCalendarUnit::Fixed(secs) => secs,
         _ => panic!("period should be fixed"),
     };
@@ -2726,53 +2794,57 @@ fn next_checkpoint_is_updated_we() {
         vec![],
         None,
     ));
-    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
-    let schedule = CheckpointSchedule { start, period };
-    assert_ok!(Asset::create_checkpoint_schedule(
-        alice_signed,
-        ticker,
-        schedule
+    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
+    let schedule = ScheduleSpec {
+        start: Some(start),
+        period,
+    };
+    assert_ok!(Checkpoint::set_schedules_max_complexity(
+        root(),
+        period.complexity()
     ));
-    assert_eq!(1, Asset::total_checkpoints_of(&ticker));
-    assert_eq!(start, Asset::checkpoint_timestamps(1));
-    assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
-    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
-    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
+    assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
+    let id = CheckpointId(1);
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
+    assert_eq!(start, Checkpoint::timestamps(id));
+    assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
+    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
+    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
     assert_eq!(
-        Some(start + period_secs),
-        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
+        vec![Some(start + period_secs)],
+        next_checkpoints(ticker, start),
     );
-    assert_eq!(start + period_secs, Asset::next_checkpoints(&ticker));
+    assert_eq!(vec![start + period_secs], checkpoint_ats(ticker));
     let checkpoint2_secs = start_millisecs + period_secs * 1000;
+
+    let transfer = |at| {
+        Timestamp::set_timestamp(at);
+        assert_ok!(Asset::unsafe_transfer(
+            PortfolioId::default_portfolio(alice_did),
+            PortfolioId::default_portfolio(bob_did),
+            &ticker,
+            total_supply / 2,
+        ));
+    };
+
     // Make a transaction before the next timestamp.
-    Timestamp::set_timestamp(checkpoint2_secs - 1000);
-    assert_ok!(Asset::unsafe_transfer(
-        PortfolioId::default_portfolio(alice_did),
-        PortfolioId::default_portfolio(bob_did),
-        &ticker,
-        total_supply / 2,
-    ));
-    // Make another transaction at the checkpoint. The updates are applied after the checkpoint is
-    // recorded.
-    Timestamp::set_timestamp(checkpoint2_secs);
-    assert_ok!(Asset::unsafe_transfer(
-        PortfolioId::default_portfolio(alice_did),
-        PortfolioId::default_portfolio(bob_did),
-        &ticker,
-        // After this transfer Alice's balance is 0.
-        total_supply / 2,
-    ));
+    transfer(checkpoint2_secs - 1000);
+    // Make another transaction at the checkpoint.
+    // The updates are applied after the checkpoint is recorded.
+    // After this transfer Alice's balance is 0.
+    transfer(checkpoint2_secs);
     // The balance after checkpoint 2.
     assert_eq!(0, Asset::balance_of(&ticker, alice_did));
     // Balances at checkpoint 2.
-    assert_eq!(start + 2 * period_secs, Asset::next_checkpoints(&ticker));
-    assert_eq!(2, Asset::total_checkpoints_of(&ticker));
-    assert_eq!(start + period_secs, Asset::checkpoint_timestamps(2));
+    let id = CheckpointId(2);
+    assert_eq!(vec![start + 2 * period_secs], checkpoint_ats(ticker));
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
+    assert_eq!(start + period_secs, Checkpoint::timestamps(id));
     assert_eq!(
         total_supply / 2,
-        Asset::get_balance_at(ticker, alice_did, 2)
+        Asset::get_balance_at(ticker, alice_did, id)
     );
-    assert_eq!(total_supply / 2, Asset::get_balance_at(ticker, bob_did, 2));
+    assert_eq!(total_supply / 2, Asset::get_balance_at(ticker, bob_did, id));
 }
 
 #[test]
@@ -2786,10 +2858,7 @@ fn non_recurring_schedule_works_we() {
     // 14 November 2023, 22:13 UTC
     let start: u64 = 1_700_000_000;
     // Non-recuring schedule.
-    let period = CalendarPeriod {
-        unit: CalendarUnit::Second,
-        multiplier: 0,
-    };
+    let period = CalendarPeriod::default();
     let start_millisecs = start * 1000;
     Timestamp::set_timestamp(start_millisecs);
     assert_eq!(
@@ -2812,22 +2881,36 @@ fn non_recurring_schedule_works_we() {
         vec![],
         None,
     ));
-    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
-    let schedule = CheckpointSchedule { start, period };
-    assert_ok!(Asset::create_checkpoint_schedule(
-        alice_signed,
-        ticker,
-        schedule
+    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
+    let schedule = ScheduleSpec {
+        start: Some(start),
+        period,
+    };
+    assert_ok!(Checkpoint::set_schedules_max_complexity(
+        root(),
+        period.complexity()
     ));
-    assert_eq!(1, Asset::total_checkpoints_of(&ticker));
-    assert_eq!(start, Asset::checkpoint_timestamps(1));
-    assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
-    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
-    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
-    assert_eq!(
-        None,
-        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
-    );
+    assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
+    let id = CheckpointId(1);
+    assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
+    assert_eq!(start, Checkpoint::timestamps(id));
+    assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
+    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
+    assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
     // The schedule will not recur.
-    assert_eq!(false, <asset::NextCheckpoints>::contains_key(&ticker));
+    assert_eq!(Checkpoint::schedules(ticker), Vec::new());
+}
+
+fn checkpoint_ats(ticker: Ticker) -> Vec<u64> {
+    Checkpoint::schedules(ticker)
+        .into_iter()
+        .map(|s| s.at)
+        .collect()
+}
+
+fn next_checkpoints(ticker: Ticker, start: u64) -> Vec<Option<u64>> {
+    Checkpoint::schedules(ticker)
+        .into_iter()
+        .map(|s| s.schedule.next_checkpoint(start))
+        .collect()
 }

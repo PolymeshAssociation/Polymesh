@@ -424,14 +424,7 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity",
-                "HasValidProofOfInvestor": "Ticker"
-            }
-        },
-        "ImplicitRequirementStatus": {
-            "_enum": {
-                "Active": "",
-                "Inactive": ""
+                "IsIdentity": "TargetIdentity"
             }
         },
         "TrustedFor": {
@@ -739,7 +732,6 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
-            "implicit_requirements_result": "Option<ImplicitRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
@@ -918,6 +910,7 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "Moment": "u64",
         "CalendarUnit": {
             "_enum": [
                 "Second",
@@ -931,10 +924,21 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "multiplier": "u64"
+            "amount": "Option<NonZeroU64>"
         },
         "CheckpointSchedule": {
-            "start": "u64",
+            "start": "Moment",
+            "period": "CalendarPeriod"
+        },
+        "CheckpointId": "u64",
+        "ScheduleId": "u64",
+        "StoredSchedule": {
+            "schedule": "CheckpointSchedule",
+            "id": "ScheduleId",
+            "at": "Moment"
+        },
+        "ScheduleSpec": {
+            "start": "Option<Moment>",
             "period": "CalendarPeriod"
         },
         "InstructionStatus": {
@@ -981,7 +985,7 @@
         "Venue": {
             "creator": "IdentityId",
             "instructions": "Vec<u64>",
-            "details": "Vec<u8>",
+            "details": "VenueDetails",
             "venue_type": "VenueType"
         },
         "Receipt": {
@@ -1031,10 +1035,6 @@
                 "Exchange"
             ]
         },
-        "ImplicitRequirementResult": {
-            "from_result": "bool",
-            "to_result": "bool"
-        },
         "Payload": {
             "block_number": "BlockNumber",
             "nominators": "Vec<AccountId>",
@@ -1077,6 +1077,13 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "SlashingSwitch": {
+            "_enum": [
+                "Validator",
+                "ValidatorAndNominator",
+                "None"
+            ]
         },
         "PriceTier": {
             "total": "Balance",

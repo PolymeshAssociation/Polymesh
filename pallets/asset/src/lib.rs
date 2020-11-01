@@ -79,9 +79,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(bool_to_option)]
+#![feature(or_patterns)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod checkpoint;
 pub mod ethereum;
 
 use arrayvec::ArrayVec;
@@ -107,20 +109,21 @@ use polymesh_common_utilities::{
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    CommonTrait, Context, SystematicIssuers,
+    with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, Document, DocumentId,
-    DocumentName, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    calendar::CheckpointId, AssetIdentifier, AuthorizationData, Document, DocumentId, DocumentName,
+    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
+use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+type Checkpoint<T> = checkpoint::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -133,17 +136,21 @@ pub trait Trait:
     + pallet_portfolio::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>>
+        + From<checkpoint::Event<Self>>
+        + Into<<Self as frame_system::Trait>::Event>;
+
     type Currency: Currency<Self::AccountId>;
+
     type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
+
     /// Maximum number of smart extensions can attach to a asset.
     /// This hard limit is set to avoid the cases where a asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
+
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
-    /// The minimum duration of a checkpoint period, in seconds.
-    type MinCheckpointDurationSecs: Get<u64>;
 }
 
 /// The type of an asset represented by a token.
@@ -259,13 +266,6 @@ pub mod weight_for {
     }
 }
 
-/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
-///
-/// This gets serialized to the 0x-prefixed hex representation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
-pub struct EthereumAddress([u8; 20]);
-
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -291,15 +291,6 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-/// Reusable timestamps from a due checkpoint calculation.
-pub struct DueCheckpointTimestamps {
-    /// The time for which the checkpoint was scheduled, in seconds.
-    pub scheduled: u64,
-    /// The current time in seconds for calculating the next timestamp. `None` indicates that the
-    /// next checkpoint is not to be calculated.
-    pub now: Option<u64>,
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -316,18 +307,7 @@ decl_storage! {
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
-        /// Checkpoints created per token.
-        /// (ticker) -> no. of checkpoints
-        pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
-        /// Total supply of the token at the checkpoint.
-        /// (ticker, checkpointId) -> total supply at given checkpoint
-        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
-        /// Balance of a DID at a checkpoint.
-        /// (ticker, did, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
-        /// Last checkpoint updated for a DID's balance.
-        /// (ticker, did) -> List of checkpoints where user balance changed
-        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
+
         /// The name of the current funding round.
         /// ticker -> funding round
         FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
@@ -356,18 +336,6 @@ decl_storage! {
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
-        /// Checkpoint schedules for tickers.
-        /// ticker -> schedule
-        pub CheckpointSchedules get(fn checkpoint_schedules): map hasher(blake2_128_concat) Ticker =>
-            CheckpointSchedule;
-        /// The next checkpoint of a ticker.
-        /// ticker -> Unix time in seconds
-        pub NextCheckpoints get(fn next_checkpoints): map hasher(blake2_128_concat) Ticker => u64;
-        /// Checkpoint timestamps. Every index of a recorded scheduled checkpoint is mapped to the
-        /// time when the checkpoint was due. Every index of a manual checkpoint is mapped to the
-        /// time when the recording took place.
-        /// checkpoint number -> checkpoint timestamp
-        pub CheckpointTimestamps get(fn checkpoint_timestamps): map hasher(identity) u64 => u64;
         /// Supported extension version.
         pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
         /// Balances get stored on the basis of the `ScopeId`.
@@ -687,105 +655,6 @@ decl_module! {
             Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
         }
 
-        /// Creates a single checkpoint.
-        /// NB: Only called by the owner of the security token i.e owner DID.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner. (Only token owner can call this function).
-        /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
-        pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
-            let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            Self::_create_checkpoint_emit(ticker, now_as_secs, did)
-        }
-
-        /// Creates a checkpoint schedule. Can only be called by the token owner primary or
-        /// secondary key. Only one schedule is allowed for an asset. To change an existing
-        /// schedule, it must be removed first.
-        ///
-        /// # Arguments
-        /// * `origin` - A primary or secondary key of the asset owner.
-        /// * `ticker` - The asset ticker.
-        /// * `schedule` - The checkpoint schedule to be assigned to the asset.
-        ///
-        /// # Errors
-        /// * `Unauthorized` - The caller does not own the asset.
-        /// * `CheckpointScheduleAlreadyExists` - A schedule already exists.
-        #[weight = T::DbWeight::get().reads_writes(6, 2) + 1_000_000_000]
-        pub fn create_checkpoint_schedule(
-            origin,
-            ticker: Ticker,
-            schedule: CheckpointSchedule
-        ) {
-            let primary_did = Self::ensure_perms_owner(origin, &ticker)?;
-            ensure!(
-                !CheckpointSchedules::contains_key(&ticker),
-                Error::<T>::CheckpointScheduleAlreadyExists
-            );
-            let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            // Check the lower limit of the checkpoint period duration by computing the next
-            // checkpoint from the start of the schedule.
-            ensure!(
-                schedule.period.multiplier == 0 ||
-                    schedule.next_checkpoint(schedule.start) >=
-                    Some(schedule.start + T::MinCheckpointDurationSecs::get()),
-                Error::<T>::CheckpointDurationTooShort
-            );
-            T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
-            // Assign the schedule.
-            CheckpointSchedules::insert(&ticker, schedule.clone());
-            // In case the start is now, create the first checkpoint immediately. Otherwise schedule
-            // the first checkpoint in the future.
-            if schedule.start == now_as_secs {
-                Self::_create_checkpoint(
-                    &ticker,
-                    DueCheckpointTimestamps { scheduled: now_as_secs, now: Some(now_as_secs) }
-                )?;
-            } else {
-                // Compute the next timestamp.
-                let timestamp = schedule.next_checkpoint(now_as_secs)
-                    .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-                // Schedule the first checkpoint in the future.
-                NextCheckpoints::insert(&ticker, timestamp);
-            }
-            Self::deposit_event(RawEvent::CheckpointScheduleCreated(
-                ticker,
-                primary_did,
-                schedule,
-            ));
-        }
-
-        /// Removes the checkpoint schedule of an asset. Can only be called by the token owner
-        /// primary or secondary key.
-        ///
-        /// # Arguments
-        /// * `origin` - A primary or secondary key of the asset owner.
-        /// * `ticker` - The asset ticker.
-        ///
-        /// # Errors
-        /// * `Unauthorized` - The caller does not own the asset.
-        #[weight = T::DbWeight::get().reads_writes(5, 2) + 400_000_000]
-        pub fn remove_checkpoint_schedule(
-            origin,
-            ticker: Ticker,
-        ) {
-            let primary_did = Self::ensure_perms_owner(origin, &ticker)?;
-            ensure!(
-                CheckpointSchedules::contains_key(&ticker),
-                Error::<T>::NoCheckpointSchedule
-            );
-            // Remove the next scheduled checkpoint for `ticker` and `primary_did`.
-            NextCheckpoints::remove(&ticker);
-            // Remove and return the schedule from storage.
-            let schedule = CheckpointSchedules::take(&ticker);
-            Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
-                ticker,
-                primary_did,
-                schedule,
-            ));
-        }
-
         /// Function is used to issue(or mint) new tokens to the primary issuance agent.
         /// It can be executed by the token owner or the PIA.
         ///
@@ -832,11 +701,15 @@ decl_module! {
 
             // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
             let pia_portfolio = PortfolioId::default_portfolio(pia);
-            Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, &value)?;
 
-            let current_balance = Self::balance_of(ticker, pia);
-            Self::_update_checkpoint(&ticker, pia, current_balance);
-            let updated_balance = current_balance - value;
+            // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
+            with_transaction(|| {
+                Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, &value)?;
+
+                <Checkpoint<T>>::advance_update_balances(&ticker, &[(pia, Self::balance_of(ticker, pia))])
+            })?;
+
+            let updated_balance = Self::balance_of(ticker, pia) - value;
 
             // Update identity balances and total supply
             <BalanceOf<T>>::insert(ticker, &pia, updated_balance);
@@ -1121,7 +994,7 @@ decl_module! {
 
 decl_event! {
     pub enum Event<T>
-        where
+    where
         Balance = <T as CommonTrait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
         AccountId = <T as frame_system::Trait>::AccountId,
@@ -1129,9 +1002,6 @@ decl_event! {
         /// Event for transfer of tokens.
         /// caller DID, ticker, from portfolio, to portfolio, value
         Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
-        /// Event when an approval is made.
-        /// caller DID, ticker, owner DID, spender DID, value
-        Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
         /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
         /// primary issuance agent
@@ -1139,9 +1009,6 @@ decl_event! {
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
-        /// Event for forced transfer of tokens.
-        /// caller DID/ controller DID, ticker, from DID, to DID, value, data, operator data
-        ControllerTransfer(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for when a forced redemption takes place.
         /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
         ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
@@ -1190,9 +1057,6 @@ decl_event! {
         /// Emitted when extension get archived.
         /// caller DID, ticker, AccountId
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
-        /// Emitted event for Checkpoint creation.
-        /// caller DID. ticker, checkpoint count, checkpoint timestamp.
-        CheckpointCreated(IdentityId, Ticker, u64, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
         PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
@@ -1205,19 +1069,11 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
-        /// A checkpoint schedule has been created.
-        /// Parameters: ticker, primary DID, schedule.
-        CheckpointScheduleCreated(Ticker, IdentityId, CheckpointSchedule),
-        /// A checkpoint schedule has been removed.
-        /// Parameters: ticker, primary DID, schedule.
-        CheckpointScheduleRemoved(Ticker, IdentityId, CheckpointSchedule),
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// DID not found.
-        DIDNotFound,
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
         /// Not a primary issuance agent transfer auth.
@@ -1232,10 +1088,6 @@ decl_error! {
         AlreadyUnArchived,
         /// When extension is already added.
         ExtensionAlreadyPresent,
-        /// When smart extension failed to execute result.
-        IncorrectResult,
-        /// The sender must be a secondary key for the DID.
-        HolderMustBeSecondaryKeyForHolderDid,
         /// The token has already been created.
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
@@ -1256,28 +1108,8 @@ decl_error! {
         NotAnOwner,
         /// An overflow while calculating the balance.
         BalanceOverflow,
-        /// An underflow while calculating the balance.
-        BalanceUnderflow,
-        /// An underflow while calculating the default portfolio balance.
-        DefaultPortfolioBalanceUnderflow,
-        /// An overflow while calculating the allowance.
-        AllowanceOverflow,
-        /// An underflow in calculating the allowance.
-        AllowanceUnderflow,
-        /// An overflow in calculating the total allowance.
-        TotalAllowanceOverflow,
-        /// An underflow in calculating the total allowance.
-        TotalAllowanceUnderflow,
-        /// An overflow while calculating the checkpoint.
-        CheckpointOverflow,
         /// An overflow while calculating the total supply.
         TotalSupplyOverflow,
-        /// No such allowance.
-        NoSuchAllowance,
-        /// Insufficient allowance.
-        InsufficientAllowance,
-        /// The list of investors is empty.
-        NoInvestors,
         /// An invalid granularity.
         InvalidGranularity,
         /// The account does not hold this token.
@@ -1290,12 +1122,6 @@ decl_error! {
         InvalidTransfer,
         /// The sender balance is not sufficient.
         InsufficientBalance,
-        /// The balance of the sender's default portfolio is not sufficient.
-        InsufficientDefaultPortfolioBalance,
-        /// An invalid signature.
-        InvalidSignature,
-        /// The signature is already in use.
-        SignatureAlreadyUsed,
         /// The token is already divisible.
         AssetAlreadyDivisible,
         /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
@@ -1310,15 +1136,6 @@ decl_error! {
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
         SenderSameAsReceiver,
-        /// A checkpoint schedule already exists and cannot be updated.
-        CheckpointScheduleAlreadyExists,
-        /// A checkpoint schedule does not exist for the asset.
-        NoCheckpointSchedule,
-        /// Failed to compute the next checkpoint. The schedule does not have any upcoming
-        /// checkpoints.
-        FailedToComputeNextCheckpoint,
-        /// The duration of a checkpoint period is too short.
-        CheckpointDurationTooShort,
         /// The given Document does not exist.
         NoSuchDoc,
     }
@@ -1348,7 +1165,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::token_details(ticker).total_supply
     }
 
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> T::Balance {
+    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> T::Balance {
         Self::get_balance_at(*ticker, did, at)
     }
 
@@ -1452,7 +1269,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    // Public immutables
+    pub fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
+        Self::_is_owner(ticker, did)
+    }
+
     pub fn _is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::token_details(ticker).owner_did == did
     }
@@ -1568,46 +1388,9 @@ impl<T: Trait> Module<T> {
         Self::token_details(ticker).total_supply
     }
 
-    pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: u64) -> T::Balance {
-        let ticker_did = (ticker, did);
-        if !<TotalCheckpoints>::contains_key(ticker) ||
-            at == 0 || //checkpoints start from 1
-            at > Self::total_checkpoints_of(&ticker)
-        {
-            // No checkpoints data exist
-            return Self::balance_of(&ticker, &did);
-        }
-
-        if <UserCheckpoints>::contains_key(&ticker_did) {
-            let user_checkpoints = Self::user_checkpoints(&ticker_did);
-            if at > *user_checkpoints.last().unwrap_or(&0) {
-                // Using unwrap_or to be defensive.
-                // or part should never be triggered due to the check on 2 lines above
-                // User has not transacted after checkpoint creation.
-                // This means their current balance = their balance at that cp.
-                return Self::balance_of(&ticker, &did);
-            }
-            // Uses the first checkpoint that was created after target checkpoint
-            // and the user has data for that checkpoint
-            return Self::balance_at_checkpoint((
-                ticker,
-                did,
-                *Self::find_ceiling(&user_checkpoints, &at),
-            ));
-        }
-        // User has no checkpoint data.
-        // This means that user's balance has not changed since first checkpoint was created.
-        // Maybe the user never held any balance.
-        Self::balance_of(&ticker, &did)
-    }
-
-    /// Find the least element `<= key` in in `arr`.
-    ///
-    /// Assumes that key <= last element of the array,
-    /// the array consists of unique sorted elements,
-    /// and that array len > 0.
-    fn find_ceiling<'a, E: Ord>(arr: &'a [E], key: &E) -> &'a E {
-        &arr[arr.binary_search(key).map_or_else(|i| i, |i| i)]
+    pub fn get_balance_at(ticker: Ticker, did: IdentityId, at: CheckpointId) -> T::Balance {
+        <Checkpoint<T>>::balance_at(ticker, did, at)
+            .unwrap_or_else(|| Self::balance_of(&ticker, &did))
     }
 
     pub fn _is_valid_transfer(
@@ -1619,6 +1402,14 @@ impl<T: Trait> Module<T> {
     ) -> StdResult<(u8, Weight), DispatchError> {
         if Self::frozen(ticker) {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
+        }
+
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
         }
 
         if Portfolio::<T>::ensure_portfolio_transfer_validity(
@@ -1711,12 +1502,13 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        if let Some(due_checkpoint_timestamps) = Self::is_checkpoint_due(ticker) {
-            // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, due_checkpoint_timestamps)?;
-        }
-        Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
-        Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
+        <Checkpoint<T>>::advance_update_balances(
+            ticker,
+            &[
+                (from_portfolio.did, from_total_balance),
+                (to_portfolio.did, to_total_balance),
+            ],
+        )?;
 
         // reduce sender's balance
         <BalanceOf<T>>::insert(ticker, &from_portfolio.did, updated_from_total_balance);
@@ -1802,94 +1594,6 @@ impl<T: Trait> Module<T> {
             .ok_or_else(|| Error::<T>::Unauthorized.into())
     }
 
-    /// Create a checkpoint for `ticker` at `time` with `did` as actor.
-    pub fn _create_checkpoint_emit(ticker: Ticker, time: u64, did: IdentityId) -> DispatchResult {
-        let due_time = DueCheckpointTimestamps {
-            scheduled: time,
-            now: None,
-        };
-        Self::_create_checkpoint(&ticker, due_time)?;
-        let total = Self::total_checkpoints_of(ticker);
-        Self::deposit_event(RawEvent::CheckpointCreated(did, ticker, total, time));
-        Ok(())
-    }
-
-    /// Creates a checkpoint.
-    ///
-    /// This amounts to recording the total supply, mapping the current checkpoint index to
-    /// the due timestamp in case the checkpoint was scheduled, and incrementing the checkpoint
-    /// index by 1.
-    pub fn _create_checkpoint(
-        ticker: &Ticker,
-        timestamps: DueCheckpointTimestamps,
-    ) -> DispatchResult {
-        let checkpoint_count = if <TotalCheckpoints>::contains_key(ticker) {
-            Self::total_checkpoints_of(ticker)
-                .checked_add(1)
-                .ok_or(Error::<T>::CheckpointOverflow)?
-        } else {
-            1
-        };
-        <TotalCheckpoints>::insert(ticker, checkpoint_count);
-        <CheckpointTotalSupply<T>>::insert(
-            &(*ticker, checkpoint_count),
-            Self::token_details(ticker).total_supply,
-        );
-        CheckpointTimestamps::insert(checkpoint_count, timestamps.scheduled);
-        if let Some(now) = timestamps.now {
-            // Update the next checkpoint if a schedule exists for the ticker.
-            if CheckpointSchedules::contains_key(ticker) {
-                // Compute the next timestamp.
-                if let Some(next_timestamp) =
-                    Self::checkpoint_schedules(ticker).next_checkpoint(now)
-                {
-                    // There is a next checkpoint. Store its timestamp.
-                    NextCheckpoints::insert(ticker, next_timestamp);
-                } else {
-                    // There are no more checkpoints in the schedule.
-                    NextCheckpoints::remove(ticker);
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Checks whether a scheduled checkpoint is due for `ticker`. Returns timestamps read from
-    /// storage that can be reused or `None` if there is no due checkpoint.
-    fn is_checkpoint_due(ticker: &Ticker) -> Option<DueCheckpointTimestamps> {
-        if NextCheckpoints::contains_key(ticker) {
-            let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            let scheduled = Self::next_checkpoints(ticker);
-            if scheduled <= now {
-                return Some(DueCheckpointTimestamps {
-                    scheduled,
-                    now: Some(now),
-                });
-            }
-        }
-        None
-    }
-
-    /// Updates manual and scheduled checkpoints if those are defined.
-    ///
-    /// # Assumption
-    ///
-    /// * When minting, the total supply of `ticker` is updated **after** this function is called.
-    fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, balance: T::Balance) {
-        if <TotalCheckpoints>::contains_key(ticker) {
-            let checkpoint_count = Self::total_checkpoints_of(ticker);
-            let ticker_user_did_count = (*ticker, user_did, checkpoint_count);
-            if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_count) {
-                <CheckpointBalance<T>>::insert(&ticker_user_did_count, balance);
-                UserCheckpoints::append(&(*ticker, user_did), checkpoint_count);
-            }
-        }
-    }
-
-    pub fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
-        Self::_is_owner(ticker, did)
-    }
-
     pub fn _mint(
         ticker: &Ticker,
         caller: T::AccountId,
@@ -1925,16 +1629,16 @@ impl<T: Trait> Module<T> {
             ticker,
         ) + value;
 
-        // Charge the fee.
-        if let Some(op) = protocol_fee_data {
-            T::ProtocolFee::charge_fee(op)?;
-        }
+        // In transaction because we don't want fee to be charged if advancing fails.
+        with_transaction(|| {
+            // Charge the fee.
+            if let Some(op) = protocol_fee_data {
+                T::ProtocolFee::charge_fee(op)?;
+            }
 
-        if let Some(due_checkpoint_timestamps) = Self::is_checkpoint_due(ticker) {
-            // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, due_checkpoint_timestamps)?;
-        }
-        Self::_update_checkpoint(ticker, to_did, current_to_balance);
+            // Advance checkpoint schedules and update last checkpoint.
+            <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
+        })?;
 
         // Increase total supply
         token.total_supply = updated_total_supply;
@@ -2043,6 +1747,27 @@ impl<T: Trait> Module<T> {
             Some(to_did),
         ));
 
+        Ok(())
+    }
+
+    /// Forces a transfer between two DIDs.
+    pub fn controller_transfer(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: T::Balance,
+        investor_portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        // Ensure that `origin` is the PIA or the token owner.
+        let owner = Identity::<T>::ensure_perms(origin)?;
+        Self::ensure_pia_or_owner(&ticker, owner)?;
+
+        // transfer `value` of ticker tokens from `investor_did` to controller
+        Self::unsafe_transfer(
+            investor_portfolio_id,
+            PortfolioId::default_portfolio(owner),
+            &ticker,
+            value,
+        )?;
         Ok(())
     }
 
@@ -2191,6 +1916,14 @@ impl<T: Trait> Module<T> {
 
         if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
             return Ok(INVALID_SENDER_DID);
+        }
+
+        if !Identity::<T>::verify_scope_claims_for_transfer(
+            ticker,
+            from_portfolio.did,
+            to_portfolio.did,
+        ) {
+            return Ok(SCOPE_CLAIM_MISSING);
         }
 
         if Portfolio::<T>::ensure_portfolio_custody(

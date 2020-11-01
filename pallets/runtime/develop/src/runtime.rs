@@ -4,7 +4,7 @@ use crate::{
     fee_details::CddHandler,
 };
 use codec::Encode;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -549,15 +549,16 @@ impl treasury::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
     pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl sto::Trait for Runtime {
@@ -647,7 +648,6 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const MinCheckpointDurationSecs: u64 = 30;
 }
 
 impl asset::Trait for Runtime {
@@ -656,7 +656,6 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
-    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {
@@ -845,6 +844,7 @@ construct_runtime!(
         Permissions: pallet_permissions::{Module, Storage},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );
 
