@@ -310,7 +310,7 @@ pub mod weight_for {
     pub fn weight_for_reject_instruction<T: Trait>() -> Weight {
         T::DbWeight::get()
             .reads_writes(3, 2) // weight for read and writes
-            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction()`
+            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction_affirmation()`
     }
 
     pub fn weight_for_transfer<T: Trait>() -> Weight {
@@ -404,7 +404,7 @@ decl_error! {
         UnauthorizedVenue,
         /// While affirming the transfer, system failed to lock the assets involved.
         FailedToLockTokens,
-        /// Instruction failed to execute
+        /// Instruction failed to execute.
         InstructionFailed,
         /// Instruction validity has not started yet.
         InstructionWaitingValidity,
@@ -418,10 +418,12 @@ decl_error! {
         SameSenderReceiver,
         /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
         LegsCountExceededMaxLimit,
-        /// Portfolio in receipt does not match with portfolios provided by the user
+        /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
-        SettleOnPastBlock
+        SettleOnPastBlock,
+        /// Portfolio based actions require at least one portfolio to be provided as input.
+        NoPortfolioProvided
     }
 }
 
@@ -618,7 +620,7 @@ decl_module! {
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_set)
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set)
         }
 
         /// Rejects an existing instruction.
@@ -632,38 +634,39 @@ decl_module! {
         pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+            ensure!(portfolios_set.len() > 0, Error::<T>::NoPortfolioProvided);
 
-            with_transaction(|| {
-                let mut portfolios_to_be_deny = BTreeSet::new();
-                for portfolio in portfolios_set {
-                    // Withdraw an affirmation if it was affirmed earlier.
-                    let user_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
+            // If the instruction was affirmed by the portfolio, the affirmation must be withdrawn.
+            // The sender must have custodian permission over the portfolio.
+            let mut affirmed_portfolios = BTreeSet::new();
+            for portfolio in &portfolios_set {
+                let user_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
+                match user_affirmation_status {
+                    AffirmationStatus::Affirmed => { affirmed_portfolios.insert(*portfolio); },
+                    AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody(*portfolio, did)?,
+                    _ => return Err(Error::<T>::NoPendingAffirm.into())
+                };
+            }
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios)?;
 
-                    match user_affirmation_status {
-                        AffirmationStatus::Affirmed => { portfolios_to_be_deny.insert(portfolio); },
-                        AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody(portfolio, did)?,
-                        _ => return Err(DispatchError::from(Error::<T>::NoPendingAffirm))
-                    };
-
-                    // Updates storage
-                    <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
-                    <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
-                }
-                Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_to_be_deny)?;
-                Ok(())
-            })?;
-
+            // Updates storage to mark the instruction as rejected.
+            for portfolio in portfolios_set {
+                <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
+                <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
+            }
 
             // Execute the instruction if it was meant to be executed on affirmation
-            let weight_for_instruction_execution = Self::is_instruction_executed(Zero::zero(), Self::instruction_details(instruction_id).settlement_type, instruction_id);
+            let weight_for_instruction_execution = Self::is_instruction_executed(
+                Zero::zero(),
+                Self::instruction_details(instruction_id).settlement_type,
+                instruction_id
+            );
 
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
-            weight_for_instruction_execution
-                .map(|info| info
-                    .actual_weight
-                    .map(|w| w.saturating_add(weight_for::weight_for_reject_instruction::<T>()))
-                    .into()
-                )
+            match weight_for_instruction_execution {
+                Ok(post_info) => Ok(post_info.actual_weight.map(|w| w.saturating_add(weight_for::weight_for_reject_instruction::<T>())).into()),
+                Err(e) => Ok(e.post_info)
+            }
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -679,14 +682,14 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
             ]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-           match Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios) {
+            match Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios) {
                 Ok(post_info) => Ok(post_info),
                 Err(e) => if e == Error::<T>::InstructionFailed.into() || e == Error::<T>::UnauthorizedVenue.into() {
                     Ok(e.post_info)
                 }else {
                     Err(e)
                 }
-           }
+            }
         }
 
         /// Claims a signed receipt.
@@ -918,7 +921,7 @@ impl<T: Trait> Module<T> {
         Ok(instruction_counter)
     }
 
-    fn unsafe_withdraw_instruction(
+    fn unsafe_withdraw_instruction_affirmation(
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,

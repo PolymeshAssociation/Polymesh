@@ -379,8 +379,7 @@ fn initiate_corporate_action_record_date() {
     test(|ticker, [owner, foo, _]| {
         assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1));
 
-        let set_time = |now| Timestamp::set_timestamp(now * 1000);
-        set_time(0);
+        Timestamp::set_timestamp(0);
 
         let mut cp_id = CheckpointId(0);
         let mut schedule_id = ScheduleId(0);
@@ -405,7 +404,7 @@ fn initiate_corporate_action_record_date() {
                 assert_eq!(date, date2);
                 assert_eq!(schedule_id, id);
 
-                set_time(date);
+                Timestamp::set_timestamp(date);
                 transfer(&ticker, owner, foo);
 
                 assert_eq!(
@@ -417,8 +416,8 @@ fn initiate_corporate_action_record_date() {
         };
 
         check(None);
-        check(Some(50));
-        check(Some(100));
+        check(Some(50_000));
+        check(Some(100_000));
 
         assert_eq!(Checkpoint::checkpoint_id_sequence(ticker), CheckpointId(2));
     });
