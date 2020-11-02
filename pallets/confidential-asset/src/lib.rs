@@ -20,7 +20,7 @@
 //!
 //! ## Overview
 //!
-//! The following documentation covers the functionalities need for confidential transfer of a token.
+//! The following documentation covers the functionalities needed for confidential transfer of a token.
 //! Part of this functionality (creating a confidential account and minting confidential tokens) are
 //! handled in this pallet, while the confidential transfer is handled by the
 //! [settlement module](../pallet_settlement/index.html). These pallets call out to the
@@ -40,44 +40,56 @@
 //!   - Issuer: The party that mints the tokens into her account.
 //!
 //! - Phases of a successful transfer:
-//!   - Mint/issue: deposit tokens to an account
-//!   - Initialize a transfer: Alice indicates that she want to transfer some tokens to Bob.
+//!   - Mint/issue: deposit tokens to an account.
+//!   - Initialize a transfer: Alice indicates that she wants to transfer some tokens to Bob.
 //!   - Finalize a transfer: Bob acknowledges that he expects to receive tokens from Alice.
 //!   - Justify a transfer: Charlie approves the transfer.
 //!   - Verification: the chain verifies all the data and updates the encrypted balance of Alice and Bob.
 //!
 //! - The workflow: the overall workflow is that at different phases of the transaction, each party
-//!   performs a task locally (e.g., on their wallet), creates a cryptographic proof of their task,
-//!   and submits the proof to the chain for verification.
+//!   generates a cryptographic proof in their wallet, and submits the proof to the chain for
+//!   verification.
 //!
-//!   There are X different phases for a transaction
-//!     1. A confidential asset is registered but not minted.
-//!     2. Different parties create confidential accounts that can manage the asset locally and submit
-//!        the proof of correctness.
+//!   There are 8 different phases for a transaction
+//!     1. Create a confidential asset using `create_confidential_asset()` dispatchable. Note that
+//!        unlike `create_asset()`, the minting is performed separately (in step 3).
+//!     2. Different parties can create confidential accounts to manage confidential asset in
+//!        their wallet the proof of correctness.
 //!        - The chain verifies the proofs and stores the confidential account on the chain.
-//!     3. Issuer mints some tokens for the asset and submits the proof of correctness.
+//!        - NB - The parties can create their account in any order, but they can only create
+//!               an account for a mercat asset AFTER the mercat asset is created in step 1.
+//!     3. Issuer can issue tokens of a confidential asset using `mint_confidential_asset()`
+//!        dispatch and submits the proof of correctness to the chain.
 //!        - The chain verifies the proofs and updates the encrypted balance on the chain.
-//!     4. Sender initiates a transfer locally and submits the proof of correctness.
-//!     5. Receiver finalizes a transfer locally and submits the proof of correctness.
-//!     6. Mediator justifies a transfer locally and submits the proof of correctness.
-//!     7. Once all proofs of steps 4-6 are gathered, the chain verifies them and updates the
+//!        - NB - Issuer can mint an asset only after she has created an account for that asset
+//!               in step 2.
+//!     4. The mediator creates a venue and an instruction with a `settlement::ConfidentialLeg`.
+//!     5. Sender initiates a transfer in her wallet and submits the proof of correctness to the
+//!        chain using `settlement::authorize_confidential_instruction()` dispatchable.
+//!     6. Receiver finalizes a transfer in her wallet and submits the proof of correctness to
+//!        the chain using `settlement::authorize_confidential_instruction()` dispatchable.
+//!     7. Mediator justifies a transfer in her wallet and submits the proof of correctness to
+//!        the chain using `settlement::authorize_confidential_instruction()` dispatchable.
+//!     8. Once all proofs of steps 4-6 are gathered, the chain verifies them and updates the
 //!        encrypted balance of the Sender and the Receiver.
+//!
+//!     NB - The steps 4-7 must be performed sequentially by each party (they each need information
+//!          from the chain that is only available after the previous party authorizes the
+//!          instruction.
+//!     
 //!
 //! ### Goals
 //!
-//! The main goal is to enable confidential transfer of tokens such that the amount and the asset type of
-//! the transfer remain hidden from anyone who has access to the chain. But at the same time, enable certain
-//! stakeholders (issuer, mediator, and auditors) to view both the token and transfer amount for reporting,
-//! compliance check, and auditing purposes.
+//! The main goal is to enable the confidential transfer of assets such that the amount and the
+//! asset type of the transfer remain hidden from anyone who has access to the chain. But at the
+//! same time, enable certain stakeholders (issuer, mediator, and auditors) to view both the asset
+//! and transfer amount for reporting, compliance check, and auditing purposes.
+//!
 //!
 //! ## Limitations
 //!
-//! - In the current implementation, the list of confidential assets cannot change after an account is created.
-//!   Therefore, make sure to create all the confidential assets that you intent to use, before creating accounts.
-//!   This will be fixed in future versions: CRYP-163.
-//!
 //! - In the current implementation, you can have only one confidential leg per instruction. This restriction
-//!   might be lifted in future versions: CRYP-TODO.
+//!   might be lifted in future versions: CRYP-1333.
 //!
 //!
 //! ## Implementation Details
