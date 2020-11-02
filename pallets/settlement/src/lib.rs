@@ -1277,19 +1277,17 @@ impl<T: Trait> Module<T> {
         }
 
         let tx_data = tx_data.remove(MERCAT_TX_DATA_LEN - 1);
-        let decoded_justified_tx = match tx_data {
-            MercatTxData::JustifiedTransfer(data) => data
+        if let MercatTxData::JustifiedTransfer(data) = tx_data {
+            let result = data
                 .decode()
                 .map(|d| JustifiedTransferTx::decode(&mut &d[..]))?
                 .map_err(|_| {
                     return DispatchError::from(Error::<T>::InstructionNotAuthorized);
-                }),
-            _ => {
-                return Err(Error::<T>::InstructionNotAuthorized.into());
-            }
-        };
+                });
+            return result;
+        }
 
-        decoded_justified_tx
+        return Err(Error::<T>::InstructionNotAuthorized.into());
     }
 
     fn execute_instruction(instruction_id: u64) -> (u32, Weight) {

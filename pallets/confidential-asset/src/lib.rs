@@ -705,7 +705,7 @@ impl<T: Trait> Module<T> {
 
         // Verify the proofs.
         let mut rng = rng::Rng::default();
-        let _result = TransactionValidator
+        let _ = TransactionValidator
             .verify_transaction(
                 tx_data,
                 &from_mercat,
@@ -716,7 +716,7 @@ impl<T: Trait> Module<T> {
             )
             .map_err(|_| {
                 // Upon transaction validation failure, update the failed outgoing accumulator.
-                let _result = Self::add_failed_outgoing_balance(
+                let _ = Self::add_failed_outgoing_balance(
                     from_did,
                     from_account_id,
                     tx_data
@@ -743,7 +743,7 @@ impl<T: Trait> Module<T> {
                 .enc_amount_using_sender,
         )?;
 
-        let _result = Self::mercat_account_deposit_amount(
+        let _ = Self::mercat_account_deposit_amount(
             to_did,
             to_account_id,
             tx_data
