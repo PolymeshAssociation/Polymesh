@@ -40,8 +40,6 @@
   "dependencies": {
     "@liftr/tscov": "^1.4.7",
     "@polkadot/api": "^1.32.1",
-    "@polkadot/util": "^2.6.2",
-    "@polkadot/util-crypto": "^2.6.2",
     "@types/clear": "^0.1.0",
     "@types/figlet": "^1.2.0",
     "@types/inquirer": "^6.5.0",
