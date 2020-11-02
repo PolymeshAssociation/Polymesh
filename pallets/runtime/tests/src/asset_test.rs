@@ -1799,7 +1799,7 @@ fn test_can_transfer_rpc() {
 
             // // Case 4: When sender doesn't posses a valid cdd
             // // 4.1: Create Identity who doesn't posses cdd
-            // let (from_without_cdd_signed, from_without_cdd_did) = make_account(AccountKeyring::Ferdie.public()).unwrap();
+            // let (from_without_cdd_signed, from_without_cdd_did) = make_account_with_uid(AccountKeyring::Ferdie.public()).unwrap();
             // // Execute can_transfer
             // assert_eq!(
             //     Asset::unsafe_can_transfer(
