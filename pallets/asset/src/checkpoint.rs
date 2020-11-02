@@ -28,6 +28,7 @@
 //! ### Dispatchable Functions
 //!
 //! - `create_checkpoint` creates a checkpoint.
+//! - `set_schedules_max_complexity` sets the max total complexity of a ticker's schedule set.
 //! - `create_schedule` creates a checkpoint schedule.
 //! - `remove_schedule` removes a checkpoint schedule.
 //!
@@ -54,7 +55,6 @@ use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
     IdentityId, Moment, Ticker,
 };
-use sp_runtime::traits::SaturatedConversion;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -87,7 +87,7 @@ pub struct StoredSchedule {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ScheduleSpec {
-    /// Unix time in seconds.
+    /// Unix time in milli-seconds.
     /// When `None`, this is an instruction to use the current time.
     pub start: Option<Moment>,
     /// The period at which the checkpoint is set to recur after `start`.
@@ -122,7 +122,7 @@ decl_storage! {
         // ------------------------ Checkpoint storage -------------------------
 
         /// Checkpoints ID generator sequence.
-        /// First ID is 1 instead of 0 for.
+        /// ID of first checkpoint is 1 instead of 0.
         ///
         /// (ticker) -> no. of checkpoints
         pub CheckpointIdSequence get(fn checkpoint_id_sequence):
@@ -562,9 +562,10 @@ impl<T: Trait> Module<T> {
         Ok(ScheduleId(id))
     }
 
-    /// Returns the current UNIX time, i.e. seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.
+    /// Returns the current UNIX time, i.e. milli-seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.
     fn now_unix() -> Moment {
-        T::UnixTime::now().as_secs().saturated_into::<u64>()
+        // We're OK with truncation here because we'll all be dead before it actually happens.
+        T::UnixTime::now().as_millis() as u64
     }
 }
 
