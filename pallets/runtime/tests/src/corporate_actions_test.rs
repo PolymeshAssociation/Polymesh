@@ -1,6 +1,6 @@
 use super::{
     pips_test::User,
-    storage::{provide_scope_claim_to_multiple_parties, root, TestStorage},
+    storage::{provide_scope_claim_to_multiple_parties, root, Checkpoint, TestStorage},
     ExtBuilder,
 };
 use frame_support::{
@@ -8,6 +8,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     StorageDoubleMap, StorageMap,
 };
+use pallet_asset::checkpoint::ScheduleId;
 use pallet_asset::AssetName;
 use pallet_corporate_actions::{
     CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
@@ -15,7 +16,8 @@ use pallet_corporate_actions::{
     Tax,
 };
 use polymesh_primitives::{
-    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
+    calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
+    PortfolioId, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -374,8 +376,14 @@ fn initiate_corporate_action_local_id_overflow() {
 
 #[test]
 fn initiate_corporate_action_record_date() {
-    test(|ticker, [owner, ..]| {
-        let mut checkpoints = 0;
+    test(|ticker, [owner, foo, _]| {
+        assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1));
+
+        Timestamp::set_timestamp(0);
+
+        let mut cp_id = CheckpointId(0);
+        let mut schedule_id = ScheduleId(0);
+
         let mut check = |date| {
             let ca = init_ca(
                 owner,
@@ -388,18 +396,30 @@ fn initiate_corporate_action_record_date() {
                 None,
             )
             .unwrap();
-            assert_eq!(date, ca.record_date);
-            if let Some(date) = date {
-                checkpoints += 1;
-                assert_eq!(date, Asset::checkpoint_timestamps(checkpoints));
+            assert_eq!(date, ca.record_date.map(|x| x.0));
+            if let (Some(date), Some((date2, id))) = (date, ca.record_date) {
+                cp_id.0 += 1;
+                schedule_id.0 += 1;
+
+                assert_eq!(date, date2);
+                assert_eq!(schedule_id, id);
+
+                Timestamp::set_timestamp(date);
+                transfer(&ticker, owner, foo);
+
+                assert_eq!(
+                    Checkpoint::schedule_points((ticker, schedule_id)),
+                    vec![cp_id]
+                );
+                assert_eq!(date, Checkpoint::timestamps(cp_id));
             }
         };
 
         check(None);
-        check(Some(50));
-        check(Some(100));
+        check(Some(50_000));
+        check(Some(100_000));
 
-        assert_eq!(Asset::total_checkpoints_of(ticker), 2);
+        assert_eq!(Checkpoint::checkpoint_id_sequence(ticker), CheckpointId(2));
     });
 }
 
