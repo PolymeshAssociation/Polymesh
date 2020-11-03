@@ -24,8 +24,10 @@ use cryptography::{
     mercat::{
         account::{convert_asset_ids, AccountValidator},
         asset::AssetValidator,
+        transaction::TransactionValidator,
         AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-        EncryptionPubKey, InitializedAssetTx, PubAccount, PubAccountTx,
+        EncryptionPubKey, InitializedAssetTx, JustifiedTransferTx, PubAccount, PubAccountTx,
+        TransferTransactionVerifier,
     },
     AssetId,
 };
@@ -42,7 +44,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
+    rng, AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
 };
 use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
@@ -680,6 +682,82 @@ impl<T: Trait> Module<T> {
     ) {
         TxPendingState::remove((owner_did, account_id, instruction_id));
     }
+
+    /// Transfers an asset from one identity's portfolio to another.
+    pub fn base_confidential_transfer(
+        from_did: &IdentityId,
+        from_account_id: &MercatAccountId,
+        to_did: &IdentityId,
+        to_account_id: &MercatAccountId,
+        tx_data: &JustifiedTransferTx,
+        instruction_id: u64,
+    ) -> DispatchResult {
+        // Read the mercat_accounts from the confidential-asset pallet.
+        let from_mercat_pending_state =
+            Self::mercat_tx_pending_state((from_did, from_account_id, instruction_id))
+                .to_mercat::<T>()?;
+
+        // Get receiver's account.
+        let to_mercat = Self::mercat_accounts(to_did, to_account_id).to_mercat::<T>()?;
+
+        // Get sender's account.
+        let from_mercat = Self::mercat_accounts(from_did, from_account_id).to_mercat::<T>()?;
+
+        // Verify the proofs.
+        let mut rng = rng::Rng::default();
+        let _ = TransactionValidator
+            .verify_transaction(
+                tx_data,
+                &from_mercat,
+                &from_mercat_pending_state,
+                &to_mercat,
+                &[],
+                &mut rng,
+            )
+            .map_err(|_| {
+                // Upon transaction validation failure, update the failed outgoing accumulator.
+                let _ = Self::add_failed_outgoing_balance(
+                    from_did,
+                    from_account_id,
+                    tx_data
+                        .finalized_data
+                        .init_data
+                        .memo
+                        .enc_amount_using_sender,
+                );
+
+                // There's no need to keep a copy of the pending state anymore.
+                Self::remove_tx_pending_state(from_did, from_account_id, instruction_id);
+
+                Error::<T>::ConfidentialTransferValidationFailure
+            })?;
+
+        // Note that storage failures could be a problem, if only some of the storage is updated.
+        let _ = Self::mercat_account_withdraw_amount(
+            from_did,
+            from_account_id,
+            tx_data
+                .finalized_data
+                .init_data
+                .memo
+                .enc_amount_using_sender,
+        )?;
+
+        let _ = Self::mercat_account_deposit_amount(
+            to_did,
+            to_account_id,
+            tx_data
+                .finalized_data
+                .init_data
+                .memo
+                .enc_amount_using_receiver,
+        )?;
+
+        // There's no need to keep a copy of the pending state anymore.
+        Self::remove_tx_pending_state(from_did, from_account_id, instruction_id);
+
+        Ok(())
+    }
 }
 
 decl_event! {
@@ -705,16 +783,16 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Mercat library has rejected the account creation proofs.
+        /// The MERCAT account creation proofs are invalid.
         InvalidAccountCreationProof,
 
-        /// Error during the converting of wrapped data types into mercat data types.
+        /// Unwrapping the wrapped data types into mercat data types has failed.
         UnwrapMercatDataError,
 
-        /// Mercat library has rejected the asset issuance proofs.
+        /// The MERCAT asset issuance proofs are invalid.
         InvalidAccountMintProof,
 
-        /// Thrown when the total supply of a confidential asset is not divisible.
+        /// The provided total supply of a confidential asset is invalid.
         InvalidTotalSupply,
 
         /// The balance values does not fit `u32`.
@@ -729,7 +807,13 @@ decl_error! {
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
         CanSetTotalSupplyOnlyOnce,
 
-        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        /// A confidential asset's total supply must be positive.
         TotalSupplyMustBePositive,
+
+        /// Insufficient mercat authorizations are provided.
+        InsufficientMercatAuthorizations,
+
+        /// Confidential transfer's proofs are invalid.
+        ConfidentialTransferValidationFailure,
     }
 }
