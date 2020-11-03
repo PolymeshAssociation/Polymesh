@@ -1107,6 +1107,15 @@
             "ticker": "Ticker",
             "local_id": "LocalCAId"
         },
+        "Distribution": {
+            "from": "PortfolioId",
+            "currency": "Ticker",
+            "amount": "Balance",
+            "remaining": "Balance",
+            "reclaimed": "bool",
+            "payment_at": "Moment",
+            "expires_at": "Option<Moment>"
+        },
         "SlashingSwitch": {
             "_enum": [
                 "Validator",

@@ -36,8 +36,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
+#![feature(crate_visibility_modifier)]
 
 pub mod ballot;
+pub mod distribution;
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
@@ -116,8 +118,10 @@ impl TargetIdentities {
     }
 
     /// Does this target `did`?
+    /// Complexity: O(log n) with `n` being the number of identities listed.
     pub fn targets(&self, did: &IdentityId) -> bool {
-        self.treatment.is_include() == self.identities.contains(did)
+        // N.B. The binary search here is OK since the list of identities is sorted.
+        self.treatment.is_include() == self.identities.binary_search(&did).is_ok()
     }
 }
 
@@ -145,6 +149,13 @@ pub enum CAKind {
     /// Some generic uncategorized CA.
     /// In other words, none of the above.
     Other,
+}
+
+impl CAKind {
+    /// Is this some sort of benefit CA?
+    fn is_benefit(&self) -> bool {
+        matches!(self, Self::PredictableBenefit | Self::UnpredictableBenfit)
+    }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -204,6 +215,17 @@ pub struct CorporateAction {
     pub withholding_tax: Vec<(IdentityId, Tax)>,
 }
 
+impl CorporateAction {
+    /// Returns the tax of `did` in this CA.
+    fn tax_of(&self, did: &IdentityId) -> Tax {
+        // N.B. we maintain a sorted list to enable O(log n) access here.
+        self.withholding_tax
+            .binary_search_by_key(&did, |(did, _)| did)
+            .map(|idx| self.withholding_tax[idx].1)
+            .unwrap_or_else(|_| self.default_withholding_tax)
+    }
+}
+
 /// A `Ticker`-local CA ID.
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different CA.
@@ -237,7 +259,10 @@ pub trait WeightInfo {
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
     /// The overarching event type.
-    type Event: From<Event> + From<ballot::Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event>
+        + From<ballot::Event<Self>>
+        + From<distribution::Event<Self>>
+        + Into<<Self as frame_system::Trait>::Event>;
 
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
@@ -391,11 +416,13 @@ decl_module! {
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             DidWitholdingTax::mutate(ticker, |whts| {
-                match (whts.iter().position(|(did, _)| did == &taxed_did), tax) {
-                    (None, Some(tax)) => whts.push((taxed_did, tax)),
-                    (Some(idx), None) => drop(whts.swap_remove(idx)),
-                    (Some(idx), Some(tax)) => whts[idx] = (taxed_did, tax),
-                    (None, None) => {}
+                // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
+                // This is maintained to get O(log n) in capital distribution.
+                match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
+                    (Some(tax), Ok(idx)) => whts[idx] = (taxed_did, tax),
+                    (Some(tax), Err(idx)) => whts.insert(idx, (taxed_did, tax)),
+                    (None, Ok(idx)) => drop(whts.remove(idx)),
+                    (None, Err(_)) => {}
                 }
             });
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
@@ -565,6 +592,14 @@ decl_error! {
         NoSuchCheckpointId,
         /// A CA with the given `CAId` did not exist.
         NoSuchCA,
+        /// The CA did not have a record date.
+        NoRecordDate,
+        /// A CA's record date was strictly after the "start" time,
+        /// where "start" is context dependent.
+        /// For example, it could be the start of a ballot, or the start-of-payment in capital distribution.
+        RecordDateAfterStart,
+        /// CA does not target the DID.
+        NotTargetedByCA,
     }
 }
 
@@ -584,6 +619,61 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    // Ensure that `record_date <= start`.
+    crate fn ensure_record_date_before_start(
+        ca: &CorporateAction,
+        start: Moment,
+    ) -> DispatchResult {
+        match ca.record_date {
+            Some(rd) if rd.date <= start => Ok(()),
+            Some(_) => Err(Error::<T>::RecordDateAfterStart.into()),
+            None => Err(Error::<T>::NoRecordDate.into()),
+        }
+    }
+
+    /// Returns the supply at `cp`, if any, or `did`'s current balance otherwise.
+    crate fn supply_at_cp(ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
+        let ticker = ca_id.ticker;
+        match cp {
+            // CP exists, use it.
+            Some(cp_id) => <Checkpoint<T>>::total_supply_at((ticker, cp_id)),
+            // Although record date has passed, no transfers have happened yet for `ticker`.
+            // Thus, there is no checkpoint ID, and we must use current supply instead.
+            None => <Asset<T>>::token_details(ticker).total_supply,
+        }
+    }
+
+    /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
+    crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
+        let ticker = ca_id.ticker;
+        match cp {
+            // CP exists, use it.
+            Some(cp_id) => <Asset<T>>::get_balance_at(ticker, did, cp_id),
+            // Although record date has passed, no transfers have happened yet for `ticker`.
+            // Thus, there is no checkpoint ID, and we must use current balance instead.
+            None => <Asset<T>>::balance_of(ticker, did),
+        }
+    }
+
+    // Extract checkpoint ID for the CA's record date, if any.
+    // Assumes the CA has a record date where `date <= now`.
+    crate fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
+        // Record date has passed by definition.
+        let ticker = ca_id.ticker;
+        match ca.record_date.unwrap().checkpoint {
+            CACheckpoint::Existing(id) => Some(id),
+            // For CAs, there will ever be at most one CP.
+            // And assuming transfers have happened since the record date, there's exactly one CP.
+            CACheckpoint::Scheduled(id) => <Checkpoint<T>>::schedule_points((ticker, id)).pop(),
+        }
+    }
+
+    /// Ensure that `ca` targets `did`.
+    crate fn ensure_ca_targets(ca: &CorporateAction, did: &IdentityId) -> DispatchResult {
+        ensure!(ca.targets.targets(did), Error::<T>::NotTargetedByCA);
+        Ok(())
+    }
+
     /// Translate record date to a format we can store.
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
