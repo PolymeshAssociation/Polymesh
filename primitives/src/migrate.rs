@@ -17,7 +17,8 @@
 
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator, StorageKeyIterator};
-use frame_support::{ReversibleStorageHasher, StorageHasher};
+use frame_support::storage::unhashed::kill_prefix;
+use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
 use sp_std::vec::Vec;
 
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
@@ -164,4 +165,12 @@ where
     }) {
         put_storage_value(module, item, &key, value);
     }
+}
+
+/// Kill a storage item from a module
+pub fn kill_item(module: &[u8], item: &[u8]) {
+    let mut prefix = [0u8; 32];
+    prefix[0..16].copy_from_slice(&Twox128::hash(module));
+    prefix[16..32].copy_from_slice(&Twox128::hash(item));
+    kill_prefix(&prefix)
 }
