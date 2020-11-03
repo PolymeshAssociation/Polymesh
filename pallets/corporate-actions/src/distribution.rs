@@ -51,7 +51,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker,
+    calendar::CheckpointId, EventOnly, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker,
 };
 use sp_runtime::traits::{CheckedDiv, CheckedMul};
 #[cfg(feature = "std")]
@@ -159,6 +159,8 @@ decl_module! {
             // Ensure origin is CAA, `ca_id` exists, and that its a benefit.
             // and that sufficient funds exist.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
+            let from = PortfolioId::user_portfolio(caa, portfolio);
+            let caa = caa.for_event();
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
 
@@ -170,7 +172,6 @@ decl_module! {
 
             // Has to be in a transaction, as both operations below are check-and-commit in kind,
             // but if either fail, both must with storage changes reverted.
-            let from = PortfolioId::user_portfolio(caa, portfolio);
             with_transaction(|| {
                 // Ensure CAA's portfolio `from` has at least `amount` and lock those.
                 <Portfolio<T>>::lock_tokens(&from, &currency, &amount)?;
@@ -265,7 +266,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn push_shares(origin, ca_id: CAId, max: u32) {
             // N.B. we allow the asset owner to call this as well, not just the CAA.
-            let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?;
+            let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
 
             // Ensure we have an active distribution.
             let mut dist = Self::ensure_active_distribution(ca_id)?;
@@ -317,6 +318,7 @@ decl_module! {
             let did = <Identity<T>>::ensure_perms(origin)?;
             let dist = Self::ensure_distribution_exists(ca_id)?;
             ensure!(did == dist.from.did, Error::<T>::NotDistributionCreator);
+            let did = did.for_event();
             ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
             ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
 
@@ -342,27 +344,27 @@ decl_event! {
         /// was created by the DID (the CAA) for the CA specified by the `CAId`.
         ///
         /// (CAA of CAId's ticker, CA's ID, distribution details)
-        Created(IdentityId, CAId, Distribution<Balance>),
+        Created(EventOnly<IdentityId>, CAId, Distribution<Balance>),
 
         /// A token holder's share of a capital distribution for the given `CAId` was claimed.
         ///
         /// (Holder/Claimant DID, CA's ID, updated distribution details, DID's share, DID's tax %)
-        ShareClaimed(IdentityId, CAId, Distribution<Balance>, Balance, Tax),
+        ShareClaimed(EventOnly<IdentityId>, CAId, Distribution<Balance>, Balance, Tax),
 
         /// An attempt to push a holders share of a capital distribution failed.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, holder that couldn't be pushed to)
-        SharePushFailed(IdentityId, CAId, IdentityId),
+        SharePushFailed(EventOnly<IdentityId>, CAId, IdentityId),
 
         /// Stats from `push_shares` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        SharesPushed(IdentityId, CAId, u32, u32, u32),
+        SharesPushed(EventOnly<IdentityId>, CAId, u32, u32, u32),
 
         /// Stats from `push_shares` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        Reclaimed(IdentityId, CAId, Balance),
+        Reclaimed(EventOnly<IdentityId>, CAId, Balance),
     }
 }
 
@@ -429,6 +431,7 @@ impl<T: Trait> Module<T> {
 
         // Note that DID was paid.
         HolderPaid::insert((ca_id, did), true);
+        let did = did.for_event();
 
         // Commit `dist` change to storage.
         dist.remaining -= share;

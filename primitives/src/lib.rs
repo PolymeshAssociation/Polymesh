@@ -147,6 +147,9 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
 
+pub mod event_only;
+pub use event_only::EventOnly;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;

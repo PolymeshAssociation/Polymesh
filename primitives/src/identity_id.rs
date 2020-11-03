@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::EventOnly;
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -50,6 +51,12 @@ const UUID_LEN: usize = 32usize;
 pub struct IdentityId(pub [u8; UUID_LEN]);
 
 impl IdentityId {
+    /// Protect the DID as only for use in events.
+    #[inline]
+    pub fn for_event(self) -> EventOnly<Self> {
+        EventOnly::new(self)
+    }
+
     /// Returns a byte slice of this IdentityId's contents
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
