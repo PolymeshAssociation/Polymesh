@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-balances = { path = "../balances", default-features = false  }
+pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
@@ -51,6 +52,7 @@ std = [
 	"pallet-balances/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
+	"pallet-portfolio/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

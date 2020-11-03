@@ -512,6 +512,16 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn fund_portfolio(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: T::Balance
+    ) -> DispatchResult {
+        <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
+        Ok(())
+    }
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
@@ -611,5 +621,14 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
 
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn fund_portfolio(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: T::Balance
+    ) -> DispatchResult {
+        Self::fund_portfolio(portfolio, ticker, amount)
     }
 }

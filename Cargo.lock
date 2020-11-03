@@ -4501,6 +4501,7 @@ dependencies = [
 name = "pallet-portfolio"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
@@ -4617,6 +4618,7 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -5274,6 +5276,7 @@ dependencies = [
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "lazy_static",

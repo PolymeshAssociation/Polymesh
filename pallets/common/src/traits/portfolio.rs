@@ -52,4 +52,8 @@ pub trait PortfolioSubTrait<Balance> {
     /// * `ticker` - Ticker of the token to unlock
     /// * `amount` - Amount of tokens to unlock
     fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
+
+    /// Transfer some funds to given portfolio.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn fund_portfolio(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult;
 }

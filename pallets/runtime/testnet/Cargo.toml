@@ -193,6 +193,8 @@ runtime-benchmarks = [
     "pallet-timestamp/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
+    "pallet-portfolio/runtime-benchmarks",
+    "polymesh-common-utilities/runtime-benchmarks",
     #"polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

@@ -1201,10 +1201,10 @@ impl<T: Trait> Module<T> {
         Self::ensure_instruction_validity(instruction_id)?;
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
         for portfolio in &portfolios {
-            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
-                userr_affirmation == AffirmationStatus::Pending
-                    || userr_affirmation == AffirmationStatus::Rejected,
+                user_affirmation == AffirmationStatus::Pending
+                    || user_affirmation == AffirmationStatus::Rejected,
                 Error::<T>::NoPendingAffirm
             );
             T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
