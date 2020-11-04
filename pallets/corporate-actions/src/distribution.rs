@@ -40,6 +40,7 @@
 //! - `claim` claims (pull) a share of an active capital distribution on behalf of a holder.
 //! - `push_shares` pushes shares of an active capital distribution to many holders.
 //! - `reclaim` reclaims forfeited shares of a capital distribution that has expired.
+//! - `remove_distribution` removes a capital distribution which hasn't reached its payment date yet.
 
 use crate as ca;
 use ca::{CAId, CorporateAction, Tax, Trait};
@@ -102,12 +103,14 @@ decl_storage! {
         /// All capital distributions, tied to their respective corporate actions (CAs).
         ///
         /// (CAId) => Distribution
-        Distributions get(fn distributions): map hasher(blake2_128_concat) CAId => Option<Distribution<T::Balance>>;
+        Distributions get(fn distributions):
+            map hasher(blake2_128_concat) CAId => Option<Distribution<T::Balance>>;
 
         /// Has an asset holder been paid yet?
         ///
         /// (CAId, DID) -> Was DID paid in the CAId?
-        HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
+        HolderPaid get(fn holder_paid):
+            double_map hasher(blake2_128_concat) CAId, hasher(blake2_128_concat) IdentityId => bool;
     }
 }
 
@@ -228,7 +231,7 @@ decl_module! {
             let did = <Identity<T>>::ensure_perms(origin)?;
 
             // Ensure holder not paid yet.
-            ensure!(!HolderPaid::get((ca_id, did)), Error::<T>::HolderAlreadyPaid);
+            ensure!(!HolderPaid::get(ca_id, did), Error::<T>::HolderAlreadyPaid);
 
             // Ensure we have an active distribution.
             let mut dist = Self::ensure_active_distribution(ca_id)?;
@@ -288,7 +291,7 @@ decl_module! {
             let count_fail = <asset::BalanceOf<T>>::iter_prefix(ca_id.ticker)
                 .map(|(did, _)| did)
                 .filter(|did| ca.targets.targets(did))
-                .filter(|did| !HolderPaid::get((ca_id, did)))
+                .filter(|did| !HolderPaid::get(ca_id, did))
                 .take(max as usize)
                 .inspect(|_| count += 1)
                 // N.B. we don't halt on first error to ensure progress is possible on each call.
@@ -307,11 +310,11 @@ decl_module! {
         }
 
         /// Assuming a distribution has expired,
-        /// unlock the remaining amount in the distributing-from portfolio.
+        /// unlock the remaining amount in the distributor portfolio.
         ///
         /// ## Arguments
         /// - `origin` which must be the creator of the capital distribution tied to `ca_id`.
-        /// - `ca_id` identifies the CA with a capital distributions to reclaim for.
+        /// - `ca_id` identifies the CA with a capital distribution to reclaim for.
         ///
         /// # Errors
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
@@ -337,6 +340,33 @@ decl_module! {
 
             // Emit event.
             Self::deposit_event(Event::<T>::Reclaimed(did, ca_id, dist.remaining));
+        }
+
+        /// Removes a distribution that hasn't started yet,
+        /// unlocking the full amount in the distributor portfolio.
+        ///
+        /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `ca_id` identifies the CA with a not-yet-started capital distribution to remove.
+        ///
+        /// # Errors
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
+        /// - `DistributionStarted` if `payment_at >= now`.
+        #[weight = 900_000_000]
+        pub fn remove_distribution(origin, ca_id: CAId) {
+            // Ensure origin is CAA, the distribution exists, and that `now < payment_at`.
+            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
+            let dist = Self::ensure_distribution_exists(ca_id)?;
+            ensure!(<Checkpoint<T>>::now_unix() < dist.payment_at, Error::<T>::DistributionStarted);
+
+            // Unlock and remove chain data.
+            Self::unlock(&dist, dist.amount);
+            <Distributions<T>>::remove(ca_id);
+            HolderPaid::remove_prefix(ca_id);
+
+            // Emit event.
+            Self::deposit_event(Event::<T>::Removed(caa, ca_id));
         }
     }
 }
@@ -371,6 +401,11 @@ decl_event! {
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
         Reclaimed(EventOnly<IdentityId>, CAId, Balance),
+
+        /// A capital distribution was removed.
+        ///
+        /// (Ticker's CAA, CA's ID)
+        Removed(IdentityId, CAId),
     }
 }
 
@@ -406,6 +441,8 @@ decl_error! {
         AlreadyReclaimed,
         /// Distribution had not expired yet, or there's no expiry date.
         NotExpired,
+        /// A distribution has been activated, as `payment_at <= now` holds.
+        DistributionStarted,
     }
 }
 
@@ -424,8 +461,7 @@ impl<T: Trait> Module<T> {
         let share = Self::share_of(balance, dist.amount, supply)?;
 
         // Unlock `share` of `currency` from CAAs portfolio.
-        // This cannot fail, as we've already locked the requisite amount prior.
-        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &share).unwrap();
+        Self::unlock(&dist, share);
 
         // Compute withholding tax + gain.
         let tax = ca.tax_of(&did);
@@ -436,7 +472,7 @@ impl<T: Trait> Module<T> {
         <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain).map_err(|e| e.error)?;
 
         // Note that DID was paid.
-        HolderPaid::insert((ca_id, did), true);
+        HolderPaid::insert(ca_id, did, true);
         let did = did.for_event();
 
         // Commit `dist` change to storage.
@@ -446,6 +482,12 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(Event::<T>::ShareClaimed(did, ca_id, *dist, share, tax));
 
         Ok(())
+    }
+
+    /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
+    /// Assumes that at least `amount` is locked.
+    fn unlock(dist: &Distribution<T::Balance>, amount: T::Balance) {
+        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &amount).unwrap();
     }
 
     // Compute `balance * amount / supply`, i.e. DID's share.
