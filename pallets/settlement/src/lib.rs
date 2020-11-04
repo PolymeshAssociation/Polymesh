@@ -7,7 +7,7 @@
 //! ## Overview
 //!
 //! The settlement module provides functionality to settle onchain as well as offchain trades between multiple parties.
-//! All trades are settled under venues. A token issuer can allow/block certain venues from settling trades that involve their tokens.
+//! All trades are settled under venues. An asset issuer can allow/block certain venues from settling trades that involve their assets.
 //! An atomic settlement is called an Instruction. An instruction can contain multiple legs. Legs are essentially simple one to one transfers.
 //! When an instruction is settled, either all legs are executed successfully or none are. In other words, if one of the leg fails due to
 //! compliance failure, all other legs will also fail.
@@ -29,7 +29,7 @@
 //! - `reject_instruction` - Rejects an existing instruction.
 //! - `claim_receipt` - Claims a signed receipt.
 //! - `unclaim_receipt` - Unclaims a previously claimed receipt.
-//! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
+//! - `set_venue_filtering` - Enables or disabled venue filtering for a asset.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
 //! - `disallow_venues` - Revokes permission given to venues for creating instructions involving a particular asset.
 //!

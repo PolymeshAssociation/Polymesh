@@ -15,13 +15,13 @@
 
 //! # Confidential Asset Module
 //!
-//! The Confidential Asset module is one place to create the MERCAT security tokens on the
+//! The Confidential Asset module is one place to create the MERCAT security assets on the
 //! Polymesh blockchain.
 //!
 //! ## Overview
 //!
-//! The following documentation covers the functionalities needed for a transfer of a confidential token.
-//! Part of this functionality (creating a confidential account and minting confidential tokens) are
+//! The following documentation covers the functionalities needed for a transfer of a confidential asset.
+//! Part of this functionality (creating a confidential account and minting confidential assets) are
 //! handled in this pallet, while the confidential transfer is handled by the
 //! [settlement module](../pallet_settlement/index.html). These pallets call out to the
 //! [MERCAT library]https://github.com/PolymathNetwork/cryptography) which is an implementation of the
@@ -31,18 +31,18 @@
 //! ### Terminology
 //!
 //! - The parties:
-//!   - Sender: The party who is sending tokens out of her account. We refer to her as Alice in the
+//!   - Sender: The party who is sending assets out of her account. We refer to her as Alice in the
 //!     examples.
-//!   - Receiver: The party who is receiving some tokens to his account. We refer to him as Bob in
+//!   - Receiver: The party who is receiving some assets to his account. We refer to him as Bob in
 //!     the examples.
 //!   - Mediator: Also known as the exchange, is the party that preforms compliance checks and
 //!     approves/rejects the transaction. We refer to him as Charlie in the examples.
-//!   - Issuer: The party that mints the tokens into her account.
+//!   - Issuer: The party that mints the assets into her account.
 //!
 //! - Phases of a successful transfer:
-//!   - Mint/issue: deposit tokens to an account.
-//!   - Initialize a transfer: Alice indicates that she wants to transfer some tokens to Bob.
-//!   - Finalize a transfer: Bob acknowledges that he expects to receive tokens from Alice.
+//!   - Mint/issue: deposit assets to an account.
+//!   - Initialize a transfer: Alice indicates that she wants to transfer some assets to Bob.
+//!   - Finalize a transfer: Bob acknowledges that he expects to receive assets from Alice.
 //!   - Justify a transfer: Charlie approves the transfer.
 //!   - Verification: the chain verifies all the data and updates the encrypted balance of Alice and Bob.
 //!
@@ -58,7 +58,7 @@
 //!        - The chain verifies the proofs and stores the confidential accounts on the chain.
 //!        - NB - The parties can create their accounts in any order, but they can only create
 //!               an account for a mercat asset AFTER the mercat asset is created in step 1.
-//!     3. The issuer issues tokens of a confidential asset using `mint_confidential_asset()`
+//!     3. The issuer issues assets of a confidential asset using `mint_confidential_asset()`
 //!        dispatchable and submits the proof of correctness to the chain.
 //!        - The chain verifies the proofs and updates the encrypted balance on the chain.
 //!        - NB - The issuer can mint an asset only after she has created an account for that asset
