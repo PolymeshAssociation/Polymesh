@@ -292,6 +292,7 @@ impl protocol_fee::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 parameter_types! {

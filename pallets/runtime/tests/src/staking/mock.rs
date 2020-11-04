@@ -359,6 +359,7 @@ impl protocol_fee::Trait for Test {
     type Event = MetaEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl IdentityTrait for Test {
