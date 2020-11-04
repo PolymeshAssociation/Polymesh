@@ -18,6 +18,25 @@
 //! The capital distributions module provides functionality for distributing benefits,
 //! whether predictable, or unpredictable, to tokenholders.
 //!
+//! The process works by first initiating the corporate action (CA) through `initiate_corporate_action`,
+//! and then attaching a capital distribution to it via `distribute`.
+//!
+//! When attaching a distribution, the portfolio to withdraw from is provided,
+//! as is the currency and amount of it to withdraw from the portfolio.
+//! Additionally, a date (`payment_at`) is provided at which withdrawals may first happen,
+//! as well as an optional expiry date `expires_at`,
+//! at which shares are forfeit and may be reclaimed by the CAA.
+//!
+//! As aforementioned, once `payment_at` is due, shares may be withdrawn.
+//! This can be done either through `claim`, which is pull-based. That is, holders withdraw themselves.
+//! The other mechanism is via `push_shares`, which with the CAA can push to a number of holders.
+//! Once `expires_at` is reached, however, the remaining amount to distribute is forfeit,
+//! and cannot be claimed by any holder, or pushed to them.
+//! Instead, that amount can be reclaimed by the CAA.
+//!
+//! BVefore `payment_at` is due, however,
+//! a planned distribution can be cancelled by calling `remove_distribution`.
+//!
 //! ## Overview
 //!
 //! The module provides functions for:
