@@ -20,7 +20,7 @@
 //!
 //! ## Overview
 //!
-//! The following documentation covers the functionalities needed for confidential transfer of a token.
+//! The following documentation covers the functionalities needed for a transfer of a confidential token.
 //! Part of this functionality (creating a confidential account and minting confidential tokens) are
 //! handled in this pallet, while the confidential transfer is handled by the
 //! [settlement module](../pallet_settlement/index.html). These pallets call out to the
@@ -53,27 +53,27 @@
 //!   There are 8 different phases for a transaction
 //!     1. Create a confidential asset using `create_confidential_asset()` dispatchable. Note that
 //!        unlike `create_asset()`, the minting is performed separately (in step 3).
-//!     2. Different parties can create confidential accounts to manage confidential asset in
-//!        their wallet the proof of correctness.
-//!        - The chain verifies the proofs and stores the confidential account on the chain.
-//!        - NB - The parties can create their account in any order, but they can only create
+//!     2. Different parties can create confidential accounts to manage the confidential asset in
+//!        their wallets and submit the proof of correctness to the chain.
+//!        - The chain verifies the proofs and stores the confidential accounts on the chain.
+//!        - NB - The parties can create their accounts in any order, but they can only create
 //!               an account for a mercat asset AFTER the mercat asset is created in step 1.
-//!     3. Issuer can issue tokens of a confidential asset using `mint_confidential_asset()`
-//!        dispatch and submits the proof of correctness to the chain.
+//!     3. The issuer issues tokens of a confidential asset using `mint_confidential_asset()`
+//!        dispatchable and submits the proof of correctness to the chain.
 //!        - The chain verifies the proofs and updates the encrypted balance on the chain.
-//!        - NB - Issuer can mint an asset only after she has created an account for that asset
+//!        - NB - The issuer can mint an asset only after she has created an account for that asset
 //!               in step 2.
 //!     4. The mediator creates a venue and an instruction with a `settlement::ConfidentialLeg`.
-//!     5. Sender initiates a transfer in her wallet and submits the proof of correctness to the
+//!     5. The sender initiates a transfer in her wallet and submits the proof of correctness to the
 //!        chain using `settlement::authorize_confidential_instruction()` dispatchable.
-//!     6. Receiver finalizes a transfer in her wallet and submits the proof of correctness to
+//!     6. The receiver finalizes the transfer in her wallet and submits the proof of correctness to
 //!        the chain using `settlement::authorize_confidential_instruction()` dispatchable.
-//!     7. Mediator justifies a transfer in her wallet and submits the proof of correctness to
+//!     7. The mediator justifies the transfer in her wallet and submits the proof of correctness to
 //!        the chain using `settlement::authorize_confidential_instruction()` dispatchable.
-//!     8. Once all proofs of steps 4-6 are gathered, the chain verifies them and updates the
+//!     8. Once all proofs of steps 4-7 are gathered, the chain verifies them and updates the
 //!        encrypted balance of the Sender and the Receiver.
 //!
-//!     NB - The steps 4-7 must be performed sequentially by each party (they each need information
+//!     NB - The steps 4-7 must be performed sequentially by each party since they all need information
 //!          from the chain that is only available after the previous party authorizes the
 //!          instruction.
 //!     
@@ -82,8 +82,8 @@
 //!
 //! The main goal is to enable the confidential transfer of assets such that the amount and the
 //! asset type of the transfer remain hidden from anyone who has access to the chain. But at the
-//! same time, enable certain stakeholders (issuer, mediator, and auditors) to view both the asset
-//! and transfer amount for reporting, compliance check, and auditing purposes.
+//! same time, enable certain stakeholders (issuers, mediators, and auditors) to view both the asset
+//! and transfer amount for reporting, compliance checking, and auditing purposes.
 //!
 //!
 //! ## Limitations
@@ -94,7 +94,7 @@
 //!
 //! ## Implementation Details
 //!
-//! - The proofs should be base64 encoded before getting passed to the chain.
+//! - The proofs should be base64-encoded before getting passed to the chain.
 //!
 //! ## Related Modules
 //!
