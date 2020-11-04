@@ -15,25 +15,31 @@
 
 //! # Capital Distribution Module
 //!
-//! TODO
+//! The capital distributions module provides functionality for distributing benefits,
+//! whether predictable, or unpredictable, to tokenholders.
 //!
 //! ## Overview
 //!
-//! TODO
+//! The module provides functions for:
+//!
+//! - Starting a distribution..
+//! - Claiming or pushing shares of a distribution.
+//! - Reclaiming unclaimed dividends.
 //!
 //! ### Terminology
 //!
-//! TODO
+//! - **Currency:** The ticker being distributed to holders as a benefit, e.g., USDC or some such.
+//! - **Payment-at date:** The date at which benefits may be claimed by or pushed to holders.
+//! - **Expires-at date:** The date at which benefits are forfeit, and may be reclaimed by the CAA.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! TODO
-//!
-//! ### Public Functions
-//!
-//! TODO
+//! - `distribute` starts a capital distribution.
+//! - `claim` claims (pull) a share of an active capital distribution on behalf of a holder.
+//! - `push_shares` pushes shares of an active capital distribution to many holders.
+//! - `reclaim` reclaims forfeited shares of a capital distribution that has expired.
 
 use crate as ca;
 use ca::{CAId, CorporateAction, Tax, Trait};
