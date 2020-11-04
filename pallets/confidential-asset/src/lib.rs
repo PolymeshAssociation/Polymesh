@@ -56,8 +56,8 @@
 //!     2. Different parties can create confidential accounts to manage the confidential asset in
 //!        their wallets and submit the proof of correctness to the chain.
 //!        - The chain verifies the proofs and stores the confidential accounts on the chain.
-//!        - NB - The parties can create their accounts in any order, but they can only create
-//!               an account for a mercat asset AFTER the mercat asset is created in step 1.
+//!        - NB - The parties can create their accounts in any order, but each can only create
+//!               their account for the MERCAT asset AFTER the MERCAT asset is created in step 1.
 //!     3. The issuer issues assets of a confidential asset using `mint_confidential_asset()`
 //!        dispatchable and submits the proof of correctness to the chain.
 //!        - The chain verifies the proofs and updates the encrypted balance on the chain.
