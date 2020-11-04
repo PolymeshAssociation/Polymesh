@@ -15,24 +15,64 @@
 
 //! # Corporate Ballots module.
 //!
-//! TODO
+//! The corporate ballots module provides functionality for conducting corporate ballots,
+//! e.g., for the annual general meeting.
+//! Ballots consist of a set of motions, each with a set of choices like "Yay" or "Nay".
+//!
+//! The process works by first initiating the corporate action (CA) through `initiate_corporate_action`,
+//! and then attaching a ballot to it via `attach_ballot`.
+//! When attaching a ballot, the motions are provided, along with when the duration of the ballot.
+//!
+//! Once the start time is due, token holders in the CA's ticker/asset may cast their ballot.
+//! To do so, they call the `vote` dispatchable,
+//! dividing their available votes to each choice within a motion.
+//!
+//! The available votes are computed based on the record date provided when the CA was created.
+//! The record date is then translated into a checkpoint,
+//! and the holder's balance at that point is used as the available power.
+//!
+//! Eventually, the voting duration will be over.
+//! The interpretation of the vote results can then be interpreted off-chain,
+//! depending on the exact by-laws of the corporation.
+//! For example, Ranked-Choice Voting (RCV), may be used, when fallbacks are provided in votes.
 //!
 //! ## Overview
 //!
-//! TODO
+//! The Voting module provides functions for:
+//!
+//! - Creating ballots that can include multiple motions with multiple choices for each of those.
+//! - Adjusting details of a ballot that hasn't yet started.
+//! - Voting on motions.
+//! - Removing/Cancelling ballots.
+//!
+//! ### Terminology
+//!
+//! - **Ballot:** A set of motions made, each with a set of choices on which a token holder can vote.
+//!
+//! - **Motion:** A motion can be e.g., "Elect Alice as CEO".
+//!     That is, a motion is a suggested action or stance that the corporation should take.
+//!     Each motion can then have a number of choices, e.g., "Yay", or "Nay".
+//!     Token holders can then divide all of their power across the choices of one motion,
+//!     and reuse the same amount of voting power on other motions.
+//!     The motion is associated with some descriptive text, and a link for more information.
+//!     Commonly, a motion will only have two choices, "Yay" or "Nay".
+//!     Any voting power that is not used is considered as abstain.
+//!
+//! - **RCV:** Ranked-Choice Voting allows voters to select a fallback choice should their first
+//!     preference fail to reach a certain threshold or e.g., be eliminated in the top-2 run-off.
+//!     The chain supports this by admitting fallback choices, if the ballot is configured to support this.
 //!
 //! ## Interface
 //!
-//! TODO
-//!
 //! ### Dispatchable Functions
 //!
-//! TODO
-//!
-//! ### Public Functions
-//!
-//! TODO
-//!
+//! - `attach_ballot(origin, ca_id, range, meta)` attaches a ballot to CA with `ca_id`
+//!   within the voting duration specified by `range`, and motions drawn from `meta`.
+//! - `vote(origin, ca_id, votes)` casts `votes` in the ballot for CA with `ca_id`.
+//! - `change_end(origin, ca_id, end)` changes the end date of the ballot for CA with `ca_id`.
+//! - `change_meta(origin, ca_id, meta)` changes the motions of the ballot for CA with `ca_id`.
+//! - `change_rcv(origin, ca_id, rcv)` changes the support for RCV to `rcv` in the ballot for CA with `ca_id`.
+//! - `remove_ballot(origin, ca_id)` removes the ballot for CA with `ca_id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
