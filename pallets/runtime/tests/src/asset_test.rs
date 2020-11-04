@@ -1799,7 +1799,7 @@ fn test_can_transfer_rpc() {
 
             // // Case 4: When sender doesn't posses a valid cdd
             // // 4.1: Create Identity who doesn't posses cdd
-            // let (from_without_cdd_signed, from_without_cdd_did) = make_account(AccountKeyring::Ferdie.public()).unwrap();
+            // let (from_without_cdd_signed, from_without_cdd_did) = make_account_with_uid(AccountKeyring::Ferdie.public()).unwrap();
             // // Execute can_transfer
             // assert_eq!(
             //     Asset::unsafe_can_transfer(
@@ -2760,8 +2760,8 @@ fn next_checkpoint_is_updated() {
 }
 
 fn next_checkpoint_is_updated_we() {
-    // 14 November 2023, 22:13 UTC
-    let start: u64 = 1_700_000_000;
+    // 14 November 2023, 22:13 UTC (millisecs)
+    let start: u64 = 1_700_000_000_000;
     // A period of 42 hours.
     let period = CalendarPeriod {
         unit: CalendarUnit::Hour,
@@ -2772,12 +2772,9 @@ fn next_checkpoint_is_updated_we() {
         FixedOrVariableCalendarUnit::Fixed(secs) => secs,
         _ => panic!("period should be fixed"),
     };
-    let start_millisecs = start * 1000;
-    Timestamp::set_timestamp(start_millisecs);
-    assert_eq!(
-        start_millisecs,
-        <TestStorage as asset::Trait>::UnixTime::now()
-    );
+    let period_ms = period_secs * 1000;
+    Timestamp::set_timestamp(start);
+    assert_eq!(start, <TestStorage as asset::Trait>::UnixTime::now());
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -2810,12 +2807,9 @@ fn next_checkpoint_is_updated_we() {
     assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
-    assert_eq!(
-        vec![Some(start + period_secs)],
-        next_checkpoints(ticker, start),
-    );
-    assert_eq!(vec![start + period_secs], checkpoint_ats(ticker));
-    let checkpoint2_secs = start_millisecs + period_secs * 1000;
+    let checkpoint2 = start + period_ms;
+    assert_eq!(vec![Some(checkpoint2)], next_checkpoints(ticker, start),);
+    assert_eq!(vec![checkpoint2], checkpoint_ats(ticker));
 
     let transfer = |at| {
         Timestamp::set_timestamp(at);
@@ -2828,18 +2822,18 @@ fn next_checkpoint_is_updated_we() {
     };
 
     // Make a transaction before the next timestamp.
-    transfer(checkpoint2_secs - 1000);
+    transfer(checkpoint2 - 1000);
     // Make another transaction at the checkpoint.
     // The updates are applied after the checkpoint is recorded.
     // After this transfer Alice's balance is 0.
-    transfer(checkpoint2_secs);
+    transfer(checkpoint2);
     // The balance after checkpoint 2.
     assert_eq!(0, Asset::balance_of(&ticker, alice_did));
     // Balances at checkpoint 2.
     let id = CheckpointId(2);
-    assert_eq!(vec![start + 2 * period_secs], checkpoint_ats(ticker));
+    assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(ticker));
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-    assert_eq!(start + period_secs, Checkpoint::timestamps(id));
+    assert_eq!(start + period_ms, Checkpoint::timestamps(id));
     assert_eq!(
         total_supply / 2,
         Asset::get_balance_at(ticker, alice_did, id)
@@ -2855,16 +2849,12 @@ fn non_recurring_schedule_works() {
 }
 
 fn non_recurring_schedule_works_we() {
-    // 14 November 2023, 22:13 UTC
-    let start: u64 = 1_700_000_000;
+    // 14 November 2023, 22:13 UTC (millisecs)
+    let start: u64 = 1_700_000_000_000;
     // Non-recuring schedule.
     let period = CalendarPeriod::default();
-    let start_millisecs = start * 1000;
-    Timestamp::set_timestamp(start_millisecs);
-    assert_eq!(
-        start_millisecs,
-        <TestStorage as asset::Trait>::UnixTime::now()
-    );
+    Timestamp::set_timestamp(start);
+    assert_eq!(start, <TestStorage as asset::Trait>::UnixTime::now());
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
