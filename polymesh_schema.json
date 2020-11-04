@@ -495,10 +495,11 @@
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
+        "ChoiceTitle": "Text",
         "Motion": {
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
-            "choices": "Vec<MotionTitle>"
+            "choices": "Vec<ChoiceTitle>"
         },
         "Ballot": {
             "checkpoint_id": "u64",
@@ -506,13 +507,18 @@
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
         },
+        "BallotTitle": "Text",
         "BallotMeta": {
-            "title": "MotionTitle",
+            "title": "BallotTitle",
             "motions": "Vec<Motion>"
         },
-        "BallotRange": {
+        "BallotTimeRange": {
             "start": "Moment",
             "end": "Moment"
+        },
+        "BallotVote": {
+            "power": "Balance",
+            "fallback": "Option<u16>"
         },
         "MaybeBlock": {
             "_enum": {
