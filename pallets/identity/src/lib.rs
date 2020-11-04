@@ -269,7 +269,7 @@ decl_module! {
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+            migrate_map::<IdentityClaimOld, _>(b"identity", b"Claims", |raw_key| {
                 Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
                     .ok()
                     .map(|k1| (*k1.target.as_fixed_bytes()).into())
@@ -277,7 +277,7 @@ decl_module! {
 
             // Covert old scopes to new scopes
             migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Identity", b"Claims",
+                b"identity", b"Claims",
                 |k1: Claim1stKey, k2: Claim2ndKeyOld, val: IdentityClaim| Some((
                     k1,
                     Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) },
@@ -286,23 +286,23 @@ decl_module! {
             );
 
             migrate_map::<LinkedKeyInfo, _>(
-                b"Identity",
+                b"identity",
                 b"KeyToIdentityIds",
                 |_| Empty
             );
             migrate_map::<IdentityOld<T::AccountId>, _>(
-                b"Identity",
+                b"identity",
                 b"DidRecords",
                 |_| Empty
             );
 
-            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"Identity", b"DidRecords")
+            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
                 .drain()
                 .map(|(key, old)|  (key, DidRecord {
                     primary_key: old.primary_key,
                     secondary_keys: old.secondary_keys,
                 }))
-                .for_each(|(key, new)| put_storage_value(b"Identity", b"DidRecords", &key, new));
+                .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
