@@ -158,7 +158,7 @@ pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, Por
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::{Identity, IdentityWithRoles};
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
