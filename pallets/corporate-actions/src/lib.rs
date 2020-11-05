@@ -136,7 +136,7 @@ pub enum CAKind {
     /// An unpredictable benefit.
     /// These are announced during the *"life"* of the asset.
     /// Examples include dividends, bonus issues.
-    UnpredictableBenfit,
+    UnpredictableBenefit,
     /// A notice to the position holders, where the goal is to dessiminate information to them,
     /// resulting in no change to the securities or cash position of the position holder.
     /// Examples include Annual General Meetings.
@@ -154,7 +154,7 @@ pub enum CAKind {
 impl CAKind {
     /// Is this some sort of benefit CA?
     fn is_benefit(&self) -> bool {
-        matches!(self, Self::PredictableBenefit | Self::UnpredictableBenfit)
+        matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
     }
 }
 
@@ -209,7 +209,7 @@ pub struct CorporateAction {
     /// The identities this CA is relevant to.
     pub targets: TargetIdentities,
     /// The default withholding tax at the time of CA creation.
-    /// For more on withholding tax, see the `DefaultWitholdingTax` storage item.
+    /// For more on withholding tax, see the `DefaultWithholdingTax` storage item.
     pub default_withholding_tax: Tax,
     /// Any per-DID withholding tax overrides in relation to the default.
     pub withholding_tax: Vec<(IdentityId, Tax)>,
@@ -307,13 +307,13 @@ decl_storage! {
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
         ///
         /// (ticker => % to withhold)
-        pub DefaultWitholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
+        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
 
         /// The amount of tax to withhold ("withholding tax", WT) for a certain ticker x DID.
         /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
         ///
         /// (ticker => [(did, % to withhold)]
-        pub DidWitholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
+        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
 
         /// The next per-`Ticker` CA ID in the sequence.
         /// The full ID is defined as a combination of `Ticker` and a number in this sequence.
@@ -397,7 +397,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DefaultWitholdingTax::mutate(ticker, |slot| *slot = tax);
+            DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
         }
 
@@ -415,7 +415,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DidWitholdingTax::mutate(ticker, |whts| {
+            DidWithholdingTax::mutate(ticker, |whts| {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
                 match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {

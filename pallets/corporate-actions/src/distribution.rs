@@ -25,16 +25,16 @@
 //! as is the currency and amount of it to withdraw from the portfolio.
 //! Additionally, a date (`payment_at`) is provided at which withdrawals may first happen,
 //! as well as an optional expiry date `expires_at`,
-//! at which shares are forfeit and may be reclaimed by the CAA.
+//! at which benefits are forfeit and may be reclaimed by the CAA.
 //!
-//! As aforementioned, once `payment_at` is due, shares may be withdrawn.
+//! As aforementioned, once `payment_at` is due, benefits may be withdrawn.
 //! This can be done either through `claim`, which is pull-based. That is, holders withdraw themselves.
-//! The other mechanism is via `push_shares`, which with the CAA can push to a number of holders.
+//! The other mechanism is via `push_benefits`, which with the CAA can push to a number of holders.
 //! Once `expires_at` is reached, however, the remaining amount to distribute is forfeit,
 //! and cannot be claimed by any holder, or pushed to them.
 //! Instead, that amount can be reclaimed by the CAA.
 //!
-//! BVefore `payment_at` is due, however,
+//! Before `payment_at` is due, however,
 //! a planned distribution can be cancelled by calling `remove_distribution`.
 //!
 //! ## Overview
@@ -42,7 +42,7 @@
 //! The module provides functions for:
 //!
 //! - Starting a distribution..
-//! - Claiming or pushing shares of a distribution.
+//! - Claiming or pushing benefits of a distribution.
 //! - Reclaiming unclaimed dividends.
 //!
 //! ### Terminology
@@ -56,9 +56,9 @@
 //! ### Dispatchable Functions
 //!
 //! - `distribute` starts a capital distribution.
-//! - `claim` claims (pull) a share of an active capital distribution on behalf of a holder.
-//! - `push_shares` pushes shares of an active capital distribution to many holders.
-//! - `reclaim` reclaims forfeited shares of a capital distribution that has expired.
+//! - `claim` claims (pull) a benefit of an active capital distribution on behalf of a holder.
+//! - `push_benefits` pushes benefits of an active capital distribution to many holders.
+//! - `reclaim` reclaims forfeited benefits of a capital distribution that has expired.
 //! - `remove_distribution` removes a capital distribution which hasn't reached its payment date yet.
 
 use crate as ca;
@@ -122,14 +122,12 @@ decl_storage! {
         /// All capital distributions, tied to their respective corporate actions (CAs).
         ///
         /// (CAId) => Distribution
-        Distributions get(fn distributions):
-            map hasher(blake2_128_concat) CAId => Option<Distribution<T::Balance>>;
+        Distributions get(fn distributions): map hasher(blake2_128_concat) CAId => Option<Distribution<T::Balance>>;
 
         /// Has an asset holder been paid yet?
         ///
         /// (CAId, DID) -> Was DID paid in the CAId?
-        HolderPaid get(fn holder_paid):
-            double_map hasher(blake2_128_concat) CAId, hasher(blake2_128_concat) IdentityId => bool;
+        HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
     }
 }
 
@@ -151,8 +149,8 @@ decl_module! {
         /// - `portfolio` specifies the portfolio number of the CAA to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
         /// - `amount` of `currency` to withdraw and distribute.
-        /// - `payment_at` specifies when shares may first be pushed or claimed.
-        /// - `expires_at` speciies, if provided, when remaining shares are forfeit
+        /// - `payment_at` specifies when benefits may first be pushed or claimed.
+        /// - `expires_at` specifies, if provided, when remaining benefits are forfeit
         ///    and may be reclaimed by `origin`.
         ///
         /// # Errors
@@ -205,7 +203,7 @@ decl_module! {
                 <Portfolio<T>>::lock_tokens(&from, &currency, &amount)?;
 
                 // Charge the protocol fee.
-                T::ProtocolFee::charge_fee(ProtocolOp::DividendNew)
+                T::ProtocolFee::charge_fee(ProtocolOp::DistributionDistribute)
             })?;
 
             // Commit to storage.
@@ -224,19 +222,19 @@ decl_module! {
             Self::deposit_event(Event::<T>::Created(caa, ca_id, distribution));
         }
 
-        /// Claim a share of the capital distribution attached to `ca_id`.
+        /// Claim a benefit of the capital distribution attached to `ca_id`.
         ///
         /// Taxes are withheld as specified by the CA.
         /// Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
         ///
-        /// All shares are rounded by truncation (down to first integer below).
+        /// All benefits are rounded by truncation (down to first integer below).
         ///
         /// ## Arguments
         /// - `origin` which must be a holder of for the CAA of `ca_id`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         ///
         /// # Errors
-        /// - `HolderAlreadyPaid` if `origin`'s DID has already received its share.
+        /// - `HolderAlreadyPaid` if `origin`'s DID has already received its benefit.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `CannotClaimBeforeStart` if `now < payment_at`.
         /// - `CannotClaimAfterExpiry` if `now > expiry_at.unwrap()`.
@@ -244,13 +242,13 @@ decl_module! {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
-        /// - Other errors can occur if the complicance manager rejects the transfer.
+        /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = 1_000_000_000]
         pub fn claim(origin, ca_id: CAId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
 
             // Ensure holder not paid yet.
-            ensure!(!HolderPaid::get(ca_id, did), Error::<T>::HolderAlreadyPaid);
+            ensure!(!HolderPaid::get((ca_id, did)), Error::<T>::HolderAlreadyPaid);
 
             // Ensure we have an active distribution.
             let mut dist = Self::ensure_active_distribution(ca_id)?;
@@ -263,26 +261,26 @@ decl_module! {
             let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
             let supply = <CA<T>>::supply_at_cp(ca_id, cp_id);
 
-            // Transfer DID's share to them.
-            Self::transfer_share(did, cp_id, supply, ca_id, &ca, &mut dist)?;
+            // Transfer DID's benefit to them.
+            Self::transfer_benefit(did, cp_id, supply, ca_id, &ca, &mut dist)?;
 
             // Commit `dist` changes.
             <Distributions<T>>::insert(ca_id, dist);
         }
 
-        /// Push shares of an ongoing distribution to at most `max` token holders.
+        /// Push benefits of an ongoing distribution to at most `max` token holders.
         ///
         /// Depending on the number of token holders,
-        /// `max` may be insufficient to push shares to all of them.
+        /// `max` may be insufficient to push benefits to all of them.
         ///
         /// Taxes are withheld as specified by the CA.
         /// Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
         ///
-        /// All shares are rounded by truncation (down to first integer below).
+        /// All benefits are rounded by truncation (down to first integer below).
         ///
         /// ## Arguments
         /// - `origin` which must be a holder of for the CAA of `ca_id`.
-        /// - `ca_id` identifies the CA with a capital distributions to push shares for.
+        /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
         /// - `max` number of holders to push to.
         ///
         /// # Errors
@@ -292,7 +290,7 @@ decl_module! {
         /// - `CannotClaimAfterExpiry` if `now > expiry_at.unwrap()`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         #[weight = 1_000_000_000]
-        pub fn push_shares(origin, ca_id: CAId, max: u32) {
+        pub fn push_benefits(origin, ca_id: CAId, max: u32) {
             // N.B. we allow the asset owner to call this as well, not just the CAA.
             let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
 
@@ -310,13 +308,13 @@ decl_module! {
             let count_fail = <asset::BalanceOf<T>>::iter_prefix(ca_id.ticker)
                 .map(|(did, _)| did)
                 .filter(|did| ca.targets.targets(did))
-                .filter(|did| !HolderPaid::get(ca_id, did))
+                .filter(|did| !HolderPaid::get((ca_id, did)))
                 .take(max as usize)
                 .inspect(|_| count += 1)
                 // N.B. we don't halt on first error to ensure progress is possible on each call.
                 // Progress won't happen if an error occurs for all DIDs.
-                .filter(|did| Self::transfer_share(*did, cp_id, supply, ca_id, &ca, &mut dist).is_err())
-                .inspect(|did| Self::deposit_event(Event::<T>::SharePushFailed(caa_ish, ca_id, *did)))
+                .filter(|did| Self::transfer_benefit(*did, cp_id, supply, ca_id, &ca, &mut dist).is_err())
+                .inspect(|did| Self::deposit_event(Event::<T>::BenefitPushFailed(caa_ish, ca_id, *did)))
                 .count() as u32;
 
             // Commit `dist` changes.
@@ -325,7 +323,7 @@ decl_module! {
             }
 
             // Emit some stats re. how pushing went overall.
-            Self::deposit_event(Event::<T>::SharesPushed(caa_ish, ca_id, max, count, count_fail));
+            Self::deposit_event(Event::<T>::BenefitPushed(caa_ish, ca_id, max, count, count_fail));
         }
 
         /// Assuming a distribution has expired,
@@ -351,8 +349,8 @@ decl_module! {
             ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
 
             // Unlock `remaining` of `currency` from DID's portfolio.
-            // This cannot fail, as we've already locked the requisite amount prior.
-            <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &dist.remaining).unwrap();
+            // This won't fail, as we've already locked the requisite amount prior.
+            Self::unlock(&dist, dist.remaining)?;
 
             // Zero `remaining` + note that we've reclaimed.
             <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining: 0.into(), ..dist });
@@ -380,9 +378,8 @@ decl_module! {
             ensure!(<Checkpoint<T>>::now_unix() < dist.payment_at, Error::<T>::DistributionStarted);
 
             // Unlock and remove chain data.
-            Self::unlock(&dist, dist.amount);
+            Self::unlock(&dist, dist.amount)?;
             <Distributions<T>>::remove(ca_id);
-            HolderPaid::remove_prefix(ca_id);
 
             // Emit event.
             Self::deposit_event(Event::<T>::Removed(caa, ca_id));
@@ -401,22 +398,22 @@ decl_event! {
         /// (CAA of CAId's ticker, CA's ID, distribution details)
         Created(EventDid, CAId, Distribution<Balance>),
 
-        /// A token holder's share of a capital distribution for the given `CAId` was claimed.
+        /// A token holder's benefit of a capital distribution for the given `CAId` was claimed.
         ///
-        /// (Holder/Claimant DID, CA's ID, updated distribution details, DID's share, DID's tax %)
-        ShareClaimed(EventDid, CAId, Distribution<Balance>, Balance, Tax),
+        /// (Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
+        BenefitClaimed(EventDid, CAId, Distribution<Balance>, Balance, Tax),
 
-        /// An attempt to push a holders share of a capital distribution failed.
+        /// An attempt to push a holders benefit of a capital distribution failed.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, holder that couldn't be pushed to)
-        SharePushFailed(EventDid, CAId, IdentityId),
+        BenefitPushFailed(EventDid, CAId, IdentityId),
 
-        /// Stats from `push_shares` was emitted.
+        /// Stats from `push_benefits` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        SharesPushed(EventDid, CAId, u32, u32, u32),
+        BenefitPushed(EventDid, CAId, u32, u32, u32),
 
-        /// Stats from `push_shares` was emitted.
+        /// Stats from `push_benefit` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
         Reclaimed(EventDid, CAId, Balance),
@@ -442,7 +439,7 @@ decl_error! {
         /// Currency that is distributed is the same as the CA's ticker.
         /// CAA is attempting a form of stock split, which is not what the extrinsic is for.
         DistributingAsset,
-        /// The token holder has already been paid their share.
+        /// The token holder has already been paid their benefit.
         HolderAlreadyPaid,
         /// A capital distribution doesn't exist for this CA.
         NoSuchDistribution,
@@ -466,8 +463,8 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Transfer share of `did` to them.
-    fn transfer_share(
+    /// Transfer benefit of `did` to them.
+    fn transfer_benefit(
         did: IdentityId,
         cp_id: Option<CheckpointId>,
         supply: T::Balance,
@@ -475,42 +472,43 @@ impl<T: Trait> Module<T> {
         ca: &CorporateAction,
         dist: &mut Distribution<T::Balance>,
     ) -> DispatchResult {
-        // Compute `balance * amount / supply`, i.e. DID's share.
+        // Compute `balance * amount / supply`, i.e. DID's benefit.
         let balance = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
-        let share = Self::share_of(balance, dist.amount, supply)?;
-
-        // Unlock `share` of `currency` from CAAs portfolio.
-        Self::unlock(&dist, share);
+        let benefit = Self::benefit_of(balance, dist.amount, supply)?;
 
         // Compute withholding tax + gain.
         let tax = ca.tax_of(&did);
-        let gain = share - tax * share;
+        let gain = benefit - tax * benefit;
 
-        // Transfer remainder (`gain`) to DID.
-        let to = PortfolioId::default_portfolio(did);
-        <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain).map_err(|e| e.error)?;
+        with_transaction(|| {
+            // Unlock `benefit` of `currency` from CAAs portfolio.
+            Self::unlock(&dist, benefit)?;
+
+            // Transfer remainder (`gain`) to DID.
+            let to = PortfolioId::default_portfolio(did);
+            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain).map_err(|e| e.error)
+        })?;
 
         // Note that DID was paid.
-        HolderPaid::insert(ca_id, did, true);
+        HolderPaid::insert((ca_id, did), true);
         let did = did.for_event();
 
         // Commit `dist` change to storage.
-        dist.remaining -= share;
+        dist.remaining -= benefit;
 
         // Emit event.
-        Self::deposit_event(Event::<T>::ShareClaimed(did, ca_id, *dist, share, tax));
+        Self::deposit_event(Event::<T>::BenefitClaimed(did, ca_id, *dist, benefit, tax));
 
         Ok(())
     }
 
     /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
-    /// Assumes that at least `amount` is locked.
-    fn unlock(dist: &Distribution<T::Balance>, amount: T::Balance) {
-        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &amount).unwrap();
+    fn unlock(dist: &Distribution<T::Balance>, amount: T::Balance) -> DispatchResult {
+        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &amount)
     }
 
-    // Compute `balance * amount / supply`, i.e. DID's share.
-    fn share_of(
+    // Compute `balance * amount / supply`, i.e. DID's benefit.
+    fn benefit_of(
         balance: T::Balance,
         amount: T::Balance,
         supply: T::Balance,
@@ -532,7 +530,7 @@ impl<T: Trait> Module<T> {
         // Fetch the distribution, ensuring it exists + start date is satisfied + not expired.
         let dist = Self::ensure_distribution_exists(ca_id)?;
         let now = <Checkpoint<T>>::now_unix();
-        ensure!(now > dist.payment_at, Error::<T>::CannotClaimBeforeStart);
+        ensure!(now >= dist.payment_at, Error::<T>::CannotClaimBeforeStart);
         ensure!(
             !expired(dist.expires_at, now),
             Error::<T>::CannotClaimAfterExpiry
