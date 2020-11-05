@@ -99,7 +99,6 @@
             "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
-            "roles": "Vec<IdentityRole>",
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
