@@ -16,7 +16,7 @@
 #![feature(box_syntax)]
 
 use polymesh_common_utilities::identity::Trait as IdentityTrait;
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{rng, IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use pallet_identity as identity;
@@ -32,9 +32,6 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
 };
 use sp_std::prelude::*;
-
-pub mod rng;
-pub use rng::native_rng;
 
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
