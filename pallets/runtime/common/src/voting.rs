@@ -66,7 +66,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 /// The module's configuration trait.
 pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 }
 
 /// A wrapper for a motion title.

@@ -13,9 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
+use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker, AssetIdentifier};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
@@ -53,17 +55,54 @@ pub struct IssueAssetItem<U> {
     pub value: U,
 }
 
-pub trait Trait<V, U> {
-    fn total_supply(ticker: &Ticker) -> V;
-    fn balance(ticker: &Ticker, did: IdentityId) -> V;
+/// A wrapper for a token name.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct AssetName(pub Vec<u8>);
+
+/// The type of an asset represented by a token.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub enum AssetType {
+    EquityCommon,
+    EquityPreferred,
+    Commodity,
+    FixedIncome,
+    REIT,
+    Fund,
+    RevenueShareAgreement,
+    StructuredProduct,
+    Derivative,
+    Custom(Vec<u8>),
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        AssetType::Custom(b"undefined".to_vec())
+    }
+}
+
+/// A wrapper for a funding round name.
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
+pub struct FundingRoundName(pub Vec<u8>);
+
+impl Default for FundingRoundName {
+    fn default() -> Self {
+        FundingRoundName("".as_bytes().to_vec())
+    }
+}
+
+pub trait Trait<Balance, Account, O> {
+    fn total_supply(ticker: &Ticker) -> Balance;
+    fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     fn _mint_from_sto(
         ticker: &Ticker,
-        caller: U,
+        caller: Account,
         sender_did: IdentityId,
-        assets_purchased: V,
+        assets_purchased: Balance,
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> V;
+    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
     fn max_number_of_tm_extension() -> u32;
@@ -71,6 +110,17 @@ pub trait Trait<V, U> {
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
-        value: V,
+        value: Balance,
     ) -> DispatchResultWithPostInfo;
+
+    fn create_asset(
+        origin: O,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult;
 }

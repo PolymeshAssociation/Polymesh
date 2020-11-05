@@ -72,6 +72,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{
@@ -111,7 +114,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;

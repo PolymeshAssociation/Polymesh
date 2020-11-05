@@ -103,7 +103,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AssetSubTrait, Trait as AssetTrait, AssetName, AssetType, FundingRoundName, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -116,7 +116,6 @@ use polymesh_primitives::{
     IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
     SmartExtensionName, SmartExtensionType, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -153,26 +152,7 @@ pub trait Trait:
     type UnixTime: UnixTime;
 }
 
-/// The type of an asset represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum AssetType {
-    EquityCommon,
-    EquityPreferred,
-    Commodity,
-    FixedIncome,
-    REIT,
-    Fund,
-    RevenueShareAgreement,
-    StructuredProduct,
-    Derivative,
-    Custom(Vec<u8>),
-}
 
-impl Default for AssetType {
-    fn default() -> Self {
-        AssetType::Custom(b"undefined".to_vec())
-    }
-}
 
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -185,22 +165,6 @@ pub enum AssetOwnershipRelation {
 impl Default for AssetOwnershipRelation {
     fn default() -> Self {
         Self::NotOwned
-    }
-}
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
-pub struct FundingRoundName(pub Vec<u8>);
-
-impl Default for FundingRoundName {
-    fn default() -> Self {
-        FundingRoundName("".as_bytes().to_vec())
     }
 }
 
@@ -1141,7 +1105,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
+impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     fn _mint_from_sto(
         ticker: &Ticker,
         caller: T::AccountId,
@@ -1193,6 +1157,20 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    #[inline]
+    fn create_asset(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        Self::create_asset( origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
     }
 }
 
