@@ -17,7 +17,7 @@ use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use polymesh_primitives::{IdentityId, InvestorUid, Ticker};
-
+use polymesh_common_utilities::traits::asset::AssetName;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
 use frame_system::RawOrigin;

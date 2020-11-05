@@ -16,8 +16,17 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{IdentityId, PortfolioId, ScopeId, Ticker};
+use polymesh_primitives_derive::VecU8StrongTyped;
+use sp_std::prelude::Vec;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
+
+/// A wrapper for a token name.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct AssetName(pub Vec<u8>);
+
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait {
     /// Accept and process a ticker transfer
@@ -73,4 +82,5 @@ pub trait Trait<V, U> {
         ticker: &Ticker,
         value: V,
     ) -> DispatchResultWithPostInfo;
+    fn create_asset(owner_did: IdentityId, ticker: &Ticker, name: AssetName, total_supply: V) -> DispatchResult;
 }

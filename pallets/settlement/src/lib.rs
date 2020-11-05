@@ -1353,4 +1353,17 @@ impl<T: Trait> Module<T> {
             };
         execute_instruction_weight
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_venue(did: IdentityId, details: VenueDetails, signers: Vec<T::AccountId>) -> DispatchResult {
+        let venue = Venue::new(did, details, VenueType::Distribution);
+        // NB: Venue counter starts with 1.
+        let venue_counter = Self::venue_counter();
+        <VenueInfo>::insert(venue_counter, venue);
+        for signer in signers {
+            <VenueSigners<T>>::insert(venue_counter, signer, true);
+        }
+        <VenueCounter>::put(venue_counter + 1);
+        Ok(())
+    }
 }

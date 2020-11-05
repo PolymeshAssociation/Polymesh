@@ -4,11 +4,11 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, StorageDoubleMap};
-use pallet_asset::AssetName;
 use pallet_corporate_actions::{
     TargetIdentities,
     TargetTreatment::{Exclude, Include},
 };
+use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_primitives::{AuthorizationData, PortfolioId, Signatory, Ticker};
 use sp_arithmetic::Permill;
 use std::convert::TryInto;

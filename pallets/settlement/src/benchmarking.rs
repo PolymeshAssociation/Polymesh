@@ -19,6 +19,7 @@ use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use polymesh_primitives::{IdentityId, InvestorUid, Ticker, PortfolioId};
+use polymesh_common_utilities::traits::asset::AssetName;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
@@ -29,6 +30,7 @@ const SEED: u32 = 0;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 200;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_LEGS_LENGTH: u32 = 50;
+const MAX_VENUE_ALLOWED: u32 = 100;
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -47,24 +49,23 @@ fn make_account<T: Trait>(
     (account, origin, did)
 }
 
-// Create venue by assuming worst case scenario.
-fn create_venue_<T: Trait>(name: &'static str, u: u32) -> u64 {
-    let make_account_data = make_account::<T>(name, u);
-    let origin = make_account_data.1;
-    let id = make_account_data.2;
+// Create venue.
+fn create_venue_<T: Trait>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
     // Worst case length for the venue details.
     let venue_details = VenueDetails::from(vec![b'D'; 200 as usize].as_slice());
-    let venue_type = VenueType::Distribution;
-    let mut signers = Vec::with_capacity(MAX_SIGNERS_ALLOWED as usize);
-    // Create signers vector.
-    for signer in 0..MAX_SIGNERS_ALLOWED {
-        signers.push(make_account::<T>("signers", signer).0);
-    }
-    let _ = Module::<T>::create_venue(origin.into(), venue_details, signers, venue_type);
-    Module::<T>::user_venues(id)
+    let _ = Module::<T>::add_venue(did, venue_details, signers);
+    Module::<T>::user_venues(did)
         .into_iter()
         .last()
         .unwrap_or_default()
+}
+
+// create asset
+fn create_asset_<T: Trait>(did: IdentityId) -> Ticker {
+    let ticker = Ticker::try_from(vec![b'A'; 16 as usize].as_slice()).unwrap();
+    let name = AssetName::from(vec![b'N'; 16 as usize].as_slice());
+    T::Asset::create_asset(did, &ticker, name, 1000.into());
+    ticker
 }
 
 benchmarks! {
@@ -88,16 +89,18 @@ benchmarks! {
         }
     }: _(origin, venue_details, signers, venue_type)
 
+
     update_venue {
         // Variations for the venue_details length.
         let d in 1 .. MAX_VENUE_DETAILS_LENGTH;
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
         // Venue type.
         let venue_type = VenueType::Sto;
+        let (_, origin, did) = make_account::<T>("creator", SEED);
         // create venue
-        let venue_id = create_venue_::<T>("creator", SEED);
-        let origin = make_account::<T>("creator", SEED).1;
+        let venue_id = create_venue_::<T>(did, [].to_vec());
     }: _(origin, venue_id, Some(venue_details), Some(venue_type))
+
 
     add_instruction {
 
@@ -108,8 +111,8 @@ benchmarks! {
         let mut legs = Vec::with_capacity(l as usize);
 
         // create venue
-        let venue_id = create_venue_::<T>("creator", SEED);
-        let origin = make_account::<T>("creator", SEED).1;
+        let (_, origin, did,) = make_account::<T>("creator", SEED);
+        let venue_id = create_venue_::<T>(did, [].to_vec());
 
         let settlement_type = if d == 1 {
             SettlementType::SettleOnBlock(100.into())
@@ -130,6 +133,7 @@ benchmarks! {
         }
     }: _(origin, venue_id, settlement_type, None, legs)
 
+
     add_and_affirm_instruction {
         // Define settlement type
         let d in 0 .. 1;
@@ -138,9 +142,8 @@ benchmarks! {
         let mut legs = Vec::with_capacity(l as usize);
 
         // create venue
-        let venue_id = create_venue_::<T>("creator", SEED);
-        let origin = make_account::<T>("creator", SEED).1;
-        let did = make_account::<T>("creator", SEED).2;
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let venue_id = create_venue_::<T>(did, [].to_vec());
 
         let settlement_type = if d == 1 {
             system::Module::<T>::set_block_number(50.into());
@@ -156,7 +159,7 @@ benchmarks! {
         for n in 1 .. l {
             let ticker = Ticker::try_from(vec![b'A'; n as usize].as_slice()).unwrap();
             let portfolio_from = PortfolioId::user_portfolio(did, (n + 100).into());
-            let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 200.into())?;
+            let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
             let portfolio_to = PortfolioId::user_portfolio(make_account::<T>("to_did", n + 500).2, (n + 500).into());
             legs.push(Leg {
                 from: portfolio_from,
@@ -168,9 +171,62 @@ benchmarks! {
         }
     }: _(origin, venue_id, settlement_type, None, legs, portfolios)
 
-    // This dispatchable weight is depend on the no. of portfolios passed and who much compliance restrictions
-    // + TMs are added for a given ticker.
-    // affirm_instruction {
+
+    set_venue_filtering {
+        // Constant time function. It is only for allow venue filtering.
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let ticker = create_asset_::<T>(did);
+    }: _(origin, ticker, true)
+
+
+    set_venue_filtering_disallow {
+        // Constant time function. It is only for disallowing venue filtering.
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let ticker = create_asset_::<T>(did);
+    }: set_venue_filtering(origin, ticker, false)
+
+
+    allow_venues {
+        // Count of venue is variant for this dispatchable.
+        let v in 0 .. MAX_VENUE_ALLOWED;
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let ticker = create_asset_::<T>(did);
+        let mut venues: Vec<u64> = Vec::new();
+        for i in 0 .. v {
+            venues.push(i.into());
+        }
+    }: _(origin, ticker, venues)
+
+
+    disallow_venues {
+        // Count of venue is variant for this dispatchable.
+        let v in 0 .. MAX_VENUE_ALLOWED;
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let ticker = create_asset_::<T>(did);
+        let mut venues: Vec<u64> = Vec::new();
+        for i in 0 .. v {
+            venues.push(i.into());
+        }
+    }: _(origin, ticker, venues)
+
+
+    affirm_instruction {
+
+        // Worst case for the affirm_instruction will be.
+        // 1. An instruction can have the maximum no. of legs. We are assuming
+        // that the sender and receiver will be same in both case and last affirmation
+        // will be done by providing all portfolios at once.
+        // 2. Tickers for every leg will be different.
+        // 3. Maximum no. of Smart extensions are used.
+        // 4. User's compliance get verified by the last asset compliance rules.
+
+        let l in 0 .. MAX_LEGS_LENGTH;
+        let tm in 0 .. MAX_TM_ALLOWED;
+        let cr in 0 .. MAX_COMPLIANCE_RESTRICTION_ALLOWED;
+
+        // Create instruction will maximum legs.
         
-    // }: _()
+
+
+    }: _()
 }

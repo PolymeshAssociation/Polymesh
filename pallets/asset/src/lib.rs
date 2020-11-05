@@ -101,7 +101,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT, AssetName},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -180,12 +180,6 @@ impl Default for AssetOwnershipRelation {
         Self::NotOwned
     }
 }
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
 
 /// A wrapper for a funding round name.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
@@ -1363,6 +1357,20 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_asset(owner_did: IdentityId, ticker: &Ticker, name: AssetName, total_supply: T::Balance) -> DispatchResult {
+        let token = SecurityToken {
+            name,
+            total_supply,
+            owner_did,
+            divisible: true,
+            asset_type: AssetType::EquityCommon,
+            primary_issuance_agent: Some(owner_did),
+        };
+        <Tokens<T>>::insert(ticker, token);
+        Ok(())
     }
 }
 
