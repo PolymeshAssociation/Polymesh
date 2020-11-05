@@ -1355,7 +1355,7 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_venue(did: IdentityId, details: VenueDetails, signers: Vec<T::AccountId>) -> DispatchResult {
+    fn add_venue(did: IdentityId, details: VenueDetails, signers: Vec<T::AccountId>) {
         let venue = Venue::new(did, details, VenueType::Distribution);
         // NB: Venue counter starts with 1.
         let venue_counter = Self::venue_counter();
@@ -1364,6 +1364,16 @@ impl<T: Trait> Module<T> {
             <VenueSigners<T>>::insert(venue_counter, signer, true);
         }
         <VenueCounter>::put(venue_counter + 1);
-        Ok(())
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_instruction_let_status_to_skipped(instruction_id: u64, leg_id: u64, signer: T::AccountId, receipt_uid: u64) {
+        <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
+        <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionToBeSkipped(signer, receipt_uid));
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: AffirmationStatus) {
+        UserAffirmations::insert(portfolio, instruction_id, affirm);
     }
 }

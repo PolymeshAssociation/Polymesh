@@ -558,7 +558,7 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxLegsInAInstruction: u32 = 50;
 }
 
 impl settlement::Trait for Runtime {
