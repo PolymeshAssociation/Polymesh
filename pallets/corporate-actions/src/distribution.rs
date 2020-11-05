@@ -29,7 +29,7 @@
 //!
 //! As aforementioned, once `payment_at` is due, benefits may be withdrawn.
 //! This can be done either through `claim`, which is pull-based. That is, holders withdraw themselves.
-//! The other mechanism is via `push_benefits`, which with the CAA can push to a number of holders.
+//! The other mechanism is via `push_benefit`, which with the CAA can push to a holder.
 //! Once `expires_at` is reached, however, the remaining amount to distribute is forfeit,
 //! and cannot be claimed by any holder, or pushed to them.
 //! Instead, that amount can be reclaimed by the CAA.
@@ -57,12 +57,12 @@
 //!
 //! - `distribute` starts a capital distribution.
 //! - `claim` claims (pull) a benefit of an active capital distribution on behalf of a holder.
-//! - `push_benefits` pushes benefits of an active capital distribution to many holders.
+//! - `push_benefit` pushes a benefit of an active capital distribution to a holder.
 //! - `reclaim` reclaims forfeited benefits of a capital distribution that has expired.
 //! - `remove_distribution` removes a capital distribution which hasn't reached its payment date yet.
 
 use crate as ca;
-use ca::{CAId, CorporateAction, Tax, Trait};
+use ca::{CAId, Tax, Trait};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -76,9 +76,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, CommonTrait,
 };
-use polymesh_primitives::{
-    calendar::CheckpointId, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker,
-};
+use polymesh_primitives::{EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker};
 use sp_runtime::traits::{CheckedDiv, CheckedMul};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -246,32 +244,10 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn claim(origin, ca_id: CAId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
-
-            // Ensure holder not paid yet.
-            ensure!(!HolderPaid::get((ca_id, did)), Error::<T>::HolderAlreadyPaid);
-
-            // Ensure we have an active distribution.
-            let mut dist = Self::ensure_active_distribution(ca_id)?;
-
-            // Fetch the CA data (cannot fail) + ensure CA targets DID.
-            let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-            <CA<T>>::ensure_ca_targets(&ca, &did)?;
-
-            // Extract CP + total supply at the record date.
-            let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
-            let supply = <CA<T>>::supply_at_cp(ca_id, cp_id);
-
-            // Transfer DID's benefit to them.
-            Self::transfer_benefit(did, cp_id, supply, ca_id, &ca, &mut dist)?;
-
-            // Commit `dist` changes.
-            <Distributions<T>>::insert(ca_id, dist);
+            Self::transfer_benefit(did.for_event(), did, ca_id)?;
         }
 
-        /// Push benefits of an ongoing distribution to at most `max` token holders.
-        ///
-        /// Depending on the number of token holders,
-        /// `max` may be insufficient to push benefits to all of them.
+        /// Push benefit of an ongoing distribution to the given `holder`.
         ///
         /// Taxes are withheld as specified by the CA.
         /// Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
@@ -281,7 +257,7 @@ decl_module! {
         /// ## Arguments
         /// - `origin` which must be a holder of for the CAA of `ca_id`.
         /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
-        /// - `max` number of holders to push to.
+        /// - `holder` to push benefits to.
         ///
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not the `ticker`'s CAA or owner.
@@ -289,41 +265,15 @@ decl_module! {
         /// - `CannotClaimBeforeStart` if `now < payment_at`.
         /// - `CannotClaimAfterExpiry` if `now > expiry_at.unwrap()`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
+        /// - `NotTargetedByCA` if the CA does not target `holder`.
+        /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
+        /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
+        /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = 1_000_000_000]
-        pub fn push_benefits(origin, ca_id: CAId, max: u32) {
+        pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
             // N.B. we allow the asset owner to call this as well, not just the CAA.
             let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
-
-            // Ensure we have an active distribution.
-            let mut dist = Self::ensure_active_distribution(ca_id)?;
-
-            // Fetch the CA data (cannot fail).
-            let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-
-            // Extract CP + total supply at the record date.
-            let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
-            let supply = <CA<T>>::supply_at_cp(ca_id, cp_id);
-
-            let mut count: u32 = 0;
-            let count_fail = <asset::BalanceOf<T>>::iter_prefix(ca_id.ticker)
-                .map(|(did, _)| did)
-                .filter(|did| ca.targets.targets(did))
-                .filter(|did| !HolderPaid::get((ca_id, did)))
-                .take(max as usize)
-                .inspect(|_| count += 1)
-                // N.B. we don't halt on first error to ensure progress is possible on each call.
-                // Progress won't happen if an error occurs for all DIDs.
-                .filter(|did| Self::transfer_benefit(*did, cp_id, supply, ca_id, &ca, &mut dist).is_err())
-                .inspect(|did| Self::deposit_event(Event::<T>::BenefitPushFailed(caa_ish, ca_id, *did)))
-                .count() as u32;
-
-            // Commit `dist` changes.
-            if count - count_fail > 0 {
-                <Distributions<T>>::insert(ca_id, dist);
-            }
-
-            // Emit some stats re. how pushing went overall.
-            Self::deposit_event(Event::<T>::BenefitPushed(caa_ish, ca_id, max, count, count_fail));
+            Self::transfer_benefit(caa_ish, holder, ca_id)?;
         }
 
         /// Assuming a distribution has expired,
@@ -400,18 +350,8 @@ decl_event! {
 
         /// A token holder's benefit of a capital distribution for the given `CAId` was claimed.
         ///
-        /// (Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
-        BenefitClaimed(EventDid, CAId, Distribution<Balance>, Balance, Tax),
-
-        /// An attempt to push a holders benefit of a capital distribution failed.
-        ///
-        /// (CAA/owner of CA's ticker, CA's ID, holder that couldn't be pushed to)
-        BenefitPushFailed(EventDid, CAId, IdentityId),
-
-        /// Stats from `push_benefits` was emitted.
-        ///
-        /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        BenefitPushed(EventDid, CAId, u32, u32, u32),
+        /// (Caller DID, Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
+        BenefitClaimed(EventDid, EventDid, CAId, Distribution<Balance>, Balance, Tax),
 
         /// Stats from `push_benefit` was emitted.
         ///
@@ -463,21 +403,31 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Transfer benefit of `did` to them.
-    fn transfer_benefit(
-        did: IdentityId,
-        cp_id: Option<CheckpointId>,
-        supply: T::Balance,
-        ca_id: CAId,
-        ca: &CorporateAction,
-        dist: &mut Distribution<T::Balance>,
-    ) -> DispatchResult {
+    /// Transfer `holder`'s benefit in `ca_id` to them.
+    fn transfer_benefit(actor: EventDid, holder: IdentityId, ca_id: CAId) -> DispatchResult {
+        // Ensure holder not paid yet.
+        ensure!(
+            !HolderPaid::get((ca_id, holder)),
+            Error::<T>::HolderAlreadyPaid
+        );
+
+        // Ensure we have an active distribution.
+        let mut dist = Self::ensure_active_distribution(ca_id)?;
+
+        // Fetch the CA data (cannot fail) + ensure CA targets DID.
+        let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
+        <CA<T>>::ensure_ca_targets(&ca, &holder)?;
+
+        // Extract CP + total supply at the record date.
+        let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
+        let supply = <CA<T>>::supply_at_cp(ca_id, cp_id);
+
         // Compute `balance * amount / supply`, i.e. DID's benefit.
-        let balance = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
+        let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
         let benefit = Self::benefit_of(balance, dist.amount, supply)?;
 
         // Compute withholding tax + gain.
-        let tax = ca.tax_of(&did);
+        let tax = ca.tax_of(&holder);
         let gain = benefit - tax * benefit;
 
         with_transaction(|| {
@@ -485,19 +435,22 @@ impl<T: Trait> Module<T> {
             Self::unlock(&dist, benefit)?;
 
             // Transfer remainder (`gain`) to DID.
-            let to = PortfolioId::default_portfolio(did);
+            let to = PortfolioId::default_portfolio(holder);
             <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain).map_err(|e| e.error)
         })?;
 
         // Note that DID was paid.
-        HolderPaid::insert((ca_id, did), true);
-        let did = did.for_event();
+        HolderPaid::insert((ca_id, holder), true);
+        let holder = holder.for_event();
 
         // Commit `dist` change to storage.
         dist.remaining -= benefit;
+        <Distributions<T>>::insert(ca_id, dist);
 
         // Emit event.
-        Self::deposit_event(Event::<T>::BenefitClaimed(did, ca_id, *dist, benefit, tax));
+        Self::deposit_event(Event::<T>::BenefitClaimed(
+            actor, holder, ca_id, dist, benefit, tax,
+        ));
 
         Ok(())
     }
