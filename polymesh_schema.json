@@ -1,6 +1,7 @@
 {
     "types": {
         "IdentityId": "[u8; 32]",
+        "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",

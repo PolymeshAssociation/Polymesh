@@ -77,7 +77,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, EventOnly, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker,
+    calendar::CheckpointId, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker,
 };
 use sp_runtime::traits::{CheckedDiv, CheckedMul};
 #[cfg(feature = "std")]
@@ -399,27 +399,27 @@ decl_event! {
         /// was created by the DID (the CAA) for the CA specified by the `CAId`.
         ///
         /// (CAA of CAId's ticker, CA's ID, distribution details)
-        Created(EventOnly<IdentityId>, CAId, Distribution<Balance>),
+        Created(EventDid, CAId, Distribution<Balance>),
 
         /// A token holder's share of a capital distribution for the given `CAId` was claimed.
         ///
         /// (Holder/Claimant DID, CA's ID, updated distribution details, DID's share, DID's tax %)
-        ShareClaimed(EventOnly<IdentityId>, CAId, Distribution<Balance>, Balance, Tax),
+        ShareClaimed(EventDid, CAId, Distribution<Balance>, Balance, Tax),
 
         /// An attempt to push a holders share of a capital distribution failed.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, holder that couldn't be pushed to)
-        SharePushFailed(EventOnly<IdentityId>, CAId, IdentityId),
+        SharePushFailed(EventDid, CAId, IdentityId),
 
         /// Stats from `push_shares` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        SharesPushed(EventOnly<IdentityId>, CAId, u32, u32, u32),
+        SharesPushed(EventDid, CAId, u32, u32, u32),
 
         /// Stats from `push_shares` was emitted.
         ///
         /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
-        Reclaimed(EventOnly<IdentityId>, CAId, Balance),
+        Reclaimed(EventDid, CAId, Balance),
 
         /// A capital distribution was removed.
         ///

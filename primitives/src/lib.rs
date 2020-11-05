@@ -156,7 +156,9 @@ pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
+pub use identity_id::{
+    EventDid, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.

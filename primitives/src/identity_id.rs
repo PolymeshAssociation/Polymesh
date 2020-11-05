@@ -50,11 +50,15 @@ const UUID_LEN: usize = 32usize;
 )]
 pub struct IdentityId(pub [u8; UUID_LEN]);
 
+/// Alias for `EventOnly<IdentityId>`.
+// Exists because schema checks don't know how to handle `EventOnly`.
+pub type EventDid = EventOnly<IdentityId>;
+
 impl IdentityId {
     /// Protect the DID as only for use in events.
     #[inline]
-    pub fn for_event(self) -> EventOnly<Self> {
-        EventOnly::new(self)
+    pub fn for_event(self) -> EventDid {
+        EventDid::new(self)
     }
 
     /// Returns a byte slice of this IdentityId's contents
