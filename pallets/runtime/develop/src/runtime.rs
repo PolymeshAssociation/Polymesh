@@ -806,7 +806,7 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
-        MultiSig: multisig::{Module, Call, Storage, Event<T>},
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>},
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},

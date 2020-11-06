@@ -1544,7 +1544,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-pub fn make_account(
+pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000)

@@ -5025,7 +5025,7 @@ fn add_nominator_with_invalid_expiry() {
 
             // For valid trusted CDD service providers
             let account_bob = 600;
-            let (_bob_signed, bob_did) = make_account(account_bob).unwrap();
+            let (_bob_signed, bob_did) = make_account_with_uid(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
@@ -5068,7 +5068,7 @@ fn add_valid_nominator_with_multiple_claims() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
@@ -5078,7 +5078,7 @@ fn add_valid_nominator_with_multiple_claims() {
             // add one more claim issuer
             let claim_issuer_2 = 700;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
@@ -5115,7 +5115,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
@@ -5126,7 +5126,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_2 = 800;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             let mut now = Utc::now();
