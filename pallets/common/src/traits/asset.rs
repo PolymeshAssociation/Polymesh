@@ -13,11 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
+use polymesh_primitives::{
+    calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker, AssetIdentifier};
+use sp_std::prelude::*;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.

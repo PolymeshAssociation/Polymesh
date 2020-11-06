@@ -103,7 +103,9 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AssetSubTrait, Trait as AssetTrait, AssetName, AssetType, FundingRoundName, GAS_LIMIT},
+    asset::{
+        AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
+    },
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -151,8 +153,6 @@ pub trait Trait:
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
 }
-
-
 
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1170,7 +1170,16 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
-        Self::create_asset( origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+        Self::create_asset(
+            origin,
+            name,
+            ticker,
+            total_supply,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+        )
     }
 }
 
