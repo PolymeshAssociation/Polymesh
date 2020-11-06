@@ -15,24 +15,78 @@
 
 //! # Corporate Actions module.
 //!
-//! TODO
+//! The corporate actions module provides functionality for handling corporate actions (CAs) on-chain.
+//!
+//! Any CA is associated with an asset,
+//! so most module dispatchables must be called by the corporate action agent (CAA).
+//! The CAA could either be the asset's owner, or some specific identity authorized by the owner.
+//! Should the CAA be distinct from the owner, then only the CAA may initiate CAs.
+//! If for any reason, a CAA needs to be relieved from their responsibilities,
+//! they may be removed using `reset_caa`, in which case the CAA again becomes the owner.
+//!
+//! The starting point of any CA begins with executing `initiate_corporate_action`,
+//! provided with the associated ticker, what sort of CA it is, e.g., a notice or a benefit,
+//! and when, if any, a checkpoint should be recorded, or was recorded, if an existing one is to be used.
+//! Additonally, free-form details, serving as on-chain documentation, may be provided.
+//!
+//! A CA targets a set of identities (`TargetIdentities`), but this need not be every asset holder.
+//! Instead, when initiating a CA,
+//! the targets may be specified either by exhaustively specifying every identity to include.
+//! This is achieved through `TargetTreatment::Include`.
+//! Instead of specifying an exhaustive set,
+//! a set of identities can be excluded from the universe of asset holders.
+//! This can be achieved through `TargetTreatment::Exclude`.
+//! If the target set for an asset is usually the same,
+//! a default may be specified through `set_default_targets(targets)`.
+//!
+//! Finally, CAs which imply some sort of benefit may have a taxable element, e.g., due to capital gains tax.
+//! Sometimes, the responsibiliy paying such tax falls to the CAA or the asset issuer.
+//! To handle such circumstances, a portion of the benefits may be withheld.
+//! This governed by specifying a withholding tax % on-chain.
+//! The tax is first and foremost specified for every identity,
+//! but may also be overriden for specific identities (e.g., for DIDs in different jurisdictions).
+//! As with targets, if the taxes are usually the same for every CA,
+//! asset-level defaults may also be specified with `set_default_withholding_tax`
+//! and `set_did_withholding_tax`.
+//!
+//! After having created a CA and some asset documents,
+//! such documents may also be linked to the CA.
+//! To do so, `link_ca_doc(ca_id, docs)` can be called,
+//! with the ID of the CA specified in `ca_id` as well the IDs of each document in `docs`.
+//!
+//! Beyond this module, two other modules exist dedicated to CAs. These are:
+//!
+//! - The corporate ballots module, with which e.g., annual general meetings can be conducted on-chain.
+//! - The capital distributions module, with which e.g., dividends and other benefits may be distributed.
+//!
+//! For more details, consult the documentation in those modules.
 //!
 //! ## Overview
 //!
-//! TODO
+//! The module provides functions for:
+//!
+//! - Configuring the max length of details (chain global configuration, through PIPs)
+//! - Specifying asset level CA configuration for the target set and withholding tax.
+//! - Initiating CAs.
+//! - Linking existing asset documentation to an existing CA.
 //!
 //! ## Interface
 //!
-//! TODO
-//!
 //! ### Dispatchable Functions
 //!
-//! TODO
-//!
-//! ### Public Functions
-//!
-//! TODO
-//!
+//! - `set_max_details_length(origin, length)` sets the maximum `length` in bytes for the `details` of any CA.
+//!    Must be called via the PIP process.
+//! - `reset_caa(origin, ticker)` relieves the current CAA from their duties,
+//!    resetting it back to the asset owner. Must be called by the asset owner.
+//! - `set_default_targets(origin, ticker, targets)` sets the default `targets`
+//!    for all CAs associated with `ticker`.
+//! - `set_default_withholding_tax(origin, ticker, tax)` sets the default withholding tax
+//!    for every identity for all CAs associated with `ticker`.
+//! - `set_did_withholding_tax(origin, ticker, taxed_did, tax)` sets a withholding tax
+//!    for CAs associated with `ticker` and specific to `taxed_did` to `tax`,
+//!    or resets the tax of `taxed_did` to the default if `tax` is `None`.
+//! - `initiate_corporate_action(...)` initates a corporate action.
+//! - `link_ca_doc(origin, id, docs)` is called by the CAA to associate `docs` to the CA with `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]

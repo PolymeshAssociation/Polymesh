@@ -41,7 +41,7 @@
 //!
 //! The module provides functions for:
 //!
-//! - Starting a distribution..
+//! - Starting a distribution.
 //! - Claiming or pushing benefits of a distribution.
 //! - Reclaiming unclaimed dividends.
 //!
