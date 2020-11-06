@@ -12,8 +12,8 @@ const prepend2 = "USD";
 
 async function main() {
   const api = await reqImports.createApi();
-  const ticker = `token${prepend}0`.toUpperCase();
-  const ticker2 = `token${prepend2}0`.toUpperCase();
+  const tickerHex = reqImports.stringToHex(`${prepend}0`); 
+  const ticker2Hex = reqImports.stringToHex(`${prepend2}0`); 
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -37,10 +37,15 @@ async function main() {
   );
 
   // Alice creates Confidential Assets 
-  await createConfidentialAsset(api, ticker, alice);
-  await createConfidentialAsset(api, ticker2, alice);
+  await createConfidentialAsset(api, tickerHex, alice);
+  await createConfidentialAsset(api, ticker2Hex, alice);
 
   // Alice and Bob create their Mercat account locally and submit the proof to the chain
+  const execSync = require('child_process').execSync;
+  let output = execSync(
+      `mercat-interactive create-user-account --user bob --db-dir chain_dir --ticker ${tickerHex.substr(2)} --valid-ticker-names ${tickerHex.substr(2)} ${ticker2Hex.substr(2)}`,
+       );  
+
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");

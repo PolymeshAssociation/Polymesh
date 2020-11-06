@@ -303,6 +303,13 @@ function tickerToDid(ticker) {
   );
 }
 
+// Returns a Hex from a String
+function stringToHex(ticker) {
+  return u8aToHex(
+    stringToU8a(ticker)
+  );
+}
+
 // Creates claim compliance for an asset
 async function createClaimCompliance(api, accounts, dids, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
@@ -654,6 +661,7 @@ let reqImports = {
   unauthorizeInstruction,
   rejectInstruction,
   claimReceipt,
+  stringToHex,
 };
 
 export { reqImports };
