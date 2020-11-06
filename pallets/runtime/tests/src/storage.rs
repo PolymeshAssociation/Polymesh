@@ -482,6 +482,7 @@ impl protocol_fee::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees<TestStorage>;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl portfolio::Trait for TestStorage {

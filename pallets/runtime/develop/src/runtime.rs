@@ -292,6 +292,7 @@ impl protocol_fee::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 parameter_types! {
@@ -1270,6 +1271,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
+            add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
