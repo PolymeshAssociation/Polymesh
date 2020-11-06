@@ -87,6 +87,7 @@
 //!    or resets the tax of `taxed_did` to the default if `tax` is `None`.
 //! - `initiate_corporate_action(...)` initates a corporate action.
 //! - `link_ca_doc(origin, id, docs)` is called by the CAA to associate `docs` to the CA with `id`.
+//! - `remove_ca(origin, id)` removes the CA identified by `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
@@ -115,7 +116,7 @@ use polymesh_common_utilities::{
     GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, AuthorizationData, DocumentId, IdentityId, Moment, Ticker,
+    calendar::CheckpointId, AuthorizationData, DocumentId, EventDid, IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
@@ -245,6 +246,8 @@ pub enum RecordDateSpec {
     /// Record date is in the future.
     /// A checkpoint should be created.
     Scheduled(Moment),
+    /// A schedule already exists, infer record date from it.
+    ExistingSchedule(ScheduleId),
     /// Checkpoint already exists, infer record date instead.
     Existing(CheckpointId),
 }
@@ -308,6 +311,7 @@ pub trait WeightInfo {
 
     fn initiate_corporate_action() -> Weight;
     fn link_ca_doc(num_docs: u32) -> Weight;
+    fn remove_ca() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -325,6 +329,8 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
 type Identity<T> = identity::Module<T>;
 type Asset<T> = asset::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
+type Distribution<T> = distribution::Module<T>;
+type Ballot<T> = ballot::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -410,6 +416,7 @@ decl_module! {
         /// Reset the CAA of `ticker` to its owner.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the asset owner's DID.
         /// - `ticker` for which the CAA is reset.
         ///
         /// ## Errors
@@ -423,6 +430,7 @@ decl_module! {
         /// Set the default CA `TargetIdentities` to `targets`.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` for which the default identities are changing.
         /// - `targets` the default target identities for a CA.
         ///
@@ -443,6 +451,7 @@ decl_module! {
         /// Set the default withholding tax for all DIDs and CAs relevant to this `ticker`.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
@@ -460,6 +469,7 @@ decl_module! {
         /// Otherwise, if `None`, the default withholding tax will be used.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
@@ -485,6 +495,7 @@ decl_module! {
         /// Initiates a CA for `ticker` of `kind` with `details` and other provided arguments.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
         /// - `record_date`, if any, to calculate the impact of this CA.
@@ -579,6 +590,7 @@ decl_module! {
         /// Once both exist, they can now be linked together.
         ///
         /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `id` of the CA to associate with `docs`.
         /// - `docs` to associate with the CA with `id`.
         ///
@@ -598,6 +610,44 @@ decl_module! {
             // Add the link and emit event.
             CADocLink::mutate(id, |slot| *slot = docs.clone());
             Self::deposit_event(Event::CALinkedToDoc(caa, id, docs));
+        }
+
+        /// Removes the CA identified by `ca_id`.
+        /// Associated data, such as document links, ballots,
+        /// and capital distributions are also removed.
+        ///
+        /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `ca_id` of the CA to remove.
+        ///
+        /// # Errors
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NoSuchCA` if `id` does not identify an existing CA.
+        #[weight = <T as Trait>::WeightInfo::remove_ca()]
+        pub fn remove_ca(origin, ca_id: CAId) {
+            // Ensure origin is CAA + CA exists.
+            let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let ca = Self::ensure_ca_exists(ca_id)?;
+
+            // Remove associated services.
+            match ca.kind {
+                CAKind::Other | CAKind::Reorganization => {}
+                CAKind::IssuerNotice => {
+                    if let Some(range) = <Ballot<T>>::time_ranges(ca_id) {
+                        <Ballot<T>>::remove_ballot_base(caa, ca_id, range)?;
+                    }
+                }
+                CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
+                    if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
+                        <Distribution<T>>::remove_distribution_base(caa, ca_id, &dist)?;
+                    }
+                }
+            }
+
+            // Remove + emit event.
+            CorporateActions::remove(ca_id.ticker, ca_id.local_id);
+            CADocLink::remove(ca_id);
+            Self::deposit_event(Event::CARemoved(caa, ca_id));
         }
     }
 }
@@ -625,6 +675,9 @@ decl_event! {
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
+        /// A CA was removed.
+        /// (CAA, CA Id)
+        CARemoved(EventDid, CAId),
     }
 }
 
@@ -654,6 +707,10 @@ decl_error! {
         RecordDateAfterStart,
         /// CA does not target the DID.
         NotTargetedByCA,
+        /// CA cannot be removed.
+        CannotRemoveCA,
+        /// An existing schedule was used for a new CA that was removable, and that is not allowed.
+        ExistingScheduleRemovable,
     }
 }
 
@@ -737,11 +794,25 @@ impl<T: Trait> Module<T> {
     ) -> Result<RecordDate, DispatchError> {
         let (date, checkpoint) = match date {
             RecordDateSpec::Scheduled(date) => {
+                // Create the schedule and extract the date + id.
                 let date = date.into();
                 let schedule = <Checkpoint<T>>::create_schedule_base(caa, ticker, date, false)?;
                 (schedule.at, CACheckpoint::Scheduled(schedule.id))
             }
+            RecordDateSpec::ExistingSchedule(id) => {
+                // Schedule cannot be removable, otherwise the CP module may remove it,
+                // resulting a "dangling reference", figuratively speaking.
+                ensure!(
+                    !<Checkpoint<T>>::schedule_removable((ticker, id)),
+                    Error::<T>::ExistingScheduleRemovable,
+                );
+                // Ensure the schedule exists and extract the record date.
+                let schedules = <Checkpoint<T>>::schedules(ticker);
+                let schedule = schedules[<Checkpoint<T>>::ensure_schedule_exists(&schedules, id)?];
+                (schedule.at, CACheckpoint::Scheduled(schedule.id))
+            }
             RecordDateSpec::Existing(id) => {
+                // Ensure the CP exists.
                 ensure!(
                     <Checkpoint<T>>::checkpoint_exists(&ticker, id),
                     Error::<T>::NoSuchCheckpointId

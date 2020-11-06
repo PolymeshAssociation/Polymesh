@@ -88,7 +88,7 @@ use pallet_asset::checkpoint;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::CommonTrait;
-use polymesh_primitives::{IdentityId, Moment};
+use polymesh_primitives::{EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Zero};
 #[cfg(feature = "std")]
@@ -436,7 +436,7 @@ decl_module! {
         /// - `StartAfterEnd` if `start > end`.
         #[weight = 950_000_000]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
-            // Ensure origin is CAA, a ballot exists, start is in the future.
+            // Ensure origin is CAA, ballot exists, and start is in the future.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
             Self::ensure_ballot_not_started(range)?;
@@ -508,21 +508,12 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
+        /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = 950_000_000]
         pub fn remove_ballot(origin, ca_id: CAId) {
-            // Ensure origin is CAA + ballot exists.
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
-            Self::ensure_ballot_exists(ca_id)?;
-
-            // Remove all ballot data.
-            TimeRanges::remove(ca_id);
-            Metas::remove(ca_id);
-            MotionNumChoices::remove(ca_id);
-            <Results<T>>::remove(ca_id);
-            <Votes<T>>::remove_prefix(ca_id);
-
-            // Emit event.
-            Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let range = Self::ensure_ballot_exists(ca_id)?;
+            Self::remove_ballot_base(caa, ca_id, range)?;
         }
     }
 }
@@ -560,7 +551,7 @@ decl_event! {
         /// A corporate ballot was removed.
         ///
         /// (Ticker's CAA, CA's ID)
-        Removed(IdentityId, CAId),
+        Removed(EventDid, CAId),
     }
 }
 
@@ -596,6 +587,26 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure the ballot hasn't started and remove it.
+    crate fn remove_ballot_base(
+        caa: EventDid,
+        ca_id: CAId,
+        range: BallotTimeRange,
+    ) -> DispatchResult {
+        Self::ensure_ballot_not_started(range)?;
+
+        // Remove all ballot data.
+        TimeRanges::remove(ca_id);
+        Metas::remove(ca_id);
+        MotionNumChoices::remove(ca_id);
+        <Results<T>>::remove(ca_id);
+        <Votes<T>>::remove_prefix(ca_id);
+
+        // Emit event.
+        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
     // Compute number-of-choices-in-motion cache for `motions`.
     fn derive_motion_num_choices(motions: &[Motion]) -> Result<Vec<u16>, DispatchError> {
         let mut total: usize = 0;

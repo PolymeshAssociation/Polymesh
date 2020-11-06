@@ -260,10 +260,8 @@ decl_module! {
             let schedule_id = (ticker, id);
             let schedule = Schedules::try_mutate(&ticker, |ss| {
                 ensure!(ScheduleRemovable::get(schedule_id), Error::<T>::ScheduleNotRemovable);
-                ss.iter().position(|s| s.id == id)
-                    // By definiton of `position` being `Some(pos), `.remove(pos)` won't panic.
-                    .map(|pos| ss.remove(pos))
-                    .ok_or(Error::<T>::NoSuchSchedule)
+                // By definiton of `id` existing, `.remove(pos)` won't panic.
+                Self::ensure_schedule_exists(&ss, id).map(|pos| ss.remove(pos))
             })?;
 
             // Remove some additional data.
@@ -578,6 +576,17 @@ impl<T: Trait> Module<T> {
         let ScheduleId(id) = ScheduleIdSequence::get(ticker);
         let id = id.checked_add(1).ok_or(Error::<T>::ScheduleOverflow)?;
         Ok(ScheduleId(id))
+    }
+
+    /// Ensure that `id` exists in `schedules` and return `id`'s index.
+    pub fn ensure_schedule_exists(
+        schedules: &[StoredSchedule],
+        id: ScheduleId,
+    ) -> Result<usize, DispatchError> {
+        schedules
+            .iter()
+            .position(|s| s.id == id)
+            .ok_or_else(|| Error::<T>::NoSuchSchedule.into())
     }
 
     /// Returns the current UNIX time, i.e. milli-seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.
