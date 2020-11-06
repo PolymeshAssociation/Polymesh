@@ -28,7 +28,7 @@ use frame_support::{
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
-use frame_system::EnsureSignedBy;
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
@@ -197,6 +197,7 @@ impl_outer_dispatch! {
         staking::Staking,
         pallet_pips::Pips,
         frame_system::System,
+        pallet_scheduler::Scheduler,
     }
 }
 
@@ -215,6 +216,7 @@ impl_outer_event! {
         protocol_fee<T>,
         identity<T>,
         group Instance2<T>,
+        pallet_scheduler<T>,
     }
 }
 
@@ -616,10 +618,27 @@ impl Trait for Test {
     type UnsignedPriority = UnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Test {
+    type Event = MetaEvent;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
 }
 
@@ -952,6 +971,7 @@ pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
+pub type Scheduler = pallet_scheduler::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1629,4 +1649,16 @@ pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+pub fn run_to_block_scheduler(n: u64) {
+    while System::block_number() < n {
+        Staking::on_finalize(System::block_number());
+        Scheduler::on_finalize(System::block_number());
+        System::set_block_number(System::block_number() + 1);
+        Scheduler::on_initialize(System::block_number());
+        Session::on_initialize(System::block_number());
+        Staking::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+    }
 }
