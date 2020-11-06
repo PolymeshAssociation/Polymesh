@@ -16,6 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::{account, benchmarks};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_committee as committee;
 use polymesh_common_utilities::MaybeBlock;
@@ -68,13 +69,17 @@ benchmarks! {
     }: _(origin, n)
 
     propose_from_community {
+        // deposit
         let a in 0 .. u32::MAX;
-        let d in 0 .. 1000;
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
         let u in 0 .. 500;
+        // length of the proposal padding
         let c in 0 .. 100_000;
 
         let account: T::AccountId = account("signer", 1_000_000, 0);
-        let origin = RawOrigin::Signed(account.clone());
+        let origin = RawOrigin::Signed(account);
         let content = vec![b'X'; c as usize];
         let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
         let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
@@ -94,4 +99,37 @@ benchmarks! {
     //     let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
     //     let desc = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
     // }: propose(origin, proposal, a.into(), Some(url), Some(desc))
+
+
+    // TODO: amend_proposal
+
+    cancel_proposal_community {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let account: T::AccountId = account("signer", 1_000_000, 0);
+        let origin = RawOrigin::Signed(account.clone());
+        let content = vec![b'X'; c as usize];
+        let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
+        let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
+        let desc = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
+        let propose_result = Module::<T>::propose(
+            frame_system::RawOrigin::Signed(account.clone()).into(),
+            proposal,
+            42.into(),
+            Some(url),
+            Some(desc)
+        );
+    }: cancel_proposal(origin, 0)
+    verify {
+        assert_ok!(propose_result);
+        assert_eq!(
+            Module::<T>::proposals(0).unwrap().proposer,
+            Proposer::Community(account)
+        );
+    }
 }
