@@ -54,7 +54,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
-    IdentityId, Moment, Ticker,
+    EventDid, IdentityId, Moment, Ticker,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -192,7 +192,7 @@ decl_module! {
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) {
-            let owner = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let owner = <Asset<T>>::ensure_perms_owner(origin, &ticker)?.for_event();
             Self::create_at_by(owner, ticker, Self::now_unix())?;
         }
 
@@ -233,7 +233,7 @@ decl_module! {
             ticker: Ticker,
             schedule: ScheduleSpec,
         ) {
-            let owner = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let owner = <Asset<T>>::ensure_perms_owner(origin, &ticker)?.for_event();
             Self::create_schedule_base(owner, ticker, schedule, true)?;
         }
 
@@ -282,7 +282,7 @@ decl_event! {
         /// A checkpoint was created.
         ///
         /// (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(Option<IdentityId>, Ticker, CheckpointId, Balance, Moment),
+        CheckpointCreated(Option<EventDid>, Ticker, CheckpointId, Balance, Moment),
 
         /// The maximum complexity for an arbitrary ticker's schedule set was changed.
         ///
@@ -292,7 +292,7 @@ decl_event! {
         /// A checkpoint schedule was created.
         ///
         /// (caller DID, ticker, schedule)
-        ScheduleCreated(IdentityId, Ticker, StoredSchedule),
+        ScheduleCreated(EventDid, Ticker, StoredSchedule),
 
         /// A checkpoint schedule was removed.
         ///
@@ -456,7 +456,7 @@ impl<T: Trait> Module<T> {
     /// Creates a schedule generating checkpoints
     /// in the future at either a fixed time or at intervals.
     pub fn create_schedule_base(
-        did: IdentityId,
+        did: EventDid,
         ticker: Ticker,
         schedule: ScheduleSpec,
         removable: bool,
@@ -527,7 +527,7 @@ impl<T: Trait> Module<T> {
     /// The ID of the new checkpoint is returned.
     // TODO(Centril): privatize when dividend module is nixed.
     pub fn create_at_by(
-        actor: IdentityId,
+        actor: EventDid,
         ticker: Ticker,
         at: Moment,
     ) -> Result<CheckpointId, DispatchError> {
@@ -544,7 +544,7 @@ impl<T: Trait> Module<T> {
     /// Creating a checkpoint entails:
     /// - recording the total supply,
     /// - mapping the the ID to the `time`.
-    fn create_at(actor: Option<IdentityId>, ticker: Ticker, id: CheckpointId, at: Moment) {
+    fn create_at(actor: Option<EventDid>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::token_details(ticker).total_supply;
         <TotalSupply<T>>::insert(&(ticker, id), supply);

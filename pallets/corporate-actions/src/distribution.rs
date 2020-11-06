@@ -331,7 +331,6 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at >= now`.
         #[weight = 900_000_000]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            // Ensure origin is CAA, the distribution exists, and that `now < payment_at`.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
             Self::remove_distribution_base(caa, ca_id, &dist)?;
@@ -411,11 +410,8 @@ impl<T: Trait> Module<T> {
         ca_id: CAId,
         dist: &Distribution<T::Balance>,
     ) -> DispatchResult {
-        // Ensure that the distribution exists, and that `now < payment_at`.
-        ensure!(
-            <Checkpoint<T>>::now_unix() < dist.payment_at,
-            Error::<T>::DistributionStarted
-        );
+        // Cannot remove payment has started.
+        Self::ensure_distribution_not_started(&dist)?;
 
         // Unlock and remove chain data.
         Self::unlock(&dist, dist.amount)?;
@@ -423,6 +419,15 @@ impl<T: Trait> Module<T> {
 
         // Emit event.
         Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
+    /// Ensure that `now < payment_at`.
+    crate fn ensure_distribution_not_started(dist: &Distribution<T::Balance>) -> DispatchResult {
+        ensure!(
+            <Checkpoint<T>>::now_unix() < dist.payment_at,
+            Error::<T>::DistributionStarted
+        );
         Ok(())
     }
 

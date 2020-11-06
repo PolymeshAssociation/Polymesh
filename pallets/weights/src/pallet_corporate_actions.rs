@@ -26,4 +26,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     fn remove_ca() -> Weight {
         999_999_999_999
     }
+    fn change_record_date() -> Weight {
+        999_999_999_999
+    }
 }

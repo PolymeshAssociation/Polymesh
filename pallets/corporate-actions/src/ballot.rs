@@ -625,7 +625,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensure that `now < range.start`.
-    fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
+    crate fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
         ensure!(
             <Checkpoint<T>>::now_unix() < range.start,
             Error::<T>::VotingAlreadyStarted

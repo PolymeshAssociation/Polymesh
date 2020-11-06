@@ -113,7 +113,7 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
-    GC_DID,
+    with_transaction, GC_DID,
 };
 use polymesh_primitives::{
     calendar::CheckpointId, AuthorizationData, DocumentId, EventDid, IdentityId, Moment, Ticker,
@@ -312,6 +312,7 @@ pub trait WeightInfo {
     fn initiate_corporate_action() -> Weight;
     fn link_ca_doc(num_docs: u32) -> Weight;
     fn remove_ca() -> Weight;
+    fn change_record_date() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -535,7 +536,7 @@ decl_module! {
                 .ok_or(Error::<T>::DetailsTooLong)?;
 
             // Ensure that CAA is calling.
-            let caa = Self::ensure_ca_agent(origin, ticker)?;
+            let caa = Self::ensure_ca_agent(origin, ticker)?.for_event();
 
             // Ensure that the next local CA ID doesn't overflow.
             let local_id = CAIdSequence::get(ticker);
@@ -649,6 +650,54 @@ decl_module! {
             CADocLink::remove(ca_id);
             Self::deposit_event(Event::CARemoved(caa, ca_id));
         }
+
+        /// Changes the record date of the CA identified by `ca_id`.
+        ///
+        /// ## Arguments
+        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `ca_id` of the CA to alter.
+        /// - `record_date`, if any, to calculate the impact of the CA.
+        ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
+        ///
+        /// # Errors
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NoSuchCA` if `id` does not identify an existing CA.
+        /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
+        #[weight = <T as Trait>::WeightInfo::change_record_date()]
+        pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
+            // Ensure origin is CAA + CA exists.
+            let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let mut ca = Self::ensure_ca_exists(ca_id)?;
+
+            with_transaction(|| -> DispatchResult {
+                // If provided, either use the existing CP ID or schedule one to be made.
+                ca.record_date = record_date
+                    .map(|date| Self::handle_record_date(caa, ca_id.ticker, date))
+                    .transpose()?;
+
+                // Ensure associated services allow changing the date.
+                match ca.kind {
+                    CAKind::Other | CAKind::Reorganization => {}
+                    CAKind::IssuerNotice => {
+                        if let Some(range) = <Ballot<T>>::time_ranges(ca_id) {
+                            Self::ensure_record_date_before_start(&ca, range.start)?;
+                            <Ballot<T>>::ensure_ballot_not_started(range)?;
+                        }
+                    }
+                    CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
+                        if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
+                            Self::ensure_record_date_before_start(&ca, dist.payment_at)?;
+                            <Distribution<T>>::ensure_distribution_not_started(&dist)?;
+                        }
+                    }
+                }
+                Ok(())
+            })?;
+
+            // Commit changes + emit event.
+            CorporateActions::insert(ca_id.ticker, ca_id.local_id, ca.clone());
+            Self::deposit_event(Event::RecordDateChanged(caa, ca_id, ca));
+        }
     }
 }
 
@@ -671,13 +720,15 @@ decl_event! {
         CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
         /// (CAA DID, CA id, the CA)
-        CAInitiated(IdentityId, CAId, CorporateAction),
+        CAInitiated(EventDid, CAId, CorporateAction),
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
         /// A CA was removed.
         /// (CAA, CA Id)
         CARemoved(EventDid, CAId),
+        /// A CA's record date changed.
+        RecordDateChanged(EventDid, CAId, CorporateAction),
     }
 }
 
@@ -788,7 +839,7 @@ impl<T: Trait> Module<T> {
     /// Translate record date to a format we can store.
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
-        caa: IdentityId,
+        caa: EventDid,
         ticker: Ticker,
         date: RecordDateSpec,
     ) -> Result<RecordDate, DispatchError> {
