@@ -33,11 +33,11 @@ pub struct Account<T: Trait> {
     pub did: IdentityId,
 }
 
-pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
 
-pub fn make_account_without_did<T: Trait>(
+fn make_account_without_did<T: Trait>(
     name: &'static str,
     u: u32,
 ) -> (T::AccountId, RawOrigin<T::AccountId>) {
@@ -47,7 +47,7 @@ pub fn make_account_without_did<T: Trait>(
     (account, origin)
 }
 
-pub fn make_account<T: Trait>(name: &'static str, u: u32) -> Account<T> {
+fn make_account<T: Trait>(name: &'static str, u: u32) -> Account<T> {
     let (account, origin) = make_account_without_did::<T>(name, u);
     let uid = uid_from_name_and_idx(name, u);
     let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
@@ -93,16 +93,17 @@ pub fn make_token<T: Trait>(owner: &Account<T>, name: Vec<u8>) -> Ticker {
     ticker
 }
 
-fn make_issuer(id: u128) -> TrustedIssuer {
+fn make_issuer<T: Trait>(id: u32) -> TrustedIssuer {
+    let acc = make_account::<T>("ISSUER", id);
     TrustedIssuer {
-        issuer: IdentityId::from(id),
+        issuer: IdentityId::from(acc.did),
         trusted_for: TrustedFor::Any,
     }
 }
 
 // TODO More complexity... TrustedFor: Any or Vec<ClaimType>
-fn make_issuers(s: u32) -> Vec<TrustedIssuer> {
-    (0u128..s as u128).map(make_issuer).collect::<Vec<_>>()
+fn make_issuers<T: Trait>(s: u32) -> Vec<TrustedIssuer> {
+    (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
 }
 
 fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
@@ -135,7 +136,7 @@ impl<T: Trait> ComplianceRequirementData<T> {
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
-        let issuers = make_issuers(trusted_issuer_count);
+        let issuers = make_issuers::<T>(trusted_issuer_count);
         let sender_conditions = make_conditions(sender_conditions_count, &issuers);
         let receiver_conditions = make_conditions(receiver_conditions_count, &issuers);
 
@@ -161,7 +162,7 @@ fn add_compliance_requirement_with_data<T: Trait>(d: &ComplianceRequirementData<
 }
 
 fn add_default_trusted_claim_issuer_with_data<T: Trait>(d: &ComplianceRequirementData<T>, i: u32) {
-    make_issuers(i).into_iter().for_each(|issuer| {
+    make_issuers::<T>(i).into_iter().for_each(|issuer| {
         Module::<T>::add_default_trusted_claim_issuer(
             d.owner.origin.clone().into(),
             d.ticker.clone(),
@@ -175,7 +176,6 @@ benchmarks! {
     _ {}
 
     // TODO - Issuer of a claim should be limited!
-    //
     add_compliance_requirement {
         let s in 1..5; // TODO Max sender conditions.
         let r in 1..5; // TODO Max receiver conditions.
@@ -183,7 +183,12 @@ benchmarks! {
 
         let d = ComplianceRequirementData::<T>::new(i, s, r);
 
-    }: _(d.owner.origin, d.ticker, d.sender_conditions, d.receiver_conditions)
+    }: _(d.owner.origin, d.ticker, d.sender_conditions.clone(), d.receiver_conditions.clone())
+    verify {
+        let req = Module::<T>::asset_compliance(d.ticker).requirements.pop().unwrap();
+        ensure!( req.sender_conditions == d.sender_conditions, "Sender conditions not expected");
+        ensure!( req.receiver_conditions == d.receiver_conditions, "Sender conditions not expected");
+    }
 
     remove_compliance_requirement {
         let s in 1..5; // TODO Max sender conditions.
@@ -212,6 +217,9 @@ benchmarks! {
         let d = ComplianceRequirementData::<T>::new(2, 1, 1);
         add_compliance_requirement_with_data(&d);
     }: _(d.owner.origin, d.ticker)
+    verify {
+        ensure!( Module::<T>::asset_compliance(d.ticker).paused == true, "Asset compliance is not paused");
+    }
 
     resume_asset_compliance {
         // Create and add the compliance requirement.
@@ -222,13 +230,9 @@ benchmarks! {
             d.owner.origin.clone().into(),
             d.ticker.clone()).unwrap();
     }: _(d.owner.origin, d.ticker)
-
-    /*
-       replace_asset_compliance {
-       } _(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>)
-       reset_asset_compliance {
-
-       } _(origin, ticker: Ticker)
+    verify {
+        ensure!( Module::<T>::asset_compliance(d.ticker).paused == false, "Asset compliance is paused");
+    }
 
     add_default_trusted_claim_issuer {
         let i in 0..10; // TODO Max trusted issuers.
@@ -242,8 +246,14 @@ benchmarks! {
 
         // Add one more for benchmarking.
         // TODO Issuer ID is checked here but not when it is added in the CR.
-        let new_issuer = TrustedIssuer::from( make_account::<T>("ISSUER", SEED).did);
-    }: _(d.owner.origin, d.ticker, new_issuer)
+        let new_issuer = make_issuer::<T>(i+1);
+    }: _(d.owner.origin, d.ticker, new_issuer.clone())
+    verify {
+        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
+        ensure!(
+            trusted_issuers.contains(&new_issuer),
+            "Default trusted claim issuer was not added");
+    }
 
     remove_default_trusted_claim_issuer {
         let i in 1..10; // TODO Max trusted issuers.
@@ -256,10 +266,77 @@ benchmarks! {
         add_default_trusted_claim_issuer_with_data(&d, i);
 
         // Delete the latest trusted issuer.
-        let issuer = make_issuer(i as u128);
-    }: _(d.owner.origin, d.ticker, issuer)
+        let issuer = Module::<T>::trusted_claim_issuer(d.ticker).pop().unwrap();
+    }: _(d.owner.origin, d.ticker, issuer.clone())
+    verify {
+        let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
+        ensure!(
+            trusted_issuers.contains(&issuer) == false,
+            "Default trusted claim issuer was not removed");
+    }
 
-       change_compliance_requirement {
-       } _(origin, ticker: Ticker, new_req: ComplianceRequirement)
-       */
+    change_compliance_requirement {
+        let s in 1..5; // TODO Max sender conditions.
+        let r in 1..5; // TODO Max receiver conditions.
+        let i in 1..3; // TODO Max trusted issuers.
+
+        // Add the compliance requirement.
+        let d = ComplianceRequirementData::<T>::new(i, s, r);
+        add_compliance_requirement_with_data(&d);
+
+        // Remove the latest one.
+        let id = Module::<T>::get_latest_requirement_id(d.ticker);
+        let new_req = ComplianceRequirement {
+            id,
+            ..Default::default()
+        };
+    }: _(d.owner.origin, d.ticker, new_req.clone())
+    verify {
+        let req = Module::<T>::asset_compliance( d.ticker)
+            .requirements
+            .into_iter()
+            .find(|req| req.id == new_req.id)
+            .unwrap();
+        ensure!( req == new_req,
+            "Compliance requirement was not updated");
+    }
+
+    replace_asset_compliance {
+        let s in 1..5; // TODO Max sender conditions.
+        let r in 1..5; // TODO Max receiver conditions.
+        let i in 1..3; // TODO Max trusted issuers.
+
+        // Add the compliance requirement.
+        let d = ComplianceRequirementData::<T>::new(i, s, r);
+        add_compliance_requirement_with_data(&d);
+
+        // Create new asset compiance
+        let asset_compliance = vec![
+            ComplianceRequirement {
+                sender_conditions: make_conditions(s, &vec![]),
+                receiver_conditions: make_conditions(r, &vec![]),
+                id: Module::<T>::get_latest_requirement_id(d.ticker) + 1,
+            }
+        ];
+
+    }: _(d.owner.origin, d.ticker, asset_compliance.clone())
+    verify {
+        let reqs = Module::<T>::asset_compliance(d.ticker).requirements;
+        ensure!( reqs == asset_compliance, "Asset compliance was not replaced");
+    }
+
+    reset_asset_compliance {
+        let s in 1..5; // TODO Max sender conditions.
+        let r in 1..5; // TODO Max receiver conditions.
+        let i in 1..3; // TODO Max trusted issuers.
+
+        // Add the compliance requirement.
+        let d = ComplianceRequirementData::<T>::new(i, s, r);
+        add_compliance_requirement_with_data(&d);
+    }: _(d.owner.origin, d.ticker)
+    verify {
+        ensure!(
+            Module::<T>::asset_compliance(d.ticker).requirements.is_empty(),
+            "Compliance Requeriment was not reset");
+    }
 }
