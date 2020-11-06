@@ -1,7 +1,8 @@
 use super::{
     storage::{
-        default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
-        register_keyring_account, user_portfolio_vec, TestStorage,
+        default_portfolio_vec, make_account, make_account_without_cdd,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
+        TestStorage,
     },
     ExtBuilder,
 };
@@ -3043,6 +3044,107 @@ fn multiple_custodian_settlement() {
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
                 0
+            );
+        });
+}
+
+#[test]
+fn reject_instruction() {
+    ExtBuilder::default()
+        .set_max_legs_allowed(500)
+        .build()
+        .execute_with(|| {
+            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let (charlie_signed, _) = make_account(AccountKeyring::Charlie.public()).unwrap();
+
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let amount = 100u128;
+
+            let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(alice_did),
+                        instruction_id
+                    ),
+                    alice_status
+                );
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(bob_did),
+                        instruction_id
+                    ),
+                    bob_status
+                );
+            };
+
+            let create_instruction = || {
+                let instruction_id = Settlement::instruction_counter();
+                assert_ok!(Settlement::add_and_affirm_instruction(
+                    alice_signed.clone(),
+                    venue_counter,
+                    SettlementType::SettleOnAffirmation,
+                    None,
+                    vec![Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount
+                    }],
+                    default_portfolio_vec(alice_did)
+                ));
+                instruction_id
+            };
+
+            let instruction_counter = create_instruction();
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Affirmed,
+                AffirmationStatus::Pending,
+            );
+            assert_noop!(
+                Settlement::reject_instruction(bob_signed.clone(), instruction_counter, vec![]),
+                Error::NoPortfolioProvided
+            );
+
+            assert_noop!(
+                Settlement::reject_instruction(
+                    charlie_signed.clone(),
+                    instruction_counter,
+                    default_portfolio_vec(bob_did)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            assert_ok!(Settlement::reject_instruction(
+                alice_signed.clone(),
+                instruction_counter,
+                default_portfolio_vec(alice_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
+            );
+
+            // Test that the receiver can also reject the instruction
+            let instruction_counter2 = create_instruction();
+
+            assert_ok!(Settlement::reject_instruction(
+                bob_signed.clone(),
+                instruction_counter2,
+                default_portfolio_vec(bob_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter2,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
             );
         });
 }
