@@ -51,7 +51,7 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"pallet-identity/std",
-	"sp-arithmetic/std"
+	"sp-arithmetic/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
