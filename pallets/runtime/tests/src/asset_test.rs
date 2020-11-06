@@ -18,9 +18,9 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, ScopeIdOf, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
+    ClassicTickers, ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig,
+    Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -28,8 +28,13 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
-    traits::CddAndFeeDetails as _, SystematicIssuers,
+    asset::{AssetType, FundingRoundName},
+    compliance_manager::Trait,
+    constants::*,
+    protocol_fee::ProtocolOp,
+    traits::balances::Memo,
+    traits::CddAndFeeDetails as _,
+    SystematicIssuers,
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
@@ -2548,12 +2553,12 @@ fn classic_ticker_claim_works() {
             assert_ok!(Asset::claim_classic_ticker(signer, ticker, eth_sig.clone()));
             assert_eq!(alice_did, Tickers::<TestStorage>::get(ticker).owner);
             assert!(matches!(
-                &*System::events(),
-                [.., frame_system::EventRecord {
-                    event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
-                    ..
-                }]
-            ));
+                    &*System::events(),
+                    [.., frame_system::EventRecord {
+                        event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
+                        ..
+                    }]
+                    ));
         }
 
         // Create `ALPHA` asset; this will cost.
@@ -2598,7 +2603,7 @@ fn classic_ticker_claim_works() {
             Signatory::from(charlie_did),
             AuthorizationData::TransferTicker(zeta),
             None,
-        );
+            );
         assert_ok!(Asset::accept_ticker_transfer(Origin::signed(charlie_acc), auth_id_alice));
         assert_eq!(ClassicTickers::get(&zeta), None);
         assert_ok!(create(charlie_acc, "ZETA", 0 * fee));

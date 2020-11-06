@@ -9,12 +9,12 @@ use frame_support::{
     StorageDoubleMap, StorageMap,
 };
 use pallet_asset::checkpoint::ScheduleId;
-use pallet_asset::AssetName;
 use pallet_corporate_actions::{
     CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
+use polymesh_common_utilities::asset::AssetName;
 use polymesh_primitives::{
     calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
     PortfolioId, Signatory, Ticker,
