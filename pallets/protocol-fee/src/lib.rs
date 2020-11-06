@@ -35,11 +35,14 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
-    weights::{DispatchClass, Pays},
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_identity as identity;
@@ -63,12 +66,19 @@ type NegativeImbalanceOf<T> =
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 type Identity<T> = identity::Module<T>;
 
+pub trait WeightInfo {
+    fn change_coefficient() -> Weight;
+    fn change_base_fee() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
+    /// Weight calaculation.
+    type WeightInfo: WeightInfo;
 }
 
 decl_error! {
@@ -125,7 +135,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::change_coefficient()]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
@@ -139,7 +149,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::change_base_fee()]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
