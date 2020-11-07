@@ -99,7 +99,6 @@
             "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
-            "roles": "Vec<IdentityRole>",
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
@@ -413,8 +412,8 @@
             "id": "u32"
         },
         "ComplianceRequirementResult": {
-            "sender_conditions": "Vec<Condition>",
-            "receiver_conditions": "Vec<Condition>",
+            "sender_conditions": "Vec<ConditionResult>",
+            "receiver_conditions": "Vec<ConditionResult>",
             "id": "u32",
             "result": "bool"
         },
