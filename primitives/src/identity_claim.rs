@@ -58,20 +58,6 @@ impl From<Vec<u8>> for Scope {
     }
 }
 
-impl Migrate for ScopeOld {
-    type Into = Scope;
-    type Context = Empty;
-
-    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-        Some(Scope::Identity(self))
-    }
-}
-
-/// Old country code
-type CountryCodeOld = JurisdictionName;
-/// Scope that was used in the last version
-pub type ScopeOld = IdentityId;
-
 impl From<Option<CddId>> for Empty {
     fn from(_: Option<CddId>) -> Self {
         Self
@@ -81,34 +67,32 @@ impl From<Option<CddId>> for Empty {
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
-#[migrate_context(Option<CddId>)]
 pub enum Claim {
     /// User is Accredited
-    Accredited(#[migrate] Scope),
+    Accredited(Scope),
     /// User is Accredited
-    Affiliate(#[migrate] Scope),
+    Affiliate(Scope),
     /// User has an active BuyLockup (end date defined in claim expiry)
-    BuyLockup(#[migrate] Scope),
+    BuyLockup(Scope),
     /// User has an active SellLockup (date defined in claim expiry)
-    SellLockup(#[migrate] Scope),
+    SellLockup(Scope),
     /// User has passed CDD
-    #[migrate_from(#[allow(missing_docs)] CustomerDueDiligence)]
-    CustomerDueDiligence(#[migrate_with(context?)] CddId),
+    CustomerDueDiligence(CddId),
     /// User is KYC'd
-    KnowYourCustomer(#[migrate] Scope),
+    KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(#[migrate] CountryCode, #[migrate] Scope),
+    Jurisdiction(CountryCode, Scope),
     /// User is exempted
-    Exempted(#[migrate] Scope),
+    Exempted(Scope),
     /// User is Blocked
-    Blocked(#[migrate] Scope),
+    Blocked(Scope),
     /// Confidential claim that will allow an investor to justify that it's identity can be
     /// a potential asset holder of given `scope`.
     ///
     /// All investors must have this claim, which will help the issuer apply compliance rules
     /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
     /// investor entity level for a given scope (will always be a `Ticker`).
-    InvestorUniqueness(#[migrate] Scope, ScopeId, CddId),
+    InvestorUniqueness(Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
 }
@@ -197,7 +181,6 @@ impl Default for ClaimType {
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Migrate)]
-#[migrate_context(Option<CddId>)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
@@ -208,7 +191,6 @@ pub struct IdentityClaim {
     /// Expiry date
     pub expiry: Option<Moment>,
     /// Claim data
-    #[migrate]
     pub claim: Claim,
 }
 
