@@ -13,17 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate as polymesh_primitives;
 use crate::{identity_id::IdentityId, CddId, Moment, Ticker};
 
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::*};
 
-use super::jurisdiction::{CountryCode, JurisdictionName};
-use crate::migrate::{Empty, Migrate};
+use super::jurisdiction::CountryCode;
 
 /// It is the asset Id.
 pub type ScopeId = IdentityId;
@@ -58,15 +55,9 @@ impl From<Vec<u8>> for Scope {
     }
 }
 
-impl From<Option<CddId>> for Empty {
-    fn from(_: Option<CddId>) -> Self {
-        Self
-    }
-}
-
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum Claim {
     /// User is Accredited
     Accredited(Scope),
@@ -180,7 +171,7 @@ impl Default for ClaimType {
 
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Migrate)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,

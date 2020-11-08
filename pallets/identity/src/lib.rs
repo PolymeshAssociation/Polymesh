@@ -90,7 +90,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
+    StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_permissions::with_call_metadata;
@@ -255,7 +255,7 @@ decl_module! {
             use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map, Empty},
+                migrate::{migrate_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
