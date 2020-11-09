@@ -104,7 +104,7 @@ pub struct Distribution<Balance> {
     pub remaining: Balance,
     /// Whether the CAA has claimed remaining funds.
     pub reclaimed: bool,
-    /// An optional timestamp of payout start
+    /// A timestamp of payout start
     pub payment_at: Moment,
     /// An optional timestamp for payout end
     pub expires_at: Option<Moment>,
