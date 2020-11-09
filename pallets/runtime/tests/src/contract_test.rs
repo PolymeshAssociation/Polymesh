@@ -7,7 +7,9 @@ use sp_runtime::{traits::Hash, Perbill};
 
 use crate::{
     ext_builder::MockProtocolBaseFees,
-    storage::{account_from, make_account, make_account_without_cdd, AccountId, TestStorage},
+    storage::{
+        account_from, make_account_with_uid, make_account_without_cdd, AccountId, TestStorage,
+    },
     ExtBuilder,
 };
 use codec::Encode;
@@ -529,7 +531,7 @@ fn validate_transfer_template_ownership_functionality() {
             let bob = AccountKeyring::Bob.public();
             // Create Bob account & the identity for her.
             let bob_uid = InvestorUid::from("bob_take_1");
-            let (_, bob_did) = make_account(bob, bob_uid).unwrap();
+            let (_, bob_did) = make_account_with_uid(bob, bob_uid).unwrap();
 
             // Create template of se
             create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);

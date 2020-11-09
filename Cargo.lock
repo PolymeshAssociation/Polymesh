@@ -4378,6 +4378,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -4457,6 +4458,7 @@ dependencies = [
 name = "pallet-protocol-fee"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -5622,6 +5624,7 @@ dependencies = [
  "pallet-corporate-actions",
  "pallet-identity",
  "pallet-portfolio",
+ "pallet-protocol-fee",
  "pallet-timestamp",
 ]
 

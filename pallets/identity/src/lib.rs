@@ -90,7 +90,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
+    StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_permissions::with_call_metadata;
@@ -115,8 +115,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    IdentityWithRoles as OldDidRecord, InvestorUid, InvestorZKProofData, PalletName, Permissions,
+    Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -142,12 +142,6 @@ pub struct Claim1stKey {
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim2ndKeyOld {
-    pub issuer: IdentityId,
-    pub scope: Option<IdentityId>,
 }
 
 decl_storage! {
@@ -258,42 +252,31 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
-                identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map, Empty},
+                migrate::{migrate_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            // Rename "master" to "primary".
-            <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
-
-            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
-                Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
-                    .ok()
-                    .map(|k1| (*k1.target.as_fixed_bytes()).into())
-            });
-
-            // Covert old scopes to new scopes
-            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Identity", b"Claims",
-                |k1: Claim1stKey, k2: Claim2ndKeyOld, val: IdentityClaim| Some((
-                    k1,
-                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) },
-                    val
-                ))
-            );
-
             migrate_map::<LinkedKeyInfo, _>(
-                b"Identity",
+                b"identity",
                 b"KeyToIdentityIds",
                 |_| Empty
             );
             migrate_map::<IdentityOld<T::AccountId>, _>(
-                b"Identity",
+                b"identity",
                 b"DidRecords",
                 |_| Empty
             );
+
+            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
+                .drain()
+                .map(|(key, old)|  (key, DidRecord {
+                    primary_key: old.primary_key,
+                    secondary_keys: old.secondary_keys,
+                }))
+                .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -1856,6 +1839,19 @@ impl<T: Trait> Module<T> {
             Error::<T>::DidMustAlreadyExist
         );
         Ok(primary_did)
+    }
+
+    /// Checks whether the sender and the receiver of a transfer have valid scope claims
+    pub fn verify_scope_claims_for_transfer(
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+    ) -> bool {
+        let verify_scope_claim = |did| {
+            let asset_scope = Some(Scope::from(*ticker));
+            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
+        };
+        verify_scope_claim(from_did) && verify_scope_claim(to_did)
     }
 }
 

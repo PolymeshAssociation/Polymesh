@@ -301,6 +301,7 @@ use frame_support::{
     ensure,
     storage::IterableStorageMap,
     traits::{
+        schedule::{Anon, DispatchTime, HIGHEST_PRIORITY},
         Currency, EnsureOrigin, EstimateNextNewSession, Get, Imbalance, LockIdentifier,
         LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
     },
@@ -311,6 +312,7 @@ use frame_support::{
     },
     Twox64Concat,
 };
+use frame_system::RawOrigin;
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
 };
@@ -876,6 +878,14 @@ pub mod weight {
             .saturating_sub(T::DbWeight::get().reads(compact.edge_count() as Weight))
             .saturating_add(T::DbWeight::get().reads(winners.len() as Weight))
     }
+
+    /// Weight of `payout_stakers()` & `payout_stakers_by_system()` dispatch.
+    // TODO: Weight is dummy, Need to benchamrk to get exact weight for the dispatch.
+    pub fn weight_for_payout_stakers<T: Trait>() -> Weight {
+        T::DbWeight::get().reads(5) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+            + T::DbWeight::get().writes(3)
+                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+    }
 }
 
 pub trait WeightInfo {
@@ -907,6 +917,7 @@ pub trait WeightInfo {
     fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_weaker(v: u32, n: u32) -> Weight;
+    fn change_slashing_allowed_for() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -994,6 +1005,9 @@ impl WeightInfo for () {
     fn submit_solution_weaker(_v: u32, _n: u32) -> Weight {
         1_000_000_000
     }
+    fn change_slashing_allowed_for() -> Weight {
+        1_000_000_000
+    }
 }
 
 pub trait Trait:
@@ -1041,7 +1055,7 @@ pub trait Trait:
     type SlashDeferDuration: Get<EraIndex>;
 
     /// The origin which can cancel a deferred slash. Root can always do this.
-    type SlashCancelOrigin: EnsureOrigin<Self::Origin>;
+    type SlashCancelOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Interface for interacting with a session module.
     type SessionInterface: self::SessionInterface<Self::AccountId>;
@@ -1063,7 +1077,10 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+    type Call: Dispatchable<Origin = Self::Origin>
+        + From<Call<Self>>
+        + IsSubType<Call<Self>>
+        + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -1102,6 +1119,12 @@ pub trait Trait:
 
     /// Required origin for changing the history depth.
     type RequiredChangeHistoryDepthOrigin: EnsureOrigin<Self::Origin>;
+
+    /// To schedule the rewards for the stakers after the end of era.
+    type RewardScheduler: Anon<Self::BlockNumber, <Self as Trait>::Call, Self::PalletsOrigin>;
+
+    /// Overarching type of all pallets origins.
+    type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 /// Mode of era-forcing.
@@ -1120,7 +1143,26 @@ pub enum Forcing {
 
 impl Default for Forcing {
     fn default() -> Self {
-        Forcing::NotForcing
+        Self::NotForcing
+    }
+}
+
+/// Switch used to change the "victim" for slashing. Victims can be
+/// validators, both validators and nominators, or no-one.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum SlashingSwitch {
+    /// Allow validators but not nominators to get slashed.
+    Validator,
+    /// Allow both validators and nominators to get slashed.
+    ValidatorAndNominator,
+    /// Forbid slashing.
+    None,
+}
+
+impl Default for SlashingSwitch {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -1330,6 +1372,9 @@ decl_storage! {
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
 
+        // Polymesh-Note: Polymesh specific change to provide slashing switch for validators & Nominators.
+        pub SlashingAllowedFor get(fn slashing_allowed_for) config(): SlashingSwitch;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1345,8 +1390,9 @@ decl_storage! {
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
+                let controller_origin = <Module<T>>::get_origin(controller.clone());
                 let _ = <Module<T>>::bond(
-                    T::Origin::from(Some(stash.clone()).into()),
+                    <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
@@ -1357,7 +1403,7 @@ decl_storage! {
                         // Setting the cap value here.
                         prefs.commission = config.validator_commission_cap;
                         <Module<T>>::validate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
                         if !<Module<T>>::permissioned_identity(&did) {
@@ -1369,7 +1415,7 @@ decl_storage! {
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin,
                             votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
                         )
                     }, _ => Ok(())
@@ -1423,6 +1469,10 @@ decl_event!(
         CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// When scheduling of reward payments get interrupted.
+        RewardPaymentSchedulingInterrupted(AccountId, EraIndex, DispatchError),
+        /// Update for whom balance get slashed.
+        SlashingAllowedForChanged(SlashingSwitch),
     }
 );
 
@@ -1507,12 +1557,12 @@ decl_error! {
         /// Stash doesn't have a DID.
         InvalidStashKey,
         /// Validator prefs are not in valid range.
-        InvalidValidatorCommission
+        InvalidValidatorCommission,
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         /// Number of sessions per era.
         const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -2385,13 +2435,7 @@ decl_module! {
         /// - Read Each: Bonded, Ledger, Payee, Locks, System Account (5 items)
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
-        #[weight =
-            ((120 * WEIGHT_PER_MICROS
-            + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
-            + T::DbWeight::get().reads(7)
-            + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)) * 25) / 100
-        ]
+        #[weight = weight::weight_for_payout_stakers::<T>()]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
@@ -2609,10 +2653,35 @@ decl_module! {
             );
             Ok(adjustments)
         }
+
+        // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
+        /// System version of `payout_stakers()`. Only be called by the root origin.
+        #[weight = weight::weight_for_payout_stakers::<T>()]
+        pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
+            ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+            ensure_root(origin)?;
+            Self::do_payout_stakers(validator_stash, era)
+        }
+
+        /// Switch slashing status on the basis of given `SlashingSwitch`. Only be called by the root.
+        /// # Arguments
+        /// * origin - AccountId of root.
+        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        pub fn change_slashing_allowed_for(origin, switch: SlashingSwitch) {
+            // Ensure origin should be root.
+            ensure_root(origin)?;
+            SlashingAllowedFor::put(switch);
+            Self::deposit_event(RawEvent::SlashingAllowedForChanged(switch));
+        }
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the `T::Origin` for given target AccountId.
+    fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
+        <T as frame_system::Trait>::Origin::from(Some(target).into())
+    }
+
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
         // Weight note: consider making the stake accessible through stash.
@@ -3166,6 +3235,34 @@ impl<T: Trait> Module<T> {
                 era_duration.saturated_into::<u64>(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
+
+            // Schedule Rewards for the validators
+            let next_block_no = <frame_system::Module<T>>::block_number() + 1.into();
+            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+                let schedule_block_no = next_block_no + index.saturated_into::<T::BlockNumber>();
+                match T::RewardScheduler::schedule(
+                    DispatchTime::At(schedule_block_no),
+                    None,
+                    HIGHEST_PRIORITY,
+                    RawOrigin::Root.into(),
+                    Call::<T>::payout_stakers_by_system(validator_id.clone(), active_era.index).into()
+                ) {
+                    Ok(_) => log!(
+                        info,
+                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                        &validator_id,
+                        schedule_block_no,
+                    ),
+                    Err(e) => {
+                        log!(
+                            error,
+                            "⛔ Detected error in scheduling the reward payment: {:?}",
+                            e
+                        );
+                        Self::deposit_event(RawEvent::RewardPaymentSchedulingInterrupted(validator_id, active_era.index, e));
+                    }
+                }
+            }
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,
@@ -3801,6 +3898,12 @@ where
             return Err(());
         }
 
+        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
+        if Self::slashing_allowed_for() == SlashingSwitch::None {
+            // Return `0` weight because no need to run through when Slashing is off.
+            return Ok(Zero::zero());
+        }
+
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;
         let mut add_db_reads_writes = |reads, writes| {
@@ -3839,7 +3942,8 @@ where
             match eras
                 .iter()
                 .rev()
-                .find(|&&(_, ref sesh)| sesh <= &slash_session)
+                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
+                .next()
             {
                 Some(&(ref slash_era, _)) => *slash_era,
                 // before bonding period. defensive - should be filtered out.
@@ -3878,12 +3982,12 @@ where
             });
 
             if let Some(mut unapplied) = unapplied {
-                // `unapplied.others` will always be an empty vector. So skipping consideration of
-                // nominators length (i.e nominators_len).
+                let nominators_len = unapplied.others.len() as u64;
                 let reporters_len = details.reporters.len() as u64;
 
                 {
-                    let rw = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let rw = upper_bound + nominators_len * upper_bound;
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
@@ -3894,8 +3998,8 @@ where
                         let slash_cost = (6, 5);
                         let reward_cost = (2, 2);
                         add_db_reads_writes(
-                            slash_cost.0 + reward_cost.0 * reporters_len,
-                            slash_cost.1 + reward_cost.1 * reporters_len,
+                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
                         );
                     }
                 } else {

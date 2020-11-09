@@ -113,12 +113,6 @@ pub fn not<P: Proposition<C>, C>(proposition: P) -> NotProposition<P> {
     NotProposition::new(proposition)
 }
 
-/// Checks whether the length of the vector of claims of a given context object is > 0.
-#[inline]
-pub fn has_scope_claim_exists(context: Context<impl Iterator<Item = impl Sized>>) -> bool {
-    context.claims.count() > 0
-}
-
 /// Helper function to run propositions from a context.
 pub fn run<C: Iterator<Item = Claim>>(condition: &Condition, context: Context<C>) -> bool {
     match &condition.condition_type {
@@ -126,7 +120,6 @@ pub fn run<C: Iterator<Item = Claim>>(condition: &Condition, context: Context<C>
         ConditionType::IsAbsent(claim) => not::<_, C>(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(claims) => not::<_, C>(any(claims)).evaluate(context),
-        ConditionType::HasValidProofOfInvestor(..) => has_scope_claim_exists(context),
         ConditionType::IsIdentity(id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }
