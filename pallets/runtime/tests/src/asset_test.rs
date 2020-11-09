@@ -2553,12 +2553,12 @@ fn classic_ticker_claim_works() {
             assert_ok!(Asset::claim_classic_ticker(signer, ticker, eth_sig.clone()));
             assert_eq!(alice_did, Tickers::<TestStorage>::get(ticker).owner);
             assert!(matches!(
-                    &*System::events(),
-                    [.., frame_system::EventRecord {
-                        event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
-                        ..
-                    }]
-                    ));
+                &*System::events(),
+                [.., frame_system::EventRecord {
+                    event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
+                    ..
+                }]
+            ));
         }
 
         // Create `ALPHA` asset; this will cost.
@@ -2603,7 +2603,7 @@ fn classic_ticker_claim_works() {
             Signatory::from(charlie_did),
             AuthorizationData::TransferTicker(zeta),
             None,
-            );
+        );
         assert_ok!(Asset::accept_ticker_transfer(Origin::signed(charlie_acc), auth_id_alice));
         assert_eq!(ClassicTickers::get(&zeta), None);
         assert_ok!(create(charlie_acc, "ZETA", 0 * fee));
