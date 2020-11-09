@@ -25,8 +25,6 @@ use sp_std::{
     prelude::*,
 };
 
-type Identity<T> = identity::Module<T>;
-
 benchmarks! {
     _ {}
 
@@ -120,24 +118,7 @@ benchmarks! {
         assert_eq!(Some(description), meta.description);
     }
 
-    // propose_from_committee {
-    //     let a in 0 .. u32::MAX;
-    //     let d in 0 .. 1000;
-    //     let u in 0 .. 500;
-    //     let c in 0 .. 100_000;
-
-    //     let origin =
-    //         committee::Origin::<T, committee::Instance4>::Members(0, 0).into();
-    //     let content = vec![b'X'; c as usize];
-    //     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
-    //     let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
-    //     let desc = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
-    // }: propose(origin, proposal, a.into(), Some(url), Some(desc))
-
-
     amend_proposal {
-        // deposit
-        let a in 0 .. u32::MAX;
         // description length
         let d in 0 .. 1_000;
         // URL length
@@ -160,6 +141,7 @@ benchmarks! {
         );
     }: _(origin, 0, Some(url.clone()), Some(description.clone()))
     verify {
+        assert_ok!(propose_result);
         let meta = Module::<T>::proposal_metadata(0).unwrap();
         assert_eq!(0, meta.id);
         assert_eq!(Some(url), meta.url);
