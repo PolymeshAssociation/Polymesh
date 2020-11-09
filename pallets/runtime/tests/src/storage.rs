@@ -23,6 +23,7 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as corporate_ballots;
+use pallet_corporate_actions::distribution as capital_distributions;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -138,6 +139,7 @@ impl_outer_event! {
         pallet_scheduler<T>,
         corporate_actions,
         corporate_ballots<T>,
+        capital_distributions<T>,
         checkpoint<T>,
     }
 }

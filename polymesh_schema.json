@@ -1,6 +1,7 @@
 {
     "types": {
         "IdentityId": "[u8; 32]",
+        "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
@@ -1106,6 +1107,15 @@
         "CAId": {
             "ticker": "Ticker",
             "local_id": "LocalCAId"
+        },
+        "Distribution": {
+            "from": "PortfolioId",
+            "currency": "Ticker",
+            "amount": "Balance",
+            "remaining": "Balance",
+            "reclaimed": "bool",
+            "payment_at": "Moment",
+            "expires_at": "Option<Moment>"
         },
         "SlashingSwitch": {
             "_enum": [
