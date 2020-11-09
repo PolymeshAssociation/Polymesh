@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::EventOnly;
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -49,7 +50,17 @@ const UUID_LEN: usize = 32usize;
 )]
 pub struct IdentityId(pub [u8; UUID_LEN]);
 
+/// Alias for `EventOnly<IdentityId>`.
+// Exists because schema checks don't know how to handle `EventOnly`.
+pub type EventDid = EventOnly<IdentityId>;
+
 impl IdentityId {
+    /// Protect the DID as only for use in events.
+    #[inline]
+    pub fn for_event(self) -> EventDid {
+        EventDid::new(self)
+    }
+
     /// Returns a byte slice of this IdentityId's contents
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
@@ -207,7 +218,13 @@ pub enum PortfolioKind {
 
 impl Default for PortfolioKind {
     fn default() -> Self {
-        PortfolioKind::Default
+        Self::Default
+    }
+}
+
+impl From<Option<PortfolioNumber>> for PortfolioKind {
+    fn from(num: Option<PortfolioNumber>) -> Self {
+        num.map_or(Self::Default, Self::User)
     }
 }
 

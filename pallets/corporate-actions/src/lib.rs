@@ -15,29 +15,85 @@
 
 //! # Corporate Actions module.
 //!
-//! TODO
+//! The corporate actions module provides functionality for handling corporate actions (CAs) on-chain.
+//!
+//! Any CA is associated with an asset,
+//! so most module dispatchables must be called by the corporate action agent (CAA).
+//! The CAA could either be the asset's owner, or some specific identity authorized by the owner.
+//! Should the CAA be distinct from the owner, then only the CAA may initiate CAs.
+//! If for any reason, a CAA needs to be relieved from their responsibilities,
+//! they may be removed using `reset_caa`, in which case the CAA again becomes the owner.
+//!
+//! The starting point of any CA begins with executing `initiate_corporate_action`,
+//! provided with the associated ticker, what sort of CA it is, e.g., a notice or a benefit,
+//! and when, if any, a checkpoint should be recorded, or was recorded, if an existing one is to be used.
+//! Additonally, free-form details, serving as on-chain documentation, may be provided.
+//!
+//! A CA targets a set of identities (`TargetIdentities`), but this need not be every asset holder.
+//! Instead, when initiating a CA,
+//! the targets may be specified either by exhaustively specifying every identity to include.
+//! This is achieved through `TargetTreatment::Include`.
+//! Instead of specifying an exhaustive set,
+//! a set of identities can be excluded from the universe of asset holders.
+//! This can be achieved through `TargetTreatment::Exclude`.
+//! If the target set for an asset is usually the same,
+//! a default may be specified through `set_default_targets(targets)`.
+//!
+//! Finally, CAs which imply some sort of benefit may have a taxable element, e.g., due to capital gains tax.
+//! Sometimes, the responsibiliy paying such tax falls to the CAA or the asset issuer.
+//! To handle such circumstances, a portion of the benefits may be withheld.
+//! This governed by specifying a withholding tax % on-chain.
+//! The tax is first and foremost specified for every identity,
+//! but may also be overriden for specific identities (e.g., for DIDs in different jurisdictions).
+//! As with targets, if the taxes are usually the same for every CA,
+//! asset-level defaults may also be specified with `set_default_withholding_tax`
+//! and `set_did_withholding_tax`.
+//!
+//! After having created a CA and some asset documents,
+//! such documents may also be linked to the CA.
+//! To do so, `link_ca_doc(ca_id, docs)` can be called,
+//! with the ID of the CA specified in `ca_id` as well the IDs of each document in `docs`.
+//!
+//! Beyond this module, two other modules exist dedicated to CAs. These are:
+//!
+//! - The corporate ballots module, with which e.g., annual general meetings can be conducted on-chain.
+//! - The capital distributions module, with which e.g., dividends and other benefits may be distributed.
+//!
+//! For more details, consult the documentation in those modules.
 //!
 //! ## Overview
 //!
-//! TODO
+//! The module provides functions for:
+//!
+//! - Configuring the max length of details (chain global configuration, through PIPs)
+//! - Specifying asset level CA configuration for the target set and withholding tax.
+//! - Initiating CAs.
+//! - Linking existing asset documentation to an existing CA.
 //!
 //! ## Interface
 //!
-//! TODO
-//!
 //! ### Dispatchable Functions
 //!
-//! TODO
-//!
-//! ### Public Functions
-//!
-//! TODO
-//!
+//! - `set_max_details_length(origin, length)` sets the maximum `length` in bytes for the `details` of any CA.
+//!    Must be called via the PIP process.
+//! - `reset_caa(origin, ticker)` relieves the current CAA from their duties,
+//!    resetting it back to the asset owner. Must be called by the asset owner.
+//! - `set_default_targets(origin, ticker, targets)` sets the default `targets`
+//!    for all CAs associated with `ticker`.
+//! - `set_default_withholding_tax(origin, ticker, tax)` sets the default withholding tax
+//!    for every identity for all CAs associated with `ticker`.
+//! - `set_did_withholding_tax(origin, ticker, taxed_did, tax)` sets a withholding tax
+//!    for CAs associated with `ticker` and specific to `taxed_did` to `tax`,
+//!    or resets the tax of `taxed_did` to the default if `tax` is `None`.
+//! - `initiate_corporate_action(...)` initates a corporate action.
+//! - `link_ca_doc(origin, id, docs)` is called by the CAA to associate `docs` to the CA with `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
+#![feature(crate_visibility_modifier)]
 
 pub mod ballot;
+pub mod distribution;
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
@@ -52,7 +108,7 @@ use pallet_asset::{
     self as asset,
     checkpoint::{self, ScheduleId},
 };
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
@@ -116,8 +172,10 @@ impl TargetIdentities {
     }
 
     /// Does this target `did`?
+    /// Complexity: O(log n) with `n` being the number of identities listed.
     pub fn targets(&self, did: &IdentityId) -> bool {
-        self.treatment.is_include() == self.identities.contains(did)
+        // N.B. The binary search here is OK since the list of identities is sorted.
+        self.treatment.is_include() == self.identities.binary_search(&did).is_ok()
     }
 }
 
@@ -132,7 +190,7 @@ pub enum CAKind {
     /// An unpredictable benefit.
     /// These are announced during the *"life"* of the asset.
     /// Examples include dividends, bonus issues.
-    UnpredictableBenfit,
+    UnpredictableBenefit,
     /// A notice to the position holders, where the goal is to dessiminate information to them,
     /// resulting in no change to the securities or cash position of the position holder.
     /// Examples include Annual General Meetings.
@@ -145,6 +203,13 @@ pub enum CAKind {
     /// Some generic uncategorized CA.
     /// In other words, none of the above.
     Other,
+}
+
+impl CAKind {
+    /// Is this some sort of benefit CA?
+    fn is_benefit(&self) -> bool {
+        matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
+    }
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -198,10 +263,21 @@ pub struct CorporateAction {
     /// The identities this CA is relevant to.
     pub targets: TargetIdentities,
     /// The default withholding tax at the time of CA creation.
-    /// For more on withholding tax, see the `DefaultWitholdingTax` storage item.
+    /// For more on withholding tax, see the `DefaultWithholdingTax` storage item.
     pub default_withholding_tax: Tax,
     /// Any per-DID withholding tax overrides in relation to the default.
     pub withholding_tax: Vec<(IdentityId, Tax)>,
+}
+
+impl CorporateAction {
+    /// Returns the tax of `did` in this CA.
+    fn tax_of(&self, did: &IdentityId) -> Tax {
+        // N.B. we maintain a sorted list to enable O(log n) access here.
+        self.withholding_tax
+            .binary_search_by_key(&did, |(did, _)| did)
+            .map(|idx| self.withholding_tax[idx].1)
+            .unwrap_or_else(|_| self.default_withholding_tax)
+    }
 }
 
 /// A `Ticker`-local CA ID.
@@ -237,7 +313,10 @@ pub trait WeightInfo {
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
     /// The overarching event type.
-    type Event: From<Event> + From<ballot::Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event>
+        + From<ballot::Event<Self>>
+        + From<distribution::Event<Self>>
+        + Into<<Self as frame_system::Trait>::Event>;
 
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
@@ -282,13 +361,13 @@ decl_storage! {
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
         ///
         /// (ticker => % to withhold)
-        pub DefaultWitholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
+        pub DefaultWithholdingTax get(fn default_withholding_tax): map hasher(blake2_128_concat) Ticker => Tax;
 
         /// The amount of tax to withhold ("withholding tax", WT) for a certain ticker x DID.
         /// If an entry exists for a certain DID, it overrides the default in `DefaultWithholdingTax`.
         ///
         /// (ticker => [(did, % to withhold)]
-        pub DidWitholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
+        pub DidWithholdingTax get(fn did_withholding_tax): map hasher(blake2_128_concat) Ticker => Vec<(IdentityId, Tax)>;
 
         /// The next per-`Ticker` CA ID in the sequence.
         /// The full ID is defined as a combination of `Ticker` and a number in this sequence.
@@ -372,7 +451,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DefaultWitholdingTax::mutate(ticker, |slot| *slot = tax);
+            DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
         }
 
@@ -390,12 +469,14 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DidWitholdingTax::mutate(ticker, |whts| {
-                match (whts.iter().position(|(did, _)| did == &taxed_did), tax) {
-                    (None, Some(tax)) => whts.push((taxed_did, tax)),
-                    (Some(idx), None) => drop(whts.swap_remove(idx)),
-                    (Some(idx), Some(tax)) => whts[idx] = (taxed_did, tax),
-                    (None, None) => {}
+            DidWithholdingTax::mutate(ticker, |whts| {
+                // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
+                // This is maintained to get O(log n) in capital distribution.
+                match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
+                    (Some(tax), Ok(idx)) => whts[idx] = (taxed_did, tax),
+                    (Some(tax), Err(idx)) => whts.insert(idx, (taxed_did, tax)),
+                    (None, Ok(idx)) => drop(whts.remove(idx)),
+                    (None, Err(_)) => {}
                 }
             });
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
@@ -565,6 +646,14 @@ decl_error! {
         NoSuchCheckpointId,
         /// A CA with the given `CAId` did not exist.
         NoSuchCA,
+        /// The CA did not have a record date.
+        NoRecordDate,
+        /// A CA's record date was strictly after the "start" time,
+        /// where "start" is context dependent.
+        /// For example, it could be the start of a ballot, or the start-of-payment in capital distribution.
+        RecordDateAfterStart,
+        /// CA does not target the DID.
+        NotTargetedByCA,
     }
 }
 
@@ -584,6 +673,61 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    // Ensure that `record_date <= start`.
+    crate fn ensure_record_date_before_start(
+        ca: &CorporateAction,
+        start: Moment,
+    ) -> DispatchResult {
+        match ca.record_date {
+            Some(rd) if rd.date <= start => Ok(()),
+            Some(_) => Err(Error::<T>::RecordDateAfterStart.into()),
+            None => Err(Error::<T>::NoRecordDate.into()),
+        }
+    }
+
+    /// Returns the supply at `cp`, if any, or `did`'s current balance otherwise.
+    crate fn supply_at_cp(ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
+        let ticker = ca_id.ticker;
+        match cp {
+            // CP exists, use it.
+            Some(cp_id) => <Checkpoint<T>>::total_supply_at((ticker, cp_id)),
+            // Although record date has passed, no transfers have happened yet for `ticker`.
+            // Thus, there is no checkpoint ID, and we must use current supply instead.
+            None => <Asset<T>>::token_details(ticker).total_supply,
+        }
+    }
+
+    /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
+    crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
+        let ticker = ca_id.ticker;
+        match cp {
+            // CP exists, use it.
+            Some(cp_id) => <Asset<T>>::get_balance_at(ticker, did, cp_id),
+            // Although record date has passed, no transfers have happened yet for `ticker`.
+            // Thus, there is no checkpoint ID, and we must use current balance instead.
+            None => <Asset<T>>::balance_of(ticker, did),
+        }
+    }
+
+    // Extract checkpoint ID for the CA's record date, if any.
+    // Assumes the CA has a record date where `date <= now`.
+    crate fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
+        // Record date has passed by definition.
+        let ticker = ca_id.ticker;
+        match ca.record_date.unwrap().checkpoint {
+            CACheckpoint::Existing(id) => Some(id),
+            // For CAs, there will ever be at most one CP.
+            // And assuming transfers have happened since the record date, there's exactly one CP.
+            CACheckpoint::Scheduled(id) => <Checkpoint<T>>::schedule_points((ticker, id)).pop(),
+        }
+    }
+
+    /// Ensure that `ca` targets `did`.
+    crate fn ensure_ca_targets(ca: &CorporateAction, did: &IdentityId) -> DispatchResult {
+        ensure!(ca.targets.targets(did), Error::<T>::NotTargetedByCA);
+        Ok(())
+    }
+
     /// Translate record date to a format we can store.
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
@@ -627,12 +771,23 @@ impl<T: Trait> Module<T> {
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        let did = <Identity<T>>::ensure_perms(origin)?;
+        Self::ensure_ca_agent_with_perms(origin, ticker).map(|x| x.primary_did)
+    }
+
+    /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
+    /// When `origin` is unsigned, `BadOrigin` occurs.
+    /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
+    fn ensure_ca_agent_with_perms(
+        origin: T::Origin,
+        ticker: Ticker,
+    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
+        let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let did = data.primary_did;
         ensure!(
             Self::agent(ticker)
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
             Error::<T>::UnauthorizedAsAgent
         );
-        Ok(did)
+        Ok(data)
     }
 }

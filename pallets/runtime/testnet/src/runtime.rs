@@ -17,6 +17,7 @@ use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
+use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -838,6 +839,7 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );
