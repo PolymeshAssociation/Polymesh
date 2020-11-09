@@ -278,9 +278,7 @@ decl_module! {
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
 
             // Ensures that the secondary key has access to the sender portfolio.
-            if let PortfolioKind::User(num) = from.kind {
-                Self::ensure_user_portfolio_permission(secondary_key.as_ref(), num)?;
-            }
+            Self::ensure_portfolio_permission(secondary_key.as_ref(), &from)?;
             // Check that the receiving portfolio exists.
             Self::ensure_portfolio_validity(&to)?;
             // Check that the sender is the custodian of the `from` portfolio
@@ -400,7 +398,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensure that the `portfolio` exists.
-    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
+    pub fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         // Default portfolio are always valid. Custom portfolios must be created explicitly.
         if let PortfolioKind::User(num) = portfolio.kind {
             Self::ensure_user_portfolio_validity(portfolio.did, num)?;
@@ -415,6 +413,17 @@ impl<T: Trait> Module<T> {
             Error::<T>::PortfolioDoesNotExist
         );
         Ok(())
+    }
+
+    /// Ensure that the `secondary_key` has access to `portfolio`.
+    pub fn ensure_portfolio_permission(
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        portfolio: &PortfolioId,
+    ) -> DispatchResult {
+        match portfolio.kind {
+            PortfolioKind::User(num) => Self::ensure_user_portfolio_permission(secondary_key, num),
+            PortfolioKind::Default => Ok(()),
+        }
     }
 
     /// Ensure that the `secondary_key` has access to `portfolio`.

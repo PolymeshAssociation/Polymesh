@@ -70,7 +70,7 @@ use frame_support::{
     ensure,
 };
 use pallet_asset::{self as asset, checkpoint};
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -159,6 +159,7 @@ decl_module! {
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
         /// - `RecordDateAfterStart` if CA's record date > payment_at.
+        /// - `UnauthorizedCustodian` if CAA is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
         #[weight = 2_000_000_000]
@@ -180,10 +181,19 @@ decl_module! {
             // Ensure `now <= payment_at`.
             ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
-            // Ensure origin is CAA, `ca_id` exists, and that its a benefit.
-            // and that sufficient funds exist.
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
+            // Ensure origin is CAA and that they have custody over `from`.
+            // Also ensure secondary key has perms for `from` + portfolio is valid.
+            let PermissionedCallOriginData {
+                primary_did: caa,
+                secondary_key,
+                ..
+            } = <CA<T>>::ensure_ca_agent_with_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
+            <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
+            <Portfolio<T>>::ensure_portfolio_permission(secondary_key.as_ref(), &from)?;
+            <Portfolio<T>>::ensure_portfolio_validity(&from)?;
+
+            // Ensure that `ca_id` exists, that its a benefit.
             let caa = caa.for_event();
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
@@ -194,15 +204,14 @@ decl_module! {
             // is not possible.
             <CA<T>>::ensure_record_date_before_start(&ca, payment_at)?;
 
-            // Has to be in a transaction, as both operations below are check-and-commit in kind,
-            // but if either fail, both must with storage changes reverted.
-            with_transaction(|| {
-                // Ensure CAA's portfolio `from` has at least `amount` and lock those.
-                <Portfolio<T>>::lock_tokens(&from, &currency, &amount)?;
+            // Ensure `from` has at least `amount` to later lock (1).
+            <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, &amount)?;
 
-                // Charge the protocol fee.
-                T::ProtocolFee::charge_fee(ProtocolOp::DistributionDistribute)
-            })?;
+            // Charge the protocol fee. Last check; we are in commit phase after this.
+            T::ProtocolFee::charge_fee(ProtocolOp::DistributionDistribute)?;
+
+            // (1) Lock `amount` in `from`.
+            <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, &amount);
 
             // Commit to storage.
             let distribution = Distribution {
