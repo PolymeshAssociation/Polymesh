@@ -18,6 +18,7 @@ node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
 node-runtime = { package = "polymesh-runtime-testnet", path = "../../pallets/runtime/testnet" }
 polymesh-common-utilities =  { path = "../../pallets/common" }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
+pallet-permissions = { path = "../../pallets/permissions" }
 pallet-staking = { path = "../../pallets/staking" }
 pallet-balances = { path = "../../pallets/balances" }
 node-executor = { path = "../executor", features = ["wasmtime"] }

@@ -99,7 +99,6 @@
             "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
-            "roles": "Vec<IdentityRole>",
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
@@ -413,8 +412,8 @@
             "id": "u32"
         },
         "ComplianceRequirementResult": {
-            "sender_conditions": "Vec<Condition>",
-            "receiver_conditions": "Vec<Condition>",
+            "sender_conditions": "Vec<ConditionResult>",
+            "receiver_conditions": "Vec<ConditionResult>",
             "id": "u32",
             "result": "bool"
         },
@@ -495,16 +494,30 @@
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
+        "ChoiceTitle": "Text",
         "Motion": {
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
-            "choices": "Vec<MotionTitle>"
+            "choices": "Vec<ChoiceTitle>"
         },
         "Ballot": {
             "checkpoint_id": "u64",
             "voting_start": "Moment",
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
+        },
+        "BallotTitle": "Text",
+        "BallotMeta": {
+            "title": "BallotTitle",
+            "motions": "Vec<Motion>"
+        },
+        "BallotTimeRange": {
+            "start": "Moment",
+            "end": "Moment"
+        },
+        "BallotVote": {
+            "power": "Balance",
+            "fallback": "Option<u16>"
         },
         "MaybeBlock": {
             "_enum": {
@@ -910,6 +923,7 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "Moment": "u64",
         "CalendarUnit": {
             "_enum": [
                 "Second",
@@ -923,10 +937,21 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "multiplier": "u64"
+            "amount": "Option<NonZeroU64>"
         },
         "CheckpointSchedule": {
-            "start": "u64",
+            "start": "Moment",
+            "period": "CalendarPeriod"
+        },
+        "CheckpointId": "u64",
+        "ScheduleId": "u64",
+        "StoredSchedule": {
+            "schedule": "CheckpointSchedule",
+            "id": "ScheduleId",
+            "at": "Moment"
+        },
+        "ScheduleSpec": {
+            "start": "Option<Moment>",
             "period": "CalendarPeriod"
         },
         "InstructionStatus": {
@@ -1053,9 +1078,25 @@
             ]
         },
         "CADetails": "Text",
+        "CACheckpoint": {
+            "_enum": {
+                "Scheduled": "ScheduleId",
+                "Existing": "CheckpointId"
+            }
+        },
+        "RecordDate": {
+            "date": "Moment",
+            "checkpoint": "CACheckpoint"
+        },
+        "RecordDateSpec": {
+            "_enum": {
+                "Scheduled": "Moment",
+                "Existing": "CheckpointId"
+            }
+        },
         "CorporateAction": {
             "kind": "CAKind",
-            "record_date": "Option<Moment>",
+            "record_date": "Option<RecordDate>",
             "details": "String",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
@@ -1067,7 +1108,7 @@
             "local_id": "LocalCAId"
         },
         "SlashingSwitch": {
-            "_enum":[
+            "_enum": [
                 "Validator",
                 "ValidatorAndNominator",
                 "None"

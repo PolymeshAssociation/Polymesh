@@ -37,6 +37,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
 
+pub mod ballot;
+
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 use frame_support::{
@@ -46,14 +48,19 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_asset as asset;
+use pallet_asset::{
+    self as asset,
+    checkpoint::{self, ScheduleId},
+};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     GC_DID,
 };
-use polymesh_primitives::{AuthorizationData, DocumentId, IdentityId, Moment, Ticker};
+use polymesh_primitives::{
+    calendar::CheckpointId, AuthorizationData, DocumentId, IdentityId, Moment, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
@@ -80,6 +87,16 @@ impl Default for TargetTreatment {
     }
 }
 
+impl TargetTreatment {
+    /// Is this the `Include` treatment?
+    pub fn is_include(self) -> bool {
+        match self {
+            Self::Include => true,
+            Self::Exclude => false,
+        }
+    }
+}
+
 /// A description of which identities that a CA will apply to.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
@@ -96,6 +113,11 @@ impl TargetIdentities {
         self.identities.sort_unstable();
         self.identities.dedup();
         self
+    }
+
+    /// Does this target `did`?
+    pub fn targets(&self, did: &IdentityId) -> bool {
+        self.treatment.is_include() == self.identities.contains(did)
     }
 }
 
@@ -129,6 +151,39 @@ pub enum CAKind {
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug, VecU8StrongTyped)]
 pub struct CADetails(pub Vec<u8>);
 
+/// Defines how to identify a CA's associated checkpoint, if any.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum CACheckpoint {
+    /// CA uses a record date scheduled to occur in the future.
+    /// Checkpoint ID will be taken after the record date.
+    Scheduled(ScheduleId),
+    /// CA uses an existing checkpoint ID which was recorded in the past.
+    Existing(CheckpointId),
+}
+
+/// Defines the record date, at which impact should be calculated,
+/// along with checkpoint info to assess the impact at the date.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct RecordDate {
+    /// When the impact should be calculated, or already has.
+    pub date: Moment,
+    /// Info used to determine the `CheckpointId` once `date` has passed.
+    pub checkpoint: CACheckpoint,
+}
+
+/// Input specification of the record date used to derive impact for a CA.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum RecordDateSpec {
+    /// Record date is in the future.
+    /// A checkpoint should be created.
+    Scheduled(Moment),
+    /// Checkpoint already exists, infer record date instead.
+    Existing(CheckpointId),
+}
+
 /// Details of a generic CA.
 /// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -137,7 +192,7 @@ pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
     /// Date at which any impact, if any, should be calculated.
-    pub record_date: Option<Moment>,
+    pub record_date: Option<RecordDate>,
     /// Free-form text up to a limit.
     pub details: CADetails,
     /// The identities this CA is relevant to.
@@ -182,7 +237,7 @@ pub trait WeightInfo {
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + From<ballot::Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
@@ -190,6 +245,7 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
 
 type Identity<T> = identity::Module<T>;
 type Asset<T> = asset::Module<T>;
+type Checkpoint<T> = checkpoint::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -355,9 +411,9 @@ decl_module! {
         /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
         /// - `targets`, if any, which this CA is relevant/irrelevant to.
         ///    Overrides, if provided, the default at the asset level (`set_default_targets`).
-        /// - `default_wt`, if any, is the default withholding tax to use for this CA.
+        /// - `default_withholding_tax`, if any, is the default withholding tax to use for this CA.
         ///    Overrides, if provided, the default at the asset level (`set_default_withholding_tax`).
-        /// - `wt`, if any, provides per-DID withholding tax overrides.
+        /// - `withholding_tax`, if any, provides per-DID withholding tax overrides.
         ///    Overrides, if provided, the default at the asset level (`set_did_withholding_tax`).
         ///
         /// # Errors
@@ -366,16 +422,17 @@ decl_module! {
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
+        /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
             kind: CAKind,
-            record_date: Option<Moment>,
+            record_date: Option<RecordDateSpec>,
             details: CADetails,
             targets: Option<TargetIdentities>,
-            default_wt: Option<Tax>,
-            wt: Option<Vec<(IdentityId, Tax)>>,
+            default_withholding_tax: Option<Tax>,
+            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
         ) {
             // Ensure that `details` is short enough.
             details
@@ -394,21 +451,18 @@ decl_module! {
             let id = CAId { ticker, local_id };
 
             // Ensure there are no duplicates in withholding tax overrides.
-            let mut wt = wt;
-            if let Some(wt) = &mut wt {
+            let mut withholding_tax = withholding_tax;
+            if let Some(wt) = &mut withholding_tax {
                 let before = wt.len();
                 wt.sort_unstable_by_key(|&(did, _)| did);
                 wt.dedup_by_key(|&mut (did, _)| did);
                 ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
             }
 
-            // Create a checkpoint at `record_date`, if any.
-            if let Some(record_date) = record_date {
-                // TODO(Centril): This immediately creates a checkpoint, but we want to schedule.
-                // However, checkpoint scheduling needs some changes to support CAs.
-                // Also, we need to consider checkpoint ID reservation.
-                <Asset<T>>::_create_checkpoint_emit(ticker, record_date, caa)?;
-            }
+            // If provided, either use the existing CP ID or schedule one to be made.
+            let record_date = record_date
+                .map(|date| Self::handle_record_date(caa, ticker, date))
+                .transpose()?;
 
             // Commit the next local CA ID.
             CAIdSequence::insert(ticker, next_id);
@@ -417,21 +471,24 @@ decl_module! {
             let targets = targets
                 .map(|t| t.dedup())
                 .unwrap_or_else(|| Self::default_target_identities(ticker));
-            let dwt = default_wt.unwrap_or_else(|| Self::default_withholding_tax(ticker));
-            let wt = wt.unwrap_or_else(|| Self::did_withholding_tax(ticker));
+            let default_withholding_tax = default_withholding_tax
+                .unwrap_or_else(|| Self::default_withholding_tax(ticker));
+            let withholding_tax = withholding_tax
+                .unwrap_or_else(|| Self::did_withholding_tax(ticker));
 
             // Commit CA to storage.
-            CorporateActions::insert(ticker, id.local_id, CorporateAction {
+            let ca = CorporateAction {
                 kind,
                 record_date,
-                details: details.clone(),
-                targets: targets.clone(),
-                default_withholding_tax: dwt,
-                withholding_tax: wt.clone(),
-            });
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax,
+            };
+            CorporateActions::insert(ticker, id.local_id, ca.clone());
 
             // Emit event.
-            Self::deposit_event(Event::CAInitiated(caa, id, kind, record_date, details, targets, dwt, wt));
+            Self::deposit_event(Event::CAInitiated(caa, id, ca));
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -482,18 +539,8 @@ decl_event! {
         /// (New CAA DID, Ticker, New CAA DID).
         CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
-        /// (CAA DID, CA id, kind of CA, record date, free-form text, targeted ids,
-        /// withholding tax, per-did tax override)
-        CAInitiated(
-            IdentityId,
-            CAId,
-            CAKind,
-            Option<Moment>,
-            CADetails,
-            TargetIdentities,
-            Tax,
-            Vec<(IdentityId, Tax)>,
-        ),
+        /// (CAA DID, CA id, the CA)
+        CAInitiated(IdentityId, CAId, CorporateAction),
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
@@ -514,6 +561,8 @@ decl_error! {
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,
+        /// On CA creation, a checkpoint ID was provided which doesn't exist.
+        NoSuchCheckpointId,
         /// A CA with the given `CAId` did not exist.
         NoSuchCA,
     }
@@ -535,13 +584,33 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
-    /// Ensure that a CA with `id` exists, erroring otherwise.
-    fn ensure_ca_exists(id: CAId) -> DispatchResult {
-        ensure!(
-            CorporateActions::contains_key(id.ticker, id.local_id),
-            Error::<T>::NoSuchCA
-        );
-        Ok(())
+    /// Translate record date to a format we can store.
+    /// In the process, create a checkpoint schedule if needed.
+    fn handle_record_date(
+        caa: IdentityId,
+        ticker: Ticker,
+        date: RecordDateSpec,
+    ) -> Result<RecordDate, DispatchError> {
+        let (date, checkpoint) = match date {
+            RecordDateSpec::Scheduled(date) => {
+                let date = date.into();
+                let schedule = <Checkpoint<T>>::create_schedule_base(caa, ticker, date, false)?;
+                (schedule.at, CACheckpoint::Scheduled(schedule.id))
+            }
+            RecordDateSpec::Existing(id) => {
+                ensure!(
+                    <Checkpoint<T>>::checkpoint_exists(&ticker, id),
+                    Error::<T>::NoSuchCheckpointId
+                );
+                (<Checkpoint<T>>::timestamps(id), CACheckpoint::Existing(id))
+            }
+        };
+        Ok(RecordDate { date, checkpoint })
+    }
+
+    /// Ensure that a CA with `id` exists, returning it, and erroring otherwise.
+    fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
+        CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
     }
 
     /// Change `ticker`'s CAA to `new_caa` and emit an event.
