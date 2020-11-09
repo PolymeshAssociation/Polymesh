@@ -165,7 +165,7 @@ decl_module! {
         pub fn distribute(
             origin,
             ca_id: CAId,
-            portfolio: PortfolioNumber,
+            portfolio: Option<PortfolioNumber>,
             currency: Ticker,
             amount: T::Balance,
             payment_at: Moment,
@@ -183,7 +183,7 @@ decl_module! {
             // Ensure origin is CAA, `ca_id` exists, and that its a benefit.
             // and that sufficient funds exist.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
-            let from = PortfolioId::user_portfolio(caa, portfolio);
+            let from = PortfolioId { did: caa, kind: portfolio.into() };
             let caa = caa.for_event();
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);

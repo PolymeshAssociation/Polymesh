@@ -218,7 +218,13 @@ pub enum PortfolioKind {
 
 impl Default for PortfolioKind {
     fn default() -> Self {
-        PortfolioKind::Default
+        Self::Default
+    }
+}
+
+impl From<Option<PortfolioNumber>> for PortfolioKind {
+    fn from(num: Option<PortfolioNumber>) -> Self {
+        num.map_or(Self::Default, Self::User)
     }
 }
 
