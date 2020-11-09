@@ -47,12 +47,16 @@ impl<T: Trait> User<T> {
     }
 
     /// It creates an account based on `name` and `u` with 1_000_000 as free balance.
-    pub fn without_did( name: &'static str, u: u32,) -> Self { 
+    pub fn without_did(name: &'static str, u: u32) -> Self {
         let account: T::AccountId = account(name, u, SEED);
         let origin = RawOrigin::Signed(account.clone());
         let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
 
-        Self { account, origin, did: None }
+        Self {
+            account,
+            origin,
+            did: None,
+        }
     }
 }
 
@@ -94,7 +98,7 @@ fn make_issuer<T: Trait>(id: u32) -> TrustedIssuer {
 }
 
 /// Helper function to create `s` token issuers with `fn make_issuer`.
-/// # TODO 
+/// # TODO
 ///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
 ///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
 ///   complience requiriments.
@@ -102,7 +106,7 @@ fn make_issuers<T: Trait>(s: u32) -> Vec<TrustedIssuer> {
     (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
 }
 
-/// It creates simple conditions with a variable number of `issuers`. 
+/// It creates simple conditions with a variable number of `issuers`.
 fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
     (0..s)
         .map(|_i| Condition {
@@ -112,7 +116,7 @@ fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
         .collect::<Vec<_>>()
 }
 
-/// This struct helps to simplify the parameter copy/pass during the benchmarks. 
+/// This struct helps to simplify the parameter copy/pass during the benchmarks.
 struct ComplianceRequirementInfo<T: Trait> {
     pub owner: User<T>,
     pub buyer: User<T>,
@@ -128,13 +132,14 @@ impl<T: Trait> ComplianceRequirementInfo<T> {
             Module::<T>::add_default_trusted_claim_issuer(
                 self.owner.origin.clone().into(),
                 self.ticker.clone(),
-                issuer)
-                .expect("Default trusted claim issuer cannot be added");
+                issuer,
+            )
+            .expect("Default trusted claim issuer cannot be added");
         });
     }
 }
 
-struct ComplianceRequirementBuilder<T: Trait> { 
+struct ComplianceRequirementBuilder<T: Trait> {
     info: ComplianceRequirementInfo<T>,
     has_been_added: bool,
 }
@@ -163,19 +168,26 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
             sender_conditions,
             receiver_conditions,
         };
-        
-        Self { info, has_been_added: false }
+
+        Self {
+            info,
+            has_been_added: false,
+        }
     }
 
     /// It registers the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
-        assert!( self.has_been_added == false, "Compliance has been added before");
+        assert!(
+            self.has_been_added == false,
+            "Compliance has been added before"
+        );
         Module::<T>::add_compliance_requirement(
             self.info.owner.origin.clone().into(),
             self.info.ticker.clone(),
             self.info.sender_conditions.clone(),
-            self.info.receiver_conditions.clone())
-            .expect("Compliance requirement cannot be added");
+            self.info.receiver_conditions.clone(),
+        )
+        .expect("Compliance requirement cannot be added");
         self.has_been_added = true;
         self
     }
@@ -184,7 +196,6 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
         self.info
     }
 }
-
 
 benchmarks! {
     _ {}
