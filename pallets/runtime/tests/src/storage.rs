@@ -22,6 +22,7 @@ use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
+use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -136,6 +137,7 @@ impl_outer_event! {
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
+        corporate_ballots<T>,
         checkpoint<T>,
     }
 }
