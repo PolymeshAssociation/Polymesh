@@ -457,20 +457,6 @@ decl_module! {
 
         const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
 
-        fn on_runtime_upgrade() -> Weight {
-            // Delete all settlement data.
-            // This will be a no-op since the data was being stored under a different module hash.
-            storage::unhashed::kill_prefix(&Twox128::hash(b"Settlement"));
-            // Delete data that was erroneously stored under a different module hash.
-            storage::unhashed::kill_prefix(&Twox128::hash(b"StoCapped"));
-
-            // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0.
-            <VenueCounter>::put(1);
-            <InstructionCounter>::put(1);
-
-            1_000
-        }
-
         /// Registers a new venue.
         ///
         /// * `details` - Extra details about a venue
