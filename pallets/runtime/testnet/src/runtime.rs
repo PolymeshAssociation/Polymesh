@@ -16,6 +16,7 @@ use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -289,6 +290,7 @@ impl protocol_fee::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 parameter_types! {
@@ -366,7 +368,7 @@ parameter_types! {
     pub const BondingDuration: pallet_staking::EraIndex = 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
@@ -399,6 +401,8 @@ impl pallet_staking::Trait for Runtime {
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
 }
 
@@ -833,6 +837,7 @@ construct_runtime!(
         Permissions: pallet_permissions::{Module},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );

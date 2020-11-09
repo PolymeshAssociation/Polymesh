@@ -581,7 +581,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Returns the current UNIX time, i.e. milli-seconds since UNIX epoch, 1970-01-01 00:00:00 UTC.
-    fn now_unix() -> Moment {
+    pub fn now_unix() -> Moment {
         // We're OK with truncation here because we'll all be dead before it actually happens.
         T::UnixTime::now().as_millis() as u64
     }

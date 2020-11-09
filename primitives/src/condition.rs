@@ -15,7 +15,6 @@
 
 use crate as polymesh_primitives;
 use crate::{
-    identity_claim::ClaimOld,
     migrate::{Empty, Migrate},
     Claim, ClaimType, IdentityId,
 };
@@ -38,17 +37,16 @@ pub enum TargetIdentity {
 /// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
-#[migrate_context(Option<crate::CddId>)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
-    IsPresent(#[migrate] Claim),
+    IsPresent(Claim),
     /// Condition to ensure that claim filter produces an empty list.
-    IsAbsent(#[migrate] Claim),
+    IsAbsent(Claim),
     /// Condition to ensure that at least one claim is fetched when filter is applied.
-    IsAnyOf(#[migrate(Claim)] Vec<Claim>),
+    IsAnyOf(Vec<Claim>),
     /// Condition to ensure that at none of claims is fetched when filter is applied.
-    IsNoneOf(#[migrate(Claim)] Vec<Claim>),
+    IsNoneOf(Vec<Claim>),
     /// Condition to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
 }
@@ -121,10 +119,8 @@ impl Migrate for TrustedIssuerOld {
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
-#[migrate_context(Option<crate::CddId>)]
 pub struct Condition {
     /// Type of condition.
-    #[migrate]
     pub condition_type: ConditionType,
     /// Trusted issuers.
     #[migrate(TrustedIssuer)]

@@ -99,7 +99,6 @@
             "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
-            "roles": "Vec<IdentityRole>",
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
@@ -413,8 +412,8 @@
             "id": "u32"
         },
         "ComplianceRequirementResult": {
-            "sender_conditions": "Vec<Condition>",
-            "receiver_conditions": "Vec<Condition>",
+            "sender_conditions": "Vec<ConditionResult>",
+            "receiver_conditions": "Vec<ConditionResult>",
             "id": "u32",
             "result": "bool"
         },
@@ -495,16 +494,30 @@
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
+        "ChoiceTitle": "Text",
         "Motion": {
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
-            "choices": "Vec<MotionTitle>"
+            "choices": "Vec<ChoiceTitle>"
         },
         "Ballot": {
             "checkpoint_id": "u64",
             "voting_start": "Moment",
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
+        },
+        "BallotTitle": "Text",
+        "BallotMeta": {
+            "title": "BallotTitle",
+            "motions": "Vec<Motion>"
+        },
+        "BallotTimeRange": {
+            "start": "Moment",
+            "end": "Moment"
+        },
+        "BallotVote": {
+            "power": "Balance",
+            "fallback": "Option<u16>"
         },
         "MaybeBlock": {
             "_enum": {
@@ -1065,9 +1078,25 @@
             ]
         },
         "CADetails": "Text",
+        "CACheckpoint": {
+            "_enum": {
+                "Scheduled": "ScheduleId",
+                "Existing": "CheckpointId"
+            }
+        },
+        "RecordDate": {
+            "date": "Moment",
+            "checkpoint": "CACheckpoint"
+        },
+        "RecordDateSpec": {
+            "_enum": {
+                "Scheduled": "Moment",
+                "Existing": "CheckpointId"
+            }
+        },
         "CorporateAction": {
             "kind": "CAKind",
-            "record_date": "Option<Moment>",
+            "record_date": "Option<RecordDate>",
             "details": "String",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
