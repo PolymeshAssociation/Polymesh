@@ -599,6 +599,7 @@ impl<T: Trait> Module<T> {
         TimeRanges::remove(ca_id);
         Metas::remove(ca_id);
         MotionNumChoices::remove(ca_id);
+        RCV::remove(ca_id);
         <Results<T>>::remove(ca_id);
         <Votes<T>>::remove_prefix(ca_id);
 

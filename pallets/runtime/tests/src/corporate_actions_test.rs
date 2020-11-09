@@ -10,8 +10,9 @@ use frame_support::{
 };
 use pallet_asset::checkpoint::ScheduleId;
 use pallet_corporate_actions::{
-    ballot::{self, BallotMeta, BallotTimeRange},
-    distribution, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
+    ballot::{self, BallotMeta, BallotTimeRange, Motion},
+    distribution::{self, Distribution},
+    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
     RecordDateSpec, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
@@ -37,6 +38,7 @@ type CA = pallet_corporate_actions::Module<TestStorage>;
 type Ballot = ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
+type BallotError = ballot::Error<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -564,6 +566,17 @@ fn initiate_corporate_action_targets() {
     });
 }
 
+fn add_doc(owner: User, ticker: Ticker) {
+    let doc = Document {
+        name: b"foo".into(),
+        uri: b"https://example.com".into(),
+        content_hash: b"0xdeadbeef".into(),
+        doc_type: None,
+        filing_date: None,
+    };
+    assert_ok!(Asset::add_documents(owner.signer(), vec![doc], ticker));
+}
+
 #[test]
 fn link_ca_docs_works() {
     test(|ticker, [owner, ..]| {
@@ -588,19 +601,129 @@ fn link_ca_docs_works() {
         assert_noop!(link(vec![id0]), AssetError::NoSuchDoc);
 
         // Add the document.
-        let doc = Document {
-            name: b"foo".into(),
-            uri: b"https://example.com".into(),
-            content_hash: b"0xdeadbeef".into(),
-            doc_type: None,
-            filing_date: None,
-        };
-        assert_ok!(Asset::add_documents(owner.signer(), vec![doc], ticker));
+        add_doc(owner, ticker);
 
         // The document exists, but we add a second one that does not, so still expecting failure.
         assert_noop!(link(vec![id0, DocumentId(1)]), AssetError::NoSuchDoc);
 
         // Finally, we only link the document, and it all works out.
         link_ok(vec![id0]);
+    });
+}
+
+#[test]
+fn remove_ca_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let ca =
+            |kind, rd| init_ca(owner, ticker, kind, rd, <_>::default(), None, None, None).unwrap();
+        let remove = |id| CA::remove_ca(owner.signer(), id);
+
+        let assert_no_ca = |id: CAId| {
+            assert_eq!(None, CA::corporate_actions(ticker, id.local_id));
+            assert_eq!(CA::ca_doc_link(id), vec![]);
+        };
+
+        // Remove a CA that doesn't exist, and ensure failure.
+        let id = next_ca_id(ticker);
+        assert_noop!(remove(id), Error::NoSuchCA);
+
+        // Create a CA, remove it, and ensure its no longer there.
+        ca(CAKind::Other, None);
+        add_doc(owner, ticker);
+        let docs = vec![DocumentId(0)];
+        assert_ok!(CA::link_ca_doc(owner.signer(), id, docs.clone()));
+        assert_eq!(docs, CA::ca_doc_link(id));
+        assert_ok!(remove(id));
+        assert_no_ca(id);
+
+        // Create a ballot CA, which hasn't started.
+        let time = BallotTimeRange {
+            start: 3000,
+            end: 4000,
+        };
+        let motion = Motion {
+            title: "".into(),
+            info_link: "".into(),
+            choices: vec!["".into()],
+        };
+        let meta = BallotMeta {
+            title: vec![].into(),
+            motions: vec![motion],
+        };
+        let mk_ballot = || {
+            Timestamp::set_timestamp(0);
+            let id = next_ca_id(ticker);
+            ca(CAKind::IssuerNotice, Some(1000));
+            assert_ok!(Ballot::attach_ballot(
+                owner.signer(),
+                id,
+                time,
+                meta.clone(),
+                true,
+            ));
+            id
+        };
+        let id = mk_ballot();
+        // Ensure the details are right.
+        assert_eq!(Ballot::metas(id), Some(meta.clone()));
+        assert_eq!(Ballot::time_ranges(id), Some(time));
+        assert_eq!(Ballot::motion_choices(id), vec![1u16]);
+        assert_eq!(Ballot::rcv(id), true);
+        // Sucessfully remove it. Edge condition `now == start - 1`.
+        Timestamp::set_timestamp(3000 - 1);
+        assert_ok!(remove(id));
+        // And ensure all details were removed.
+        assert_no_ca(id);
+        assert_eq!(Ballot::metas(id), None);
+        assert_eq!(Ballot::time_ranges(id), None);
+        assert_eq!(Ballot::motion_choices(id), Vec::<u16>::new());
+        assert_eq!(Ballot::rcv(id), false);
+
+        // Create another ballot, move now => start date; try to remove, but fail.
+        let id = mk_ballot();
+        Timestamp::set_timestamp(3000); // now == start
+        assert_noop!(remove(id), BallotError::VotingAlreadyStarted);
+        Timestamp::set_timestamp(3001); // now == start + 1
+        assert_noop!(remove(id), BallotError::VotingAlreadyStarted);
+
+        // Create a distribution CA, which hasn't started.
+        let currency = create_asset(b"BETA", owner);
+        let mk_dist = || {
+            Timestamp::set_timestamp(0);
+            let id = next_ca_id(ticker);
+            ca(CAKind::UnpredictableBenefit, Some(1000));
+            assert_ok!(Dist::distribute(
+                owner.signer(),
+                id,
+                None,
+                currency,
+                0,
+                3000,
+                None,
+            ));
+            id
+        };
+        let id = mk_dist();
+        // Ensure the details are right.
+        assert_eq!(
+            Dist::distributions(id),
+            Some(Distribution {
+                from: PortfolioId::default_portfolio(owner.did),
+                currency,
+                amount: 0,
+                remaining: 0,
+                reclaimed: false,
+                payment_at: 3000,
+                expires_at: None,
+            }),
+        );
+        // Sucessfully remove it. Edge condition `now == start - 1`.
+        Timestamp::set_timestamp(3000 - 1);
+        assert_ok!(remove(id));
+        // And ensure all details were removed.
+        assert_no_ca(id);
+        assert_eq!(Dist::distributions(id), None);
     });
 }
