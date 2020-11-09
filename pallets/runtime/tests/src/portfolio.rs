@@ -7,7 +7,8 @@ use pallet_asset::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, Signatory, Ticker,
+    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
+    Signatory, Ticker,
 };
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -18,42 +19,10 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 
-#[test]
-fn can_create_rename_delete_portfolio() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let name = PortfolioName::from([42u8].to_vec());
-        let num = Portfolio::next_portfolio_number(&owner_did);
-        assert_ok!(Portfolio::create_portfolio(
-            owner_signed.clone(),
-            name.clone()
-        ));
-        assert_eq!(Portfolio::portfolios(&owner_did, num), name);
-        let new_name = PortfolioName::from([55u8].to_vec());
-        assert_ok!(Portfolio::rename_portfolio(
-            owner_signed.clone(),
-            num,
-            new_name.clone()
-        ));
-        assert_eq!(Portfolio::portfolios(&owner_did, num), new_name);
-        assert_ok!(Portfolio::delete_portfolio(owner_signed.clone(), num));
-    });
-}
-
-#[test]
-fn can_move_asset_from_portfolio() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(do_move_asset_from_portfolio);
-}
-
-fn do_move_asset_from_portfolio() {
+fn create_token() -> (SecurityToken<u128>, Ticker) {
     let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-    let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let bob_signed = Origin::signed(AccountKeyring::Bob.public());
-    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let total_supply = 1_000_000;
+    let owner_did = Identity::get_identity(&AccountKeyring::Alice.public()).unwrap();
+    let total_supply = 1_000_000u128;
     let token = SecurityToken {
         name: vec![0x01].into(),
         owner_did,
@@ -73,17 +42,107 @@ fn do_move_asset_from_portfolio() {
         vec![],
         None,
     ));
-    assert_eq!(
-        Portfolio::default_portfolio_balance(owner_did, &ticker),
-        total_supply,
-    );
+    (token, ticker)
+}
+
+fn create_portfolio() -> (Origin, IdentityId, PortfolioNumber) {
+    let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let name = PortfolioName::from([42u8].to_vec());
     let num = Portfolio::next_portfolio_number(&owner_did);
+    assert_eq!(num, PortfolioNumber(1));
     assert_ok!(Portfolio::create_portfolio(
         owner_signed.clone(),
-        name.clone(),
+        name.clone()
     ));
     assert_eq!(Portfolio::portfolios(&owner_did, num), name);
+    (owner_signed, owner_did, num)
+}
+
+#[test]
+fn can_create_rename_delete_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (owner_signed, owner_did, num) = create_portfolio();
+        let new_name = PortfolioName::from([55u8].to_vec());
+        assert_ok!(Portfolio::rename_portfolio(
+            owner_signed.clone(),
+            num,
+            new_name.clone()
+        ));
+        assert_eq!(
+            Portfolio::next_portfolio_number(&owner_did),
+            PortfolioNumber(2)
+        );
+        assert_eq!(Portfolio::portfolios(&owner_did, num), new_name);
+        assert_ok!(Portfolio::delete_portfolio(owner_signed.clone(), num));
+    });
+}
+
+#[test]
+fn can_recover_funds_from_deleted_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (owner_signed, owner_did, num) = create_portfolio();
+        let (token, ticker) = create_token();
+        let owner_default_portfolio = PortfolioId::default_portfolio(owner_did);
+        let owner_user_portfolio = PortfolioId::user_portfolio(owner_did, num);
+
+        // Move funds to new portfolio
+        let move_amount = token.total_supply / 2;
+        assert_ok!(Portfolio::move_portfolio_funds(
+            owner_signed.clone(),
+            owner_default_portfolio,
+            owner_user_portfolio,
+            vec![MovePortfolioItem {
+                ticker,
+                amount: move_amount,
+            }]
+        ));
+        let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
+            assert_eq!(
+                Portfolio::default_portfolio_balance(owner_did, &ticker),
+                default_portfolio_balance
+            );
+            assert_eq!(
+                Portfolio::user_portfolio_balance(owner_did, num, &ticker),
+                user_portfolio_balance
+            );
+        };
+        ensure_balances(token.total_supply - move_amount, move_amount);
+
+        // Delete portfolio
+        assert_ok!(Portfolio::delete_portfolio(owner_signed.clone(), num));
+        ensure_balances(token.total_supply - move_amount, move_amount);
+
+        // Recover funds
+        assert_ok!(Portfolio::move_portfolio_funds(
+            owner_signed.clone(),
+            owner_user_portfolio,
+            owner_default_portfolio,
+            vec![MovePortfolioItem {
+                ticker,
+                amount: move_amount,
+            }]
+        ));
+        ensure_balances(token.total_supply, 0);
+    });
+}
+
+#[test]
+fn can_move_asset_from_portfolio() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(do_move_asset_from_portfolio);
+}
+
+fn do_move_asset_from_portfolio() {
+    let (owner_signed, owner_did, num) = create_portfolio();
+    let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let (token, ticker) = create_token();
+    assert_eq!(
+        Portfolio::default_portfolio_balance(owner_did, &ticker),
+        token.total_supply,
+    );
     assert_eq!(
         Portfolio::user_portfolio_balance(owner_did, num, &ticker),
         0,
@@ -100,7 +159,7 @@ fn do_move_asset_from_portfolio() {
             owner_user_portfolio,
             vec![MovePortfolioItem {
                 ticker,
-                amount: total_supply * 2,
+                amount: token.total_supply * 2,
             }]
         ),
         Error::InsufficientPortfolioBalance
@@ -110,7 +169,7 @@ fn do_move_asset_from_portfolio() {
             &owner_default_portfolio,
             &owner_user_portfolio,
             &ticker,
-            &(total_supply * 2),
+            &(token.total_supply * 2),
         ),
         Error::InsufficientPortfolioBalance
     );
@@ -137,18 +196,9 @@ fn do_move_asset_from_portfolio() {
 
     // Attempt to move to a non-existent portfolio.
     assert_err!(
-        Portfolio::move_portfolio_funds(
-            owner_signed.clone(),
-            owner_default_portfolio,
-            PortfolioId::user_portfolio(owner_did, num + 666),
-            vec![MovePortfolioItem { ticker, amount: 1 }]
-        ),
-        Error::PortfolioDoesNotExist
-    );
-    assert_err!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
-            &PortfolioId::user_portfolio(owner_did, num + 666),
+            &PortfolioId::user_portfolio(owner_did, PortfolioNumber(666)),
             &ticker,
             &1,
         ),
@@ -167,7 +217,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Move an amount within bounds.
-    let move_amount = total_supply / 2;
+    let move_amount = token.total_supply / 2;
     assert_ok!(Portfolio::move_portfolio_funds(
         owner_signed.clone(),
         owner_default_portfolio,
@@ -185,7 +235,7 @@ fn do_move_asset_from_portfolio() {
     ));
     assert_eq!(
         Portfolio::default_portfolio_balance(owner_did, &ticker),
-        total_supply - move_amount,
+        token.total_supply - move_amount,
     );
     assert_eq!(
         Portfolio::user_portfolio_balance(owner_did, num, &ticker),
@@ -196,39 +246,18 @@ fn do_move_asset_from_portfolio() {
 #[test]
 fn can_lock_unlock_assets() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let total_supply = 1_000_000;
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-        let num = Portfolio::next_portfolio_number(&owner_did);
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            token.divisible,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
+        let (owner_signed, owner_did, num) = create_portfolio();
+        let (token, ticker) = create_token();
         assert_eq!(
             Portfolio::default_portfolio_balance(owner_did, &ticker),
-            total_supply,
+            token.total_supply,
         );
 
         let owner_default_portfolio = PortfolioId::default_portfolio(owner_did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner_did, num);
 
         // Lock half of the tokens
-        let lock_amount = total_supply / 2;
+        let lock_amount = token.total_supply / 2;
         assert_ok!(Portfolio::lock_tokens(
             &owner_default_portfolio,
             &ticker,
@@ -237,19 +266,12 @@ fn can_lock_unlock_assets() {
 
         assert_eq!(
             Portfolio::default_portfolio_balance(owner_did, &ticker),
-            total_supply,
+            token.total_supply,
         );
         assert_eq!(
             Portfolio::locked_assets(owner_default_portfolio, &ticker),
             lock_amount,
         );
-
-        // Transfer for all token fails
-        let name = PortfolioName::from([42u8].to_vec());
-        assert_ok!(Portfolio::create_portfolio(
-            owner_signed.clone(),
-            name.clone(),
-        ));
 
         assert_noop!(
             Portfolio::move_portfolio_funds(
@@ -258,7 +280,7 @@ fn can_lock_unlock_assets() {
                 owner_user_portfolio,
                 vec![MovePortfolioItem {
                     ticker,
-                    amount: total_supply,
+                    amount: token.total_supply,
                 }]
             ),
             Error::InsufficientPortfolioBalance
@@ -276,7 +298,7 @@ fn can_lock_unlock_assets() {
         ));
         assert_eq!(
             Portfolio::default_portfolio_balance(owner_did, &ticker),
-            total_supply - lock_amount,
+            token.total_supply - lock_amount,
         );
         assert_eq!(
             Portfolio::user_portfolio_balance(owner_did, num, &ticker),
@@ -307,7 +329,7 @@ fn can_lock_unlock_assets() {
 
         assert_eq!(
             Portfolio::default_portfolio_balance(owner_did, &ticker),
-            total_supply - lock_amount,
+            token.total_supply - lock_amount,
         );
         assert_eq!(
             Portfolio::user_portfolio_balance(owner_did, num, &ticker),
@@ -325,13 +347,13 @@ fn can_lock_unlock_assets() {
             owner_user_portfolio,
             vec![MovePortfolioItem {
                 ticker,
-                amount: total_supply - lock_amount,
+                amount: token.total_supply - lock_amount,
             }]
         ));
         assert_eq!(Portfolio::default_portfolio_balance(owner_did, &ticker), 0,);
         assert_eq!(
             Portfolio::user_portfolio_balance(owner_did, num, &ticker),
-            total_supply,
+            token.total_supply,
         );
         assert_eq!(
             Portfolio::locked_assets(owner_default_portfolio, &ticker),
@@ -343,16 +365,9 @@ fn can_lock_unlock_assets() {
 #[test]
 fn can_take_custody_of_portfolios() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let (owner_signed, owner_did, num) = create_portfolio();
         let bob_signed = Origin::signed(AccountKeyring::Bob.public());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let name = PortfolioName::from([42u8].to_vec());
-        let num = Portfolio::next_portfolio_number(&owner_did);
-        assert_ok!(Portfolio::create_portfolio(
-            owner_signed.clone(),
-            name.clone()
-        ));
 
         let owner_default_portfolio = PortfolioId::default_portfolio(owner_did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner_did, num);

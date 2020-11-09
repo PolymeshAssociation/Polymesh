@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use core::num::NonZeroU64;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
@@ -169,7 +170,6 @@ fn general_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
                 versions: vec![
@@ -179,9 +179,19 @@ fn general_testnet_genesis(
                 ],
                 // Always use the first id, whomever that may be.
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
@@ -415,6 +425,9 @@ fn general_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
+        multisig: Some(GeneralConfig::MultiSigConfig {
+            transaction_version: 1,
+        }),
     }
 }
 
@@ -552,7 +565,6 @@ fn alcyone_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
                 versions: vec![
@@ -560,11 +572,20 @@ fn alcyone_testnet_genesis(
                     (SmartExtensionType::Offerings, 5000),
                     (SmartExtensionType::SmartWallet, 5000),
                 ],
-                // TODO(product_team): Assign to a real person.
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
@@ -803,6 +824,9 @@ fn alcyone_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
+        multisig: Some(GeneralConfig::MultiSigConfig {
+            transaction_version: 1,
+        }),
     }
 }
 

@@ -15,10 +15,9 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{IdentityId, PortfolioId, ScopeId, Ticker};
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
-
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 
 /// A wrapper for a token name.
@@ -72,7 +71,7 @@ pub trait Trait<V, U> {
         assets_purchased: V,
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
+    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> V;
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
     fn max_number_of_tm_extension() -> u32;

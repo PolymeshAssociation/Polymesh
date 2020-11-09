@@ -115,8 +115,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    IdentityWithRoles as OldDidRecord, InvestorUid, InvestorZKProofData, PalletName, Permissions,
+    Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -258,41 +258,51 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
                 identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map_keys, Empty},
+                migrate::{migrate_map,  migrate_double_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+            migrate_map::<IdentityClaimOld, _>(b"identity", b"Claims", |raw_key| {
                 Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
                     .ok()
                     .map(|k1| (*k1.target.as_fixed_bytes()).into())
             });
 
             // Covert old scopes to new scopes
-            migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
-                b"Identity", b"Claims",
-                |k1: Claim1stKey, k2: Claim2ndKeyOld| (
+            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
+                b"identity", b"Claims",
+                |k1: Claim1stKey, k2: Claim2ndKeyOld, val: IdentityClaim| Some((
                     k1,
-                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) }
-                )
+                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) },
+                    val
+                ))
             );
 
             migrate_map::<LinkedKeyInfo, _>(
-                b"Identity",
+                b"identity",
                 b"KeyToIdentityIds",
                 |_| Empty
             );
             migrate_map::<IdentityOld<T::AccountId>, _>(
-                b"Identity",
+                b"identity",
                 b"DidRecords",
                 |_| Empty
             );
+
+            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
+                .drain()
+                .map(|(key, old)|  (key, DidRecord {
+                    primary_key: old.primary_key,
+                    secondary_keys: old.secondary_keys,
+                }))
+                .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -1621,7 +1631,7 @@ impl<T: Trait> Module<T> {
         );
 
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
-        let did = IdentityId::from_bytes(blake2_256(&(USER, block_hash, new_nonce).encode()));
+        let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
         // 1.3. Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
@@ -1856,6 +1866,19 @@ impl<T: Trait> Module<T> {
         );
         Ok(primary_did)
     }
+
+    /// Checks whether the sender and the receiver of a transfer have valid scope claims
+    pub fn verify_scope_claims_for_transfer(
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+    ) -> bool {
+        let verify_scope_claim = |did| {
+            let asset_scope = Some(Scope::from(*ticker));
+            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
+        };
+        verify_scope_claim(from_did) && verify_scope_claim(to_did)
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -2021,9 +2044,6 @@ impl<T: Trait> Module<T> {
     }
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
-    ///
-    /// TODO: `Context::current_identity_or` fails for origins that do not have an identity. Hence
-    /// secondary keys without an identity are not functional.
     pub fn ensure_origin_call_permissions(
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {

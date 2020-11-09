@@ -43,10 +43,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    IterableStorageDoubleMap,
+    weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -57,7 +60,7 @@ use polymesh_primitives::{
     PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
-use sp_std::{convert::TryFrom, iter, prelude::Vec};
+use sp_std::{iter, mem, prelude::Vec};
 
 type Identity<T> = identity::Module<T>;
 
@@ -70,8 +73,16 @@ pub struct MovePortfolioItem<Balance> {
     pub amount: Balance,
 }
 
+pub trait WeightInfo {
+    fn create_portfolio(i: u32) -> Weight;
+    fn delete_portfolio() -> Weight;
+    fn move_portfolio_funds(i: u32) -> Weight;
+    fn rename_portfolio(i: u32) -> Weight;
+}
+
 pub trait Trait: CommonTrait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -195,7 +206,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a portfolio with the given `name`.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
@@ -221,7 +232,7 @@ decl_module! {
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
@@ -229,26 +240,10 @@ decl_module! {
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            if let Some(sk) = secondary_key {
-                // Check that the secondary signer is allowed to work with this portfolio.
-                ensure!(
-                    sk.has_portfolio_permission(iter::once(num)),
-                    Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
-                );
-            }
-            // Check that the portfolio exists.
-            ensure!(
-                <Portfolios>::contains_key(&primary_did, &num),
-                Error::<T>::PortfolioDoesNotExist
-            );
-            let portfolio_id = PortfolioId::user_portfolio(primary_did, num);
-            // Check that the portfolio doesn't have any balance
-            ensure!(
-                !<PortfolioAssetBalances<T>>::iter_prefix_values(&portfolio_id).any(|balance| balance > 0.into()),
-                Error::<T>::PortfolioNotEmpty
-            );
+            // Check that the portfolio exists and the secondary key has access to it
+            Self::ensure_user_portfolio_validity(primary_did, num)?;
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), num)?;
 
-            <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
             <Portfolios>::remove(&primary_did, &num);
             Self::deposit_event(RawEvent::PortfolioDeleted(primary_did, num));
             Ok(())
@@ -256,6 +251,7 @@ decl_module! {
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
         /// identity. Must be called by the custodian of the sender.
+        /// Funds from deleted portfolios can also be recovered via this method.
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
@@ -263,7 +259,7 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
-        #[weight = 1_000_000_000 + 10_050_000 * u64::try_from(items.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
             from: PortfolioId,
@@ -280,9 +276,13 @@ decl_module! {
             ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
             // Check that the source and destination did are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
-            // Check that the portfolios exist.
-            Self::ensure_portfolio_validity(secondary_key.as_ref(), &from)?;
-            Self::ensure_portfolio_validity(secondary_key.as_ref(), &to)?;
+
+            // Ensures that the secondary key has access to the sender portfolio.
+            if let PortfolioKind::User(num) = from.kind {
+                Self::ensure_user_portfolio_permission(secondary_key.as_ref(), num)?;
+            }
+            // Check that the receiving portfolio exists.
+            Self::ensure_portfolio_validity(&to)?;
             // Check that the sender is the custodian of the `from` portfolio
             Self::ensure_portfolio_custody(from, primary_did)?;
 
@@ -321,7 +321,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,
@@ -332,13 +332,7 @@ decl_module! {
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(sk) = secondary_key {
-                // Check that the secondary signer is allowed to work with this portfolio.
-                ensure!(
-                    sk.has_portfolio_permission(iter::once(num)),
-                    Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
-                );
-            }
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), num)?;
             // Check that the portfolio exists.
             ensure!(<Portfolios>::contains_key(&primary_did, &num), Error::<T>::PortfolioDoesNotExist);
             Self::ensure_name_unique(&primary_did, &to_name)?;
@@ -382,9 +376,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
     fn get_next_portfolio_number(did: &IdentityId) -> PortfolioNumber {
-        let num = Self::next_portfolio_number(did);
-        <NextPortfolioNumber>::insert(did, num + 1);
-        num
+        NextPortfolioNumber::mutate(did, |num| mem::replace(num, PortfolioNumber(num.0 + 1)))
     }
 
     /// An RPC function that lists all user-defined portfolio number-name pairs.
@@ -424,23 +416,35 @@ impl<T: Trait> Module<T> {
         });
     }
 
-    /// Makes sure that the portfolio exists and that `secondary_key` has access to it.
-    fn ensure_portfolio_validity(
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        portfolio: &PortfolioId,
-    ) -> DispatchResult {
+    /// Ensure that the `portfolio` exists.
+    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         // Default portfolio are always valid. Custom portfolios must be created explicitly.
         if let PortfolioKind::User(num) = portfolio.kind {
-            if let Some(sk) = secondary_key {
-                // Check that the secondary signer is allowed to work with this portfolio.
-                ensure!(
-                    sk.has_portfolio_permission(iter::once(num)),
-                    Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
-                );
-            }
+            Self::ensure_user_portfolio_validity(portfolio.did, num)?;
+        }
+        Ok(())
+    }
+
+    /// Ensure that the `PortfolioNumber` is valid.
+    fn ensure_user_portfolio_validity(did: IdentityId, num: PortfolioNumber) -> DispatchResult {
+        ensure!(
+            <Portfolios>::contains_key(did, num),
+            Error::<T>::PortfolioDoesNotExist
+        );
+        Ok(())
+    }
+
+    /// Ensure that the `secondary_key` has access to `portfolio`.
+    fn ensure_user_portfolio_permission(
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        num: PortfolioNumber,
+    ) -> DispatchResult {
+        // Default portfolio are always allowed. Custom portfolios must be permissioned.
+        if let Some(sk) = secondary_key {
+            // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(
-                <Portfolios>::contains_key(portfolio.did, num),
-                Error::<T>::PortfolioDoesNotExist
+                sk.has_portfolio_permission(iter::once(num)),
+                Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
             );
         }
         Ok(())
@@ -476,8 +480,8 @@ impl<T: Trait> Module<T> {
         );
 
         // 2. Ensure that the portfolios exist
-        Self::ensure_portfolio_validity(None, from_portfolio)?;
-        Self::ensure_portfolio_validity(None, to_portfolio)?;
+        Self::ensure_portfolio_validity(from_portfolio)?;
+        Self::ensure_portfolio_validity(to_portfolio)?;
 
         // 3. Ensure sender has enough free balance
         let from_balance = Self::portfolio_asset_balances(&from_portfolio, ticker);

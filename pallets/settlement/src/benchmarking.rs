@@ -107,12 +107,13 @@ fn generate_portfolio<T: Trait>(
     did: Option<IdentityId>,
 ) -> PortfolioId {
     let pusedo_random_no = variable + salt;
+    let portfolio_no = (pusedo_random_no as u64).into();
     match did {
         None => PortfolioId::user_portfolio(
             make_account::<T>(portfolio_to, pusedo_random_no).did,
-            pusedo_random_no.into(),
+            portfolio_no,
         ),
-        Some(id) => PortfolioId::user_portfolio(id, pusedo_random_no.into()),
+        Some(id) => PortfolioId::user_portfolio(id, portfolio_no),
     }
 }
 
@@ -411,9 +412,9 @@ benchmarks! {
         let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
 
         let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-        let portfolio_from = PortfolioId::user_portfolio(did, 100 as u64);
+        let portfolio_from = PortfolioId::user_portfolio(did, (100u64).into());
         let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
-        let portfolio_to = PortfolioId::user_portfolio(did_to, 500 as u64);
+        let portfolio_to = PortfolioId::user_portfolio(did_to, (500u64).into());
         let legs = vec![Leg {
             from: portfolio_from,
             to: portfolio_to,

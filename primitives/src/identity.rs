@@ -29,6 +29,16 @@ use sp_std::{convert::From, prelude::Vec};
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity<AccountId: Encode + Decode> {
+    pub primary_key: AccountId,
+    #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
+    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+}
+
+/// Identity information.
+#[allow(missing_docs)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct IdentityWithRoles<AccountId: Encode + Decode> {
     pub roles: Vec<IdentityRole>,
     pub primary_key: AccountId,
     #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
@@ -45,11 +55,6 @@ where
             primary_key,
             ..Default::default()
         }
-    }
-
-    /// It checks if this entity contains IdentityRole `role`.
-    pub fn has_role(&self, role: IdentityRole) -> bool {
-        self.roles.contains(&role)
     }
 
     /// It adds `new_secondary_keys` to `self`.

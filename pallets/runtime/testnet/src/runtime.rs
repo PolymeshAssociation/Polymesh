@@ -10,9 +10,8 @@ use frame_support::{
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::EnsureRoot;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
-use pallet_basic_sto as sto;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
@@ -34,6 +33,7 @@ use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
+use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
@@ -289,6 +289,7 @@ impl protocol_fee::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 parameter_types! {
@@ -366,7 +367,7 @@ parameter_types! {
     pub const BondingDuration: pallet_staking::EraIndex = 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
@@ -399,6 +400,8 @@ impl pallet_staking::Trait for Runtime {
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
 }
 
@@ -564,8 +567,10 @@ parameter_types! {
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl sto::Trait for Runtime {
@@ -650,11 +655,11 @@ impl bridge::Trait for Runtime {
 
 impl portfolio::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
 }
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const MinCheckpointDurationSecs: u64 = 60 * 60 * 24 * 7;
 }
 
 impl asset::Trait for Runtime {
@@ -663,7 +668,6 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
-    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {
@@ -796,7 +800,7 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
-        MultiSig: multisig::{Module, Call, Storage, Event<T>},
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>},
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
@@ -833,6 +837,7 @@ construct_runtime!(
         Permissions: pallet_permissions::{Module},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );
 
@@ -1225,46 +1230,6 @@ impl_runtime_apis! {
             node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
         {
             Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
-        }
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    impl frame_benchmarking::Benchmark<Block> for Runtime {
-        fn dispatch_benchmark(
-            config: frame_benchmarking::BenchmarkConfig
-        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-
-            use frame_system_benchmarking::Module as SystemBench;
-            impl frame_system_benchmarking::Trait for Runtime {}
-
-            let whitelist: Vec<TrackedStorageKey> = vec![
-                // Block Number
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-                // Total Issuance
-                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-                // Execution Phase
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-                // Event Count
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-                // System Events
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-                // Treasury Account
-                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
-            ];
-
-            let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&config, &whitelist);
-
-            add_benchmark!(params, batches, pallet_asset, Asset);
-            add_benchmark!(params, batches, pallet_balances, Balances);
-            add_benchmark!(params, batches, pallet_identity, Identity);
-            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
-            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_settlement, Settlement);
-
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
-            Ok(batches)
         }
     }
 }

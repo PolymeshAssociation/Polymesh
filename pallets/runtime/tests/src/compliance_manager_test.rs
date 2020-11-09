@@ -8,7 +8,7 @@ use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
-    ComplianceRequirementResult, Error as CMError, ImplicitRequirementResult,
+    ComplianceRequirementResult, Error as CMError,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
@@ -446,6 +446,7 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
 }
@@ -504,6 +505,13 @@ fn pause_resume_asset_compliance_we() {
         vec![],
         receiver_conditions
     ));
+
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        &[token_owner_did, receiver_did],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
 
     // 5. Verify pause/resume mechanism.
     // 5.1. Transfer should be cancelled.
@@ -1563,7 +1571,6 @@ fn check_new_return_type_of_rpc() {
             None,
         ));
 
-        // By default all asset have implicit requirements
         // Add empty rules
         assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
@@ -1578,11 +1585,6 @@ fn check_new_return_type_of_rpc() {
             Some(receiver_did),
         );
 
-        let expected_result = ImplicitRequirementResult {
-            from_result: false,
-            to_result: false,
-        };
-
         let compliance_requirement = ComplianceRequirementResult {
             sender_conditions: vec![],
             receiver_conditions: vec![],
@@ -1592,8 +1594,7 @@ fn check_new_return_type_of_rpc() {
 
         assert!(result.requirements.len() == 1);
         assert_eq!(result.requirements[0], compliance_requirement);
-        assert_eq!(result.implicit_requirements_result, expected_result);
-        assert_eq!(result.result, false);
+        assert_eq!(result.result, true);
 
         // Should fail txn as implicit requirements are active.
         assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);

@@ -17,7 +17,6 @@ members = [
     "pallets/asset",
     "pallets/balances",
     "pallets/bridge",
-    "pallets/cdd-offchain-worker",
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
@@ -42,6 +41,7 @@ members = [
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
     "pallets/statistics",
+    "pallets/sto",
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
@@ -142,8 +142,7 @@ default_identity = [
     "polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
-    "polymesh-runtime-develop/runtime-benchmarks",
-    "polymesh-runtime-testnet/runtime-benchmarks"
+    "polymesh-runtime-develop/runtime-benchmarks"
 ]
 std = [
     "serde/std",

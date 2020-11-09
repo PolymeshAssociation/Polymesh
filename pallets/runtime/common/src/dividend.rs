@@ -58,7 +58,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
-use polymesh_primitives::{IdentityId, Signatory, Ticker};
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, Signatory, Ticker};
 use sp_runtime::traits::{
     CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion, Zero,
 };
@@ -85,7 +85,7 @@ pub struct Dividend<U, V> {
     /// The payout SimpleToken currency ticker.
     pub payout_currency: Ticker,
     /// The checkpoint
-    pub checkpoint_id: u64,
+    pub checkpoint_id: CheckpointId,
 }
 
 // This module's storage items.
@@ -103,6 +103,7 @@ decl_storage! {
 }
 
 type Identity<T> = identity::Module<T>;
+type Checkpoint<T> = pallet_asset::checkpoint::Module<T>;
 
 // The module's dispatchable functions.
 decl_module! {
@@ -122,7 +123,7 @@ decl_module! {
             matures_at: T::Moment,
             expires_at: T::Moment,
             payout_ticker: Ticker,
-            checkpoint_id: u64
+            checkpoint_id: CheckpointId
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -141,22 +142,21 @@ decl_module! {
             ensure!(balance >= amount, Error::<T>::InsufficientFunds);
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
-            let checkpoint_id = if checkpoint_id > 0 {
+            let checkpoint_id = if checkpoint_id > CheckpointId(0) {
                 checkpoint_id
             } else {
-                let count = <asset::TotalCheckpoints>::get(&ticker);
-                if count > 0 {
+                let count = <Checkpoint<T>>::checkpoint_id_sequence(&ticker);
+                if count > CheckpointId(0) {
                     count
                 } else {
                     let now_as_secs =
                         <T as AssetTrait>::UnixTime::now().as_secs().saturated_into::<u64>();
-                    <asset::Module<T>>::_create_checkpoint(&ticker, now_as_secs)?;
-                    <asset::TotalCheckpoints>::get(&ticker)
+                    <Checkpoint<T>>::create_at_by(did, ticker, now_as_secs)?
                 }
             };
             // Check if checkpoint exists
             ensure!(
-                <asset::Module<T>>::total_checkpoints_of(&ticker) >= checkpoint_id,
+                <Checkpoint<T>>::checkpoint_id_sequence(&ticker) >= checkpoint_id,
                 Error::<T>::NoSuchCheckpoint
             );
 
@@ -286,7 +286,7 @@ decl_module! {
 
             // Compute the share
             ensure!(<asset::Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchToken);
-            let supply_at_checkpoint = <asset::CheckpointTotalSupply<T>>::get((ticker, dividend.checkpoint_id));
+            let supply_at_checkpoint = <Checkpoint<T>>::total_supply_at((ticker, dividend.checkpoint_id));
 
             let balance_amount_product = balance_at_checkpoint
                 .checked_mul(&dividend.amount)

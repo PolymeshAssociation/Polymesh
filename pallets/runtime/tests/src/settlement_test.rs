@@ -1,16 +1,21 @@
 use super::{
     storage::{
-        default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
-        register_keyring_account, user_portfolio_vec, TestStorage,
+        default_portfolio_vec, make_account, make_account_without_cdd,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
+        TestStorage,
     },
     ExtBuilder,
 };
-
+use codec::Encode;
+use frame_support::{
+    assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
+};
 use pallet_asset::{self as asset, AssetType};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
+use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, Instruction,
     InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
@@ -20,10 +25,6 @@ use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
     Signatory, Ticker,
 };
-
-use codec::Encode;
-use frame_support::dispatch::GetDispatchInfo;
-use frame_support::{assert_noop, assert_ok};
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
@@ -45,6 +46,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
+type Scheduler = scheduler::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -86,7 +88,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
 fn next_block() {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
-    Settlement::on_initialize(block_number);
+    let _ = Scheduler::on_initialize(block_number);
 }
 
 #[test]
@@ -104,7 +106,7 @@ fn venue_registration() {
                 vec![AccountKeyring::Alice.public(), AccountKeyring::Bob.public()],
                 VenueType::Exchange
             ));
-            let venue_info = Settlement::venue_info(venue_counter);
+            let venue_info = Settlement::venue_info(venue_counter).unwrap();
             assert_eq!(Settlement::venue_counter(), venue_counter + 1);
             assert_eq!(Settlement::user_venues(alice_did), [venue_counter]);
             assert_eq!(venue_info.creator, alice_did);
@@ -143,7 +145,7 @@ fn venue_registration() {
                 Some([0x01].into()),
                 None
             ));
-            let venue_info = Settlement::venue_info(venue_counter);
+            let venue_info = Settlement::venue_info(venue_counter).unwrap();
             assert_eq!(venue_info.creator, alice_did);
             assert_eq!(venue_info.instructions.len(), 0);
             assert_eq!(venue_info.details, [0x01].into());
@@ -423,7 +425,7 @@ fn token_swap() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -738,7 +740,7 @@ fn claiming_receipt() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -1117,6 +1119,7 @@ fn settle_on_block() {
                 },
             ];
 
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1124,11 +1127,7 @@ fn settle_on_block() {
                 None,
                 legs.clone()
             ));
-
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter]
-            );
+            assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
             assert_eq!(
                 Settlement::user_affirmations(
@@ -1172,7 +1171,7 @@ fn settle_on_block() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -1384,6 +1383,7 @@ fn failed_execution() {
                 },
             ];
 
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1391,11 +1391,7 @@ fn failed_execution() {
                 None,
                 legs.clone()
             ));
-
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter]
-            );
+            assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
             assert_eq!(
                 Settlement::user_affirmations(
@@ -1439,7 +1435,7 @@ fn failed_execution() {
                 2
             );
             assert_eq!(
-                Settlement::venue_info(venue_counter).instructions,
+                Settlement::venue_info(venue_counter).unwrap().instructions,
                 vec![instruction_counter]
             );
 
@@ -2221,17 +2217,14 @@ fn overload_settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
 
+            assert_eq!(2, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_eq!(
-                Settlement::scheduled_instructions(block_number),
-                vec![instruction_counter, instruction_counter + 2]
+                2,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1),
-                vec![instruction_counter + 1, instruction_counter + 3]
-            );
-            assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
             );
 
             next_block();
@@ -2241,18 +2234,14 @@ fn overload_settle_on_block() {
                 alice_init_balance - 500
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 500);
-            assert_eq!(Settlement::scheduled_instructions(block_number).len(), 0);
+            assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1),
-                vec![
-                    instruction_counter + 1,
-                    instruction_counter + 3,
-                    instruction_counter + 2
-                ]
+                3,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
             );
 
             next_block();
@@ -2263,16 +2252,16 @@ fn overload_settle_on_block() {
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1000);
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 1).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2),
-                vec![instruction_counter + 3, instruction_counter + 2]
+                2,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
             );
 
             next_block();
@@ -2283,16 +2272,16 @@ fn overload_settle_on_block() {
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 2).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3),
-                vec![instruction_counter + 2]
+                1,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 4).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
             );
 
             assert_noop!(
@@ -2303,6 +2292,7 @@ fn overload_settle_on_block() {
                 ),
                 Error::InstructionSettleBlockPassed
             );
+
             next_block();
             // Third instruction should've settled (Failed due to missing auth)
             assert_eq!(
@@ -2311,16 +2301,16 @@ fn overload_settle_on_block() {
             );
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance + 1500);
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 3).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 4).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
             );
             assert_eq!(
-                Settlement::scheduled_instructions(block_number + 5).len(),
-                0
+                0,
+                scheduler::Agenda::<TestStorage>::get(block_number + 5).len()
             );
         });
 }
@@ -3053,6 +3043,107 @@ fn multiple_custodian_settlement() {
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
                 0
+            );
+        });
+}
+
+#[test]
+fn reject_instruction() {
+    ExtBuilder::default()
+        .set_max_legs_allowed(500)
+        .build()
+        .execute_with(|| {
+            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let (charlie_signed, _) = make_account(AccountKeyring::Charlie.public()).unwrap();
+
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let amount = 100u128;
+
+            let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(alice_did),
+                        instruction_id
+                    ),
+                    alice_status
+                );
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(bob_did),
+                        instruction_id
+                    ),
+                    bob_status
+                );
+            };
+
+            let create_instruction = || {
+                let instruction_id = Settlement::instruction_counter();
+                assert_ok!(Settlement::add_and_affirm_instruction(
+                    alice_signed.clone(),
+                    venue_counter,
+                    SettlementType::SettleOnAffirmation,
+                    None,
+                    vec![Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount
+                    }],
+                    default_portfolio_vec(alice_did)
+                ));
+                instruction_id
+            };
+
+            let instruction_counter = create_instruction();
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Affirmed,
+                AffirmationStatus::Pending,
+            );
+            assert_noop!(
+                Settlement::reject_instruction(bob_signed.clone(), instruction_counter, vec![]),
+                Error::NoPortfolioProvided
+            );
+
+            assert_noop!(
+                Settlement::reject_instruction(
+                    charlie_signed.clone(),
+                    instruction_counter,
+                    default_portfolio_vec(bob_did)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            assert_ok!(Settlement::reject_instruction(
+                alice_signed.clone(),
+                instruction_counter,
+                default_portfolio_vec(alice_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
+            );
+
+            // Test that the receiver can also reject the instruction
+            let instruction_counter2 = create_instruction();
+
+            assert_ok!(Settlement::reject_instruction(
+                bob_signed.clone(),
+                instruction_counter2,
+                default_portfolio_vec(bob_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter2,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
             );
         });
 }

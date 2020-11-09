@@ -5025,7 +5025,7 @@ fn add_nominator_with_invalid_expiry() {
 
             // For valid trusted CDD service providers
             let account_bob = 600;
-            let (_bob_signed, bob_did) = make_account(account_bob).unwrap();
+            let (_bob_signed, bob_did) = make_account_with_uid(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
@@ -5068,7 +5068,7 @@ fn add_valid_nominator_with_multiple_claims() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
@@ -5078,7 +5078,7 @@ fn add_valid_nominator_with_multiple_claims() {
             // add one more claim issuer
             let claim_issuer_2 = 700;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
@@ -5115,7 +5115,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
@@ -5126,7 +5126,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_2 = 800;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             let mut now = Utc::now();
@@ -5456,4 +5456,199 @@ fn test_with_multiple_validators_from_entity() {
             assert!(Session::validators().contains(&50));
             assert!(Session::validators().contains(&60));
         });
+}
+
+#[test]
+fn test_reward_scheduling() {
+    ExtBuilder::default()
+        .validator_count(2)
+        .nominate(true)
+        .build()
+        .execute_with(|| {
+            let init_balance_10 = Balances::total_balance(&10);
+            let init_balance_11 = Balances::total_balance(&11);
+            let init_balance_20 = Balances::total_balance(&20);
+            let init_balance_21 = Balances::total_balance(&21);
+            let init_balance_100 = Balances::total_balance(&100);
+            let init_balance_101 = Balances::total_balance(&101);
+
+            // Check state
+            Payee::<Test>::insert(11, RewardDestination::Controller);
+            Payee::<Test>::insert(21, RewardDestination::Controller);
+            Payee::<Test>::insert(101, RewardDestination::Controller);
+
+            <Module<Test>>::reward_by_ids(vec![(11, 50)]);
+            <Module<Test>>::reward_by_ids(vec![(11, 50)]);
+            // This is the second validator of the current elected set.
+            <Module<Test>>::reward_by_ids(vec![(21, 50)]);
+
+            // Compute total payout now for whole duration as other parameter won't change
+            let total_payout_0 = current_total_payout_for_duration(3 * 1000);
+            assert!(total_payout_0 > 10); // Test is meaningful if reward something
+
+            println!("Print the total payout for the reward {:?}", total_payout_0);
+
+            start_session(1);
+
+            assert_eq!(Balances::total_balance(&10), init_balance_10);
+            assert_eq!(Balances::total_balance(&11), init_balance_11);
+            assert_eq!(Balances::total_balance(&20), init_balance_20);
+            assert_eq!(Balances::total_balance(&21), init_balance_21);
+            assert_eq!(Balances::total_balance(&100), init_balance_100);
+            assert_eq!(Balances::total_balance(&101), init_balance_101);
+            assert_eq_uvec!(Session::validators(), vec![21, 11]);
+            assert_eq!(
+                Staking::eras_reward_points(Staking::active_era().unwrap().index),
+                EraRewardPoints {
+                    total: 50 * 3,
+                    individual: vec![(11, 100), (21, 50)].into_iter().collect(),
+                }
+            );
+            let part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
+            let part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
+            let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
+            let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
+
+            start_session(2);
+            start_session(3);
+
+            assert_eq!(Staking::active_era().unwrap().index, 1);
+            assert_eq!(
+                mock::REWARD_REMAINDER_UNBALANCED.with(|v| *v.borrow()),
+                7050
+            );
+
+            let current_block_no = System::block_number();
+            // Check whether the rewards get scheduled or not.
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 1).len(),
+                1
+            );
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 2).len(),
+                1
+            );
+
+            run_to_block_scheduler(current_block_no + 1);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&20),
+                init_balance_20 + part_for_20 * total_payout_0 * 1 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&21), init_balance_21, 2);
+
+            // Balance of 10 & 11 remain same as reward scheduled only for 21
+            assert_eq!(Balances::total_balance(&10), init_balance_10);
+            assert_eq!(Balances::total_balance(&11), init_balance_11);
+
+            // Execute scheduling for the validator 11
+            run_to_block_scheduler(current_block_no + 2);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&10),
+                init_balance_10 + part_for_10 * total_payout_0 * 2 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&11), init_balance_11, 2);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&100),
+                init_balance_100
+                    + part_for_100_from_10 * total_payout_0 * 2 / 3
+                    + part_for_100_from_20 * total_payout_0 * 1 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&101), init_balance_101, 2);
+        });
+}
+
+#[test]
+fn check_slashing_switch_for_validators_and_nominators() {
+    ExtBuilder::default()
+        .slashing_allowed_for(SlashingSwitch::None)
+        .validator_count(5)
+        .build()
+        .execute_with(|| {
+            // Check the initial state of the Slashing Switch.
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+
+            let change_slashing_allowed_for = |switch: SlashingSwitch| {
+                assert_ok!(Staking::change_slashing_allowed_for(root(), switch));
+                assert_eq!(Staking::slashing_allowed_for(), switch);
+            };
+
+            change_slashing_allowed_for(SlashingSwitch::Validator);
+            change_slashing_allowed_for(SlashingSwitch::ValidatorAndNominator);
+        });
+}
+
+#[test]
+fn offence_is_blocked_when_slashing_status_is_off() {
+    ExtBuilder::default()
+        .offchain_phragmen_ext()
+        .validator_count(4)
+        .slashing_allowed_for(SlashingSwitch::None)
+        .has_stakers(false)
+        .build()
+        .execute_with(|| {
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+            let initial_balance = Balances::free_balance(10);
+            create_on_offence_now(10);
+            // No slashing happened.
+            assert_eq!(Balances::free_balance(10), initial_balance);
+        });
+}
+
+#[test]
+fn check_slashing_for_different_switches() {
+    ExtBuilder::default().build_and_execute(|| {
+        mock::start_era(1);
+
+        assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(21), 2000);
+
+        // Switch to ValidatorAndNominator.
+        assert_ok!(Staking::change_slashing_allowed_for(
+            root(),
+            SlashingSwitch::ValidatorAndNominator
+        ));
+        assert_eq!(
+            Staking::slashing_allowed_for(),
+            SlashingSwitch::ValidatorAndNominator
+        );
+
+        // Add nominator.
+        // add a new candidate for being a nominator. account 3 controlled by 4.
+        bond_nominator_with_expiry(3, 2000, 99999999, vec![11, 21]);
+        add_secondary_key(4, 3);
+
+        mock::start_era(2);
+
+        assert_eq!(Balances::free_balance(101), 2000);
+
+        create_on_offence_now(11);
+
+        create_on_offence_now(21);
+
+        // Balance of account 11 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(11), 900);
+        // Balance of account 4 [nominator] get slashed by 10% i.e 10 % of 2000 (total staked).
+        assert_eq!(Balances::free_balance(4), 1800);
+        // Balance of account 21 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(21), 1900);
+    })
+}
+
+fn create_on_offence_now(offender: u64) {
+    on_offence_now(
+        &[OffenceDetails {
+            offender: (
+                offender,
+                Staking::eras_stakers(Staking::active_era().unwrap().index, offender),
+            ),
+            reporters: vec![],
+        }],
+        &[Perbill::from_percent(10)],
+    );
 }
