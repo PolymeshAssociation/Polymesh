@@ -10,7 +10,8 @@ use frame_support::{
 };
 use pallet_asset::checkpoint::ScheduleId;
 use pallet_corporate_actions::{
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
+    ballot::{self, BallotMeta, BallotTimeRange},
+    distribution, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
     RecordDateSpec, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
@@ -33,6 +34,8 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type CA = pallet_corporate_actions::Module<TestStorage>;
+type Ballot = ballot::Module<TestStorage>;
+type Dist = distribution::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
@@ -136,12 +139,26 @@ fn init_ca(
     Ok(CA::corporate_actions(ticker, id).unwrap())
 }
 
+fn set_schedule_complexity() {
+    Timestamp::set_timestamp(0);
+    assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1000));
+}
+
+fn next_ca_id(ticker: Ticker) -> CAId {
+    let local_id = CA::ca_id_sequence(ticker);
+    CAId { ticker, local_id }
+}
+
 #[test]
 fn only_caa_authorized() {
     test(|ticker, [owner, caa, other]| {
+        set_schedule_complexity();
+
         // Transfer some to Charlie & Bob.
         transfer(&ticker, owner, caa);
         transfer(&ticker, owner, other);
+
+        let currency = create_asset(b"BETA", owner);
 
         macro_rules! checks {
             ($user:expr, $assert:ident $(, $tail:expr)?) => {
@@ -166,22 +183,45 @@ fn only_caa_authorized() {
                     None,
                 ) $(, $tail)?);
                 // ..., `initiate_corporate_action`,
-                $assert!(CA::initiate_corporate_action(
-                    $user.signer(),
-                    ticker,
-                    CAKind::Other,
-                    None,
-                    <_>::default(),
-                    None,
-                    None,
-                    None,
-                ) $(, $tail)?);
-                // ..., and `link_ca_doc`.
-                let id = CAId {
-                    ticker,
-                    local_id: LocalCAId(0),
+                let record_date = Some(RecordDateSpec::Scheduled(2000));
+                let mk_ca = |kind| {
+                    CA::initiate_corporate_action(
+                        $user.signer(),
+                        ticker,
+                        kind,
+                        record_date,
+                        <_>::default(),
+                        None,
+                        None,
+                        None,
+                    )
                 };
+                let id = next_ca_id(ticker);
+                $assert!(mk_ca(CAKind::IssuerNotice) $(, $tail)?);
+                // ..., `link_ca_doc`,
                 $assert!(CA::link_ca_doc($user.signer(), id, vec![]) $(, $tail)?);
+                // ..., `change_record_date`,
+                $assert!(CA::change_record_date($user.signer(), id, record_date) $(, $tail)?);
+                // ..., `attach_ballot`,
+                let time = BallotTimeRange { start: 3000, end: 4000 };
+                let meta = BallotMeta { title: vec![].into(), motions: vec![] };
+                $assert!(Ballot::attach_ballot($user.signer(), id, time, meta.clone(), false) $(, $tail)?);
+                // ..., `change_end`,
+                $assert!(Ballot::change_end($user.signer(), id, 5000) $(, $tail)?);
+                // ..., `change_meta`,
+                $assert!(Ballot::change_meta($user.signer(), id, meta) $(, $tail)?);
+                // ..., `change_rcv`,
+                $assert!(Ballot::change_rcv($user.signer(), id, true) $(, $tail)?);
+                // ..., `remove_ballot`,
+                $assert!(Ballot::remove_ballot($user.signer(), id) $(, $tail)?);
+                // ..., `remove_ca`,
+                $assert!(CA::remove_ca($user.signer(), id) $(, $tail)?);
+                // ..., `distribute`,
+                let id = next_ca_id(ticker);
+                $assert!(mk_ca(CAKind::UnpredictableBenefit) $(, $tail)?);
+                $assert!(Dist::distribute($user.signer(), id, None, currency, 0, 3000, None) $(, $tail)?);
+                // ..., and `remove_distribution`.
+                $assert!(Dist::remove_distribution($user.signer(), id) $(, $tail)?);
             };
         }
         // Ensures passing for owner, but not to-be-CAA (Bob) and other.
