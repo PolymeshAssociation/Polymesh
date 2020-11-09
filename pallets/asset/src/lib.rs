@@ -367,7 +367,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            Identifiers::remove_all();
 
             // Migrate `AssetDocuments`.
             use frame_support::Blake2_128Concat;
