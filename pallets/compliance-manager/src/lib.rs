@@ -135,17 +135,12 @@ pub trait Trait:
     type MaxCompliancePerRequirement: Get<usize>;
 }
 
-use polymesh_primitives::condition::ConditionOld;
-
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
-#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct ComplianceRequirement {
-    #[migrate(Condition)]
     pub sender_conditions: Vec<Condition>,
-    #[migrate(Condition)]
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
@@ -218,12 +213,10 @@ impl From<Condition> for ConditionResult {
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Migrate)]
-#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
     /// List of compliance requirements.
-    #[migrate(ComplianceRequirement)]
     pub requirements: Vec<ComplianceRequirement>,
 }
 
@@ -343,12 +336,10 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::migrate::{Empty, migrate_map, migrate_map_rename};
+            use polymesh_primitives::migrate::{Empty, migrate_map};
             use polymesh_primitives::condition::TrustedIssuerOld;
 
-            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance", |_| None);
-
-            migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIsuer", |_| Empty);
+            migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
 
             1_000
         }
