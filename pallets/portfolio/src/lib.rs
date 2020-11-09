@@ -468,17 +468,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Ensures that the portfolio's custody is with the provided identity
-    /// And the secondary key has the relevant portfolio permission
-    pub fn ensure_portfolio_custody_and_permission(
-        portfolio: PortfolioId,
-        custodian: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> DispatchResult {
-        Self::ensure_portfolio_custody(portfolio, custodian)?;
-        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
-    }
-
     /// Makes sure that a portfolio transfer is valid. Portfolio access is not checked.
     pub fn ensure_portfolio_transfer_validity(
         from_portfolio: &PortfolioId,
@@ -531,7 +520,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
+impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
     /// Accepts custody of a portfolio. The authorization must have been issued by the current custodian.
     ///
     /// # Errors
@@ -626,7 +615,19 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
+    /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
+    }
+
+    /// Ensures that the portfolio's custody is with the provided identity
+    /// And the secondary key has the relevant portfolio permission
+    fn ensure_portfolio_custody_and_permission(
+        portfolio: PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::ensure_portfolio_custody(portfolio, custodian)?;
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
     }
 }
