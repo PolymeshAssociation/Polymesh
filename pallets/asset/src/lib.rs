@@ -101,7 +101,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT, AssetName},
+    asset::{AssetName, AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -1360,7 +1360,12 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn create_asset(owner_did: IdentityId, ticker: &Ticker, name: AssetName, total_supply: T::Balance) -> DispatchResult {
+    fn create_asset(
+        owner_did: IdentityId,
+        ticker: Ticker,
+        name: AssetName,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
         let token = SecurityToken {
             name,
             total_supply,

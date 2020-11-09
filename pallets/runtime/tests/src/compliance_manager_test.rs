@@ -14,7 +14,7 @@ use pallet_group as group;
 use pallet_identity::{self as identity};
 use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
-    traits::{ compliance_manager::Trait as ComplianceManagerTrait, asset::AssetName },
+    traits::{asset::AssetName, compliance_manager::Trait as ComplianceManagerTrait},
     Context,
 };
 use polymesh_primitives::{

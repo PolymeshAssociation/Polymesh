@@ -82,5 +82,12 @@ pub trait Trait<V, U> {
         ticker: &Ticker,
         value: V,
     ) -> DispatchResultWithPostInfo;
-    fn create_asset(owner_did: IdentityId, ticker: &Ticker, name: AssetName, total_supply: V) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_asset(
+        owner_did: IdentityId,
+        ticker: Ticker,
+        name: AssetName,
+        total_supply: V,
+    ) -> DispatchResult;
 }

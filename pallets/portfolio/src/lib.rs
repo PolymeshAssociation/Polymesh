@@ -517,7 +517,7 @@ impl<T: Trait> Module<T> {
     pub fn fund_portfolio(
         portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: T::Balance
+        amount: T::Balance,
     ) -> DispatchResult {
         <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
         Ok(())
@@ -627,7 +627,7 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
     fn fund_portfolio(
         portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: T::Balance
+        amount: T::Balance,
     ) -> DispatchResult {
         Self::fund_portfolio(portfolio, ticker, amount)
     }

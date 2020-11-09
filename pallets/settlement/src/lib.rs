@@ -1367,13 +1367,36 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn set_instruction_let_status_to_skipped(instruction_id: u64, leg_id: u64, signer: T::AccountId, receipt_uid: u64) {
+    fn set_instruction_let_status_to_skipped(
+        instruction_id: u64,
+        leg_id: u64,
+        signer: T::AccountId,
+        receipt_uid: u64,
+    ) {
         <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
-        <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionToBeSkipped(signer, receipt_uid));
+        <InstructionLegStatus<T>>::insert(
+            instruction_id,
+            leg_id,
+            LegStatus::ExecutionToBeSkipped(signer, receipt_uid),
+        );
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: AffirmationStatus) {
+    fn set_instruction_leg_status_to_pending(
+        instruction_id: u64,
+        leg_id: u64,
+        leg: Leg<T::Balance>,
+    ) -> DispatchResult {
+        <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
+        T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_user_affirmations(
+        instruction_id: u64,
+        portfolio: PortfolioId,
+        affirm: AffirmationStatus,
+    ) {
         UserAffirmations::insert(portfolio, instruction_id, affirm);
     }
 }
