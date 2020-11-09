@@ -118,6 +118,21 @@ pub trait Trait:
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
+
+    /// The maximum default trusted issuers per ticket.
+    type MaxDefaultTrustedClaimIssuers: Get<usize>;
+
+    /// The maximum trusted issuers per condition.
+    type MaxTrustedIssuerPerCondition: Get<usize>;
+
+    /// The maximum sender conditions per compliance.
+    type MaxSenderConditionsPerCompliance: Get<usize>;
+
+    /// The maximum receiver conditions per compliance.
+    type MaxReceiverConditionsPerCompliance: Get<usize>;
+
+    /// The maximum number of compliance per requirement.
+    type MaxCompliancePerRequirement: Get<usize>;
 }
 
 use polymesh_primitives::condition::ConditionOld;
@@ -240,6 +255,32 @@ impl From<AssetCompliance> for AssetComplianceResult {
     }
 }
 
+fn check_max_trusted_issuer_per_condition<T: Trait>(conditions: &[Condition]) -> bool {
+    conditions
+        .iter()
+        .all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get())
+}
+
+fn ensure_requirement_limits<T: Trait>(
+    sender_conditions: &[Condition],
+    receiver_conditions: &[Condition],
+) -> DispatchResult {
+    ensure!(
+        sender_conditions.len() <= T::MaxSenderConditionsPerCompliance::get(),
+        Error::<T>::MaxSenderConditionsPerComplianceExcedeed
+    );
+    ensure!(
+        receiver_conditions.len() <= T::MaxReceiverConditionsPerCompliance::get(),
+        Error::<T>::MaxReceiverConditionsPerComplianceExcedeed
+    );
+    ensure!(
+        check_max_trusted_issuer_per_condition::<T>(sender_conditions)
+            && check_max_trusted_issuer_per_condition::<T>(receiver_conditions),
+        Error::<T>::MaxTrustedIssuerPerConditionExcedeed
+    );
+    Ok(())
+}
+
 pub mod weight_for {
     use super::*;
 
@@ -281,6 +322,16 @@ decl_error! {
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
         ComplianceRequirementTooComplex,
+        /// The maximum of default trusted claim issuer for an specific ticket has been exceeded.
+        MaxDefaultTrustedClaimIssuersExcedeed,
+        /// The maximum of trusted issuer per condition has been exceeded.
+        MaxTrustedIssuerPerConditionExcedeed,
+        ///
+        MaxSenderConditionsPerComplianceExcedeed,
+        ///
+        MaxReceiverConditionsPerComplianceExcedeed,
+        ///
+        MaxCompliancePerRequirementExcedeed,
     }
 }
 
@@ -313,26 +364,42 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            ensure!(
+                sender_conditions.iter().all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get()),
+                Error::<T>::MaxTrustedIssuerPerConditionExcedeed);
+            ensure!(
+                receiver_conditions.iter().all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get()),
+                Error::<T>::MaxTrustedIssuerPerConditionExcedeed);
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
-            )?;
+                )?;
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
             let mut new_requirement = ComplianceRequirement { sender_conditions, receiver_conditions, id };
             new_requirement.dedup();
+            ensure!(
+                new_requirement.sender_conditions.len() <= T::MaxSenderConditionsPerCompliance::get(),
+                Error::<T>::MaxSenderConditionsPerComplianceExcedeed);
+            ensure!(
+                new_requirement.receiver_conditions.len() <= T::MaxReceiverConditionsPerCompliance::get(),
+                Error::<T>::MaxReceiverConditionsPerComplianceExcedeed);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
 
             if !reqs
                 .iter()
-                .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
-            {
-                reqs.push(new_requirement.clone());
-                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-                AssetCompliances::insert(&ticker, asset_compliance);
-                Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
-            }
+                    .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
+                    {
+                        reqs.push(new_requirement.clone());
+                        ensure!(
+                            reqs.len() <= T::MaxCompliancePerRequirement::get(),
+                            Error::<T>::MaxCompliancePerRequirementExcedeed);
+
+                        Self::verify_compliance_complexity(&reqs, ticker, 0)?;
+                        AssetCompliances::insert(&ticker, asset_compliance);
+                        Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
+                    }
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -370,6 +437,14 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
+
+            // Ensure limits.
+            ensure!(
+                asset_compliance.len() <= T::MaxCompliancePerRequirement::get(),
+                Error::<T>::MaxCompliancePerRequirementExcedeed);
+            for req in asset_compliance.iter() {
+                ensure_requirement_limits::<T>( &req.sender_conditions, &req.receiver_conditions)?;
+            }
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -431,6 +506,8 @@ decl_module! {
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
+                ensure!(issuers.len() < T::MaxDefaultTrustedClaimIssuers::get(), Error::<T>::MaxDefaultTrustedClaimIssuersExcedeed);
+
                 Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, issuers.len() + 1)?;
                 issuers.push(issuer.clone());
                 Ok(()) as DispatchResult
@@ -472,6 +549,7 @@ decl_module! {
             if let Some(req) = reqs.iter_mut().find(|req| req.id == new_req.id) {
                 let mut new_req = new_req;
                 new_req.dedup();
+                ensure_requirement_limits::<T>( &new_req.sender_conditions, &new_req.receiver_conditions)?;
 
                 *req = new_req.clone();
                 Self::verify_compliance_complexity(&reqs, ticker, 0)?;

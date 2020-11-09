@@ -177,9 +177,9 @@ benchmarks! {
 
     // TODO - Issuer of a claim should be limited!
     add_compliance_requirement {
-        let s in 1..5; // TODO Max sender conditions.
-        let r in 1..5; // TODO Max receiver conditions.
-        let i in 1..3; // TODO Max trusted issuers.
+        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
+        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
+        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
 
         let d = ComplianceRequirementData::<T>::new(i, s, r);
 
@@ -191,9 +191,9 @@ benchmarks! {
     }
 
     remove_compliance_requirement {
-        let s in 1..5; // TODO Max sender conditions.
-        let r in 1..5; // TODO Max receiver conditions.
-        let i in 1..3; // TODO Max trusted issuers.
+        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
+        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
+        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
 
         // Add the compliance requirement.
         let d = ComplianceRequirementData::<T>::new(i, s, r);
@@ -235,14 +235,14 @@ benchmarks! {
     }
 
     add_default_trusted_claim_issuer {
-        let i in 0..10; // TODO Max trusted issuers.
+        let i in 0..(T::MaxDefaultTrustedClaimIssuers::get() as u32 -1);
 
         // Create and add the compliance requirement.
-        let d = ComplianceRequirementData::<T>::new(2, 1, 0);
+        let d = ComplianceRequirementData::<T>::new(1, 1, 0);
         add_compliance_requirement_with_data(&d);
 
         // Generate some trusted issuer.
-        add_default_trusted_claim_issuer_with_data( &d, i);
+        add_default_trusted_claim_issuer_with_data(&d, i);
 
         // Add one more for benchmarking.
         // TODO Issuer ID is checked here but not when it is added in the CR.
@@ -256,7 +256,7 @@ benchmarks! {
     }
 
     remove_default_trusted_claim_issuer {
-        let i in 1..10; // TODO Max trusted issuers.
+        let i in 1..T::MaxDefaultTrustedClaimIssuers::get() as u32;
 
         // Create and add the compliance requirement.
         let d = ComplianceRequirementData::<T>::new(2, 1, i);
@@ -276,9 +276,9 @@ benchmarks! {
     }
 
     change_compliance_requirement {
-        let s in 1..5; // TODO Max sender conditions.
-        let r in 1..5; // TODO Max receiver conditions.
-        let i in 1..3; // TODO Max trusted issuers.
+        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
+        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
+        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
 
         // Add the compliance requirement.
         let d = ComplianceRequirementData::<T>::new(i, s, r);
@@ -302,9 +302,9 @@ benchmarks! {
     }
 
     replace_asset_compliance {
-        let s in 1..5; // TODO Max sender conditions.
-        let r in 1..5; // TODO Max receiver conditions.
-        let i in 1..3; // TODO Max trusted issuers.
+        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
+        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
+        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
 
         // Add the compliance requirement.
         let d = ComplianceRequirementData::<T>::new(i, s, r);
@@ -326,9 +326,9 @@ benchmarks! {
     }
 
     reset_asset_compliance {
-        let s in 1..5; // TODO Max sender conditions.
-        let r in 1..5; // TODO Max receiver conditions.
-        let i in 1..3; // TODO Max trusted issuers.
+        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
+        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
+        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
 
         // Add the compliance requirement.
         let d = ComplianceRequirementData::<T>::new(i, s, r);

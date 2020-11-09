@@ -658,12 +658,22 @@ impl asset::Trait for Runtime {
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaxDefaultTrustedClaimIssuers: usize = 10;
+    pub const MaxTrustedIssuerPerCondition: usize = 10;
+    pub const MaxSenderConditionsPerCompliance: usize = 20;
+    pub const MaxReceiverConditionsPerCompliance: usize = 20;
+    pub const MaxCompliancePerRequirement: usize = 10;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxConditionComplexity = MaxConditionComplexity;
+    type MaxDefaultTrustedClaimIssuers = MaxDefaultTrustedClaimIssuers;
+    type MaxTrustedIssuerPerCondition = MaxTrustedIssuerPerCondition;
+    type MaxSenderConditionsPerCompliance = MaxSenderConditionsPerCompliance;
+    type MaxReceiverConditionsPerCompliance = MaxReceiverConditionsPerCompliance;
+    type MaxCompliancePerRequirement = MaxCompliancePerRequirement;
 }
 
 impl voting::Trait for Runtime {
