@@ -16,7 +16,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
-use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_identity::{self as identity, benchmarking::make_account};
 use polymesh_common_utilities::MaybeBlock;
@@ -141,7 +140,7 @@ benchmarks! {
         );
     }: _(origin, 0, Some(url.clone()), Some(description.clone()))
     verify {
-        assert_ok!(propose_result);
+        assert!(propose_result.is_ok());
         let meta = Module::<T>::proposal_metadata(0).unwrap();
         assert_eq!(0, meta.id);
         assert_eq!(Some(url), meta.url);
@@ -171,7 +170,7 @@ benchmarks! {
         );
     }: cancel_proposal(origin, 0)
     verify {
-        assert_ok!(propose_result);
+        assert!(propose_result.is_ok());
         assert_eq!(
             Module::<T>::proposals(0).unwrap().proposer,
             Proposer::Community(account)
