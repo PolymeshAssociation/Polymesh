@@ -222,21 +222,21 @@ benchmarks! {
 
         let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into()).unwrap();
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into()).unwrap();
-        let propose_result = Module::<T>::propose(
+        Module::<T>::propose(
             proposer_origin,
             proposal,
-            42.into(),
+            0.into(),
             Some(url),
             Some(description)
-        );
+        ).unwrap();
         let origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::approve_committee_proposal(0);
     }: {
         call.dispatch_bypass_filter(origin)?
     }
     verify {
-        assert!(propose_result.is_ok());
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     }
 
