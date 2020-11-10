@@ -3,14 +3,18 @@ use super::{
     storage::{provide_scope_claim_to_multiple_parties, root, Checkpoint, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::{ DispatchResult, DispatchError }, StorageDoubleMap, StorageMap};
+use frame_support::{
+    assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResult},
+    StorageDoubleMap, StorageMap,
+};
+use pallet_asset::checkpoint::ScheduleId;
 use pallet_corporate_actions::{
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
     RecordDateSpec, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use pallet_asset::checkpoint::ScheduleId;
 use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_primitives::{
     calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
