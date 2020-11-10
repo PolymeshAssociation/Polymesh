@@ -26,6 +26,11 @@ use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 
 const SEED: u32 = 1;
+const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
+const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
+const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
+const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
+const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
 pub struct User<T: Trait> {
@@ -35,8 +40,8 @@ pub struct User<T: Trait> {
 }
 
 impl<T: Trait> User<T> {
-    /// It creates an account based on `name` and `u` with 1_000_000 as free balance.
-    /// It also register the DID for that account.
+    /// Create an account based on `name` and `u` with 1_000_000 as free balance.
+    /// It also registers the DID for that account.
     pub fn new(name: &'static str, u: u32) -> Self {
         let mut user = Self::without_did(name, u);
         let uid = InvestorUid::from((name, u).encode().as_slice());
@@ -46,7 +51,7 @@ impl<T: Trait> User<T> {
         user
     }
 
-    /// It creates an account based on `name` and `u` with 1_000_000 as free balance.
+    /// Create an account based on `name` and `u` with 1_000_000 as free balance.
     pub fn without_did(name: &'static str, u: u32) -> Self {
         let account: T::AccountId = account(name, u, SEED);
         let origin = RawOrigin::Signed(account.clone());
@@ -60,8 +65,8 @@ impl<T: Trait> User<T> {
     }
 }
 
-/// It creates a new token with name `name` on behalf of `owner`.
-/// It is a divisible token with 1_000_000 units.
+/// Create a new token with name `name` on behalf of `owner`.
+/// The new token is a _divisible_ one with 1_000_000 units.
 pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     let token = SecurityToken {
         name: name.into(),
@@ -88,7 +93,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     ticker
 }
 
-/// It creates a token issuer trusted for `Any`.
+/// Create a token issuer trusted for `Any`.
 fn make_issuer<T: Trait>(id: u32) -> TrustedIssuer {
     let u = User::<T>::new("ISSUER", id);
     TrustedIssuer {
@@ -106,10 +111,10 @@ fn make_issuers<T: Trait>(s: u32) -> Vec<TrustedIssuer> {
     (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
 }
 
-/// It creates simple conditions with a variable number of `issuers`.
+/// Create simple conditions with a variable number of `issuers`.
 fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
     (0..s)
-        .map(|_i| Condition {
+        .map(|_| Condition {
             condition_type: ConditionType::IsPresent(Claim::NoData),
             issuers: issuers.clone(),
         })
@@ -175,7 +180,7 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
         }
     }
 
-    /// It registers the compliance requirement in the module.
+    /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
         assert!(
             self.has_been_added == false,
@@ -202,11 +207,10 @@ benchmarks! {
 
     add_compliance_requirement {
         // INTERNAL: This benchmark only evaluate the adding operation. Its execution should be measured in another module.
-        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
-        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
-        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
+        let s in 1..MAX_SENDER_CONDITIONS_PER_COMPLIANCE;
+        let r in 1..MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE;
 
-        let d = ComplianceRequirementBuilder::<T>::new(i, s, r).build();
+        let d = ComplianceRequirementBuilder::<T>::new(MAX_TRUSTED_ISSUER_PER_CONDITION, s, r).build();
 
     }: _(d.owner.origin, d.ticker, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
@@ -216,12 +220,11 @@ benchmarks! {
     }
 
     remove_compliance_requirement {
-        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
-        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
-        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
-
         // Add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(i, s, r)
+        let d = ComplianceRequirementBuilder::<T>::new(
+            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            MAX_SENDER_CONDITIONS_PER_COMPLIANCE,
+            MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
         // Remove the latest one.
@@ -238,7 +241,10 @@ benchmarks! {
     }
 
     pause_asset_compliance {
-        let d = ComplianceRequirementBuilder::<T>::new(2, 1, 1)
+        let d = ComplianceRequirementBuilder::<T>::new(
+            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            MAX_SENDER_CONDITIONS_PER_COMPLIANCE,
+            MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {
@@ -258,16 +264,14 @@ benchmarks! {
     }
 
     add_default_trusted_claim_issuer {
-        let i in 0..(T::MaxDefaultTrustedClaimIssuers::get() as u32 -1);
-
         // Create and add the compliance requirement.
         let d = ComplianceRequirementBuilder::<T>::new(1, 1, 0)
             .add_compliance_requirement()
             .build();
-        d.add_default_trusted_claim_issuer(i);
+        d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS -1);
 
         // Add one more for benchmarking.
-        let new_issuer = make_issuer::<T>(i+1);
+        let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
     }: _(d.owner.origin, d.ticker, new_issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
@@ -277,14 +281,12 @@ benchmarks! {
     }
 
     remove_default_trusted_claim_issuer {
-        let i in 1..T::MaxDefaultTrustedClaimIssuers::get() as u32;
-
         // Create and add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(2, 1, i)
+        let d = ComplianceRequirementBuilder::<T>::new(2, 1, 0)
             .add_compliance_requirement().build();
 
         // Generate some trusted issuer.
-        d.add_default_trusted_claim_issuer(i);
+        d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
 
         // Delete the latest trusted issuer.
         let issuer = Module::<T>::trusted_claim_issuer(d.ticker).pop().unwrap();
@@ -297,12 +299,11 @@ benchmarks! {
     }
 
     change_compliance_requirement {
-        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
-        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
-        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
+        let s in 1..MAX_SENDER_CONDITIONS_PER_COMPLIANCE;
+        let r in 1..MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE;
 
         // Add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(i, s, r)
+        let d = ComplianceRequirementBuilder::<T>::new(MAX_TRUSTED_ISSUER_PER_CONDITION, s, r)
             .add_compliance_requirement().build();
 
         // Remove the latest one.
@@ -323,23 +324,35 @@ benchmarks! {
     }
 
     replace_asset_compliance {
-        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
-        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
-        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
+        let c in 0..(MAX_COMPLIANCE_REQUIREMENTS-1);
 
         // Add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(i, s, r)
+        let d = ComplianceRequirementBuilder::<T>::new(
+            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            MAX_SENDER_CONDITIONS_PER_COMPLIANCE,
+            MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
-        // Create new asset compiance
-        let asset_compliance = vec![
-            ComplianceRequirement {
-                sender_conditions: make_conditions(s, &vec![]),
-                receiver_conditions: make_conditions(r, &vec![]),
-                id: Module::<T>::get_latest_requirement_id(d.ticker) + 1,
-            }
-        ];
+        let issuers = make_issuers::<T>(MAX_TRUSTED_ISSUER_PER_CONDITION);
+        let sender_conditions = make_conditions(MAX_SENDER_CONDITIONS_PER_COMPLIANCE, &issuers);
+        let receiver_conditions = make_conditions(MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE, &issuers);
 
+        // Add new requirements to the asset.
+        (0..c).for_each( |_i| {
+            let _ = Module::<T>::add_compliance_requirement(
+                d.owner.origin.clone().into(),
+                d.ticker.clone(),
+                sender_conditions.clone(),
+                receiver_conditions.clone()).unwrap();
+        });
+
+        // Create the replacement asset compiance.
+        let asset_compliance = (0..c).map(|id| {
+            ComplianceRequirement {
+                sender_conditions: sender_conditions.clone(),
+                receiver_conditions: receiver_conditions.clone(),
+                id,
+            }}).collect::<Vec<_>>();
     }: _(d.owner.origin, d.ticker, asset_compliance.clone())
     verify {
         let reqs = Module::<T>::asset_compliance(d.ticker).requirements;
@@ -347,12 +360,11 @@ benchmarks! {
     }
 
     reset_asset_compliance {
-        let s in 1..T::MaxReceiverConditionsPerCompliance::get() as u32;
-        let r in 1..T::MaxSenderConditionsPerCompliance::get() as u32;
-        let i in 1..T::MaxTrustedIssuerPerCondition::get() as u32;
-
         // Add the compliance requirement.
-        let d = ComplianceRequirementBuilder::<T>::new(i, s, r)
+        let d = ComplianceRequirementBuilder::<T>::new(
+            MAX_TRUSTED_ISSUER_PER_CONDITION,
+            MAX_SENDER_CONDITIONS_PER_COMPLIANCE,
+            MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {

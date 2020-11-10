@@ -80,7 +80,7 @@ pub enum AssetType {
 
 impl Default for AssetType {
     fn default() -> Self {
-        AssetType::Custom(b"undefined".to_vec())
+        Self::Custom(b"undefined".to_vec())
     }
 }
 
@@ -90,7 +90,7 @@ pub struct FundingRoundName(pub Vec<u8>);
 
 impl Default for FundingRoundName {
     fn default() -> Self {
-        FundingRoundName("".as_bytes().to_vec())
+        Self(Vec::new())
     }
 }
 

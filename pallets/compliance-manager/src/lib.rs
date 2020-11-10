@@ -85,6 +85,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_identity as identity;
+pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
     balances::Trait as BalancesTrait,
@@ -101,7 +102,6 @@ use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
-    cmp::max,
     convert::{From, TryFrom},
     prelude::*,
 };
@@ -116,23 +116,10 @@ pub trait Trait:
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
+    type WeightInfo: WeightInfo;
+
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
-
-    /// The maximum default trusted issuers per ticket.
-    type MaxDefaultTrustedClaimIssuers: Get<usize>;
-
-    /// The maximum trusted issuers per condition.
-    type MaxTrustedIssuerPerCondition: Get<usize>;
-
-    /// The maximum sender conditions per compliance.
-    type MaxSenderConditionsPerCompliance: Get<usize>;
-
-    /// The maximum receiver conditions per compliance.
-    type MaxReceiverConditionsPerCompliance: Get<usize>;
-
-    /// The maximum number of compliance per requirement.
-    type MaxCompliancePerRequirement: Get<usize>;
 }
 
 /// A compliance requirement.
@@ -248,32 +235,6 @@ impl From<AssetCompliance> for AssetComplianceResult {
     }
 }
 
-fn check_max_trusted_issuer_per_condition<T: Trait>(conditions: &[Condition]) -> bool {
-    conditions
-        .iter()
-        .all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get())
-}
-
-fn ensure_requirement_limits<T: Trait>(
-    sender_conditions: &[Condition],
-    receiver_conditions: &[Condition],
-) -> DispatchResult {
-    ensure!(
-        sender_conditions.len() <= T::MaxSenderConditionsPerCompliance::get(),
-        Error::<T>::MaxSenderConditionsPerComplianceExcedeed
-    );
-    ensure!(
-        receiver_conditions.len() <= T::MaxReceiverConditionsPerCompliance::get(),
-        Error::<T>::MaxReceiverConditionsPerComplianceExcedeed
-    );
-    ensure!(
-        check_max_trusted_issuer_per_condition::<T>(sender_conditions)
-            && check_max_trusted_issuer_per_condition::<T>(receiver_conditions),
-        Error::<T>::MaxTrustedIssuerPerConditionExcedeed
-    );
-    Ok(())
-}
-
 pub mod weight_for {
     use super::*;
 
@@ -315,16 +276,6 @@ decl_error! {
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
         ComplianceRequirementTooComplex,
-        /// The maximum of default trusted claim issuer for an specific ticket has been exceeded.
-        MaxDefaultTrustedClaimIssuersExcedeed,
-        /// The maximum of trusted issuer per condition has been exceeded.
-        MaxTrustedIssuerPerConditionExcedeed,
-        ///
-        MaxSenderConditionsPerComplianceExcedeed,
-        ///
-        MaxReceiverConditionsPerComplianceExcedeed,
-        ///
-        MaxCompliancePerRequirementExcedeed,
     }
 }
 
@@ -352,45 +303,29 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * sender_conditions - Sender transfer conditions.
         /// * receiver_conditions - Receiver transfer conditions.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::add_compliance_requirement( sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
-            ensure!(
-                sender_conditions.iter().all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get()),
-                Error::<T>::MaxTrustedIssuerPerConditionExcedeed);
-            ensure!(
-                receiver_conditions.iter().all(|cond| cond.issuers.len() <= T::MaxTrustedIssuerPerCondition::get()),
-                Error::<T>::MaxTrustedIssuerPerConditionExcedeed);
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
-                )?;
+            )?;
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
             let mut new_requirement = ComplianceRequirement { sender_conditions, receiver_conditions, id };
             new_requirement.dedup();
-            ensure!(
-                new_requirement.sender_conditions.len() <= T::MaxSenderConditionsPerCompliance::get(),
-                Error::<T>::MaxSenderConditionsPerComplianceExcedeed);
-            ensure!(
-                new_requirement.receiver_conditions.len() <= T::MaxReceiverConditionsPerCompliance::get(),
-                Error::<T>::MaxReceiverConditionsPerComplianceExcedeed);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
 
             if !reqs
                 .iter()
-                    .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
-                    {
-                        reqs.push(new_requirement.clone());
-                        ensure!(
-                            reqs.len() <= T::MaxCompliancePerRequirement::get(),
-                            Error::<T>::MaxCompliancePerRequirementExcedeed);
-
-                        Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-                        AssetCompliances::insert(&ticker, asset_compliance);
-                        Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
-                    }
+                .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
+            {
+                reqs.push(new_requirement.clone());
+                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
+                AssetCompliances::insert(&ticker, asset_compliance);
+                Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
+            }
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -399,7 +334,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * id - Compliance requirement id which is need to be removed
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
 
@@ -423,19 +358,9 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `DuplicateAssetCompliance` if `asset_compliance` contains multiple entries with the same `requirement_id`.
         ///
-        /// # Weight
-        /// `read_and_write_weight + 100_000_000 + 500_000 * asset_compliance.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::replace_asset_compliance( asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
-
-            // Ensure limits.
-            ensure!(
-                asset_compliance.len() <= T::MaxCompliancePerRequirement::get(),
-                Error::<T>::MaxCompliancePerRequirementExcedeed);
-            for req in asset_compliance.iter() {
-                ensure_requirement_limits::<T>( &req.sender_conditions, &req.receiver_conditions)?;
-            }
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -456,7 +381,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
             AssetCompliances::remove(ticker);
@@ -468,7 +393,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::pause_asset_compliance()]
         pub fn pause_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, ticker));
@@ -479,7 +404,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::resume_asset_compliance()]
         pub fn resume_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, ticker));
@@ -491,14 +416,12 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
-                ensure!(issuers.len() < T::MaxDefaultTrustedClaimIssuers::get(), Error::<T>::MaxDefaultTrustedClaimIssuersExcedeed);
-
                 Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, issuers.len() + 1)?;
                 issuers.push(issuer.clone());
                 Ok(()) as DispatchResult
@@ -512,7 +435,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
@@ -530,7 +453,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * new_req - Compliance requirement.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_compliance_requirement(
+            new_req.sender_conditions.len() as u32,
+            new_req.receiver_conditions.len() as u32)]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
             let did = Self::ensure_can_modify_rules(origin, ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
@@ -540,7 +465,6 @@ decl_module! {
             if let Some(req) = reqs.iter_mut().find(|req| req.id == new_req.id) {
                 let mut new_req = new_req;
                 new_req.dedup();
-                ensure_requirement_limits::<T>( &new_req.sender_conditions, &new_req.receiver_conditions)?;
 
                 *req = new_req.clone();
                 Self::verify_compliance_complexity(&reqs, ticker, 0)?;

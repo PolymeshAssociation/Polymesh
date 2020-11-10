@@ -485,12 +485,8 @@ parameter_types! {
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
-    type MaxDefaultTrustedClaimIssuers = MaxDefaultTrustedClaimIssuers;
-    type MaxTrustedIssuerPerCondition = MaxTrustedIssuerPerCondition;
-    type MaxSenderConditionsPerCompliance = MaxSenderConditionsPerCompliance;
-    type MaxReceiverConditionsPerCompliance = MaxReceiverConditionsPerCompliance;
-    type MaxCompliancePerRequirement = MaxCompliancePerRequirement;
 }
 
 impl protocol_fee::Trait for TestStorage {
