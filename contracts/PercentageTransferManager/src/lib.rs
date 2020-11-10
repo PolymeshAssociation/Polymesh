@@ -50,9 +50,9 @@ mod custom_types {
 #[ink::contract]
 mod percentage_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
+    use ink_prelude::vec::Vec;
     #[cfg(not(feature = "ink-as-dependency"))]
     use ink_storage::collections::HashMap as StorageHashMap;
-    use ink_prelude::vec::Vec;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
