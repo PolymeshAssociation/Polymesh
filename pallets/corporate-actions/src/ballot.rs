@@ -74,10 +74,8 @@
 //! - `change_rcv(origin, ca_id, rcv)` changes the support for RCV to `rcv` in the ballot for CA with `ca_id`.
 //! - `remove_ballot(origin, ca_id)` removes the ballot for CA with `ca_id`.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use crate as ca;
-use ca::{CACheckpoint, CAId, CAKind, CorporateAction, Trait};
+use ca::{CAId, CAKind, CorporateAction, Trait};
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 use core::mem;
@@ -86,7 +84,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
-use pallet_asset::{self as asset, checkpoint};
+use pallet_asset::checkpoint;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::CommonTrait;
@@ -98,7 +96,6 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
-type Asset<T> = asset::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type CA<T> = ca::Module<T>;
 
@@ -342,7 +339,7 @@ decl_module! {
         /// - `VotingAlreadyEnded` if the voting period has ended.
         /// - `WrongVoteCount` if the number of choices in the ballot does not match `votes.len()`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
-        /// - `NotTargetedByCA` if the ballot does not target `origin`'s DID.
+        /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
         #[weight = 950_000_000]
@@ -357,7 +354,7 @@ decl_module! {
 
             // Ensure that `did` is targeted by this ballot.
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-            ensure!(ca.targets.targets(&did), Error::<T>::NotTargetedByCA);
+            <CA<T>>::ensure_ca_targets(&ca, &did)?;
 
             // Ensure we have balances provided for each choice.
             let choices_count = MotionNumChoices::get(ca_id);
@@ -400,20 +397,8 @@ decl_module! {
 
             // Extract `did`'s balance at the record date.
             // Record date has passed by definition.
-            let ticker = ca_id.ticker;
-            let cp_id = match ca.record_date.unwrap().checkpoint {
-                CACheckpoint::Existing(id) => Some(id),
-                // For CAs, there will ever be at most one CP.
-                // And assuming transfers have happened since the record date, there's exactly one CP.
-                CACheckpoint::Scheduled(id) => <Checkpoint<T>>::schedule_points((ticker, id)).pop(),
-            };
-            let available_power = match cp_id {
-                // CP exists, use it.
-                Some(cp_id) => <Asset<T>>::get_balance_at(ticker, did, cp_id),
-                // Although record date has passed, no transfers have happened yet for `ticker`.
-                // Thus, there is no checkpoint ID, and we must use current balance instead.
-                None => <Asset<T>>::balance_of(ticker, did),
-            };
+            let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
+            let available_power = <CA<T>>::balance_at_cp(did, ca_id, cp_id);
 
             // Ensure the total balance used in each motion doesn't exceed caller's voting power.
             motions
@@ -591,10 +576,6 @@ decl_error! {
         StartAfterEnd,
         /// A corporate ballot's end time was strictly before the current time.
         NowAfterEnd,
-        /// A CA's record date was strictly after a ballot's start time.
-        NoRecordDate,
-        /// A CA's record date was strictly after a ballot's start time.
-        RecordDateAfterStart,
         /// If some motion in a corporate ballot has more choices than would fit in `u16`.
         NumberOfChoicesOverflow,
         /// Voting started already. Amending a ballot is no longer possible.
@@ -605,8 +586,6 @@ decl_error! {
         VotingAlreadyEnded,
         /// Provided list of balances does not match the total number of choices.
         WrongVoteCount,
-        /// CA does not target the voter DID.
-        NotTargetedByCA,
         /// Voting power used by a DID on a motion exceeds that which is available to them.
         InsufficientVotes,
         /// The RCV fallback of some choice does not exist.
@@ -661,10 +640,6 @@ impl<T: Trait> Module<T> {
             <Checkpoint<T>>::now_unix() <= range.end,
             Error::<T>::NowAfterEnd
         );
-        match ca.record_date {
-            Some(rd) if rd.date <= range.start => Ok(()),
-            Some(_) => Err(Error::<T>::RecordDateAfterStart.into()),
-            None => Err(Error::<T>::NoRecordDate.into()),
-        }
+        <CA<T>>::ensure_record_date_before_start(ca, range.start)
     }
 }

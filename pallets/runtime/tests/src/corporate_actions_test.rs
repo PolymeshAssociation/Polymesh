@@ -433,7 +433,7 @@ fn initiate_corporate_action_kind() {
     test(|ticker, [owner, ..]| {
         for kind in &[
             CAKind::PredictableBenefit,
-            CAKind::UnpredictableBenfit,
+            CAKind::UnpredictableBenefit,
             CAKind::IssuerNotice,
             CAKind::Reorganization,
             CAKind::Other,

@@ -11,9 +11,10 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
-pallet-balances = { path = "../balances", default-features = false  }
+pallet-balances = { path = "../balances", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-asset = { path = "../asset", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -53,5 +54,5 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
-    "sp-arithmetic/std"
+    "sp-arithmetic/std",
 ]
