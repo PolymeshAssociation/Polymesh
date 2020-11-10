@@ -131,7 +131,7 @@ pub struct Motion {
 
 /// A wrapper for a ballot's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Decode, Encode, VecU8StrongTyped)]
 pub struct BallotTitle(pub Vec<u8>);
 
 /// Metadata about a ballot.
@@ -142,7 +142,7 @@ pub struct BallotTitle(pub Vec<u8>);
 /// the needed numbers aforementioned are cached away,
 /// and the metadata is not read on-chain again.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, Default)]
 pub struct BallotMeta {
     /// The ballot's title.
     pub title: BallotTitle,

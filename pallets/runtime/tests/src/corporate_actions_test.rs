@@ -3,6 +3,7 @@ use super::{
     storage::{provide_scope_claim_to_multiple_parties, root, Checkpoint, TestStorage},
     ExtBuilder,
 };
+use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -10,7 +11,7 @@ use frame_support::{
 };
 use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
-    ballot::{self, BallotMeta, BallotTimeRange, Motion},
+    ballot::{self, BallotMeta, BallotTimeRange, Motion, Votes},
     distribution::{self, Distribution},
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, RecordDate,
     RecordDateSpec, TargetIdentities,
@@ -125,22 +126,50 @@ fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     Identity::accept_authorization(to.signer(), auth_id)
 }
 
+type CAResult = Result<CorporateAction, DispatchError>;
+
 fn init_ca(
     owner: User,
     ticker: Ticker,
     kind: CAKind,
-    date: Option<Moment>,
+    date: Option<RecordDateSpec>,
     details: String,
     targets: Option<TargetIdentities>,
     default_wht: Option<Tax>,
     wht: Option<Vec<(IdentityId, Tax)>>,
-) -> Result<CorporateAction, DispatchError> {
+) -> CAResult {
     let id = CA::ca_id_sequence(ticker);
     let sig = owner.signer();
     let details = CADetails(details.as_bytes().to_vec());
-    let date = date.map(RecordDateSpec::Scheduled);
     CA::initiate_corporate_action(sig, ticker, kind, date, details, targets, default_wht, wht)?;
     Ok(CA::corporate_actions(ticker, id).unwrap())
+}
+
+fn basic_ca(
+    owner: User,
+    ticker: Ticker,
+    targets: Option<TargetIdentities>,
+    default_wht: Option<Tax>,
+    wht: Option<Vec<(IdentityId, Tax)>>,
+) -> CAResult {
+    init_ca(
+        owner,
+        ticker,
+        CAKind::Other,
+        None,
+        <_>::default(),
+        targets,
+        default_wht,
+        wht,
+    )
+}
+
+fn dated_ca(owner: User, ticker: Ticker, kind: CAKind, rd: Option<RecordDateSpec>) -> CAResult {
+    init_ca(owner, ticker, kind, rd, <_>::default(), None, None, None)
+}
+
+fn moment_ca(owner: User, ticker: Ticker, kind: CAKind, rd: Option<Moment>) -> CAResult {
+    dated_ca(owner, ticker, kind, rd.map(RecordDateSpec::Scheduled))
 }
 
 fn set_schedule_complexity() {
@@ -152,6 +181,11 @@ fn next_ca_id(ticker: Ticker) -> CAId {
     let local_id = CA::ca_id_sequence(ticker);
     CAId { ticker, local_id }
 }
+
+const TRANGE: BallotTimeRange = BallotTimeRange {
+    start: 3000,
+    end: 4000,
+};
 
 #[test]
 fn only_caa_authorized() {
@@ -188,18 +222,7 @@ fn only_caa_authorized() {
                 ) $(, $tail)?);
                 // ..., `initiate_corporate_action`,
                 let record_date = Some(RecordDateSpec::Scheduled(2000));
-                let mk_ca = |kind| {
-                    CA::initiate_corporate_action(
-                        $user.signer(),
-                        ticker,
-                        kind,
-                        record_date,
-                        <_>::default(),
-                        None,
-                        None,
-                        None,
-                    )
-                };
+                let mk_ca = |kind| dated_ca($user, ticker, kind, record_date);
                 let id = next_ca_id(ticker);
                 $assert!(mk_ca(CAKind::IssuerNotice) $(, $tail)?);
                 // ..., `link_ca_doc`,
@@ -207,9 +230,8 @@ fn only_caa_authorized() {
                 // ..., `change_record_date`,
                 $assert!(CA::change_record_date($user.signer(), id, record_date) $(, $tail)?);
                 // ..., `attach_ballot`,
-                let time = BallotTimeRange { start: 3000, end: 4000 };
-                let meta = BallotMeta { title: vec![].into(), motions: vec![] };
-                $assert!(Ballot::attach_ballot($user.signer(), id, time, meta.clone(), false) $(, $tail)?);
+                let meta = BallotMeta::default();
+                $assert!(Ballot::attach_ballot($user.signer(), id, TRANGE, meta.clone(), false) $(, $tail)?);
                 // ..., `change_end`,
                 $assert!(Ballot::change_end($user.signer(), id, 5000) $(, $tail)?);
                 // ..., `change_meta`,
@@ -402,18 +424,7 @@ fn initiate_corporate_action_details() {
 fn initiate_corporate_action_local_id_overflow() {
     test(|ticker, [owner, ..]| {
         CAIdSequence::insert(ticker, LocalCAId(u32::MAX - 2));
-        let init_ca = || {
-            init_ca(
-                owner,
-                ticker,
-                CAKind::Other,
-                None,
-                <_>::default(),
-                None,
-                None,
-                None,
-            )
-        };
+        let init_ca = || dated_ca(owner, ticker, CAKind::Other, None);
         assert_ok!(init_ca()); // -2; OK
         assert_ok!(init_ca()); // -1; OK
         assert_noop!(init_ca(), Error::LocalCAIdOverflow); // 0; Next overflows, so error already.
@@ -431,17 +442,7 @@ fn initiate_corporate_action_record_date() {
         let mut schedule_id = ScheduleId(0);
 
         let mut check = |date| {
-            let ca = init_ca(
-                owner,
-                ticker,
-                CAKind::Other,
-                date,
-                <_>::default(),
-                None,
-                None,
-                None,
-            )
-            .unwrap();
+            let ca = moment_ca(owner, ticker, CAKind::Other, date).unwrap();
             assert_eq!(date, ca.record_date.map(|x| x.date));
             if let (Some(date), Some(rd)) = (date, ca.record_date) {
                 cp_id.0 += 1;
@@ -472,46 +473,31 @@ fn initiate_corporate_action_record_date() {
     });
 }
 
+const ALL_CA_KINDS: &[CAKind] = &[
+    CAKind::PredictableBenefit,
+    CAKind::UnpredictableBenefit,
+    CAKind::IssuerNotice,
+    CAKind::Reorganization,
+    CAKind::Other,
+];
+
 #[test]
 fn initiate_corporate_action_kind() {
     test(|ticker, [owner, ..]| {
-        for kind in &[
-            CAKind::PredictableBenefit,
-            CAKind::UnpredictableBenefit,
-            CAKind::IssuerNotice,
-            CAKind::Reorganization,
-            CAKind::Other,
-        ] {
-            let ca = init_ca(owner, ticker, *kind, None, <_>::default(), None, None, None).unwrap();
-            assert_eq!(*kind, ca.kind);
+        for kind in ALL_CA_KINDS {
+            assert_eq!(*kind, dated_ca(owner, ticker, *kind, None).unwrap().kind);
         }
     });
-}
-
-fn basic_ca(
-    owner: User,
-    ticker: Ticker,
-    targets: Option<TargetIdentities>,
-    default_wht: Option<Tax>,
-    wht: Option<Vec<(IdentityId, Tax)>>,
-) -> CorporateAction {
-    init_ca(
-        owner,
-        ticker,
-        CAKind::Other,
-        None,
-        <_>::default(),
-        targets,
-        default_wht,
-        wht,
-    )
-    .unwrap()
 }
 
 #[test]
 fn initiate_corporate_action_default_tax() {
     test(|ticker, [owner, ..]| {
-        let ca = |dwt| basic_ca(owner, ticker, None, dwt, None).default_withholding_tax;
+        let ca = |dwt| {
+            basic_ca(owner, ticker, None, dwt, None)
+                .unwrap()
+                .default_withholding_tax
+        };
         assert_ok!(CA::set_default_withholding_tax(owner.signer(), ticker, P25));
         assert_eq!(ca(None), P25);
         assert_eq!(ca(Some(P50)), P50);
@@ -521,7 +507,11 @@ fn initiate_corporate_action_default_tax() {
 #[test]
 fn initiate_corporate_action_did_tax() {
     test(|ticker, [owner, foo, bar]| {
-        let ca = |wt| basic_ca(owner, ticker, None, None, wt).withholding_tax;
+        let ca = |wt| {
+            basic_ca(owner, ticker, None, None, wt)
+                .unwrap()
+                .withholding_tax
+        };
 
         let wts = vec![(foo.did, P25), (bar.did, P75)];
         for (did, wt) in wts.iter().copied() {
@@ -544,14 +534,18 @@ fn initiate_corporate_action_did_tax() {
 fn initiate_corporate_action_did_tax_dupe() {
     test(|ticker, [owner, foo, bar]| {
         let wt = Some(vec![(bar.did, P75), (foo.did, P0), (bar.did, P50)]);
-        basic_ca(owner, ticker, None, None, wt);
+        basic_ca(owner, ticker, None, None, wt).unwrap();
     });
 }
 
 #[test]
 fn initiate_corporate_action_targets() {
     test(|ticker, [owner, foo, bar]| {
-        let ca = |targets| basic_ca(owner, ticker, targets, None, None).targets;
+        let ca = |targets| {
+            basic_ca(owner, ticker, targets, None, None)
+                .unwrap()
+                .targets
+        };
         let ids = |treatment, identities| TargetIdentities {
             treatment,
             identities,
@@ -595,7 +589,7 @@ fn link_ca_docs_works() {
         assert_noop!(link(vec![]), Error::NoSuchCA);
 
         // Make it exist, and check that linking to no docs works.
-        basic_ca(owner, ticker, None, None, None);
+        basic_ca(owner, ticker, None, None, None).unwrap();
         link_ok(vec![]);
 
         // Now link it to docs that don't exist, and ensure failure.
@@ -618,8 +612,7 @@ fn remove_ca_works() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
 
-        let ca =
-            |kind, rd| init_ca(owner, ticker, kind, rd, <_>::default(), None, None, None).unwrap();
+        let ca = |kind, rd| moment_ca(owner, ticker, kind, rd).unwrap();
         let remove = |id| CA::remove_ca(owner.signer(), id);
 
         let assert_no_ca = |id: CAId| {
@@ -740,8 +733,7 @@ fn change_record_date_works() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
 
-        let ca =
-            |kind, rd| init_ca(owner, ticker, kind, rd, <_>::default(), None, None, None).unwrap();
+        let ca = |kind, rd| moment_ca(owner, ticker, kind, rd).unwrap();
         let change = |id, date| CA::change_record_date(owner.signer(), id, date);
         let change_ok = |id, date, expect| {
             assert_ok!(change(id, date));
@@ -824,10 +816,7 @@ fn change_record_date_works() {
             start: 5000,
             end: 7000,
         };
-        let meta = BallotMeta {
-            title: vec![].into(),
-            motions: vec![],
-        };
+        let meta = BallotMeta::default();
         assert_ok!(Ballot::attach_ballot(owner.signer(), id, time, meta, true));
         let test_branch = |id, error: DispatchError| {
             let change_ok = |spec, expect| {
@@ -867,5 +856,142 @@ fn change_record_date_works() {
             None,
         ));
         test_branch(id, DistError::DistributionStarted.into());
+    });
+}
+
+#[test]
+fn attach_ballot_no_such_ca() {
+    test(|ticker, [owner, ..]| {
+        let id = next_ca_id(ticker);
+        assert_noop!(
+            Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true),
+            Error::NoSuchCA
+        );
+    });
+}
+
+#[test]
+fn attach_ballot_only_notice() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true);
+        for &kind in ALL_CA_KINDS {
+            let id = next_ca_id(ticker);
+            assert_ok!(moment_ca(owner, ticker, kind, Some(1000)));
+            if let CAKind::IssuerNotice = kind {
+                assert_ok!(attach(id));
+            } else {
+                assert_noop!(attach(id), BallotError::CANotNotice);
+            }
+        }
+    });
+}
+
+fn notice_ca(owner: User, ticker: Ticker, rd: Option<Moment>) -> Result<CAId, DispatchError> {
+    let id = next_ca_id(ticker);
+    moment_ca(owner, ticker, CAKind::IssuerNotice, rd)?;
+    Ok(id)
+}
+
+#[test]
+fn attach_ballot_range_invariant() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+
+        let attach =
+            |id, time| Ballot::attach_ballot(owner.signer(), id, time, <_>::default(), true);
+        let range = |start| BallotTimeRange { start, end: 6000 };
+
+        assert_noop!(attach(id, range(6001)), BallotError::StartAfterEnd);
+
+        Timestamp::set_timestamp(6001);
+        assert_noop!(attach(id, range(6000)), BallotError::NowAfterEnd);
+
+        Timestamp::set_timestamp(4000);
+        assert_ok!(attach(id, range(6000)));
+
+        let id = notice_ca(owner, ticker, Some(5000)).unwrap();
+        assert_noop!(attach(id, range(4999)), Error::RecordDateAfterStart);
+        assert_ok!(attach(id, range(5000)));
+
+        let id = notice_ca(owner, ticker, None).unwrap();
+        assert_noop!(attach(id, range(6000)), Error::NoRecordDate);
+    });
+}
+
+#[test]
+fn attach_ballot_already_exists() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+
+        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true);
+
+        assert_ok!(attach(id));
+        assert_noop!(attach(id), BallotError::AlreadyExists);
+        assert_ok!(Ballot::remove_ballot(owner.signer(), id));
+        assert_ok!(attach(id));
+    });
+}
+
+#[test]
+fn attach_ballot_num_choices_overflow_u16() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        // N.B. we do not test the total-choices-overflows-usize case since
+        // that actually requires allocating an `usize` + 1 number of choices,
+        // which is not reasonable as a test.
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        let meta = BallotMeta {
+            title: "".into(),
+            motions: vec![Motion {
+                title: "".into(),
+                info_link: "".into(),
+                choices: iter::repeat("".into())
+                    // `u16::MAX` doesn't overflow, but +1 does.
+                    .take(1 + u16::MAX as usize)
+                    .collect(),
+            }],
+        };
+        assert_noop!(
+            Ballot::attach_ballot(owner.signer(), id, TRANGE, meta, false),
+            BallotError::NumberOfChoicesOverflow,
+        );
+    });
+}
+
+#[test]
+fn attach_ballot_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let motion_a = Motion {
+            title: "foo".into(),
+            info_link: "www.acme.com".into(),
+            choices: vec!["foo".into(), "bar".into(), "baz".into()],
+        };
+        let motion_b = Motion {
+            title: "bar".into(),
+            info_link: "www.emca.com".into(),
+            choices: vec!["foo".into()],
+        };
+        let meta = BallotMeta {
+            title: vec![].into(),
+            motions: vec![motion_a, motion_b],
+        };
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        Ballot::attach_ballot(owner.signer(), id, TRANGE, meta.clone(), false).unwrap();
+        assert_eq!(Ballot::time_ranges(id), Some(TRANGE));
+        assert_eq!(Ballot::metas(id), Some(meta));
+        assert_eq!(Ballot::motion_choices(id), vec![3, 1]);
+        assert_eq!(Ballot::rcv(id), false);
+        assert_eq!(Ballot::results(id), vec![]);
+        assert_eq!(Votes::<TestStorage>::iter_prefix_values(id).next(), None);
     });
 }
