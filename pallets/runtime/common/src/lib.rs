@@ -32,7 +32,10 @@ pub use sp_runtime::{Perbill, Permill};
 use frame_support::{
     parameter_types,
     traits::Currency,
-    weights::{constants::WEIGHT_PER_SECOND, Weight},
+    weights::{
+        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_SECOND},
+        RuntimeDbWeight, Weight,
+    },
 };
 use frame_system::{self as system};
 use pallet_balances as balances;
@@ -45,10 +48,22 @@ pub type NegativeImbalance<T> =
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
-    /// We allow for 0.5 seconds of compute with a 6 second average block time.
-    pub const MaximumBlockWeight: Weight = (5 * WEIGHT_PER_SECOND) / 10;
+    /// We allow for 2 seconds of compute with a 6 second average block time.
+    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+    /// 20 ms is needed to create a block
+    pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
+    // 0.8 ms is needed to process an empty extrinsic
+    pub const ExtrinsicBaseWeight: Weight = 800 * WEIGHT_PER_MICROS;
+    /// When the read/writes are cached, they take 25, 100 microseconds
+    /// but when they are uncached, they take 250, 450 microseconds.
+    /// Most read/writes are cached in production
+    /// so we are taking a defensive middle number here.
+    pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+        read: 100 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
+        write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
+    };
 }
 
 use pallet_group_rpc_runtime_api::Member;

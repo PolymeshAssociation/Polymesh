@@ -50,7 +50,7 @@ native_executor_instance!(
     pub AlcyoneExecutor,
     polymesh_runtime_testnet::api::dispatch,
     polymesh_runtime_testnet::native_version,
-    frame_benchmarking::benchmarking::HostFunctions,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 // Our native executor instance.

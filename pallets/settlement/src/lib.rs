@@ -405,7 +405,9 @@ decl_error! {
         /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
         LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user
-        PortfolioMismatch
+        PortfolioMismatch,
+        /// No portfolio provided for a portfolio based action
+        NoPortfolioProvided
     }
 }
 
@@ -621,29 +623,29 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
+            ensure!(portfolios_set.len() > 0, Error::<T>::NoPortfolioProvided);
             Self::ensure_instruction_validity(instruction_id)?;
 
-            with_transaction(|| {
-                let mut portfolios_to_unauthorize = BTreeSet::new();
-                for portfolio in portfolios_set {
-                    // Unauthorize the instruction if it was authorized earlier.
-                    let user_auth_status = Self::user_auths(portfolio, instruction_id);
+            // If the instruction was affirmed by the portfolio, the affirmation must be withdrawn.
+            // The sender must have custodian permission over the portfolio.
+            let mut portfolios_to_unauthorize = BTreeSet::new();
+            for portfolio in &portfolios_set {
+                // Unauthorize the instruction if it was authorized earlier.
+                let user_auth_status = Self::user_auths(portfolio, instruction_id);
 
-                    match user_auth_status {
-                        AuthorizationStatus::Authorized => { portfolios_to_unauthorize.insert(portfolio); },
-                        AuthorizationStatus::Pending => T::Portfolio::ensure_portfolio_custody(portfolio, did)?,
-                        _ => return Err(DispatchError::from(Error::<T>::NoPendingAuth))
-                    };
+                match user_auth_status {
+                    AuthorizationStatus::Authorized => { portfolios_to_unauthorize.insert(*portfolio); },
+                    AuthorizationStatus::Pending => T::Portfolio::ensure_portfolio_custody(*portfolio, did)?,
+                    _ => return Err(Error::<T>::NoPendingAuth.into())
+                };
+            }
+            Self::unsafe_unauthorize_instruction(did, instruction_id, portfolios_to_unauthorize)?;
 
-                    // Updates storage
-                    <UserAuths>::insert(portfolio, instruction_id, AuthorizationStatus::Rejected);
-                    <AuthsReceived>::insert(instruction_id, portfolio, AuthorizationStatus::Rejected);
-                }
-                Self::unsafe_unauthorize_instruction(did, instruction_id, portfolios_to_unauthorize)?;
-                Ok(())
-            })?;
-
+            // Updates storage to mark the instruction as rejected.
+            for portfolio in portfolios_set {
+                <UserAuths>::insert(portfolio, instruction_id, AuthorizationStatus::Rejected);
+                <AuthsReceived>::insert(instruction_id, portfolio, AuthorizationStatus::Rejected);
+            }
 
             // Execute the instruction if it was meant to be executed on authorization
             let weight_for_instruction_execution = Self::is_instruction_executed(Zero::zero(), Self::instruction_details(instruction_id).settlement_type, instruction_id);

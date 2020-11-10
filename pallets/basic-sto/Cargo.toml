@@ -50,4 +50,7 @@ std = [
 	"pallet-balances/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
+	"pallet-asset/std",
+	"pallet-settlement/std",
+	"pallet-timestamp/std"
 ]
