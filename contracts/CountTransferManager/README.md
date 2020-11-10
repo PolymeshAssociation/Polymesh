@@ -8,7 +8,7 @@ This smart contract is a transfer manager for limiting the number of token holde
 cargo install cargo-contract
 ```
 
-Make sure the cargo contract version should be more than 0.7.1.
+Make sure the cargo contract version should be >= 0.7.1.
 ```
 
 ### Build example contract and generate the contracts metadata
