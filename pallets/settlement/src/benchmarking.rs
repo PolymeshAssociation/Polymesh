@@ -26,6 +26,7 @@ pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
+use pallet_asset as asset;
 // use sp_core::{sr25519::Pair as SrPair, Pair};
 // use sp_io::hashing::blake2_256;
 // use sp_runtime::MultiSignature;
@@ -291,49 +292,49 @@ benchmarks! {
     }: _(origin, ticker, venues)
 
 
-    affirm_instruction {
+    // affirm_instruction {
 
-        // Worst case for the affirm_instruction will be.
-        // 1. An instruction can have the maximum no. of legs.
-        //      a. Two tickers are used.
-        //      b. All legs are between the same sender and receiver.
-        //      c. All portfolios get affirmation at once.
-        // 2. Tickers for every leg will be different.
-        // 3. Maximum no. of Smart extensions are used.
-        // 4. User's compliance get verified by the last asset compliance rules.
+    //     // Worst case for the affirm_instruction will be.
+    //     // 1. An instruction can have the maximum no. of legs.
+    //     //      a. Two tickers are used.
+    //     //      b. All legs are between the same sender and receiver.
+    //     //      c. All portfolios get affirmation at once.
+    //     // 2. Tickers for every leg will be different.
+    //     // 3. Maximum no. of Smart extensions are used.
+    //     // 4. User's compliance get verified by the last asset compliance rules.
 
-        let l in 2 .. T::MaxLegsInAInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
-        let t in 0 .. MAX_TM_ALLOWED;
-        let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
+    //     let l in 2 .. T::MaxLegsInAInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+    //     let t in 0 .. MAX_TM_ALLOWED;
+    //     let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
 
-        // 1. Create instruction will maximum legs.
+    //     // 1. Create instruction will maximum legs.
 
-        // create venue
-        let from = make_account::<T>("creator", SEED);
-        let venue_id = create_venue_::<T>(from.did, vec![]);
-        let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
-        let to = make_account::<T>("receiver", 1);
-        let portfolio_count = l/2;
-        let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(portfolio_count as usize);
-        let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(portfolio_count  as usize);
-        let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity((portfolio_count * 2) as usize);
+    //     // create venue
+    //     let from = make_account::<T>("creator", SEED);
+    //     let venue_id = create_venue_::<T>(from.did, vec![]);
+    //     let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
+    //     let to = make_account::<T>("receiver", 1);
+    //     let portfolio_count = l/2;
+    //     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(portfolio_count as usize);
+    //     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(portfolio_count  as usize);
+    //     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity((portfolio_count * 2) as usize);
 
-        // Create legs vector.
-        // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
-        // Assumption here is that instruction will never be executed as still there is one auth pending.
-        let from_ticker = create_asset_::<T>(from.did)?;
-        let to_ticker = create_asset_::<T>(to.did)?;
-        for n in 1 .. portfolio_count {
-            setup_leg_and_portfolio_with_ticker::<T>(Some(to.did), Some(from.did), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to)?;
-        }
-        // ensure!(legs.len() == ((portfolio_count * 2) as usize), "Incorrect length of legs");
-        // ensure!(portfolios_from.len() == (portfolio_count as usize), "Incorrect length of from portfolio");
-        // ensure!(portfolios_to.len() == (portfolio_count as usize), "Incorrect length of to portfolio");
-        Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from)?;
-        let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-        ensure!(matches!(Module::<T>::instruction_affirms_pending(instruction_id), 0), "Instruction not set properly");
-        ensure!(Module::<T>::user_affirmations(portfolios_to[0], instruction_id) == AffirmationStatus::Pending, "Some problem in the portfolios");
-    }: _(to.origin, instruction_id, portfolios_to)
+    //     // Create legs vector.
+    //     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
+    //     // Assumption here is that instruction will never be executed as still there is one auth pending.
+    //     let from_ticker = create_asset_::<T>(from.did)?;
+    //     let to_ticker = create_asset_::<T>(to.did)?;
+    //     for n in 1 .. portfolio_count {
+    //         setup_leg_and_portfolio_with_ticker::<T>(Some(to.did), Some(from.did), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to)?;
+    //     }
+    //     // ensure!(legs.len() == ((portfolio_count * 2) as usize), "Incorrect length of legs");
+    //     // ensure!(portfolios_from.len() == (portfolio_count as usize), "Incorrect length of from portfolio");
+    //     // ensure!(portfolios_to.len() == (portfolio_count as usize), "Incorrect length of to portfolio");
+    //     Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from)?;
+    //     let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
+    //     ensure!(matches!(Module::<T>::instruction_affirms_pending(instruction_id), 0), "Instruction not set properly");
+    //     ensure!(Module::<T>::user_affirmations(portfolios_to[0], instruction_id) == AffirmationStatus::Pending, "Some problem in the portfolios");
+    // }: _(to.origin, instruction_id, portfolios_to)
 
 
     withdraw_affirmation {
