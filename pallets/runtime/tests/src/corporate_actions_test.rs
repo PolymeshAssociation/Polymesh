@@ -5,7 +5,8 @@ use super::{
 };
 use frame_support::{assert_noop, assert_ok, dispatch::{ DispatchResult, DispatchError }, StorageDoubleMap, StorageMap};
 use pallet_corporate_actions::{
-    CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, TargetIdentities,
+    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
+    RecordDateSpec, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
@@ -126,6 +127,7 @@ fn init_ca(
     let id = CA::ca_id_sequence(ticker);
     let sig = owner.signer();
     let details = CADetails(details.as_bytes().to_vec());
+    let date = date.map(RecordDateSpec::Scheduled);
     CA::initiate_corporate_action(sig, ticker, kind, date, details, targets, default_wht, wht)?;
     Ok(CA::corporate_actions(ticker, id).unwrap())
 }
@@ -392,13 +394,16 @@ fn initiate_corporate_action_record_date() {
                 None,
             )
             .unwrap();
-            assert_eq!(date, ca.record_date.map(|x| x.0));
-            if let (Some(date), Some((date2, id))) = (date, ca.record_date) {
+            assert_eq!(date, ca.record_date.map(|x| x.date));
+            if let (Some(date), Some(rd)) = (date, ca.record_date) {
                 cp_id.0 += 1;
                 schedule_id.0 += 1;
 
-                assert_eq!(date, date2);
-                assert_eq!(schedule_id, id);
+                assert_eq!(date, rd.date);
+                match rd.checkpoint {
+                    CACheckpoint::Scheduled(id) => assert_eq!(schedule_id, id),
+                    CACheckpoint::Existing(_) => panic!(),
+                }
 
                 Timestamp::set_timestamp(date);
                 transfer(&ticker, owner, foo);
