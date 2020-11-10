@@ -8,19 +8,19 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     StorageDoubleMap, StorageMap,
 };
-use pallet_asset::checkpoint::ScheduleId;
+use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, Motion},
     distribution::{self, Distribution},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
+    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, RecordDate,
     RecordDateSpec, TargetIdentities,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
 use polymesh_common_utilities::asset::AssetName;
 use polymesh_primitives::{
-    calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
-    PortfolioId, Signatory, Ticker,
+    calendar::{CheckpointId, CheckpointSchedule},
+    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -39,6 +39,8 @@ type Ballot = ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = ballot::Error<TestStorage>;
+type DistError = distribution::Error<TestStorage>;
+type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -725,5 +727,145 @@ fn remove_ca_works() {
         // And ensure all details were removed.
         assert_no_ca(id);
         assert_eq!(Dist::distributions(id), None);
+    });
+}
+
+fn next_schedule_id(ticker: Ticker) -> ScheduleId {
+    let ScheduleId(id) = Checkpoint::schedule_id_sequence(ticker);
+    ScheduleId(id + 1)
+}
+
+#[test]
+fn change_record_date_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let ca =
+            |kind, rd| init_ca(owner, ticker, kind, rd, <_>::default(), None, None, None).unwrap();
+        let change = |id, date| CA::change_record_date(owner.signer(), id, date);
+        let change_ok = |id, date, expect| {
+            assert_ok!(change(id, date));
+            assert_eq!(
+                expect,
+                CA::corporate_actions(id.ticker, id.local_id)
+                    .unwrap()
+                    .record_date
+            );
+        };
+
+        // Change for a CA that doesn't exist, and ensure failure.
+        let id = next_ca_id(ticker);
+        assert_noop!(change(id, None), Error::NoSuchCA);
+
+        let spec_ts = |ts| Some(RecordDateSpec::Scheduled(ts));
+        let spec_cp = |id| Some(RecordDateSpec::Existing(CheckpointId(id)));
+        let spec_sh = |id| Some(RecordDateSpec::ExistingSchedule(id));
+        let rd_cp = |date, id| {
+            let checkpoint = CACheckpoint::Existing(CheckpointId(id));
+            Some(RecordDate { date, checkpoint })
+        };
+        let rd_ts = |date, id| {
+            let checkpoint = CACheckpoint::Scheduled(id);
+            Some(RecordDate { date, checkpoint })
+        };
+
+        // Trigger `NoSuchCheckpointId`.
+        ca(CAKind::Other, None);
+        assert_noop!(change(id, spec_cp(42)), Error::NoSuchCheckpointId);
+
+        // Successfully use a checkpoint which exists.
+        assert_ok!(Checkpoint::create_checkpoint(owner.signer(), ticker));
+        change_ok(id, spec_cp(1), rd_cp(0, 1));
+
+        // Trigger `NoSuchSchedule`.
+        assert_noop!(change(id, spec_sh(ScheduleId(42))), CPError::NoSuchSchedule);
+
+        // Successfully use a schedule which exists.
+        let sh_id = next_schedule_id(ticker);
+        change_ok(id, spec_ts(1000), rd_ts(1000, sh_id));
+        assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id);
+        assert!(!Checkpoint::schedule_removable((ticker, sh_id)));
+        let mk_schedule = |at, id| {
+            let period = <_>::default();
+            let schedule = CheckpointSchedule { start: at, period };
+            StoredSchedule { at, id, schedule }
+        };
+        assert_eq!(
+            Checkpoint::schedules(ticker),
+            vec![mk_schedule(1000, sh_id)]
+        );
+        change_ok(id, spec_sh(sh_id), rd_ts(1000, sh_id));
+
+        // Use a removable schedule. Should fail.
+        let sh_id2 = next_schedule_id(ticker);
+        assert_ok!(Checkpoint::create_schedule(
+            owner.signer(),
+            ticker,
+            2000.into()
+        ));
+        assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id2);
+        assert!(Checkpoint::schedule_removable((ticker, sh_id2)));
+        assert_eq!(
+            Checkpoint::schedules(ticker),
+            vec![mk_schedule(1000, sh_id), mk_schedule(2000, sh_id2)]
+        );
+        assert_noop!(
+            change(id, spec_sh(sh_id2)),
+            Error::ExistingScheduleRemovable
+        );
+
+        // No need to test `RecordDateSpec::Scheduled` branch beyond what we have here.
+        // To do so would replicate tests in the checkpoint module.
+
+        // Test ballot branch.
+        let id = next_ca_id(ticker);
+        ca(CAKind::IssuerNotice, Some(1000));
+        let time = BallotTimeRange {
+            start: 5000,
+            end: 7000,
+        };
+        let meta = BallotMeta {
+            title: vec![].into(),
+            motions: vec![],
+        };
+        assert_ok!(Ballot::attach_ballot(owner.signer(), id, time, meta, true));
+        let test_branch = |id, error: DispatchError| {
+            let change_ok = |spec, expect| {
+                change_ok(
+                    id,
+                    dbg!(spec_ts(spec)),
+                    dbg!(rd_ts(expect, dbg!(next_schedule_id(ticker)))),
+                )
+            };
+            Timestamp::set_timestamp(3000);
+            change_ok(4999, 4000); // floor(4999 / 1000) * 1000 == 4000
+            Timestamp::set_timestamp(4999);
+            change_ok(4999, 4999); // Flooring not applied cause now == 2999.
+            change_ok(5000, 5000); // floor(5000 / 1000) * 1000 == 5000
+            change_ok(5001, 5000); // floor(5001 / 1000) * 1000 == 5000
+            Timestamp::set_timestamp(5001);
+            assert_noop!(change(id, spec_ts(5001)), Error::RecordDateAfterStart); // 5001 < 5000
+            assert_noop!(change(id, spec_ts(6000)), Error::RecordDateAfterStart); // 6000 < 5000
+            Timestamp::set_timestamp(6000);
+            assert_noop!(change(id, spec_cp(1)), error); // 6000 < 4000
+            Timestamp::set_timestamp(6001);
+            assert_noop!(change(id, spec_cp(1)), error); // 6001 < 4000
+        };
+        test_branch(id, BallotError::VotingAlreadyStarted.into());
+
+        // Test distribution branch.
+        Timestamp::set_timestamp(0);
+        let id = next_ca_id(ticker);
+        ca(CAKind::PredictableBenefit, Some(1000));
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            create_asset(b"BETA", owner),
+            0,
+            5000,
+            None,
+        ));
+        test_branch(id, DistError::DistributionStarted.into());
     });
 }
