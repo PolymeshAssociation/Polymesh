@@ -16,6 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
+use frame_support::traits::UnfilteredDispatchable;
 use frame_system::RawOrigin;
 use pallet_identity::{self as identity, benchmarking::make_account};
 use polymesh_common_utilities::MaybeBlock;
@@ -23,6 +24,18 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
 };
+
+pub fn make_proposal<T: Trait>(
+    content_len: usize,
+    url_len: usize,
+    desc_len: usize,
+) -> (Box<T::Proposal>, Url, PipDescription) {
+    let content = vec![b'X'; content_len];
+    let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
+    let url = Url::try_from(vec![b'X'; url_len].as_slice()).unwrap();
+    let description = PipDescription::try_from(vec![b'X'; desc_len as usize].as_slice()).unwrap();
+    (proposal, url, description)
+}
 
 benchmarks! {
     _ {}
@@ -95,7 +108,7 @@ benchmarks! {
 
     propose_from_community {
         // deposit
-        let a in 0 .. u32::MAX;
+        let a in 0 .. 500_000;
         // description length
         let d in 0 .. 1_000;
         // URL length
@@ -103,12 +116,9 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
 
-        let (account, origin, did) = make_account::<T>("signer", 0);
+        let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let content = vec![b'X'; c as usize];
-        let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
-        let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
-        let description = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
     }: propose(origin, proposal, a.into(), Some(url.clone()), Some(description.clone()))
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
@@ -125,14 +135,11 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
 
-        let (account, origin, did) = make_account::<T>("signer", 0);
+        let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let content = vec![b'X'; c as usize];
-        let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
-        let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
-        let description = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
         let propose_result = Module::<T>::propose(
-            frame_system::RawOrigin::Signed(account).into(),
+            origin.clone().into(),
             proposal,
             42.into(),
             None,
@@ -155,18 +162,15 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
 
-        let (account, origin, did) = make_account::<T>("signer", 0);
+        let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let content = vec![b'X'; c as usize];
-        let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
-        let url = Url::try_from(vec![b'X'; u as usize].as_slice()).unwrap();
-        let desc = PipDescription::try_from(vec![b'X'; d as usize].as_slice()).unwrap();
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
         let propose_result = Module::<T>::propose(
-            frame_system::RawOrigin::Signed(account.clone()).into(),
+            origin.clone().into(),
             proposal,
             42.into(),
             Some(url),
-            Some(desc)
+            Some(description)
         );
     }: cancel_proposal(origin, 0)
     verify {
@@ -176,4 +180,93 @@ benchmarks! {
             Proposer::Community(account)
         );
     }
+
+    vote {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+        // aye or nay
+        let v in 0 .. 1;
+
+        let (proposer_account, proposer_origin, proposer_did) =
+            make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(proposer_did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into()).unwrap();
+        let propose_result = Module::<T>::propose(
+            proposer_origin.into(),
+            proposal,
+            42.into(),
+            Some(url),
+            Some(description)
+        );
+        let (account, origin, did) = make_account::<T>("voter", 0);
+        identity::CurrentDid::put(did);
+        let voter_deposit = 43.into();
+    }: _(origin, 0, v != 0, voter_deposit)
+    verify {
+        assert!(propose_result.is_ok());
+        assert_eq!(voter_deposit, Deposits::<T>::get(0, &account).amount);
+    }
+
+    approve_committee_proposal {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into()).unwrap();
+        let propose_result = Module::<T>::propose(
+            proposer_origin,
+            proposal,
+            42.into(),
+            Some(url),
+            Some(description)
+        );
+        let origin = T::VotingMajorityOrigin::successful_origin();
+        let call = Call::<T>::approve_committee_proposal(0);
+    }: {
+        call.dispatch_bypass_filter(origin)?
+    }
+    verify {
+        assert!(propose_result.is_ok());
+        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+    }
+
+    // reject_proposal {
+    // }: _(origin, id)
+    // verify {
+    // }
+
+    // prune_proposal {
+    // }: _(origin, id)
+    // verify {
+    // }
+
+    // reschedule_execution {
+    // }: _(origin, id, until)
+    // verify {
+    // }
+
+    // clear_snapshot {
+    // }: _(origin)
+    // verify {
+    // }
+
+    // snapshot {
+    // }: _(origin)
+    // verify {
+    // }
+
+    // enact_snapshot_results {
+    // }: _(origin, results)
+    // verify {
+    // }
 }
