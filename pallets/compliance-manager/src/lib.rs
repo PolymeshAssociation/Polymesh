@@ -97,7 +97,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     proposition, Claim, Condition, ConditionType, IdentityId, Ticker, TrustedIssuer,
 };
-use polymesh_primitives_derive::Migrate;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -125,7 +124,7 @@ pub trait Trait:
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
     pub sender_conditions: Vec<Condition>,
     pub receiver_conditions: Vec<Condition>,
@@ -199,7 +198,7 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Migrate)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
