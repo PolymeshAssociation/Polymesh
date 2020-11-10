@@ -102,6 +102,8 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
 }
 
 /// A wrapper for VenueDetails
@@ -286,6 +288,79 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub signer: AccountId,
     /// signature confirming the receipt details
     pub signature: OffChainSignature,
+}
+
+pub trait WeightInfo {
+    fn create_venue(u: u32) -> Weight;
+    fn update_venue() -> Weight;
+    fn add_instruction(u: u32) -> Weight;
+    fn add_and_affirm_instruction(u: u32) -> Weight;
+    fn affirm_instruction() -> Weight;
+    fn withdraw_affirmation(u: u32) -> Weight;
+    fn reject_instruction() -> Weight;
+    fn affirm_with_receipts() -> Weight;
+    fn claim_receipt() -> Weight;
+    fn unclaim_receipt() -> Weight;
+    fn set_venue_filtering() -> Weight;
+    fn allow_venues(u: u32) -> Weight;
+    fn disallow_venues(u: u32) -> Weight;
+
+    // Some multiple paths based extrinsic.
+    // TODO: Will be removed once we get the worst case weight.
+    fn set_venue_filtering_disallow() -> Weight;
+    fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
+    fn withdraw_affirmation_with_both_receipt_and_onchain_affirmation(l: u32) -> Weight;
+}
+
+impl WeightInfo for () {
+    fn create_venue(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn update_venue() -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn affirm_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn reject_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn affirm_with_receipts() -> Weight {
+        1_000_000_000
+    }
+    fn claim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn unclaim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering() -> Weight {
+        1_000_000_000
+    }
+    fn allow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn disallow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering_disallow() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation_with_both_receipt_and_onchain_affirmation(_l: u32) -> Weight {
+        1_000_000_000
+    }
 }
 
 pub mod weight_for {

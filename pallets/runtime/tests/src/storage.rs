@@ -308,6 +308,7 @@ impl settlement::Trait for TestStorage {
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = ();
 }
 
 impl sto::Trait for TestStorage {

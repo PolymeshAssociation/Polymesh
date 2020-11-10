@@ -563,6 +563,7 @@ impl settlement::Trait for Runtime {
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = ();
 }
 
 impl sto::Trait for Runtime {

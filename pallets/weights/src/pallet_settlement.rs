@@ -84,4 +84,16 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+    fn affirm_instruction() -> u64 {
+        todo!()
+    }
+    fn reject_instruction() -> u64 {
+        todo!()
+    }
+    fn affirm_with_receipts() -> u64 {
+        todo!()
+    }
+    fn claim_receipt() -> u64 {
+        todo!()
+    }
 }
