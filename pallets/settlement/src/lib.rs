@@ -615,14 +615,14 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-          match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
+            match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
                 Ok(post_info) => Ok(post_info),
                 Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
                     Ok(e.post_info)
-                }else {
+                } else {
                     Err(e)
                 }
-           }
+            }
         }
 
         /// Withdraw an affirmation for a given instruction.

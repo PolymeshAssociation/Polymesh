@@ -1205,6 +1205,8 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
             primary_issuance_agent: Some(owner_did),
         };
         <Tokens<T>>::insert(ticker, token);
+        <BalanceOf<T>>::insert(ticker, owner_did, total_supply);
+        Portfolio::<T>::set_default_portfolio_balance(owner_did, &ticker, total_supply);
         Ok(())
     }
 }

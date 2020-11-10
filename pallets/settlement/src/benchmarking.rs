@@ -35,6 +35,8 @@ const SEED: u32 = 0;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 200;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
+const MAX_TM_ALLOWED: u32 = 10;
+const MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED: u32 = 50;
 
 pub struct Account<T: Trait> {
     account_id: T::AccountId,
@@ -76,27 +78,61 @@ fn create_venue_<T: Trait>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
 fn create_asset_<T: Trait>(did: IdentityId) -> Result<Ticker, DispatchError> {
     let ticker = Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap();
     let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    T::Asset::create_asset(did, ticker, name, 1000.into())?;
+    T::Asset::create_asset(did, ticker, name, 90000.into())?;
     Ok(ticker)
 }
 
 fn setup_leg_and_portfolio<T: Trait>(
-    did: IdentityId,
+    to_did: Option<IdentityId>,
+    from_did: Option<IdentityId>,
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
-    portfolios: &mut Vec<PortfolioId>,
+    sender_portfolios: &mut Vec<PortfolioId>,
+    receiver_portfolios: &mut Vec<PortfolioId>,
 ) -> DispatchResult {
     let ticker = Ticker::try_from(vec![b'A'; index as usize].as_slice()).unwrap();
-    let portfolio_from = generate_portfolio::<T>("", index, 100, Some(did));
+    let portfolio_from = generate_portfolio::<T>("", index, 100, from_did);
     let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
-    let portfolio_to = generate_portfolio::<T>("to_did", index, 500, None);
+    let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
         asset: ticker,
         amount: 100.into(),
     });
-    portfolios.push(portfolio_from);
+    sender_portfolios.push(portfolio_from);
+    receiver_portfolios.push(portfolio_to);
+    Ok(())
+}
+
+fn setup_leg_and_portfolio_with_ticker<T: Trait>(
+    to_did: Option<IdentityId>,
+    from_did: Option<IdentityId>,
+    from_ticker: Ticker,
+    to_ticker: Ticker,
+    index: u32,
+    legs: &mut Vec<Leg<T::Balance>>,
+    portfolios_from: &mut Vec<PortfolioId>,
+    portfolios_to: &mut Vec<PortfolioId>,
+) -> DispatchResult {
+    let portfolio_from = generate_portfolio::<T>("from_did", index, 100, from_did);
+    let _ = T::Portfolio::fund_portfolio(&portfolio_from, &from_ticker, 500.into())?;
+    let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
+    let _ = T::Portfolio::fund_portfolio(&portfolio_to, &to_ticker, 500.into())?;
+    legs.push(Leg {
+        from: portfolio_from,
+        to: portfolio_to,
+        asset: from_ticker,
+        amount: 100.into(),
+    });
+    legs.push(Leg {
+        from: portfolio_to,
+        to: portfolio_from,
+        asset: to_ticker,
+        amount: 100.into(),
+    });
+    portfolios_from.push(portfolio_from);
+    portfolios_to.push(portfolio_to);
     Ok(())
 }
 
@@ -212,7 +248,7 @@ benchmarks! {
         // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
         // Assumption here is that instruction will never be executed as still there is one auth pending.
         for n in 1 .. l {
-            setup_leg_and_portfolio::<T>(did, n, &mut legs, &mut portfolios)?;
+            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios, &mut vec![])?;
         }
     }: _(origin, venue_id, settlement_type, None, legs, portfolios)
 
@@ -255,25 +291,49 @@ benchmarks! {
     }: _(origin, ticker, venues)
 
 
-    // affirm_instruction {
+    affirm_instruction {
 
-    //     // Worst case for the affirm_instruction will be.
-    //     // 1. An instruction can have the maximum no. of legs. We are assuming
-    //     // that the sender and receiver will be same in both case and last affirmation
-    //     // will be done by providing all portfolios at once.
-    //     // 2. Tickers for every leg will be different.
-    //     // 3. Maximum no. of Smart extensions are used.
-    //     // 4. User's compliance get verified by the last asset compliance rules.
+        // Worst case for the affirm_instruction will be.
+        // 1. An instruction can have the maximum no. of legs.
+        //      a. Two tickers are used.
+        //      b. All legs are between the same sender and receiver.
+        //      c. All portfolios get affirmation at once.
+        // 2. Tickers for every leg will be different.
+        // 3. Maximum no. of Smart extensions are used.
+        // 4. User's compliance get verified by the last asset compliance rules.
 
-    //     let l in 0 .. T::MaxLegsInAInstruction::get() as u32;
-    //     let tm in 0 .. MAX_TM_ALLOWED;
-    //     let cr in 0 .. MAX_COMPLIANCE_RESTRICTION_ALLOWED;
+        let l in 2 .. T::MaxLegsInAInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let t in 0 .. MAX_TM_ALLOWED;
+        let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
 
-    //     // Create instruction will maximum legs.
+        // 1. Create instruction will maximum legs.
 
+        // create venue
+        let from = make_account::<T>("creator", SEED);
+        let venue_id = create_venue_::<T>(from.did, vec![]);
+        let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
+        let to = make_account::<T>("receiver", 1);
+        let portfolio_count = l/2;
+        let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(portfolio_count as usize);
+        let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(portfolio_count  as usize);
+        let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity((portfolio_count * 2) as usize);
 
-
-    // }: _()
+        // Create legs vector.
+        // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
+        // Assumption here is that instruction will never be executed as still there is one auth pending.
+        let from_ticker = create_asset_::<T>(from.did)?;
+        let to_ticker = create_asset_::<T>(to.did)?;
+        for n in 1 .. portfolio_count {
+            setup_leg_and_portfolio_with_ticker::<T>(Some(to.did), Some(from.did), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to)?;
+        }
+        // ensure!(legs.len() == ((portfolio_count * 2) as usize), "Incorrect length of legs");
+        // ensure!(portfolios_from.len() == (portfolio_count as usize), "Incorrect length of from portfolio");
+        // ensure!(portfolios_to.len() == (portfolio_count as usize), "Incorrect length of to portfolio");
+        Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from)?;
+        let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
+        ensure!(matches!(Module::<T>::instruction_affirms_pending(instruction_id), 0), "Instruction not set properly");
+        ensure!(Module::<T>::user_affirmations(portfolios_to[0], instruction_id) == AffirmationStatus::Pending, "Some problem in the portfolios");
+    }: _(to.origin, instruction_id, portfolios_to)
 
 
     withdraw_affirmation {
@@ -286,7 +346,7 @@ benchmarks! {
         let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
         let venue_id = create_venue_::<T>(did, vec![]);
         for n in 1 .. l {
-            setup_leg_and_portfolio::<T>(did, n, &mut legs, &mut portfolios)?;
+            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios, &mut vec![])?;
         }
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs)?;
@@ -308,7 +368,7 @@ benchmarks! {
         let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
         let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
         for n in 1 .. l {
-            setup_leg_and_portfolio::<T>(did, n, &mut legs, &mut portfolios)?;
+            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios, &mut vec![])?;
         }
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
@@ -337,7 +397,7 @@ benchmarks! {
         let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
         let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
         for n in 1 .. l {
-            setup_leg_and_portfolio::<T>(did, n, &mut legs, &mut portfolios)?;
+            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios, &mut vec![])?;
         }
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
