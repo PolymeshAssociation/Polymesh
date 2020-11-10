@@ -270,13 +270,6 @@ fn raise_unhappy_path() {
 
     let correct_venue = create_venue(alice_signed.clone(), VenueType::Sto);
 
-    // Raise asset not created
-    check_fundraiser(
-        default_tiers.clone(),
-        correct_venue,
-        Error::InvalidPortfolio.into(),
-    );
-
     create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
 
     assert_ok!(Asset::unsafe_transfer(

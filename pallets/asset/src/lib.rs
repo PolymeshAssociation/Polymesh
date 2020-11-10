@@ -502,7 +502,11 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let PermissionedCallOriginData {
+                primary_did: did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             Self::ensure_create_asset_parameters(&ticker, total_supply)?;
 
             // Ensure its registered by DID or at least expired, thus available.
@@ -520,6 +524,10 @@ decl_module! {
             // Ensure there's no pre-existing entry for the DID.
             // This should never happen, but let's be defensive here.
             Identity::<T>::ensure_no_id_record(token_did)?;
+
+            // Ensure that the caller has relevant portfolio permissions
+            let user_default_portfolio = PortfolioId::default_portfolio(did);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(user_default_portfolio, did, secondary_key.as_ref())?;
 
             // Charge protocol fees.
             T::ProtocolFee::charge_fees(&{
@@ -594,7 +602,7 @@ decl_module! {
                 did,
                 ticker,
                 PortfolioId::default(),
-                PortfolioId::default_portfolio(did),
+                user_default_portfolio,
                 total_supply
             ));
             Self::deposit_event(RawEvent::Issued(
@@ -666,11 +674,14 @@ decl_module! {
             let PermissionedCallOriginData {
                 sender,
                 primary_did,
-                ..
+                secondary_key
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let beneficiary = Self::ensure_pia_or_owner(&ticker, primary_did)?;
+            // Ensure that the caller has relevant portfolio permissions
+            let beneficiary_portfolio = PortfolioId::default_portfolio(beneficiary);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(beneficiary_portfolio, primary_did, secondary_key.as_ref())?;
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
@@ -687,7 +698,11 @@ decl_module! {
         /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let PermissionedCallOriginData {
+                primary_did: did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let pia = Self::ensure_pia_or_owner(&ticker, did)?;
@@ -698,9 +713,11 @@ decl_module! {
                 Error::<T>::InvalidGranularity
             );
 
-            // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
+            // Ensure that the caller has relevant portfolio permissions
             let pia_portfolio = PortfolioId::default_portfolio(pia);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(pia_portfolio, did, secondary_key.as_ref())?;
 
+            // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
             // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
             with_transaction(|| {
                 Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, &value)?;

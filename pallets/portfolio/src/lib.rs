@@ -518,6 +518,17 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
+    /// Ensures that the portfolio's custody is with the provided identity
+    /// And the secondary key has the relevant portfolio permission
+    pub fn ensure_portfolio_custody_and_permission(
+        portfolio: PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::ensure_portfolio_custody(portfolio, custodian)?;
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
+    }
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
@@ -627,7 +638,6 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::ensure_portfolio_custody(portfolio, custodian)?;
-        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
+        Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 }
