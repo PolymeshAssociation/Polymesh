@@ -563,13 +563,13 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInAInstruction: u32 = 10;
+    pub const MaxLegsInInstruction: u32 = 10;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;

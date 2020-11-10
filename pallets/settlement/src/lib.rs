@@ -93,7 +93,7 @@ pub trait Trait:
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInAInstruction: Get<u32>;
+    type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
@@ -332,7 +332,7 @@ pub mod weight_for {
     pub fn weight_for_transfer<T: Trait>() -> Weight {
         GAS_LIMIT
             .saturating_mul(
-                (T::Asset::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
+                (T::Asset::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
             )
             .saturating_add(70_000_000) // Weight for compliance manager
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
@@ -432,7 +432,7 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
+        /// Maximum numbers of legs in a instruction > `MaxLegsInInstruction`.
         LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
@@ -484,7 +484,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
+        const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
             // Delete all settlement data that were stored at a wrong prefix.
@@ -841,7 +841,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
         ensure!(
-            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInAInstruction::get(),
+            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInInstruction::get(),
             Error::<T>::LegsCountExceededMaxLimit
         );
 

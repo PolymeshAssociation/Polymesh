@@ -16,16 +16,15 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-use pallet_balances as balances;
-use pallet_identity as identity;
-use polymesh_common_utilities::traits::asset::AssetName;
-use polymesh_primitives::{IdentityId, InvestorUid, PortfolioId, Ticker};
-
 use codec::Encode;
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_asset as asset;
+use pallet_balances as balances;
+use pallet_identity::{self as identity, benchmarking::uid_from_name_and_idx};
+use polymesh_common_utilities::traits::asset::AssetName;
+use polymesh_primitives::{IdentityId, InvestorUid, PortfolioId, Ticker};
 use sp_runtime::SaturatedConversion;
 // use sp_core::{sr25519::Pair as SrPair, Pair};
 // use sp_io::hashing::blake2_256;
@@ -43,10 +42,6 @@ pub struct Account<T: Trait> {
     account_id: T::AccountId,
     origin: RawOrigin<T::AccountId>,
     did: IdentityId,
-}
-
-fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
-    InvestorUid::from((name, u).encode().as_slice())
 }
 
 fn make_account<T: Trait>(name: &'static str, u: u32) -> Account<T> {
@@ -197,7 +192,7 @@ benchmarks! {
 
     add_instruction {
 
-        let l in 1 .. T::MaxLegsInAInstruction::get() as u32; // Variation for the MAX leg count.
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32; // Variation for the MAX leg count.
         let mut legs = Vec::with_capacity(l as usize);
 
         // create venue
@@ -228,7 +223,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction {
-        let l in 1 .. T::MaxLegsInAInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
 
         // create venue
@@ -303,7 +298,7 @@ benchmarks! {
     //     // 3. Maximum no. of Smart extensions are used.
     //     // 4. User's compliance get verified by the last asset compliance rules.
 
-    //     let l in 2 .. T::MaxLegsInAInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+    //     let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
     //     let t in 0 .. MAX_TM_ALLOWED;
     //     let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
 
@@ -340,7 +335,7 @@ benchmarks! {
     withdraw_affirmation {
         // Below setup is for the onchain affirmation
 
-        let l in 0 .. T::MaxLegsInAInstruction::get() as u32;
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
         let mut portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
         // create venue
@@ -362,7 +357,7 @@ benchmarks! {
     withdraw_affirmation_with_receipt {
         // Below setup is for the receipt based affirmation
 
-        let l in 0 .. T::MaxLegsInAInstruction::get() as u32;
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
         let mut portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
         // create venue
@@ -389,7 +384,7 @@ benchmarks! {
     withdraw_affirmation_with_both_receipt_and_onchain_affirmation {
         // Below setup is for the receipt based & onchain affirmation
 
-        let l in 1 .. T::MaxLegsInAInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // TODO: Need to find a better way to make it randomize the value of p.
         let p: u32 = l / 2;
         let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);

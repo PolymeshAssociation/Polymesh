@@ -5632,6 +5632,7 @@ dependencies = [
  "pallet-identity",
  "pallet-portfolio",
  "pallet-protocol-fee",
+ "pallet-settlement",
  "pallet-timestamp",
 ]
 
