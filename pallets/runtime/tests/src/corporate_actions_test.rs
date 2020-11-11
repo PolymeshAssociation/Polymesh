@@ -1,17 +1,17 @@
 use super::{
     pips_test::User,
-    storage::{provide_scope_claim_to_multiple_parties, root, Checkpoint, TestStorage},
+    storage::{provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, TestStorage},
     ExtBuilder,
 };
 use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    StorageDoubleMap, StorageMap,
+    IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
-    ballot::{self, BallotMeta, BallotTimeRange, Motion, Votes},
+    ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution},
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, RecordDate,
     RecordDateSpec, TargetIdentities,
@@ -42,6 +42,7 @@ type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
+type Votes = ballot::Votes<TestStorage>;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -186,6 +187,31 @@ const TRANGE: BallotTimeRange = BallotTimeRange {
     start: 3000,
     end: 4000,
 };
+
+#[derive(Clone, Eq, PartialEq, Default, Debug)]
+struct BallotData {
+    meta: Option<BallotMeta>,
+    range: Option<BallotTimeRange>,
+    choices: Vec<u16>,
+    rcv: bool,
+    results: Vec<Balance>,
+    votes: Vec<(IdentityId, Vec<BallotVote<Balance>>)>,
+}
+
+fn ballot_data(id: CAId) -> BallotData {
+    BallotData {
+        meta: Ballot::metas(id),
+        range: Ballot::time_ranges(id),
+        choices: Ballot::motion_choices(id),
+        rcv: Ballot::rcv(id),
+        results: Ballot::results(id),
+        votes: Votes::iter_prefix(id).collect(),
+    }
+}
+
+fn assert_ballot(id: CAId, data: &BallotData) {
+    assert_eq!(&ballot_data(id), data);
+}
 
 #[test]
 fn only_caa_authorized() {
@@ -651,6 +677,7 @@ fn remove_ca_works() {
             Timestamp::set_timestamp(0);
             let id = next_ca_id(ticker);
             ca(CAKind::IssuerNotice, Some(1000));
+            assert_ballot(id, &<_>::default());
             assert_ok!(Ballot::attach_ballot(
                 owner.signer(),
                 id,
@@ -662,19 +689,22 @@ fn remove_ca_works() {
         };
         let id = mk_ballot();
         // Ensure the details are right.
-        assert_eq!(Ballot::metas(id), Some(meta.clone()));
-        assert_eq!(Ballot::time_ranges(id), Some(time));
-        assert_eq!(Ballot::motion_choices(id), vec![1u16]);
-        assert_eq!(Ballot::rcv(id), true);
+        assert_ballot(
+            id,
+            &BallotData {
+                meta: Some(meta.clone()),
+                range: Some(time),
+                choices: vec![1u16],
+                rcv: true,
+                ..<_>::default()
+            },
+        );
         // Sucessfully remove it. Edge condition `now == start - 1`.
         Timestamp::set_timestamp(3000 - 1);
         assert_ok!(remove(id));
         // And ensure all details were removed.
         assert_no_ca(id);
-        assert_eq!(Ballot::metas(id), None);
-        assert_eq!(Ballot::time_ranges(id), None);
-        assert_eq!(Ballot::motion_choices(id), Vec::<u16>::new());
-        assert_eq!(Ballot::rcv(id), false);
+        assert_ballot(id, &<_>::default());
 
         // Create another ballot, move now => start date; try to remove, but fail.
         let id = mk_ballot();
@@ -900,8 +930,19 @@ fn attach_ballot_range_invariant() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
 
-        let attach =
-            |id, time| Ballot::attach_ballot(owner.signer(), id, time, <_>::default(), true);
+        let mut data = BallotData {
+            rcv: true,
+            meta: Some(<_>::default()),
+            ..BallotData::default()
+        };
+
+        let mut attach = |id, time| -> DispatchResult {
+            data.range = Some(time);
+            let meta = data.meta.clone().unwrap();
+            Ballot::attach_ballot(owner.signer(), id, time, meta, data.rcv)?;
+            assert_ballot(id, &data);
+            Ok(())
+        };
         let range = |start| BallotTimeRange { start, end: 6000 };
 
         assert_noop!(attach(id, range(6001)), BallotError::StartAfterEnd);
@@ -937,6 +978,20 @@ fn attach_ballot_already_exists() {
     });
 }
 
+fn overflowing_meta() -> BallotMeta {
+    BallotMeta {
+        title: "".into(),
+        motions: vec![Motion {
+            title: "".into(),
+            info_link: "".into(),
+            choices: iter::repeat("".into())
+                // `u16::MAX` doesn't overflow, but +1 does.
+                .take(1 + u16::MAX as usize)
+                .collect(),
+        }],
+    }
+}
+
 #[test]
 fn attach_ballot_num_choices_overflow_u16() {
     test(|ticker, [owner, ..]| {
@@ -947,22 +1002,28 @@ fn attach_ballot_num_choices_overflow_u16() {
         // which is not reasonable as a test.
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
-        let meta = BallotMeta {
-            title: "".into(),
-            motions: vec![Motion {
-                title: "".into(),
-                info_link: "".into(),
-                choices: iter::repeat("".into())
-                    // `u16::MAX` doesn't overflow, but +1 does.
-                    .take(1 + u16::MAX as usize)
-                    .collect(),
-            }],
-        };
         assert_noop!(
-            Ballot::attach_ballot(owner.signer(), id, TRANGE, meta, false),
+            Ballot::attach_ballot(owner.signer(), id, TRANGE, overflowing_meta(), false),
             BallotError::NumberOfChoicesOverflow,
         );
     });
+}
+
+fn mk_meta() -> BallotMeta {
+    let motion_a = Motion {
+        title: "foo".into(),
+        info_link: "www.acme.com".into(),
+        choices: vec!["foo".into(), "bar".into(), "baz".into()],
+    };
+    let motion_b = Motion {
+        title: "bar".into(),
+        info_link: "www.emca.com".into(),
+        choices: vec!["foo".into()],
+    };
+    BallotMeta {
+        title: vec![].into(),
+        motions: vec![motion_a, motion_b],
+    }
 }
 
 #[test]
@@ -970,28 +1031,157 @@ fn attach_ballot_works() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
 
-        let motion_a = Motion {
-            title: "foo".into(),
-            info_link: "www.acme.com".into(),
-            choices: vec!["foo".into(), "bar".into(), "baz".into()],
-        };
-        let motion_b = Motion {
-            title: "bar".into(),
-            info_link: "www.emca.com".into(),
-            choices: vec!["foo".into()],
-        };
-        let meta = BallotMeta {
-            title: vec![].into(),
-            motions: vec![motion_a, motion_b],
+        let data = BallotData {
+            meta: Some(mk_meta()),
+            range: Some(TRANGE),
+            choices: vec![3, 1],
+            ..<_>::default()
         };
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
-        Ballot::attach_ballot(owner.signer(), id, TRANGE, meta.clone(), false).unwrap();
-        assert_eq!(Ballot::time_ranges(id), Some(TRANGE));
-        assert_eq!(Ballot::metas(id), Some(meta));
-        assert_eq!(Ballot::motion_choices(id), vec![3, 1]);
-        assert_eq!(Ballot::rcv(id), false);
-        assert_eq!(Ballot::results(id), vec![]);
-        assert_eq!(Votes::<TestStorage>::iter_prefix_values(id).next(), None);
+        assert_ok!(Ballot::attach_ballot(
+            owner.signer(),
+            id,
+            TRANGE,
+            mk_meta(),
+            false
+        ));
+        assert_ballot(id, &data);
+    });
+}
+
+#[test]
+fn change_end_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        assert_noop!(
+            Ballot::change_end(owner.signer(), next_ca_id(ticker), 0),
+            BallotError::NoSuchBallot,
+        );
+
+        let range = BallotTimeRange {
+            start: 2000,
+            end: 4000,
+        };
+
+        let mut data = BallotData {
+            range: Some(range),
+            meta: Some(<_>::default()),
+            ..<_>::default()
+        };
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        assert_ok!(Ballot::attach_ballot(
+            owner.signer(),
+            id,
+            range,
+            <_>::default(),
+            false
+        ));
+        assert_ballot(id, &data);
+
+        let mut change = |end| -> DispatchResult {
+            Ballot::change_end(owner.signer(), id, end)?;
+            data.range = Some(BallotTimeRange { end, ..range });
+            assert_ballot(id, &data);
+            Ok(())
+        };
+
+        Timestamp::set_timestamp(1999);
+        assert_ok!(change(5000)); // Not started yet, OK.
+        assert_ok!(change(2000)); // start == end, OK.
+        assert_noop!(change(1999), BallotError::StartAfterEnd); // end is before start; bad!
+        Timestamp::set_timestamp(2000);
+        assert_noop!(change(5000), BallotError::VotingAlreadyStarted);
+    });
+}
+
+#[test]
+fn change_rcv_works() {
+    test(|ticker, [owner, ..]| {
+        for &rcv in &[true, false] {
+            set_schedule_complexity();
+
+            let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+            let change = |rcv| Ballot::change_rcv(owner.signer(), id, rcv);
+            assert_noop!(change(rcv), BallotError::NoSuchBallot);
+            assert_ballot(id, &<_>::default());
+
+            let range = BallotTimeRange {
+                start: 3000,
+                end: 5000,
+            };
+            let mut data = BallotData {
+                range: Some(range),
+                meta: Some(<_>::default()),
+                rcv,
+                ..<_>::default()
+            };
+
+            assert_ok!(Ballot::attach_ballot(
+                owner.signer(),
+                id,
+                range,
+                <_>::default(),
+                data.rcv
+            ));
+            assert_ballot(id, &data);
+
+            Timestamp::set_timestamp(2999);
+            data.rcv ^= true;
+            assert_ok!(change(data.rcv));
+            assert_ballot(id, &data);
+
+            Timestamp::set_timestamp(3000);
+            assert_noop!(change(!data.rcv), BallotError::VotingAlreadyStarted);
+            assert_ballot(id, &data);
+        }
+    });
+}
+
+#[test]
+fn change_meta_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        let change = |meta| Ballot::change_meta(owner.signer(), id, meta);
+
+        assert_noop!(change(<_>::default()), BallotError::NoSuchBallot);
+
+        let range = BallotTimeRange {
+            start: 4000,
+            end: 6000,
+        };
+        let mut data = BallotData {
+            range: Some(range),
+            meta: Some(<_>::default()),
+            ..<_>::default()
+        };
+
+        assert_ok!(Ballot::attach_ballot(
+            owner.signer(),
+            id,
+            range,
+            <_>::default(),
+            data.rcv,
+        ));
+        assert_ballot(id, &data);
+
+        Timestamp::set_timestamp(3999);
+        assert_ok!(change(mk_meta()));
+        data.meta = Some(mk_meta());
+        data.choices = vec![3, 1];
+        assert_ballot(id, &data);
+
+        assert_noop!(
+            change(overflowing_meta()),
+            BallotError::NumberOfChoicesOverflow,
+        );
+
+        Timestamp::set_timestamp(4000);
+        assert_noop!(change(mk_meta()), BallotError::VotingAlreadyStarted);
+        assert_ballot(id, &data);
     });
 }
