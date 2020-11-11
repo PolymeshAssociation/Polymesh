@@ -52,11 +52,9 @@ mod staking;
 #[cfg(test)]
 mod statistics_test;
 #[cfg(test)]
-<<<<<<< HEAD
 mod transaction_ordering_test;
-=======
+#[cfg(test)]
 mod sto_test;
->>>>>>> develop
 #[cfg(test)]
 mod transaction_payment_test;
 #[cfg(test)]

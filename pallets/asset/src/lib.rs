@@ -114,17 +114,11 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-<<<<<<< HEAD
     AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, AuthorizationData,
     AuthorizationError, Document, DocumentName, FundingRoundName, IdentityId, PortfolioId,
     RestrictionResult, ScopeId, SecurityToken, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
-    TickerRegistrationStatus,
-=======
-    calendar::CheckpointId, AssetIdentifier, AuthorizationData, Document, DocumentId, DocumentName,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
->>>>>>> develop
+    TickerRegistrationStatus, calendar::CheckpointId, DocumentId, MetaVersion as ExtVersion
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -412,117 +406,8 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-<<<<<<< HEAD
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
-=======
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::ensure_create_asset_parameters(&ticker, total_supply)?;
-
-            // Ensure its registered by DID or at least expired, thus available.
-            let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
-                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
-                TickerRegistrationStatus::RegisteredByDid => false,
-                TickerRegistrationStatus::Available => true,
-            };
-
-            if !divisible {
-                ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
-            }
-
-            let token_did = Identity::<T>::get_token_did(&ticker)?;
-            // Ensure there's no pre-existing entry for the DID.
-            // This should never happen, but let's be defensive here.
-            Identity::<T>::ensure_no_id_record(token_did)?;
-
-            // Charge protocol fees.
-            T::ProtocolFee::charge_fees(&{
-                let mut fees = ArrayVec::<[_; 2]>::new();
-                if available {
-                    fees.push(ProtocolOp::AssetRegisterTicker);
-                }
-                // Waive the asset fee iff classic ticker hasn't expired,
-                // and it was already created on classic.
-                if available || ClassicTickers::get(&ticker).filter(|r| r.is_created).is_none() {
-                    fees.push(ProtocolOp::AssetCreateAsset);
-                }
-                fees
-            })?;
-
-            //==========================================================================
-            // At this point all checks have been made; **only** storage changes follow!
-            //==========================================================================
-
-            Identity::<T>::commit_token_did(token_did, ticker);
-
-            // Register the ticker or finish its registration.
-            if available {
-                // Ticker not registered by anyone (or registry expired), so register.
-                Self::_register_ticker(&ticker, did, None);
-            } else {
-                // Ticker already registered by the user.
-                <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
-            }
-
-            let token = SecurityToken {
-                name,
-                total_supply,
-                owner_did: did,
-                divisible,
-                asset_type: asset_type.clone(),
-                primary_issuance_agent: Some(did),
-            };
-            <Tokens<T>>::insert(&ticker, token);
-            // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
-            // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
-            // those data points will get added in to the system whenever asset issuer/ primary issuance agent
-            // have InvestorUniqueness claim.
-            <BalanceOf<T>>::insert(ticker, did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
-            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
-            Self::deposit_event(RawEvent::AssetCreated(
-                did,
-                ticker,
-                total_supply,
-                divisible,
-                asset_type,
-                did,
-            ));
-
-            let identifiers: Vec<AssetIdentifier> = identifiers
-                .into_iter()
-                .filter_map(|identifier| identifier.validate())
-                .collect();
-
-            <Identifiers>::insert(ticker, identifiers.clone());
-
-            // Add funding round name.
-            <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
-
-            // Update the investor count of an asset.
-            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);
-
-            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
-            <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
-            Self::deposit_event(RawEvent::Transfer(
-                did,
-                ticker,
-                PortfolioId::default(),
-                PortfolioId::default_portfolio(did),
-                total_supply
-            ));
-            Self::deposit_event(RawEvent::Issued(
-                did,
-                ticker,
-                did,
-                total_supply,
-                Self::funding_round(ticker),
-                total_supply,
-                Some(did),
-            ));
-            Ok(())
->>>>>>> develop
+            Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1051,11 +936,8 @@ decl_error! {
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
         SenderSameAsReceiver,
-<<<<<<< HEAD
-=======
         /// The given Document does not exist.
         NoSuchDoc,
->>>>>>> develop
     }
 }
 
@@ -2144,6 +2026,10 @@ impl<T: Trait> Module<T> {
 
         // If asset is not confidential mint assets to the primary asset issuer account here.
         if !is_confidential {
+            // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
+            // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
+            // those data points will get added in to the system whenever asset issuer/ primary issuance agent
+            // have InvestorUniqueness claim.
             <BalanceOf<T>>::insert(ticker, did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
 
@@ -2183,8 +2069,8 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::Transfer(
                 did,
                 ticker,
-                IdentityId::default(),
-                did,
+                PortfolioId::default(),
+                PortfolioId::default_portfolio(did),
                 total_supply,
             ));
             Self::deposit_event(RawEvent::Issued(

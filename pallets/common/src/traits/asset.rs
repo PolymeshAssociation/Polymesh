@@ -16,8 +16,8 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, PortfolioId, ScopeId,
-    SecurityToken, Ticker, calendar::CheckpointId
+    calendar::CheckpointId, AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId,
+    PortfolioId, ScopeId, SecurityToken, Ticker,
 };
 use sp_std::vec::Vec;
 
