@@ -87,7 +87,9 @@ pub trait Trait:
     /// Asset module.
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInAnInstruction: Get<u32>;
+    type MaxLegsInAInstruction: Get<u32>;
+    /// Scheduler of settlement instructions.
+    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
@@ -139,7 +141,11 @@ pub enum VenueType {
     /// Represents an offering/fund raiser.
     Sto,
     /// Represents a match making service.
+    Exchange,
+}
+
 impl Default for VenueType {
+    fn default() -> Self {
         Self::Other
     }
 }
@@ -361,7 +367,7 @@ pub mod weight_for {
     pub fn weight_for_transfer<T: Trait>() -> Weight {
         GAS_LIMIT
             .saturating_mul(
-                (T::Asset::max_number_of_tm_extension() * T::MaxLegsInAnInstruction::get()).into(),
+                (T::Asset::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
             )
             .saturating_add(70_000_000) // Weight for compliance manager.
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read.
@@ -481,7 +487,9 @@ decl_error! {
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
         SettleOnPastBlock,
         /// Portfolio based actions require at least one portfolio to be provided as input.
-        NoPortfolioProvided
+        NoPortfolioProvided,
+        /// Only `Leg::NonConfidentialLeg` is allowed leg type for the receipt functionality.
+        InvalidLegType,
     }
 }
 
@@ -686,7 +694,7 @@ decl_module! {
         /// * `instruction_id` - Instruction id to authorize.
         /// * `data` - MERCAT payload to include for the instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to authorize for this instruction.
-        #[weight = weight_for::weight_for_authorize_instruction::<T>()
+        #[weight = weight_for::weight_for_affirmation_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn authorize_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
@@ -695,7 +703,7 @@ decl_module! {
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Authorize the instruction.
-            Self::unsafe_authorize_instruction(did, instruction_id, portfolios_set)?;
+            Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
 
             // Update the transaction sender's ordering state.
             if let MercatTxData::InitializedTransfer(tx_data) =  &data {
@@ -712,10 +720,10 @@ decl_module! {
             MercatTxDataStorage::append(instruction_id, data);
 
             // Execute the instruction if conditions are met.
-            let auths_pending = Self::instruction_auths_pending(instruction_id);
-            let weight_for_instruction_execution = Self::is_instruction_executed(auths_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
+            let affirms_pending = Self::instruction_affirms_pending(instruction_id);
+            let weight_for_instruction_execution = Self::is_instruction_executed(affirms_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
 
-            Ok(Some(weight_for::weight_for_authorize_instruction::<T>() + weight_for_instruction_execution).into())
+            Ok(Some(weight_for::weight_for_affirmation_instruction::<T>() + weight_for_instruction_execution).into())
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -812,7 +820,7 @@ decl_module! {
         #[weight = 10_000_000_000]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            T::Portfolio::ensure_portfolio_custody(Self::instruction_legs(&instruction_id, &receipt_details.leg_id).from, did)?;
+            T::Portfolio::ensure_portfolio_custody(*Self::leg_from_to(&Self::instruction_legs(&instruction_id, &receipt_details.leg_id))?.0, did)?;
             Self::unsafe_claim_receipt(
                 did,
                 instruction_id,
@@ -1178,7 +1186,7 @@ impl<T: Trait> Module<T> {
     fn get_mercat_tx_data(instruction_id: u64) -> Result<JustifiedTransferTx, DispatchError> {
         let mut tx_data = Self::mercat_tx_data(instruction_id);
         if tx_data.len() != MERCAT_TX_DATA_LEN {
-            return Err(Error::<T>::InstructionNotAuthorized.into());
+            return Err(Error::<T>::InstructionNotAffirmed.into());
         }
 
         let tx_data = tx_data.remove(MERCAT_TX_DATA_LEN - 1);
@@ -1187,12 +1195,12 @@ impl<T: Trait> Module<T> {
                 .decode()
                 .map(|d| JustifiedTransferTx::decode(&mut &d[..]))?
                 .map_err(|_| {
-                    return DispatchError::from(Error::<T>::InstructionNotAuthorized);
+                    return DispatchError::from(Error::<T>::InstructionNotAffirmed);
                 });
             return result;
         }
 
-        return Err(Error::<T>::InstructionNotAuthorized.into());
+        return Err(Error::<T>::InstructionNotAffirmed.into());
     }
 
     fn execute_instruction(instruction_id: u64) -> (u32, DispatchResultWithPostInfo) {
@@ -1340,8 +1348,13 @@ impl<T: Trait> Module<T> {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in legs {
-            counter_parties.push(leg.from);
-            counter_parties.push(leg.to);
+            match leg {
+                Leg::NonConfidentialLeg(leg) | Leg::ConfidentialLeg(leg) => {
+                    counter_parties.push(leg.from);
+                    counter_parties.push(leg.to);
+                }
+                Leg::Undefined => {} 
+            }
         }
         counter_parties.sort();
         counter_parties.dedup();
@@ -1499,14 +1512,11 @@ impl<T: Trait> Module<T> {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was authorized.
                     match leg_details {
-                        Leg::NonConfidentialLeg(non_confidential_leg_detail) => {
-                        // must've locked these tokens when instruction was affirmed
-                        T::Portfolio::unlock_tokens(
-                            &leg_details.from,
-                            &leg_details.asset,
-                            &leg_details.amount,
-                        )
-                    .ok();
+                        Leg::NonConfidentialLeg(NonConfidentialLeg{ from, asset, amount, .. }) => {
+                            // must've locked these tokens when instruction was affirmed
+                            T::Portfolio::unlock_tokens(from,asset, amount).ok();
+                        }
+                    }
                 }
                 LegStatus::PendingTokenLock => {}
             }
@@ -1565,10 +1575,10 @@ impl<T: Trait> Module<T> {
         // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
         for portfolio in &portfolios_set {
             T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
-            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
-                userr_affirmation == AffirmationStatus::Pending
-                    || userr_affirmation == AffirmationStatus::Rejected,
+                user_affirmation == AffirmationStatus::Pending
+                    || user_affirmation == AffirmationStatus::Rejected,
                 Error::<T>::NoPendingAffirm
             );
         }
@@ -1584,31 +1594,39 @@ impl<T: Trait> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
-            ensure!(
-                portfolios_set.contains(&leg.from),
-                Error::<T>::PortfolioMismatch
-            );
-
-            let msg = Receipt {
-                receipt_uid: receipt.receipt_uid,
-                from: leg.from,
-                to: leg.to,
-                asset: leg.asset,
-                amount: leg.amount,
-            };
-
-            ensure!(
-                receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-                Error::<T>::InvalidSignature
-            );
+            if let Leg::NonConfidentialLeg(nc_leg) = Self::instruction_legs(&instruction_id, &receipt.leg_id) {
+                ensure!(
+                    portfolios_set.contains(&leg.from),
+                    Error::<T>::PortfolioMismatch
+                );
+    
+                let msg = Receipt {
+                    receipt_uid: receipt.receipt_uid,
+                    from: leg.from,
+                    to: leg.to,
+                    asset: leg.asset,
+                    amount: leg.amount,
+                };
+    
+                ensure!(
+                    receipt.signature.verify(&msg.encode()[..], &receipt.signer),
+                    Error::<T>::InvalidSignature
+                );
+            } else {
+                return Err(Error::<T>::InvalidLegType.into());
+            }
+            
         }
 
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
             for (leg_id, leg_details) in
-                legs.filter(|(_leg_id, leg_details)| portfolios_set.contains(&leg_details.from))
+                legs.filter(|(_leg_id, leg_details)| match Self::leg_from_to(&leg_details) {
+                        Ok((from, _)) => portfolios.contains(&from),
+                        Err(_) => false,
+                    },
+                )
             {
                 
                 if let Leg::NonConfidentialLeg(leg) = leg_details {

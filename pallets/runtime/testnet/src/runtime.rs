@@ -707,14 +707,11 @@ impl IdentityTrait for Runtime {
     type CorporateAction = CorporateAction;
 }
 
-<<<<<<< HEAD
 impl pallet_confidential_asset::Trait for Runtime {
     type NonConfidentialAsset = Asset;
     type Event = Event;
 }
 
-impl contracts_wrapper::Trait for Runtime {}
-=======
 parameter_types! {
     pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
 }
@@ -728,7 +725,6 @@ impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
 }
->>>>>>> develop
 
 impl exemption::Trait for Runtime {
     type Event = Event;
