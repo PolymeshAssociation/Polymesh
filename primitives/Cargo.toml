@@ -16,7 +16,7 @@ serde = { version = "1.0.104", optional = true, default-features = false, featur
 # Crypto
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
+schnorrkel = { version = "0.9.1", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 rand_core = { version = "0.5", default-features = false }
