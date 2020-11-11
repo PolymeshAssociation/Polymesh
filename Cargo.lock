@@ -1220,13 +1220,12 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd#3ad591b06ae0b9ad97f81711296bea8087a345e9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
 dependencies = [
  "byteorder 1.3.4",
  "digest 0.8.1",
- "packed_simd_2",
  "rand_core 0.5.1",
- "serde",
  "subtle 2.3.0",
  "zeroize",
 ]
@@ -1234,12 +1233,13 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
+source = "git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd#3ad591b06ae0b9ad97f81711296bea8087a345e9"
 dependencies = [
  "byteorder 1.3.4",
  "digest 0.8.1",
+ "packed_simd_2",
  "rand_core 0.5.1",
+ "serde",
  "subtle 2.3.0",
  "zeroize",
 ]
@@ -4232,7 +4232,7 @@ version = "0.1.0"
 dependencies = [
  "bulletproofs 2.0.1 (git+https://github.com/PolymathNetwork/bulletproofs.git?branch=main)",
  "cryptography",
- "curve25519-dalek 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -4258,7 +4258,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
  "cryptography",
- "curve25519-dalek 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4272,7 +4272,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
- "schnorrkel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "sp-runtime",
  "sp-std",
 ]
@@ -4472,7 +4472,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
- "schnorrkel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
  "serde_derive",
  "sp-api",
@@ -5718,7 +5718,7 @@ dependencies = [
  "base64 0.12.3",
  "chrono",
  "cryptography",
- "curve25519-dalek 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "env_logger",
  "frame-benchmarking",
  "frame-support",
@@ -7377,24 +7377,6 @@ dependencies = [
 [[package]]
 name = "schnorrkel"
 version = "0.9.1"
-source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
-dependencies = [
- "arrayref",
- "arrayvec 0.5.2",
- "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
- "getrandom 0.1.15",
- "merlin",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "serde",
- "sha2 0.8.2",
- "subtle 2.3.0",
- "zeroize",
-]
-
-[[package]]
-name = "schnorrkel"
-version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "021b403afe70d81eea68f6ea12f6b3c9588e5d536a94c3bf80f15e7faa267862"
 dependencies = [
@@ -7405,6 +7387,24 @@ dependencies = [
  "merlin",
  "rand 0.7.3",
  "rand_core 0.5.1",
+ "sha2 0.8.2",
+ "subtle 2.3.0",
+ "zeroize",
+]
+
+[[package]]
+name = "schnorrkel"
+version = "0.9.1"
+source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
+dependencies = [
+ "arrayref",
+ "arrayvec 0.5.2",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
+ "getrandom 0.1.15",
+ "merlin",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
  "sha2 0.8.2",
  "subtle 2.3.0",
  "zeroize",
