@@ -15,15 +15,11 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-<<<<<<< HEAD
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, PortfolioId, ScopeId,
-    SecurityToken, Ticker,
+    SecurityToken, Ticker, calendar::CheckpointId
 };
 use sp_std::vec::Vec;
-=======
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
->>>>>>> develop
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.

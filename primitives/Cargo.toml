@@ -71,6 +71,7 @@ std = [
 	"polymesh-primitives-derive/std",
 	"curve25519-dalek/std",
 	"sp-application-crypto/std",
+    "sp-runtime-interface/std",
 ]
 
 runtime-benchmarks = [
