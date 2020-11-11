@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
+use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
@@ -53,7 +53,7 @@ pub struct IssueAssetItem<U> {
     pub value: U,
 }
 
-pub trait Trait<V, U> {
+pub trait Trait<V, U, W> {
     fn total_supply(ticker: &Ticker) -> V;
     fn balance(ticker: &Ticker, did: IdentityId) -> V;
     fn _mint_from_sto(
@@ -66,11 +66,11 @@ pub trait Trait<V, U> {
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> V;
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
-    fn max_number_of_tm_extension() -> u32;
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: V,
     ) -> DispatchResultWithPostInfo;
+    fn ensure_perms_owner_asset(origin: W, ticker: &Ticker) -> Result<IdentityId, DispatchError>;
 }

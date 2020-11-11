@@ -111,7 +111,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
@@ -300,7 +300,7 @@ decl_module! {
         /// * receiver_conditions - Receiver transfer conditions.
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
@@ -331,7 +331,7 @@ decl_module! {
         /// * id - Compliance requirement id which is need to be removed
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
                 let before = requirements.len();
@@ -357,7 +357,7 @@ decl_module! {
         /// `read_and_write_weight + 100_000_000 + 500_000 * asset_compliance.len()`
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -380,7 +380,7 @@ decl_module! {
         /// * ticker - Symbol of the asset
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             AssetCompliances::remove(ticker);
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
         }
@@ -415,7 +415,7 @@ decl_module! {
         /// * issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
@@ -434,7 +434,7 @@ decl_module! {
         /// * issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
                 issuers.retain(|ti| ti != &issuer);
@@ -452,7 +452,7 @@ decl_module! {
         /// * new_req - Compliance requirement.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -503,21 +503,6 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
-    /// Ensure that `origin` can modify `ticker`'s compliance rules.
-    fn ensure_can_modify_rules(
-        origin: T::Origin,
-        ticker: Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-        Ok(did)
-    }
-
-    /// Returns true if `sender_did` is the owner of `ticker` asset.
-    fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
-        T::Asset::is_owner(ticker, sender_did)
-    }
-
     /// Fetches all claims of `target` identity with type
     /// and scope from `claim` and generated by any of `issuers`.
     fn fetch_claims<'a>(
@@ -636,7 +621,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Self::ensure_can_modify_rules(origin, ticker)?;
+        let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
         AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
         Ok(did)
     }

@@ -52,7 +52,7 @@ use pallet_asset::{
     self as asset,
     checkpoint::{self, ScheduleId},
 };
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
@@ -337,7 +337,7 @@ decl_module! {
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             Self::change_ca_agent(did, ticker, None);
         }
 
@@ -626,13 +626,21 @@ impl<T: Trait> Module<T> {
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
+    /// If the caller is a secondary key, it should have the relevant asset permission.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        let did = <Identity<T>>::ensure_perms(origin)?;
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         ensure!(
-            Self::agent(ticker)
-                .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
+            Self::agent(ticker).map_or_else(
+                || <Asset<T>>::is_owner(&ticker, primary_did),
+                |caa| caa == primary_did
+            ),
             Error::<T>::UnauthorizedAsAgent
         );
-        Ok(did)
+        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), &ticker)?;
+        Ok(primary_did)
     }
 }

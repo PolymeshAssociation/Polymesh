@@ -47,12 +47,11 @@ use frame_support::{
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
+use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     traits::{
-        asset::{Trait as AssetTrait, GAS_LIMIT},
-        identity::Trait as IdentityTrait,
-        portfolio::PortfolioSubTrait,
+        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
         CommonTrait,
     },
     with_transaction,
@@ -68,14 +67,13 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
+type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInAInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
@@ -316,7 +314,7 @@ pub mod weight_for {
     pub fn weight_for_transfer<T: Trait>() -> Weight {
         GAS_LIMIT
             .saturating_mul(
-                (T::Asset::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
+                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
             )
             .saturating_add(70_000_000) // Weight for compliance manager
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
@@ -744,8 +742,7 @@ decl_module! {
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
         #[weight = 200_000_000]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             if enabled {
                 <VenueFiltering>::insert(ticker, enabled);
             } else {
@@ -764,8 +761,7 @@ decl_module! {
         /// `200_000_000 + 500_000 * venues.len()`
         #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
                 <VenueAllowList>::insert(&ticker, venue, true);
             }
@@ -782,8 +778,7 @@ decl_module! {
         /// `200_000_000 + 500_000 * venues.len()`
         #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
                 <VenueAllowList>::remove(&ticker, venue);
             }
@@ -813,11 +808,6 @@ impl<T: Trait> Module<T> {
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
         Self::ensure_instruction_validity(instruction_id)?;
         Ok((primary_did, secondary_key))
-    }
-
-    /// Returns true if `sender_did` is the owner of `ticker` asset.
-    fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
-        T::Asset::is_owner(ticker, sender_did)
     }
 
     pub fn base_add_instruction(
@@ -1046,7 +1036,7 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         status == LegStatus::ExecutionPending
                     }) {
-                        let result = T::Asset::base_transfer(
+                        let result = <Asset<T>>::base_transfer(
                             leg_details.from,
                             leg_details.to,
                             &leg_details.asset,

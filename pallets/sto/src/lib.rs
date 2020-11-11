@@ -27,6 +27,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
+use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_portfolio::{self as portfolio, Trait as PortfolioTrait};
 use pallet_settlement::{
@@ -50,6 +51,7 @@ type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
 type Portfolio<T> = portfolio::Module<T>;
+type Asset<T> = asset::Module<T>;
 
 /// Details about the Fundraiser
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -452,13 +454,13 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = 1_000]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let did = Self::ensure_perms(origin, &offering_asset)?;
 
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(
-                T::Asset::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)? == did ||fundraiser.creator == did,
+                <Asset<T>>::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)? == did ||fundraiser.creator == did,
                 Error::<T>::Unauthorized
             );
 
@@ -481,12 +483,7 @@ impl<T: Trait> Module<T> {
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
-        let did = Identity::<T>::ensure_perms(origin)?;
-        ensure!(
-            T::Asset::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)?
-                == did,
-            Error::<T>::Unauthorized
-        );
+        Self::ensure_perms_pia(origin, &offering_asset)?;
         ensure!(
             <Fundraisers<T>>::contains_key(offering_asset, fundraiser_id),
             Error::<T>::FundraiserNotFound
@@ -497,6 +494,20 @@ impl<T: Trait> Module<T> {
             }
         });
         Ok(())
+    }
+
+    /// Ensure that `origin` is permissioned, returning its DID.
+    fn ensure_perms(
+        origin: <T as frame_system::Trait>::Origin,
+        asset: &Ticker,
+    ) -> Result<IdentityId, DispatchError> {
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
+        Ok(primary_did)
     }
 
     /// Ensure that `origin` is permissioned and the PIA, returning its DID.
@@ -510,9 +521,10 @@ impl<T: Trait> Module<T> {
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
         ensure!(
-            T::Asset::primary_issuance_agent_or_owner(asset) == primary_did,
+            <Asset<T>>::primary_issuance_agent_or_owner(asset) == primary_did,
             Error::<T>::Unauthorized
         );
+        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
         Ok((primary_did, secondary_key))
     }
 }

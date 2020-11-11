@@ -4555,6 +4555,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-timestamp",
