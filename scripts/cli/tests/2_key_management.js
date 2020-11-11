@@ -14,13 +14,17 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let charlie = testEntities[2];
-  let dave = testEntities[3];
+  let bob = await reqImports.generateRandomEntity(api);
+  let charlie = await reqImports.generateRandomEntity(api);
+  let dave = await reqImports.generateRandomEntity(api);
 
-  let primary_keys = await reqImports.generateKeys(api, 2, "primary2");
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+  
+  let secondary_dev_seed = await reqImports.generateRandomKey(api);
 
-  let secondary_keys = await reqImports.generateKeys(api, 2, "secondary2");
+  let primary_keys = await reqImports.generateKeys(api, 2, primary_dev_seed );
+
+  let secondary_keys = await reqImports.generateKeys(api, 2, secondary_dev_seed );
 
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, alice);
 

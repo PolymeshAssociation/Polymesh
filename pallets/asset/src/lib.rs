@@ -384,11 +384,6 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            <Identifiers>::remove_all();
-            1_000
-        }
-
         /// This function is used to either register a new ticker or extend validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///

@@ -12,7 +12,7 @@ async function main() {
     const customTypes = JSON.parse(reqImports["fs"].readFileSync(filePath, "utf8"));
 
     // Start node instance
-    const ws_provider = new reqImports["WsProvider"]("ws://127.0.0.1:9944/");
+    const ws_provider = new reqImports["WsProvider"](process.env.WS_PROVIDER || "ws://127.0.0.1:9944/");
     const api = await reqImports["ApiPromise"].create({
         types: customTypes,
         provider: ws_provider

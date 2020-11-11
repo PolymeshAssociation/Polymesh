@@ -36,6 +36,10 @@ pub mod config {
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
         committee::GenesisConfig<crate::Runtime, committee::Instance1>;
+    pub type TechnicalCommitteeConfig =
+        committee::GenesisConfig<crate::Runtime, committee::Instance3>;
+    pub type UpgradeCommitteeConfig =
+        committee::GenesisConfig<crate::Runtime, committee::Instance4>;
     pub type PipsConfig = pallet_pips::GenesisConfig<crate::Runtime>;
     pub type ContractsConfig = pallet_contracts::GenesisConfig;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
