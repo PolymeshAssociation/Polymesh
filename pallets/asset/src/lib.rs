@@ -1844,7 +1844,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(ticker: &Ticker, total_supply: T::Balance) -> DispatchResult {
+    fn ensure_create_asset_parameters(
+        ticker: &Ticker,
+        name: &AssetName,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
         // Ensure that the ticker is new.
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
@@ -1856,6 +1860,8 @@ impl<T: Trait> Module<T> {
             ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
             Error::<T>::TickerTooLong
         );
+        // Check the name length.
+        ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
         // Limit the total supply.
         ensure!(
             total_supply <= MAX_SUPPLY.into(),
