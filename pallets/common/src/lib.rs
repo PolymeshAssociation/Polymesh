@@ -106,7 +106,7 @@ impl SystematicIssuers {
 
     /// It returns the Identity Identifier of this issuer.
     pub const fn as_id(self) -> IdentityId {
-        IdentityId::from_bytes(*self.as_bytes())
+        IdentityId(*self.as_bytes())
     }
 
     pub const fn as_module_id(self) -> ModuleId {

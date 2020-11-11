@@ -11,15 +11,13 @@ process.exitCode = 1;
  * This test is for the basic peer to peer transfer of tokens
  */
 
-const prepend = "ACME";
-
 async function main() {
   const api = await reqImports.createApi();
-  const ticker = `token${prepend}0`.toUpperCase();
+  const ticker = await reqImports.generateRandomTicker(api);
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
+  let bob = await reqImports.generateRandomEntity(api);
 
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];
@@ -33,7 +31,7 @@ async function main() {
     alice
   );
 
-  await reqImports.issueTokenPerDid(api, [alice], prepend);
+  await reqImports.issueTokenPerDid(api, [alice], ticker);
 
   await addComplianceRequirement(api, alice, ticker);
 
@@ -57,8 +55,8 @@ async function main() {
     100
   );
 
-  await authorizeInstruction(api, alice, intructionCounterAB, alice_did);
-  await authorizeInstruction(api, bob, intructionCounterAB, bob_did);
+  await affirmInstruction(api, alice, intructionCounterAB, alice_did);
+  await affirmInstruction(api, bob, intructionCounterAB, bob_did);
 
   //await rejectInstruction(api, bob, intructionCounter);
   //await unathorizeInstruction(api, alice, instructionCounter);
@@ -143,9 +141,9 @@ async function addInstruction(
   return instructionCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter, did) {
+async function affirmInstruction(api, sender, instructionCounter, did) {
 
-  const transaction = await api.tx.settlement.authorizeInstruction(
+  const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -154,9 +152,9 @@ async function authorizeInstruction(api, sender, instructionCounter, did) {
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter, did) {
+async function withdrawInstruction(api, sender, instructionCounter, did) {
 
-  const transaction = await api.tx.settlement.unauthorizeInstruction(
+  const transaction = await api.tx.settlement.withdrawInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );

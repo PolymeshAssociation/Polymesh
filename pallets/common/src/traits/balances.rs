@@ -116,7 +116,7 @@ decl_event!(
     <T as system::Trait>::AccountId,
     <T as CommonTrait>::Balance
     {
-         /// An account was created with some free balance. [did, account, free_balance]
+         /// An account was created with some free balance. \[did, account, free_balance]
         Endowed(Option<IdentityId>, AccountId, Balance),
         /// Transfer succeeded (from_did, from, to_did, to, value, memo).
         Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Option<Memo>),
@@ -125,13 +125,13 @@ decl_event!(
         /// The account and the amount of unlocked balance of that account that was burned.
         /// (caller Id, caller account, amount)
         AccountBalanceBurned(IdentityId, AccountId, Balance),
-        /// Some balance was reserved (moved from free to reserved). [who, value]
+        /// Some balance was reserved (moved from free to reserved). \[who, value]
         Reserved(AccountId, Balance),
-        /// Some balance was unreserved (moved from reserved to free). [who, value]
+        /// Some balance was unreserved (moved from reserved to free). \[who, value]
         Unreserved(AccountId, Balance),
         /// Some balance was moved from the reserve of the first account to the second account.
         /// Final argument indicates the destination balance type.
-        /// [from, to, balance, destination_status]
+        /// \[from, to, balance, destination_status]
         ReserveRepatriated(AccountId, AccountId, Balance, Status),
     }
 );
@@ -200,6 +200,10 @@ pub trait Trait: CommonTrait {
 
     /// Weight information for extrinsics in this pallet.
     type WeightInfo: WeightInfo;
+
+    /// The maximum number of locks that should exist on an account.
+    /// Not strictly enforced, but used for weight estimation.
+    type MaxLocks: Get<u32>;
 }
 
 pub trait BalancesTrait<A, B, NI> {

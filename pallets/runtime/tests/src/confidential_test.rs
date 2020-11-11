@@ -10,8 +10,13 @@ use pallet_confidential as confidential;
 use pallet_identity as identity;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
+<<<<<<< HEAD
     AssetIdentifier, AssetType, Claim, Condition, ConditionType, IdentityId, InvestorUid,
     InvestorZKProofData, PortfolioId, Scope, SecurityToken, Ticker,
+=======
+    AssetIdentifier, Claim, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId, Scope,
+    Ticker,
+>>>>>>> develop
 };
 
 use core::convert::TryFrom;
@@ -128,28 +133,24 @@ fn scope_claims_we() {
         None,
     ));
 
-    // 2. Alice defines the asset complain compliance requirements.
+    // 2. Alice defines the asset compliance requirements.
     let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
-    let sender_conditions = vec![];
-    let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
-        st_id,
-    ))];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
-        sender_conditions,
-        receiver_conditions
+        vec![],
+        vec![]
     ));
 
     // 2. Investor adds its Confidential Scope claims.
-    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id, &investor);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id.as_slice(), &investor);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let inv_1_proof = InvestorZKProofData::new(&inv_did_1, &investor, &st_id);
     let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
-    let conf_scope_claim_error = Claim::InvestorUniqueness(st_scope.clone(), scope_id, cdd_id_1);
+    let conf_scope_claim_error = Claim::InvestorUniqueness(st_scope, scope_id, cdd_id_1);
     let conf_scope_claim_1 = Claim::InvestorUniqueness(st_id.into(), scope_id, cdd_id_1);
 
     assert_err!(
@@ -238,7 +239,8 @@ fn scope_claims_we() {
         None,
     ));
 
-    let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
+    let corrupted_scope_claim =
+        InvestorZKProofData::make_scope_claim(&st2_id.as_slice(), &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
         .to_bytes()

@@ -16,8 +16,6 @@ mod asset_test;
 #[cfg(test)]
 mod balances_test;
 #[cfg(test)]
-mod basic_sto_test;
-#[cfg(test)]
 mod bridge;
 #[cfg(test)]
 mod committee_test;
@@ -27,6 +25,10 @@ mod compliance_manager_test;
 mod confidential_asset_test;
 #[cfg(test)]
 mod confidential_test;
+#[cfg(test)]
+mod contract_test;
+#[cfg(test)]
+mod corporate_actions_test;
 #[cfg(test)]
 mod dividend_test;
 #[cfg(test)]
@@ -50,7 +52,11 @@ mod staking;
 #[cfg(test)]
 mod statistics_test;
 #[cfg(test)]
+<<<<<<< HEAD
 mod transaction_ordering_test;
+=======
+mod sto_test;
+>>>>>>> develop
 #[cfg(test)]
 mod transaction_payment_test;
 #[cfg(test)]
@@ -59,5 +65,3 @@ mod treasury_test;
 mod utility_test;
 #[cfg(test)]
 mod voting_test;
-
-// mod cdd_offchain_worker;

@@ -1,10 +1,14 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{register_keyring_account, Checkpoint, TestStorage},
     ExtBuilder,
 };
 
 use polymesh_common_utilities::traits::CommonTrait;
+<<<<<<< HEAD
 use polymesh_primitives::{AssetType, PortfolioId, SecurityToken, Ticker};
+=======
+use polymesh_primitives::{calendar::CheckpointId, PortfolioId, Ticker};
+>>>>>>> develop
 use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset as asset;
@@ -145,10 +149,13 @@ fn correct_dividend_must_work() {
         ));
 
         // Create checkpoint for token
-        assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker));
+        assert_ok!(Checkpoint::create_checkpoint(
+            token_owner_acc.clone(),
+            ticker
+        ));
 
         // Checkpoints are 1-indexed
-        let checkpoint_id = 1;
+        let checkpoint_id = CheckpointId(1);
 
         let dividend = Dividend {
             amount: 500_000,

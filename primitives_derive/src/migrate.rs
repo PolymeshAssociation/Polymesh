@@ -155,6 +155,7 @@ pub(crate) fn impl_migrate(mut input: DeriveInput) -> TokenStream2 {
         #where_clause {
             type Into = #name #ty_generics;
             type Context = #context;
+            #[allow(unused_variables)]
             fn migrate(self, context: Self::Context) -> Option<Self::Into> { Some(#migration) }
         }
     }

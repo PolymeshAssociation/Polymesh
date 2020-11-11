@@ -1,9 +1,10 @@
 use codec::{Decode, Encode};
+use core::num::NonZeroU64;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, Ticker,
+    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, SmartExtensionType, Ticker,
     TickerRegistrationConfig,
 };
 use polymesh_runtime_develop::{
@@ -154,6 +155,7 @@ fn general_testnet_genesis(
 ) -> GeneralConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
+    let stakers;
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
@@ -168,14 +170,28 @@ fn general_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
+                versions: vec![
+                    (SmartExtensionType::TransferManager, 5000),
+                    (SmartExtensionType::Offerings, 5000),
+                    (SmartExtensionType::SmartWallet, 5000),
+                ],
                 // Always use the first id, whomever that may be.
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
@@ -244,7 +260,20 @@ fn general_testnet_genesis(
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
-
+            stakers = authority_identities
+                .iter()
+                .cloned()
+                .zip(initial_authorities.iter().cloned())
+                .map(|((_, _, did, _, _), x)| {
+                    (
+                        did,
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        general::StakerStatus::Validator,
+                    )
+                })
+                .collect::<Vec<_>>();
             Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
                 secondary_keys,
@@ -300,20 +329,8 @@ fn general_testnet_genesis(
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission: alcyone::Commission::Global(
-                PerThing::from_rational_approximation(1u64, 4u64),
-            ),
-            stakers: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        general::StakerStatus::Validator,
-                    )
-                })
-                .collect(),
+            validator_commission_cap: PerThing::from_rational_approximation(1u64, 4u64),
+            stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
@@ -408,6 +425,9 @@ fn general_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
+        multisig: Some(GeneralConfig::MultiSigConfig {
+            transaction_version: 1,
+        }),
     }
 }
 
@@ -530,6 +550,7 @@ fn alcyone_testnet_genesis(
 ) -> AlcyoneConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
+    let stakers;
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
@@ -544,14 +565,27 @@ fn alcyone_testnet_genesis(
                 },
                 classic_migration_tconfig: TickerRegistrationConfig {
                     max_ticker_length: 12,
-                    // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
-                // TODO(product_team): Assign to a real person.
+                versions: vec![
+                    (SmartExtensionType::TransferManager, 5000),
+                    (SmartExtensionType::Offerings, 5000),
+                    (SmartExtensionType::SmartWallet, 5000),
+                ],
                 classic_migration_contract_did: IdentityId::from(1),
-                // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
                 reserved_country_currency_codes: currency_codes(),
+            })
+        },
+        checkpoint: {
+            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+            let period = CalendarPeriod {
+                unit: Week,
+                amount: NonZeroU64::new(1),
+            };
+            Some(GeneralConfig::CheckpointConfig {
+                schedules_max_complexity: period.complexity(),
             })
         },
         identity: {
@@ -627,7 +661,20 @@ fn alcyone_testnet_genesis(
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
-
+            stakers = authority_identities
+                .iter()
+                .cloned()
+                .zip(initial_authorities.iter().cloned())
+                .map(|((_, _, did, _, _), x)| {
+                    (
+                        did,
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        general::StakerStatus::Validator,
+                    )
+                })
+                .collect::<Vec<_>>();
             Some(AlcyoneConfig::IdentityConfig {
                 identities: all_identities,
                 secondary_keys,
@@ -683,18 +730,8 @@ fn alcyone_testnet_genesis(
         pallet_staking: Some(AlcyoneConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: initial_authorities.len() as u32,
-            validator_commission: alcyone::Commission::Global(PerThing::zero()),
-            stakers: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        alcyone::StakerStatus::Validator,
-                    )
-                })
-                .collect(),
+            validator_commission_cap: PerThing::zero(),
+            stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: alcyone::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
@@ -787,6 +824,9 @@ fn alcyone_testnet_genesis(
             coefficient: PosRatio(1, 1),
         }),
         settlement: Some(Default::default()),
+        multisig: Some(GeneralConfig::MultiSigConfig {
+            transaction_version: 1,
+        }),
     }
 }
 

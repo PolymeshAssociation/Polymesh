@@ -37,6 +37,14 @@ impl From<[u8; 16]> for InvestorUid {
     }
 }
 
+impl From<[u8; 32]> for InvestorUid {
+    fn from(s: [u8; 32]) -> Self {
+        let mut short: [u8; 16] = Default::default();
+        short.copy_from_slice(&s[..16]);
+        Self(short)
+    }
+}
+
 /// It links the investor UID with an specific Identity DID in a way that no one can extract that
 /// investor UID from this CDD Id, and the investor can create a Zero Knowledge Proof to prove that
 /// an specific DID belongs to him.

@@ -9,19 +9,20 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-identity = { path = "../identity", default-features = false  }
-pallet-multisig = { path = "../multisig", default-features = false}
+pallet-balances = { path = "../balances", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-multisig = { path = "../multisig", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -38,6 +39,7 @@ std = [
     "pallet-balances/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-scheduler/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
@@ -47,6 +49,5 @@ std = [
 ]
 
 runtime-benchmarks = [
-    "frame-benchmarking",
-    "pallet-identity/runtime-benchmarks",
+    "frame-benchmarking"
 ]

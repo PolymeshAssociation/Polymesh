@@ -557,7 +557,7 @@ mod tests {
         let rk3_permissions = Permissions {
             asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1),
+            portfolio: SubsetRestriction::elem(1.into()),
         };
         let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -584,18 +584,18 @@ mod tests {
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1),
+            portfolio: SubsetRestriction::elem(1.into()),
         };
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(free_key.has_portfolio_permission(vec![2]));
+        assert!(free_key.has_portfolio_permission(vec![2.into()]));
         assert!(!restricted_key.has_asset_permission(ticker2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(!restricted_key.has_portfolio_permission(vec![2]));
+        assert!(!restricted_key.has_portfolio_permission(vec![2.into()]));
     }
 
     #[test]
