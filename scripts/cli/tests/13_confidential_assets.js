@@ -3,6 +3,9 @@ require = require("esm")(module /*, options*/);
 module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
+
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
@@ -41,12 +44,9 @@ async function main() {
   await createConfidentialAsset(api, ticker2Hex, alice);
 
   // Alice and Bob create their Mercat account locally and submit the proof to the chain
-  const execSync = require('child_process').execSync;
-  let output = execSync(
-      `mercat-interactive create-user-account --user bob --db-dir chain_dir --ticker ${tickerHex.substr(2)} --valid-ticker-names ${tickerHex.substr(2)} ${ticker2Hex.substr(2)}`,
-       );  
-
-
+  const bobMercatInfo = await createMercatUserAccount('bob', tickerHex, ticker2Hex, 'chain_dir');
+  const aliceMercatInfo = await createMercatUserAccount('alice', tickerHex, ticker2Hex, 'chain_dir');
+ 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -55,6 +55,16 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function createMercatUserAccount(account, tickerHex, ticker2Hex, dbDir) {
+  const { stdout, stderr } = await exec(`mercat-interactive create-user-account --user ${account} --db-dir ${dbDir} --ticker ${tickerHex.substr(2)} --valid-ticker-names ${tickerHex.substr(2)} ${ticker2Hex.substr(2)}`);
+
+  const splitOutput = stderr.split('\n');
+  const mercatAccountID = splitOutput[21].trim();
+  const mercatAccountProof = splitOutput[24].trim();
+
+  return {mercatAccountID, mercatAccountProof};
 }
 
 async function createConfidentialAsset(api, ticker, signer) {
