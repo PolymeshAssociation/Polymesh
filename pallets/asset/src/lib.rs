@@ -1861,7 +1861,6 @@ impl<T: Trait> Module<T> {
             Error::<T>::TickerTooLong
         );
         // Check the name length.
-        // TODO: Limit the maximum size of a name.
         ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
         // Limit the total supply.
         ensure!(
