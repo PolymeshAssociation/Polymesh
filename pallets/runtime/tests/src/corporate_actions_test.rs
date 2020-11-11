@@ -13,12 +13,12 @@ use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId, RecordDate,
-    RecordDateSpec, TargetIdentities,
+    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
+    LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::AssetName;
+use polymesh_common_utilities::asset::{AssetName, Trait as _};
 use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
@@ -174,7 +174,7 @@ fn moment_ca(owner: User, ticker: Ticker, kind: CAKind, rd: Option<Moment>) -> C
 }
 
 fn set_schedule_complexity() {
-    Timestamp::set_timestamp(0);
+    Timestamp::set_timestamp(1);
     assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1000));
 }
 
@@ -797,7 +797,7 @@ fn change_record_date_works() {
 
         // Successfully use a checkpoint which exists.
         assert_ok!(Checkpoint::create_checkpoint(owner.signer(), ticker));
-        change_ok(id, spec_cp(1), rd_cp(0, 1));
+        change_ok(id, spec_cp(1), rd_cp(1, 1));
 
         // Trigger `NoSuchSchedule`.
         assert_noop!(change(id, spec_sh(ScheduleId(42))), CPError::NoSuchSchedule);
@@ -889,14 +889,15 @@ fn change_record_date_works() {
     });
 }
 
+fn attach(owner: User, id: CAId, rcv: bool) -> DispatchResult {
+    Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), rcv)
+}
+
 #[test]
 fn attach_ballot_no_such_ca() {
     test(|ticker, [owner, ..]| {
         let id = next_ca_id(ticker);
-        assert_noop!(
-            Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true),
-            Error::NoSuchCA
-        );
+        assert_noop!(attach(owner, id, true), Error::NoSuchCA);
     });
 }
 
@@ -904,7 +905,7 @@ fn attach_ballot_no_such_ca() {
 fn attach_ballot_only_notice() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
-        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true);
+        let attach = |id| attach(owner, id, true);
         for &kind in ALL_CA_KINDS {
             let id = next_ca_id(ticker);
             assert_ok!(moment_ca(owner, ticker, kind, Some(1000)));
@@ -969,7 +970,7 @@ fn attach_ballot_already_exists() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
 
-        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, <_>::default(), true);
+        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), true);
 
         assert_ok!(attach(id));
         assert_noop!(attach(id), BallotError::AlreadyExists);
@@ -1043,13 +1044,7 @@ fn attach_ballot_works() {
         data.choices = vec![3, 1];
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
-        assert_ok!(Ballot::attach_ballot(
-            owner.signer(),
-            id,
-            TRANGE,
-            mk_meta(),
-            false
-        ));
+        assert_ok!(attach(owner, id, false));
         assert_ballot(id, &data);
     });
 }
@@ -1213,4 +1208,311 @@ fn remove_ballot_works() {
 
         assert_noop!(remove(), BallotError::NoSuchBallot);
     });
+}
+
+#[test]
+fn vote_no_such_ballot() {
+    test(|ticker, [.., voter]| {
+        assert_noop!(
+            Ballot::vote(voter.signer(), next_ca_id(ticker), vec![]),
+            BallotError::NoSuchBallot,
+        );
+    });
+}
+
+#[test]
+fn vote_wrong_dates() {
+    test(|ticker, [owner, _, voter]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        let range = BallotTimeRange {
+            start: 6000,
+            end: 9000,
+        };
+        assert_ok!(Ballot::attach_ballot(
+            owner.signer(),
+            id,
+            range,
+            <_>::default(),
+            false,
+        ));
+
+        let vote = || Ballot::vote(voter.signer(), id, vec![]);
+
+        Timestamp::set_timestamp(range.start - 1);
+        assert_noop!(vote(), BallotError::VotingNotStarted);
+        Timestamp::set_timestamp(range.end + 1);
+        assert_noop!(vote(), BallotError::VotingAlreadyEnded);
+        Timestamp::set_timestamp(range.start);
+        assert_ok!(vote());
+        Timestamp::set_timestamp(range.end);
+        assert_ok!(vote());
+    });
+}
+
+#[test]
+fn vote_not_targeted() {
+    test(|ticker, [owner, other, voter]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(attach(owner, id, false));
+        Timestamp::set_timestamp(TRANGE.start);
+
+        let vote = || Ballot::vote(voter.signer(), id, votes(&[0, 0, 0, 0]));
+        let change_targets = |targets| {
+            CorporateActions::mutate(id.ticker, id.local_id, |ca| {
+                ca.as_mut().unwrap().targets = targets
+            })
+        };
+
+        change_targets(TargetIdentities {
+            treatment: TargetTreatment::Exclude,
+            identities: vec![voter.did],
+        });
+        assert_noop!(vote(), Error::NotTargetedByCA);
+
+        change_targets(TargetIdentities {
+            treatment: TargetTreatment::Include,
+            identities: vec![other.did],
+        });
+        assert_noop!(vote(), Error::NotTargetedByCA);
+
+        change_targets(TargetIdentities {
+            treatment: TargetTreatment::Include,
+            identities: vec![voter.did],
+        });
+        assert_ok!(vote());
+
+        change_targets(TargetIdentities {
+            treatment: TargetTreatment::Exclude,
+            identities: vec![other.did],
+        });
+        assert_ok!(vote());
+    });
+}
+
+#[test]
+fn vote_wrong_count() {
+    test(|ticker, [owner, _, voter]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(attach(owner, id, false));
+        Timestamp::set_timestamp(TRANGE.start);
+
+        let vote = |count| {
+            let votes = iter::repeat(BallotVote::default()).take(count).collect();
+            Ballot::vote(voter.signer(), id, votes)
+        };
+
+        for &count in &[0, 3, 5, 10] {
+            assert_noop!(vote(count), BallotError::WrongVoteCount);
+        }
+
+        assert_ok!(vote(4));
+    });
+}
+
+fn fallbacks(fs: &[Option<u16>]) -> Vec<BallotVote<Balance>> {
+    fs.iter()
+        .copied()
+        .map(|fallback| BallotVote { power: 0, fallback })
+        .collect()
+}
+
+fn votes(vs: &[Balance]) -> Vec<BallotVote<Balance>> {
+    vs.iter()
+        .copied()
+        .map(|power| BallotVote {
+            power,
+            fallback: None,
+        })
+        .collect()
+}
+
+#[test]
+fn vote_rcv_not_allowed() {
+    test(|ticker, [owner, _, voter]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(attach(owner, id, false));
+        Timestamp::set_timestamp(TRANGE.start);
+
+        assert_noop!(
+            Ballot::vote(voter.signer(), id, fallbacks(&[None, None, Some(42), None])),
+            BallotError::RCVNotAllowed,
+        );
+    });
+}
+
+#[test]
+fn vote_rcv_fallback_pointers() {
+    test(|ticker, [owner, _, voter]| {
+        set_schedule_complexity();
+
+        let id = notice_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(attach(owner, id, true));
+        Timestamp::set_timestamp(TRANGE.start);
+
+        let vote = |fs| Ballot::vote(voter.signer(), id, fallbacks(fs));
+
+        // Self cycle, 0 -> 0 in choice 1.
+        assert_noop!(
+            vote(&[None, None, None, Some(0)]),
+            BallotError::RCVSelfCycle,
+        );
+
+        // Self cycle, 1 -> 1 in choice 0.
+        assert_noop!(
+            vote(&[None, Some(1), None, None]),
+            BallotError::RCVSelfCycle,
+        );
+
+        // Dangling fallback, 1 (choice 0) -> 1 (choice 1).
+        assert_noop!(
+            vote(&[None, Some(3), None, None]),
+            BallotError::NoSuchRCVFallback,
+        );
+
+        // Dangling fallback, 1 (choice 0) -> Non-existent choice.
+        assert_noop!(
+            vote(&[None, Some(4), None, None]),
+            BallotError::NoSuchRCVFallback,
+        );
+
+        // OK fallbacks. Graph is:
+        //
+        //     0 -> 2
+        //     ^     \
+        //      \    v
+        //       --- 1
+        //
+        let fs = &[Some(2), Some(0), Some(1), None];
+        let data = ballot_data(id);
+        assert_ok!(vote(fs));
+        assert_ballot(
+            id,
+            &BallotData {
+                votes: vec![(voter.did, fallbacks(fs))],
+                results: vec![0, 0, 0, 0],
+                ..data
+            },
+        );
+    });
+}
+
+#[test]
+fn vote_works() {
+    test(|ticker, [owner, other, voter]| {
+        set_schedule_complexity();
+
+        // Total asset balance voter == 500.
+        transfer(&ticker, owner, voter);
+        transfer(&ticker, owner, other);
+        assert_eq!(Asset::balance(&ticker, voter.did), 500);
+
+        let id = notice_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(attach(owner, id, false));
+        Timestamp::set_timestamp(TRANGE.start);
+
+        let vote = |vs| Ballot::vote(voter.signer(), id, votes(vs));
+
+        let data = ballot_data(id);
+        let noop = |vs| {
+            assert_noop!(vote(vs), BallotError::InsufficientVotes);
+            assert_ballot(id, &data);
+        };
+        noop(&[501, 501, 501, 501]);
+        noop(&[500, 500, 500, 500]);
+        noop(&[499, 499, 499, 500]);
+        noop(&[499, 499, 499, 499]);
+        noop(&[499, 499, 499, 0]);
+        noop(&[200, 300, 1, 0]);
+
+        let ok = |vs| {
+            assert_ok!(vote(vs));
+            assert_ballot(
+                id,
+                &BallotData {
+                    votes: vec![(voter.did, votes(vs))],
+                    results: vs.into(),
+                    ..data.clone()
+                },
+            )
+        };
+
+        ok(&[200, 300, 0, 0]);
+        ok(&[200, 250, 50, 0]);
+        ok(&[200, 300, 0, 500]);
+        let vs1 = &[200, 250, 50, 500];
+        ok(vs1);
+
+        let vs2 = &[500, 0, 0, 250];
+        assert_ok!(Ballot::vote(other.signer(), id, votes(vs2)));
+        assert_ballot(
+            id,
+            &BallotData {
+                votes: vec![(voter.did, votes(vs1)), (other.did, votes(vs2))],
+                results: vs1.iter().zip(vs2).map(|(a, b)| a + b).collect(),
+                ..data.clone()
+            },
+        )
+    });
+}
+
+fn vote_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
+    test(|ticker, [owner, other, voter]| {
+        set_schedule_complexity();
+
+        // Transfer 500 ==> voter.
+        transfer(&ticker, owner, voter);
+
+        let id = mk_ca(ticker, owner);
+
+        // Transfer 500 <== other. N.B. this is after the CP was made.
+        Timestamp::set_timestamp(3000);
+        transfer(&ticker, voter, other);
+
+        let time = BallotTimeRange {
+            start: 4000,
+            end: 6000,
+        };
+        assert_ok!(Ballot::attach_ballot(
+            owner.signer(),
+            id,
+            time,
+            mk_meta(),
+            false,
+        ));
+
+        let vote = |user: User, vs| Ballot::vote(user.signer(), id, votes(vs));
+
+        Timestamp::set_timestamp(4000);
+        let data = ballot_data(id);
+        assert_noop!(vote(other, &[1, 0, 0, 0]), BallotError::InsufficientVotes);
+        assert_ballot(id, &data);
+
+        assert_ok!(vote(voter, &[500, 0, 0, 500]));
+    });
+}
+
+#[test]
+fn vote_existing_checkpoint() {
+    vote_cp_test(|ticker, owner| {
+        assert_ok!(Checkpoint::create_checkpoint(owner.signer(), ticker));
+        let rd = Some(RecordDateSpec::Existing(
+            Checkpoint::checkpoint_id_sequence(ticker),
+        ));
+        let id = notice_ca(owner, ticker, Some(1000)).unwrap();
+        assert_ok!(CA::change_record_date(owner.signer(), id, rd));
+        id
+    });
+}
+
+#[test]
+fn vote_scheduled_checkpoint() {
+    vote_cp_test(|ticker, owner| notice_ca(owner, ticker, Some(2000)).unwrap());
 }

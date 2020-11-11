@@ -153,7 +153,7 @@ pub struct BallotMeta {
 
 /// Timestamp range details about vote start / end.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct BallotTimeRange {
     /// Timestamp at which voting starts.
     pub start: Moment,
@@ -164,7 +164,7 @@ pub struct BallotTimeRange {
 
 /// A vote cast on some choice in some motion in a ballot.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct BallotVote<Balance> {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,
@@ -365,7 +365,10 @@ decl_module! {
             let motions = choices_count
                 .iter()
                 .map(|c| *c as usize)
-                .scan(0, |start, count| Some(&votes[mem::replace(start, *start + count)..count]));
+                .scan(0, |start, count| {
+                    let end = *start + count;
+                    Some(&votes[mem::replace(start, end)..end])
+                });
 
             if RCV::get(ca_id) {
                 // RCV is enabled.
@@ -373,19 +376,21 @@ decl_module! {
                 // For in-depth discussion on `fallback`, consult `BallotVote`'s definition.
                 motions
                     .clone()
-                    .all(|votes| {
+                    .try_for_each(|votes| -> DispatchResult {
                         let count = votes.len();
                         votes
                             .iter()
                             .enumerate()
                             // Only check when a fallback is actually provided.
                             .filter_map(|(idx, vote)| Some((idx, vote.fallback? as usize)))
-                            // Exclude self-cycles.
-                            // Also ensure the index does not point outside, i.e. beyond, the motion.
-                            .all(|(idx, fallback)| idx != fallback && fallback < count)
-                    })
-                    .then_some(())
-                    .ok_or(Error::<T>::NoSuchRCVFallback)?;
+                            .try_for_each(|(idx, fallback)| {
+                                // Exclude self-cycles.
+                                ensure!(idx != fallback, Error::<T>::RCVSelfCycle);
+                                // Ensure the index does not point outside, i.e. beyond, the motion.
+                                ensure!(fallback < count, Error::<T>::NoSuchRCVFallback);
+                                Ok(())
+                            })
+                    })?;
             } else {
                 // It's not. Make sure its also not used.
                 votes
@@ -409,11 +414,16 @@ decl_module! {
 
             // Update vote and total results.
             <Votes<T>>::mutate(ca_id, did, |vslot| {
-                <Results<T>>::mutate(ca_id, |rslot| {
-                    for ((old, new), result) in vslot.iter().zip(votes.iter()).zip(rslot.iter_mut()) {
-                        *result -= old.power;
-                        *result += new.power;
+                <Results<T>>::mutate_exists(ca_id, |rslot| match rslot {
+                    Some(rslot) => {
+                        for (result, old) in rslot.iter_mut().zip(vslot.iter()) {
+                            *result -= old.power;
+                        }
+                        for (result, new) in rslot.iter_mut().zip(votes.iter()) {
+                            *result += new.power;
+                        }
                     }
+                    None => *rslot = Some(votes.iter().map(|v| v.power).collect()),
                 });
                 *vslot = votes.clone();
             });
@@ -581,6 +591,8 @@ decl_error! {
         InsufficientVotes,
         /// The RCV fallback of some choice does not exist.
         NoSuchRCVFallback,
+        /// The RCV fallback points to the origin choice.
+        RCVSelfCycle,
         /// RCV is not allowed for this ballot.
         RCVNotAllowed
     }
