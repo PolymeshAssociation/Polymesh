@@ -151,7 +151,7 @@ decl_module! {
                 } else {
                     let now_as_secs =
                         <T as AssetTrait>::UnixTime::now().as_secs().saturated_into::<u64>();
-                    <Checkpoint<T>>::create_at_by(did, ticker, now_as_secs)?
+                    <Checkpoint<T>>::create_at_by(did.for_event(), ticker, now_as_secs)?
                 }
             };
             // Check if checkpoint exists
