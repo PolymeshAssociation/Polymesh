@@ -127,6 +127,31 @@ benchmarks! {
         assert_eq!(Some(description), meta.description);
     }
 
+    // `propose` from a committee origin.
+    #[extra]
+    propose {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let (account, origin, did) = make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let origin = T::UpgradeCommitteeVMO::successful_origin();
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into()).unwrap();
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into()).unwrap();
+        let call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+    }: {
+        call.dispatch_bypass_filter(origin)?;
+        let meta = Module::<T>::proposal_metadata(0).unwrap();
+        assert_eq!(0, meta.id);
+        assert_eq!(Some(url), meta.url);
+        assert_eq!(Some(description), meta.description);
+    }
+
     amend_proposal {
         // description length
         let d in 0 .. 1_000;
@@ -212,6 +237,7 @@ benchmarks! {
         assert_eq!(voter_deposit, Deposits::<T>::get(0, &account).amount);
     }
 
+    #[extra]
     approve_committee_proposal {
         // description length
         let d in 0 .. 1_000;
@@ -234,9 +260,7 @@ benchmarks! {
         let origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::approve_committee_proposal(0);
     }: {
-        call.dispatch_bypass_filter(origin)?
-    }
-    verify {
+        call.dispatch_bypass_filter(origin)?;
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     }
 
