@@ -540,7 +540,7 @@ pub mod api {
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, SecondaryKey, Signatory, SubsetRestriction};
+    use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -555,7 +555,9 @@ mod tests {
         let rk3_permissions = Permissions {
             asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1.into()),
+            portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
+                1u128,
+            ))),
         };
         let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -579,8 +581,8 @@ mod tests {
         let key = Public::from_raw([b'A'; 32]);
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
-        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1);
-        let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2);
+        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
+        let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),
             extrinsic: SubsetRestriction(None),
