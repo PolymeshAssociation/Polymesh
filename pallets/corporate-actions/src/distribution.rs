@@ -331,17 +331,9 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at >= now`.
         #[weight = 900_000_000]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            // Ensure origin is CAA, the distribution exists, and that `now < payment_at`.
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
+            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(<Checkpoint<T>>::now_unix() < dist.payment_at, Error::<T>::DistributionStarted);
-
-            // Unlock and remove chain data.
-            Self::unlock(&dist, dist.amount)?;
-            <Distributions<T>>::remove(ca_id);
-
-            // Emit event.
-            Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+            Self::remove_distribution_base(caa, ca_id, &dist)?;
         }
     }
 }
@@ -370,7 +362,7 @@ decl_event! {
         /// A capital distribution was removed.
         ///
         /// (Ticker's CAA, CA's ID)
-        Removed(IdentityId, CAId),
+        Removed(EventDid, CAId),
     }
 }
 
@@ -412,6 +404,33 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Kill the distribution identified by `ca_id`.
+    crate fn remove_distribution_base(
+        caa: EventDid,
+        ca_id: CAId,
+        dist: &Distribution<T::Balance>,
+    ) -> DispatchResult {
+        // Cannot remove payment has started.
+        Self::ensure_distribution_not_started(&dist)?;
+
+        // Unlock and remove chain data.
+        Self::unlock(&dist, dist.amount)?;
+        <Distributions<T>>::remove(ca_id);
+
+        // Emit event.
+        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
+    /// Ensure that `now < payment_at`.
+    crate fn ensure_distribution_not_started(dist: &Distribution<T::Balance>) -> DispatchResult {
+        ensure!(
+            <Checkpoint<T>>::now_unix() < dist.payment_at,
+            Error::<T>::DistributionStarted
+        );
+        Ok(())
+    }
+
     /// Transfer `holder`'s benefit in `ca_id` to them.
     fn transfer_benefit(actor: EventDid, holder: IdentityId, ca_id: CAId) -> DispatchResult {
         // Ensure holder not paid yet.
