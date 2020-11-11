@@ -599,22 +599,6 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=main#ed546e5b8919dc2ba4b9cee6fbd8320c495fcbe1"
-dependencies = [
- "byteorder 1.3.4",
- "curve25519-dalek 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "digest 0.8.1",
- "merlin",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "sha3 0.8.2",
- "subtle 2.3.0",
- "zeroize",
-]
-
-[[package]]
-name = "bulletproofs"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=v2-packed-simd#c466eab8987717eb92a8235e7dabc303e0e54ddb"
 dependencies = [
  "byteorder 1.3.4",
@@ -1157,7 +1141,7 @@ version = "0.1.0"
 source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#b137bb799c1bcbfcfc6fbc190499b94bb3ed5a55"
 dependencies = [
  "blake2",
- "bulletproofs 2.0.1 (git+https://github.com/PolymathNetwork/bulletproofs.git?branch=v2-packed-simd)",
+ "bulletproofs",
  "byteorder 1.3.4",
  "criterion",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
@@ -4230,7 +4214,7 @@ dependencies = [
 name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
- "bulletproofs 2.0.1 (git+https://github.com/PolymathNetwork/bulletproofs.git?branch=main)",
+ "bulletproofs",
  "cryptography",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-support",
