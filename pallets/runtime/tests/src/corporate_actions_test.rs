@@ -39,6 +39,7 @@ type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type CA = pallet_corporate_actions::Module<TestStorage>;
 type Ballot = ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
@@ -1667,5 +1668,62 @@ fn dist_remove_works() {
         Timestamp::set_timestamp(4);
         assert_ok!(remove(id));
         assert_eq!(Dist::distributions(id), None);
+    });
+}
+
+#[test]
+fn dist_reclaim_works() {
+    test(|ticker, [owner, other, _]| {
+        set_schedule_complexity();
+
+        let currency = create_asset(b"BETA", owner);
+
+        let reclaim = |id, who: User| Dist::reclaim(who.signer(), id);
+
+        // Test no dist at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(reclaim(id, owner), DistError::NoSuchDistribution);
+
+        // Dist creator different from CAA.
+        transfer(&currency, owner, other);
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        Agent::insert(ticker, other.did);
+        assert_ok!(Dist::distribute(
+            other.signer(),
+            id,
+            None,
+            currency,
+            500,
+            5,
+            Some(6)
+        ));
+        Agent::insert(ticker, owner.did);
+        assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
+
+        // Not expired yet.
+        Timestamp::set_timestamp(5);
+        assert_noop!(reclaim(id, other), DistError::NotExpired);
+
+        // Test successful behavior.
+        Agent::insert(ticker, other.did);
+        Timestamp::set_timestamp(6);
+        let pid = PortfolioId::default_portfolio(other.did);
+        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
+        assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
+        let dist = Dist::distributions(id).unwrap();
+        assert_ok!(reclaim(id, other));
+        assert_ok!(ensure(500));
+        assert_noop!(ensure(501), PError::InsufficientPortfolioBalance);
+        assert_eq!(
+            Dist::distributions(id).unwrap(),
+            Distribution {
+                reclaimed: true,
+                remaining: 0,
+                ..dist
+            }
+        );
+
+        // Now that we have reclaimed, we cannot do so again.
+        assert_noop!(reclaim(id, other), DistError::AlreadyReclaimed);
     });
 }
