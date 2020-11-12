@@ -2,18 +2,17 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType};
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
-use polymesh_primitives::{PortfolioId, Ticker};
+use polymesh_primitives::{PortfolioId, Ticker, AssetType};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
-
+use pallet_asset as asset;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type STO = sto::Module<TestStorage>;

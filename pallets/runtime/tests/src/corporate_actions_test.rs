@@ -9,7 +9,6 @@ use frame_support::{
     StorageDoubleMap, StorageMap,
 };
 use pallet_asset::checkpoint::ScheduleId;
-use pallet_asset::AssetName;
 use pallet_corporate_actions::{
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, LocalCAId,
     RecordDateSpec, TargetIdentities,
@@ -18,7 +17,7 @@ use pallet_corporate_actions::{
 };
 use polymesh_primitives::{
     calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
-    PortfolioId, Signatory, Ticker,
+    PortfolioId, Signatory, Ticker, AssetName
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;

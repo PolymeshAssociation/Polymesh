@@ -3107,12 +3107,12 @@ fn reject_instruction() {
                     venue_counter,
                     SettlementType::SettleOnAffirmation,
                     None,
-                    vec![Leg {
+                    vec![Leg::NonConfidentialLeg( NonConfidentialLeg {
                         from: PortfolioId::default_portfolio(alice_did),
                         to: PortfolioId::default_portfolio(bob_did),
                         asset: ticker,
                         amount: amount
-                    }],
+                    })],
                     default_portfolio_vec(alice_did)
                 ));
                 instruction_id
@@ -3426,7 +3426,7 @@ fn basic_confidential_settlement() {
             assert_ok!(Settlement::add_instruction(
                 Origin::signed(charlie),
                 venue_counter,
-                SettlementType::SettleOnAuthorization,
+                SettlementType::SettleOnAffirmation,
                 None,
                 vec![Leg::ConfidentialLeg(ConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),

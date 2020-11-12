@@ -10,7 +10,7 @@ use pallet_confidential as confidential;
 use pallet_identity as identity;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AssetIdentifier, AssetType, Claim, Condition, ConditionType, IdentityId, InvestorUid,
+    AssetIdentifier, AssetType, Claim, IdentityId, InvestorUid,
     InvestorZKProofData, PortfolioId, Scope, SecurityToken, Ticker,
 };
 

@@ -270,7 +270,7 @@ fn initialize_transaction(
     assert_ok!(Settlement::add_instruction(
         Origin::signed(mediator_creds.mediator_key.public()),
         venue_counter,
-        SettlementType::SettleOnAuthorization,
+        SettlementType::SettleOnAffirmation,
         None,
         vec![Leg::ConfidentialLeg(ConfidentialLeg {
             from: PortfolioId::default_portfolio(sender_creds.did),
@@ -794,7 +794,7 @@ fn mercat_whitepaper_scenario1() {
             );
 
             // Alice has a change of heart and rejects the transaction to Bob!
-            assert_ok!(Settlement::unauthorize_instruction(
+            assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
                 default_portfolio_vec(alice_creds.did)
@@ -927,7 +927,7 @@ fn mercat_whitepaper_scenario2() {
             );
 
             // Alice has a change of heart and rejects the transaction to Bob!
-            assert_ok!(Settlement::unauthorize_instruction(
+            assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
                 default_portfolio_vec(alice_creds.did)
