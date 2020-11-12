@@ -30,8 +30,8 @@ use frame_support::{
 use pallet_identity as identity;
 use pallet_portfolio::{self as portfolio, PortfolioAssetBalances, Trait as PortfolioTrait};
 use pallet_settlement::{
-    self as settlement, Leg, ReceiptDetails, SettlementType, Trait as SettlementTrait, VenueInfo,
-    VenueType,
+    self as settlement, Leg, NonConfidentialLeg, ReceiptDetails, SettlementType,
+    Trait as SettlementTrait, VenueInfo, VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
@@ -331,18 +331,18 @@ decl_module! {
             );
 
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg( NonConfidentialLeg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
                     asset: fundraiser.offering_asset,
                     amount: investment_amount
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg( NonConfidentialLeg {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
                     asset: fundraiser.raising_asset,
                     amount: cost
-                }
+                })
             ];
 
             with_transaction(|| {

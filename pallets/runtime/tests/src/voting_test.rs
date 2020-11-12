@@ -4,7 +4,7 @@ use super::{
 };
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
-use polymesh_primitives::{AssetType, PortfolioId, SecurityToken, Ticker, calendar::CheckpointId};
+use polymesh_primitives::{calendar::CheckpointId, AssetType, PortfolioId, SecurityToken, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;

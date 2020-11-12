@@ -49,7 +49,7 @@ use frame_support::{
     weights::{PostDispatchInfo, Weight},
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
 };
-use frame_system::{self as system, ensure_signed, RawOrigin};
+use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_confidential_asset::{self as confidential_asset, MercatAccountId};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -77,10 +77,7 @@ type ConfidentialAsset<T> = confidential_asset::Module<T>;
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 pub trait Trait:
-    frame_system::Trait
-    + IdentityTrait
-    + pallet_timestamp::Trait
-    + confidential_asset::Trait
+    frame_system::Trait + IdentityTrait + pallet_timestamp::Trait + confidential_asset::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -688,7 +685,7 @@ decl_module! {
             }
         }
 
-        /// Authorizes an existing confidential instruction.
+        /// Affirms an existing confidential instruction.
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to authorize.
@@ -697,9 +694,8 @@ decl_module! {
         #[weight = weight_for::weight_for_affirmation_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
-        pub fn authorize_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        pub fn affirm_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Authorize the instruction.
@@ -723,7 +719,10 @@ decl_module! {
             let affirms_pending = Self::instruction_affirms_pending(instruction_id);
             let weight_for_instruction_execution = Self::is_instruction_executed(affirms_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
 
-            Ok(Some(weight_for::weight_for_affirmation_instruction::<T>() + weight_for_instruction_execution).into())
+            match weight_for_instruction_execution {
+                Ok(post_info) => Ok(post_info.actual_weight.map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>())).into()),
+                Err(e) => Ok(e.post_info)
+            }
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -820,7 +819,7 @@ decl_module! {
         #[weight = 10_000_000_000]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            T::Portfolio::ensure_portfolio_custody(*Self::leg_from_to(&Self::instruction_legs(&instruction_id, &receipt_details.leg_id))?.0, did)?;
+            T::Portfolio::ensure_portfolio_custody(Self::leg_from_to(&Self::instruction_legs(&instruction_id, &receipt_details.leg_id))?.0, did)?;
             Self::unsafe_claim_receipt(
                 did,
                 instruction_id,
@@ -1321,7 +1320,7 @@ impl<T: Trait> Module<T> {
                 }
             }
 
-            weight_for::weight_for_execute_instruction_if_auth_no_pending::<T>(transaction_weight)
+            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(transaction_weight)
         };
         // Clean up instruction details to reduce chain bloat.
         <InstructionLegs<T>>::remove_prefix(instruction_id);
@@ -1348,12 +1347,14 @@ impl<T: Trait> Module<T> {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in legs {
+            let mut push_to = |from, to| {
+                counter_parties.push(from);
+                counter_parties.push(to);
+            };
             match leg {
-                Leg::NonConfidentialLeg(leg) | Leg::ConfidentialLeg(leg) => {
-                    counter_parties.push(leg.from);
-                    counter_parties.push(leg.to);
-                }
-                Leg::Undefined => {} 
+                Leg::NonConfidentialLeg(leg) => push_to(leg.from, leg.to),
+                Leg::ConfidentialLeg(leg) => push_to(leg.from, leg.to),
+                Leg::Undefined => {}
             }
         }
         counter_parties.sort();
@@ -1512,10 +1513,16 @@ impl<T: Trait> Module<T> {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was authorized.
                     match leg_details {
-                        Leg::NonConfidentialLeg(NonConfidentialLeg{ from, asset, amount, .. }) => {
+                        Leg::NonConfidentialLeg(NonConfidentialLeg {
+                            from,
+                            asset,
+                            amount,
+                            ..
+                        }) => {
                             // must've locked these tokens when instruction was affirmed
-                            T::Portfolio::unlock_tokens(from,asset, amount).ok();
+                            T::Portfolio::unlock_tokens(from, asset, amount).ok();
                         }
+                        _ => {}
                     }
                 }
                 LegStatus::PendingTokenLock => {}
@@ -1557,7 +1564,7 @@ impl<T: Trait> Module<T> {
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResultWithPostInfo {
         let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
-        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+        let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
 
         // Verify that the receipts provided are unique
         let receipt_ids = receipt_details
@@ -1594,20 +1601,22 @@ impl<T: Trait> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            if let Leg::NonConfidentialLeg(nc_leg) = Self::instruction_legs(&instruction_id, &receipt.leg_id) {
+            if let Leg::NonConfidentialLeg(nc_leg) =
+                Self::instruction_legs(&instruction_id, &receipt.leg_id)
+            {
                 ensure!(
-                    portfolios_set.contains(&leg.from),
+                    portfolios_set.contains(&nc_leg.from),
                     Error::<T>::PortfolioMismatch
                 );
-    
+
                 let msg = Receipt {
                     receipt_uid: receipt.receipt_uid,
-                    from: leg.from,
-                    to: leg.to,
-                    asset: leg.asset,
-                    amount: leg.amount,
+                    from: nc_leg.from,
+                    to: nc_leg.to,
+                    asset: nc_leg.asset,
+                    amount: nc_leg.amount,
                 };
-    
+
                 ensure!(
                     receipt.signature.verify(&msg.encode()[..], &receipt.signer),
                     Error::<T>::InvalidSignature
@@ -1615,23 +1624,22 @@ impl<T: Trait> Module<T> {
             } else {
                 return Err(Error::<T>::InvalidLegType.into());
             }
-            
         }
 
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
             for (leg_id, leg_details) in
-                legs.filter(|(_leg_id, leg_details)| match Self::leg_from_to(&leg_details) {
+                legs.filter(
+                    |(_leg_id, leg_details)| match Self::leg_from_to(&leg_details) {
                         Ok((from, _)) => portfolios.contains(&from),
                         Err(_) => false,
                     },
                 )
             {
-                
                 if let Leg::NonConfidentialLeg(leg) = leg_details {
                     // Receipt for the leg was provided
-                        if let Some(receipt) = receipt_details
+                    if let Some(receipt) = receipt_details
                         .iter()
                         .find(|receipt| receipt.leg_id == leg_id)
                     {
@@ -1644,13 +1652,7 @@ impl<T: Trait> Module<T> {
                             ),
                         );
                     } else {
-                        if T::Portfolio::lock_tokens(
-                            &leg.from,
-                            &leg.asset,
-                            &leg.amount,
-                        )
-                        .is_err()
-                        {
+                        if T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount).is_err() {
                             // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                             return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
                         }

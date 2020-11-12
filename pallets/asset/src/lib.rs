@@ -88,7 +88,6 @@ pub mod benchmarking;
 pub mod checkpoint;
 pub mod ethereum;
 
-use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
@@ -114,11 +113,11 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, AuthorizationData,
-    AuthorizationError, Document, DocumentName, FundingRoundName, IdentityId, PortfolioId,
-    RestrictionResult, ScopeId, SecurityToken, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
-    TickerRegistrationStatus, calendar::CheckpointId, DocumentId, MetaVersion as ExtVersion
+    calendar::CheckpointId, AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType,
+    AuthorizationData, Document, DocumentId, DocumentName, FundingRoundName, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, RestrictionResult, ScopeId, SecurityToken, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker, TickerRegistration,
+    TickerRegistrationConfig, TickerRegistrationStatus,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]

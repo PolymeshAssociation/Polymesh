@@ -32,11 +32,11 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
-<<<<<<< HEAD
+    calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
     AssetIdentifier, AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition,
-    ConditionType, Document, DocumentName, FundingRoundName, IdentityId, InvestorUid, PortfolioId,
-    SecurityToken, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
-    TickerRegistration, TickerRegistrationConfig,
+    ConditionType, Document, DocumentId, DocumentName, FundingRoundName, IdentityId, InvestorUid,
+    PortfolioId, SecurityToken, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker, TickerRegistration, TickerRegistrationConfig,
 };
 use sp_io::hashing::keccak_256;
 
@@ -44,11 +44,6 @@ use chrono::prelude::Utc;
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
     StorageDoubleMap, StorageMap,
-=======
-    calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
-    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
->>>>>>> develop
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;

@@ -7,11 +7,9 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-<<<<<<< HEAD
-use polymesh_primitives::{Identity, IdentityId, PosRatio, TickerRegistrationConfig};
-=======
-use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
->>>>>>> develop
+use polymesh_primitives::{
+    Identity, IdentityId, PosRatio, SmartExtensionType, TickerRegistrationConfig,
+};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};

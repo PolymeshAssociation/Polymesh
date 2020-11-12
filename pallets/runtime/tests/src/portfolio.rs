@@ -6,12 +6,8 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-<<<<<<< HEAD
-    AssetType, AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, SecurityToken,
-=======
-    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
->>>>>>> develop
-    Signatory, Ticker,
+    AssetType, AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName,
+    PortfolioNumber, SecurityToken, Signatory, Ticker,
 };
 use std::convert::TryFrom;
 use test_client::AccountKeyring;

@@ -4,11 +4,7 @@ use super::{
 };
 
 use polymesh_common_utilities::traits::CommonTrait;
-<<<<<<< HEAD
-use polymesh_primitives::{AssetType, PortfolioId, SecurityToken, Ticker};
-=======
-use polymesh_primitives::{calendar::CheckpointId, PortfolioId, Ticker};
->>>>>>> develop
+use polymesh_primitives::{calendar::CheckpointId, AssetType, PortfolioId, SecurityToken, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset as asset;

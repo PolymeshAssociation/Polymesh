@@ -6,7 +6,6 @@ use super::{
     },
     ExtBuilder,
 };
-<<<<<<< HEAD
 use codec::{Decode, Encode};
 use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
@@ -26,16 +25,10 @@ use cryptography::{
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
-use frame_support::dispatch::GetDispatchInfo;
-use frame_support::{assert_noop, assert_ok};
-use pallet_asset as asset;
-=======
-use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
 };
-use pallet_asset::{self as asset, AssetType};
->>>>>>> develop
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential_asset as confidential_asset;
@@ -43,15 +36,9 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-<<<<<<< HEAD
-    self as settlement, weight_for, AuthorizationStatus, Call as SettlementCall, ConfidentialLeg,
+    self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, ConfidentialLeg,
     Instruction, InstructionStatus, Leg, LegStatus, MercatTxData, NonConfidentialLeg, Receipt,
     ReceiptDetails, SettlementType, VenueDetails, VenueType,
-=======
-    self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, Instruction,
-    InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
-    VenueType,
->>>>>>> develop
 };
 use polymesh_primitives::{
     AssetOwnershipRelation, AssetType, AuthorizationData, Base64Vec, Claim, Condition,
@@ -79,11 +66,8 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
-<<<<<<< HEAD
 type ConfidentialAsset = confidential_asset::Module<TestStorage>;
-=======
 type Scheduler = scheduler::Module<TestStorage>;
->>>>>>> develop
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -1217,7 +1201,7 @@ fn settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
-            // Before authorization need to provide the scope claim for both the parties of a transaction.
+            // Before affirmation need to provide the scope claim for both the parties of a transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
@@ -3084,7 +3068,107 @@ fn multiple_custodian_settlement() {
         });
 }
 
-<<<<<<< HEAD
+#[test]
+fn reject_instruction() {
+    ExtBuilder::default()
+        .set_max_legs_allowed(500)
+        .build()
+        .execute_with(|| {
+            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let (charlie_signed, _) = make_account(AccountKeyring::Charlie.public()).unwrap();
+
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let amount = 100u128;
+
+            let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(alice_did),
+                        instruction_id
+                    ),
+                    alice_status
+                );
+                assert_eq!(
+                    Settlement::user_affirmations(
+                        PortfolioId::default_portfolio(bob_did),
+                        instruction_id
+                    ),
+                    bob_status
+                );
+            };
+
+            let create_instruction = || {
+                let instruction_id = Settlement::instruction_counter();
+                assert_ok!(Settlement::add_and_affirm_instruction(
+                    alice_signed.clone(),
+                    venue_counter,
+                    SettlementType::SettleOnAffirmation,
+                    None,
+                    vec![Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount
+                    }],
+                    default_portfolio_vec(alice_did)
+                ));
+                instruction_id
+            };
+
+            let instruction_counter = create_instruction();
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Affirmed,
+                AffirmationStatus::Pending,
+            );
+            assert_noop!(
+                Settlement::reject_instruction(bob_signed.clone(), instruction_counter, vec![]),
+                Error::NoPortfolioProvided
+            );
+
+            assert_noop!(
+                Settlement::reject_instruction(
+                    charlie_signed.clone(),
+                    instruction_counter,
+                    default_portfolio_vec(bob_did)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            assert_ok!(Settlement::reject_instruction(
+                alice_signed.clone(),
+                instruction_counter,
+                default_portfolio_vec(alice_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
+            );
+
+            // Test that the receiver can also reject the instruction
+            let instruction_counter2 = create_instruction();
+
+            assert_ok!(Settlement::reject_instruction(
+                bob_signed.clone(),
+                instruction_counter2,
+                default_portfolio_vec(bob_did)
+            ));
+
+            // Instruction should've been deleted
+            assert_user_affirmatons(
+                instruction_counter2,
+                AffirmationStatus::Unknown,
+                AffirmationStatus::Unknown,
+            );
+        });
+}
+
 // ----------------------------------------- Confidential transfer tests -----------------------------------
 
 /// Creates a mercat account and returns its secret part (to be stored in the wallet) and
@@ -3336,7 +3420,8 @@ fn basic_confidential_settlement() {
             let instruction_counter = Settlement::instruction_counter();
 
             //// Provide scope claim to sender and receiver of the transaction.
-            //provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, alice); // TODO: CRYP-172 I think we decided not to do this as it would leak the ticker name
+            //provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, alice);
+            // TODO: CRYP-172 I think we decided not to do this as it would leak the ticker name
 
             assert_ok!(Settlement::add_instruction(
                 Origin::signed(charlie),
@@ -3388,7 +3473,7 @@ fn basic_confidential_settlement() {
             let initialized_tx =
                 MercatTxData::InitializedTransfer(Base64Vec::new(sender_data.encode()));
             // Sender authorizes the instruction and passes in the proofs.
-            assert_ok!(Settlement::authorize_confidential_instruction(
+            assert_ok!(Settlement::affirm_confidential_instruction(
                 Origin::signed(AccountKeyring::Alice.public()),
                 instruction_counter,
                 initialized_tx,
@@ -3431,7 +3516,7 @@ fn basic_confidential_settlement() {
             ));
 
             // Receiver submits the proof to the chain.
-            assert_ok!(Settlement::authorize_confidential_instruction(
+            assert_ok!(Settlement::affirm_confidential_instruction(
                 Origin::signed(AccountKeyring::Bob.public()),
                 instruction_counter,
                 finalized_tx,
@@ -3475,7 +3560,7 @@ fn basic_confidential_settlement() {
             ));
 
             println!("-------------> This should trigger the execution");
-            assert_ok!(Settlement::authorize_confidential_instruction(
+            assert_ok!(Settlement::affirm_confidential_instruction(
                 Origin::signed(charlie),
                 instruction_counter,
                 justified_tx,
@@ -3512,105 +3597,5 @@ fn basic_confidential_settlement() {
                 .decrypt(&new_bob_balance)
                 .unwrap();
             assert_eq!(new_bob_balance, amount);
-=======
-#[test]
-fn reject_instruction() {
-    ExtBuilder::default()
-        .set_max_legs_allowed(500)
-        .build()
-        .execute_with(|| {
-            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-            let (charlie_signed, _) = make_account(AccountKeyring::Charlie.public()).unwrap();
-
-            let token_name = b"ACME";
-            let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-            let amount = 100u128;
-
-            let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
-                assert_eq!(
-                    Settlement::user_affirmations(
-                        PortfolioId::default_portfolio(alice_did),
-                        instruction_id
-                    ),
-                    alice_status
-                );
-                assert_eq!(
-                    Settlement::user_affirmations(
-                        PortfolioId::default_portfolio(bob_did),
-                        instruction_id
-                    ),
-                    bob_status
-                );
-            };
-
-            let create_instruction = || {
-                let instruction_id = Settlement::instruction_counter();
-                assert_ok!(Settlement::add_and_affirm_instruction(
-                    alice_signed.clone(),
-                    venue_counter,
-                    SettlementType::SettleOnAffirmation,
-                    None,
-                    vec![Leg {
-                        from: PortfolioId::default_portfolio(alice_did),
-                        to: PortfolioId::default_portfolio(bob_did),
-                        asset: ticker,
-                        amount: amount
-                    }],
-                    default_portfolio_vec(alice_did)
-                ));
-                instruction_id
-            };
-
-            let instruction_counter = create_instruction();
-            assert_user_affirmatons(
-                instruction_counter,
-                AffirmationStatus::Affirmed,
-                AffirmationStatus::Pending,
-            );
-            assert_noop!(
-                Settlement::reject_instruction(bob_signed.clone(), instruction_counter, vec![]),
-                Error::NoPortfolioProvided
-            );
-
-            assert_noop!(
-                Settlement::reject_instruction(
-                    charlie_signed.clone(),
-                    instruction_counter,
-                    default_portfolio_vec(bob_did)
-                ),
-                PortfolioError::UnauthorizedCustodian
-            );
-
-            assert_ok!(Settlement::reject_instruction(
-                alice_signed.clone(),
-                instruction_counter,
-                default_portfolio_vec(alice_did)
-            ));
-
-            // Instruction should've been deleted
-            assert_user_affirmatons(
-                instruction_counter,
-                AffirmationStatus::Unknown,
-                AffirmationStatus::Unknown,
-            );
-
-            // Test that the receiver can also reject the instruction
-            let instruction_counter2 = create_instruction();
-
-            assert_ok!(Settlement::reject_instruction(
-                bob_signed.clone(),
-                instruction_counter2,
-                default_portfolio_vec(bob_did)
-            ));
-
-            // Instruction should've been deleted
-            assert_user_affirmatons(
-                instruction_counter2,
-                AffirmationStatus::Unknown,
-                AffirmationStatus::Unknown,
-            );
->>>>>>> develop
         });
 }
