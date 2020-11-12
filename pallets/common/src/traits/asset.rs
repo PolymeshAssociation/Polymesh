@@ -53,24 +53,35 @@ pub struct IssueAssetItem<U> {
     pub value: U,
 }
 
-pub trait Trait<V, U, W> {
-    fn total_supply(ticker: &Ticker) -> V;
-    fn balance(ticker: &Ticker, did: IdentityId) -> V;
+pub trait Trait<Balance, AccountId, Origin> {
+    /// Get total supply of a token.
+    fn total_supply(ticker: &Ticker) -> Balance;
+    /// Get an Identity's balance of a token.
+    fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     fn _mint_from_sto(
         ticker: &Ticker,
-        caller: U,
+        caller: AccountId,
         sender_did: IdentityId,
-        assets_purchased: V,
+        assets_purchased: Balance,
     ) -> DispatchResult;
+    /// Check if an Identity is the owner of a ticker.
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> V;
+    /// Get an Identity's balance of a token at a particular checkpoint.
+    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
+    /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
+    /// Get the PIA of a token.
     fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
+    /// Transfer an asset from one portfolio to another.
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
-        value: V,
+        value: Balance,
     ) -> DispatchResultWithPostInfo;
-    fn ensure_perms_owner_asset(origin: W, ticker: &Ticker) -> Result<IdentityId, DispatchError>;
+    /// Ensure that the caller has the required extrinsic and asset permissions.
+    fn ensure_perms_owner_asset(
+        origin: Origin,
+        ticker: &Ticker,
+    ) -> Result<IdentityId, DispatchError>;
 }
