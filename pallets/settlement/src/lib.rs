@@ -421,7 +421,9 @@ decl_error! {
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
         SettleOnPastBlock,
         /// Portfolio based actions require at least one portfolio to be provided as input.
-        NoPortfolioProvided
+        NoPortfolioProvided,
+        /// The current instruction affirmation status does not support the requested action.
+        UnexpectedAffirmationStatus
     }
 }
 
@@ -922,13 +924,13 @@ impl<T: Trait> Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         // checks custodianship of portfolios and affirmation status
-        for portfolio in &portfolios {
-            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key)?;
-            ensure!(
-                Self::user_affirmations(portfolio, instruction_id) == AffirmationStatus::Affirmed,
-                Error::<T>::InstructionNotAffirmed
-            );
-        }
+        Self::ensure_portfolios_and_affirmation_status(
+            instruction_id,
+            &portfolios,
+            did,
+            secondary_key,
+            vec![AffirmationStatus::Affirmed],
+        )?;
         // Unlock tokens that were previously locked during the affirmation
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
         for (leg_id, leg_details) in
@@ -1114,16 +1116,13 @@ impl<T: Trait> Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
-
-        for portfolio in &portfolios {
-            T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key)?;
-            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
-            ensure!(
-                userr_affirmation == AffirmationStatus::Pending
-                    || userr_affirmation == AffirmationStatus::Rejected,
-                Error::<T>::NoPendingAffirm
-            );
-        }
+        Self::ensure_portfolios_and_affirmation_status(
+            instruction_id,
+            &portfolios,
+            did,
+            secondary_key,
+            vec![AffirmationStatus::Pending, AffirmationStatus::Rejected],
+        )?;
 
         with_transaction(|| {
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
@@ -1299,19 +1298,13 @@ impl<T: Trait> Module<T> {
         let instruction_details = Self::instruction_details(instruction_id);
 
         // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
-        for portfolio in &portfolios_set {
-            T::Portfolio::ensure_portfolio_custody_and_permission(
-                *portfolio,
-                did,
-                secondary_key.as_ref(),
-            )?;
-            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
-            ensure!(
-                user_affirmation == AffirmationStatus::Pending
-                    || user_affirmation == AffirmationStatus::Rejected,
-                Error::<T>::NoPendingAffirm
-            );
-        }
+        Self::ensure_portfolios_and_affirmation_status(
+            instruction_id,
+            &portfolios_set,
+            did,
+            secondary_key.as_ref(),
+            vec![AffirmationStatus::Pending, AffirmationStatus::Rejected],
+        )?;
 
         // Verify that the receipts are valid
         for receipt in &receipt_details {
@@ -1459,16 +1452,25 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // fn ensure_portfolios_and_affirmation_status(
-    //     instruction_id: u64,
-    //     portfolios: BTreeSet<PortfolioId>,
-    //     secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    //     expected_affirmation_states: Vec<AffirmationStatus>
-    // ) -> DispatchResult {
-    //     for portfolio in &portfolios {
-    //         T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?;
-    //         let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
-    //         ensure!(valid_affirmation_states.contains(user_affirmation), Error::<T>::UnexpectedAffirmationStatus);
-    //     }
-    // }
+    fn ensure_portfolios_and_affirmation_status(
+        instruction_id: u64,
+        portfolios: &BTreeSet<PortfolioId>,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        expected_affirmation_states: Vec<AffirmationStatus>,
+    ) -> DispatchResult {
+        for portfolio in portfolios {
+            T::Portfolio::ensure_portfolio_custody_and_permission(
+                *portfolio,
+                custodian,
+                secondary_key,
+            )?;
+            let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
+            ensure!(
+                expected_affirmation_states.contains(&user_affirmation),
+                Error::<T>::UnexpectedAffirmationStatus
+            );
+        }
+        Ok(())
+    }
 }
