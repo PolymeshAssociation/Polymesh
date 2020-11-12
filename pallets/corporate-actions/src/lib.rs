@@ -208,7 +208,7 @@ pub enum CAKind {
 
 impl CAKind {
     /// Is this some sort of benefit CA?
-    fn is_benefit(&self) -> bool {
+    pub fn is_benefit(&self) -> bool {
         matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
     }
 }

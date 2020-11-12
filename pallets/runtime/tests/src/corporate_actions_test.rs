@@ -13,7 +13,7 @@ use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
+    Agent, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
@@ -21,7 +21,8 @@ use pallet_corporate_actions::{
 use polymesh_common_utilities::asset::{AssetName, Trait as _};
 use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
-    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
+    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
+    Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -41,8 +42,10 @@ type Dist = distribution::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
+type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type Votes = ballot::Votes<TestStorage>;
+type Custodian = pallet_portfolio::PortfolioCustodian;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -1515,4 +1518,122 @@ fn vote_existing_checkpoint() {
 #[test]
 fn vote_scheduled_checkpoint() {
     vote_cp_test(|ticker, owner| notice_ca(owner, ticker, Some(2000)).unwrap());
+}
+
+fn dist_ca(owner: User, ticker: Ticker, rd: Option<Moment>) -> Result<CAId, DispatchError> {
+    let id = next_ca_id(ticker);
+    moment_ca(owner, ticker, CAKind::UnpredictableBenefit, rd)?;
+    Ok(id)
+}
+
+#[test]
+fn dist_distribute_works() {
+    test(|ticker, [owner, other, _]| {
+        set_schedule_complexity();
+
+        let currency = create_asset(b"BETA", owner);
+
+        // Test no CA at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 1, None),
+            Error::NoSuchCA
+        );
+
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+
+        // Test same-asset logic.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, ticker, 0, 0, None),
+            DistError::DistributingAsset
+        );
+
+        // Test expiry.
+        for &(pay, expiry) in &[(5, 5), (6, 5)] {
+            assert_noop!(
+                Dist::distribute(owner.signer(), id, None, currency, 0, pay, Some(expiry)),
+                DistError::ExpiryBeforePayment
+            );
+        }
+        Timestamp::set_timestamp(5);
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            currency,
+            0,
+            5,
+            Some(6)
+        ));
+
+        // Start before now.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 4, None),
+            DistError::NowAfterPayment
+        );
+
+        // Distribution already exists.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 5, None),
+            DistError::AlreadyExists
+        );
+
+        // Portfolio doesn't exist.
+        let id = dist_ca(owner, ticker, Some(5)).unwrap();
+        let num = PortfolioNumber(42);
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, Some(num), currency, 0, 5, None),
+            PError::PortfolioDoesNotExist
+        );
+
+        // No custody over portfolio.
+        let custody =
+            |who: User| Custodian::insert(PortfolioId::default_portfolio(owner.did), who.did);
+        let dist = |id| Dist::distribute(owner.signer(), id, None, currency, 0, 6, None);
+        custody(other);
+        assert_noop!(dist(id), PError::UnauthorizedCustodian);
+        custody(owner);
+
+        // Only benefits, no other kinds.
+        for &kind in ALL_CA_KINDS {
+            let id = next_ca_id(ticker);
+            assert_ok!(moment_ca(owner, ticker, kind, Some(5)));
+            if kind.is_benefit() {
+                assert_ok!(dist(id));
+            } else {
+                assert_noop!(dist(id), DistError::CANotBenefit);
+            }
+        }
+
+        // No record date.
+        let id = dist_ca(owner, ticker, None).unwrap();
+        assert_noop!(dist(id), Error::NoRecordDate);
+
+        // Record date after start.
+        let dist = |id, start| Dist::distribute(owner.signer(), id, None, currency, 0, start, None);
+        let id = dist_ca(owner, ticker, Some(5000)).unwrap();
+        assert_noop!(dist(id, 4999), Error::RecordDateAfterStart);
+        assert_ok!(dist(id, 5000));
+
+        // Test sufficient currency balance.
+        Agent::insert(ticker, other.did);
+        transfer(&currency, owner, other);
+        let id = dist_ca(other, ticker, Some(5)).unwrap();
+        let dist =
+            |amount| Dist::distribute(other.signer(), id, None, currency, amount, 5, Some(13));
+        assert_noop!(dist(501), PError::InsufficientPortfolioBalance);
+        assert_ok!(dist(500));
+        assert_eq!(
+            Dist::distributions(id),
+            Some(Distribution {
+                from: PortfolioId::default_portfolio(other.did),
+                currency,
+                amount: 500,
+                remaining: 500,
+                reclaimed: false,
+                payment_at: 5,
+                expires_at: Some(13),
+            })
+        )
+    });
 }
