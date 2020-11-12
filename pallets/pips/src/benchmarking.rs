@@ -259,32 +259,35 @@ benchmarks! {
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     }
 
-    // reject_proposal {
-    //     // description length
-    //     let d in 0 .. 1_000;
-    //     // URL length
-    //     let u in 0 .. 500;
-    //     // length of the proposal padding
-    //     let c in 0 .. 100_000;
+    reject_proposal {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
 
-    //     let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
-    //     identity::CurrentDid::put(proposer_did);
-    //     let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
-    //     Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
-    //     Module::<T>::propose(
-    //         proposer_origin.into(),
-    //         proposal,
-    //         0.into(),
-    //         Some(url),
-    //         Some(description)
-    //     )?;
-    //     let origin = T::VotingMajorityOrigin::successful_origin();
-    //     let call = Call::<T>::reject_proposal(0);
-    // }: {
-    //     call.dispatch_bypass_filter(origin)?;
-    // }
-    // verify {
-    // }
+        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(proposer_did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+        let deposit = 42.into();
+        Module::<T>::propose(
+            proposer_origin.into(),
+            proposal,
+            deposit,
+            Some(url),
+            Some(description)
+        )?;
+        assert_eq!(deposit, Deposits::<T>::get(&0, &proposer_account).amount);
+        let origin = T::VotingMajorityOrigin::successful_origin();
+        let call = Call::<T>::reject_proposal(0);
+    }: {
+        call.dispatch_bypass_filter(origin)?;
+    }
+    verify {
+        assert_eq!(false, Deposits::<T>::contains_key(&0, &proposer_account));
+    }
 
     // prune_proposal {
     // }: _(origin, id)
