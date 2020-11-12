@@ -11,7 +11,7 @@ use crate::{
 use chrono::prelude::Utc;
 use core::num::NonZeroU64;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap
+    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -34,12 +34,12 @@ use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
     AssetIdentifier, AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition,
-    ConditionType, Document, DocumentId, FundingRoundName, IdentityId, InvestorUid,
-    PortfolioId, SecurityToken, Signatory, SmartExtension, SmartExtensionType,
-    Ticker, TickerRegistration, TickerRegistrationConfig,
+    ConditionType, Document, DocumentId, FundingRoundName, IdentityId, InvestorUid, PortfolioId,
+    SecurityToken, Signatory, SmartExtension, SmartExtensionType, Ticker, TickerRegistration,
+    TickerRegistrationConfig,
 };
-use sp_io::hashing::keccak_256;
 use rand::Rng;
+use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
 use test_client::AccountKeyring;

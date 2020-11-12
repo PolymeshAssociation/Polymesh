@@ -16,8 +16,8 @@ use pallet_corporate_actions::{
     Tax,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, AuthorizationData, Document, DocumentId, IdentityId, Moment,
-    PortfolioId, Signatory, Ticker, AssetName
+    calendar::CheckpointId, AssetName, AuthorizationData, Document, DocumentId, IdentityId, Moment,
+    PortfolioId, Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;

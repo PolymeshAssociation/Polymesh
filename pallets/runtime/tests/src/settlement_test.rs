@@ -3107,7 +3107,7 @@ fn reject_instruction() {
                     venue_counter,
                     SettlementType::SettleOnAffirmation,
                     None,
-                    vec![Leg::NonConfidentialLeg( NonConfidentialLeg {
+                    vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                         from: PortfolioId::default_portfolio(alice_did),
                         to: PortfolioId::default_portfolio(bob_did),
                         asset: ticker,
