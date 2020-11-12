@@ -1637,3 +1637,35 @@ fn dist_distribute_works() {
         )
     });
 }
+
+#[test]
+fn dist_remove_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let remove = |id| Dist::remove_distribution(owner.signer(), id);
+
+        // Test no dist at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(remove(id), DistError::NoSuchDistribution);
+
+        // Already started.
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            create_asset(b"BETA", owner),
+            0,
+            5,
+            Some(6)
+        ));
+        Timestamp::set_timestamp(5);
+        assert_noop!(remove(id), DistError::DistributionStarted);
+
+        // Not started, and can remove.
+        Timestamp::set_timestamp(4);
+        assert_ok!(remove(id));
+        assert_eq!(Dist::distributions(id), None);
+    });
+}
