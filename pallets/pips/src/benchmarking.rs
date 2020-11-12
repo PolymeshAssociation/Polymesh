@@ -300,6 +300,7 @@ benchmarks! {
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
         let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             proposer_origin.into(),
             proposal,
@@ -308,6 +309,9 @@ benchmarks! {
             Some(description)
         )?;
         let origin = T::VotingMajorityOrigin::successful_origin();
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false)?;
+        let reject_call = Call::<T>::reject_proposal(0);
+        reject_call.dispatch_bypass_filter(origin.clone())?;
         let call = Call::<T>::prune_proposal(0);
     }: {
         call.dispatch_bypass_filter(origin)?;
@@ -318,8 +322,28 @@ benchmarks! {
     }
 
     // reschedule_execution {
-    // }: _(origin, id, until)
+    //     // description length
+    //     let d in 0 .. 1_000;
+    //     // URL length
+    //     let u in 0 .. 500;
+    //     // length of the proposal padding
+    //     let c in 0 .. 100_000;
+
+    //     let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+    //     let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
+    //     let proposer_did = SystematicIssuers::Committee.as_id();
+    //     identity::CurrentDid::put(proposer_did);
+    //     Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
+    //     Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+    //     let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+    //     propose_call.dispatch_bypass_filter(proposer_origin)?;
+    //     let origin = T::VotingMajorityOrigin::successful_origin();
+    //     let call = Call::<T>::approve_committee_proposal(0);
+    // }: {
+    //     call.dispatch_bypass_filter(origin)?;
+    // }
     // verify {
+    //     assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     // }
 
     // clear_snapshot {
