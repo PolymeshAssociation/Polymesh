@@ -25,15 +25,14 @@ use sp_std::{
     prelude::*,
 };
 
-pub fn make_proposal<T: Trait>(
-    content_len: usize,
-    url_len: usize,
-    desc_len: usize,
-) -> (Box<T::Proposal>, Url, PipDescription) {
+const DESCRIPTION_LEN: usize = 1000;
+const URL_LEN: usize = 500;
+
+pub fn make_proposal<T: Trait>(content_len: usize) -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; content_len];
     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
-    let url = Url::try_from(vec![b'X'; url_len].as_slice()).unwrap();
-    let description = PipDescription::try_from(vec![b'X'; desc_len as usize].as_slice()).unwrap();
+    let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
+    let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
     (proposal, url, description)
 }
 
@@ -109,16 +108,12 @@ benchmarks! {
     propose_from_community {
         // deposit
         let a in 0 .. 500_000;
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
     }: propose(origin, proposal, a.into(), Some(url.clone()), Some(description.clone()))
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
@@ -129,16 +124,12 @@ benchmarks! {
 
     // `propose` from a committee origin.
     propose_from_committee {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         let origin = T::UpgradeCommitteeVMO::successful_origin();
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
@@ -154,16 +145,12 @@ benchmarks! {
     }
 
     amend_proposal {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::propose(
             origin.clone().into(),
             proposal,
@@ -180,16 +167,12 @@ benchmarks! {
     }
 
     cancel_proposal_community {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::propose(
             origin.clone().into(),
             proposal,
@@ -206,10 +189,6 @@ benchmarks! {
     }
 
     vote {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
         // aye or nay
@@ -217,7 +196,7 @@ benchmarks! {
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             proposer_origin.into(),
@@ -235,14 +214,10 @@ benchmarks! {
     }
 
     approve_committee_proposal {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
@@ -260,16 +235,12 @@ benchmarks! {
     }
 
     reject_proposal {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let deposit = 42.into();
         Module::<T>::propose(
@@ -290,16 +261,12 @@ benchmarks! {
     }
 
     prune_proposal {
-        // description length
-        let d in 0 .. 1_000;
-        // URL length
-        let u in 0 .. 500;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
-        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             proposer_origin.into(),
@@ -321,30 +288,26 @@ benchmarks! {
         assert_eq!(false, ProposalMetadata::<T>::contains_key(&0));
     }
 
-    // reschedule_execution {
-    //     // description length
-    //     let d in 0 .. 1_000;
-    //     // URL length
-    //     let u in 0 .. 500;
-    //     // length of the proposal padding
-    //     let c in 0 .. 100_000;
+    reschedule_execution {
+        // length of the proposal padding
+        let c in 0 .. 100_000;
 
-    //     let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
-    //     let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
-    //     let proposer_did = SystematicIssuers::Committee.as_id();
-    //     identity::CurrentDid::put(proposer_did);
-    //     Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-    //     Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
-    //     let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
-    //     propose_call.dispatch_bypass_filter(proposer_origin)?;
-    //     let origin = T::VotingMajorityOrigin::successful_origin();
-    //     let call = Call::<T>::approve_committee_proposal(0);
-    // }: {
-    //     call.dispatch_bypass_filter(origin)?;
-    // }
-    // verify {
-    //     assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
-    // }
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
+        let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
+        let proposer_did = SystematicIssuers::Committee.as_id();
+        identity::CurrentDid::put(proposer_did);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+        let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+        propose_call.dispatch_bypass_filter(proposer_origin)?;
+        let origin = T::VotingMajorityOrigin::successful_origin();
+        let next_block = frame_system::Module::<T>::block_number() + 1.into();
+        let call = Call::<T>::reschedule_execution(0, Some(next_block));
+    }: {
+        call.dispatch_bypass_filter(origin)?;
+    }
+    verify {
+        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+    }
 
     // clear_snapshot {
     // }: _(origin)
