@@ -289,10 +289,33 @@ benchmarks! {
         assert_eq!(false, Deposits::<T>::contains_key(&0, &proposer_account));
     }
 
-    // prune_proposal {
-    // }: _(origin, id)
-    // verify {
-    // }
+    prune_proposal {
+        // description length
+        let d in 0 .. 1_000;
+        // URL length
+        let u in 0 .. 500;
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(proposer_did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize, u as usize, d as usize);
+        Module::<T>::propose(
+            proposer_origin.into(),
+            proposal,
+            42.into(),
+            Some(url),
+            Some(description)
+        )?;
+        let origin = T::VotingMajorityOrigin::successful_origin();
+        let call = Call::<T>::prune_proposal(0);
+    }: {
+        call.dispatch_bypass_filter(origin)?;
+    }
+    verify {
+        assert_eq!(false, Proposals::<T>::contains_key(&0));
+        assert_eq!(false, ProposalMetadata::<T>::contains_key(&0));
+    }
 
     // reschedule_execution {
     // }: _(origin, id, until)
