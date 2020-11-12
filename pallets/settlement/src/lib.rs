@@ -929,7 +929,7 @@ impl<T: Trait> Module<T> {
             &portfolios,
             did,
             secondary_key,
-            vec![AffirmationStatus::Affirmed],
+            &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
@@ -1121,7 +1121,7 @@ impl<T: Trait> Module<T> {
             &portfolios,
             did,
             secondary_key,
-            vec![AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
         )?;
 
         with_transaction(|| {
@@ -1303,7 +1303,7 @@ impl<T: Trait> Module<T> {
             &portfolios_set,
             did,
             secondary_key.as_ref(),
-            vec![AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
         )?;
 
         // Verify that the receipts are valid
@@ -1457,7 +1457,7 @@ impl<T: Trait> Module<T> {
         portfolios: &BTreeSet<PortfolioId>,
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        expected_affirmation_states: Vec<AffirmationStatus>,
+        expected_statuses: &[AffirmationStatus],
     ) -> DispatchResult {
         for portfolio in portfolios {
             T::Portfolio::ensure_portfolio_custody_and_permission(
@@ -1467,7 +1467,7 @@ impl<T: Trait> Module<T> {
             )?;
             let user_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
-                expected_affirmation_states.contains(&user_affirmation),
+                expected_statuses.contains(&user_affirmation),
                 Error::<T>::UnexpectedAffirmationStatus
             );
         }
