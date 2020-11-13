@@ -287,6 +287,8 @@ decl_module! {
 
             // Check that the receiving portfolio exists.
             Self::ensure_portfolio_validity(&to)?;
+            // Ensures that the secondary key has access to the receiver's portfolio.
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
 
             for item in items {
                 Self::ensure_sufficient_balance(&from, &item.ticker, &item.amount)?;
