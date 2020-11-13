@@ -40,7 +40,6 @@ no_std = []
 only-staking = []
 std = [
     "codec/std",
-    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
