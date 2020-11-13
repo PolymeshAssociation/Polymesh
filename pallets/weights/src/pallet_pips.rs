@@ -48,7 +48,6 @@ impl pallet_pips::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	// WARNING! Some components were not used: ["a"]
 	fn propose_from_community(c: u32, ) -> Weight {
 		(46_414_000 as Weight)
 			.saturating_add((5_000 as Weight).saturating_mul(c as Weight))

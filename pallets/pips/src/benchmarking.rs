@@ -106,15 +106,13 @@ benchmarks! {
     }
 
     propose_from_community {
-        // deposit
-        let a in 0 .. 500_000;
         // length of the proposal padding
         let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>(c as usize);
-    }: propose(origin, proposal, a.into(), Some(url.clone()), Some(description.clone()))
+    }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
         assert_eq!(0, meta.id);
