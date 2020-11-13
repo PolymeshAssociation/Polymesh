@@ -361,8 +361,29 @@ benchmarks! {
         assert!(SnapshotMeta::<T>::get().is_some());
     }
 
-    // enact_snapshot_results {
-    // }: _(origin, results)
-    // verify {
-    // }
+    enact_snapshot_results {
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(proposer_did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+        Module::<T>::propose(
+            proposer_origin.clone().into(),
+            proposal,
+            42.into(),
+            Some(url.clone()),
+            Some(description.clone())
+        )?;
+        T::GovernanceCommittee::bench_set_release_coordinator(proposer_did);
+        Module::<T>::snapshot(proposer_origin.clone().into())?;
+        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
+    }: {
+        enact_call.dispatch_bypass_filter(enact_origin)?;
+    }
+    verify {
+        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+    }
 }
