@@ -396,6 +396,9 @@ fn set_did_withholding_tax_works() {
         transfer(&ticker, owner, foo);
         transfer(&ticker, owner, bar);
 
+        // We will insert bar first, but still expect foo first in results, as DIDs are sorted.
+        assert!(foo.did < bar.did);
+
         let check = |user: User, tax, expect| {
             assert_ok!(CA::set_did_withholding_tax(
                 owner.signer(),
@@ -405,10 +408,10 @@ fn set_did_withholding_tax_works() {
             ));
             assert_eq!(CA::did_withholding_tax(ticker), expect);
         };
-        check(foo, Some(P25), vec![(foo.did, P25)]);
-        check(bar, Some(P75), vec![(foo.did, P25), (bar.did, P75)]);
-        check(foo, Some(P50), vec![(foo.did, P50), (bar.did, P75)]);
-        check(foo, None, vec![(bar.did, P75)]);
+        check(bar, Some(P25), vec![(bar.did, P25)]);
+        check(foo, Some(P75), vec![(foo.did, P75), (bar.did, P25)]);
+        check(bar, Some(P50), vec![(foo.did, P75), (bar.did, P50)]);
+        check(bar, None, vec![(foo.did, P75)]);
     });
 }
 
@@ -554,8 +557,12 @@ fn initiate_corporate_action_did_tax() {
         }
         assert_eq!(ca(None), wts);
 
-        let wts = vec![(foo.did, P0), (bar.did, P50)];
-        assert_eq!(ca(Some(wts.clone())), wts);
+        // Also ensure `foo` is sorted before `bar` despite providing `bar` first.
+        assert!(foo.did < bar.did);
+        assert_eq!(
+            ca(Some(vec![(bar.did, P50), (foo.did, P0)])),
+            vec![(foo.did, P0), (bar.did, P50)]
+        );
     });
 }
 
