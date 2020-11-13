@@ -187,7 +187,7 @@ fn next_ca_id(ticker: Ticker) -> CAId {
     CAId { ticker, local_id }
 }
 
-const TRANGE: BallotTimeRange = BallotTimeRange {
+const T_RANGE: BallotTimeRange = BallotTimeRange {
     start: 3000,
     end: 4000,
 };
@@ -261,7 +261,7 @@ fn only_caa_authorized() {
                 $assert!(CA::change_record_date($user.signer(), id, record_date) $(, $tail)?);
                 // ..., `attach_ballot`,
                 let meta = BallotMeta::default();
-                $assert!(Ballot::attach_ballot($user.signer(), id, TRANGE, meta.clone(), false) $(, $tail)?);
+                $assert!(Ballot::attach_ballot($user.signer(), id, T_RANGE, meta.clone(), false) $(, $tail)?);
                 // ..., `change_end`,
                 $assert!(Ballot::change_end($user.signer(), id, 5000) $(, $tail)?);
                 // ..., `change_meta`,
@@ -901,7 +901,7 @@ fn change_record_date_works() {
 }
 
 fn attach(owner: User, id: CAId, rcv: bool) -> DispatchResult {
-    Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), rcv)
+    Ballot::attach_ballot(owner.signer(), id, T_RANGE, mk_meta(), rcv)
 }
 
 #[test]
@@ -981,7 +981,7 @@ fn attach_ballot_already_exists() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
 
-        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), true);
+        let attach = |id| Ballot::attach_ballot(owner.signer(), id, T_RANGE, mk_meta(), true);
 
         assert_ok!(attach(id));
         assert_noop!(attach(id), BallotError::AlreadyExists);
@@ -1015,7 +1015,7 @@ fn attach_ballot_num_choices_overflow_u16() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
         assert_noop!(
-            Ballot::attach_ballot(owner.signer(), id, TRANGE, overflowing_meta(), false),
+            Ballot::attach_ballot(owner.signer(), id, T_RANGE, overflowing_meta(), false),
             BallotError::NumberOfChoicesOverflow,
         );
     });
@@ -1051,7 +1051,7 @@ fn attach_ballot_works() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
 
-        let mut data = init_bd(TRANGE, mk_meta());
+        let mut data = init_bd(T_RANGE, mk_meta());
         data.choices = vec![3, 1];
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
@@ -1303,7 +1303,7 @@ fn vote_not_targeted() {
             Timestamp::set_timestamp(1);
             let id = notice_ca(owner, ticker, Some(1)).unwrap();
             assert_ok!(attach(owner, id, false));
-            Timestamp::set_timestamp(TRANGE.start);
+            Timestamp::set_timestamp(T_RANGE.start);
             id
         };
         let vote = |id| Ballot::vote(voter.signer(), id, votes(&[0, 0, 0, 0]));
@@ -1318,7 +1318,7 @@ fn vote_wrong_count() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |count| {
             let votes = iter::repeat(BallotVote::default()).take(count).collect();
@@ -1357,7 +1357,7 @@ fn vote_rcv_not_allowed() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         assert_noop!(
             Ballot::vote(voter.signer(), id, fallbacks(&[None, None, Some(42), None])),
@@ -1373,7 +1373,7 @@ fn vote_rcv_fallback_pointers() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, true));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |fs| Ballot::vote(voter.signer(), id, fallbacks(fs));
 
@@ -1434,7 +1434,7 @@ fn vote_works() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |vs| Ballot::vote(voter.signer(), id, votes(vs));
 
