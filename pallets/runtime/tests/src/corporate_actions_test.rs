@@ -1300,6 +1300,7 @@ fn vote_not_targeted() {
     test(|ticker, [owner, other, voter]| {
         set_schedule_complexity();
         let ca = || {
+            Timestamp::set_timestamp(1);
             let id = notice_ca(owner, ticker, Some(1)).unwrap();
             assert_ok!(attach(owner, id, false));
             Timestamp::set_timestamp(TRANGE.start);
