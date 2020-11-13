@@ -472,6 +472,7 @@ impl pallet_pips::Trait for Runtime {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
 }
 
 parameter_types! {

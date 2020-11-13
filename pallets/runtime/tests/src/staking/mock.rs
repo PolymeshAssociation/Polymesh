@@ -324,7 +324,9 @@ impl pallet_pips::Trait for Test {
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
 }
+
 impl pallet_treasury::Trait for Test {
     type Event = MetaEvent;
     type Currency = pallet_balances::Module<Self>;

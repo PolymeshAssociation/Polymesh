@@ -618,6 +618,7 @@ impl pips::Trait for TestStorage {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
 }
 
 impl confidential::Trait for TestStorage {
