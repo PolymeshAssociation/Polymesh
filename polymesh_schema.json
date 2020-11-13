@@ -69,7 +69,7 @@
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
-            "portfolio": "Option<Vec<PortfolioNumber>>"
+            "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {
             "_enum": {

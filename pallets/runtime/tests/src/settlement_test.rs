@@ -2593,7 +2593,7 @@ fn cross_portfolio_settlement() {
                     instruction_counter,
                     default_portfolio_vec(bob_did),
                 ),
-                Error::NoPendingAffirm
+                Error::UnexpectedAffirmationStatus
             );
 
             // Bob approves the instruction with the correct portfolio
