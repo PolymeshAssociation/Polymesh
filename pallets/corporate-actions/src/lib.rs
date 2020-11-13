@@ -424,7 +424,7 @@ decl_module! {
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             Self::change_ca_agent(did, ticker, None);
         }
 
@@ -892,6 +892,7 @@ impl<T: Trait> Module<T> {
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
+    /// If the caller is a secondary key, it should have the relevant asset permission.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
         Self::ensure_ca_agent_with_perms(origin, ticker).map(|x| x.primary_did)
     }
@@ -910,6 +911,7 @@ impl<T: Trait> Module<T> {
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
             Error::<T>::UnauthorizedAsAgent
         );
+        <Asset<T>>::ensure_asset_perms(data.secondary_key.as_ref(), &ticker)?;
         Ok(data)
     }
 }

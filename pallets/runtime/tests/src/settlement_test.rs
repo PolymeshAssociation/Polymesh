@@ -10,7 +10,7 @@ use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
 };
-use pallet_asset::{self as asset, AssetType};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
@@ -21,6 +21,7 @@ use pallet_settlement::{
     InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
     VenueType,
 };
+use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
     Signatory, Ticker,
@@ -2592,7 +2593,7 @@ fn cross_portfolio_settlement() {
                     instruction_counter,
                     default_portfolio_vec(bob_did),
                 ),
-                Error::NoPendingAffirm
+                Error::UnexpectedAffirmationStatus
             );
 
             // Bob approves the instruction with the correct portfolio

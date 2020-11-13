@@ -667,6 +667,8 @@ decl_event!(
         /// Event emitted when a proposal is rejected.
         /// Arguments: caller DID, multisig, proposal ID.
         ProposalRejected(IdentityId, AccountId, u64),
+        /// Event emitted when there's an error in proposal execution
+        ProposalExecutionFailed(DispatchError),
     }
 );
 
@@ -936,7 +938,7 @@ impl<T: Trait> Module<T> {
                 }
                 Err(e) => {
                     let e: DispatchError = e.error;
-                    sp_runtime::print(e);
+                    Self::deposit_event(RawEvent::ProposalExecutionFailed(e));
                     proposal_details.status = ProposalStatus::ExecutionFailed;
                     false
                 }

@@ -11,9 +11,13 @@
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
+        "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
-            "content_hash": "DocumentHash"
+            "content_hash": "DocumentHash",
+            "name": "DocumentName",
+            "doc_type": "Option<DocumentType>",
+            "filing_date": "Option<Moment>"
         },
         "AssetType": {
             "_enum": {
@@ -65,7 +69,7 @@
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
-            "portfolio": "Option<Vec<PortfolioNumber>>"
+            "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {
             "_enum": {
@@ -846,12 +850,6 @@
                 "Frozen": "",
                 "Timelocked": "",
                 "Handled": ""
-            }
-        },
-        "HandledTxStatus": {
-            "_enum": {
-                "Success": "",
-                "Error": "Text"
             }
         },
         "CappedFee": "u64",

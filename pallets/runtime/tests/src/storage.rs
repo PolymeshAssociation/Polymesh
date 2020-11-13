@@ -162,7 +162,7 @@ type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
 type Event = EventTest;
 type Version = ();
-type Balance = u128;
+crate type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -303,7 +303,6 @@ parameter_types! {
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type Asset = asset::Module<TestStorage>;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
@@ -475,10 +474,17 @@ impl statistics::Trait for TestStorage {}
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaxDefaultTrustedClaimIssuers: usize = 10;
+    pub const MaxTrustedIssuerPerCondition: usize = 10;
+    pub const MaxSenderConditionsPerCompliance: usize = 30;
+    pub const MaxReceiverConditionsPerCompliance: usize = 30;
+    pub const MaxCompliancePerRequirement: usize = 10;
+
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 

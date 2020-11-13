@@ -190,7 +190,7 @@ decl_module! {
             } = <CA<T>>::ensure_ca_agent_with_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
             <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
-            <Portfolio<T>>::ensure_portfolio_permission(secondary_key.as_ref(), &from)?;
+            <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
             <Portfolio<T>>::ensure_portfolio_validity(&from)?;
 
             // Ensure that `ca_id` exists, that its a benefit.

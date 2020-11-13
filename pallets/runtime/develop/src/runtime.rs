@@ -557,7 +557,6 @@ parameter_types! {
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
@@ -668,6 +667,7 @@ parameter_types! {
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 
@@ -1279,6 +1279,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
