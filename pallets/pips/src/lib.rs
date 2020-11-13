@@ -530,8 +530,8 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Incorrect origin
-        BadOrigin,
+        /// Only the GC release coordinator is allowed to reschedule proposal execution.
+        RescheduleNotByReleaseCoordinator,
         /// The given dispatchable call is not valid for this proposal.
         /// The proposal must be from the community, but isn't.
         NotFromCommunity,
@@ -986,7 +986,7 @@ decl_module! {
         ///    `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
-        /// * `BadOrigin` unless triggered by release coordinator.
+        /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
@@ -996,7 +996,7 @@ decl_module! {
             // 1. Only release coordinator
             ensure!(
                 Some(current_did) == T::GovernanceCommittee::release_coordinator(),
-                DispatchError::BadOrigin
+                Error::<T>::RescheduleNotByReleaseCoordinator
             );
 
             Self::is_proposal_state(id, ProposalState::Scheduled)?;

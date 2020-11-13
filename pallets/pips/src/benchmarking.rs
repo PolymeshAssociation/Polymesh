@@ -192,6 +192,9 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
         // aye or nay
+        //
+        // TODO: The backend produces n - 1 samples of `1` and 1 sample of `0` for any n. This has
+        // to be fixed since the number of `0` and `1` samples should be roughly the same.
         let v in 0 .. 1;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
@@ -292,19 +295,24 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
 
-        let (proposal, url, description) = make_proposal::<T>(c as usize);
-        let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
-        let proposer_did = SystematicIssuers::Committee.as_id();
+        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
-        let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
-        propose_call.dispatch_bypass_filter(proposer_origin)?;
-        let origin = T::VotingMajorityOrigin::successful_origin();
-        let next_block = frame_system::Module::<T>::block_number() + 1.into();
-        let call = Call::<T>::reschedule_execution(0, Some(next_block));
-    }: {
-        call.dispatch_bypass_filter(origin)?;
-    }
+        Module::<T>::propose(
+            proposer_origin.clone().into(),
+            proposal,
+            42.into(),
+            Some(url.clone()),
+            Some(description.clone())
+        )?;
+        T::GovernanceCommittee::bench_set_release_coordinator(proposer_did);
+        Module::<T>::snapshot(proposer_origin.clone().into())?;
+        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
+        enact_call.dispatch_bypass_filter(enact_origin)?;
+        let future_block = frame_system::Module::<T>::block_number() + 100.into();
+    }: _(proposer_origin, 0, Some(future_block))
     verify {
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     }
