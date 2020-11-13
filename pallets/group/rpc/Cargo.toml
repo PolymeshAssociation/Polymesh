@@ -15,16 +15,16 @@ pallet-group-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
 serde = { version = "1.0.104", features = ["derive"] }
 
 # Json RPC
-jsonrpc-core = "14.0.5"
-jsonrpc-core-client = "14.0.5"
-jsonrpc-derive = "14.0.5"
+jsonrpc-core = "15.0.0"
+jsonrpc-core-client = "15.0.0"
+jsonrpc-derive = "15.0.0"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
-sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
-sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0"}
+sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0" }
+sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0" }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0" }

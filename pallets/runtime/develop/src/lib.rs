@@ -9,21 +9,22 @@ pub use fee_details::CddHandler;
 pub mod constants;
 
 #[cfg(feature = "std")]
-pub use pallet_staking::{Commission, StakerStatus};
+pub use pallet_staking::StakerStatus;
 
 pub use pallet_im_online::OfflineSlashingParams;
 #[cfg(feature = "std")]
 pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, BalancesCall, Bridge, Call, CheckedExtrinsic, Contracts,
-    MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, SignedExtra, System, SystemCall,
-    TargetBlockFullness, TransactionPayment, UncheckedExtrinsic,
+    api, Asset, Authorship, Balances, BalancesCall, BaseContracts, Bridge, Call, CheckedExtrinsic,
+    Contracts, MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, SignedExtra, System,
+    SystemCall, TargetBlockFullness, TransactionPayment, UncheckedExtrinsic,
 };
 
 #[cfg(feature = "std")]
 pub mod config {
 
+    use asset::checkpoint;
     use pallet_asset as asset;
     use pallet_balances as balances;
     use pallet_committee as committee;
@@ -31,6 +32,7 @@ pub mod config {
     use pallet_protocol_fee as protocol_fee;
 
     pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
+    pub type CheckpointConfig = checkpoint::GenesisConfig;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
     pub type BridgeConfig = pallet_bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
@@ -51,6 +53,7 @@ pub mod config {
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
     pub type GrandpaConfig = pallet_grandpa::GenesisConfig;
+    pub type MultiSigConfig = pallet_multisig::GenesisConfig;
 }
 
 pub use sp_runtime::{Perbill, Permill};

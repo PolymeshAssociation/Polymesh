@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
@@ -15,7 +15,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -34,7 +34,7 @@ jobs:
             - v4-release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
-          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
           key: v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
@@ -43,7 +43,7 @@ jobs:
             - "./target"
   test:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -58,12 +58,11 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v10-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v10-test-cache-{{ checksum "./rust.version" }}
+            - v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Tests
           command: >-
-            cargo +nightly test
+            cargo test
             --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
@@ -72,7 +71,7 @@ jobs:
             --package pallet-transaction-payment
             --package polymesh-runtime-tests
             --features default_identity ||
-            cargo +nightly test -j 1
+            cargo test -j 1
             --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
@@ -83,13 +82,13 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v10-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
   cli:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
@@ -106,7 +105,7 @@ jobs:
             - v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
-          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - run:
           name: cli node instance
@@ -130,7 +129,7 @@ jobs:
             - "./scripts/cli/node_modules"
   clippy:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
@@ -141,14 +140,14 @@ jobs:
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
-          command: rustc +nightly --version > rust.version
+          command: rustc --version > rust.version
       - restore_cache:
           keys:
             - v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v4-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: run clippy
-          command: cargo +nightly clippy -j 1
+          command: cargo clippy -j 1
           no_output_timeout: 60m
       - save_cache:
           key: v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}

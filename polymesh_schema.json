@@ -1,11 +1,13 @@
 {
     "types": {
         "IdentityId": "[u8; 32]",
+        "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
+        "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
@@ -108,7 +110,6 @@
             "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
-            "roles": "Vec<IdentityRole>",
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
@@ -401,7 +402,8 @@
                 "Jurisdiction": "",
                 "Exempted": "",
                 "Blocked": "",
-                "NoType": ""
+                "InvestorUniqueness": "",
+                "NoData": ""
             }
         },
         "IdentityClaim": {
@@ -421,8 +423,8 @@
             "id": "u32"
         },
         "ComplianceRequirementResult": {
-            "sender_conditions": "Vec<Condition>",
-            "receiver_conditions": "Vec<Condition>",
+            "sender_conditions": "Vec<ConditionResult>",
+            "receiver_conditions": "Vec<ConditionResult>",
             "id": "u32",
             "result": "bool"
         },
@@ -432,14 +434,7 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity",
-                "HasValidProofOfInvestor": "Ticker"
-            }
-        },
-        "ImplicitRequirementStatus": {
-            "_enum": {
-                "Active": "",
-                "Inactive": ""
+                "IsIdentity": "TargetIdentity"
             }
         },
         "TrustedFor": {
@@ -510,16 +505,30 @@
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
+        "ChoiceTitle": "Text",
         "Motion": {
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
-            "choices": "Vec<MotionTitle>"
+            "choices": "Vec<ChoiceTitle>"
         },
         "Ballot": {
             "checkpoint_id": "u64",
             "voting_start": "Moment",
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
+        },
+        "BallotTitle": "Text",
+        "BallotMeta": {
+            "title": "BallotTitle",
+            "motions": "Vec<Motion>"
+        },
+        "BallotTimeRange": {
+            "start": "Moment",
+            "end": "Moment"
+        },
+        "BallotVote": {
+            "power": "Balance",
+            "fallback": "Option<u16>"
         },
         "MaybeBlock": {
             "_enum": {
@@ -658,7 +667,8 @@
                 "JoinIdentity": "Permissions",
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": "Ticker"
             }
         },
         "AuthIdentifier": {
@@ -669,6 +679,7 @@
             "_enum": {
                 "TransferManager": "",
                 "Offerings": "",
+                "SmartWallet": "",
                 "Custom": "Vec<u8>"
             }
         },
@@ -678,6 +689,22 @@
             "extension_name": "SmartExtensionName",
             "extension_id": "AccountId",
             "is_archive": "bool"
+        },
+        "MetaUrl": "Text",
+        "MetaDescription": "Text",
+        "MetaVersion": "u32",
+        "ExtVersion": "u32",
+        "TemplateMetadata": {
+            "url": "Option<MetaUrl>",
+            "se_type": "SmartExtensionType",
+            "usage_fee": "Balance",
+            "description": "MetaDescription",
+            "version": "MetaVersion"
+        },
+        "TemplateDetails": {
+            "instantiation_fee": "Balance",
+            "owner": "IdentityId",
+            "frozen": "bool"
         },
         "ProportionMatch": {
             "_enum": [
@@ -729,7 +756,6 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
-            "implicit_requirements_result": "Option<ImplicitRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
@@ -765,6 +791,7 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
+                "AssetCheckpoint",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
@@ -849,12 +876,14 @@
                 "AttestPrimaryKeyRotation": "",
                 "RotatePrimaryKey": "",
                 "TransferTicker": "",
+                "TransferPrimaryIssuanceAgent": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
                 "PortfolioCustody": "",
                 "Custom": "",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": ""
             }
         },
         "ProposalDetails": {
@@ -905,6 +934,37 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "Moment": "u64",
+        "CalendarUnit": {
+            "_enum": [
+                "Second",
+                "Minute",
+                "Hour",
+                "Day",
+                "Week",
+                "Month",
+                "Year"
+            ]
+        },
+        "CalendarPeriod": {
+            "unit": "CalendarUnit",
+            "amount": "Option<NonZeroU64>"
+        },
+        "CheckpointSchedule": {
+            "start": "Moment",
+            "period": "CalendarPeriod"
+        },
+        "CheckpointId": "u64",
+        "ScheduleId": "u64",
+        "StoredSchedule": {
+            "schedule": "CheckpointSchedule",
+            "id": "ScheduleId",
+            "at": "Moment"
+        },
+        "ScheduleSpec": {
+            "start": "Option<Moment>",
+            "period": "CalendarPeriod"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
@@ -918,17 +978,17 @@
                 "ExecutionToBeSkipped": "(AccountId, u64)"
             }
         },
-        "AuthorizationStatus": {
+        "AffirmationStatus": {
             "_enum": {
                 "Unknown": "",
                 "Pending": "",
-                "Authorized": "",
+                "Affirmed": "",
                 "Rejected": ""
             }
         },
         "SettlementType": {
             "_enum": {
-                "SettleOnAuthorization": "",
+                "SettleOnAffirmation": "",
                 "SettleOnBlock": "BlockNumber"
             }
         },
@@ -970,7 +1030,7 @@
         "Venue": {
             "creator": "IdentityId",
             "instructions": "Vec<u64>",
-            "details": "Vec<u8>",
+            "details": "VenueDetails",
             "venue_type": "VenueType"
         },
         "Receipt": {
@@ -1020,9 +1080,84 @@
                 "Exchange"
             ]
         },
-        "ImplicitRequirementResult": {
-            "from_result": "bool",
-            "to_result": "bool"
+        "Payload": {
+            "block_number": "BlockNumber",
+            "nominators": "Vec<AccountId>",
+            "public": "H256"
+        },
+        "ExtensionAttributes": {
+            "usage_fee": "Balance",
+            "version": "MetaVersion"
+        },
+        "Tax": "Permill",
+        "TargetIdentities": {
+            "identities": "Vec<IdentitityId>",
+            "treatment": "TargetTreatment"
+        },
+        "TargetTreatment": {
+            "_enum": [
+                "Include",
+                "Exclude"
+            ]
+        },
+        "CAKind": {
+            "_enum": [
+                "PredictableBenefit",
+                "UnpredictableBenfit",
+                "IssuerNotice",
+                "Reorganization",
+                "Other"
+            ]
+        },
+        "CADetails": "Text",
+        "CACheckpoint": {
+            "_enum": {
+                "Scheduled": "ScheduleId",
+                "Existing": "CheckpointId"
+            }
+        },
+        "RecordDate": {
+            "date": "Moment",
+            "checkpoint": "CACheckpoint"
+        },
+        "RecordDateSpec": {
+            "_enum": {
+                "Scheduled": "Moment",
+                "Existing": "CheckpointId"
+            }
+        },
+        "CorporateAction": {
+            "kind": "CAKind",
+            "record_date": "Option<RecordDate>",
+            "details": "String",
+            "targets": "TargetIdentities",
+            "default_withholding_tax": "Tax",
+            "withholding_tax": "Vec<(IdentityId, Tax)>"
+        },
+        "LocalCAId": "u32",
+        "CAId": {
+            "ticker": "Ticker",
+            "local_id": "LocalCAId"
+        },
+        "Distribution": {
+            "from": "PortfolioId",
+            "currency": "Ticker",
+            "amount": "Balance",
+            "remaining": "Balance",
+            "reclaimed": "bool",
+            "payment_at": "Moment",
+            "expires_at": "Option<Moment>"
+        },
+        "SlashingSwitch": {
+            "_enum": [
+                "Validator",
+                "ValidatorAndNominator",
+                "None"
+            ]
+        },
+        "PriceTier": {
+            "total": "Balance",
+            "price": "Balance"
         }
     },
     "rpc": {
@@ -1042,11 +1177,6 @@
                     },
                     {
                         "name": "to_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

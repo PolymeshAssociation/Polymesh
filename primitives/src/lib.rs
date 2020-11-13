@@ -133,18 +133,23 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
 
+pub mod event_only;
+pub use event_only::EventOnly;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
+pub use identity_id::{
+    EventDid, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::{Identity, IdentityWithRoles};
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
@@ -205,10 +210,13 @@ pub use ticker::Ticker;
 
 /// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
+pub use smart_extension::{
+    ExtensionAttributes, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
+    SmartExtensionType, TemplateDetails, TemplateMetadata,
+};
 
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
+pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
@@ -221,6 +229,9 @@ pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Pr
 /// For confidential stuff.
 pub mod valid_proof_of_investor;
 pub use valid_proof_of_investor::ValidProofOfInvestor;
+
+/// Timekeeping and checkpoints.
+pub mod calendar;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

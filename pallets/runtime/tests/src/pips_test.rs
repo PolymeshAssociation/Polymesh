@@ -1,7 +1,7 @@
 use super::{
-    committee_test::{gc_vmo, root, set_members},
+    committee_test::{gc_vmo, set_members},
     storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, Call, EventTest,
+        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
         TestStorage,
     },
     ExtBuilder,
@@ -39,33 +39,33 @@ type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[derive(Copy, Clone)]
-struct User {
-    ring: AccountKeyring,
-    did: IdentityId,
+pub struct User {
+    pub ring: AccountKeyring,
+    pub did: IdentityId,
 }
 
 impl User {
-    fn new(ring: AccountKeyring) -> Self {
+    pub fn new(ring: AccountKeyring) -> Self {
         let did = register_keyring_account(ring).unwrap();
         Self { ring, did }
     }
 
-    fn existing(ring: AccountKeyring) -> Self {
+    pub fn existing(ring: AccountKeyring) -> Self {
         let did = get_identity_id(ring).unwrap();
         User { ring, did }
     }
 
-    fn balance(self, balance: u128) -> Self {
+    pub fn balance(self, balance: u128) -> Self {
         use frame_support::traits::Currency as _;
         Balances::make_free_balance_be(&self.acc(), balance);
         self
     }
 
-    fn acc(&self) -> Public {
+    pub fn acc(&self) -> Public {
         self.ring.public()
     }
 
-    fn signer(&self) -> Origin {
+    pub fn signer(&self) -> Origin {
         Origin::signed(self.acc())
     }
 }

@@ -10,12 +10,15 @@ process.exitCode = 1;
 async function main() {
 
   const api = await reqImports.createApi();
-
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+  
+  let secondary_dev_seed = await reqImports.generateRandomKey(api);
+  
   const testEntities = await reqImports.initMain(api);
 
-  let primary_keys = await reqImports.generateKeys(api, 2, "primary3");
+  let primary_keys = await reqImports.generateKeys(api, 2, primary_dev_seed );
 
-  let secondary_keys = await reqImports.generateKeys(api, 2, "secondary3");
+  let secondary_keys = await reqImports.generateKeys(api, 2, secondary_dev_seed );
 
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, testEntities[0]);
 

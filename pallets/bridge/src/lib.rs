@@ -102,31 +102,40 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::StorageDoubleMap,
-    traits::{Currency, Get},
+    traits::{
+        schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
+        Currency,
+    },
     weights::{DispatchClass, Pays, Weight},
+    Parameter,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
 use polymesh_primitives::{IdentityId, Permissions, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, One, SaturatedConversion, Zero};
+use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait {
+pub trait Trait: multisig::Trait + scheduler::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
-    /// The maximum number of timelocked bridge transactions that can be scheduled to be
-    /// executed in a single block. Any excess bridge transactions are scheduled in later
-    /// blocks.
-    type MaxTimelockedTxsPerBlock: Get<u32>;
+    /// Scheduler of timelocked bridge transactions.
+    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
+    type SchedulerCall: Parameter
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + From<Call<Self>>;
 }
 
 /// The status of a bridge transaction.
@@ -218,11 +227,9 @@ pub mod weight_for {
     /// * Write operation - 2
     /// * Base value - 500_000_000
     /// </weight>
-    pub(crate) fn handle_bridge_tx_later<T: Trait>(count: u64) -> Weight {
+    pub(crate) fn handle_bridge_tx_later<T: Trait>() -> Weight {
         let db = T::DbWeight::get();
-        db.reads_writes(4, 2)
-            .saturating_add(500_000_000) // base value
-            .saturating_add(count.saturating_mul(500_00)) // for one loop
+        db.reads_writes(4, 2).saturating_add(500_000_000) // base value
     }
 }
 
@@ -328,12 +335,6 @@ decl_storage! {
         /// transaction proposal during which the admin key can freeze the transaction.
         Timelock get(fn timelock) config(): T::BlockNumber;
 
-        /// The list of timelocked transactions with the block numbers in which those transactions
-        /// become unlocked. Pending transactions are also included here to be retried
-        /// automatically.
-        TimelockedTxs get(fn timelocked_txs):
-            map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
-
         /// The maximum number of bridged POLYX per identity within a set interval of
         /// blocks. Fields: POLYX amount and the block interval duration.
         BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
@@ -346,7 +347,6 @@ decl_storage! {
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
-        // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
         /// AccountId of the multisig creator.
         config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
@@ -393,16 +393,29 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         type Error = Error<T>;
-
-        const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
 
         fn deposit_event() = default;
 
-        /// Issues tokens in timelocked transactions.
-        fn on_initialize(block_number: T::BlockNumber) -> Weight {
-            Self::handle_timelocked_txs(block_number)
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Twox64Concat};
+
+            let now = frame_system::Module::<T>::block_number();
+
+            // Migrate timelocked transactions.
+            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                .drain()
+                .for_each(|(block_number, txs)| {
+                    // Schedule only for future blocks.
+                    let block_number = T::BlockNumber::max(block_number, now + One::one());
+                    for tx in txs {
+                        Self::schedule_call(block_number, tx);
+                    }
+                });
+
+            // No need to calculate correct weight for testnet
+            0
         }
 
         /// Changes the controller account as admin.
@@ -573,6 +586,19 @@ decl_module! {
             Ok(())
         }
 
+        /// An internal call to handle a scheduled timelocked bridge transaction.
+        #[weight = (
+            500_000_000,
+            DispatchClass::Operational,
+            Pays::Yes
+        )]
+        fn handle_scheduled_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
+            DispatchResult
+        {
+            ensure_root(origin)?;
+            let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
+            Ok(())
+        }
     }
 }
 
@@ -688,45 +714,14 @@ impl<T: Trait> Module<T> {
         }
 
         let current_block_number = <system::Module<T>>::block_number();
-        let mut unlock_block_number =
+        let unlock_block_number =
             current_block_number + timelock + T::BlockNumber::from(2u32.pow(already_tried.into()));
-        let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
-        let old_unlock_count_number = unlock_block_number;
-        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block {
-            unlock_block_number += One::one();
-        }
-        let calculated_weight = weight_for::handle_bridge_tx_later::<T>(
-            (unlock_block_number - old_unlock_count_number).saturated_into::<u64>(),
-        );
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-        <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
-            txs.push(bridge_tx.clone());
-        });
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
-        Self::deposit_event(RawEvent::BridgeTxScheduled(
-            current_did,
-            bridge_tx,
-            unlock_block_number,
-        ));
 
-        Ok(calculated_weight)
-    }
+        Self::schedule_call(unlock_block_number, bridge_tx);
 
-    /// Handles the timelocked transactions that are set to unlock at the given block number.
-    fn handle_timelocked_txs(block_number: T::BlockNumber) -> Weight {
-        let mut weight = 0;
-        let txs = <TimelockedTxs<T>>::take(block_number);
-        for tx in txs {
-            weight += match Self::handle_bridge_tx_now(tx, false) {
-                Ok(weight) => weight,
-                Err(e) => {
-                    sp_runtime::print(e);
-                    Zero::zero()
-                }
-            };
-        }
-        weight
+        Ok(weight_for::handle_bridge_tx_later::<T>())
     }
 
     /// Proposes a bridge transaction. The bridge controller must be set.
@@ -811,5 +806,29 @@ impl<T: Trait> Module<T> {
             return Err(Error::<T>::NoValidCdd.into());
         }
         Ok(())
+    }
+
+    /// Schedules a timelocked transaction call with constant arguments and emits an event on success or
+    /// prints an error message on failure.
+    // TODO: handle errors.
+    fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
+        // Schedule the transaction as a dispatchable call.
+        let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
+        if let Err(e) = T::Scheduler::schedule(
+            DispatchTime::At(block_number),
+            None,
+            LOWEST_PRIORITY,
+            RawOrigin::Root.into(),
+            call,
+        ) {
+            sp_runtime::print(e);
+        } else {
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+            Self::deposit_event(RawEvent::BridgeTxScheduled(
+                current_did,
+                bridge_tx,
+                block_number,
+            ));
+        }
     }
 }

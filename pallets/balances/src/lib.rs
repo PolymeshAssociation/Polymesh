@@ -161,8 +161,8 @@
 //!
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
-// TODO: Because of Polymesh custom changes upstream weight calculation get affected to get the right figures
-// need to benchmark the module by keeping custom changes in mind. Specifically CDD check.
+// TODO: Benchmark modified extrinsics. Currently using Substrate values based on non-modified code.
+// Specifically CDD checks should be considered!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -170,6 +170,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
@@ -537,6 +538,13 @@ impl<T: Trait> Module<T> {
 
     /// Update the account entry for `who`, given the locks.
     fn update_locks(who: &T::AccountId, locks: &[BalanceLock<T::Balance>]) {
+        if locks.len() as u32 > T::MaxLocks::get() {
+            frame_support::debug::warn!(
+                "Warning: A user has more currency locks than expected. \
+				A runtime configuration adjustment may be needed."
+            );
+        }
+
         Self::mutate_account(who, |b| {
             b.misc_frozen = Zero::zero();
             b.fee_frozen = Zero::zero();
@@ -1113,6 +1121,8 @@ where
     T::Balance: MaybeSerializeDeserialize + Debug,
 {
     type Moment = T::BlockNumber;
+
+    type MaxLocks = T::MaxLocks;
 
     // Polymesh-note: The implementations below differ from substrate in terms
     // of performance (ours uses in-place modification), but are functionally equivalent.

@@ -58,7 +58,6 @@ sp_api::decl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            primary_issuance_agent: Option<IdentityId>,
         ) -> AssetComplianceResult;
     }
 }
