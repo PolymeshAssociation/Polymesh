@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![feature(proc_macro_hygiene)]
+#![feature(crate_visibility_modifier)]
 
 pub mod storage;
 pub use storage::{
