@@ -137,6 +137,7 @@ pub trait WeightInfo {
     fn propose_from_community(c: u32) -> Weight;
     fn propose_from_committee(c: u32) -> Weight;
     fn amend_proposal(c: u32) -> Weight;
+    fn cancel_proposal(c: u32) -> Weight;
     fn vote(c: u32, v: u32) -> Weight;
     fn approve_committee_proposal(c: u32) -> Weight;
     fn reject_proposal(c: u32) -> Weight;
@@ -896,7 +897,7 @@ decl_module! {
         /// * `ProposalOnCoolOffPeriod` if non-owner is voting and PIP is cooling off.
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
-        #[weight = <T as Trait>::WeightInfo::vote(1_000)]
+        #[weight = <T as Trait>::WeightInfo::vote(1_000, *aye_or_nay as u32)]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
             let pip = Self::proposals(id)
