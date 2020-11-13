@@ -1523,8 +1523,14 @@ fn reschedule_execution_only_release_coordinator() {
         assert_ok!(Committee::set_release_coordinator(gc_vmo(), charlie.did));
 
         assert_bad_origin!(Pips::reschedule_execution(root(), 0, None));
-        assert_bad_origin!(Pips::reschedule_execution(alice.signer(), 0, None));
-        assert_bad_origin!(Pips::reschedule_execution(bob.signer(), 0, None));
+        assert_noop!(
+            Pips::reschedule_execution(alice.signer(), 0, None),
+            Error::RescheduleNotByReleaseCoordinator
+        );
+        assert_noop!(
+            Pips::reschedule_execution(bob.signer(), 0, None),
+            Error::RescheduleNotByReleaseCoordinator
+        );
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(&alice.signer(), 0);
