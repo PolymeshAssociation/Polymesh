@@ -2,10 +2,11 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
+use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
