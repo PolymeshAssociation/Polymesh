@@ -24,3 +24,4 @@ pub mod pallet_identity;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;
 pub mod pallet_timestamp;
+pub mod pallet_utility;

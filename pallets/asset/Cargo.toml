@@ -53,6 +53,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
+    "pallet-identity/std",
     "polymesh-contracts/std",
     "pallet-contracts/std",
     "pallet-portfolio/std",
@@ -73,5 +74,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-
+    "pallet-identity/runtime-benchmarks",
 ]

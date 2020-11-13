@@ -58,6 +58,7 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
     "cryptography",
     "schnorrkel",
 ]

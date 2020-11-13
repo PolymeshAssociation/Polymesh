@@ -4079,8 +4079,11 @@ name = "pallet-compliance-manager"
 version = "0.1.0"
 dependencies = [
  "either",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-permissions",
  "pallet-timestamp",
@@ -4777,6 +4780,7 @@ dependencies = [
 name = "pallet-utility"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-permissions",
@@ -5365,6 +5369,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-runtime-benchs"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-authorship",
+ "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
+ "pallet-contracts",
+ "pallet-identity",
+ "pallet-multisig",
+ "pallet-portfolio",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "rand 0.7.3",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
@@ -5449,6 +5481,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
+ "polymesh-runtime-benchs",
  "polymesh-runtime-common",
  "polymesh-weights",
  "serde",
