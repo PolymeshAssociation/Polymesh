@@ -11,9 +11,13 @@
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
+        "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
-            "content_hash": "DocumentHash"
+            "content_hash": "DocumentHash",
+            "name": "DocumentName",
+            "doc_type": "Option<DocumentType>",
+            "filing_date": "Option<Moment>"
         },
         "AssetType": {
             "_enum": {
