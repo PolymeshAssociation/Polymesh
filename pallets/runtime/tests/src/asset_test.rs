@@ -18,9 +18,9 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, ScopeIdOf, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
+    ClassicTickers, ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig,
+    Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -28,8 +28,13 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
-    traits::CddAndFeeDetails as _, SystematicIssuers,
+    asset::{AssetType, FundingRoundName},
+    compliance_manager::Trait,
+    constants::*,
+    protocol_fee::ProtocolOp,
+    traits::balances::Memo,
+    traits::CddAndFeeDetails as _,
+    SystematicIssuers,
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{

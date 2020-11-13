@@ -15,7 +15,11 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
+use polymesh_primitives::{
+    calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+};
+use polymesh_primitives_derive::VecU8StrongTyped;
+use sp_std::prelude::*;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
@@ -53,14 +57,49 @@ pub struct IssueAssetItem<U> {
     pub value: U,
 }
 
-pub trait Trait<Balance, AccountId, Origin> {
-    /// Get total supply of a token.
+/// A wrapper for a token name.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct AssetName(pub Vec<u8>);
+
+/// The type of an asset represented by a token.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub enum AssetType {
+    EquityCommon,
+    EquityPreferred,
+    Commodity,
+    FixedIncome,
+    REIT,
+    Fund,
+    RevenueShareAgreement,
+    StructuredProduct,
+    Derivative,
+    Custom(Vec<u8>),
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        Self::Custom(b"undefined".to_vec())
+    }
+}
+
+/// A wrapper for a funding round name.
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
+pub struct FundingRoundName(pub Vec<u8>);
+
+impl Default for FundingRoundName {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+pub trait Trait<Balance, Account, Origin> {
     fn total_supply(ticker: &Ticker) -> Balance;
-    /// Get an Identity's balance of a token.
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     fn _mint_from_sto(
         ticker: &Ticker,
-        caller: AccountId,
+        caller: Account,
         sender_did: IdentityId,
         assets_purchased: Balance,
     ) -> DispatchResult;
@@ -84,4 +123,15 @@ pub trait Trait<Balance, AccountId, Origin> {
         origin: Origin,
         ticker: &Ticker,
     ) -> Result<IdentityId, DispatchError>;
+
+    fn create_asset(
+        origin: Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult;
 }

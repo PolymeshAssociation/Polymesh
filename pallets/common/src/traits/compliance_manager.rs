@@ -26,3 +26,15 @@ pub trait Trait<Balance> {
         primary_issuance_agent: Option<IdentityId>,
     ) -> Result<(u8, Weight), DispatchError>;
 }
+
+pub trait WeightInfo {
+    fn add_compliance_requirement(s: u32, r: u32) -> Weight;
+    fn remove_compliance_requirement() -> Weight;
+    fn pause_asset_compliance() -> Weight;
+    fn resume_asset_compliance() -> Weight;
+    fn add_default_trusted_claim_issuer() -> Weight;
+    fn remove_default_trusted_claim_issuer() -> Weight;
+    fn change_compliance_requirement(s: u32, r: u32) -> Weight;
+    fn replace_asset_compliance(c: u32) -> Weight;
+    fn reset_asset_compliance() -> Weight;
+}

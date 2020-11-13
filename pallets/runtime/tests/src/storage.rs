@@ -474,10 +474,17 @@ impl statistics::Trait for TestStorage {}
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaxDefaultTrustedClaimIssuers: usize = 10;
+    pub const MaxTrustedIssuerPerCondition: usize = 10;
+    pub const MaxSenderConditionsPerCompliance: usize = 30;
+    pub const MaxReceiverConditionsPerCompliance: usize = 30;
+    pub const MaxCompliancePerRequirement: usize = 10;
+
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 
