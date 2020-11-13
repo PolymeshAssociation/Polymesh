@@ -340,10 +340,26 @@ benchmarks! {
         assert!(SnapshotMeta::<T>::get().is_none());
     }
 
-    // snapshot {
-    // }: _(origin)
-    // verify {
-    // }
+    snapshot {
+        // length of the proposal padding
+        let c in 0 .. 100_000;
+
+        let (account, origin, did) = make_account::<T>("proposer", 0);
+        identity::CurrentDid::put(did);
+        let (proposal, url, description) = make_proposal::<T>(c as usize);
+        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+        Module::<T>::propose(
+            origin.clone().into(),
+            proposal,
+            42.into(),
+            Some(url.clone()),
+            Some(description.clone())
+        )?;
+        T::GovernanceCommittee::bench_set_release_coordinator(did);
+    }: _(origin)
+    verify {
+        assert!(SnapshotMeta::<T>::get().is_some());
+    }
 
     // enact_snapshot_results {
     // }: _(origin, results)
