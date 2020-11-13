@@ -5628,6 +5628,7 @@ dependencies = [
  "frame-system",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-timestamp",

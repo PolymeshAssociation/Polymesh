@@ -20,6 +20,7 @@
 pub mod frame_system;
 pub mod pallet_corporate_actions;
 pub mod pallet_identity;
+pub mod pallet_pips;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;
 pub mod pallet_timestamp;

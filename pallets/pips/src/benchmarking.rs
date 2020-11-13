@@ -166,7 +166,7 @@ benchmarks! {
         assert_eq!(Some(description), meta.description);
     }
 
-    cancel_proposal_community {
+    cancel_proposal {
         // length of the proposal padding
         let c in 0 .. 100_000;
 
@@ -180,7 +180,7 @@ benchmarks! {
             Some(url),
             Some(description)
         )?;
-    }: cancel_proposal(origin, 0)
+    }: _(origin, 0)
     verify {
         assert_eq!(
             Module::<T>::proposals(0).unwrap().proposer,
