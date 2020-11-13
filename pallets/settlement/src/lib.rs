@@ -75,7 +75,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInAInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
