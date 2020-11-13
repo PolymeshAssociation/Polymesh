@@ -162,7 +162,7 @@ type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
 type Event = EventTest;
 type Version = ();
-type Balance = u128;
+crate type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
