@@ -4,7 +4,7 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use pallet_asset::{self as asset, SecurityToken};
+use pallet_asset::{self as asset, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
@@ -847,7 +847,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             compliance_requirement.clone()
         ),
-        CMError::<TestStorage>::Unauthorized
+        AssetError::<TestStorage>::Unauthorized
     );
 
     let compliance_requirement_failure = ComplianceRequirement {
