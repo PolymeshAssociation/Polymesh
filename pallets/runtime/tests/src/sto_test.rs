@@ -2,10 +2,11 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
+use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
@@ -269,13 +270,6 @@ fn raise_unhappy_path() {
     check_venue(bad_venue);
 
     let correct_venue = create_venue(alice_signed.clone(), VenueType::Sto);
-
-    // Raise asset not created
-    check_fundraiser(
-        default_tiers.clone(),
-        correct_venue,
-        Error::InvalidPortfolio.into(),
-    );
 
     create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
 

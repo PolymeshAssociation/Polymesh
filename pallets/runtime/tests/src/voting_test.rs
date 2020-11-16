@@ -1,10 +1,11 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{register_keyring_account, Checkpoint, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
-use polymesh_primitives::{PortfolioId, Ticker};
+use polymesh_common_utilities::asset::AssetType;
+use polymesh_primitives::{calendar::CheckpointId, PortfolioId, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;
@@ -52,7 +53,10 @@ fn add_ballot() {
             None,
         ));
 
-        assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
+        assert_ok!(Checkpoint::create_checkpoint(
+            token_owner_acc.clone(),
+            ticker,
+        ));
 
         let motion1 = Motion {
             title: vec![0x01].into(),
@@ -67,8 +71,10 @@ fn add_ballot() {
 
         let ballot_name = vec![0x01];
 
+        let checkpoint_id = CheckpointId(1);
+
         let ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id,
             voting_start: now,
             voting_end: now + now,
             motions: vec![motion1.clone(), motion2.clone()],
@@ -85,7 +91,7 @@ fn add_ballot() {
         );
 
         let expired_ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id,
             voting_start: now,
             voting_end: 0,
             motions: vec![motion1.clone(), motion2.clone()],
@@ -102,7 +108,7 @@ fn add_ballot() {
         );
 
         let invalid_date_ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id,
             voting_start: now + now + now,
             voting_end: now + now,
             motions: vec![motion1.clone(), motion2.clone()],
@@ -119,7 +125,7 @@ fn add_ballot() {
         );
 
         let empty_ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id,
             voting_start: now,
             voting_end: now + now,
             motions: vec![],
@@ -142,7 +148,7 @@ fn add_ballot() {
         };
 
         let no_choice_ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id,
             voting_start: now,
             voting_end: now + now,
             motions: vec![motion1.clone(), motion2.clone(), empty_motion],
@@ -211,7 +217,10 @@ fn cancel_ballot() {
             None,
         ));
 
-        assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
+        assert_ok!(Checkpoint::create_checkpoint(
+            token_owner_acc.clone(),
+            ticker,
+        ));
 
         let motion1 = Motion {
             title: vec![0x01].into(),
@@ -227,7 +236,7 @@ fn cancel_ballot() {
         let ballot_name = vec![0x01];
 
         let ballot_details = Ballot {
-            checkpoint_id: 1,
+            checkpoint_id: CheckpointId(1),
             voting_start: now,
             voting_end: now + now,
             motions: vec![motion1.clone(), motion2.clone()],
@@ -333,7 +342,7 @@ fn vote() {
         let ballot_name = vec![0x01];
 
         let ballot_details = Ballot {
-            checkpoint_id: 2,
+            checkpoint_id: CheckpointId(2),
             voting_start: now,
             voting_end: now + now,
             motions: vec![motion1.clone(), motion2.clone()],
@@ -389,7 +398,10 @@ fn vote() {
             Error::NoCheckpoints
         );
 
-        assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
+        assert_ok!(Checkpoint::create_checkpoint(
+            token_owner_acc.clone(),
+            ticker,
+        ));
 
         assert_err!(
             Voting::vote(
@@ -401,7 +413,10 @@ fn vote() {
             Error::NoCheckpoints
         );
 
-        assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
+        assert_ok!(Checkpoint::create_checkpoint(
+            token_owner_acc.clone(),
+            ticker,
+        ));
 
         assert_err!(
             Voting::vote(

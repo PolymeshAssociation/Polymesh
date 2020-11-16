@@ -86,8 +86,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::GetCallMetadata,
-    weights::GetDispatchInfo,
+    traits::{Get, GetCallMetadata},
+    weights::{GetDispatchInfo, Weight},
     StorageDoubleMap, StorageValue,
 };
 use frame_system::ensure_signed;
@@ -193,6 +193,8 @@ decl_storage! {
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
+        /// The last transaction version, used for `on_runtime_upgrade`.
+        TransactionVersion get(fn transaction_version) config(): u32;
     }
 }
 
@@ -202,6 +204,24 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use sp_version::RuntimeVersion;
+            use polymesh_primitives::migrate::kill_item;
+
+            // Kill pending proposals if the transaction version is upgraded
+            let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+            let last_version = TransactionVersion::get();
+            if last_version < current_version {
+                TransactionVersion::set(current_version);
+                for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
+                    kill_item(b"MultiSig", item.as_bytes())
+                }
+            }
+
+            //TODO placeholder weight
+            1_000
+        }
 
         /// Creates a multisig
         ///
@@ -647,6 +667,8 @@ decl_event!(
         /// Event emitted when a proposal is rejected.
         /// Arguments: caller DID, multisig, proposal ID.
         ProposalRejected(IdentityId, AccountId, u64),
+        /// Event emitted when there's an error in proposal execution
+        ProposalExecutionFailed(DispatchError),
     }
 );
 
@@ -916,7 +938,7 @@ impl<T: Trait> Module<T> {
                 }
                 Err(e) => {
                     let e: DispatchError = e.error;
-                    sp_runtime::print(e);
+                    Self::deposit_event(RawEvent::ProposalExecutionFailed(e));
                     proposal_details.status = ProposalStatus::ExecutionFailed;
                     false
                 }

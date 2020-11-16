@@ -598,10 +598,10 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             // Larger goal here is to clear Governance V1.
             use frame_support::{
-                storage::{unhashed, IterableStorageDoubleMap, migration::StorageIterator},
+                storage::{IterableStorageDoubleMap, migration::StorageIterator},
                 traits::ReservableCurrency,
-                Twox128, StorageHasher
             };
+            use polymesh_primitives::migrate::kill_item;
 
             // 1. Start with refunding all deposits.
             // As we've `drain`ed  `Deposits`, we need not do so again below.
@@ -630,14 +630,8 @@ decl_module! {
             PipIdSequence::kill();
 
             // 2c) Remove items no longer used in V2.
-            fn storage_value_final_key(module: &[u8], item: &[u8]) -> [u8; 32] {
-                let mut final_key = [0u8; 32];
-                final_key[0..16].copy_from_slice(&Twox128::hash(module));
-                final_key[16..32].copy_from_slice(&Twox128::hash(item));
-                final_key
-            }
             for item in &["ProposalDuration", "QuorumThreshold"] {
-                unhashed::kill(&storage_value_final_key(b"Pips", item.as_bytes()));
+                kill_item(b"Pips", item.as_bytes());
             }
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.

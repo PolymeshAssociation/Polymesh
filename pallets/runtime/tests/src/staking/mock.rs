@@ -45,7 +45,7 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
-    PortfolioId, ScopeId, Signatory, Ticker,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -197,6 +197,7 @@ impl_outer_dispatch! {
         staking::Staking,
         pallet_pips::Pips,
         frame_system::System,
+        pallet_scheduler::Scheduler,
     }
 }
 
@@ -364,6 +365,7 @@ impl protocol_fee::Trait for Test {
     type Event = MetaEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl IdentityTrait for Test {
@@ -507,7 +509,7 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
-impl PortfolioSubTrait<Balance> for Test {
+impl PortfolioSubTrait<Balance, AccountId> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
@@ -520,6 +522,14 @@ impl PortfolioSubTrait<Balance> for Test {
     }
 
     fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn ensure_portfolio_custody_and_permission(
+        _: PortfolioId,
+        _: IdentityId,
+        _: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -636,10 +646,27 @@ impl Trait for Test {
     type UnsignedPriority = UnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Test {
+    type Event = MetaEvent;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
 }
 
@@ -1546,7 +1573,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-pub fn make_account(
+pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000)
@@ -1650,4 +1677,16 @@ pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+pub fn run_to_block_scheduler(n: u64) {
+    while System::block_number() < n {
+        Staking::on_finalize(System::block_number());
+        Scheduler::on_finalize(System::block_number());
+        System::set_block_number(System::block_number() + 1);
+        Scheduler::on_initialize(System::block_number());
+        Session::on_initialize(System::block_number());
+        Staking::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+    }
 }

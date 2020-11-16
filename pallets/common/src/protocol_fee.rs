@@ -38,6 +38,8 @@ pub enum ProtocolOp {
     PipsPropose,
     VotingAddBallot,
     ContractsPutCode,
+    BallotAttachBallot,
+    DistributionDistribute,
 }
 
 /// Common interface to protocol fees for runtime modules.

@@ -36,7 +36,7 @@ mod count_transfer_manager {
     pub type Counter = u64;
 
     #[cfg(not(feature = "ink-as-dependency"))]
-    use ink_core::storage::lazy::Lazy;
+    use ink_storage::lazy::Lazy;
 
     /// Event emitted when maximum holders set
     #[ink(event)]
@@ -134,12 +134,12 @@ mod count_transfer_manager {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-        use ink_core::env::{call, test};
-        type Accounts = test::DefaultAccounts<EnvTypes>;
+        use ink_env::{call, test};
+        type Accounts = test::DefaultAccounts<ink_env::DefaultEnvironment>;
         const CALLEE: [u8; 32] = [7; 32];
 
         fn set_sender(sender: AccountId) {
-            test::push_execution_context::<EnvTypes>(
+            test::push_execution_context::<ink_env::DefaultEnvironment>(
                 sender,
                 CALLEE.into(),
                 1000000,

@@ -3596,6 +3596,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-timestamp",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-trie",
  "structopt",
@@ -3698,6 +3699,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-grandpa",
  "pallet-indices",
+ "pallet-permissions",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
@@ -4077,8 +4079,11 @@ name = "pallet-compliance-manager"
 version = "0.1.0"
 dependencies = [
  "either",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-permissions",
  "pallet-timestamp",
@@ -4194,6 +4199,7 @@ dependencies = [
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -4378,6 +4384,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -4457,6 +4464,7 @@ dependencies = [
 name = "pallet-protocol-fee"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -4553,6 +4561,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-timestamp",
@@ -5619,9 +5628,11 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-compliance-manager",
  "pallet-corporate-actions",
  "pallet-identity",
  "pallet-portfolio",
+ "pallet-protocol-fee",
  "pallet-timestamp",
 ]
 

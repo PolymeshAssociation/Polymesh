@@ -27,7 +27,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::{DispatchResult, PostDispatchInfo},
+    dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
     traits::{Currency, EnsureOrigin, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
@@ -148,7 +148,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
-    type Portfolio: PortfolioSubTrait<Self::Balance>;
+    type Portfolio: PortfolioSubTrait<Self::Balance, Self::AccountId>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
@@ -171,8 +171,6 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type CorporateAction: IdentityToCorporateAction;
 }
 
-// rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation
-#[rustfmt::skip]
 decl_event!(
     pub enum Event<T>
     where
@@ -220,7 +218,7 @@ decl_event!(
             Option<AccountId>,
             u64,
             AuthorizationData<AccountId>,
-            Option<Moment>
+            Option<Moment>,
         ),
 
         /// Authorization revoked by the authorizer.
@@ -251,6 +249,9 @@ decl_event!(
 
         /// All Secondary keys of the identity ID are unfrozen.
         SecondaryKeysUnfrozen(IdentityId),
+
+        /// An unexpected error happened that should be investigated.
+        UnexpectedError(Option<DispatchError>),
     }
 );
 

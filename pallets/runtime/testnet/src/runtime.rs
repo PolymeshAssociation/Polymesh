@@ -10,12 +10,14 @@ use frame_support::{
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use frame_system::EnsureRoot;
-use pallet_asset as asset;
+use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_corporate_actions::ballot as pallet_corporate_ballot;
+use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -100,15 +102,15 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
-    authoring_version: 1,
+    authoring_version: 0,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2000,
+    spec_version: 0,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
+    transaction_version: 0,
 };
 
 /// Native version.
@@ -289,6 +291,7 @@ impl protocol_fee::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 parameter_types! {
@@ -366,7 +369,7 @@ parameter_types! {
     pub const BondingDuration: pallet_staking::EraIndex = 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
@@ -399,6 +402,8 @@ impl pallet_staking::Trait for Runtime {
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
 }
 
@@ -565,7 +570,6 @@ parameter_types! {
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
@@ -659,7 +663,6 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const MinCheckpointDurationSecs: u64 = 60 * 60 * 24 * 7;
 }
 
 impl asset::Trait for Runtime {
@@ -668,7 +671,6 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
-    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {
@@ -678,6 +680,7 @@ parameter_types! {
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 
@@ -801,7 +804,7 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
-        MultiSig: multisig::{Module, Call, Storage, Event<T>},
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>},
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
@@ -838,6 +841,9 @@ construct_runtime!(
         Permissions: pallet_permissions::{Module},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
     }
 );
 

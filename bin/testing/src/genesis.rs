@@ -101,9 +101,27 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         }),
         pallet_staking: Some(StakingConfig {
             stakers: vec![
-                (dave(), alice(), 111 * DOLLARS, StakerStatus::Validator),
-                (eve(), bob(), 100 * DOLLARS, StakerStatus::Validator),
-                (ferdie(), charlie(), 100 * DOLLARS, StakerStatus::Validator),
+                (
+                    IdentityId::from(3),
+                    dave(),
+                    alice(),
+                    111 * DOLLARS,
+                    StakerStatus::Validator,
+                ),
+                (
+                    IdentityId::from(4),
+                    eve(),
+                    bob(),
+                    100 * DOLLARS,
+                    StakerStatus::Validator,
+                ),
+                (
+                    IdentityId::from(5),
+                    ferdie(),
+                    charlie(),
+                    100 * DOLLARS,
+                    StakerStatus::Validator,
+                ),
             ],
             validator_count: 3,
             minimum_validator_count: 0,
@@ -171,5 +189,7 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         committee_Instance4: Some(Default::default()),
         protocol_fee: Some(Default::default()),
         settlement: Some(Default::default()),
+        checkpoint: Some(Default::default()),
+        multisig: Some(Default::default()),
     }
 }
