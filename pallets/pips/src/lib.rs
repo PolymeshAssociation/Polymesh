@@ -1305,6 +1305,7 @@ impl<T: Trait> Module<T> {
 
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
+        <PipToSchedule<T>>::remove(id);
         if let Err(_) = T::Scheduler::cancel_named(Self::pip_expiry_name(id)) {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
