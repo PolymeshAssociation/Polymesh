@@ -583,7 +583,11 @@ decl_error! {
         /// Tried to enact results for the snapshot queue overflowing its length.
         SnapshotResultTooLarge,
         /// Tried to enact result for PIP with id different from that at the position in the queue.
-        SnapshotIdMismatch
+        SnapshotIdMismatch,
+        /// Execution of a scheduled proposal failed because it is missing.
+        ScheduledProposalDoesntExist,
+        /// A proposal that is not in a scheduled state cannot be executed.
+        ProposalNotInScheduledState,
     }
 }
 
@@ -1201,7 +1205,7 @@ decl_module! {
         fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
-            Ok(Some(Self::execute_proposal(id)).into())
+            Self::execute_proposal(id)
         }
 
         /// Internal dispatchable that handles expiration of a PIP.
@@ -1397,15 +1401,19 @@ impl<T: Trait> Module<T> {
 
     /// Execute the PIP given by `id`.
     /// Panics if the PIP doesn't exist or isn't scheduled.
-    fn execute_proposal(id: PipId) -> Weight {
-        let proposal = Self::proposals(id).expect("PIP was scheduled but doesn't exist");
-        assert_eq!(proposal.state, ProposalState::Scheduled);
+    fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
+        let proposal =
+            Self::proposals(id).ok_or_else(|| Error::<T>::ScheduledProposalDoesntExist)?;
+        ensure!(
+            proposal.state == ProposalState::Scheduled,
+            Error::<T>::ProposalNotInScheduledState
+        );
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
         let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::maybe_prune(did, id, new_state);
-        weight.unwrap_or(0)
+        Ok(Some(weight.unwrap_or(0)).into())
     }
 
     /// Update the proposal state of `did` setting it to `new_state`.
