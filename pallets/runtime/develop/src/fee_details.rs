@@ -61,7 +61,6 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
     /// However, this does not set the payer context since that is meant to remain constant
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(call: &Call, caller: &AccountId) -> ValidPayerResult {
-        sp_runtime::print("here");
         let missing_id = || {
             Err(InvalidTransaction::Custom(
                 TransactionError::MissingIdentity as u8,
@@ -101,7 +100,6 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             // Call made by a new Account key to remove invitation for certain authorizations
             // in an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::remove_authorization(_, auth_id, true)) => {
-                sp_runtime::print("there");
                 is_auth_valid(caller, auth_id, CallType::RemoveAuthorization)
             }
             // Call made by an Account key to propose or approve a multisig transaction.

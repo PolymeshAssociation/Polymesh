@@ -6,6 +6,7 @@ use frame_support::{assert_err, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use polymesh_common_utilities::Context;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
@@ -41,9 +42,6 @@ fn cdd_checks() {
             let charlie_account_signatory =
                 Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
 
-            let _musig_address =
-                MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
-
             // register did bypasses cdd checks
             assert_eq!(
                 CddHandler::get_valid_payer(
@@ -56,6 +54,9 @@ fn cdd_checks() {
                 Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))
             );
 
+            // reset current identity context which is set as a side effect of get_valid_payer
+            Context::set_current_identity::<Identity>(None);
+
             // normal tx without cdd should fail
             assert_err!(
                 CddHandler::get_valid_payer(
@@ -64,6 +65,9 @@ fn cdd_checks() {
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
+
+            // reset current identity context which is set as a side effect of get_valid_payer
+            Context::set_current_identity::<Identity>(None);
 
             // call to accept being a multisig signer should fail when invalid auth
             assert_err!(
@@ -89,6 +93,9 @@ fn cdd_checks() {
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
+
+            // reset current identity context which is set as a side effect of get_valid_payer
+            Context::set_current_identity::<Identity>(None);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
             assert_err!(
@@ -117,11 +124,9 @@ fn cdd_checks() {
             );
 
             // check that authorisation can be removed correctly
-            let _musig_address2 =
-                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![Signatory::Account(AccountKeyring::Alice.public())],
+                vec![alice_key_signatory],
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
@@ -152,15 +157,29 @@ fn cdd_checks() {
                 Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
 
-            // create an authorisation where the target has a CDD claim
-            let _musig_address3 =
-                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
+            // reset current identity context which is set as a side effect of get_valid_payer
+            Context::set_current_identity::<Identity>(None);
+
+            // create an authorisation where the target has a CDD claim and the issuer does not
             assert_ok!(MultiSig::create_multisig(
-                charlie_signed.clone(),
+                alice_signed.clone(),
                 vec![Signatory::Account(AccountKeyring::Charlie.public())],
                 1,
             ));
             let charlie_auth_id = get_last_auth_id(&charlie_key_signatory);
+
+            // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
+            assert_err!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        charlie_account_signatory.clone(),
+                        charlie_auth_id,
+                        true
+                    )),
+                    &charlie_account
+                ),
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+            );
 
             // call to remove authorisation with caller paying should succeed as caller has CDD
             assert_eq!(
@@ -175,10 +194,11 @@ fn cdd_checks() {
                 Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
 
+            // reset current identity context which is set as a side effect of get_valid_payer
+            Context::set_current_identity::<Identity>(None);
+
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
             // fee must be paid by multisig creator
-            let _musig_address4 =
-                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
                 vec![Signatory::Account(AccountKeyring::Alice.public())],
