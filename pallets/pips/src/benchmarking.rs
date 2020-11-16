@@ -47,62 +47,51 @@ benchmarks! {
     }
 
     set_min_proposal_deposit {
-        let b in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-        let deposit = b.into();
+        let deposit = 0.into();
     }: _(origin, deposit)
     verify {
         assert_eq!(deposit, MinimumProposalDeposit::<T>::get());
     }
 
     set_proposal_cool_off_period {
-        let b in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-        let period = b.into();
+        let period = 0.into();
     }: _(origin, period)
     verify {
         assert_eq!(period, ProposalCoolOffPeriod::<T>::get());
     }
 
     set_default_enactment_period {
-        let b in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-        let period = b.into();
+        let period = 0.into();
     }: _(origin, period)
     verify {
         assert_eq!(period, DefaultEnactmentPeriod::<T>::get());
     }
 
     set_pending_pip_expiry {
-        let b in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-        let maybe_block = MaybeBlock::Some(b.into());
+        let maybe_block = MaybeBlock::Some(0.into());
     }: _(origin, maybe_block)
     verify {
         assert_eq!(maybe_block, PendingPipExpiry::<T>::get());
     }
 
     set_max_pip_skip_count {
-        let n in 0 .. 255;
-
         let origin = RawOrigin::Root;
-        let count = n.try_into().unwrap();
+        let count = 0.try_into().unwrap();
     }: _(origin, count)
     verify {
         assert_eq!(count, MaxPipSkipCount::get());
     }
 
     set_active_pip_limit {
-        let n in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-    }: _(origin, n)
+        let pip_limit = 0;
+    }: _(origin, pip_limit)
     verify {
-        assert_eq!(n, ActivePipLimit::get());
+        assert_eq!(pip_limit, ActivePipLimit::get());
     }
 
     propose_from_community {
@@ -193,7 +182,8 @@ benchmarks! {
         //
         // TODO: The backend produces n - 1 samples of `1` and 1 sample of `0` for any n. This has
         // to be fixed since the number of `0` and `1` samples should be roughly the same.
-        let v in 0 .. 1;
+        // let v in 0 .. 1;
+        let aye_or_nay = true;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -209,7 +199,7 @@ benchmarks! {
         let (account, origin, did) = make_account::<T>("voter", 0);
         identity::CurrentDid::put(did);
         let voter_deposit = 43.into();
-    }: _(origin, 0, v != 0, voter_deposit)
+    }: _(origin, 0, aye_or_nay, voter_deposit)
     verify {
         assert_eq!(voter_deposit, Deposits::<T>::get(0, &account).amount);
     }
