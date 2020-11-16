@@ -22,6 +22,8 @@ use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
+use pallet_corporate_actions::ballot as corporate_ballots;
+use pallet_corporate_actions::distribution as capital_distributions;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -136,6 +138,8 @@ impl_outer_event! {
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
+        corporate_ballots<T>,
+        capital_distributions<T>,
         checkpoint<T>,
     }
 }
@@ -158,7 +162,7 @@ type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
 type Event = EventTest;
 type Version = ();
-type Balance = u128;
+crate type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -299,7 +303,6 @@ parameter_types! {
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type Asset = asset::Module<TestStorage>;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
@@ -471,10 +474,17 @@ impl statistics::Trait for TestStorage {}
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;
+    pub const MaxDefaultTrustedClaimIssuers: usize = 10;
+    pub const MaxTrustedIssuerPerCondition: usize = 10;
+    pub const MaxSenderConditionsPerCompliance: usize = 30;
+    pub const MaxReceiverConditionsPerCompliance: usize = 30;
+    pub const MaxCompliancePerRequirement: usize = 10;
+
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 
@@ -482,6 +492,7 @@ impl protocol_fee::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = DealWithFees<TestStorage>;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl portfolio::Trait for TestStorage {

@@ -190,21 +190,6 @@ pub struct BridgeTxDetail<Balance, BlockNumber> {
     pub tx_hash: H256,
 }
 
-/// The status of a handled transaction for reporting purposes.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum HandledTxStatus {
-    /// The transaction has been successfully handled.
-    Success,
-    /// Handling the transaction has failed, with the encoding of the error.
-    Error(Vec<u8>),
-}
-
-impl Default for HandledTxStatus {
-    fn default() -> Self {
-        HandledTxStatus::Success
-    }
-}
-
 pub mod weight_for {
     use super::Trait;
     use frame_support::{traits::Get, weights::Weight};
@@ -383,10 +368,6 @@ decl_event! {
         ExemptedUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
-        /// An event emitted after a vector of transactions is handled. The parameter is a vector of
-        /// nonces of all processed transactions, each with either the "success" code 0 or its
-        /// failure reason (greater than 0).
-        TxsHandled(Vec<(u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
@@ -821,7 +802,7 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            sp_runtime::print(e);
+            <Identity<T>>::emit_unexpected_error(Some(e));
         } else {
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
             Self::deposit_event(RawEvent::BridgeTxScheduled(

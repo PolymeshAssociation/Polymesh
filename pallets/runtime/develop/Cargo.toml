@@ -188,9 +188,11 @@ runtime-benchmarks = [
     "pallet-multisig/runtime-benchmarks",
     "pallet-im-online/runtime-benchmarks",
     "pallet-portfolio/runtime-benchmarks",
+    "pallet-protocol-fee/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
+    "pallet-compliance-manager/runtime-benchmarks",
     #"polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

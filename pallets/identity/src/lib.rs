@@ -90,7 +90,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
+    StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_permissions::with_call_metadata;
@@ -142,12 +142,6 @@ pub struct Claim1stKey {
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim2ndKeyOld {
-    pub issuer: IdentityId,
-    pub scope: Option<IdentityId>,
 }
 
 decl_storage! {
@@ -260,30 +254,10 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
-                identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map, Empty},
+                migrate::{migrate_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
-
-            // Rename "master" to "primary".
-            <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
-
-            migrate_map::<IdentityClaimOld, _>(b"identity", b"Claims", |raw_key| {
-                Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
-                    .ok()
-                    .map(|k1| (*k1.target.as_fixed_bytes()).into())
-            });
-
-            // Covert old scopes to new scopes
-            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"identity", b"Claims",
-                |k1: Claim1stKey, k2: Claim2ndKeyOld, val: IdentityClaim| Some((
-                    k1,
-                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) },
-                    val
-                ))
-            );
 
             migrate_map::<LinkedKeyInfo, _>(
                 b"identity",
@@ -2097,6 +2071,11 @@ impl<T: Trait> Module<T> {
             secondary_keys,
             Some(ProtocolOp::IdentityCddRegisterDid),
         )
+    }
+
+    /// Emit an unexpected error event that should be investigated manually
+    pub fn emit_unexpected_error(error: Option<DispatchError>) {
+        Self::deposit_event(RawEvent::UnexpectedError(error));
     }
 
     #[cfg(feature = "runtime-benchmarks")]

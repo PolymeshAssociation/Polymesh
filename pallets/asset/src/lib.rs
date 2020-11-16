@@ -103,7 +103,9 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
+    asset::{
+        AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
+    },
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -113,10 +115,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     calendar::CheckpointId, AssetIdentifier, AuthorizationData, Document, DocumentId, DocumentName,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -153,27 +154,6 @@ pub trait Trait:
     type UnixTime: UnixTime;
 }
 
-/// The type of an asset represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum AssetType {
-    EquityCommon,
-    EquityPreferred,
-    Commodity,
-    FixedIncome,
-    REIT,
-    Fund,
-    RevenueShareAgreement,
-    StructuredProduct,
-    Derivative,
-    Custom(Vec<u8>),
-}
-
-impl Default for AssetType {
-    fn default() -> Self {
-        AssetType::Custom(b"undefined".to_vec())
-    }
-}
-
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
@@ -185,22 +165,6 @@ pub enum AssetOwnershipRelation {
 impl Default for AssetOwnershipRelation {
     fn default() -> Self {
         Self::NotOwned
-    }
-}
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
-pub struct FundingRoundName(pub Vec<u8>);
-
-impl Default for FundingRoundName {
-    fn default() -> Self {
-        FundingRoundName("".as_bytes().to_vec())
     }
 }
 
@@ -403,7 +367,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            Identifiers::remove_all();
 
             // Migrate `AssetDocuments`.
             use frame_support::Blake2_128Concat;
@@ -503,7 +466,11 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let PermissionedCallOriginData {
+                primary_did: did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             Self::ensure_create_asset_parameters(&ticker, total_supply)?;
 
             // Ensure its registered by DID or at least expired, thus available.
@@ -521,6 +488,10 @@ decl_module! {
             // Ensure there's no pre-existing entry for the DID.
             // This should never happen, but let's be defensive here.
             Identity::<T>::ensure_no_id_record(token_did)?;
+
+            // Ensure that the caller has relevant portfolio permissions
+            let user_default_portfolio = PortfolioId::default_portfolio(did);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(user_default_portfolio, did, secondary_key.as_ref())?;
 
             // Charge protocol fees.
             T::ProtocolFee::charge_fees(&{
@@ -595,7 +566,7 @@ decl_module! {
                 did,
                 ticker,
                 PortfolioId::default(),
-                PortfolioId::default_portfolio(did),
+                user_default_portfolio,
                 total_supply
             ));
             Self::deposit_event(RawEvent::Issued(
@@ -618,7 +589,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) {
             // Verify the ownership of the token
-            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            let sender_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             Self::ensure_asset_exists(&ticker)?;
             ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
             Frozen::insert(&ticker, true);
@@ -633,7 +604,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) {
             // Verify the ownership of the token
-            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            let sender_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             Self::ensure_asset_exists(&ticker)?;
             ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
             Frozen::insert(&ticker, false);
@@ -649,7 +620,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) {
             // Verify the ownership of the token
-            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            let sender_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             Self::ensure_asset_exists(&ticker)?;
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
             Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
@@ -667,11 +638,19 @@ decl_module! {
             let PermissionedCallOriginData {
                 sender,
                 primary_did,
-                ..
+                secondary_key
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            // Ensure that the secondary key has asset permission
+            Self::ensure_asset_perms(secondary_key.as_ref(), &ticker)?;
 
             // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let beneficiary = Self::ensure_pia_or_owner(&ticker, primary_did)?;
+
+            // Ensure that the caller has relevant portfolio permissions
+            let beneficiary_portfolio = PortfolioId::default_portfolio(beneficiary);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(beneficiary_portfolio, primary_did, secondary_key.as_ref())?;
+
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
@@ -688,7 +667,14 @@ decl_module! {
         /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let PermissionedCallOriginData {
+                primary_did: did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            // Ensure that the secondary key has asset permission
+            Self::ensure_asset_perms(secondary_key.as_ref(), &ticker)?;
 
             // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let pia = Self::ensure_pia_or_owner(&ticker, did)?;
@@ -699,9 +685,11 @@ decl_module! {
                 Error::<T>::InvalidGranularity
             );
 
-            // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
+            // Ensure that the caller has relevant portfolio permissions
             let pia_portfolio = PortfolioId::default_portfolio(pia);
+            Portfolio::<T>::ensure_portfolio_custody_and_permission(pia_portfolio, did, secondary_key.as_ref())?;
 
+            // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
             // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
             with_transaction(|| {
                 Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, &value)?;
@@ -750,7 +738,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             // Read the token details
             let mut token = Self::token_details(&ticker);
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
@@ -770,7 +758,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * docs.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(docs.len()).unwrap_or_default()]
         pub fn add_documents(origin, docs: Vec<Document>, ticker: Ticker) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             let len = docs.len();
             T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
 
@@ -794,7 +782,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * ids.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(ids.len()).unwrap_or_default()]
         pub fn remove_documents(origin, ids: Vec<DocumentId>, ticker: Ticker) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             for id in ids {
                 AssetDocuments::remove(ticker, id);
                 Self::deposit_event(RawEvent::DocumentRemoved(did, ticker, id));
@@ -809,7 +797,7 @@ decl_module! {
         /// * `name` - the desired name of the current funding round.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 600_000_000]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             FundingRound::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
         }
@@ -830,7 +818,7 @@ decl_module! {
             ticker: Ticker,
             identifiers: Vec<AssetIdentifier>
         ) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             let identifiers: Vec<AssetIdentifier> = identifiers
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
@@ -847,7 +835,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension.
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) {
-            let my_did = Self::ensure_perms_owner(origin, &ticker)?;
+            let my_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
@@ -912,7 +900,7 @@ decl_module! {
             origin,
             ticker: Ticker,
         ) {
-            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             let old_pia = <Tokens<T>>::mutate(&ticker, |t| mem::replace(&mut t.primary_issuance_agent, None));
             Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_pia, None));
         }
@@ -1138,10 +1126,12 @@ decl_error! {
         SenderSameAsReceiver,
         /// The given Document does not exist.
         NoSuchDoc,
+        /// The secondary key does not have the required Asset permission
+        SecondaryKeyNotAuthorizedForAsset
     }
 }
 
-impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
+impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     fn _mint_from_sto(
         ticker: &Ticker,
         caller: T::AccountId,
@@ -1182,10 +1172,6 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::token_details(ticker).primary_issuance_agent
     }
 
-    fn max_number_of_tm_extension() -> u32 {
-        T::MaxNumberOfTMExtensionForAsset::get()
-    }
-
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
@@ -1193,6 +1179,36 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    fn ensure_perms_owner_asset(
+        origin: T::Origin,
+        ticker: &Ticker,
+    ) -> Result<IdentityId, DispatchError> {
+        Self::ensure_perms_owner_asset(origin, ticker)
+    }
+
+    #[inline]
+    fn create_asset(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        Self::create_asset(
+            origin,
+            name,
+            ticker,
+            total_supply,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+        )
     }
 }
 
@@ -1238,6 +1254,11 @@ impl<T: Trait> AssetSubTrait for Module<T> {
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
 impl<T: Trait> Module<T> {
+    /// Returns the max number of extensions that can be attached to an asset
+    pub fn max_number_of_tm_extension() -> u32 {
+        T::MaxNumberOfTMExtensionForAsset::get()
+    }
+
     /// Ensure that `origin` is permissioned for this call and that its identity is `ticker`'s owner.
     pub fn ensure_perms_owner(
         origin: T::Origin,
@@ -1246,6 +1267,42 @@ impl<T: Trait> Module<T> {
         let did = Identity::<T>::ensure_perms(origin)?;
         Self::ensure_owner(ticker, did)?;
         Ok(did)
+    }
+
+    /// Ensure that `origin` is permissioned for this call, its identity is `ticker`'s owner and,
+    /// the secondary key has relevant asset permissions.
+    pub fn ensure_perms_owner_asset(
+        origin: T::Origin,
+        ticker: &Ticker,
+    ) -> Result<IdentityId, DispatchError> {
+        // Ensure that the caller has extrinsic permission.
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+        // Ensure that the caller's did is the owner of the token.
+        Self::ensure_owner(ticker, primary_did)?;
+
+        // Ensure that the secondary key has asset permission
+        Self::ensure_asset_perms(secondary_key.as_ref(), ticker)?;
+
+        Ok(primary_did)
+    }
+
+    /// Ensure that the secondary key has relevant asset permissions.
+    pub fn ensure_asset_perms(
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        if let Some(sk) = secondary_key {
+            ensure!(
+                sk.has_asset_permission(*ticker),
+                Error::<T>::SecondaryKeyNotAuthorizedForAsset
+            );
+        }
+        Ok(())
     }
 
     /// Ensure that `did` is the owner of `ticker`.
@@ -2069,7 +2126,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Self::ensure_perms_owner(origin, ticker)?;
+        let did = Self::ensure_perms_owner_asset(origin, ticker)?;
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),
             Error::<T>::NoSuchSmartExtension

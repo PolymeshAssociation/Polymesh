@@ -3,11 +3,11 @@ use super::{
     ExtBuilder,
 };
 
-use polymesh_common_utilities::traits::CommonTrait;
+use polymesh_common_utilities::{asset::AssetType, traits::CommonTrait};
 use polymesh_primitives::{calendar::CheckpointId, PortfolioId, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
-use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 

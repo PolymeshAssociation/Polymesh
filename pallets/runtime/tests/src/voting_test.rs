@@ -2,8 +2,9 @@ use super::{
     storage::{register_keyring_account, Checkpoint, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
+use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{calendar::CheckpointId, PortfolioId, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
