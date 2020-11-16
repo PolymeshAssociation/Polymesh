@@ -15,6 +15,7 @@ use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -27,15 +28,21 @@ fn cdd_checks() {
             // alice does not have cdd
             let (alice_signed, _) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
+            let alice_account = AccountId32::from(AccountKeyring::Alice.public().0);
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
-            let alice_account_signatory = AccountId32::from(AccountKeyring::Alice.public().0);
-            let _musig_address =
-                MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+            let alice_account_signatory =
+                Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            let charlie_account_signatory = AccountId32::from(AccountKeyring::Charlie.public().0);
+            let charlie_account = AccountId32::from(AccountKeyring::Charlie.public().0);
+            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
+            let charlie_account_signatory =
+                Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
+
+            let _musig_address =
+                MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // register did bypasses cdd checks
             assert_eq!(
@@ -44,7 +51,7 @@ fn cdd_checks() {
                         InvestorUid::default(),
                         Default::default()
                     )),
-                    &alice_account_signatory
+                    &alice_account
                 ),
                 Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))
             );
@@ -53,7 +60,7 @@ fn cdd_checks() {
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
-                    &alice_account_signatory
+                    &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
@@ -62,7 +69,7 @@ fn cdd_checks() {
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(0)),
-                    &alice_account_signatory
+                    &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
             );
@@ -78,13 +85,38 @@ fn cdd_checks() {
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_account_signatory
+                    &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
 
-            // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
-            // fee must be paid by multisig creator
+            // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
+            assert_err!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        alice_account_signatory.clone(),
+                        alice_auth_id,
+                        true
+                    )),
+                    &alice_account
+                ),
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+            );
+
+            // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
+            assert_err!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        alice_account_signatory.clone(),
+                        alice_auth_id,
+                        false
+                    )),
+                    &alice_account
+                ),
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+            );
+
+            // check that authorisation can be removed correctly
             let _musig_address2 =
                 MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
             assert_ok!(MultiSig::create_multisig(
@@ -93,10 +125,71 @@ fn cdd_checks() {
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
+
+            // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
+            assert_err!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        alice_account_signatory.clone(),
+                        alice_auth_id,
+                        false
+                    )),
+                    &alice_account
+                ),
+                InvalidTransaction::Custom(TransactionError::CddRequired as u8)
+            );
+
+            // call to remove authorisation with issuer paying should succeed as issuer has CDD
+            assert_eq!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        alice_account_signatory,
+                        alice_auth_id,
+                        true
+                    )),
+                    &alice_account
+                ),
+                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+            );
+
+            // create an authorisation where the target has a CDD claim
+            let _musig_address3 =
+                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
+            assert_ok!(MultiSig::create_multisig(
+                charlie_signed.clone(),
+                vec![Signatory::Account(AccountKeyring::Charlie.public())],
+                1,
+            ));
+            let charlie_auth_id = get_last_auth_id(&charlie_key_signatory);
+
+            // call to remove authorisation with caller paying should succeed as caller has CDD
+            assert_eq!(
+                CddHandler::get_valid_payer(
+                    &Call::Identity(identity::Call::remove_authorization(
+                        charlie_account_signatory,
+                        charlie_auth_id,
+                        false
+                    )),
+                    &charlie_account
+                ),
+                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+            );
+
+            // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
+            // fee must be paid by multisig creator
+            let _musig_address4 =
+                MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
+            assert_ok!(MultiSig::create_multisig(
+                charlie_signed.clone(),
+                vec![Signatory::Account(AccountKeyring::Alice.public())],
+                1,
+            ));
+            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
+
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_account_signatory
+                    &alice_account
                 ),
                 Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
@@ -105,7 +198,7 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
-                    &charlie_account_signatory
+                    &charlie_account
                 ),
                 Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
