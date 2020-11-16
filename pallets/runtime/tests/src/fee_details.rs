@@ -2,12 +2,12 @@ use super::{
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_ok, assert_noop};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_common_utilities::Context;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_common_utilities::Context;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -31,16 +31,14 @@ fn cdd_checks() {
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
             let alice_account = AccountId32::from(AccountKeyring::Alice.public().0);
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
-            let alice_account_signatory =
-                Signatory::Account(alice_account.clone());
+            let alice_account_signatory = Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account = AccountId32::from(AccountKeyring::Charlie.public().0);
             let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
-            let charlie_account_signatory =
-                Signatory::Account(charlie_account.clone());
+            let charlie_account_signatory = Signatory::Account(charlie_account.clone());
 
             // register did bypasses cdd checks
             assert_eq!(
