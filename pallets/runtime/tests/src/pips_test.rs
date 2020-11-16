@@ -88,6 +88,24 @@ macro_rules! assert_last_event {
     };
 }
 
+macro_rules! assert_event_exists {
+    ($event:pat) => {
+        assert_event_exists!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
+}
+
 macro_rules! assert_bad_origin {
     ($e:expr) => {
         assert_noop!($e, DispatchError::BadOrigin);
@@ -173,10 +191,10 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
 }
 
 fn fast_forward_to(n: u64) {
-    let block_number = System::block_number();
-    (block_number..n).for_each(|block| {
-        let _ = Scheduler::on_initialize(block);
-        System::set_block_number(block + 1);
+    let next_block = System::block_number() + 1;
+    (next_block..n).for_each(|block| {
+        System::set_block_number(block);
+        Scheduler::on_initialize(block);
     });
 }
 
@@ -1125,6 +1143,10 @@ fn scheduled_proposal(signer: &Origin, deposit: u128) -> PipId {
         gc_vmo(),
         vec![(next_id, SnapshotResult::Approve)]
     ));
+    assert_event_exists!(
+        EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Scheduled(b, ..)),
+        *b == System::block_number() + Pips::default_enactment_period()
+    );
     assert_state(next_id, false, ProposalState::Scheduled);
     assert_eq!(Pips::active_pip_count(), active);
     next_id
