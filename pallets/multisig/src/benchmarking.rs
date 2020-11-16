@@ -17,7 +17,7 @@
 use crate::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use pallet_identity::benchmarking::{make_account, make_account_without_did};
+use pallet_identity::benchmarking::make_account;
 
 const SEED: u32 = 0;
 
@@ -32,7 +32,7 @@ fn generate_signers<T: Trait>(n: usize) -> Vec<Signatory<T::AccountId>> {
     secondary_keys
 }
 
-pub fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
+fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
     <identity::Authorizations<T>>::iter_prefix_values(signatory)
         .into_iter()
         .max_by_key(|x| x.auth_id)
@@ -40,76 +40,109 @@ pub fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
         .auth_id
 }
 
+fn generate_multisig<T: Trait>(
+    alice: T::AccountId,
+    origin: T::Origin,
+    alice_did: IdentityId,
+    alice_sig: Signatory<T::AccountId>,
+) -> Result<T::AccountId, DispatchError> {
+    generate_multisig_with_signers::<T>(
+        alice,
+        origin,
+        alice_did,
+        alice_sig.clone(),
+        vec![alice_sig.clone()],
+    )
+}
+
+fn generate_multisig_rand_signers<T: Trait>(
+    alice: T::AccountId,
+    origin: T::Origin,
+    alice_did: IdentityId,
+    alice_sig: Signatory<T::AccountId>,
+    signers: usize,
+) -> Result<T::AccountId, DispatchError> {
+    let mut signers = generate_signers::<T>(signers);
+    *signers.first_mut().unwrap() = alice_sig.clone();
+    generate_multisig_with_signers::<T>(alice, origin, alice_did, alice_sig, signers)
+}
+
+fn generate_multisig_with_signers<T: Trait>(
+    alice: T::AccountId,
+    origin: T::Origin,
+    alice_did: IdentityId,
+    alice_sig: Signatory<T::AccountId>,
+    signers: Vec<Signatory<T::AccountId>>,
+) -> Result<T::AccountId, DispatchError> {
+    let multisig = <MultiSig<T>>::get_next_multisig_address(alice.clone());
+    <MultiSig<T>>::create_multisig(origin.clone(), signers, 1)?;
+    let alice_auth_id = get_last_auth_id::<T>(&alice_sig);
+    Context::set_current_identity::<Identity<T>>(Some(alice_did));
+    match alice_sig {
+        Signatory::Identity(_) => {
+            <MultiSig<T>>::accept_multisig_signer_as_identity(origin.clone(), alice_auth_id)?;
+        }
+        Signatory::Account(_) => {
+            <MultiSig<T>>::accept_multisig_signer_as_key(origin.clone(), alice_auth_id)?;
+        }
+    }
+    Ok(multisig)
+}
+
 benchmarks! {
     _ {}
 
     create_multisig {
-        // Number of secondary keys
+        // Number of signers
         let i in 1 .. 256;
 
         let (caller, origin, _) = make_account::<T>("caller", SEED);
-        let mut signers = generate_signers::<T>(i as usize);
+        let signers = generate_signers::<T>(i as usize);
     }: _(origin, signers, i as u64)
 
     create_or_approve_proposal_as_identity {
+        // Number of signers
+        let i in 1 .. 256;
+
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice_did));
-        Context::set_current_identity::<Identity<T>>(Some(alice_did));
-        <MultiSig<T>>::accept_multisig_signer_as_identity(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::from(alice_did);
+        let multisig = generate_multisig_rand_signers::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig, i as usize)?;
     }: _(origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_or_approve_proposal_as_key {
+        // Number of signers
+        let i in 1 .. 256;
+
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice));
-        <MultiSig<T>>::accept_multisig_signer_as_key(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::Account(alice.clone());
+        let multisig = generate_multisig_rand_signers::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig, i as usize)?;
     }: _(origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_proposal_as_identity {
+        // Number of signers
+        let i in 1 .. 256;
+
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice_did));
-        Context::set_current_identity::<Identity<T>>(Some(alice_did));
-        <MultiSig<T>>::accept_multisig_signer_as_identity(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::from(alice_did);
+        let multisig = generate_multisig_rand_signers::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig, i as usize)?;
     }: _(origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_proposal_as_key {
+        // Number of signers
+        let i in 1 .. 256;
+
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice));
-        <MultiSig<T>>::accept_multisig_signer_as_key(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::Account(alice.clone());
+        let multisig = generate_multisig_rand_signers::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig, i as usize)?;
     }: _(origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     approve_as_identity {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice_did));
-        Context::set_current_identity::<Identity<T>>(Some(alice_did));
-        <MultiSig<T>>::accept_multisig_signer_as_identity(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::from(alice_did);
+        let multisig = generate_multisig::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig)?;
         <MultiSig<T>>::create_proposal_as_identity(
             origin.clone().into(),
-            multisig,
+            multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
             None,
             true
@@ -118,16 +151,11 @@ benchmarks! {
 
     approve_as_key {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice));
-        <MultiSig<T>>::accept_multisig_signer_as_key(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::Account(alice.clone());
+        let multisig = generate_multisig::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig)?;
         <MultiSig<T>>::create_proposal_as_key(
             origin.clone().into(),
-            multisig,
+            multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
             None,
             true
@@ -136,17 +164,11 @@ benchmarks! {
 
     reject_as_identity {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice_did));
-        Context::set_current_identity::<Identity<T>>(Some(alice_did));
-        <MultiSig<T>>::accept_multisig_signer_as_identity(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::from(alice_did);
+        let multisig = generate_multisig::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig)?;
         <MultiSig<T>>::create_proposal_as_identity(
             origin.clone().into(),
-            multisig,
+            multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
             None,
             true
@@ -155,16 +177,11 @@ benchmarks! {
 
     reject_as_key {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice));
-        <MultiSig<T>>::accept_multisig_signer_as_key(
-            origin.clone().into(),
-            alice_auth_id
-        )?;
+        let alice_sig = Signatory::Account(alice.clone());
+        let multisig = generate_multisig::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig)?;
         <MultiSig<T>>::create_proposal_as_key(
             origin.clone().into(),
-            multisig,
+            multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
             None,
             true
@@ -173,7 +190,7 @@ benchmarks! {
 
     accept_multisig_signer_as_identity {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
+        let multisig = <MultiSig<T>>::get_next_multisig_address(alice.clone());
         <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
         let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice_did));
         Context::set_current_identity::<Identity<T>>(Some(alice_did));
@@ -181,9 +198,9 @@ benchmarks! {
 
     accept_multisig_signer_as_key {
         let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
-        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
-        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice)], 1)?;
-        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice));
+        let multisig = <MultiSig<T>>::get_next_multisig_address(alice.clone());
+        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::Account(alice.clone())], 1)?;
+        let alice_auth_id = get_last_auth_id::<T>(&Signatory::Account(alice.clone()));
     }: _(origin, alice_auth_id)
 
     add_multisig_signer {
