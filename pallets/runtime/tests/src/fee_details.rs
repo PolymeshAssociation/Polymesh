@@ -2,7 +2,7 @@ use super::{
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_ok, assert_noop};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -32,7 +32,7 @@ fn cdd_checks() {
             let alice_account = AccountId32::from(AccountKeyring::Alice.public().0);
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
             let alice_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
+                Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
@@ -40,7 +40,7 @@ fn cdd_checks() {
             let charlie_account = AccountId32::from(AccountKeyring::Charlie.public().0);
             let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
             let charlie_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
+                Signatory::Account(charlie_account.clone());
 
             // register did bypasses cdd checks
             assert_eq!(
@@ -58,7 +58,7 @@ fn cdd_checks() {
             Context::set_current_identity::<Identity>(None);
 
             // normal tx without cdd should fail
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
                     &alice_account
@@ -70,7 +70,7 @@ fn cdd_checks() {
             Context::set_current_identity::<Identity>(None);
 
             // call to accept being a multisig signer should fail when invalid auth
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(0)),
                     &alice_account
@@ -86,7 +86,7 @@ fn cdd_checks() {
             ));
 
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
                     &alice_account
@@ -98,7 +98,7 @@ fn cdd_checks() {
             Context::set_current_identity::<Identity>(None);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::Identity(identity::Call::remove_authorization(
                         alice_account_signatory.clone(),
@@ -111,7 +111,7 @@ fn cdd_checks() {
             );
 
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::Identity(identity::Call::remove_authorization(
                         alice_account_signatory.clone(),
@@ -132,7 +132,7 @@ fn cdd_checks() {
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
 
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::Identity(identity::Call::remove_authorization(
                         alice_account_signatory.clone(),
@@ -169,7 +169,7 @@ fn cdd_checks() {
             let charlie_auth_id = get_last_auth_id(&charlie_key_signatory);
 
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
-            assert_err!(
+            assert_noop!(
                 CddHandler::get_valid_payer(
                     &Call::Identity(identity::Call::remove_authorization(
                         charlie_account_signatory.clone(),
