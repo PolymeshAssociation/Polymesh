@@ -9,7 +9,7 @@ use super::{
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    traits::{LockableCurrency, OnInitialize, WithdrawReasons},
+    traits::{LockableCurrency, WithdrawReasons},
     StorageDoubleMap, StorageMap,
 };
 use frame_system::{self, EventRecord};
@@ -188,14 +188,6 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
     for signer in signers.iter().copied().cloned() {
         assert_ok!(Committee::vote_or_propose(signer, true, call.clone()));
     }
-}
-
-fn fast_forward_to(n: u64) {
-    let next_block = System::block_number() + 1;
-    (next_block..n).for_each(|block| {
-        System::set_block_number(block);
-        Scheduler::on_initialize(block);
-    });
 }
 
 fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
