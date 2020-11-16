@@ -1306,7 +1306,7 @@ impl<T: Trait> Module<T> {
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
         <PipToSchedule<T>>::remove(id);
-        if let Err(_) = T::Scheduler::cancel_named(Self::pip_expiry_name(id)) {
+        if let Err(_) = T::Scheduler::cancel_named(Self::pip_execution_name(id)) {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
     }
@@ -1451,7 +1451,7 @@ impl<T: Trait> Module<T> {
     /// Decrement active proposal count if `state` signifies it is active.
     fn decrement_count_if_active(state: ProposalState) {
         if Self::is_active(state) {
-            ActivePipCount::mutate(|count| *count -= 1);
+            ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
     }
 

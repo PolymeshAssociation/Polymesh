@@ -106,6 +106,24 @@ macro_rules! assert_event_exists {
     };
 }
 
+macro_rules! assert_event_absent {
+    ($event:pat) => {
+        assert_event_absent!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert_eq!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }), false);
+    };
+}
+
 macro_rules! assert_bad_origin {
     ($e:expr) => {
         assert_noop!($e, DispatchError::BadOrigin);
@@ -1507,7 +1525,10 @@ fn reject_proposal_will_unschedule() {
             assert_eq!(1, Agenda::get(scheduled_at).len());
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
-            assert_eq!(0, Agenda::get(scheduled_at).len());
+            assert_eq!(
+                1, /* the Agenda vec item is None */
+                Agenda::get(scheduled_at).len()
+            );
         };
 
         // Test snapshot method.
@@ -1625,14 +1646,26 @@ fn reschedule_execution_works() {
 
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, None));
+        assert_event_exists!(EventTest::pallet_scheduler(
+            pallet_scheduler::RawEvent::Canceled(..)
+        ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
-        assert_eq!(0, Agenda::get(scheduled_at).len());
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(scheduled_at).len()
+        );
         assert_eq!(1, Agenda::get(next).len());
 
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, Some(next + 50)));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert_eq!(0, Agenda::get(scheduled_at).len());
-        assert_eq!(0, Agenda::get(next).len());
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(scheduled_at).len()
+        );
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(next).len()
+        );
         assert_eq!(1, Agenda::get(next + 50).len());
     });
 }
