@@ -208,7 +208,7 @@ pub enum CAKind {
 
 impl CAKind {
     /// Is this some sort of benefit CA?
-    fn is_benefit(&self) -> bool {
+    pub fn is_benefit(&self) -> bool {
         matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
     }
 }
@@ -441,7 +441,7 @@ decl_module! {
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
 
-            // Dedup any DIDs in `targets` to optimize iteration later.
+            // Dedup + sort any DIDs in `targets` for `O(log n)` containment check later.
             let new = targets.dedup();
 
             // Commit + emit event.

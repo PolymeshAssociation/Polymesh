@@ -181,6 +181,9 @@ decl_module! {
             // Ensure `now <= payment_at`.
             ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
+            // Ensure CA doesn't have a distribution yet.
+            ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
+
             // Ensure origin is CAA and that they have custody over `from`.
             // Also ensure secondary key has perms for `from` + portfolio is valid.
             let PermissionedCallOriginData {
@@ -370,6 +373,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// A corporate ballot was made for a non-benefit CA.
         CANotBenefit,
+        /// A distribution already exists for this CA.
+        AlreadyExists,
         /// The amount to distribute was less than available in the CAAs provided portfolio.
         InsufficientFunds,
         /// A distributions provided expiry date was strictly before its payment date.
