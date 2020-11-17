@@ -1096,7 +1096,7 @@
         "CorporateAction": {
             "kind": "CAKind",
             "record_date": "Option<RecordDate>",
-            "details": "String",
+            "details": "Text",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
             "withholding_tax": "Vec<(IdentityId, Tax)>"
