@@ -48,7 +48,7 @@ benchmarks! {
 
     set_min_proposal_deposit {
         let origin = RawOrigin::Root;
-        let deposit = 0.into();
+        let deposit = 42.into();
     }: _(origin, deposit)
     verify {
         assert_eq!(deposit, MinimumProposalDeposit::<T>::get());
@@ -56,7 +56,7 @@ benchmarks! {
 
     set_proposal_cool_off_period {
         let origin = RawOrigin::Root;
-        let period = 0.into();
+        let period = 42.into();
     }: _(origin, period)
     verify {
         assert_eq!(period, ProposalCoolOffPeriod::<T>::get());
@@ -64,7 +64,7 @@ benchmarks! {
 
     set_default_enactment_period {
         let origin = RawOrigin::Root;
-        let period = 0.into();
+        let period = 42.into();
     }: _(origin, period)
     verify {
         assert_eq!(period, DefaultEnactmentPeriod::<T>::get());
@@ -72,7 +72,7 @@ benchmarks! {
 
     set_pending_pip_expiry {
         let origin = RawOrigin::Root;
-        let maybe_block = MaybeBlock::Some(0.into());
+        let maybe_block = MaybeBlock::Some(42.into());
     }: _(origin, maybe_block)
     verify {
         assert_eq!(maybe_block, PendingPipExpiry::<T>::get());
@@ -80,7 +80,7 @@ benchmarks! {
 
     set_max_pip_skip_count {
         let origin = RawOrigin::Root;
-        let count = 0.try_into().unwrap();
+        let count = 42.try_into().unwrap();
     }: _(origin, count)
     verify {
         assert_eq!(count, MaxPipSkipCount::get());
@@ -88,7 +88,7 @@ benchmarks! {
 
     set_active_pip_limit {
         let origin = RawOrigin::Root;
-        let pip_limit = 0;
+        let pip_limit = 42;
     }: _(origin, pip_limit)
     verify {
         assert_eq!(pip_limit, ActivePipLimit::get());
