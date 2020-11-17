@@ -208,7 +208,7 @@ pub enum CAKind {
 
 impl CAKind {
     /// Is this some sort of benefit CA?
-    fn is_benefit(&self) -> bool {
+    pub fn is_benefit(&self) -> bool {
         matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
     }
 }
@@ -424,7 +424,7 @@ decl_module! {
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             Self::change_ca_agent(did, ticker, None);
         }
 
@@ -441,7 +441,7 @@ decl_module! {
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
 
-            // Dedup any DIDs in `targets` to optimize iteration later.
+            // Dedup + sort any DIDs in `targets` for `O(log n)` containment check later.
             let new = targets.dedup();
 
             // Commit + emit event.
@@ -892,6 +892,7 @@ impl<T: Trait> Module<T> {
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
+    /// If the caller is a secondary key, it should have the relevant asset permission.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
         Self::ensure_ca_agent_with_perms(origin, ticker).map(|x| x.primary_did)
     }
@@ -910,6 +911,7 @@ impl<T: Trait> Module<T> {
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
             Error::<T>::UnauthorizedAsAgent
         );
+        <Asset<T>>::ensure_asset_perms(data.secondary_key.as_ref(), &ticker)?;
         Ok(data)
     }
 }

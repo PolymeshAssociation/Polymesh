@@ -567,7 +567,6 @@ parameter_types! {
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;

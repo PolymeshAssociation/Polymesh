@@ -181,6 +181,9 @@ decl_module! {
             // Ensure `now <= payment_at`.
             ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
+            // Ensure CA doesn't have a distribution yet.
+            ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
+
             // Ensure origin is CAA and that they have custody over `from`.
             // Also ensure secondary key has perms for `from` + portfolio is valid.
             let PermissionedCallOriginData {
@@ -190,7 +193,7 @@ decl_module! {
             } = <CA<T>>::ensure_ca_agent_with_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
             <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
-            <Portfolio<T>>::ensure_portfolio_permission(secondary_key.as_ref(), &from)?;
+            <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
             <Portfolio<T>>::ensure_portfolio_validity(&from)?;
 
             // Ensure that `ca_id` exists, that its a benefit.
@@ -370,6 +373,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// A corporate ballot was made for a non-benefit CA.
         CANotBenefit,
+        /// A distribution already exists for this CA.
+        AlreadyExists,
         /// The amount to distribute was less than available in the CAAs provided portfolio.
         InsufficientFunds,
         /// A distributions provided expiry date was strictly before its payment date.

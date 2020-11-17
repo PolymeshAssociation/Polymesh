@@ -303,7 +303,6 @@ parameter_types! {
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type Asset = asset::Module<TestStorage>;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;

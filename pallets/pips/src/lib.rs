@@ -1179,7 +1179,7 @@ decl_module! {
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::end_block(n).unwrap_or_else(|e| {
-                sp_runtime::print(e);
+                <Identity<T>>::emit_unexpected_error(Some(e));
                 0
             })
         }

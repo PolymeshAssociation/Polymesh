@@ -4561,6 +4561,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-timestamp",
@@ -4783,6 +4784,10 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal 0.2.1",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-indices",
  "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -5369,34 +5374,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-runtime-benchs"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-asset",
- "pallet-authorship",
- "pallet-balances 0.1.0",
- "pallet-compliance-manager",
- "pallet-contracts",
- "pallet-identity",
- "pallet-multisig",
- "pallet-portfolio",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "polymesh-primitives-derive",
- "rand 0.7.3",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
@@ -5481,7 +5458,6 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
- "polymesh-runtime-benchs",
  "polymesh-runtime-common",
  "polymesh-weights",
  "serde",
@@ -5663,6 +5639,7 @@ dependencies = [
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-timestamp",
+ "pallet-utility",
 ]
 
 [[package]]

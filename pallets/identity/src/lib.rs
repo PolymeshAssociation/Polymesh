@@ -678,11 +678,13 @@ decl_module! {
         }
 
         /// Removes an authorization.
+        /// _auth_issuer_pays determines whether the issuer of the authorisation pays the transaction fee
         #[weight = <T as Trait>::WeightInfo::remove_authorization()]
         pub fn remove_authorization(
             origin,
             target: Signatory<T::AccountId>,
-            auth_id: u64
+            auth_id: u64,
+            _auth_issuer_pays: bool,
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 sender,
@@ -2071,6 +2073,11 @@ impl<T: Trait> Module<T> {
             secondary_keys,
             Some(ProtocolOp::IdentityCddRegisterDid),
         )
+    }
+
+    /// Emit an unexpected error event that should be investigated manually
+    pub fn emit_unexpected_error(error: Option<DispatchError>) {
+        Self::deposit_event(RawEvent::UnexpectedError(error));
     }
 
     #[cfg(feature = "runtime-benchmarks")]
