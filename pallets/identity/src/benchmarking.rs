@@ -284,7 +284,7 @@ benchmarks! {
             AuthorizationData::JoinIdentity(Permissions::default()),
             Some(666.into()),
         );
-    }: _(origin, Signatory::Identity(did), auth_id)
+    }: _(origin, Signatory::Identity(did), auth_id, true)
 
     // TODO: accept_authorization. The worst case of `accept_authorization` will be whatever authorization type takes most resources.
     // A defensive weight has been hardcoded for now but it should be updated once we've done benchmarks for all auth types.
