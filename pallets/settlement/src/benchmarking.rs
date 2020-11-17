@@ -106,7 +106,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 fn create_asset_<T: Trait>(did: IdentityId) -> Result<Ticker, DispatchError> {
     let ticker = Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap();
     let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    T::Asset::create_asset(did, ticker, name, 90000.into())?;
+    T::Asset::add_asset(did, ticker, name, 90000.into())?;
     Ok(ticker)
 }
 

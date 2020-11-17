@@ -17,11 +17,12 @@
 //!
 //! The interface allows to accept portfolio custody
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
 
 /// This trait is used to accept custody of a portfolio
-pub trait PortfolioSubTrait<Balance> {
+pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// Accepts custody of a portfolio
     ///
     /// # Arguments
@@ -54,6 +55,24 @@ pub trait PortfolioSubTrait<Balance> {
     fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
 
     /// Transfer some funds to given portfolio.
+    ///
+    /// # Arguments
+    /// * `portfolio` - Portfolio to fund tokens
+    /// * `ticker` - Ticker of the token to funded
+    /// * `amount` - Amount of tokens to funded
     #[cfg(feature = "runtime-benchmarks")]
     fn fund_portfolio(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult;
+
+    /// Ensures that the portfolio's custody is with the provided identity
+    /// And the secondary key has the relevant portfolio permission
+    ///
+    /// # Arguments
+    /// * `portfolio` - PortfolioId of the portfolio to check
+    /// * `custodian` - Identity of the custodian
+    /// * `secondary_key` - Secondary key that is accessing the portfolio
+    fn ensure_portfolio_custody_and_permission(
+        portfolio: PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult;
 }

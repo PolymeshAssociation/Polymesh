@@ -181,6 +181,9 @@ decl_module! {
             // Ensure `now <= payment_at`.
             ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
+            // Ensure CA doesn't have a distribution yet.
+            ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
+
             // Ensure origin is CAA and that they have custody over `from`.
             // Also ensure secondary key has perms for `from` + portfolio is valid.
             let PermissionedCallOriginData {
@@ -190,7 +193,7 @@ decl_module! {
             } = <CA<T>>::ensure_ca_agent_with_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
             <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
-            <Portfolio<T>>::ensure_portfolio_permission(secondary_key.as_ref(), &from)?;
+            <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
             <Portfolio<T>>::ensure_portfolio_validity(&from)?;
 
             // Ensure that `ca_id` exists, that its a benefit.
@@ -331,17 +334,9 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at >= now`.
         #[weight = 900_000_000]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            // Ensure origin is CAA, the distribution exists, and that `now < payment_at`.
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
+            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(<Checkpoint<T>>::now_unix() < dist.payment_at, Error::<T>::DistributionStarted);
-
-            // Unlock and remove chain data.
-            Self::unlock(&dist, dist.amount)?;
-            <Distributions<T>>::remove(ca_id);
-
-            // Emit event.
-            Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+            Self::remove_distribution_base(caa, ca_id, &dist)?;
         }
     }
 }
@@ -370,7 +365,7 @@ decl_event! {
         /// A capital distribution was removed.
         ///
         /// (Ticker's CAA, CA's ID)
-        Removed(IdentityId, CAId),
+        Removed(EventDid, CAId),
     }
 }
 
@@ -378,6 +373,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// A corporate ballot was made for a non-benefit CA.
         CANotBenefit,
+        /// A distribution already exists for this CA.
+        AlreadyExists,
         /// The amount to distribute was less than available in the CAAs provided portfolio.
         InsufficientFunds,
         /// A distributions provided expiry date was strictly before its payment date.
@@ -412,6 +409,33 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Kill the distribution identified by `ca_id`.
+    crate fn remove_distribution_base(
+        caa: EventDid,
+        ca_id: CAId,
+        dist: &Distribution<T::Balance>,
+    ) -> DispatchResult {
+        // Cannot remove payment has started.
+        Self::ensure_distribution_not_started(&dist)?;
+
+        // Unlock and remove chain data.
+        Self::unlock(&dist, dist.amount)?;
+        <Distributions<T>>::remove(ca_id);
+
+        // Emit event.
+        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
+    /// Ensure that `now < payment_at`.
+    crate fn ensure_distribution_not_started(dist: &Distribution<T::Balance>) -> DispatchResult {
+        ensure!(
+            <Checkpoint<T>>::now_unix() < dist.payment_at,
+            Error::<T>::DistributionStarted
+        );
+        Ok(())
+    }
+
     /// Transfer `holder`'s benefit in `ca_id` to them.
     fn transfer_benefit(actor: EventDid, holder: IdentityId, ca_id: CAId) -> DispatchResult {
         // Ensure holder not paid yet.

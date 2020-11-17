@@ -14,17 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, ScopeId, Ticker};
+use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
+use polymesh_primitives::{
+    calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_std::prelude::Vec;
-pub const GAS_LIMIT: u64 = 1_000_000_000;
+use sp_std::prelude::*;
 
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
+pub const GAS_LIMIT: u64 = 1_000_000_000;
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait {
@@ -61,32 +58,89 @@ pub struct IssueAssetItem<U> {
     pub value: U,
 }
 
-pub trait Trait<V, U> {
-    fn total_supply(ticker: &Ticker) -> V;
-    fn balance(ticker: &Ticker, did: IdentityId) -> V;
+/// A wrapper for a token name.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct AssetName(pub Vec<u8>);
+
+/// The type of an asset represented by a token.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub enum AssetType {
+    EquityCommon,
+    EquityPreferred,
+    Commodity,
+    FixedIncome,
+    REIT,
+    Fund,
+    RevenueShareAgreement,
+    StructuredProduct,
+    Derivative,
+    Custom(Vec<u8>),
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        Self::Custom(b"undefined".to_vec())
+    }
+}
+
+/// A wrapper for a funding round name.
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
+pub struct FundingRoundName(pub Vec<u8>);
+
+impl Default for FundingRoundName {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+pub trait Trait<Balance, Account, Origin> {
+    fn total_supply(ticker: &Ticker) -> Balance;
+    fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     fn _mint_from_sto(
         ticker: &Ticker,
-        caller: U,
+        caller: Account,
         sender_did: IdentityId,
-        assets_purchased: V,
+        assets_purchased: Balance,
     ) -> DispatchResult;
+    /// Check if an Identity is the owner of a ticker.
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> V;
+    /// Get an Identity's balance of a token at a particular checkpoint.
+    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
+    /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
+    /// Get the PIA of a token.
     fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
-    fn max_number_of_tm_extension() -> u32;
+    /// Transfer an asset from one portfolio to another.
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
-        value: V,
+        value: Balance,
     ) -> DispatchResultWithPostInfo;
+    /// Ensure that the caller has the required extrinsic and asset permissions.
+    fn ensure_perms_owner_asset(
+        origin: Origin,
+        ticker: &Ticker,
+    ) -> Result<IdentityId, DispatchError>;
+
+    fn create_asset(
+        origin: Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn create_asset(
+    fn add_asset(
         owner_did: IdentityId,
         ticker: Ticker,
         name: AssetName,
-        total_supply: V,
+        total_supply: T::Balance,
     ) -> DispatchResult;
 }

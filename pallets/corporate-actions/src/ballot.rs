@@ -88,7 +88,7 @@ use pallet_asset::checkpoint;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::CommonTrait;
-use polymesh_primitives::{IdentityId, Moment};
+use polymesh_primitives::{EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Zero};
 #[cfg(feature = "std")]
@@ -131,7 +131,7 @@ pub struct Motion {
 
 /// A wrapper for a ballot's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Decode, Encode, VecU8StrongTyped)]
 pub struct BallotTitle(pub Vec<u8>);
 
 /// Metadata about a ballot.
@@ -142,7 +142,7 @@ pub struct BallotTitle(pub Vec<u8>);
 /// the needed numbers aforementioned are cached away,
 /// and the metadata is not read on-chain again.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, Default)]
 pub struct BallotMeta {
     /// The ballot's title.
     pub title: BallotTitle,
@@ -153,7 +153,7 @@ pub struct BallotMeta {
 
 /// Timestamp range details about vote start / end.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct BallotTimeRange {
     /// Timestamp at which voting starts.
     pub start: Moment,
@@ -164,7 +164,7 @@ pub struct BallotTimeRange {
 
 /// A vote cast on some choice in some motion in a ballot.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct BallotVote<Balance> {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,
@@ -365,7 +365,10 @@ decl_module! {
             let motions = choices_count
                 .iter()
                 .map(|c| *c as usize)
-                .scan(0, |start, count| Some(&votes[mem::replace(start, *start + count)..count]));
+                .scan(0, |start, count| {
+                    let end = *start + count;
+                    Some(&votes[mem::replace(start, end)..end])
+                });
 
             if RCV::get(ca_id) {
                 // RCV is enabled.
@@ -373,19 +376,21 @@ decl_module! {
                 // For in-depth discussion on `fallback`, consult `BallotVote`'s definition.
                 motions
                     .clone()
-                    .all(|votes| {
+                    .try_for_each(|votes| -> DispatchResult {
                         let count = votes.len();
                         votes
                             .iter()
                             .enumerate()
                             // Only check when a fallback is actually provided.
                             .filter_map(|(idx, vote)| Some((idx, vote.fallback? as usize)))
-                            // Exclude self-cycles.
-                            // Also ensure the index does not point outside, i.e. beyond, the motion.
-                            .all(|(idx, fallback)| idx != fallback && fallback < count)
-                    })
-                    .then_some(())
-                    .ok_or(Error::<T>::NoSuchRCVFallback)?;
+                            .try_for_each(|(idx, fallback)| {
+                                // Exclude self-cycles.
+                                ensure!(idx != fallback, Error::<T>::RCVSelfCycle);
+                                // Ensure the index does not point outside, i.e. beyond, the motion.
+                                ensure!(fallback < count, Error::<T>::NoSuchRCVFallback);
+                                Ok(())
+                            })
+                    })?;
             } else {
                 // It's not. Make sure its also not used.
                 votes
@@ -409,11 +414,16 @@ decl_module! {
 
             // Update vote and total results.
             <Votes<T>>::mutate(ca_id, did, |vslot| {
-                <Results<T>>::mutate(ca_id, |rslot| {
-                    for ((old, new), result) in vslot.iter().zip(votes.iter()).zip(rslot.iter_mut()) {
-                        *result -= old.power;
-                        *result += new.power;
+                <Results<T>>::mutate_exists(ca_id, |rslot| match rslot {
+                    Some(rslot) => {
+                        for (result, old) in rslot.iter_mut().zip(vslot.iter()) {
+                            *result -= old.power;
+                        }
+                        for (result, new) in rslot.iter_mut().zip(votes.iter()) {
+                            *result += new.power;
+                        }
                     }
+                    None => *rslot = Some(votes.iter().map(|v| v.power).collect()),
                 });
                 *vslot = votes.clone();
             });
@@ -436,7 +446,7 @@ decl_module! {
         /// - `StartAfterEnd` if `start > end`.
         #[weight = 950_000_000]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
-            // Ensure origin is CAA, a ballot exists, start is in the future.
+            // Ensure origin is CAA, ballot exists, and start is in the future.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
             Self::ensure_ballot_not_started(range)?;
@@ -508,21 +518,12 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
+        /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = 950_000_000]
         pub fn remove_ballot(origin, ca_id: CAId) {
-            // Ensure origin is CAA + ballot exists.
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
-            Self::ensure_ballot_exists(ca_id)?;
-
-            // Remove all ballot data.
-            TimeRanges::remove(ca_id);
-            Metas::remove(ca_id);
-            MotionNumChoices::remove(ca_id);
-            <Results<T>>::remove(ca_id);
-            <Votes<T>>::remove_prefix(ca_id);
-
-            // Emit event.
-            Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let range = Self::ensure_ballot_exists(ca_id)?;
+            Self::remove_ballot_base(caa, ca_id, range)?;
         }
     }
 }
@@ -560,7 +561,7 @@ decl_event! {
         /// A corporate ballot was removed.
         ///
         /// (Ticker's CAA, CA's ID)
-        Removed(IdentityId, CAId),
+        Removed(EventDid, CAId),
     }
 }
 
@@ -590,12 +591,35 @@ decl_error! {
         InsufficientVotes,
         /// The RCV fallback of some choice does not exist.
         NoSuchRCVFallback,
+        /// The RCV fallback points to the origin choice.
+        RCVSelfCycle,
         /// RCV is not allowed for this ballot.
         RCVNotAllowed
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure the ballot hasn't started and remove it.
+    crate fn remove_ballot_base(
+        caa: EventDid,
+        ca_id: CAId,
+        range: BallotTimeRange,
+    ) -> DispatchResult {
+        Self::ensure_ballot_not_started(range)?;
+
+        // Remove all ballot data.
+        TimeRanges::remove(ca_id);
+        Metas::remove(ca_id);
+        MotionNumChoices::remove(ca_id);
+        RCV::remove(ca_id);
+        <Results<T>>::remove(ca_id);
+        <Votes<T>>::remove_prefix(ca_id);
+
+        // Emit event.
+        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
     // Compute number-of-choices-in-motion cache for `motions`.
     fn derive_motion_num_choices(motions: &[Motion]) -> Result<Vec<u16>, DispatchError> {
         let mut total: usize = 0;
@@ -614,7 +638,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensure that `now < range.start`.
-    fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
+    crate fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
         ensure!(
             <Checkpoint<T>>::now_unix() < range.start,
             Error::<T>::VotingAlreadyStarted

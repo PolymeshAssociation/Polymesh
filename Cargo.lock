@@ -4079,8 +4079,11 @@ name = "pallet-compliance-manager"
 version = "0.1.0"
 dependencies = [
  "either",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
  "pallet-identity",
  "pallet-permissions",
  "pallet-timestamp",
@@ -5628,6 +5631,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-compliance-manager",
  "pallet-corporate-actions",
  "pallet-identity",
  "pallet-portfolio",

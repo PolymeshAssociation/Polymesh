@@ -45,7 +45,7 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
-    PortfolioId, ScopeId, Signatory, Ticker,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -489,7 +489,7 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
-impl PortfolioSubTrait<Balance> for Test {
+impl PortfolioSubTrait<Balance, AccountId> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
@@ -502,6 +502,14 @@ impl PortfolioSubTrait<Balance> for Test {
     }
 
     fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn ensure_portfolio_custody_and_permission(
+        _: PortfolioId,
+        _: IdentityId,
+        _: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
         unimplemented!()
     }
 }
