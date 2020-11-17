@@ -178,12 +178,10 @@ benchmarks! {
     vote {
         // length of the proposal padding
         let c in 0 .. 100_000;
-        // aye or nay
-        //
-        // TODO: The backend produces n - 1 samples of `1` and 1 sample of `0` for any n. This has
-        // to be fixed since the number of `0` and `1` samples should be roughly the same.
-        // let v in 0 .. 1;
-        let aye_or_nay = true;
+        // number of ayes
+        let a in 1 .. 100;
+        // number of nays
+        let n in 1 .. 100;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -196,10 +194,26 @@ benchmarks! {
             Some(url),
             Some(description)
         )?;
+        // Populate vote history.
+        for aye in 1..a {
+            let (account, origin, did) = make_account::<T>("voter", aye);
+            identity::CurrentDid::put(did);
+            let voter_deposit = aye.into();
+            Module::<T>::vote(origin.into(), 0, true, voter_deposit)?;
+        }
+        for nay in 1..n {
+            let (account, origin, did) = make_account::<T>("voter", nay);
+            identity::CurrentDid::put(did);
+            let voter_deposit = nay.into();
+            Module::<T>::vote(origin.into(), 0, false, voter_deposit)?;
+        }
+        // Cast an opposite vote.
         let (account, origin, did) = make_account::<T>("voter", 0);
         identity::CurrentDid::put(did);
         let voter_deposit = 43.into();
-    }: _(origin, 0, aye_or_nay, voter_deposit)
+        // Cast an opposite vote.
+        Module::<T>::vote(origin.clone().into(), 0, false, voter_deposit)?;
+    }: _(origin, 0, true, voter_deposit)
     verify {
         assert_eq!(voter_deposit, Deposits::<T>::get(0, &account).amount);
     }
