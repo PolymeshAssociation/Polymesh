@@ -210,9 +210,10 @@ benchmarks! {
         let i in 0 .. 50;
 
         let _cdd = User::<T>::new_cdd(SEED);
-        let caller = User::<T>::new("caller", SEED);
+        let caller = User::<T>::without_did("caller", SEED);
+        let uid = uid_from_name_and_idx("caller", SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
-    }: _(caller.origin, caller.uid(), secondary_keys)
+    }: _(caller.origin, uid, secondary_keys)
 
     cdd_register_did {
         // Number of secondary items.

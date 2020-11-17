@@ -63,6 +63,6 @@ std = [
 
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"pallet-asset",
-	"pallet-balances",
+	"pallet-asset/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]
