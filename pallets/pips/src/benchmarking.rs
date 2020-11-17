@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::UnfilteredDispatchable;
+use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
 use frame_system::RawOrigin;
 use pallet_identity::{self as identity, benchmarking::make_account};
 use polymesh_common_utilities::{MaybeBlock, SystematicIssuers};
@@ -34,6 +34,17 @@ pub fn make_proposal<T: Trait>(content_len: usize) -> (Box<T::Proposal>, Url, Pi
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
     let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
     (proposal, url, description)
+}
+
+fn cast_votes<T: Trait>(id: PipId, num_votes: u32, aye_or_nay: bool) -> DispatchResult {
+    // Populate vote history.
+    for i in 1..num_votes {
+        let (account, origin, did) = make_account::<T>("voter", i);
+        identity::CurrentDid::put(did);
+        let voter_deposit = i.into();
+        Module::<T>::vote(origin.into(), id, aye_or_nay, voter_deposit)?;
+    }
+    Ok(())
 }
 
 benchmarks! {
@@ -195,18 +206,8 @@ benchmarks! {
             Some(description)
         )?;
         // Populate vote history.
-        for aye in 1..a {
-            let (account, origin, did) = make_account::<T>("voter", aye);
-            identity::CurrentDid::put(did);
-            let voter_deposit = aye.into();
-            Module::<T>::vote(origin.into(), 0, true, voter_deposit)?;
-        }
-        for nay in 1..n {
-            let (account, origin, did) = make_account::<T>("voter", nay);
-            identity::CurrentDid::put(did);
-            let voter_deposit = nay.into();
-            Module::<T>::vote(origin.into(), 0, false, voter_deposit)?;
-        }
+        cast_votes::<T>(0, a, true)?;
+        cast_votes::<T>(0, n, false)?;
         // Cast an opposite vote.
         let (account, origin, did) = make_account::<T>("voter", 0);
         identity::CurrentDid::put(did);
