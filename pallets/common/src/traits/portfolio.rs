@@ -54,15 +54,6 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// * `amount` - Amount of tokens to unlock
     fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
 
-    /// Transfer some funds to given portfolio.
-    ///
-    /// # Arguments
-    /// * `portfolio` - Portfolio to fund tokens
-    /// * `ticker` - Ticker of the token to funded
-    /// * `amount` - Amount of tokens to funded
-    #[cfg(feature = "runtime-benchmarks")]
-    fn fund_portfolio(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult;
-
     /// Ensures that the portfolio's custody is with the provided identity
     /// And the secondary key has the relevant portfolio permission
     ///

@@ -525,16 +525,6 @@ impl<T: Trait> Module<T> {
     pub fn unchecked_lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &T::Balance) {
         <PortfolioLockedAssets<T>>::mutate(portfolio, ticker, |l| *l = l.saturating_add(*amount));
     }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    pub fn fund_portfolio(
-        portfolio: &PortfolioId,
-        ticker: &Ticker,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
-        Ok(())
-    }
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
@@ -622,16 +612,6 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
     /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    /// Helper function for benchmarks.
-    fn fund_portfolio(
-        portfolio: &PortfolioId,
-        ticker: &Ticker,
-        amount: T::Balance,
-    ) -> DispatchResult {
-        Self::fund_portfolio(portfolio, ticker, amount)
     }
 
     /// Ensures that the portfolio's custody is with the provided identity

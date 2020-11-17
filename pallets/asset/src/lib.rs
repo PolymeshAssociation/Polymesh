@@ -1181,27 +1181,6 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
     }
 
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_asset(
-        owner_did: IdentityId,
-        ticker: Ticker,
-        name: AssetName,
-        total_supply: T::Balance,
-    ) -> DispatchResult {
-        let token = SecurityToken {
-            name,
-            total_supply,
-            owner_did,
-            divisible: true,
-            asset_type: AssetType::EquityCommon,
-            primary_issuance_agent: Some(owner_did),
-        };
-        <Tokens<T>>::insert(ticker, token);
-        <BalanceOf<T>>::insert(ticker, owner_did, total_supply);
-        Portfolio::<T>::set_default_portfolio_balance(owner_did, &ticker, total_supply);
-        Ok(())
-    }
-
     fn ensure_perms_owner_asset(
         origin: T::Origin,
         ticker: &Ticker,

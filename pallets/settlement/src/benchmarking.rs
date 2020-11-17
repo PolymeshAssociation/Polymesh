@@ -19,19 +19,23 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
+use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, benchmarking::uid_from_name_and_idx};
-use polymesh_common_utilities::traits::asset::AssetName;
+use pallet_portfolio::PortfolioAssetBalances;
+use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-const MAX_VENUE_DETAILS_LENGTH: u32 = 200;
+const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
 const MAX_TM_ALLOWED: u32 = 10;
 const MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED: u32 = 50;
+
+type Portfolio<T> = pallet_portfolio::Module<T>;
 
 pub struct Account<T: Trait> {
     account_id: T::AccountId,
@@ -103,11 +107,32 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 }
 
 // create asset
-fn create_asset_<T: Trait>(did: IdentityId) -> Result<Ticker, DispatchError> {
+fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchError> {
     let ticker = Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap();
     let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    T::Asset::add_asset(did, ticker, name, 90000.into())?;
+    let total_supply: T::Balance = 90000.into();
+    let token = SecurityToken {
+        name,
+        total_supply,
+        owner_did,
+        divisible: true,
+        asset_type: AssetType::EquityCommon,
+        primary_issuance_agent: Some(owner_did),
+    };
+    <Tokens<T>>::insert(ticker, token);
+    <BalanceOf<T>>::insert(ticker, owner_did, total_supply);
+    Portfolio::<T>::set_default_portfolio_balance(owner_did, &ticker, total_supply);
     Ok(ticker)
+}
+
+// fund portfolio
+fn fund_portfolio<T: Trait>(
+    portfolio: &PortfolioId,
+    ticker: &Ticker,
+    amount: T::Balance,
+) -> DispatchResult {
+    <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
+    Ok(())
 }
 
 fn setup_leg_and_portfolio<T: Trait>(
@@ -119,7 +144,7 @@ fn setup_leg_and_portfolio<T: Trait>(
 ) -> DispatchResult {
     let ticker = Ticker::try_from(vec![b'A'; index as usize].as_slice()).unwrap();
     let portfolio_from = generate_portfolio::<T>("", index, 100, from_did);
-    let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
+    let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into())?;
     let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
     legs.push(Leg {
         from: portfolio_from,
@@ -142,9 +167,9 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
     portfolios_to: &mut Vec<PortfolioId>,
 ) -> DispatchResult {
     let portfolio_from = generate_portfolio::<T>("from_did", index, 100, from_did);
-    let _ = T::Portfolio::fund_portfolio(&portfolio_from, &from_ticker, 500.into())?;
+    let _ = fund_portfolio::<T>(&portfolio_from, &from_ticker, 500.into())?;
     let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
-    let _ = T::Portfolio::fund_portfolio(&portfolio_to, &to_ticker, 500.into())?;
+    let _ = fund_portfolio::<T>(&portfolio_to, &to_ticker, 500.into())?;
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
@@ -257,7 +282,7 @@ benchmarks! {
         for i in 1 .. l {
             populate_legs_for_instruction::<T>(i, &mut legs);
         }
-    }: _(origin, venue_id, settlement_type, None, legs)
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs)
     verify {
         ensure!(Module::<T>::instruction_counter() == 2, "Instruction counter not increased");
         let Instruction {instruction_id, venue_id, .. } = Module::<T>::instruction_details(Module::<T>::instruction_counter() - 1);
@@ -284,7 +309,7 @@ benchmarks! {
         for n in 1 .. l {
             setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios)?;
         }
-    }: _(origin, venue_id, settlement_type, None, legs, portfolios.clone())
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs, portfolios.clone())
     verify {
         ensure!(Module::<T>::instruction_counter() == 2, "Instruction counter not increased");
         let Instruction {instruction_id, venue_id, .. } = Module::<T>::instruction_details(Module::<T>::instruction_counter() - 1);
@@ -349,6 +374,7 @@ benchmarks! {
         }
     }
 
+
     withdraw_affirmation {
         // Below setup is for the onchain affirmation.
 
@@ -366,7 +392,7 @@ benchmarks! {
         let instruction_id: u64 = 1;
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
+        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, None)?;
 
     }: _(origin, instruction_id, portfolios)
     verify {
@@ -407,43 +433,6 @@ benchmarks! {
         }
     }
 
-    withdraw_affirmation_with_both_receipt_and_onchain_affirmation {
-        // Below setup is for the receipt based & onchain affirmation
-
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
-        // TODO: Need to find a better way to make it randomize the value of p.
-        let p: u32 = l / 2;
-        let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
-        let mut portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-        // create venue
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
-        for n in 1 .. l {
-            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios)?;
-        }
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
-        let instruction_id: u64 = 1;
-        let (p_onchain, p_receipt): (Vec<(usize, PortfolioId)>, Vec<(usize, PortfolioId)>) = portfolios.clone().into_iter().enumerate().partition(|(i, _)| *i <= p as usize);
-        // Affirm an instruction on-chain
-        let portfolios_set = p_onchain.into_iter().map(|(_, p)| p).collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
-
-        // Mimic the affirmation using receipt.
-        p_receipt.into_iter().for_each(|(_,p)| {
-            set_user_affirmations(instruction_id, p, AffirmationStatus::Affirmed);
-        });
-        for (idx, _) in legs.clone().iter().enumerate() {
-            let leg_id = u64::try_from(idx).unwrap_or_default();
-            // use leg_id for the receipt_uid as well.
-            set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), leg_id);
-        }
-    }: withdraw_affirmation(origin, instruction_id, portfolios)
-    verify {
-        for (idx, leg) in legs.iter().enumerate() {
-            ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
-        }
-    }
 
     unclaim_receipt {
         // There is no catalyst in this dispatchable, It will be time constant always.
@@ -454,7 +443,7 @@ benchmarks! {
 
         let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
         let portfolio_from = PortfolioId::user_portfolio(did, (100u64).into());
-        let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
+        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into())?;
         let portfolio_to = PortfolioId::user_portfolio(did_to, (500u64).into());
         let legs = vec![Leg {
             from: portfolio_from,
@@ -486,7 +475,7 @@ benchmarks! {
 
     //     let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
     //     let portfolio_from = PortfolioId::user_portfolio(did, 100u64);
-    //     let _ = T::Portfolio::fund_portfolio(&portfolio_from, &ticker, 500.into())?;
+    //     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into())?;
     //     let portfolio_to = PortfolioId::user_portfolio(did_to, 500u64);
     //     let legs = vec![Leg {
     //         from: portfolio_from,

@@ -135,12 +135,4 @@ pub trait Trait<Balance, Account, Origin> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_asset(
-        owner_did: IdentityId,
-        ticker: Ticker,
-        name: AssetName,
-        total_supply: T::Balance,
-    ) -> DispatchResult;
 }

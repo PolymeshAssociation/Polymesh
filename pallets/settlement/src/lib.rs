@@ -289,8 +289,8 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
 }
 
 pub trait WeightInfo {
-    fn create_venue(u: u32) -> Weight;
-    fn update_venue() -> Weight;
+    fn create_venue(d: u32, u: u32) -> Weight;
+    fn update_venue(d: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction() -> Weight;
@@ -307,14 +307,13 @@ pub trait WeightInfo {
     // TODO: Will be removed once we get the worst case weight.
     fn set_venue_filtering_disallow() -> Weight;
     fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
-    fn withdraw_affirmation_with_both_receipt_and_onchain_affirmation(l: u32) -> Weight;
 }
 
 impl WeightInfo for () {
-    fn create_venue(_u: u32) -> Weight {
+    fn create_venue(_d: u32, _u: u32) -> Weight {
         1_000_000_000
     }
-    fn update_venue() -> Weight {
+    fn update_venue(_d: u32) -> Weight {
         1_000_000_000
     }
     fn add_instruction(_u: u32) -> Weight {
@@ -354,9 +353,6 @@ impl WeightInfo for () {
         1_000_000_000
     }
     fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation_with_both_receipt_and_onchain_affirmation(_l: u32) -> Weight {
         1_000_000_000
     }
 }
