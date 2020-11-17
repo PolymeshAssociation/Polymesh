@@ -69,7 +69,7 @@
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
-            "portfolio": "Option<Vec<PortfolioNumber>>"
+            "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {
             "_enum": {
@@ -858,12 +858,6 @@
                 "Handled": ""
             }
         },
-        "HandledTxStatus": {
-            "_enum": {
-                "Success": "",
-                "Error": "Text"
-            }
-        },
         "CappedFee": "u64",
         "CanTransferResult": {
             "_enum": {
@@ -1108,7 +1102,7 @@
         "CorporateAction": {
             "kind": "CAKind",
             "record_date": "Option<RecordDate>",
-            "details": "String",
+            "details": "Text",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
             "withholding_tax": "Vec<(IdentityId, Tax)>"

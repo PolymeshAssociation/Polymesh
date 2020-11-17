@@ -13,7 +13,7 @@ use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution},
-    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
+    Agent, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
@@ -21,7 +21,8 @@ use pallet_corporate_actions::{
 use polymesh_common_utilities::asset::{AssetName, Trait as _};
 use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
-    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, Signatory, Ticker,
+    AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
+    Signatory, Ticker,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -38,11 +39,14 @@ type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type CA = pallet_corporate_actions::Module<TestStorage>;
 type Ballot = ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
+type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type Votes = ballot::Votes<TestStorage>;
+type Custodian = pallet_portfolio::PortfolioCustodian;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
 
@@ -183,7 +187,7 @@ fn next_ca_id(ticker: Ticker) -> CAId {
     CAId { ticker, local_id }
 }
 
-const TRANGE: BallotTimeRange = BallotTimeRange {
+const T_RANGE: BallotTimeRange = BallotTimeRange {
     start: 3000,
     end: 4000,
 };
@@ -257,7 +261,7 @@ fn only_caa_authorized() {
                 $assert!(CA::change_record_date($user.signer(), id, record_date) $(, $tail)?);
                 // ..., `attach_ballot`,
                 let meta = BallotMeta::default();
-                $assert!(Ballot::attach_ballot($user.signer(), id, TRANGE, meta.clone(), false) $(, $tail)?);
+                $assert!(Ballot::attach_ballot($user.signer(), id, T_RANGE, meta.clone(), false) $(, $tail)?);
                 // ..., `change_end`,
                 $assert!(Ballot::change_end($user.signer(), id, 5000) $(, $tail)?);
                 // ..., `change_meta`,
@@ -392,6 +396,9 @@ fn set_did_withholding_tax_works() {
         transfer(&ticker, owner, foo);
         transfer(&ticker, owner, bar);
 
+        // We will insert bar first, but still expect foo first in results, as DIDs are sorted.
+        assert!(foo.did < bar.did);
+
         let check = |user: User, tax, expect| {
             assert_ok!(CA::set_did_withholding_tax(
                 owner.signer(),
@@ -401,10 +408,10 @@ fn set_did_withholding_tax_works() {
             ));
             assert_eq!(CA::did_withholding_tax(ticker), expect);
         };
-        check(foo, Some(P25), vec![(foo.did, P25)]);
-        check(bar, Some(P75), vec![(foo.did, P25), (bar.did, P75)]);
-        check(foo, Some(P50), vec![(foo.did, P50), (bar.did, P75)]);
-        check(foo, None, vec![(bar.did, P75)]);
+        check(bar, Some(P25), vec![(bar.did, P25)]);
+        check(foo, Some(P75), vec![(foo.did, P75), (bar.did, P25)]);
+        check(bar, Some(P50), vec![(foo.did, P75), (bar.did, P50)]);
+        check(bar, None, vec![(foo.did, P75)]);
     });
 }
 
@@ -550,8 +557,12 @@ fn initiate_corporate_action_did_tax() {
         }
         assert_eq!(ca(None), wts);
 
-        let wts = vec![(foo.did, P0), (bar.did, P50)];
-        assert_eq!(ca(Some(wts.clone())), wts);
+        // Also ensure `foo` is sorted before `bar` despite providing `bar` first.
+        assert!(foo.did < bar.did);
+        assert_eq!(
+            ca(Some(vec![(bar.did, P50), (foo.did, P0)])),
+            vec![(foo.did, P0), (bar.did, P50)]
+        );
     });
 }
 
@@ -890,7 +901,7 @@ fn change_record_date_works() {
 }
 
 fn attach(owner: User, id: CAId, rcv: bool) -> DispatchResult {
-    Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), rcv)
+    Ballot::attach_ballot(owner.signer(), id, T_RANGE, mk_meta(), rcv)
 }
 
 #[test]
@@ -970,7 +981,7 @@ fn attach_ballot_already_exists() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
 
-        let attach = |id| Ballot::attach_ballot(owner.signer(), id, TRANGE, mk_meta(), true);
+        let attach = |id| Ballot::attach_ballot(owner.signer(), id, T_RANGE, mk_meta(), true);
 
         assert_ok!(attach(id));
         assert_noop!(attach(id), BallotError::AlreadyExists);
@@ -1004,7 +1015,7 @@ fn attach_ballot_num_choices_overflow_u16() {
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
         assert_noop!(
-            Ballot::attach_ballot(owner.signer(), id, TRANGE, overflowing_meta(), false),
+            Ballot::attach_ballot(owner.signer(), id, T_RANGE, overflowing_meta(), false),
             BallotError::NumberOfChoicesOverflow,
         );
     });
@@ -1040,7 +1051,7 @@ fn attach_ballot_works() {
     test(|ticker, [owner, ..]| {
         set_schedule_complexity();
 
-        let mut data = init_bd(TRANGE, mk_meta());
+        let mut data = init_bd(T_RANGE, mk_meta());
         data.choices = vec![3, 1];
 
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
@@ -1251,45 +1262,52 @@ fn vote_wrong_dates() {
     });
 }
 
+fn test_not_targeted(
+    ca: impl Fn() -> CAId,
+    foo: User,
+    bar: User,
+    action: impl Fn(CAId) -> DispatchResult,
+) {
+    let change_targets = |id: CAId, treatment, identities| {
+        let targets = TargetIdentities {
+            treatment,
+            identities,
+        };
+        CorporateActions::mutate(id.ticker, id.local_id, |ca| {
+            ca.as_mut().unwrap().targets = targets
+        })
+    };
+
+    let id = ca();
+    change_targets(id, TargetTreatment::Exclude, vec![foo.did]);
+    assert_noop!(action(id), Error::NotTargetedByCA);
+
+    let id = ca();
+    change_targets(id, TargetTreatment::Include, vec![bar.did]);
+    assert_noop!(action(id), Error::NotTargetedByCA);
+
+    let id = ca();
+    change_targets(id, TargetTreatment::Include, vec![foo.did]);
+    assert_ok!(action(id));
+
+    let id = ca();
+    change_targets(id, TargetTreatment::Exclude, vec![bar.did]);
+    assert_ok!(action(id));
+}
+
 #[test]
 fn vote_not_targeted() {
     test(|ticker, [owner, other, voter]| {
         set_schedule_complexity();
-
-        let id = notice_ca(owner, ticker, Some(1)).unwrap();
-        assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
-
-        let vote = || Ballot::vote(voter.signer(), id, votes(&[0, 0, 0, 0]));
-        let change_targets = |targets| {
-            CorporateActions::mutate(id.ticker, id.local_id, |ca| {
-                ca.as_mut().unwrap().targets = targets
-            })
+        let ca = || {
+            Timestamp::set_timestamp(1);
+            let id = notice_ca(owner, ticker, Some(1)).unwrap();
+            assert_ok!(attach(owner, id, false));
+            Timestamp::set_timestamp(T_RANGE.start);
+            id
         };
-
-        change_targets(TargetIdentities {
-            treatment: TargetTreatment::Exclude,
-            identities: vec![voter.did],
-        });
-        assert_noop!(vote(), Error::NotTargetedByCA);
-
-        change_targets(TargetIdentities {
-            treatment: TargetTreatment::Include,
-            identities: vec![other.did],
-        });
-        assert_noop!(vote(), Error::NotTargetedByCA);
-
-        change_targets(TargetIdentities {
-            treatment: TargetTreatment::Include,
-            identities: vec![voter.did],
-        });
-        assert_ok!(vote());
-
-        change_targets(TargetIdentities {
-            treatment: TargetTreatment::Exclude,
-            identities: vec![other.did],
-        });
-        assert_ok!(vote());
+        let vote = |id| Ballot::vote(voter.signer(), id, votes(&[0, 0, 0, 0]));
+        test_not_targeted(ca, voter, other, vote);
     });
 }
 
@@ -1300,7 +1318,7 @@ fn vote_wrong_count() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |count| {
             let votes = iter::repeat(BallotVote::default()).take(count).collect();
@@ -1339,7 +1357,7 @@ fn vote_rcv_not_allowed() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         assert_noop!(
             Ballot::vote(voter.signer(), id, fallbacks(&[None, None, Some(42), None])),
@@ -1355,7 +1373,7 @@ fn vote_rcv_fallback_pointers() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, true));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |fs| Ballot::vote(voter.signer(), id, fallbacks(fs));
 
@@ -1416,7 +1434,7 @@ fn vote_works() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(TRANGE.start);
+        Timestamp::set_timestamp(T_RANGE.start);
 
         let vote = |vs| Ballot::vote(voter.signer(), id, votes(vs));
 
@@ -1515,4 +1533,427 @@ fn vote_existing_checkpoint() {
 #[test]
 fn vote_scheduled_checkpoint() {
     vote_cp_test(|ticker, owner| notice_ca(owner, ticker, Some(2000)).unwrap());
+}
+
+fn dist_ca(owner: User, ticker: Ticker, rd: Option<Moment>) -> Result<CAId, DispatchError> {
+    let id = next_ca_id(ticker);
+    moment_ca(owner, ticker, CAKind::UnpredictableBenefit, rd)?;
+    Ok(id)
+}
+
+#[test]
+fn dist_distribute_works() {
+    test(|ticker, [owner, other, _]| {
+        set_schedule_complexity();
+
+        let currency = create_asset(b"BETA", owner);
+
+        // Test no CA at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 1, None),
+            Error::NoSuchCA
+        );
+
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+
+        // Test same-asset logic.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, ticker, 0, 0, None),
+            DistError::DistributingAsset
+        );
+
+        // Test expiry.
+        for &(pay, expiry) in &[(5, 5), (6, 5)] {
+            assert_noop!(
+                Dist::distribute(owner.signer(), id, None, currency, 0, pay, Some(expiry)),
+                DistError::ExpiryBeforePayment
+            );
+        }
+        Timestamp::set_timestamp(5);
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            currency,
+            0,
+            5,
+            Some(6)
+        ));
+
+        // Start before now.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 4, None),
+            DistError::NowAfterPayment
+        );
+
+        // Distribution already exists.
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, None, currency, 0, 5, None),
+            DistError::AlreadyExists
+        );
+
+        // Portfolio doesn't exist.
+        let id = dist_ca(owner, ticker, Some(5)).unwrap();
+        let num = PortfolioNumber(42);
+        assert_noop!(
+            Dist::distribute(owner.signer(), id, Some(num), currency, 0, 5, None),
+            PError::PortfolioDoesNotExist
+        );
+
+        // No custody over portfolio.
+        let custody =
+            |who: User| Custodian::insert(PortfolioId::default_portfolio(owner.did), who.did);
+        let dist = |id| Dist::distribute(owner.signer(), id, None, currency, 0, 6, None);
+        custody(other);
+        assert_noop!(dist(id), PError::UnauthorizedCustodian);
+        custody(owner);
+
+        // Only benefits, no other kinds.
+        for &kind in ALL_CA_KINDS {
+            let id = next_ca_id(ticker);
+            assert_ok!(moment_ca(owner, ticker, kind, Some(5)));
+            if kind.is_benefit() {
+                assert_ok!(dist(id));
+            } else {
+                assert_noop!(dist(id), DistError::CANotBenefit);
+            }
+        }
+
+        // No record date.
+        let id = dist_ca(owner, ticker, None).unwrap();
+        assert_noop!(dist(id), Error::NoRecordDate);
+
+        // Record date after start.
+        let dist = |id, start| Dist::distribute(owner.signer(), id, None, currency, 0, start, None);
+        let id = dist_ca(owner, ticker, Some(5000)).unwrap();
+        assert_noop!(dist(id, 4999), Error::RecordDateAfterStart);
+        assert_ok!(dist(id, 5000));
+
+        // Test sufficient currency balance.
+        Agent::insert(ticker, other.did);
+        transfer(&currency, owner, other);
+        let id = dist_ca(other, ticker, Some(5)).unwrap();
+        let dist =
+            |amount| Dist::distribute(other.signer(), id, None, currency, amount, 5, Some(13));
+        assert_noop!(dist(501), PError::InsufficientPortfolioBalance);
+        assert_ok!(dist(500));
+        assert_eq!(
+            Dist::distributions(id),
+            Some(Distribution {
+                from: PortfolioId::default_portfolio(other.did),
+                currency,
+                amount: 500,
+                remaining: 500,
+                reclaimed: false,
+                payment_at: 5,
+                expires_at: Some(13),
+            })
+        )
+    });
+}
+
+#[test]
+fn dist_remove_works() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let remove = |id| Dist::remove_distribution(owner.signer(), id);
+
+        // Test no dist at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(remove(id), DistError::NoSuchDistribution);
+
+        // Already started.
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            create_asset(b"BETA", owner),
+            0,
+            5,
+            Some(6)
+        ));
+        Timestamp::set_timestamp(5);
+        assert_noop!(remove(id), DistError::DistributionStarted);
+
+        // Not started, and can remove.
+        Timestamp::set_timestamp(4);
+        assert_ok!(remove(id));
+        assert_eq!(Dist::distributions(id), None);
+    });
+}
+
+#[test]
+fn dist_reclaim_works() {
+    test(|ticker, [owner, other, _]| {
+        set_schedule_complexity();
+
+        let currency = create_asset(b"BETA", owner);
+
+        let reclaim = |id, who: User| Dist::reclaim(who.signer(), id);
+
+        // Test no dist at id.
+        let id = next_ca_id(ticker);
+        assert_noop!(reclaim(id, owner), DistError::NoSuchDistribution);
+
+        // Dist creator different from CAA.
+        transfer(&currency, owner, other);
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        Agent::insert(ticker, other.did);
+        assert_ok!(Dist::distribute(
+            other.signer(),
+            id,
+            None,
+            currency,
+            500,
+            5,
+            Some(6)
+        ));
+        Agent::insert(ticker, owner.did);
+        assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
+
+        // Not expired yet.
+        Timestamp::set_timestamp(5);
+        assert_noop!(reclaim(id, other), DistError::NotExpired);
+
+        // Test successful behavior.
+        Agent::insert(ticker, other.did);
+        Timestamp::set_timestamp(6);
+        let pid = PortfolioId::default_portfolio(other.did);
+        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
+        assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
+        let dist = Dist::distributions(id).unwrap();
+        assert_ok!(reclaim(id, other));
+        assert_ok!(ensure(500));
+        assert_noop!(ensure(501), PError::InsufficientPortfolioBalance);
+        assert_eq!(
+            Dist::distributions(id).unwrap(),
+            Distribution {
+                reclaimed: true,
+                remaining: 0,
+                ..dist
+            }
+        );
+
+        // Now that we have reclaimed, we cannot do so again.
+        assert_noop!(reclaim(id, other), DistError::AlreadyReclaimed);
+    });
+}
+
+#[test]
+fn dist_claim_misc_bad() {
+    test(|ticker, [owner, claimant, _]| {
+        set_schedule_complexity();
+
+        // Important for the end. A scope claim exists for `ticker`, but *not* for `BETA`.
+        transfer(&ticker, owner, claimant);
+
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+
+        let noop = |err: DispatchError| {
+            assert_noop!(Dist::claim(claimant.signer(), id), err);
+            assert_noop!(Dist::push_benefit(owner.signer(), id, claimant.did), err);
+        };
+
+        // Dist doesn't exist yet.
+        noop(DistError::NoSuchDistribution.into());
+
+        // Now it does.
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            create_asset(b"BETA", owner),
+            0,
+            5,
+            Some(6)
+        ));
+
+        // But it hasn't started yet.
+        Timestamp::set_timestamp(4);
+        noop(DistError::CannotClaimBeforeStart.into());
+
+        // And now it has already expired.
+        Timestamp::set_timestamp(6);
+        noop(DistError::CannotClaimAfterExpiry.into());
+
+        // Travel back in time. Now dist is active, but no scope claims, so transfer fails.
+        Timestamp::set_timestamp(5);
+        noop(AssetError::InvalidTransfer.into());
+    });
+}
+
+#[test]
+fn dist_claim_not_targeted() {
+    test(|ticker, [owner, foo, bar]| {
+        set_schedule_complexity();
+
+        let currency = create_asset(b"BETA", owner);
+
+        provide_scope_claim_to_multiple_parties(
+            &[owner.did, foo.did, bar.did],
+            currency,
+            CDDP.public(),
+        );
+
+        let ca = || {
+            let id = dist_ca(owner, ticker, Some(1)).unwrap();
+            assert_ok!(Dist::distribute(
+                owner.signer(),
+                id,
+                None,
+                currency,
+                0,
+                1,
+                None,
+            ));
+            id
+        };
+        test_not_targeted(ca, foo, bar, |id| Dist::claim(foo.signer(), id));
+    });
+}
+
+#[test]
+fn dist_claim_works() {
+    test(|ticker, [owner, foo, bar]| {
+        set_schedule_complexity();
+
+        // Add scope claims for `BETA`, allowing transfers to go through.
+        let currency = create_asset(b"BETA", owner);
+        provide_scope_claim_to_multiple_parties(
+            &[owner.did, foo.did, bar.did],
+            currency,
+            CDDP.public(),
+        );
+
+        // Transfer 500 to `foo` and 1000 to `bar`.
+        transfer(&ticker, owner, foo);
+        transfer(&ticker, owner, bar);
+        transfer(&ticker, owner, bar);
+
+        // Create the dist.
+        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        let amount = 200_000;
+        let supply = Asset::total_supply(ticker);
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            currency,
+            amount,
+            5,
+            None,
+        ));
+        Timestamp::set_timestamp(5);
+
+        // Alter taxes, using both default and DID-specific taxes.
+        CorporateActions::mutate(ticker, id.local_id, |ca| {
+            let ca = ca.as_mut().unwrap();
+            ca.default_withholding_tax = P25;
+            ca.withholding_tax = vec![(bar.did, Tax::from_rational_approximation(1u32, 3u32))];
+        });
+
+        // Ensures that holder cannot claim or be pushed to again.
+        let already = |user: User| {
+            assert_noop!(Dist::claim(user.signer(), id), DistError::HolderAlreadyPaid);
+            assert_noop!(
+                Dist::push_benefit(owner.signer(), id, user.did),
+                DistError::HolderAlreadyPaid
+            );
+        };
+
+        // `foo` claims with 25% tax.
+        assert_ok!(Dist::claim(foo.signer(), id));
+        already(foo);
+        let benefit_foo = 500 * amount / supply;
+        let post_tax_foo = benefit_foo * 3 / 4;
+        assert_eq!(Asset::balance(&currency, foo.did), post_tax_foo);
+        let assert_rem =
+            |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
+        assert_rem(benefit_foo);
+
+        // `bar` is pushed to with 1/3 tax.
+        assert_ok!(Dist::push_benefit(owner.signer(), id, bar.did));
+        already(bar);
+        let benefit_bar = 1_000 * amount / supply;
+        let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
+        assert_eq!(Asset::balance(&currency, bar.did), post_tax_bar);
+        assert_rem(benefit_foo + benefit_bar);
+
+        // Owner should have some free currency balance due to withheld taxes.
+        let pid = PortfolioId::default_portfolio(owner.did);
+        let wht = benefit_foo - post_tax_foo + benefit_bar - post_tax_bar;
+        let rem = supply - amount + wht;
+        assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, &rem));
+        assert_noop!(
+            Portfolio::ensure_sufficient_balance(&pid, &currency, &(rem + 1)),
+            PError::InsufficientPortfolioBalance,
+        );
+    });
+}
+
+fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
+    test(|ticker, [owner, other, claimant]| {
+        set_schedule_complexity();
+
+        // Owner ==[500]==> Voter.
+        transfer(&ticker, owner, claimant);
+
+        let id = mk_ca(ticker, owner);
+
+        // Voter ==[500]==> Other. N.B. this is after the CP was made.
+        Timestamp::set_timestamp(3000);
+        transfer(&ticker, claimant, other);
+
+        // Create the distribution.
+        let currency = create_asset(b"BETA", owner);
+        provide_scope_claim_to_multiple_parties(
+            &[owner.did, other.did, claimant.did],
+            currency,
+            CDDP.public(),
+        );
+        let amount = 200_000;
+        let supply = Asset::total_supply(ticker);
+        assert_ok!(Dist::distribute(
+            owner.signer(),
+            id,
+            None,
+            currency,
+            amount,
+            4000,
+            None,
+        ));
+
+        // Claim the distribution.
+        Timestamp::set_timestamp(4000);
+        assert_ok!(Dist::claim(claimant.signer(), id));
+        assert_ok!(Dist::push_benefit(owner.signer(), id, other.did));
+
+        // Check the balances; tax is 0%.
+        assert_eq!(
+            Asset::balance(&currency, claimant.did),
+            500 * amount / supply
+        );
+        assert_eq!(Asset::balance(&currency, other.did), 0);
+    });
+}
+
+#[test]
+fn dist_claim_existing_checkpoint() {
+    dist_claim_cp_test(|ticker, owner| {
+        assert_ok!(Checkpoint::create_checkpoint(owner.signer(), ticker));
+        let rd = Some(RecordDateSpec::Existing(
+            Checkpoint::checkpoint_id_sequence(ticker),
+        ));
+        let id = dist_ca(owner, ticker, Some(1000)).unwrap();
+        assert_ok!(CA::change_record_date(owner.signer(), id, rd));
+        id
+    });
+}
+
+#[test]
+fn dist_claimscheduled_checkpoint() {
+    dist_claim_cp_test(|ticker, owner| dist_ca(owner, ticker, Some(2000)).unwrap());
 }

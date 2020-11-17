@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    self as polymesh_primitives, DispatchableName, IdentityId, PalletName, PortfolioNumber,
+    self as polymesh_primitives, DispatchableName, IdentityId, PalletName, PortfolioId,
     SubsetRestriction, Ticker,
 };
 use codec::{Decode, Encode};
@@ -71,7 +71,7 @@ impl PalletPermissions {
 pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 
 /// Portfolio permissions.
-pub type PortfolioPermissions = SubsetRestriction<PortfolioNumber>;
+pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 
 /// Signing key permissions.
 ///
@@ -267,7 +267,7 @@ where
     }
 
     /// Checks if the given key has permission to access all given portfolios.
-    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioNumber>) -> bool {
+    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
 }
@@ -358,9 +358,7 @@ pub mod runtime_upgrade {
 
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
 pub mod api {
-    use crate::{
-        DispatchableName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker,
-    };
+    use crate::{DispatchableName, PalletName, PortfolioId, Signatory, SubsetRestriction, Ticker};
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
@@ -397,7 +395,7 @@ pub mod api {
     /// Portfolio permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PortfolioPermissions(pub Option<Vec<PortfolioNumber>>);
+    pub struct PortfolioPermissions(pub Option<Vec<PortfolioId>>);
 
     /// Signing key permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -542,7 +540,7 @@ pub mod api {
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, SecondaryKey, Signatory, SubsetRestriction};
+    use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -557,7 +555,9 @@ mod tests {
         let rk3_permissions = Permissions {
             asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1.into()),
+            portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
+                1u128,
+            ))),
         };
         let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -581,21 +581,25 @@ mod tests {
         let key = Public::from_raw([b'A'; 32]);
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
+        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
+        let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1.into()),
+            portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(free_key.has_portfolio_permission(vec![2.into()]));
+        assert!(free_key.has_portfolio_permission(vec![portfolio1]));
+        assert!(restricted_key.has_asset_permission(ticker1));
         assert!(!restricted_key.has_asset_permission(ticker2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(!restricted_key.has_portfolio_permission(vec![2.into()]));
+        assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));
+        assert!(!restricted_key.has_portfolio_permission(vec![portfolio2]));
     }
 
     #[test]
