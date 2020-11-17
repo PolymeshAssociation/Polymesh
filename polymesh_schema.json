@@ -495,6 +495,12 @@
             "eth_owner": "EthereumAddress",
             "is_created": "bool"
         },
+        "ClassicTickerImport": {
+            "eth_owner": "EthereumAddress",
+            "ticker": "Ticker",
+            "is_contract": "bool",
+            "is_created": "bool"
+        },
         "EthereumAddress": "[u8; 20]",
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
@@ -1098,7 +1104,7 @@
         "CorporateAction": {
             "kind": "CAKind",
             "record_date": "Option<RecordDate>",
-            "details": "String",
+            "details": "Text",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
             "withholding_tax": "Vec<(IdentityId, Tax)>"
