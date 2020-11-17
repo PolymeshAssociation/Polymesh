@@ -23,13 +23,15 @@ use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
 };
+
 use schnorrkel::Signature;
 use sp_std::prelude::*;
 
-#[cfg(feature = "full_crypto")]
-use sp_core::sr25519::Pair;
-
-#[cfg(feature = "full_crypto")]
+#[cfg(feature = "std")]
+use schnorrkel::Keypair;
+#[cfg(feature = "std")]
+use sp_core::{crypto::Pair as TPair, sr25519::Pair};
+#[cfg(feature = "std")]
 const SIGNING_CTX: &[u8] = b"substrate";
 
 const SEED: u32 = 0;
@@ -37,7 +39,8 @@ pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
 
-type SecretKey = [u8; 64]; // sr25519 key
+pub type SecretKey = [u8; 64]; // Only in sr25519
+pub type PublicKey = [u8; 32]; // Only in sr25519
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
 pub struct User<T: Trait> {
@@ -61,6 +64,7 @@ impl<T: Trait> User<T> {
         user
     }
 
+    /// Create a new CDD account.
     pub fn new_cdd(u: u32) -> Self {
         let user = Self::new("cdd", u);
         T::CddServiceProviders::add_member(user.did()).unwrap();
@@ -82,7 +86,27 @@ impl<T: Trait> User<T> {
         }
     }
 
-    #[cfg(not(feature = "full_crypto"))]
+    /// Create an account with specific public key.
+    /// It is used to make reproducible test-cases on WASM.
+    pub fn new_from_public(pk: PublicKey) -> Self {
+        let account = T::AccountId::decode(&mut &pk[..]).unwrap();
+        let secret = [0u8; 64];
+        let origin = RawOrigin::Signed(account.clone());
+        let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
+        let uid = InvestorUid::from(&pk[..16]);
+        let _ = Module::<T>::register_did(origin.clone().into(), uid, vec![]);
+        let did = Module::<T>::get_identity(&account);
+
+        Self {
+            account,
+            secret,
+            origin,
+            uid: Some(uid),
+            did,
+        }
+    }
+
+    #[cfg(not(feature = "std"))]
     fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, SecretKey) {
         let public: T::AccountId = account(name, u, SEED);
         let secret = [0u8; 64];
@@ -90,12 +114,17 @@ impl<T: Trait> User<T> {
         (public, secret)
     }
 
-    #[cfg(feature = "full_crypto")]
+    #[cfg(feature = "std")]
     fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, SecretKey) {
         let seed = (name, u).using_encoded(blake2_256);
-        let pair = Pair::from_seed(seed);
+        let pair = Pair::from_seed(&seed);
+        let keypair: &Keypair = pair.as_ref();
 
-        (pair.public, pair.secret)
+        let secret = keypair.secret.to_bytes();
+        let public = keypair.public.to_bytes();
+        let id = T::AccountId::decode(&mut &public[..]).unwrap();
+
+        (id, secret)
     }
 
     pub fn did(self: &Self) -> IdentityId {
@@ -106,18 +135,18 @@ impl<T: Trait> User<T> {
         self.uid.clone().expect("User without UID")
     }
 
-    #[cfg(feature = "full_crypto")]
+    #[cfg(feature = "std")]
     pub fn sign(&self, message: &[u8]) -> Signature {
-        let sk = schnorrkel::keys::SecretKey::from_bytes(self.secret)
+        let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
             .expect("Invalid sr25519 secret key");
+        let pair = Keypair::from(sk);
         let context = schnorrkel::signing_context(SIGNING_CTX);
-
-        sk.sign(context.bytes(message)).into()
+        pair.sign(context.bytes(message)).into()
     }
 
-    #[cfg(not(feature = "full_crypto"))]
+    #[cfg(not(feature = "std"))]
     pub fn sign(&self, _message: &[u8]) -> Signature {
-        panic!("Cannot sign without 'full_crypto' support");
+        panic!("Cannot sign without 'std' support");
     }
 }
 
