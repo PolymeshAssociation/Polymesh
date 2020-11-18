@@ -16,12 +16,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
+use frame_benchmarking::benchmarks;
 use pallet_asset::SecurityToken;
 use pallet_identity::benchmarking::User;
 use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{TrustedFor, TrustedIssuer};
-// use polymesh_common_benchmarks::{User, make_issuers, make_issuer, make_conditions};
-use frame_benchmarking::benchmarks;
 
 const SEED: u32 = 1;
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
