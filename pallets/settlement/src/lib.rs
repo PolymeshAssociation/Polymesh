@@ -257,6 +257,12 @@ pub struct Receipt<Balance> {
     pub amount: Balance,
 }
 
+/// A wrapper for VenueDetails
+#[derive(
+    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct ReceiptMetadata(Vec<u8>);
+
 /// Details about an offchain transaction receipt that a user must input
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
@@ -268,6 +274,8 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub signer: AccountId,
     /// signature confirming the receipt details
     pub signature: OffChainSignature,
+    /// Generic text that can be used to attach messages to receipts
+    pub metadata: ReceiptMetadata,
 }
 
 pub mod weight_for {
@@ -356,8 +364,8 @@ decl_event!(
         AffirmationWithdrawn(IdentityId, PortfolioId, u64),
         /// An instruction has been rejected (did, instruction_id)
         InstructionRejected(IdentityId, u64),
-        /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer)
-        ReceiptClaimed(IdentityId, u64, u64, u64, AccountId),
+        /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
+        ReceiptClaimed(IdentityId, u64, u64, u64, AccountId, ReceiptMetadata),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
         ReceiptUnclaimed(IdentityId, u64, u64, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
@@ -580,8 +588,10 @@ decl_module! {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             let legs_count = legs.len();
-            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-            let affirm_instruction_weight = Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())?;
+            let affirm_instruction_weight = with_transaction(|| {
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+                Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
+            })?;
             Ok(
                 Some(
                     weight_for::weight_for_instruction_creation::<T>(legs_count)
@@ -706,10 +716,7 @@ decl_module! {
             Self::unsafe_claim_receipt(
                 primary_did,
                 instruction_id,
-                receipt_details.leg_id,
-                receipt_details.receipt_uid,
-                receipt_details.signer,
-                receipt_details.signature,
+                receipt_details,
                 secondary_key.as_ref()
             )
         }
@@ -1171,34 +1178,32 @@ impl<T: Trait> Module<T> {
     fn unsafe_claim_receipt(
         did: IdentityId,
         instruction_id: u64,
-        leg_id: u64,
-        receipt_uid: u64,
-        signer: T::AccountId,
-        signature: T::OffChainSignature,
+        receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_instruction_validity(instruction_id)?;
 
         ensure!(
-            Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending,
+            Self::instruction_leg_status(instruction_id, receipt_details.leg_id)
+                == LegStatus::ExecutionPending,
             Error::<T>::LegNotPending
         );
         let venue_id = Self::instruction_details(instruction_id).venue_id;
         ensure!(
-            Self::venue_signers(venue_id, &signer),
+            Self::venue_signers(venue_id, &receipt_details.signer),
             Error::<T>::UnauthorizedSigner
         );
         ensure!(
-            !Self::receipts_used(&signer, receipt_uid),
+            !Self::receipts_used(&receipt_details.signer, receipt_details.receipt_uid),
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        let leg = Self::instruction_legs(instruction_id, leg_id);
+        let leg = Self::instruction_legs(instruction_id, receipt_details.leg_id);
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
         let msg = Receipt {
-            receipt_uid,
+            receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
             asset: leg.asset,
@@ -1206,25 +1211,31 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(
-            signature.verify(&msg.encode()[..], &signer),
+            receipt_details
+                .signature
+                .verify(&msg.encode()[..], &receipt_details.signer),
             Error::<T>::InvalidSignature
         );
 
         T::Portfolio::unlock_tokens(&leg.from, &leg.asset, &leg.amount)?;
 
-        <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
+        <ReceiptsUsed<T>>::insert(&receipt_details.signer, receipt_details.receipt_uid, true);
 
         <InstructionLegStatus<T>>::insert(
             instruction_id,
-            leg_id,
-            LegStatus::ExecutionToBeSkipped(signer.clone(), receipt_uid),
+            receipt_details.leg_id,
+            LegStatus::ExecutionToBeSkipped(
+                receipt_details.signer.clone(),
+                receipt_details.receipt_uid,
+            ),
         );
         Self::deposit_event(RawEvent::ReceiptClaimed(
             did,
             instruction_id,
-            leg_id,
-            receipt_uid,
-            signer,
+            receipt_details.leg_id,
+            receipt_details.receipt_uid,
+            receipt_details.signer,
+            receipt_details.metadata,
         ));
         Ok(())
     }
@@ -1399,6 +1410,7 @@ impl<T: Trait> Module<T> {
                 receipt.leg_id,
                 receipt.receipt_uid,
                 receipt.signer.clone(),
+                receipt.metadata.clone(),
             ));
         }
 
