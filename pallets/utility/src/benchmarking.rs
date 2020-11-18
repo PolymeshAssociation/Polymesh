@@ -3,20 +3,25 @@ use pallet_balances::{self as balances, Call as BalancesCall};
 use pallet_identity::benchmarking::User;
 
 use frame_benchmarking::benchmarks;
-use sp_runtime::{traits::StaticLookup, MultiSignature};
+use sp_runtime::traits::StaticLookup;
 
 #[cfg(not(feature = "std"))]
 use hex_literal::hex;
+
 #[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
+#[cfg(feature = "std")]
+use sp_runtime::MultiSignature;
 
 const MAX_CALLS: u32 = 30;
 
+/// Generate `c` no-op system remark calls.
 fn make_calls<T: Trait>(c: u32) -> Vec<<T as Trait>::Call> {
     let call: <T as Trait>::Call = frame_system::Call::<T>::remark(vec![]).into();
     vec![call; c as usize]
 }
 
+/// Generate `c` transfers calls to `to` account of `amount` poly.
 fn make_transfer_calls<T: Trait>(
     c: u32,
     to: T::AccountId,
@@ -27,61 +32,22 @@ fn make_transfer_calls<T: Trait>(
     vec![call; c as usize]
 }
 
+/// Double-check that free balance of `account` account is the expected value.
 fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128) {
     let acc_balance = balances::Module::<T>::free_balance(account);
     assert_eq!(acc_balance, expected_balance.into())
 }
 
-struct RelayTxSetup<T: Trait> {
-    pub caller: T::AccountId,
-    pub target: T::AccountId,
-    pub signature: T::OffChainSignature,
-    pub call: UniqueCall<<T as Trait>::Call>,
-}
-
-/// Relay transaction setup for native code.
-/// It prepares a relayed transfer from `bob` to `alice` which is going to be called by `alice`.
-/// In order to do that, `bob` has to sign the call. We can sign only in native execution, because
-/// WASM does not enable `full_crypto` feature.
 #[cfg(feature = "std")]
-fn relay_tx_setup<T: Trait>() -> RelayTxSetup<T> {
+fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
     let alice = User::<T>::new("Caller", 1);
     let bob = User::<T>::new("Target", 1);
 
-    // Alice sends 1 POLY on behalf of bob from bob's account.
-    let call = make_transfer_calls::<T>(1, alice.account.clone(), 1)
-        .pop()
-        .unwrap();
-    let nonce: AuthorizationNonce = Module::<T>::nonce(bob.account.clone());
-    let call = UniqueCall::new(nonce, call);
-
-    // Bob signs the relay call.
-    // NB: Decode as T::OffChainSignature because there is not type constraints in
-    // `T::OffChainSignature` to limit it.
-    let raw_signature: [u8; 64] = bob.sign(&call.encode()).to_bytes();
-    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-    // Native execution can generate a hard-coded signature using the following code:
-    // ```ignore
-    //  let hex_encoded = hex::encode(&encoded);
-    //  frame_support::debug::info!("Bob nonce:{} encoded:{:?}", nonce, &hex_encoded);
-    //  ```
-
-    let signature = T::OffChainSignature::decode(&mut &encoded[..])
-        .expect("OffChainSignature cannot be decoded from a MultiSignature");
-
-    RelayTxSetup {
-        caller: alice.account,
-        target: bob.account,
-        signature,
-        call,
-    }
+    (alice, bob)
 }
 
-/// Relay transaction setup for WASM code.
-/// Public keys of `alice` and `bob` and the signature of the relayed call are generated in the native part, so WASM does not need to use the crypto stuff.
-///
 #[cfg(not(feature = "std"))]
-fn relay_tx_setup<T: Trait>() -> RelayTxSetup<T> {
+fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
     // Keys generated
     let alice_pk = hex!("6a4f597d1a0004ee6fd08622baf93fc350c048aeb8a6bf253208b1a536539333");
     let bob_pk = hex!("8a2f30f00294ca72f2e9572263c8cf96695a1d9fffff3f8b0d49171a917d9f31");
@@ -90,24 +56,59 @@ fn relay_tx_setup<T: Trait>() -> RelayTxSetup<T> {
     let alice = User::<T>::new_from_public(alice_pk);
     let bob = User::<T>::new_from_public(bob_pk);
 
-    // Create the relayed call and its signature.
-    let call = make_transfer_calls::<T>(1, alice.account.clone(), 1)
-        .pop()
-        .unwrap();
-    let nonce: AuthorizationNonce = Module::<T>::nonce(bob.account.clone());
+    (alice, bob)
+}
+
+fn remark_call_builder<T: Trait>(
+    signer: &User<T>,
+    _: T::AccountId,
+) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
+    let call = make_calls::<T>(1).pop().unwrap();
+    let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account.clone());
     let call = UniqueCall::new(nonce, call);
 
-    //
-    let data = hex!("01aa3fb75dddaa9d1c058097aa10814a46a411192124a1970e21fc9547a075045090a318672bd44baa8f2069c4484ffc1b0e133011a80a1aaf2a484970bcffd987");
-    let signature = T::OffChainSignature::decode(&mut &data[..])
-        .expect("OffChainSignature cannot be decoded from a MultiSignature");
+    #[cfg(feature = "std")]
+    let encoded = {
+        // Signer signs the relay call.
+        // NB: Decode as T::OffChainSignature because there is not type constraints in
+        // `T::OffChainSignature` to limit it.
+        let raw_signature: [u8; 64] = signer.sign(&call.encode()).to_bytes();
+        let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
 
-    RelayTxSetup {
-        caller: alice.account,
-        target: bob.account,
-        signature,
-        call,
-    }
+        // Native execution can generate a hard-coded signature using the following code:
+        // ```ignore
+        // let hex_encoded = hex::encode(&encoded);
+        // frame_support::debug::info!("Signer nonce:{} encoded:{:?}", nonce, &hex_encoded);
+        //  ```
+
+        encoded
+    };
+    #[cfg(not(feature = "std"))]
+    let encoded = hex!("01d6dda327f7ab364e0a6c3aa8db761c796073efe820574b2564672c99bfbdfb129dd9505a770b03161182f29d3c6e44a63a589eb3357e94644e9a7a285add8c8e").to_vec();
+
+    (call, encoded)
+}
+
+fn transfer_call_builder<T: Trait>(
+    signer: &User<T>,
+    target: T::AccountId,
+) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
+    let call = make_transfer_calls::<T>(1, target, 1).pop().unwrap();
+    let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account.clone());
+    let call = UniqueCall::new(nonce, call);
+
+    #[cfg(feature = "std")]
+    let encoded = {
+        // Signer signs the relay call.
+        // NB: Decode as T::OffChainSignature because there is not type constraints in
+        // `T::OffChainSignature` to limit it.
+        let raw_signature: [u8; 64] = signer.sign(&call.encode()).to_bytes();
+        MultiSignature::from(Signature::from_raw(raw_signature)).encode()
+    };
+    #[cfg(not(feature = "std"))]
+    let encoded = hex!("01aa3fb75dddaa9d1c058097aa10814a46a411192124a1970e21fc9547a075045090a318672bd44baa8f2069c4484ffc1b0e133011a80a1aaf2a484970bcffd987").to_vec();
+
+    (call, encoded)
 }
 
 benchmarks! {
@@ -145,10 +146,20 @@ benchmarks! {
         let c in 1..MAX_CALLS;
 
         let alice = User::<T>::new("ALICE", 1);
+        let calls = make_calls::<T>(c);
+    }: _(alice.origin, calls)
+    verify {
+        // NB see comment at `batch` verify section.
+    }
+
+    batch_atomic_transfer {
+        let c in 1..MAX_CALLS;
+
+        let alice = User::<T>::new("ALICE", 1);
         let bob = User::<T>::new("BOB", 1);
         let calls = make_transfer_calls::<T>(c, bob.account.clone(), 100);
 
-    }: _(alice.origin, calls)
+    }: batch_atomic(alice.origin, calls)
     verify {
         verify_free_balance::<T>( &alice.account, (1_000_000 - (100 * c)) as u128);
         verify_free_balance::<T>( &bob.account, (1_000_000 + (100 * c)) as u128);
@@ -158,21 +169,49 @@ benchmarks! {
         let c in 1..MAX_CALLS;
 
         let alice = User::<T>::new("ALICE", 1);
+        let calls = make_calls::<T>(c);
+
+    }: _(alice.origin, calls)
+    verify {
+        // NB see comment at `batch` verify section.
+    }
+
+    batch_optimistic_transfer {
+        let c in 1..MAX_CALLS;
+
+        let alice = User::<T>::new("ALICE", 1);
         let bob = User::<T>::new("BOB", 1);
         let calls = make_transfer_calls::<T>(c, bob.account.clone(), 100);
 
-    }: _(alice.origin, calls)
+    }: batch_optimistic(alice.origin, calls)
     verify {
         verify_free_balance::<T>( &alice.account, (1_000_000 - (100 * c)) as u128);
         verify_free_balance::<T>( &bob.account, (1_000_000 + (100 * c)) as u128);
     }
 
     relay_tx {
-        let setup = relay_tx_setup::<T>();
-        let origin = RawOrigin::Signed(setup.caller.clone());
-    }: _(origin, setup.target.clone(), setup.signature, setup.call)
+        let (caller, target) = make_relay_tx_users::<T>();
+        let (call, encoded) = remark_call_builder( &target, caller.account.clone());
+
+        // Rebuild signature from `encoded`.
+        let signature = T::OffChainSignature::decode(&mut &encoded[..])
+            .expect("OffChainSignature cannot be decoded from a MultiSignature");
+
+    }: _(caller.origin.clone(), target.account.clone(), signature, call)
     verify {
-        verify_free_balance::<T>( &setup.caller, 1_000_001u128);
-        verify_free_balance::<T>( &setup.target, 999_999u128);
+        // NB see comment at `batch` verify section.
+    }
+
+    relay_tx_transfer {
+        let (caller, target) = make_relay_tx_users::<T>();
+        let (call, encoded) = transfer_call_builder( &target, caller.account.clone());
+
+        // Rebuild signature from `encoded`.
+        let signature = T::OffChainSignature::decode(&mut &encoded[..])
+            .expect("OffChainSignature cannot be decoded from a MultiSignature");
+    }: relay_tx(caller.origin.clone(), target.account.clone(), signature, call)
+    verify {
+        verify_free_balance::<T>( &caller.account, 1_000_001u128);
+        verify_free_balance::<T>( &target.account, 999_999u128);
     }
 }

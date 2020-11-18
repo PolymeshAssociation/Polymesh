@@ -57,13 +57,12 @@ use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     traits::{GetCallMetadata, UnfilteredDispatchable},
-    weights::GetDispatchInfo,
+    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
-pub use polymesh_common_utilities::traits::utility::WeightInfo;
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
     with_transaction,
@@ -88,6 +87,13 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
         + UnfilteredDispatchable<Origin = Self::Origin>;
 
     type WeightInfo: WeightInfo;
+}
+
+pub trait WeightInfo {
+    fn batch(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn relay_tx(call: &impl GetDispatchInfo) -> Weight;
 }
 
 decl_storage! {

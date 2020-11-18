@@ -4784,6 +4784,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
  "hex-literal 0.2.1",
  "pallet-balances 0.1.0",
  "pallet-identity",
