@@ -63,12 +63,21 @@
         "DispatchableName": "Text",
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "total": "bool",
-            "dispatchable_names": "Vec<DispatchableName>"
+            "dispatchable_names": "Option<Vec<DispatchableName>>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioId>>"
+        },
+        "LegacyPalletPermissions": {
+            "pallet_name": "PalletName",
+            "total": "bool",
+            "dispatchable_names": "Vec<DispatchableName>"
+        },
+        "LegacyPermissions": {
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<LegacyPalletPermissions>>",
             "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {

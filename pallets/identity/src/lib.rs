@@ -590,7 +590,7 @@ decl_module! {
         pub fn set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: secondary_key::api::Permissions
+            permissions: Permissions
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 sender,
@@ -603,10 +603,22 @@ decl_module! {
             match signer {
                 Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
                 _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
-                    Self::update_secondary_key_permissions(did, &signer, permissions.into())
+                    Self::update_secondary_key_permissions(did, &signer, permissions)
                 }
                 _ => Err(Error::<T>::InvalidSender.into()),
             }
+        }
+
+        /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
+        /// It sets permissions for an specific `target_key` key.
+        /// Only the primary key of an identity is able to set secondary key permissions.
+        #[weight = <T as Trait>::WeightInfo::set_permission_to_signer()]
+        pub fn legacy_set_permission_to_signer(
+            origin,
+            signer: Signatory<T::AccountId>,
+            permissions: secondary_key::api::LegacyPermissions
+        ) -> DispatchResult {
+            Self::set_permission_to_signer(origin, signer, permissions.into())
         }
 
         /// It disables all secondary keys at `did` identity.
