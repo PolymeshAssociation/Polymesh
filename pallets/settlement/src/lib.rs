@@ -307,6 +307,8 @@ pub trait WeightInfo {
     // TODO: Will be removed once we get the worst case weight.
     fn set_venue_filtering_disallow() -> Weight;
     fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
+    fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
+    fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
 }
 
 impl WeightInfo for () {
@@ -353,6 +355,12 @@ impl WeightInfo for () {
         1_000_000_000
     }
     fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
         1_000_000_000
     }
 }
@@ -1075,6 +1083,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InstructionNotPending
         );
         if let Some(valid_from) = instruction_details.valid_from {
+            #[cfg(not(feature = "runtime-benchmarks"))]
             ensure!(
                 <pallet_timestamp::Module<T>>::get() >= valid_from,
                 Error::<T>::InstructionWaitingValidity

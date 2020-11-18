@@ -77,6 +77,21 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+    fn add_instruction_with_settle_on_block_type(l: u32) -> Weight {
+        (371_379_000 as Weight)
+            .saturating_add((11_637_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(l as Weight)))
+    }
+    fn add_and_affirm_instruction_with_settle_on_block_type(l: u32) -> Weight {
+        (251_977_000 as Weight)
+            .saturating_add((246_679_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
+    }
     fn affirm_instruction() -> u64 {
         todo!()
     }
