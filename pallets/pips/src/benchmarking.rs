@@ -22,7 +22,6 @@ use pallet_identity::{self as identity, benchmarking::make_account};
 use polymesh_common_utilities::{MaybeBlock, SystematicIssuers};
 use sp_std::{
     convert::{TryFrom, TryInto},
-    iter,
     prelude::*,
 };
 
@@ -30,7 +29,7 @@ const DESCRIPTION_LEN: usize = 1000;
 const URL_LEN: usize = 500;
 
 /// Makes a proposal of a given length.
-pub fn make_proposal<T: Trait>(content_len: usize) -> (Box<T::Proposal>, Url, PipDescription) {
+fn make_proposal<T: Trait>(content_len: usize) -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; content_len];
     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
@@ -51,8 +50,7 @@ fn make_voters<T: Trait>(
         .collect()
 }
 
-/// Creates voters with seeds from 1 to `num_voters` inclusive, and casts an `aye_or_nay` vote from
-/// each of those voters.
+/// Casts an `aye_or_nay` vote from each of the given voters.
 fn cast_votes<T: Trait>(
     id: PipId,
     voters: &[(RawOrigin<T::AccountId>, IdentityId)],
@@ -79,8 +77,8 @@ fn snapshot_setup<T: Trait>(
     for i in 0..p {
         let (proposal, url, description) = make_proposal::<T>(c as usize);
         // Pick a proposer, diversifying like a poor man.
-        let (proposer_origin, proposer_did) = if hi_voters.len() >= i as usize {
-            hi_voters[i as usize - 1].clone()
+        let (proposer_origin, proposer_did) = if hi_voters.len() >= i as usize + 1 {
+            hi_voters[i as usize].clone()
         } else {
             (origin0.clone(), did0)
         };
@@ -161,7 +159,7 @@ benchmarks! {
 
     propose_from_community {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -177,7 +175,7 @@ benchmarks! {
     // `propose` from a committee origin.
     propose_from_committee {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -198,7 +196,7 @@ benchmarks! {
 
     amend_proposal {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -220,7 +218,7 @@ benchmarks! {
 
     cancel_proposal {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -242,11 +240,11 @@ benchmarks! {
 
     vote {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
         // number of ayes
-        let a in 1 .. 50;
+        let a in 1 .. 10;
         // number of nays
-        let n in 1 .. 50;
+        let n in 1 .. 10;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -277,7 +275,7 @@ benchmarks! {
 
     approve_committee_proposal {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (proposal, url, description) = make_proposal::<T>(c as usize);
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
@@ -298,7 +296,7 @@ benchmarks! {
 
     reject_proposal {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -324,7 +322,7 @@ benchmarks! {
 
     prune_proposal {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
@@ -352,7 +350,7 @@ benchmarks! {
 
     reschedule_execution {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -378,7 +376,7 @@ benchmarks! {
 
     clear_snapshot {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -401,13 +399,13 @@ benchmarks! {
 
     snapshot {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
         // number of proposals
-        let p in 1 .. 50;
+        let p in 0 .. 10;
         // first group of voters
-        let h in 0 .. 50;
+        let h in 0 .. 10;
         // second group of voters
-        let b in 0 .. 50;
+        let b in 0 .. 10;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
     }: _(origin0)
@@ -417,23 +415,30 @@ benchmarks! {
 
     enact_snapshot_results {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 10_000;
         // number of proposals
-        let p in 1 .. 50;
+        let p in 0 .. 10;
         // first group of voters
-        let h in 0 .. 50;
+        let h in 0 .. 10;
         // second group of voters
-        let b in 0 .. 50;
+        let b in 0 .. 10;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
         Module::<T>::snapshot(origin0.into())?;
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let proposal_ids = iter::once(0)
-            .chain(1 .. h + 1)
-            .chain(h + 1 .. b + h + 1);
         let enact_call = Call::<T>::enact_snapshot_results(
-            proposal_ids
-                .map(|id| (id, SnapshotResult::Approve))
+            Module::<T>::snapshot_queue()
+                .iter()
+                .map(|s| {
+                    let id = s.id;
+                    let action = if id % 2 == 0 {
+                        SnapshotResult::Approve
+                    } else {
+                        SnapshotResult::Reject
+                    };
+                    (id, action)
+                })
+                .rev()
                 .collect()
         );
     }: {
