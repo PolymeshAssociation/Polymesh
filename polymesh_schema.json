@@ -1013,11 +1013,13 @@
             "asset": "Ticker",
             "amount": "Balance"
         },
+        "ReceiptMetadata": "Text",
         "ReceiptDetails": {
             "receipt_uid": "u64",
             "leg_id": "u64",
             "signer": "AccountId",
-            "signature": "OffChainSignature"
+            "signature": "OffChainSignature",
+            "metadata": "ReceiptMetadata"
         },
         "UniqueCall": {
             "nonce": "u64",
