@@ -159,7 +159,7 @@ benchmarks! {
 
     propose_from_community {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -175,7 +175,7 @@ benchmarks! {
     // `propose` from a committee origin.
     propose_from_committee {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -196,7 +196,7 @@ benchmarks! {
 
     amend_proposal {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -218,7 +218,7 @@ benchmarks! {
 
     cancel_proposal {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -240,11 +240,11 @@ benchmarks! {
 
     vote {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
         // number of ayes
-        let a in 1 .. 5;
+        let a in 1 .. 10;
         // number of nays
-        let n in 1 .. 5;
+        let n in 1 .. 10;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -275,7 +275,7 @@ benchmarks! {
 
     approve_committee_proposal {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (proposal, url, description) = make_proposal::<T>(c as usize);
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
@@ -296,7 +296,7 @@ benchmarks! {
 
     reject_proposal {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -322,7 +322,7 @@ benchmarks! {
 
     prune_proposal {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
@@ -350,7 +350,7 @@ benchmarks! {
 
     reschedule_execution {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -376,7 +376,7 @@ benchmarks! {
 
     clear_snapshot {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -399,13 +399,13 @@ benchmarks! {
 
     snapshot {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
         // number of proposals
         let p in 0 .. 5;
         // first group of voters
-        let h in 0 .. 5;
+        let h in 0 .. 10;
         // second group of voters
-        let b in 0 .. 5;
+        let b in 0 .. 10;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
     }: _(origin0)
@@ -415,13 +415,13 @@ benchmarks! {
 
     enact_snapshot_results {
         // length of the proposal padding
-        let c in 0 .. 10_000;
+        let c in 0 .. 100_000;
         // number of proposals
         let p in 0 .. 5;
         // first group of voters
-        let h in 0 .. 5;
+        let h in 0 .. 10;
         // second group of voters
-        let b in 0 .. 5;
+        let b in 0 .. 10;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
         Module::<T>::snapshot(origin0.into())?;
@@ -445,6 +445,6 @@ benchmarks! {
         enact_call.dispatch_bypass_filter(enact_origin)?;
     }
     verify {
-        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+        assert_eq!(p > 0, PipToSchedule::<T>::contains_key(&0));
     }
 }
