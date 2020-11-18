@@ -98,7 +98,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
 };
-use polymesh_primitives_derive::Migrate;
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -122,17 +121,12 @@ pub trait Trait:
     type MaxConditionComplexity: Get<u32>;
 }
 
-use polymesh_primitives::condition::ConditionOld;
-
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
-#[migrate_context(Option<polymesh_primitives::CddId>)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
-    #[migrate(Condition)]
     pub sender_conditions: Vec<Condition>,
-    #[migrate(Condition)]
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
@@ -190,13 +184,11 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Migrate)]
-#[migrate_context(Option<polymesh_primitives::CddId>)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
     /// List of compliance requirements.
-    #[migrate(ComplianceRequirement)]
     pub requirements: Vec<ComplianceRequirement>,
 }
 
@@ -278,14 +270,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::migrate::migrate_map_rename;
-
-            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliances", |_| None);
-
-            1_000
-        }
 
         /// Adds a compliance requirement to an asset's compliance by ticker.
         /// If the compliance requirement is a duplicate, it does nothing.

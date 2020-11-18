@@ -36,7 +36,6 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{EnactProposalMaker, PipId},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -50,6 +49,7 @@ use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
+    u32_trait::{_1, _2},
     H256,
 };
 use sp_runtime::{
@@ -77,7 +77,12 @@ impl From<UintAuthorityId> for MockSessionKeys {
 }
 
 impl_outer_origin! {
-    pub enum Origin for TestStorage {}
+    pub enum Origin for TestStorage {
+        committee Instance1 <T>,
+        committee DefaultInstance <T>,
+        committee Instance3 <T>,
+        committee Instance4 <T>
+    }
 }
 
 impl_outer_dispatch! {
@@ -91,6 +96,8 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        self::Committee,
+        self::DefaultCommittee,
     }
 }
 
@@ -320,6 +327,7 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -331,6 +339,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -341,6 +350,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -351,23 +361,19 @@ impl group::Trait<group::Instance2> for TestStorage {
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
 
-impl<I> From<CommitteeOrigin<TestStorage, I>> for Origin {
-    fn from(_co: CommitteeOrigin<TestStorage, I>) -> Origin {
-        Origin::from(frame_system::RawOrigin::Root)
-    }
-}
-
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0u64;
 }
 
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+
 impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<committee::Instance1>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -376,7 +382,6 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -563,8 +568,10 @@ impl dividend::Trait for TestStorage {
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
@@ -576,20 +583,6 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
-}
-
-impl EnactProposalMaker<Origin, Call> for TestStorage {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
 }
 
 // Publish type alias for each module
@@ -605,6 +598,7 @@ pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
+pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;

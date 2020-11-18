@@ -13,7 +13,9 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let keys = await reqImports.generateKeys(api, 2, "primary0");
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+
+  let keys = await reqImports.generateKeys(api, 2, primary_dev_seed );
 
   await createIdentities(api, keys, testEntities[0]);
 
@@ -34,14 +36,22 @@ async function createIdentities(api, accounts, alice) {
 
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
-        let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
-        console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
-        const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, []);
-        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
+        let account_did = await reqImports.keyToIdentityIds(api, accounts[i].publicKey);
+   
+        if(account_did == 0) {
 
-        reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
+            let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
+            console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
+            const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, []);
+            const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
+            const passed = result.findRecord('system', 'ExtrinsicSuccess');
+            if (passed) reqImports.fail_count--;
+
+            reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
+        }
+        else {
+          console.log('Identity Already Linked.');
+      }
       }
 
       for (let i = 0; i < accounts.length; i++) {

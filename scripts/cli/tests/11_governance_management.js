@@ -4,43 +4,58 @@ module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
-// Import the test keyring (already has dev keys for Alice, Bob, Charlie, Eve & Ferdie)
-const testKeyring = require('@polkadot/keyring/testing');
-
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
-  
+
   const testEntities = await reqImports.initMain(api);
-  
+
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let govCommittee1 = testEntities[5];
-  let govCommittee2 = testEntities[6];
+  let dave = await reqImports.generateRandomEntity(api);
+  let bob = await reqImports.generateRandomEntity(api);
+  let govCommittee1 = testEntities[2];
+  let govCommittee2 = testEntities[3];
 
-  let proposalId = 0;
-  
-  await reqImports.createIdentities( api, [bob, govCommittee1, govCommittee2], alice );
-  
-  await bondPoly(api, alice, bob);
-  
-  await proposePIP( api, bob );
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(10)));
+  await reqImports.createIdentities(api, [bob, dave, govCommittee1, govCommittee2], alice);
 
-  await amendProposal(api, bob);
+  // Bob and Dave needs some funds to use.
+  await reqImports.distributePolyBatch(api, [bob, dave], reqImports.transfer_amount, alice);
 
-  await fastTrackProposal(api, proposalId, alice);
+  await sendTx(dave, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
+  // Create a PIP which is then amended.
+  const setLimit = api.tx.pips.setActivePipLimit(42);
+  // Create a PIP, but first placing the cool-off period.
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(10)));
 
-  await reqImports.distributePolyBatch( api, [govCommittee1, govCommittee2], reqImports.transfer_amount, alice );
+  let firstPipCount = await api.query.pips.pipIdSequence();
+  await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
 
-  await voteEnactReferendum(api, proposalId, govCommittee1);
+  await sendTx(bob, api.tx.pips.amendProposal(firstPipCount, "www.facebook.com", null));
+ 
+  // Create a PIP, but first remove the cool-off period.
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(0)));
 
-  await voteEnactReferendum(api, proposalId, govCommittee2);
+  let secondPipCount = await api.query.pips.pipIdSequence();
+  await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
 
-  await overrideReferendumEnactmentPeriod(api, proposalId, null, alice);
+  // GC needs some funds to use.
+  await reqImports.distributePolyBatch(api, [govCommittee1, govCommittee2], reqImports.transfer_amount, alice);
 
+  // Snapshot and approve second PIP.
+  await sendTx(govCommittee1, api.tx.pips.snapshot());
+  const approvePIP = api.tx.pips.enactSnapshotResults([[secondPipCount, { "Approve": "" }]]);
+  await voteResult(api, approvePIP, [govCommittee1, govCommittee2]);
+
+  // Reject the first PIP
+  const rejectPIP = api.tx.pips.rejectProposal(firstPipCount);
+  await voteResult(api, rejectPIP, [govCommittee1, govCommittee2]);
+
+  // Finally reschedule, demonstrating that it had been scheduled.
+  await sendTx(alice, api.tx.pips.rescheduleExecution(secondPipCount, null));
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -51,78 +66,19 @@ async function main() {
   process.exit();
 }
 
-async function voteEnactReferendum(api, proposalId, signer) {
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.polymeshCommittee.voteEnactReferendum(proposalId);
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
+async function sendTx(signer, tx) {
+  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
+  const result = await reqImports.sendTransaction(tx, signer, nonceObj);
   const passed = result.findRecord('system', 'ExtrinsicSuccess');
   if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
+  reqImports.nonces.set(signer.address, reqImports.nonces.get(signer.address).addn(1));
 }
 
-async function overrideReferendumEnactmentPeriod(api, proposalId, until, signer) {
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.pips.overrideReferendumEnactmentPeriod(proposalId, until);
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
-}
-
-async function fastTrackProposal(api, proposalId, signer) {
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.pips.fastTrackProposal(proposalId);
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
-}
-
-async function amendProposal(api, signer) {
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.pips.amendProposal(0, "www.facebook.com", null);
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
-}
-
-
-async function bondPoly(api, signer, bob) {
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.staking.bond(bob.publicKey, 20000, "Staked");
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
-}
-
-
-async function proposePIP(api, signer) {
-
-  let proposal = await api.tx.pips.setProposalDuration(10);
-  let deposit = 10000000000;
-  let url = "www.google.com";
-  let description = "test proposal";
-
-  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.pips.propose(proposal, deposit, url, description, null);
-  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
-  
+async function voteResult(api, tx, signers) {
+  const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
+  for (let i = 0; i < signers.length; i++) {
+    await sendTx(signers[i], vote);
+  }
 }
 
 main().catch(console.error);

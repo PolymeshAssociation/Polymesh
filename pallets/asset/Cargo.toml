@@ -45,7 +45,7 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 
 [features]
 equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std"]
 no_std = []
 only-staking = []
 std = [
@@ -68,6 +68,7 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
+    "sp-arithmetic/std"
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
