@@ -217,4 +217,46 @@ benchmarks! {
         <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
         let origin = RawOrigin::Signed(multisig);
     }: _(origin, Signatory::from(alice_did))
+
+    add_multisig_signers_via_creator {
+        // Number of signers
+        let i in 1 .. 256;
+
+        let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
+        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
+        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
+    }: _(origin, origin, multisig, generate_signers::<T>(i as usize))
+
+    remove_multisig_signers_via_creator {
+        // Number of signers
+        let i in 1 .. 256;
+
+        let signers = generate_signers::<T>(i as usize);
+        let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
+        let multisig = generate_multisig_with_signers::<T>(alice.clone(), origin.clone().into(), alice_did, alice_sig, signers.clone())?;
+    }: _(origin, origin, multisig, signers)
+
+    change_sigs_required {
+        let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
+        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
+        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
+        let origin = RawOrigin::Signed(multisig);
+    }: _(origin, 1)
+
+    change_all_signers_and_sigs_required {
+        // Number of signers
+        let i in 1 .. 256;
+
+        let signers = generate_signers::<T>(i as usize);
+        let (alice, origin, alice_did) = make_account::<T>("alice", SEED);
+        let multisig = <MultiSig<T>>::get_next_multisig_address(alice);
+        <MultiSig<T>>::create_multisig(origin.clone().into(), vec![Signatory::from(alice_did)], 1)?;
+        let origin = RawOrigin::Signed(multisig);
+    }: _(origin, signers, 1)
+
+    make_multisig_signer {
+    }: _(origin, Signatory::from(alice_did))
+
+    make_multisig_primary {
+    }: _(origin, Signatory::from(alice_did))
 }
