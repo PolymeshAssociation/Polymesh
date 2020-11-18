@@ -356,18 +356,17 @@ pub mod runtime_upgrade {
     }
 }
 
-/// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
+/// Hacks to workaround substrate and Polkadot.js restrictions/bugs.
 pub mod api {
-    use crate::{DispatchableName, PalletName, PortfolioId, Signatory, SubsetRestriction, Ticker};
+    use super::{
+        AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions,
+        PortfolioPermissions,
+    };
+    use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
     use sp_std::vec::Vec;
-
-    /// Asset permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct AssetPermissions(pub Option<Vec<Ticker>>);
 
     /// A permission to call functions within a given pallet.
     #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -392,11 +391,6 @@ pub mod api {
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
 
-    /// Portfolio permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PortfolioPermissions(pub Option<Vec<PortfolioId>>);
-
     /// Signing key permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -413,9 +407,9 @@ pub mod api {
         /// The empty permissions.
         pub fn empty() -> Self {
             Self {
-                asset: AssetPermissions(Some(Vec::new())),
+                asset: SubsetRestriction::empty(),
                 extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
-                portfolio: PortfolioPermissions(Some(Vec::new())),
+                portfolio: SubsetRestriction::empty(),
             }
         }
     }
@@ -429,17 +423,11 @@ pub mod api {
         /// The account or identity that is the signatory of this key.
         pub signer: Signatory<AccountId>,
         /// The access permissions of the signing key.
-        pub permissions: super::Permissions,
+        pub permissions: Permissions,
     }
 
-    impl From<super::AssetPermissions> for AssetPermissions {
-        fn from(p: super::AssetPermissions) -> AssetPermissions {
-            AssetPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::PalletPermissions> for LegacyPalletPermissions {
-        fn from(p: super::PalletPermissions) -> LegacyPalletPermissions {
+    impl From<PalletPermissions> for LegacyPalletPermissions {
+        fn from(p: PalletPermissions) -> LegacyPalletPermissions {
             LegacyPalletPermissions {
                 pallet_name: p.pallet_name,
                 total: p.dispatchable_names.0.is_none(),
@@ -452,26 +440,20 @@ pub mod api {
         }
     }
 
-    impl From<super::ExtrinsicPermissions> for LegacyExtrinsicPermissions {
-        fn from(p: super::ExtrinsicPermissions) -> LegacyExtrinsicPermissions {
+    impl From<ExtrinsicPermissions> for LegacyExtrinsicPermissions {
+        fn from(p: ExtrinsicPermissions) -> LegacyExtrinsicPermissions {
             LegacyExtrinsicPermissions(
                 p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()),
             )
         }
     }
 
-    impl From<super::PortfolioPermissions> for PortfolioPermissions {
-        fn from(p: super::PortfolioPermissions) -> PortfolioPermissions {
-            PortfolioPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::Permissions> for LegacyPermissions {
-        fn from(p: super::Permissions) -> LegacyPermissions {
+    impl From<Permissions> for LegacyPermissions {
+        fn from(p: Permissions) -> LegacyPermissions {
             LegacyPermissions {
-                asset: p.asset.into(),
+                asset: p.asset,
                 extrinsic: p.extrinsic.into(),
-                portfolio: p.portfolio.into(),
+                portfolio: p.portfolio,
             }
         }
     }
@@ -488,15 +470,9 @@ pub mod api {
         }
     }
 
-    impl From<AssetPermissions> for super::AssetPermissions {
-        fn from(p: AssetPermissions) -> super::AssetPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<LegacyPalletPermissions> for super::PalletPermissions {
-        fn from(p: LegacyPalletPermissions) -> super::PalletPermissions {
-            super::PalletPermissions {
+    impl From<LegacyPalletPermissions> for PalletPermissions {
+        fn from(p: LegacyPalletPermissions) -> PalletPermissions {
+            PalletPermissions {
                 pallet_name: p.pallet_name,
                 dispatchable_names: SubsetRestriction(if !p.total {
                     Some(p.dispatchable_names.into_iter().collect())
@@ -507,21 +483,15 @@ pub mod api {
         }
     }
 
-    impl From<LegacyExtrinsicPermissions> for super::ExtrinsicPermissions {
-        fn from(p: LegacyExtrinsicPermissions) -> super::ExtrinsicPermissions {
+    impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
+        fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
             SubsetRestriction(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
         }
     }
 
-    impl From<PortfolioPermissions> for super::PortfolioPermissions {
-        fn from(p: PortfolioPermissions) -> super::PortfolioPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<LegacyPermissions> for super::Permissions {
-        fn from(p: LegacyPermissions) -> super::Permissions {
-            super::Permissions {
+    impl From<LegacyPermissions> for Permissions {
+        fn from(p: LegacyPermissions) -> Permissions {
+            Permissions {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
