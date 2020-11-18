@@ -240,19 +240,30 @@ fn create_and_affirm_instruction() {
             // Provide scope claim to both the parties of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
-            assert_ok!(Settlement::add_and_affirm_instruction(
-                alice_signed.clone(),
-                venue_counter,
-                SettlementType::SettleOnAffirmation,
-                None,
-                vec![Leg {
-                    from: PortfolioId::default_portfolio(alice_did),
-                    to: PortfolioId::default_portfolio(bob_did),
-                    asset: ticker,
-                    amount: amount
-                }],
-                default_portfolio_vec(alice_did)
-            ));
+            let add_and_affirm_tx = |affirm_from_portfolio| {
+                Settlement::add_and_affirm_instruction(
+                    alice_signed.clone(),
+                    venue_counter,
+                    SettlementType::SettleOnAffirmation,
+                    None,
+                    vec![Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount,
+                    }],
+                    affirm_from_portfolio,
+                )
+            };
+
+            // If affirmation fails, the instruction should be rolled back.
+            // i.e. this tx should be a no-op.
+            assert_noop!(
+                add_and_affirm_tx(user_portfolio_vec(alice_did, 1.into())),
+                Error::UnexpectedAffirmationStatus
+            );
+
+            assert_ok!(add_and_affirm_tx(default_portfolio_vec(alice_did)));
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
