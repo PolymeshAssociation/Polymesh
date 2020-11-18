@@ -18,8 +18,8 @@ use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, Instruction,
-    InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
-    VenueType,
+    InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    VenueDetails, VenueType,
 };
 use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{
@@ -779,7 +779,8 @@ fn claiming_receipt() {
                         signer: AccountKeyring::Alice.public(),
                         signature: OffChainSignature::from(
                             AccountKeyring::Alice.sign(&msg.encode())
-                        )
+                        ),
+                        metadata: ReceiptMetadata::default()
                     }
                 ),
                 Error::LegNotPending
@@ -859,12 +860,14 @@ fn claiming_receipt() {
                         signer: AccountKeyring::Alice.public(),
                         signature: OffChainSignature::from(
                             AccountKeyring::Alice.sign(&msg2.encode())
-                        )
+                        ),
+                        metadata: ReceiptMetadata::default()
                     }
                 ),
                 Error::InvalidSignature
             );
 
+            let metadata = ReceiptMetadata::from(vec![42u8]);
             // Claiming, unclaiming and claiming receipt
             assert_ok!(Settlement::claim_receipt(
                 alice_signed.clone(),
@@ -873,7 +876,8 @@ fn claiming_receipt() {
                     receipt_uid: 0,
                     leg_id: 0,
                     signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode()))
+                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode())),
+                    metadata: metadata.clone()
                 }
             ));
 
@@ -994,7 +998,8 @@ fn claiming_receipt() {
                     receipt_uid: 0,
                     leg_id: 0,
                     signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode()))
+                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode())),
+                    metadata: ReceiptMetadata::default()
                 }
             ));
 
@@ -1884,7 +1889,8 @@ fn basic_fuzzing() {
                                 signer: AccountKeyring::Alice.public(),
                                 signature: OffChainSignature::from(
                                     AccountKeyring::Alice.sign(&receipt.encode())
-                                )
+                                ),
+                                metadata: ReceiptMetadata::default()
                             }
                         ));
                         assert_ok!(Settlement::unclaim_receipt(
@@ -1903,7 +1909,8 @@ fn basic_fuzzing() {
                         signer: AccountKeyring::Alice.public(),
                         signature: OffChainSignature::from(
                             AccountKeyring::Alice.sign(&receipt.encode())
-                        )
+                        ),
+                        metadata: ReceiptMetadata::default()
                     }
                 ));
             }
@@ -2041,7 +2048,8 @@ fn claim_multiple_receipts_during_authorization() {
                             signer: AccountKeyring::Alice.public(),
                             signature: OffChainSignature::from(
                                 AccountKeyring::Alice.sign(&msg1.encode())
-                            )
+                            ),
+                            metadata: ReceiptMetadata::default()
                         },
                         ReceiptDetails {
                             receipt_uid: 0,
@@ -2049,7 +2057,8 @@ fn claim_multiple_receipts_during_authorization() {
                             signer: AccountKeyring::Alice.public(),
                             signature: OffChainSignature::from(
                                 AccountKeyring::Alice.sign(&msg2.encode())
-                            )
+                            ),
+                            metadata: ReceiptMetadata::default()
                         },
                     ],
                     default_portfolio_vec(alice_did)
@@ -2067,7 +2076,8 @@ fn claim_multiple_receipts_during_authorization() {
                         signer: AccountKeyring::Alice.public(),
                         signature: OffChainSignature::from(
                             AccountKeyring::Alice.sign(&msg1.encode())
-                        )
+                        ),
+                        metadata: ReceiptMetadata::default()
                     },
                     ReceiptDetails {
                         receipt_uid: 1,
@@ -2075,7 +2085,8 @@ fn claim_multiple_receipts_during_authorization() {
                         signer: AccountKeyring::Alice.public(),
                         signature: OffChainSignature::from(
                             AccountKeyring::Alice.sign(&msg3.encode())
-                        )
+                        ),
+                        metadata: ReceiptMetadata::default()
                     },
                 ],
                 default_portfolio_vec(alice_did)
