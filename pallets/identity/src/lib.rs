@@ -592,7 +592,21 @@ decl_module! {
             signer: Signatory<T::AccountId>,
             permissions: Permissions
         ) -> DispatchResult {
-            Self::base_set_permission_to_signer(origin, signer, permissions)
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
+            let record = Self::grant_check_only_primary_key(&sender, did)?;
+
+            // You are trying to add a permission to did's primary key. It is not needed.
+            match signer {
+                Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
+                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
+                    Self::update_secondary_key_permissions(did, &signer, permissions)
+                }
+                _ => Err(Error::<T>::InvalidSender.into()),
+            }
         }
 
         /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
@@ -604,7 +618,7 @@ decl_module! {
             signer: Signatory<T::AccountId>,
             permissions: secondary_key::api::LegacyPermissions
         ) -> DispatchResult {
-            Self::base_set_permission_to_signer(origin, signer, permissions.into())
+            Self::set_permission_to_signer(origin, signer, permissions.into())
         }
 
         /// It disables all secondary keys at `did` identity.
@@ -2076,30 +2090,6 @@ impl<T: Trait> Module<T> {
     /// Emit an unexpected error event that should be investigated manually
     pub fn emit_unexpected_error(error: Option<DispatchError>) {
         Self::deposit_event(RawEvent::UnexpectedError(error));
-    }
-
-    /// It sets permissions for an specific `target_key` key.
-    /// Only the primary key of an identity is able to set secondary key permissions.
-    fn base_set_permission_to_signer(
-        origin: T::Origin,
-        signer: Signatory<T::AccountId>,
-        permissions: Permissions,
-    ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender,
-            primary_did: did,
-            ..
-        } = Self::ensure_origin_call_permissions(origin)?;
-        let record = Self::grant_check_only_primary_key(&sender, did)?;
-
-        // You are trying to add a permission to did's primary key. It is not needed.
-        match signer {
-            Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
-            _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
-                Self::update_secondary_key_permissions(did, &signer, permissions)
-            }
-            _ => Err(Error::<T>::InvalidSender.into()),
-        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
