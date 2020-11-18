@@ -683,8 +683,10 @@ decl_module! {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             let legs_count = legs.len();
-            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-            let affirm_instruction_weight = Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())?;
+            let affirm_instruction_weight = with_transaction(|| {
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+                Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
+            })?;
             Ok(
                 Some(
                     weight_for::weight_for_instruction_creation::<T>(legs_count)
