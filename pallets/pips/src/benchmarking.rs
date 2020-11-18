@@ -242,9 +242,9 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 10_000;
         // number of ayes
-        let a in 1 .. 10;
+        let a in 1 .. 5;
         // number of nays
-        let n in 1 .. 10;
+        let n in 1 .. 5;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -401,11 +401,11 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 10_000;
         // number of proposals
-        let p in 0 .. 10;
+        let p in 0 .. 5;
         // first group of voters
-        let h in 0 .. 10;
+        let h in 0 .. 5;
         // second group of voters
-        let b in 0 .. 10;
+        let b in 0 .. 5;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
     }: _(origin0)
@@ -417,11 +417,11 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 10_000;
         // number of proposals
-        let p in 0 .. 10;
+        let p in 0 .. 5;
         // first group of voters
-        let h in 0 .. 10;
+        let h in 0 .. 5;
         // second group of voters
-        let b in 0 .. 10;
+        let b in 0 .. 5;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
         Module::<T>::snapshot(origin0.into())?;
