@@ -23,6 +23,9 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-protocol-fee = { path = "../protocol-fee", default-features = false }
 
+# Only in STD env
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, tag = "v2.0.0" }
+
 [features]
 default = ["std"]
 no_std = []
@@ -40,4 +43,7 @@ std = [
     "polymesh-primitives/std",
     "pallet-protocol-fee/std",
     "polymesh-common-utilities/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking"
 ]
