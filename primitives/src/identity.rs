@@ -26,11 +26,10 @@ use sp_std::{convert::From, prelude::Vec};
 
 /// Identity information.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity<AccountId: Encode + Decode> {
     pub primary_key: AccountId,
-    #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
