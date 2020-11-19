@@ -15,7 +15,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use pallet_identity::benchmarking::User;
+use pallet_identity::benchmarking::UserBuilder;
 use polymesh_primitives::Ticker;
 
 use frame_benchmarking::benchmarks;
@@ -71,7 +71,7 @@ benchmarks! {
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
 
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         // Generate a ticker of length `t`.
         let ticker = Ticker::try_from(vec![b'A'; t as usize].as_slice()).unwrap();
     }: _(caller.origin, ticker)
@@ -137,7 +137,7 @@ benchmarks! {
         let identifiers: Vec<AssetIdentifier> =
             iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
     }: _(caller.origin, name, ticker, total_supply, divisible, asset_type, identifiers, Some(fundr))
 
     // freeze {

@@ -31,6 +31,7 @@ use sp_std::prelude::*;
 use schnorrkel::Keypair;
 #[cfg(feature = "std")]
 use sp_core::{crypto::Pair as TPair, sr25519::Pair};
+
 #[cfg(feature = "std")]
 const SIGNING_CTX: &[u8] = b"substrate";
 
@@ -47,63 +48,118 @@ pub struct User<T: Trait> {
     pub account: T::AccountId,
     pub secret: SecretKey,
     pub origin: RawOrigin<T::AccountId>,
-    uid: Option<InvestorUid>,
+    pub uid: Option<InvestorUid>,
     pub did: Option<IdentityId>,
 }
 
 impl<T: Trait> User<T> {
+    pub fn did(self: &Self) -> IdentityId {
+        self.did.clone().expect("User without DID")
+    }
+
+    pub fn uid(self: &Self) -> InvestorUid {
+        self.uid.clone().expect("User without UID")
+    }
+
+    pub fn account(self: &Self) -> T::AccountId {
+        self.account.clone()
+    }
+
+    #[cfg(feature = "std")]
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
+            .expect("Invalid sr25519 secret key");
+        let pair = Keypair::from(sk);
+        let context = schnorrkel::signing_context(SIGNING_CTX);
+        pair.sign(context.bytes(message)).into()
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn sign(&self, _message: &[u8]) -> Signature {
+        panic!("Cannot sign without 'std' support");
+    }
+}
+
+pub struct UserBuilder<T: Trait> {
+    account: Option<T::AccountId>,
+    uid: Option<InvestorUid>,
+    did: Option<IdentityId>,
+    balance: u128,
+}
+
+impl<T: Trait> UserBuilder<T> {
     /// Create an account based on `name` and `u` with 1_000_000 as free balance.
     /// It also registers the DID for that account.
-    pub fn new(name: &'static str, u: u32) -> Self {
-        let mut user = Self::without_did(name, u);
-        let uid = uid_from_name_and_idx(name, u);
-        let _ = Module::<T>::register_did(user.origin.clone().into(), uid, vec![]);
-        user.uid = Some(uid);
-        user.did = Module::<T>::get_identity(&user.account.clone());
+    pub fn build_with_did(self, name: &'static str, u: u32) -> User<T> {
+        let User {
+            account,
+            secret,
+            origin,
+            did,
+            uid,
+        } = self.build(name, u);
 
-        user
+        let uid = uid.unwrap_or_else(|| uid_from_name_and_idx(name, u));
+        let did = did.or_else(|| {
+            let _ = Module::<T>::register_did(origin.clone().into(), uid, vec![]);
+            Module::<T>::get_identity(&account.clone())
+        });
+
+        User {
+            account,
+            secret,
+            origin,
+            did,
+            uid: Some(uid),
+        }
     }
 
     /// Create a new CDD account.
-    pub fn new_cdd(u: u32) -> Self {
-        let user = Self::new("cdd", u);
+    pub fn build_cdd(self, u: u32) -> User<T> {
+        let user = self.build_with_did("cdd", u);
         T::CddServiceProviders::add_member(user.did()).unwrap();
         user
     }
 
     /// Create an account based on `name` and `u` with 1_000_000 as free balance.
-    pub fn without_did(name: &'static str, u: u32) -> Self {
-        let (account, secret) = Self::make_key_pair(name, u);
+    pub fn build(self, name: &'static str, u: u32) -> User<T> {
+        let (account, secret) = self
+            .account
+            .map_or_else(|| Self::make_key_pair(name, u), |acc| (acc, [0u8; 64]));
         let origin = RawOrigin::Signed(account.clone());
-        let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
+        let _ = balances::Module::<T>::make_free_balance_be(&account, self.balance.into());
 
-        Self {
+        User {
             account,
             secret,
             origin,
-            uid: None,
-            did: None,
+            did: self.did,
+            uid: self.uid,
         }
     }
 
-    /// Create an account with specific public key.
-    /// It is used to make reproducible test-cases on WASM.
-    pub fn new_from_public(pk: PublicKey) -> Self {
-        let account = T::AccountId::decode(&mut &pk[..]).unwrap();
-        let secret = [0u8; 64];
-        let origin = RawOrigin::Signed(account.clone());
-        let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-        let uid = InvestorUid::from(&pk[..16]);
-        let _ = Module::<T>::register_did(origin.clone().into(), uid, vec![]);
-        let did = Module::<T>::get_identity(&account);
+    pub fn uid(self, u: InvestorUid) -> Self {
+        let mut new = self;
+        new.uid = Some(u);
+        new
+    }
 
-        Self {
-            account,
-            secret,
-            origin,
-            uid: Some(uid),
-            did,
-        }
+    pub fn did(self, did: IdentityId) -> Self {
+        let mut new = self;
+        new.did = Some(did);
+        new
+    }
+
+    pub fn account<ACC: Into<T::AccountId>>(self, acc: ACC) -> Self {
+        let mut new = self;
+        new.account = Some(acc.into());
+        new
+    }
+
+    pub fn balance(self, b: u128) -> Self {
+        let mut new = self;
+        new.balance = b;
+        new
     }
 
     #[cfg(not(feature = "std"))]
@@ -126,40 +182,30 @@ impl<T: Trait> User<T> {
 
         (id, secret)
     }
+}
 
-    pub fn did(self: &Self) -> IdentityId {
-        self.did.clone().expect("User without DID")
-    }
-
-    pub fn uid(self: &Self) -> InvestorUid {
-        self.uid.clone().expect("User without UID")
-    }
-
-    #[cfg(feature = "std")]
-    pub fn sign(&self, message: &[u8]) -> Signature {
-        let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
-            .expect("Invalid sr25519 secret key");
-        let pair = Keypair::from(sk);
-        let context = schnorrkel::signing_context(SIGNING_CTX);
-        pair.sign(context.bytes(message)).into()
-    }
-
-    #[cfg(not(feature = "std"))]
-    pub fn sign(&self, _message: &[u8]) -> Signature {
-        panic!("Cannot sign without 'std' support");
+// Derive macro from `Default` is not supported due to trait T.
+impl<T: Trait> Default for UserBuilder<T> {
+    fn default() -> Self {
+        Self {
+            account: None,
+            uid: None,
+            did: None,
+            balance: 1_000_000u128,
+        }
     }
 }
 
 fn setup_investor_uniqueness_claim<T: Trait>(
     name: &'static str,
 ) -> (User<T>, Claim, InvestorZKProofData) {
-    let mut user = User::<T>::without_did(name, SEED);
+    let mut user = UserBuilder::<T>::default().build(name, SEED);
 
     let did = IdentityId::from([
         152u8, 25, 31, 70, 229, 131, 2, 22, 68, 84, 54, 151, 136, 3, 105, 122, 94, 58, 182, 27, 30,
         137, 81, 212, 254, 154, 230, 123, 171, 97, 74, 95,
     ]);
-    Module::<T>::link_did(user.account.clone(), did);
+    Module::<T>::link_did(user.account(), did);
     user.did = Some(did.clone());
 
     let cdd_id = CddId::from([
@@ -209,8 +255,8 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let _cdd = User::<T>::new_cdd(SEED);
-        let caller = User::<T>::without_did("caller", SEED);
+        let _cdd = UserBuilder::<T>::default().build_cdd(SEED);
+        let caller = UserBuilder::<T>::default().build("caller", SEED);
         let uid = uid_from_name_and_idx("caller", SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(caller.origin, uid, secondary_keys)
@@ -219,13 +265,13 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let cdd = User::<T>::new_cdd(SEED);
+        let cdd = UserBuilder::<T>::default().build_cdd(SEED);
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
 
     mock_cdd_register_did {
-        let cdd = User::<T>::new_cdd(SEED);
+        let cdd = UserBuilder::<T>::default().build_cdd(SEED);
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(cdd.origin, target)
 
@@ -234,7 +280,7 @@ benchmarks! {
         // Therefore, it's unbounded in complexity. However, this can only be called by governance.
         // Hence, the weight is for best case scenario
 
-        let cdd = User::<T>::new_cdd(SEED);
+        let cdd = UserBuilder::<T>::default().build_cdd(SEED);
 
     }: _(RawOrigin::Root, cdd.did(), 0.into(), None)
 
@@ -242,7 +288,7 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let target = User::<T>::new("target", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
 
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
@@ -253,10 +299,10 @@ benchmarks! {
     }: _(target.origin, signatories.clone())
 
     accept_primary_key {
-        let cdd = User::<T>::new_cdd(SEED);
-        let target = User::<T>::new("target", SEED);
-        let new_key = User::<T>::without_did("key", SEED);
-        let signatory = Signatory::Account(new_key.account.clone());
+        let cdd = UserBuilder::<T>::default().build_cdd(SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let new_key = UserBuilder::<T>::default().build("key", SEED);
+        let signatory = Signatory::Account(new_key.account());
 
         let cdd_auth_id =  Module::<T>::add_auth(
             cdd.did(), signatory.clone(),
@@ -278,50 +324,50 @@ benchmarks! {
     change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
 
     join_identity_as_key {
-        let target = User::<T>::new("target", SEED);
-        let new_key = User::<T>::without_did("key", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let new_key = UserBuilder::<T>::default().build("key", SEED);
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
-            Signatory::Account(new_key.account.clone()),
+            Signatory::Account(new_key.account()),
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
     }: _(new_key.origin, auth_id)
 
     join_identity_as_identity {
-        let target = User::<T>::new("target", SEED);
-        let key = User::<T>::new("key", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let new_user = UserBuilder::<T>::default().build_with_did("key", SEED);
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
-            Signatory::Identity(key.did()),
+            Signatory::Identity(new_user.did()),
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
-    }: _(key.origin, auth_id)
+    }: _(new_user.origin, auth_id)
 
     leave_identity_as_key {
-        let target = User::<T>::new("target", SEED);
-        let key = User::<T>::without_did("key", SEED);
-        let signatory = Signatory::Account(key.account.clone());
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let key = UserBuilder::<T>::default().build("key", SEED);
+        let signatory = Signatory::Account(key.account());
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
 
     }: _(key.origin)
 
     leave_identity_as_identity {
-        let target = User::<T>::new("target", SEED);
-        let key = User::<T>::new("key", SEED);
-        let signatory = Signatory::Identity(key.did());
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let new_user = UserBuilder::<T>::default().build_with_did("key", SEED);
+        let signatory = Signatory::Identity(new_user.did());
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
 
-    }: _(key.origin, target.did())
+    }: _(new_user.origin, target.did())
 
     add_claim {
-        let caller = User::<T>::new("caller", SEED);
-        let target = User::<T>::new("target", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
     }: _(caller.origin, target.did(), claim, Some(666.into()))
@@ -329,8 +375,8 @@ benchmarks! {
     forwarded_call {
         // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
         // The weight of the forwarded call must be added to the weight calculated by this benchmark.
-        let target = User::<T>::new("target", SEED);
-        let key = User::<T>::new("key", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let key = UserBuilder::<T>::default().build_with_did("key", SEED);
 
         let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
         let boxed_proposal = Box::new(call);
@@ -345,30 +391,30 @@ benchmarks! {
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
-        let target = User::<T>::new("target", SEED);
-        let key = User::<T>::without_did("key", SEED);
+        let target = UserBuilder::<T>::default().build_with_did("target", SEED);
+        let key = UserBuilder::<T>::default().build("key", SEED);
         let signatory = Signatory::Account(key.account);
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone())?;
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
     }: _(caller.origin)
 
     unfreeze_secondary_keys {
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         Module::<T>::freeze_secondary_keys(caller.origin.clone().into())?;
     }: _(caller.origin)
 
     add_authorization {
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         let signatory = Signatory::Identity(caller.did());
         let auth_data = AuthorizationData::JoinIdentity(Permissions::default());
     }: _(caller.origin, signatory, auth_data, Some(666.into()))
 
     remove_authorization {
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         let signatory = Signatory::Identity(caller.did());
         let auth_id =  Module::<T>::add_auth(
             caller.did(),
@@ -423,7 +469,7 @@ benchmarks! {
     // }: _(origin, secondary_keys_with_auth, expires_at)
 
     revoke_offchain_authorization {
-        let caller = User::<T>::new("caller", SEED);
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         let nonce = Module::<T>::offchain_authorization_nonce(caller.did());
 
         let authorization = TargetIdAuthorization::<T::Moment> {

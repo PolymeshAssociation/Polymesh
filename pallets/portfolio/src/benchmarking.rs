@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
-use pallet_identity::benchmarking::User;
+use pallet_identity::benchmarking::UserBuilder;
 use polymesh_primitives::PortfolioName;
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -47,7 +47,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = User::<T>::new("target", 0);
+        let target = UserBuilder::<T>::default().build_with_did("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -57,7 +57,7 @@ benchmarks! {
     }
 
     delete_portfolio {
-        let target = User::<T>::new("target", 0);
+        let target = UserBuilder::<T>::default().build_with_did("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -72,7 +72,7 @@ benchmarks! {
         // Number of assets being moved
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
-        let target = User::<T>::new("target", 0);
+        let target = UserBuilder::<T>::default().build_with_did("target", 0);
         let first_ticker = generate_ticker(0u64);
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
@@ -103,7 +103,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = User::<T>::new("target", 0);
+        let target = UserBuilder::<T>::default().build_with_did("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
