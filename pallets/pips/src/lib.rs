@@ -138,14 +138,14 @@ pub trait WeightInfo {
     fn propose_from_committee(c: u32) -> Weight;
     fn amend_proposal(c: u32) -> Weight;
     fn cancel_proposal(c: u32) -> Weight;
-    fn vote(c: u32) -> Weight;
+    fn vote(c: u32, n: u32) -> Weight;
     fn approve_committee_proposal(c: u32) -> Weight;
     fn reject_proposal(c: u32) -> Weight;
     fn prune_proposal(c: u32) -> Weight;
     fn reschedule_execution(c: u32) -> Weight;
     fn clear_snapshot() -> Weight;
-    fn snapshot(c: u32) -> Weight;
-    fn enact_snapshot_results(c: u32) -> Weight;
+    fn snapshot(c: u32, p: u32, b: u32) -> Weight;
+    fn enact_snapshot_results(c: u32, p: u32, h: u32, b: u32) -> Weight;
 }
 
 /// Balance
@@ -897,7 +897,7 @@ decl_module! {
         /// * `ProposalOnCoolOffPeriod` if non-owner is voting and PIP is cooling off.
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
-        #[weight = <T as Trait>::WeightInfo::vote(1_000)]
+        #[weight = <T as Trait>::WeightInfo::vote(1_000, 10)]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
             let pip = Self::proposals(id)
@@ -1071,7 +1071,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = <T as Trait>::WeightInfo::snapshot(1_000)]
+        #[weight = <T as Trait>::WeightInfo::snapshot(1_000, 10, 100)]
         pub fn snapshot(origin) -> DispatchResult {
             // 1. Check that a GC member is executing this.
             let made_by = ensure_signed(origin)?;
@@ -1142,7 +1142,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results(1_000)]
+        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results(1_000, results.len() as u32, 50, 50)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
