@@ -120,7 +120,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_runtime::traits::{
-    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
+    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, One, Saturating, Zero,
 };
 use sp_std::{convert::From, prelude::*};
 use sp_version::RuntimeVersion;
@@ -1360,7 +1360,13 @@ impl<T: Trait> Module<T> {
     // containing `schedule::Named::reschedule_named`.
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
-            <system::Module<T>>::block_number() + Self::default_enactment_period()
+            let period = Self::default_enactment_period();
+            let corrected_period = if period > Zero::zero() {
+                period
+            } else {
+                One::one()
+            };
+            <system::Module<T>>::block_number() + corrected_period
         });
         Self::update_proposal_state(did, id, ProposalState::Scheduled);
         <PipToSchedule<T>>::insert(id, at);

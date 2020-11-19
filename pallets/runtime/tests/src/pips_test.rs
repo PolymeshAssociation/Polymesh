@@ -106,24 +106,6 @@ macro_rules! assert_event_exists {
     };
 }
 
-macro_rules! assert_event_absent {
-    ($event:pat) => {
-        assert_event_absent!($event, true);
-    };
-    ($event:pat, $cond:expr) => {
-        assert_eq!(System::events().iter().any(|e| {
-            matches!(
-                e,
-                EventRecord {
-                    event: $event,
-                    ..
-                }
-                if $cond
-            )
-        }), false);
-    };
-}
-
 macro_rules! assert_bad_origin {
     ($e:expr) => {
         assert_noop!($e, DispatchError::BadOrigin);
@@ -429,6 +411,7 @@ fn default_enactment_period_works_community() {
                 vec![(last_id, SnapshotResult::Approve)]
             ));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
+            let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
             assert_eq!(1, Agenda::get(expected).len());
         };
@@ -455,6 +438,7 @@ fn default_enactment_period_works_committee() {
             let block_at_approval = System::block_number();
             assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
+            let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
             assert_eq!(1, Agenda::get(expected).len());
         };
@@ -1522,12 +1506,11 @@ fn reject_proposal_will_unschedule() {
 
         let check = |id: PipId| {
             let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-            assert_eq!(1, Agenda::get(scheduled_at).len());
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
-            assert_eq!(
-                1, /* the Agenda vec item is None */
-                Agenda::get(scheduled_at).len()
+            assert_event_exists!(
+                EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Canceled(when, ..)),
+                *when == scheduled_at
             );
         };
 
