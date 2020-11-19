@@ -63,12 +63,21 @@
         "DispatchableName": "Text",
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "total": "bool",
-            "dispatchable_names": "Vec<DispatchableName>"
+            "dispatchable_names": "Option<Vec<DispatchableName>>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioId>>"
+        },
+        "LegacyPalletPermissions": {
+            "pallet_name": "PalletName",
+            "total": "bool",
+            "dispatchable_names": "Vec<DispatchableName>"
+        },
+        "LegacyPermissions": {
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<LegacyPalletPermissions>>",
             "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {
@@ -493,6 +502,12 @@
         },
         "ClassicTickerRegistration": {
             "eth_owner": "EthereumAddress",
+            "is_created": "bool"
+        },
+        "ClassicTickerImport": {
+            "eth_owner": "EthereumAddress",
+            "ticker": "Ticker",
+            "is_contract": "bool",
             "is_created": "bool"
         },
         "EthereumAddress": "[u8; 20]",
@@ -1007,11 +1022,13 @@
             "asset": "Ticker",
             "amount": "Balance"
         },
+        "ReceiptMetadata": "Text",
         "ReceiptDetails": {
             "receipt_uid": "u64",
             "leg_id": "u64",
             "signer": "AccountId",
-            "signature": "OffChainSignature"
+            "signature": "OffChainSignature",
+            "metadata": "ReceiptMetadata"
         },
         "UniqueCall": {
             "nonce": "u64",
@@ -1096,7 +1113,7 @@
         "CorporateAction": {
             "kind": "CAKind",
             "record_date": "Option<RecordDate>",
-            "details": "String",
+            "details": "Text",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
             "withholding_tax": "Vec<(IdentityId, Tax)>"

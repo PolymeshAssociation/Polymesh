@@ -98,6 +98,7 @@ use frame_support::{
     traits::{Currency, Get, UnixTime},
     weights::Weight,
 };
+use frame_system::{ensure_root, RawOrigin};
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -233,7 +234,7 @@ pub mod weight_for {
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
     pub eth_owner: ethereum::EthereumAddress,
@@ -321,22 +322,13 @@ decl_storage! {
         /// Smart Extension supported version at genesis.
         config(versions): Vec<(SmartExtensionType, ExtVersion)>;
         build(|config: &GenesisConfig<T>| {
-            let cm_did = SystematicIssuers::ClassicMigration.as_id();
-            for import in &config.classic_migration_tickers {
-                // Use DID of someone at Polymath if it's a contract-made ticker registration.
-                let did = if import.is_contract { config.classic_migration_contract_did } else { cm_did };
-
-                // Register the ticker...
-                let tconfig = || config.classic_migration_tconfig.clone();
-                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, true, tconfig);
-                <Module<T>>::_register_ticker(&import.ticker, did, expiry.unwrap());
-
-                // ..and associate it with additional info needed for claiming.
-                let classic_ticker = ClassicTickerRegistration {
-                    eth_owner: import.eth_owner,
-                    is_created: import.is_created,
-                };
-                ClassicTickers::insert(&import.ticker, classic_ticker);
+            for &import in &config.classic_migration_tickers {
+                <Module<T>>::reserve_classic_ticker(
+                    RawOrigin::Root.into(),
+                    import,
+                    config.classic_migration_contract_did,
+                    config.classic_migration_tconfig.clone()
+                ).expect("`reserve_classic_ticker` failed on genesis");
             }
 
             // Reserving country currency logic
@@ -375,7 +367,7 @@ decl_module! {
             use sp_std::collections::btree_map::BTreeMap;
             let mut id_map = BTreeMap::<_, u32>::new();
             migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Assets", b"AssetDocuments",
+                b"Asset", b"AssetDocuments",
                 |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
                     let count = id_map.entry(ticker).or_default();
                     let id = DocumentId(mem::replace(count, *count + 1));
@@ -976,6 +968,44 @@ decl_module! {
 
             // Emit event.
             Self::deposit_event(RawEvent::ClassicTickerClaimed(owner_did, ticker, eth_signer));
+        }
+
+        /// Reserve a Polymath Classic (PMC) ticker.
+        /// Must be called by root, and assigns the ticker to a systematic DID.
+        ///
+        /// # Arguments
+        /// * `origin` which must be root.
+        /// * `import` specification for the PMC ticker.
+        /// * `contract_did` to reserve the ticker to if `import.is_contract` holds.
+        /// * `config` to use for expiry and ticker length.
+        ///
+        /// # Errors
+        /// * `AssetAlreadyCreated` if `import.ticker` was created as an asset.
+        /// * `TickerTooLong` if the `config` considers the `import.ticker` too long.
+        /// * `TickerAlreadyRegistered` if `import.ticker` was already registered.
+        #[weight = 250_000_000]
+        pub fn reserve_classic_ticker(
+            origin,
+            import: ClassicTickerImport,
+            contract_did: IdentityId,
+            config: TickerRegistrationConfig<T::Moment>,
+        ) {
+            ensure_root(origin)?;
+
+            let cm_did = SystematicIssuers::ClassicMigration.as_id();
+            // Use DID of someone at Polymath if it's a contract-made ticker registration.
+            let did = if import.is_contract { contract_did } else { cm_did };
+
+            // Register the ticker...
+            let expiry = Self::ticker_registration_checks(&import.ticker, did, true, || config)?;
+            Self::_register_ticker(&import.ticker, did, expiry);
+
+            // ..and associate it with additional info needed for claiming.
+            let classic_ticker = ClassicTickerRegistration {
+                eth_owner: import.eth_owner,
+                is_created: import.is_created,
+            };
+            ClassicTickers::insert(&import.ticker, classic_ticker);
         }
     }
 }

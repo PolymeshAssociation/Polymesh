@@ -962,7 +962,8 @@ fn removing_authorizations() {
         assert_ok!(Identity::remove_authorization(
             alice.clone(),
             bob_did,
-            auth_id
+            auth_id,
+            false,
         ));
         assert!(!<AuthorizationsGiven>::contains_key(alice_did, auth_id));
         assert!(!<identity::Authorizations<TestStorage>>::contains_key(
