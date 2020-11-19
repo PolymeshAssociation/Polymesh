@@ -119,8 +119,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    IdentityWithRoles as OldDidRecord, InvestorUid, InvestorZKProofData, PalletName, Permissions,
-    Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
+    Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::{blake2_128, blake2_256};
@@ -246,7 +246,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::migration::{put_storage_value, StorageIterator};
             use polymesh_primitives::{
-                identity::IdentityOld,
+                identity::{IdentityWithRolesOld, IdentityWithRoles},
                 migrate::{migrate_map, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
@@ -255,19 +255,19 @@ decl_module! {
 
             if spec_version == 2000
             {
-                debug::info!("Identity Module Migration to spec_version 2000");
                 migrate_map::<LinkedKeyInfo, _>(
                     b"identity",
                     b"KeyToIdentityIds",
                     |_| Empty
                     );
-                migrate_map::<IdentityOld<T::AccountId>, _>(
+            // Migrate secondary key permissions to the new type
+            migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
                     b"identity",
                     b"DidRecords",
                     |_| Empty
                     );
-
-                StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
+            // Remove roles from Identities
+            StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
                     .drain()
                     .map(|(key, old)|  (key, DidRecord {
                         primary_key: old.primary_key,
@@ -595,7 +595,7 @@ decl_module! {
         pub fn set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: secondary_key::api::Permissions
+            permissions: Permissions
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 sender,
@@ -608,10 +608,22 @@ decl_module! {
             match signer {
                 Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
                 _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
-                    Self::update_secondary_key_permissions(did, &signer, permissions.into())
+                    Self::update_secondary_key_permissions(did, &signer, permissions)
                 }
                 _ => Err(Error::<T>::InvalidSender.into()),
             }
+        }
+
+        /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
+        /// It sets permissions for an specific `target_key` key.
+        /// Only the primary key of an identity is able to set secondary key permissions.
+        #[weight = <T as Trait>::WeightInfo::set_permission_to_signer()]
+        pub fn legacy_set_permission_to_signer(
+            origin,
+            signer: Signatory<T::AccountId>,
+            permissions: secondary_key::api::LegacyPermissions
+        ) -> DispatchResult {
+            Self::set_permission_to_signer(origin, signer, permissions.into())
         }
 
         /// It disables all secondary keys at `did` identity.

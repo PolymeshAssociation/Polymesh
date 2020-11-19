@@ -16,12 +16,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
+use frame_benchmarking::benchmarks;
 use pallet_asset::SecurityToken;
-use pallet_identity::benchmarking::User;
+use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{TrustedFor, TrustedIssuer};
-// use polymesh_common_benchmarks::{User, make_issuers, make_issuer, make_conditions};
-use frame_benchmarking::benchmarks;
 
 const SEED: u32 = 1;
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
@@ -32,7 +31,7 @@ const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
 /// Create a token issuer trusted for `Any`.
 pub fn make_issuer<T: IdentityTrait + BalancesTrait>(id: u32) -> TrustedIssuer {
-    let u = User::<T>::new("ISSUER", id);
+    let u = UserBuilder::<T>::default().build_with_did("ISSUER", id);
     TrustedIssuer {
         issuer: IdentityId::from(u.did.unwrap()),
         trusted_for: TrustedFor::Any,
@@ -120,8 +119,8 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
         receiver_conditions_count: u32,
     ) -> Self {
         // Create accounts and token.
-        let owner = User::<T>::new("OWNER", SEED);
-        let buyer = User::<T>::new("BUYER", SEED);
+        let owner = UserBuilder::<T>::default().build_with_did("OWNER", SEED);
+        let buyer = UserBuilder::<T>::default().build_with_did("BUYER", SEED);
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
