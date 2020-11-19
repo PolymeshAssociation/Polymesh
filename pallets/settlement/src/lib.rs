@@ -479,13 +479,18 @@ decl_module! {
         const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
-            // Delete all settlement data that were stored at a wrong prefix.
-            let prefix = Twox128::hash(b"StoCapped");
-            storage::unhashed::kill_prefix(&prefix);
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
-            <VenueCounter>::put(1);
-            <InstructionCounter>::put(1);
+            if spec_version == 2000 {
+
+                // Delete all settlement data that were stored at a wrong prefix.
+                let prefix = Twox128::hash(b"StoCapped");
+                storage::unhashed::kill_prefix(&prefix);
+
+                // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
+                <VenueCounter>::put(1);
+                <InstructionCounter>::put(1);
+            }
 
             1_000
         }

@@ -365,17 +365,24 @@ decl_module! {
             use polymesh_primitives::migrate::{migrate_double_map, Migrate};
             use polymesh_primitives::document::DocumentOld;
             use sp_std::collections::btree_map::BTreeMap;
-            let mut id_map = BTreeMap::<_, u32>::new();
-            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Assets", b"AssetDocuments",
-                |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                    let count = id_map.entry(ticker).or_default();
-                    let id = DocumentId(mem::replace(count, *count + 1));
-                    Some((ticker, id, doc.migrate(name)?))
+
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+
+            if spec_version == 2000
+            {
+
+                let mut id_map = BTreeMap::<_, u32>::new();
+                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
+                    b"Assets", b"AssetDocuments",
+                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
+                        let count = id_map.entry(ticker).or_default();
+                        let id = DocumentId(mem::replace(count, *count + 1));
+                        Some((ticker, id, doc.migrate(name)?))
+                    }
+                    );
+                for (ticker, id) in id_map {
+                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
-            );
-            for (ticker, id) in id_map {
-                AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
             }
 
             1_000

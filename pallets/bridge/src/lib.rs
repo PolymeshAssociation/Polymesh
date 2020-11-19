@@ -382,18 +382,23 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let now = frame_system::Module::<T>::block_number();
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            // Migrate timelocked transactions.
-            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
-                .drain()
-                .for_each(|(block_number, txs)| {
-                    // Schedule only for future blocks.
-                    let block_number = T::BlockNumber::max(block_number, now + One::one());
-                    for tx in txs {
-                        Self::schedule_call(block_number, tx);
-                    }
-                });
+            if spec_version == 2000
+            {
+                let now = frame_system::Module::<T>::block_number();
+
+                // Migrate timelocked transactions.
+                StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                    .drain()
+                    .for_each(|(block_number, txs)| {
+                        // Schedule only for future blocks.
+                        let block_number = T::BlockNumber::max(block_number, now + One::one());
+                        for tx in txs {
+                            Self::schedule_call(block_number, tx);
+                        }
+                    });
+            }
 
             // No need to calculate correct weight for testnet
             0

@@ -1,10 +1,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-use polymesh_primitives::{
-    Authorization, AuthorizationType, ClaimType, IdentityId, Moment, Permissions, Scope,
-    SecondaryKey,
-};
+use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
 use sp_std::{prelude::*, vec::Vec};
 
 #[cfg(feature = "std")]

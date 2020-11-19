@@ -209,13 +209,18 @@ decl_module! {
             use sp_version::RuntimeVersion;
             use polymesh_primitives::migrate::kill_item;
 
-            // Kill pending proposals if the transaction version is upgraded
-            let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
-            let last_version = TransactionVersion::get();
-            if last_version < current_version {
-                TransactionVersion::set(current_version);
-                for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
-                    kill_item(b"MultiSig", item.as_bytes())
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+
+            if spec_version == 2000
+            {
+                // Kill pending proposals if the transaction version is upgraded
+                let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+                let last_version = TransactionVersion::get();
+                if last_version < current_version {
+                    TransactionVersion::set(current_version);
+                    for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
+                        kill_item(b"MultiSig", item.as_bytes())
+                    }
                 }
             }
 

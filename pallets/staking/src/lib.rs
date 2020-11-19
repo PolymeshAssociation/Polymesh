@@ -1607,18 +1607,23 @@ decl_module! {
             use polymesh_primitives::migrate::migrate_map_keys_and_value;
             use frame_support::storage::migration::take_storage_value;
 
-            if StorageVersion::get() == Releases::V4_0_0 {
-                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
-                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
-                });
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
-                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
-                    ValidatorCommissionCap::put(commision);
-                } else {
-                    ValidatorCommissionCap::put(Perbill::from_percent(100));
+            if spec_version == 2000
+            {
+                if StorageVersion::get() == Releases::V4_0_0 {
+                    migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
+                        Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
+                    });
+
+                    // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
+                    if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
+                        ValidatorCommissionCap::put(commision);
+                    } else {
+                        ValidatorCommissionCap::put(Perbill::from_percent(100));
+                    }
+                    StorageVersion::put(Releases::V5_0_0);
                 }
-                StorageVersion::put(Releases::V5_0_0);
             }
             1_000
         }

@@ -251,27 +251,35 @@ decl_module! {
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            migrate_map::<LinkedKeyInfo, _>(
-                b"identity",
-                b"KeyToIdentityIds",
-                |_| Empty
-            );
-            migrate_map::<IdentityOld<T::AccountId>, _>(
-                b"identity",
-                b"DidRecords",
-                |_| Empty
-            );
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
-                .drain()
-                .map(|(key, old)|  (key, DidRecord {
-                    primary_key: old.primary_key,
-                    secondary_keys: old.secondary_keys,
-                }))
+            if spec_version == 2000
+            {
+                debug::info!("Identity Module Migration to spec_version 2000");
+                migrate_map::<LinkedKeyInfo, _>(
+                    b"identity",
+                    b"KeyToIdentityIds",
+                    |_| Empty
+                    );
+                migrate_map::<IdentityOld<T::AccountId>, _>(
+                    b"identity",
+                    b"DidRecords",
+                    |_| Empty
+                    );
+
+                StorageIterator::<OldDidRecord<T::AccountId>>::new(b"identity", b"DidRecords")
+                    .drain()
+                    .map(|(key, old)|  (key, DidRecord {
+                        primary_key: old.primary_key,
+                        secondary_keys: old.secondary_keys,
+                    }))
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
+            }
 
-            // Migrate claims
-            <Claims>::translate(migration::migrate_claim);
+            if spec_version == 2001 {
+                // Migrate claims
+                <Claims>::translate(migration::migrate_claim);
+            }
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

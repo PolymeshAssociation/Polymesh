@@ -578,42 +578,48 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            // Larger goal here is to clear Governance V1.
-            use frame_support::{
-                storage::{IterableStorageDoubleMap, migration::StorageIterator},
-                traits::ReservableCurrency,
-            };
-            use polymesh_primitives::migrate::kill_item;
 
-            // 1. Start with refunding all deposits.
-            // As we've `drain`ed  `Deposits`, we need not do so again below.
-            for (_, _, depo) in <Deposits<T>>::drain() {
-                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
-            }
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            // 2. Then we clear various storage items that were present on V1.
-            // For future reference, the storage items are defined in:
-            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
+            if spec_version == 2000
+            {
+                // Larger goal here is to clear Governance V1.
+                use frame_support::{
+                    storage::{IterableStorageDoubleMap, migration::StorageIterator},
+                    traits::ReservableCurrency,
+                };
+                use polymesh_primitives::migrate::kill_item;
 
-            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
-            for item in &[
-                "ProposalMetadata",
-                "ProposalsMaturingAt",
-                "Proposals",
-                "ProposalResult",
-                "Referendums",
-                "ScheduledReferendumsAt",
-                "ProposalVotes",
-            ] {
-                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
-            }
+                // 1. Start with refunding all deposits.
+                // As we've `drain`ed  `Deposits`, we need not do so again below.
+                for (_, _, depo) in <Deposits<T>>::drain() {
+                    <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
+                }
 
-            // 2b) Reset the PIP ID sequence to `0`.
-            PipIdSequence::kill();
+                // 2. Then we clear various storage items that were present on V1.
+                // For future reference, the storage items are defined in:
+                // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
 
-            // 2c) Remove items no longer used in V2.
-            for item in &["ProposalDuration", "QuorumThreshold"] {
-                kill_item(b"Pips", item.as_bytes());
+                // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
+                for item in &[
+                    "ProposalMetadata",
+                    "ProposalsMaturingAt",
+                    "Proposals",
+                    "ProposalResult",
+                    "Referendums",
+                    "ScheduledReferendumsAt",
+                    "ProposalVotes",
+                ] {
+                    StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
+                }
+
+                // 2b) Reset the PIP ID sequence to `0`.
+                PipIdSequence::kill();
+
+                // 2c) Remove items no longer used in V2.
+                for item in &["ProposalDuration", "QuorumThreshold"] {
+                    kill_item(b"Pips", item.as_bytes());
+                }
             }
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.

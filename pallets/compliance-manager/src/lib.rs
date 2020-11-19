@@ -290,7 +290,11 @@ decl_module! {
             use polymesh_primitives::migrate::{Empty, migrate_map};
             use polymesh_primitives::condition::TrustedIssuerOld;
 
-            migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
+            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+
+            if spec_version == 2000 {
+                migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
+            }
 
             1_000
         }
