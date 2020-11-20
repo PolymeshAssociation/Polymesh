@@ -4559,11 +4559,13 @@ dependencies = [
 name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -5268,6 +5270,7 @@ dependencies = [
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "lazy_static",
@@ -5634,6 +5637,7 @@ dependencies = [
  "pallet-identity",
  "pallet-portfolio",
  "pallet-protocol-fee",
+ "pallet-settlement",
  "pallet-timestamp",
 ]
 

@@ -367,7 +367,7 @@ decl_module! {
             use sp_std::collections::btree_map::BTreeMap;
             let mut id_map = BTreeMap::<_, u32>::new();
             migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Assets", b"AssetDocuments",
+                b"Asset", b"AssetDocuments",
                 |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
                     let count = id_map.entry(ticker).or_default();
                     let id = DocumentId(mem::replace(count, *count + 1));
