@@ -324,7 +324,11 @@ impl pallet_pips::Trait for Test {
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
+
 impl pallet_treasury::Trait for Test {
     type Event = MetaEvent;
     type Currency = pallet_balances::Module<Self>;
@@ -379,6 +383,22 @@ impl IdentityTrait for Test {
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Test {
+    type Event = MetaEvent;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -631,22 +651,6 @@ impl Trait for Test {
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
-    pub const MaxScheduledPerBlock: u32 = 50;
-}
-
-impl pallet_scheduler::Trait for Test {
-    type Event = MetaEvent;
-    type Origin = Origin;
-    type PalletsOrigin = OriginCaller;
-    type Call = Call;
-    type MaximumWeight = MaximumSchedulerWeight;
-    type ScheduleOrigin = EnsureRoot<AccountId>;
-    type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
 }
 
