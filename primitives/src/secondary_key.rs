@@ -356,23 +356,22 @@ pub mod runtime_upgrade {
     }
 }
 
-/// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
+/// Hacks to workaround substrate and Polkadot.js restrictions/bugs.
 pub mod api {
-    use crate::{DispatchableName, PalletName, PortfolioId, Signatory, SubsetRestriction, Ticker};
+    use super::{
+        AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions,
+        PortfolioPermissions,
+    };
+    use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
     use sp_std::vec::Vec;
 
-    /// Asset permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct AssetPermissions(pub Option<Vec<Ticker>>);
-
     /// A permission to call functions within a given pallet.
     #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PalletPermissions {
+    pub struct LegacyPalletPermissions {
         /// The name of a pallet.
         pub pallet_name: PalletName,
         /// A workaround for https://github.com/polkadot-js/apps/issues/3632.
@@ -390,37 +389,34 @@ pub mod api {
     /// Extrinsic permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct ExtrinsicPermissions(pub Option<Vec<PalletPermissions>>);
-
-    /// Portfolio permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PortfolioPermissions(pub Option<Vec<PortfolioId>>);
+    pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
 
     /// Signing key permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct Permissions {
+    pub struct LegacyPermissions {
         /// The subset of assets under management.
         pub asset: AssetPermissions,
         /// The subset of callable extrinsics.
-        pub extrinsic: ExtrinsicPermissions,
+        pub extrinsic: LegacyExtrinsicPermissions,
         /// The subset of portfolios management.
         pub portfolio: PortfolioPermissions,
     }
 
-    impl Permissions {
+    impl LegacyPermissions {
         /// The empty permissions.
         pub fn empty() -> Self {
             Self {
-                asset: AssetPermissions(Some(Vec::new())),
-                extrinsic: ExtrinsicPermissions(Some(Vec::new())),
-                portfolio: PortfolioPermissions(Some(Vec::new())),
+                asset: SubsetRestriction::empty(),
+                extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
+                portfolio: SubsetRestriction::empty(),
             }
         }
     }
 
-    /// A secondary key is a signatory with defined permissions.
+    /// The same secondary key object without the extra trait constraints.
+    /// It is needed because it's not possible to define `decl_event!`
+    /// with the required restrictions on `AccountId`
     #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct SecondaryKey<AccountId> {
@@ -430,15 +426,9 @@ pub mod api {
         pub permissions: Permissions,
     }
 
-    impl From<super::AssetPermissions> for AssetPermissions {
-        fn from(p: super::AssetPermissions) -> AssetPermissions {
-            AssetPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::PalletPermissions> for PalletPermissions {
-        fn from(p: super::PalletPermissions) -> PalletPermissions {
-            PalletPermissions {
+    impl From<PalletPermissions> for LegacyPalletPermissions {
+        fn from(p: PalletPermissions) -> LegacyPalletPermissions {
+            LegacyPalletPermissions {
                 pallet_name: p.pallet_name,
                 total: p.dispatchable_names.0.is_none(),
                 dispatchable_names: if let Some(elems) = p.dispatchable_names.0 {
@@ -450,24 +440,20 @@ pub mod api {
         }
     }
 
-    impl From<super::ExtrinsicPermissions> for ExtrinsicPermissions {
-        fn from(p: super::ExtrinsicPermissions) -> ExtrinsicPermissions {
-            ExtrinsicPermissions(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
+    impl From<ExtrinsicPermissions> for LegacyExtrinsicPermissions {
+        fn from(p: ExtrinsicPermissions) -> LegacyExtrinsicPermissions {
+            LegacyExtrinsicPermissions(
+                p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()),
+            )
         }
     }
 
-    impl From<super::PortfolioPermissions> for PortfolioPermissions {
-        fn from(p: super::PortfolioPermissions) -> PortfolioPermissions {
-            PortfolioPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::Permissions> for Permissions {
-        fn from(p: super::Permissions) -> Permissions {
-            Permissions {
-                asset: p.asset.into(),
+    impl From<Permissions> for LegacyPermissions {
+        fn from(p: Permissions) -> LegacyPermissions {
+            LegacyPermissions {
+                asset: p.asset,
                 extrinsic: p.extrinsic.into(),
-                portfolio: p.portfolio.into(),
+                portfolio: p.portfolio,
             }
         }
     }
@@ -479,20 +465,14 @@ pub mod api {
         fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
             SecondaryKey {
                 signer: k.signer,
-                permissions: k.permissions.into(),
+                permissions: k.permissions,
             }
         }
     }
 
-    impl From<AssetPermissions> for super::AssetPermissions {
-        fn from(p: AssetPermissions) -> super::AssetPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<PalletPermissions> for super::PalletPermissions {
-        fn from(p: PalletPermissions) -> super::PalletPermissions {
-            super::PalletPermissions {
+    impl From<LegacyPalletPermissions> for PalletPermissions {
+        fn from(p: LegacyPalletPermissions) -> PalletPermissions {
+            PalletPermissions {
                 pallet_name: p.pallet_name,
                 dispatchable_names: SubsetRestriction(if !p.total {
                     Some(p.dispatchable_names.into_iter().collect())
@@ -503,21 +483,15 @@ pub mod api {
         }
     }
 
-    impl From<ExtrinsicPermissions> for super::ExtrinsicPermissions {
-        fn from(p: ExtrinsicPermissions) -> super::ExtrinsicPermissions {
+    impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
+        fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
             SubsetRestriction(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
         }
     }
 
-    impl From<PortfolioPermissions> for super::PortfolioPermissions {
-        fn from(p: PortfolioPermissions) -> super::PortfolioPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<Permissions> for super::Permissions {
-        fn from(p: Permissions) -> super::Permissions {
-            super::Permissions {
+    impl From<LegacyPermissions> for Permissions {
+        fn from(p: LegacyPermissions) -> Permissions {
+            Permissions {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
@@ -532,7 +506,7 @@ pub mod api {
         fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
             super::SecondaryKey {
                 signer: k.signer,
-                permissions: k.permissions.into(),
+                permissions: k.permissions,
             }
         }
     }
