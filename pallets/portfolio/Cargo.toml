@@ -23,6 +23,8 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+
+# Only in STD
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
 [features]
