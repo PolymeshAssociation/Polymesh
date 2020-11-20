@@ -15,11 +15,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use pallet_identity::benchmarking::UserBuilder;
-use polymesh_primitives::Ticker;
-
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
+use pallet_balances as balances;
+use pallet_identity as identity;
+use pallet_identity::benchmarking::UserBuilder;
+use polymesh_common_utilities::traits::asset::AssetName;
+use polymesh_primitives::{IdentityId, InvestorUid, Ticker};
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 const SEED: u32 = 0;

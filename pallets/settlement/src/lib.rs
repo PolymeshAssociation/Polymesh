@@ -1,4 +1,17 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
 // Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! # Settlement Module
 //!
@@ -33,6 +46,9 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -75,7 +91,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInAInstruction: Get<u32>;
+    type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
@@ -84,6 +100,8 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
 }
 
 /// A wrapper for VenueDetails
@@ -278,6 +296,83 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub metadata: ReceiptMetadata,
 }
 
+pub trait WeightInfo {
+    fn create_venue(d: u32, u: u32) -> Weight;
+    fn update_venue(d: u32) -> Weight;
+    fn add_instruction(u: u32) -> Weight;
+    fn add_and_affirm_instruction(u: u32) -> Weight;
+    fn affirm_instruction() -> Weight;
+    fn withdraw_affirmation(u: u32) -> Weight;
+    fn reject_instruction() -> Weight;
+    fn affirm_with_receipts() -> Weight;
+    fn claim_receipt() -> Weight;
+    fn unclaim_receipt() -> Weight;
+    fn set_venue_filtering() -> Weight;
+    fn allow_venues(u: u32) -> Weight;
+    fn disallow_venues(u: u32) -> Weight;
+
+    // Some multiple paths based extrinsic.
+    // TODO: Will be removed once we get the worst case weight.
+    fn set_venue_filtering_disallow() -> Weight;
+    fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
+    fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
+    fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
+}
+
+impl WeightInfo for () {
+    fn create_venue(_d: u32, _u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn update_venue(_d: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn affirm_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn reject_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn affirm_with_receipts() -> Weight {
+        1_000_000_000
+    }
+    fn claim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn unclaim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering() -> Weight {
+        1_000_000_000
+    }
+    fn allow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn disallow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering_disallow() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
+        1_000_000_000
+    }
+}
+
 pub mod weight_for {
     use super::*;
 
@@ -322,7 +417,7 @@ pub mod weight_for {
     pub fn weight_for_transfer<T: Trait>() -> Weight {
         GAS_LIMIT
             .saturating_mul(
-                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
+                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
             )
             .saturating_add(70_000_000) // Weight for compliance manager
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
@@ -422,7 +517,7 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
+        /// Maximum numbers of legs in a instruction > `MaxLegsInInstruction`.
         LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
@@ -476,7 +571,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
+        const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
             let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
@@ -618,7 +713,7 @@ decl_module! {
                 Ok(post_info) => Ok(post_info),
                 Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
                     Ok(e.post_info)
-                }else {
+                } else {
                     Err(e)
                 }
             }
@@ -833,7 +928,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
         ensure!(
-            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInAInstruction::get(),
+            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInInstruction::get(),
             Error::<T>::LegsCountExceededMaxLimit
         );
 
@@ -1000,6 +1095,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InstructionNotPending
         );
         if let Some(valid_from) = instruction_details.valid_from {
+            #[cfg(not(feature = "runtime-benchmarks"))]
             ensure!(
                 <pallet_timestamp::Module<T>>::get() >= valid_from,
                 Error::<T>::InstructionWaitingValidity
