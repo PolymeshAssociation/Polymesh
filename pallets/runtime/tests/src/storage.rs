@@ -298,15 +298,16 @@ impl multisig::Trait for TestStorage {
 }
 
 parameter_types! {
-    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
+    pub MaxLegsInInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = ();
 }
 
 impl sto::Trait for TestStorage {
