@@ -181,8 +181,6 @@ decl_error! {
         DestinationIsSamePortfolio,
         /// The portfolio couldn't be renamed because the chosen name is already in use.
         PortfolioNameAlreadyInUse,
-        /// The secondary key is restricted and hence cannot create new portfolios.
-        SecondaryKeyCannotCreatePortfolios,
         /// The secondary key is not authorized to access the portfolio(s).
         SecondaryKeyNotAuthorizedForPortfolio,
         /// The porfolio's custody is with someone other than the caller.
@@ -208,18 +206,7 @@ decl_module! {
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(sk) = secondary_key {
-                // Check that the secondary signer is not limited to particular portfolios.
-                ensure!(
-                    sk.permissions.portfolio.is_unrestricted(),
-                    Error::<T>::SecondaryKeyCannotCreatePortfolios
-                );
-            }
+            let primary_did = Identity::<T>::ensure_perms(origin)?;
             Self::ensure_name_unique(&primary_did, &name)?;
             let num = Self::get_next_portfolio_number(&primary_did);
             <Portfolios>::insert(&primary_did, &num, name.clone());
