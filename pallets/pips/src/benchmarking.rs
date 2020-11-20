@@ -71,6 +71,7 @@ fn snapshot_setup<T: Trait>(
     c: u32,
 ) -> Result<RawOrigin<T::AccountId>, DispatchError> {
     Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
+    Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), p * 10)?;
     let hi_voters = make_voters::<T>(h, "hi");
     let bye_voters = make_voters::<T>(b, "bye");
     let (_, origin0, did0) = make_account::<T>("initial", 0);
@@ -242,9 +243,9 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
         // number of ayes
-        let a in 1 .. 10;
+        let a in 1 .. 200;
         // number of nays
-        let n in 1 .. 10;
+        let n in 1 .. 200;
 
         let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(proposer_did);
@@ -376,7 +377,7 @@ benchmarks! {
 
     clear_snapshot {
         // length of the proposal padding
-        let c in 0 .. 100_000;
+        let c in 0 .. 1_000_000;
 
         let (account, origin, did) = make_account::<T>("proposer", 0);
         identity::CurrentDid::put(did);
@@ -401,11 +402,11 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
         // number of proposals
-        let p in 0 .. 5;
+        let p in 0 .. 100;
         // first group of voters
-        let h in 0 .. 10;
+        let h in 0 .. 200;
         // second group of voters
-        let b in 0 .. 10;
+        let b in 0 .. 200;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
     }: _(origin0)
@@ -417,11 +418,11 @@ benchmarks! {
         // length of the proposal padding
         let c in 0 .. 100_000;
         // number of proposals
-        let p in 0 .. 5;
+        let p in 0 .. 100;
         // first group of voters
-        let h in 0 .. 10;
+        let h in 0 .. 200;
         // second group of voters
-        let b in 0 .. 10;
+        let b in 0 .. 200;
 
         let origin0 = snapshot_setup::<T>(h, b, p, c)?;
         Module::<T>::snapshot(origin0.into())?;
