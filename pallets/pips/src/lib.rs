@@ -1372,7 +1372,7 @@ impl<T: Trait> Module<T> {
         <PipToSchedule<T>>::insert(id, at);
 
         let call = Call::<T>::execute_scheduled_pip(id).into();
-        let event = if let Err(_) = T::Scheduler::schedule_named(
+        let event = match T::Scheduler::schedule_named(
             Self::pip_execution_name(id),
             DispatchTime::At(at),
             None,
@@ -1380,9 +1380,8 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            RawEvent::ExecutionSchedulingFailed(did, id, at)
-        } else {
-            RawEvent::ExecutionScheduled(did, id, Zero::zero(), at)
+            Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
+            Ok(_) => RawEvent::ExecutionScheduled(did, id, Zero::zero(), at),
         };
         Self::deposit_event(event);
     }
@@ -1391,7 +1390,7 @@ impl<T: Trait> Module<T> {
     fn schedule_pip_for_expiry(id: PipId, at: T::BlockNumber) {
         let did = GC_DID;
         let call = Call::<T>::expire_scheduled_pip(did, id).into();
-        let event = if let Err(_) = T::Scheduler::schedule_named(
+        let event = match T::Scheduler::schedule_named(
             Self::pip_expiry_name(id),
             DispatchTime::At(at),
             None,
@@ -1399,9 +1398,8 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            RawEvent::ExpirySchedulingFailed(did, id, at)
-        } else {
-            RawEvent::ExpiryScheduled(did, id, at)
+            Err(_) => RawEvent::ExpirySchedulingFailed(did, id, at),
+            Ok(_) => RawEvent::ExpiryScheduled(did, id, at),
         };
         Self::deposit_event(event);
     }
