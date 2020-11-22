@@ -16,7 +16,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature="runtime-benchmarks")]
+#[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
 use codec::Encode;
@@ -26,6 +26,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
+    weights::Weight,
 };
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
@@ -78,6 +79,10 @@ where
 
         UncheckedFrom::unchecked_from(T::Hashing::hash(&buf[..]))
     }
+}
+
+pub trait WeightInfo {
+    fn put_code(l: u32, u: u32, d: u32) -> Weight;
 }
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {

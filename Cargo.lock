@@ -5301,6 +5301,7 @@ dependencies = [
  "pallet-identity",
  "pallet-protocol-fee",
  "parity-scale-codec",
+ "parity-wasm 0.41.0",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
@@ -5308,6 +5309,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "wat",
 ]
 
 [[package]]

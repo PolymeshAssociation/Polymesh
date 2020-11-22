@@ -16,6 +16,8 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+wat = { version = "1.0", optional = true, default-features = false }
+parity-wasm = { version = "0.41.0", default-features = false }
 
 # Polymesh specific
 pallet-identity = { path = "../identity", default-features = false }
@@ -35,6 +37,7 @@ std = [
     "codec/std",
     "sp-std/std",
     "sp-core/std",
+    "parity-wasm/std",
     "sp-runtime/std",
     "frame-system/std",
     "frame-support/std",
@@ -45,5 +48,6 @@ std = [
     "polymesh-common-utilities/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking"
+    "frame-benchmarking",
+    "wat"
 ]
