@@ -4978,7 +4978,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -6981,7 +6981,6 @@ dependencies = [
  "getrandom",
  "merlin",
  "rand 0.7.3",
- "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "serde",
  "sha2 0.8.2",
