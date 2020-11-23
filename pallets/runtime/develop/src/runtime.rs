@@ -476,6 +476,9 @@ impl pallet_pips::Trait for Runtime {
     type Treasury = Treasury;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 parameter_types! {
