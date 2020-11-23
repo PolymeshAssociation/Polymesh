@@ -17,7 +17,9 @@
 
 use crate::*;
 use frame_benchmarking::{account, benchmarks};
+use frame_support::{storage::IterableStorageMap, traits::Currency};
 use frame_system::RawOrigin;
+use pallet_contracts::PristineCode;
 use pallet_identity::benchmarking::make_account;
 use parity_wasm::elements::FuncBody;
 use polymesh_primitives::{
@@ -111,8 +113,33 @@ fn expanded_contract<T: Trait>(target_bytes: u32) -> (Vec<u8>, <T::Hashing as Ha
     contract_with_call_body::<T>(FuncBody::new(Vec::new(), instructions))
 }
 
-fn emulate_blueprint_in_storage<T: Trait>(instantiation_fee: T::Balance, origin: RawOrigin<T::AccountId>) -> () {
-
+fn emulate_blueprint_in_storage<T: Trait>(
+    instantiation_fee: u32,
+    origin: RawOrigin<T::AccountId>,
+    expanded: bool,
+) -> Result<<T::Hashing as Hash>::Output, DispatchError> {
+    let url = Some(MetaUrl::from(
+        vec![b'U'; MAX_URL_LENGTH as usize].as_slice(),
+    ));
+    let description = MetaDescription::from(vec![b'D'; MAX_DESCRIPTION_LENGTH as usize].as_slice());
+    let meta_info = TemplateMetadata {
+        url,
+        se_type: SmartExtensionType::TransferManager,
+        usage_fee: 100.into(),
+        description,
+        version: 5000,
+    };
+    let (wasm_blob, code_hash) = match expanded {
+        true => expanded_contract::<T>(BaseContracts::<T>::current_schedule().max_code_size),
+        false => load_module!("dummy"),
+    };
+    Module::<T>::put_code(
+        origin.into(),
+        meta_info,
+        instantiation_fee.into(),
+        wasm_blob,
+    )?;
+    Ok(code_hash)
 }
 
 benchmarks! {
@@ -140,14 +167,83 @@ benchmarks! {
     }: _(origin, meta_info, 1000.into(), wasm_blob)
     verify {
         ensure!(matches!(Module::<T>::get_metadata_of(code_hash), meta_info), "Contracts_putCode: Meta info set incorrect");
-        ensure!(BaseContracts::<T>::PristineCode::get().is_some(), "Contracts_putCode: Base contract doesn't get updated with given code hash");
+        ensure!(PristineCode::<T>::get(code_hash).is_some(), "Contracts_putCode: Base contract doesn't get updated with given code hash");
     }
 
+    // No catalyst.
     instantiate {
         let data = vec![0u8; 128];
-        let endowment = 0;
         let max_fee = 100;
         let (account, origin, did) = make_account::<T>("creator", SEED);
-        let (wasm_blob, code_hash) = emulate_blueprint_in_storage::<T>(max_fee.into(), origin);
+        let code_hash = emulate_blueprint_in_storage::<T>(max_fee, origin, false)?;
+        let (d_account, d_origin, _) = make_account::<T>("deployer", 1);
+        let d_free_balance = T::Currency::free_balance(&d_account);
+        let c_free_balance = T::Currency::free_balance(&account);
+    }: _(d_origin, 99999999.into(), Weight::max_value(), code_hash, data, max_fee.into())
+    verify {
+        let creator_share = max_fee - T::NetworkShareInFee::get() * max_fee;
+        ensure!(c_free_balance + creator_share.into() == T::Currency::free_balance(&account), "Contracts_instantiate: Fee is not received properly");
+        ensure!(d_free_balance - max_fee.into() == T::Currency::free_balance(&d_account), "Contracts_instantiate: Fee is not deducted properly");
+        let (key, value) = ExtensionInfo::<T>::iter().next().unwrap();
+        let attributes = Module::<T>::ext_details(&code_hash);
+        ensure!(matches!(value, attributes), "Contracts_instantiate: Storage doesn't set correctly");
     }
+
+    // No catalyst.
+    freeze_instantiation {
+        let (_, origin, _) = make_account::<T>("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
+    }: _(origin, code_hash)
+    verify {
+        ensure!(Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_freeze_instantiation: Failed to freeze instantiation");
+    }
+
+    // No catalyst.
+    unfreeze_instantiation {
+        let (_, origin, _) = make_account::<T>("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
+        Module::<T>::freeze_instantiation(origin.clone().into(), code_hash);
+    }: _(origin, code_hash)
+    verify {
+        ensure!(!Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_unfreeze_instantiation: Failed to unfreeze instantiation");
+    }
+
+    // No catalyst.
+    transfer_template_ownership {
+        let (_, origin, did) = make_account::<T>("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
+        let (_, _, n_did) = make_account::<T>("newOwner", 1);
+    }: _(origin, code_hash, n_did)
+    verify {
+        ensure!(matches!(Module::<T>::get_template_details(code_hash).owner, n_did), "Contracts_transfer_template_ownership: Failed to transfer ownership");
+    }
+
+    // No catalyst.
+    change_template_fees {
+        let (_, origin, _) = make_account::<T>("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), true)?;
+    }: _(origin, code_hash, Some(500.into()), Some(650.into()))
+    verify {
+        ensure!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
+        ensure!(Module::<T>::get_metadata_of(code_hash).usage_fee == 650.into(), "Contracts_change_template_fees: Failed to change the usage fees");
+    }
+
+    change_template_meta_url {
+        // Catalyst for the MetaUrl length.
+        let u in 1 .. MAX_URL_LENGTH;
+        let url = Some(MetaUrl::from(vec![b'U'; u as usize].as_slice()));
+        let (_, origin, _) = make_account::<T>("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), true)?;
+    }: _(origin, code_hash, url.clone())
+    verify {
+        ensure!(Module::<T>::get_metadata_of(code_hash).url == url, "Contracts_change_template_meta_url: Failed to change the url of template");
+    }
+
+    // No catalyst.
+    update_schedule {
+        let schedule = Schedule {
+            version: 1,
+            .. Default::default()
+        };
+    }: _(RawOrigin::Root, schedule)
 }

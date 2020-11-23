@@ -83,6 +83,13 @@ where
 
 pub trait WeightInfo {
     fn put_code(l: u32, u: u32, d: u32) -> Weight;
+    fn instantiate() -> Weight;
+    fn freeze_instantiation() -> Weight;
+    fn unfreeze_instantiation() -> Weight;
+    fn transfer_template_ownership() -> Weight;
+    fn change_template_fees() -> Weight;
+    fn change_template_meta_url(u: u32) -> Weight;
+    fn update_schedule() -> Weight;
 }
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {

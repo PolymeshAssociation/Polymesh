@@ -700,7 +700,7 @@ impl IdentityTrait for Runtime {
 }
 
 parameter_types! {
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
 }
 
 impl polymesh_contracts::Trait for Runtime {
