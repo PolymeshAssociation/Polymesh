@@ -12,13 +12,14 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
+#![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::{account, benchmarks};
-use frame_support::{traits::Currency, StorageValue};
-use frame_system::RawOrigin;
+use frame_benchmarking::benchmarks;
+use frame_support::StorageValue;
 use pallet_balances as balances;
 use pallet_identity as identity;
+use pallet_identity::benchmarking::UserBuilder;
 use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_primitives::{IdentityId, InvestorUid, Ticker};
 use sp_std::{convert::TryFrom, iter, prelude::*};
@@ -26,23 +27,6 @@ use sp_std::{convert::TryFrom, iter, prelude::*};
 const SEED: u32 = 0;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
-
-fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
-    InvestorUid::from((name, u).encode().as_slice())
-}
-
-fn make_account<T: Trait>(
-    name: &'static str,
-    u: u32,
-) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
-    let account: T::AccountId = account(name, u, SEED);
-    let origin = RawOrigin::Signed(account.clone());
-    let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-    let uid = uid_from_name_and_idx(name, u);
-    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
-    let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
-    (account, origin, did)
-}
 
 // fn make_token<T: Trait>(
 //     origin: RawOrigin<T::AccountId>,
@@ -89,10 +73,10 @@ benchmarks! {
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
 
-        let origin = make_account::<T>("caller", 1).1;
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         // Generate a ticker of length `t`.
         let ticker = Ticker::try_from(vec![b'A'; t as usize].as_slice()).unwrap();
-    }: _(origin, ticker)
+    }: _(caller.origin, ticker)
 
     // accept_ticker_transfer {
     //     let u in ...;
@@ -155,8 +139,8 @@ benchmarks! {
         let identifiers: Vec<AssetIdentifier> =
             iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let origin = make_account::<T>("caller", 1).1;
-    }: _(origin, name, ticker, total_supply, divisible, asset_type, identifiers, Some(fundr))
+        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
+    }: _(caller.origin, name, ticker, total_supply, divisible, asset_type, identifiers, Some(fundr))
 
     // freeze {
     //     let u in ...;
