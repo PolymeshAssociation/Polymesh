@@ -18,7 +18,10 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
 use frame_system::RawOrigin;
-use pallet_identity::{self as identity, benchmarking::make_account};
+use pallet_identity::{
+    self as identity,
+    benchmarking::{User, UserBuilder},
+};
 use polymesh_common_utilities::{MaybeBlock, SystematicIssuers, GC_DID};
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -48,8 +51,9 @@ fn make_voters<T: Trait>(
 ) -> Vec<(RawOrigin<T::AccountId>, IdentityId)> {
     (1..=num_voters)
         .map(|i| {
-            let (_, origin, did) = make_account::<T>(prefix, i as u32);
-            (origin, did)
+            let User { origin, did, .. } =
+                UserBuilder::<T>::default().build_with_did(prefix, i as u32);
+            (origin, did.unwrap())
         })
         .collect()
 }
@@ -80,14 +84,15 @@ fn pips_and_votes_setup<T: Trait>(
     };
     let hi_voters = make_voters::<T>(voters_a_num, "hi");
     let bye_voters = make_voters::<T>(voters_b_num, "bye");
-    let (_, origin0, did0) = make_account::<T>("initial", 0);
+    let User { origin, did, .. } = UserBuilder::<T>::default().build_with_did("initial", 0);
+    let did = did.expect("no did in pips_and_votes_setup");
     for i in 0..PROPOSALS_NUM {
         let (proposal, url, description) = make_proposal::<T>();
         // Pick a proposer, diversifying like a poor man.
         let (proposer_origin, proposer_did) = if hi_voters.len() >= i + 1 {
             hi_voters[i].clone()
         } else {
-            (origin0.clone(), did0)
+            (origin.clone(), did)
         };
         identity::CurrentDid::put(proposer_did);
         Module::<T>::propose(
@@ -102,7 +107,7 @@ fn pips_and_votes_setup<T: Trait>(
         cast_votes::<T>(i as u32, bye_voters.as_slice(), i % 2 != 0)?;
     }
     identity::CurrentDid::kill();
-    Ok((origin0, did0))
+    Ok((origin, did))
 }
 
 /// Sets up snapshot and enact benches.
@@ -190,8 +195,9 @@ benchmarks! {
     }
 
     propose_from_community {
-        let (account, origin, did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
     }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
     verify {
@@ -203,8 +209,9 @@ benchmarks! {
 
     // `propose` from a committee origin.
     propose_from_committee {
-        let (account, origin, did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
@@ -221,8 +228,9 @@ benchmarks! {
     }
 
     amend_proposal {
-        let (account, origin, did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             origin.clone().into(),
@@ -240,8 +248,9 @@ benchmarks! {
     }
 
     cancel_proposal {
-        let (account, origin, did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             origin.clone().into(),
@@ -259,12 +268,13 @@ benchmarks! {
     }
 
     vote {
-        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(proposer_did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
-            proposer_origin.into(),
+            origin.into(),
             proposal,
             42.into(),
             Some(url),
@@ -276,8 +286,9 @@ benchmarks! {
         cast_votes::<T>(0, aye_voters.as_slice(), true)?;
         cast_votes::<T>(0, nay_voters.as_slice(), false)?;
         // Cast an opposite vote.
-        let (account, origin, did) = make_account::<T>("voter", 0);
-        identity::CurrentDid::put(did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("voter", 0);
+        identity::CurrentDid::put(did.unwrap());
         let voter_deposit = 43.into();
         // Cast an opposite vote.
         Module::<T>::vote(origin.clone().into(), 0, false, voter_deposit)?;
@@ -305,47 +316,49 @@ benchmarks! {
     }
 
     reject_proposal {
-        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(proposer_did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let deposit = 42.into();
         Module::<T>::propose(
-            proposer_origin.into(),
+            origin.into(),
             proposal,
             deposit,
             Some(url),
             Some(description)
         )?;
-        assert_eq!(deposit, Deposits::<T>::get(&0, &proposer_account).amount);
-        let origin = T::VotingMajorityOrigin::successful_origin();
+        assert_eq!(deposit, Deposits::<T>::get(&0, &account).amount);
+        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::reject_proposal(0);
     }: {
-        call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(vmo_origin)?;
     }
     verify {
-        assert_eq!(false, Deposits::<T>::contains_key(&0, &proposer_account));
+        assert_eq!(false, Deposits::<T>::contains_key(&0, &account));
     }
 
     prune_proposal {
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
-        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(proposer_did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
-            proposer_origin.into(),
+            origin.into(),
             proposal,
             42.into(),
             Some(url),
             Some(description)
         )?;
-        let origin = T::VotingMajorityOrigin::successful_origin();
+        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false)?;
         let reject_call = Call::<T>::reject_proposal(0);
-        reject_call.dispatch_bypass_filter(origin.clone())?;
+        reject_call.dispatch_bypass_filter(vmo_origin.clone())?;
         let call = Call::<T>::prune_proposal(0);
     }: {
-        call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(vmo_origin)?;
     }
     verify {
         assert_eq!(false, Proposals::<T>::contains_key(&0));
@@ -353,30 +366,34 @@ benchmarks! {
     }
 
     reschedule_execution {
-        let (proposer_account, proposer_origin, proposer_did) = make_account::<T>("proposer", 0);
-        identity::CurrentDid::put(proposer_did);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let did = did.expect("missing did in reschedule_execution");
+        identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
-            proposer_origin.clone().into(),
+            origin.clone().into(),
             proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
-        T::GovernanceCommittee::bench_set_release_coordinator(proposer_did);
-        Module::<T>::snapshot(proposer_origin.clone().into())?;
-        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        T::GovernanceCommittee::bench_set_release_coordinator(did);
+        Module::<T>::snapshot(origin.clone().into())?;
+        let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
-        enact_call.dispatch_bypass_filter(enact_origin)?;
+        enact_call.dispatch_bypass_filter(vmo_origin)?;
         let future_block = frame_system::Module::<T>::block_number() + 100.into();
-    }: _(proposer_origin, 0, Some(future_block))
+    }: _(origin, 0, Some(future_block))
     verify {
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
     }
 
     clear_snapshot {
-        let (account, origin, did) = make_account::<T>("proposer", 0);
+        let User { account, origin, did, .. } =
+            UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let did = did.expect("missing did in clear_snapshot");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
