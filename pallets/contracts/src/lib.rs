@@ -97,6 +97,8 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
     type NetworkShareInFee: Get<Perbill>;
+    /// Weight information for extrinsic in this pallet.
+    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {

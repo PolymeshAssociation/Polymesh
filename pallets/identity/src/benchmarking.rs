@@ -37,7 +37,7 @@ pub fn make_account_without_did<T: Trait>(
 ) -> (T::AccountId, RawOrigin<T::AccountId>) {
     let account: T::AccountId = account(name, u, SEED);
     let origin = RawOrigin::Signed(account.clone());
-    let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
+    let _ = balances::Module::<T>::make_free_balance_be(&account, 5_000_000.into());
     (account, origin)
 }
 

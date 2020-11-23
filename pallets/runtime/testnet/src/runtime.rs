@@ -719,6 +719,7 @@ parameter_types! {
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
 impl pallet_corporate_actions::Trait for Runtime {

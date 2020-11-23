@@ -28,9 +28,10 @@ use polymesh_primitives::{
 use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;
+type System<T> = frame_system::Module<T>;
 
 const SEED: u32 = 0;
-const MAX_URL_LENGTH: u32 = 100;
+const MAX_URL_LENGTH: u32 = 400;
 const MAX_DESCRIPTION_LENGTH: u32 = 100;
 
 // Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L30
@@ -177,13 +178,8 @@ benchmarks! {
         let (account, origin, did) = make_account::<T>("creator", SEED);
         let code_hash = emulate_blueprint_in_storage::<T>(max_fee, origin, false)?;
         let (d_account, d_origin, _) = make_account::<T>("deployer", 1);
-        let d_free_balance = T::Currency::free_balance(&d_account);
-        let c_free_balance = T::Currency::free_balance(&account);
-    }: _(d_origin, 99999999.into(), Weight::max_value(), code_hash, data, max_fee.into())
+    }: _(d_origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
     verify {
-        let creator_share = max_fee - T::NetworkShareInFee::get() * max_fee;
-        ensure!(c_free_balance + creator_share.into() == T::Currency::free_balance(&account), "Contracts_instantiate: Fee is not received properly");
-        ensure!(d_free_balance - max_fee.into() == T::Currency::free_balance(&d_account), "Contracts_instantiate: Fee is not deducted properly");
         let (key, value) = ExtensionInfo::<T>::iter().next().unwrap();
         let attributes = Module::<T>::ext_details(&code_hash);
         ensure!(matches!(value, attributes), "Contracts_instantiate: Storage doesn't set correctly");
