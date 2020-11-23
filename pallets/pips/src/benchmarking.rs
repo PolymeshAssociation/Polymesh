@@ -450,7 +450,9 @@ benchmarks! {
         let origin = RawOrigin::Root;
     }: _(origin, 0)
     verify {
-        assert_eq!(ProposalState::Executed, Module::<T>::proposals(&0).unwrap().state);
+        if Proposals::<T>::contains_key(&0) {
+            assert_eq!(ProposalState::Executed, Module::<T>::proposals(&0).unwrap().state);
+        }
     }
 
     expire_scheduled_pip {
