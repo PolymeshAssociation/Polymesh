@@ -51,7 +51,7 @@
 
 use super::{
     BalanceOf, EraIndex, Error, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface,
-    Store, Trait, UnappliedSlash,
+    SlashingSwitch, Store, Trait, UnappliedSlash,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -63,7 +63,7 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     DispatchResult, RuntimeDebug,
 };
-use sp_std::vec::Vec;
+use sp_std::prelude::*;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -225,6 +225,8 @@ pub(crate) struct SlashParams<'a, T: 'a + Trait> {
     pub(crate) reward_proportion: Perbill,
 }
 
+/// Polymesh-Note: Compute slashing according to the `SlashingStatus`.
+
 /// Computes a slash of a validator and nominators. It returns an unapplied
 /// record to be applied at some later point. Slashing metadata is updated in storage,
 /// since unapplied records are only rarely intended to be dropped.
@@ -305,7 +307,11 @@ pub(crate) fn compute_slash<T: Trait>(
     }
 
     let mut nominators_slashed = Vec::new();
-    reward_payout += slash_nominators::<T>(params, prior_slash_p, &mut nominators_slashed);
+
+    // Polymesh-Note - `SlashingSwitch` decides whether nominator get slashed or not.
+    if <Module<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
+        reward_payout += slash_nominators::<T>(params, prior_slash_p, &mut nominators_slashed);
+    }
 
     Some(UnappliedSlash {
         validator: stash.clone(),
@@ -375,7 +381,7 @@ fn slash_nominators<T: Trait>(
             let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
             let mut era_slash = <Module<T> as Store>::NominatorSlashInEra::get(&slash_era, stash)
-                .unwrap_or_else(Zero::zero);
+                .unwrap_or_else(|| Zero::zero());
 
             era_slash += own_slash_difference;
 
@@ -625,13 +631,16 @@ pub(crate) fn apply_slash<T: Trait>(unapplied_slash: UnappliedSlash<T::AccountId
         &mut slashed_imbalance,
     );
 
-    for &(ref nominator, nominator_slash) in &unapplied_slash.others {
-        do_slash::<T>(
-            &nominator,
-            nominator_slash,
-            &mut reward_payout,
-            &mut slashed_imbalance,
-        );
+    // Polymesh-Note - `SlashingSwitch` decides whether nominator get slashed or not.
+    if <Module<T>>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator {
+        for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+            do_slash::<T>(
+                &nominator,
+                nominator_slash,
+                &mut reward_payout,
+                &mut slashed_imbalance,
+            );
+        }
     }
 
     pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);

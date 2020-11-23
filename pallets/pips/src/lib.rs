@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    with_transaction, CommonTrait, Context, GC_DID,
+    with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -218,6 +218,12 @@ pub struct PipsMetadata<T: Trait> {
     /// Currently, this is only used for off-chain purposes to highlight any differences
     /// in the proposal's transaction version from the current one.
     pub transaction_version: u32,
+    /// The point, if any, at which this PIP, if still in a `Pending` state,
+    /// is expired, and thus no longer valid.
+    ///
+    /// This field has no operational on-chain effect and is provided for UI purposes only.
+    /// On-chain effects are instead handled via scheduling.
+    pub expiry: MaybeBlock<T::BlockNumber>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -268,6 +274,8 @@ pub enum ProposalState {
     Failed,
     /// Proposal was successfully executed.
     Executed,
+    /// Proposal has expired. Only previously `Pending` PIPs may end up here.
+    Expired,
 }
 
 impl Default for ProposalState {
@@ -378,6 +386,10 @@ decl_storage! {
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
 
+        /// How many blocks will it take, after a `Pending` PIP's cooling-off period is over,
+        /// until the the PIP expires, assuming it has not transitioned to another `ProposalState`?
+        pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<T::BlockNumber>;
+
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
         pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
 
@@ -420,6 +432,10 @@ decl_storage! {
         /// block number -> Pip id
         pub ExecutionSchedule get(fn execution_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
+        /// Maps block numbers to list of PIPs which should be expired at the block number.
+        /// block number -> Pip id
+        pub ExpirySchedule get(fn expiry_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
+
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPIP`.
         ///
@@ -453,7 +469,7 @@ decl_event!(
         ///
         /// # Parameters:
         ///
-        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal data.
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, expiry time, proposal data.
         ProposalCreated(
             IdentityId,
             Proposer<AccountId>,
@@ -462,6 +478,7 @@ decl_event!(
             Option<Url>,
             Option<PipDescription>,
             BlockNumber,
+            MaybeBlock<BlockNumber>,
             ProposalData,
         ),
         /// A PIP's details (url & description) were amended.
@@ -483,6 +500,9 @@ decl_event!(
         /// Cool off period for proposals modified
         /// (caller DID, old period, new period)
         ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
+        /// Amount of blocks, after the cool-off period, after which a pending PIP expires.
+        /// (caller DID, old expiry, new expiry)
+        PendingPipExpiryChanged(IdentityId, MaybeBlock<BlockNumber>, MaybeBlock<BlockNumber>),
         /// The maximum times a PIP can be skipped was changed.
         /// (caller DID, old value, new value)
         MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
@@ -557,56 +577,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> Weight {
-            // Larger goal here is to clear Governance V1.
-            use frame_support::{
-                storage::{unhashed, IterableStorageDoubleMap, migration::StorageIterator},
-                traits::ReservableCurrency,
-                Twox128, StorageHasher
-            };
-
-            // 1. Start with refunding all deposits.
-            // As we've `drain`ed  `Deposits`, we need not do so again below.
-            for (_, _, depo) in <Deposits<T>>::drain() {
-                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
-            }
-
-            // 2. Then we clear various storage items that were present on V1.
-            // For future reference, the storage items are defined in:
-            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
-
-            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
-            for item in &[
-                "ProposalMetadata",
-                "ProposalsMaturingAt",
-                "Proposals",
-                "ProposalResult",
-                "Referendums",
-                "ScheduledReferendumsAt",
-                "ProposalVotes",
-            ] {
-                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
-            }
-
-            // 2b) Reset the PIP ID sequence to `0`.
-            PipIdSequence::kill();
-
-            // 2c) Remove items no longer used in V2.
-            fn storage_value_final_key(module: &[u8], item: &[u8]) -> [u8; 32] {
-                let mut final_key = [0u8; 32];
-                final_key[0..16].copy_from_slice(&Twox128::hash(module));
-                final_key[16..32].copy_from_slice(&Twox128::hash(item));
-                final_key
-            }
-            for item in &["ProposalDuration", "QuorumThreshold"] {
-                unhashed::kill(&storage_value_final_key(b"Pips", item.as_bytes()));
-            }
-
-            // Done; we've cleared all V1 storage needed; V2 can now be filled in.
-            // As for the weight, clearing costs much more than this, but let's pretend.
-            0
-        }
-
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
         /// # Arguments
@@ -649,6 +619,16 @@ decl_module! {
             let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
+        }
+
+        /// Change the amount of blocks, after the cool-off, for which a pending PIP is expired.
+        /// If `expiry` is `None` then PIPs never expire.
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev = <PendingPipExpiry<T>>::get();
+            <PendingPipExpiry<T>>::put(expiry);
+            Self::deposit_event(RawEvent::PendingPipExpiryChanged(GC_DID, prev, expiry));
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
@@ -703,8 +683,8 @@ decl_module! {
                 // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-               // Lock the deposit.
-               Self::increase_lock(proposer, deposit)?;
+                // Lock the deposit.
+                Self::increase_lock(proposer, deposit)?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
@@ -716,34 +696,38 @@ decl_module! {
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
             let created_at = <system::Module<T>>::block_number();
-            let proposal_metadata = PipsMetadata {
+            let cool_off_until = created_at + Self::proposal_cool_off_period();
+            let expiry = Self::pending_pip_expiry() + cool_off_until;
+            let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
+            let proposal_data = Self::reportable_proposal_data(&*proposal);
+            <ProposalMetadata<T>>::insert(id, PipsMetadata {
                 id,
                 created_at,
                 url: url.clone(),
                 description: description.clone(),
-                transaction_version: <T::Version as Get<RuntimeVersion>>::get().transaction_version,
-            };
-            <ProposalMetadata<T>>::insert(id, proposal_metadata);
-
-            let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let cool_off_until = created_at + Self::proposal_cool_off_period();
-            let pip = Pip {
+                transaction_version,
+                expiry,
+            });
+            <Proposals<T>>::insert(id, Pip {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
                 proposer: proposer.clone(),
                 cool_off_until,
-            };
-            <Proposals<T>>::insert(id, pip);
+            });
             ActivePipCount::mutate(|count| *count += 1);
 
-            // 5. Record the deposit and as a signal if we have a community PIP.
+            // 5. Schedule for expiry as long as `Pending` at block with number `expiring_at`.
+            if let MaybeBlock::Some(expiring_at) = expiry {
+                <ExpirySchedule<T>>::append(expiring_at, id);
+            }
+
+            // 6. Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
-                let deposit_info = DepositInfo {
+                <Deposits<T>>::insert(id, &proposer, DepositInfo {
                     owner: proposer.clone(),
                     amount: deposit
-                };
-                <Deposits<T>>::insert(id, &proposer, deposit_info);
+                });
 
                 // Add vote and update voting counter.
                 // INTERNAL: It is impossible to overflow counters in the first vote.
@@ -756,7 +740,7 @@ decl_module! {
                 CommitteePips::append(id);
             }
 
-            // 6. Emit the event.
+            // 7. Emit the event.
             Self::deposit_event(RawEvent::ProposalCreated(
                 did,
                 proposer,
@@ -765,6 +749,7 @@ decl_module! {
                 url,
                 description,
                 cool_off_until,
+                expiry,
                 proposal_data,
             ));
             Ok(())
@@ -815,9 +800,7 @@ decl_module! {
 
             // 2. Close that proposal (including refunding).
             let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            let new_state = Self::update_proposal_state(did, id, ProposalState::Cancelled);
-            Self::prune_data(did, id, new_state, Self::prune_historical_pips());
-
+            Self::maybe_prune(did, id, ProposalState::Cancelled);
             Ok(())
         }
 
@@ -1152,7 +1135,7 @@ decl_module! {
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::end_block(n).unwrap_or_else(|e| {
-                sp_runtime::print(e);
+                <Identity<T>>::emit_unexpected_error(Some(e));
                 0
             })
         }
@@ -1221,6 +1204,7 @@ impl<T: Trait> Module<T> {
     pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
         // Some arbitrary number right now, It is subject to change after proper benchmarking
         let mut weight: Weight = 50_000_000;
+
         // 1. Execute all PIPs scheduled for this block.
         <ExecutionSchedule<T>>::take(block_number)
             .into_iter()
@@ -1228,14 +1212,20 @@ impl<T: Trait> Module<T> {
                 <PipToSchedule<T>>::remove(id);
                 weight += Self::execute_proposal(id);
             });
-        <ExecutionSchedule<T>>::remove(block_number);
+
+        // 2. Expire all PIPs scheduled for this block.
+        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        <ExpirySchedule<T>>::take(block_number)
+            .into_iter()
+            .filter(|id| Self::is_proposal_state(*id, ProposalState::Pending).is_ok())
+            .for_each(|id| Self::maybe_prune(did, id, ProposalState::Expired));
+
         Ok(weight)
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
     fn unsafe_reject_proposal(did: IdentityId, id: PipId) {
-        let new_state = Self::update_proposal_state(did, id, ProposalState::Rejected);
-        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
+        Self::maybe_prune(did, id, ProposalState::Rejected);
     }
 
     /// Refunds any tokens used to vote or bond a proposal.
@@ -1301,6 +1291,13 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::PipClosed(did, id, prune));
     }
 
+    /// First set the state to `new_state`
+    /// and then possibly prune (nearly) all the PIP data, if configuration allows.
+    fn maybe_prune(did: IdentityId, id: PipId, new_state: ProposalState) {
+        Self::update_proposal_state(did, id, new_state);
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
+    }
+
     fn schedule_pip_for_execution(did: IdentityId, id: PipId) {
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
@@ -1322,11 +1319,11 @@ impl<T: Trait> Module<T> {
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
         let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::update_proposal_state(did, id, new_state);
-        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
+        Self::maybe_prune(did, id, new_state);
         weight.unwrap_or(0)
     }
 
+    /// Update the proposal state of `did` setting it to `new_state`.
     fn update_proposal_state(
         did: IdentityId,
         id: PipId,
@@ -1345,6 +1342,7 @@ impl<T: Trait> Module<T> {
         new_state
     }
 
+    /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
         let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);

@@ -15,9 +15,9 @@
 
 use crate::{runtime, Runtime};
 
+use pallet_bridge as bridge;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_runtime_common::bridge;
 
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
@@ -34,7 +34,7 @@ type Call = runtime::Call;
 #[derive(Encode, Decode)]
 enum CallType {
     AcceptMultiSigSigner,
-    AcceptIdentitySigner,
+    AcceptIdentitySecondary,
     AcceptIdentityPrimary,
     /// Matches any call to `remove_authorization`,
     /// where the authorization is available for `auth.authorized_by` payer redirection.
@@ -90,7 +90,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::join_identity_as_key(auth_id, ..)) => {
-                is_auth_valid(caller, auth_id, CallType::AcceptIdentitySigner)
+                is_auth_valid(caller, auth_id, CallType::AcceptIdentitySecondary)
             }
             // Call made by a new Account key to accept invitation to become the primary key
             // of an existing identity that has a valid CDD. The auth should be valid.
@@ -99,7 +99,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             }
             // Call made by a new Account key to remove invitation for certain authorizations
             // in an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(identity::Call::remove_authorization(_, auth_id)) => {
+            Call::Identity(identity::Call::remove_authorization(_, auth_id, true)) => {
                 is_auth_valid(caller, auth_id, CallType::RemoveAuthorization)
             }
             // Call made by an Account key to propose or approve a multisig transaction.
@@ -111,9 +111,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
-            Call::Bridge(
-                bridge::Call::propose_bridge_tx(..) | bridge::Call::batch_propose_bridge_tx(..),
-            ) => handle_multisig(&Bridge::controller_key(), caller),
+            Call::Bridge(bridge::Call::propose_bridge_tx(..)) => {
+                handle_multisig(&Bridge::controller_key(), caller)
+            }
             // All other calls.
             //
             // If the account has enabled charging fee to identity then the identity should be charged
@@ -142,7 +142,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         Context::set_current_payer::<Identity>(payer);
     }
 
-    /// Fetches fee payer for further payements (forwareded calls)
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
@@ -164,18 +164,10 @@ fn is_auth_valid(acc: &AccountId, auth_id: &u64, call_type: CallType) -> ValidPa
         // Business logic for authorisations can be checked post-Signed Extension.
         Some((
             by,
-            (
-                AuthorizationData::AddMultiSigSigner(_),
-                CallType::RemoveAuthorization | CallType::AcceptMultiSigSigner,
-            )
-            | (
-                AuthorizationData::JoinIdentity(_),
-                CallType::RemoveAuthorization | CallType::AcceptIdentitySigner,
-            )
-            | (
-                AuthorizationData::RotatePrimaryKey(_),
-                CallType::RemoveAuthorization | CallType::AcceptIdentityPrimary,
-            ),
+            (AuthorizationData::AddMultiSigSigner(_), CallType::AcceptMultiSigSigner)
+            | (AuthorizationData::JoinIdentity(_), CallType::AcceptIdentitySecondary)
+            | (AuthorizationData::RotatePrimaryKey(_), CallType::AcceptIdentityPrimary)
+            | (_, CallType::RemoveAuthorization),
         )) => check_cdd(&by),
         // None of the above apply, so error.
         _ => Err(InvalidTransaction::Custom(

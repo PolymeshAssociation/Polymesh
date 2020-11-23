@@ -16,16 +16,16 @@
 
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
-use crate::service;
-use crate::service::IsAlcyoneNetwork;
+use crate::service::{
+    self, alcyone_chain_ops, general_chain_ops, new_full_base, AlcyoneExecutor, GeneralExecutor,
+    IsAlcyoneNetwork, NewChainOps, NewFullBase,
+};
+use core::future::Future;
 use log::info;
 use polymesh_primitives::Block;
 use sc_cli::{ChainSpec, RuntimeVersion};
 pub use sc_cli::{Result, SubstrateCli};
-use sc_service::config::Role;
-
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_runtime::runtime;
+use sc_service::{config::Role, Configuration, TaskManager};
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -111,37 +111,103 @@ pub fn run() -> Result<()> {
                 })
             }
         }
-        Some(Subcommand::Base(subcommand)) => {
-            let runtime = cli.create_runner(subcommand)?;
-            let chain_spec = &runtime.config().chain_spec;
-
-            if chain_spec.is_alcyone_network() {
-                runtime.run_subcommand(subcommand, |config| {
-                    service::chain_ops::<
-                        service::polymesh_runtime_testnet::RuntimeApi,
-                        service::AlcyoneExecutor,
-                        service::polymesh_runtime_testnet::UncheckedExtrinsic,
-                    >(config)
+        Some(Subcommand::BuildSpec(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+        }
+        Some(Subcommand::BuildSyncSpec(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            if runner.config().chain_spec.is_alcyone_network() {
+                runner.async_run(|config| {
+                    let chain_spec = config.chain_spec.cloned_box();
+                    let network_config = config.network.clone();
+                    let NewFullBase { task_manager, client, network_status_sinks, .. }
+                        = new_full_base::<polymesh_runtime_testnet::RuntimeApi, AlcyoneExecutor, _, _>(config, |_, _| ())?;
+                    Ok((cmd.run(chain_spec, network_config, client, network_status_sinks), task_manager))
                 })
             } else {
-                runtime.run_subcommand(subcommand, |config| {
-                    service::chain_ops::<
-                        service::polymesh_runtime_develop::RuntimeApi,
-                        service::GeneralExecutor,
-                        service::polymesh_runtime_develop::UncheckedExtrinsic,
-                    >(config)
+                runner.async_run(|config| {
+                    let chain_spec = config.chain_spec.cloned_box();
+                    let network_config = config.network.clone();
+                    let NewFullBase { task_manager, client, network_status_sinks, .. }
+                        = new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _, _>(config, |_, _| ())?;
+                    Ok((cmd.run(chain_spec, network_config, client, network_status_sinks), task_manager))
                 })
             }
         }
+        Some(Subcommand::CheckBlock(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+        ),
+        Some(Subcommand::ExportBlocks(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
+        ),
+        Some(Subcommand::ExportState(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+        ),
+        Some(Subcommand::ImportBlocks(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+        ),
+        Some(Subcommand::PurgeChain(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| cmd.run(config.database))
+        }
+        Some(Subcommand::Revert(cmd)) => async_run(
+            &cli,
+            cmd,
+            |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
+            |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
+        ),
         Some(Subcommand::Benchmark(cmd)) => {
-            let runtime = cli.create_runner(cmd)?;
-            let chain_spec = &runtime.config().chain_spec;
+            if cfg!(feature = "runtime-benchmarks") {
+                let runner = cli.create_runner(cmd)?;
+                let chain_spec = &runner.config().chain_spec;
 
-            if chain_spec.is_alcyone_network() {
-                runtime.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                if chain_spec.is_alcyone_network() {
+                    runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                } else {
+                    runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
+                }
             } else {
-                runtime.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
+                Err("Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+                    .into())
             }
         }
+    }
+}
+
+fn async_run<F, G>(
+    cli: &impl sc_cli::SubstrateCli,
+    cmd: &impl sc_cli::CliConfiguration,
+    alcyone: impl FnOnce(
+        NewChainOps<polymesh_runtime_testnet::RuntimeApi, AlcyoneExecutor>,
+        Configuration,
+    ) -> Result<(F, TaskManager)>,
+    general: impl FnOnce(
+        NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
+        Configuration,
+    ) -> Result<(G, TaskManager)>,
+) -> sc_service::Result<(), sc_cli::Error>
+where
+    F: Future<Output = Result<()>>,
+    G: Future<Output = Result<()>>,
+{
+    let runner = cli.create_runner(cmd)?;
+    if runner.config().chain_spec.is_alcyone_network() {
+        runner.async_run(|mut config| alcyone(alcyone_chain_ops(&mut config)?, config))
+    } else {
+        runner.async_run(|mut config| general(general_chain_ops(&mut config)?, config))
     }
 }

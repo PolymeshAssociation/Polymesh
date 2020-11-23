@@ -14,10 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
-
-use polymesh_primitives::IdentityId;
-use polymesh_primitives_derive::SliceU8StrongTyped;
-
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
@@ -26,8 +22,11 @@ use frame_support::{
         BalanceStatus as Status, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
         OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons,
     },
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use frame_system::{self as system};
+use polymesh_primitives::IdentityId;
+use polymesh_primitives_derive::SliceU8StrongTyped;
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::ops::BitOr;
 
@@ -117,24 +116,67 @@ decl_event!(
     <T as system::Trait>::AccountId,
     <T as CommonTrait>::Balance
     {
-        /// An account was created with some free balance.
+         /// An account was created with some free balance. \[did, account, free_balance]
         Endowed(Option<IdentityId>, AccountId, Balance),
         /// Transfer succeeded (from_did, from, to_did, to, value, memo).
         Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Option<Memo>),
-        /// A balance was set by root (who, free, reserved).
+        /// A balance was set by root (did, who, free, reserved).
         BalanceSet(IdentityId, AccountId, Balance, Balance),
         /// The account and the amount of unlocked balance of that account that was burned.
         /// (caller Id, caller account, amount)
         AccountBalanceBurned(IdentityId, AccountId, Balance),
-        /// Some balance was reserved (moved from free to reserved).
+        /// Some balance was reserved (moved from free to reserved). \[who, value]
         Reserved(AccountId, Balance),
-        /// Some balance was unreserved (moved from reserved to free).
+        /// Some balance was unreserved (moved from reserved to free). \[who, value]
         Unreserved(AccountId, Balance),
         /// Some balance was moved from the reserve of the first account to the second account.
         /// Final argument indicates the destination balance type.
+        /// \[from, to, balance, destination_status]
         ReserveRepatriated(AccountId, AccountId, Balance, Status),
     }
 );
+
+pub trait WeightInfo {
+    fn transfer() -> Weight;
+    fn transfer_with_memo() -> Weight;
+    fn deposit_block_reward_reserve_balance() -> Weight;
+    fn set_balance_creating() -> Weight;
+    fn set_balance_killing() -> Weight;
+    fn force_transfer() -> Weight;
+    fn burn_account_balance() -> Weight;
+}
+
+impl WeightInfo for () {
+    fn transfer() -> Weight {
+        (65949000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn transfer_with_memo() -> Weight {
+        70_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
+    }
+    fn deposit_block_reward_reserve_balance() -> Weight {
+        1_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
+    }
+    fn set_balance_creating() -> Weight {
+        (27086000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_balance_killing() -> Weight {
+        (33424000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_transfer() -> Weight {
+        (65343000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn burn_account_balance() -> Weight {
+        2_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
+    }
+}
 
 pub trait Trait: CommonTrait {
     /// The means of storing the balances of an account.
@@ -155,6 +197,13 @@ pub trait Trait: CommonTrait {
 
     /// Used to check if an account is linked to a CDD'd identity
     type CddChecker: CheckCdd<Self::AccountId>;
+
+    /// Weight information for extrinsics in this pallet.
+    type WeightInfo: WeightInfo;
+
+    /// The maximum number of locks that should exist on an account.
+    /// Not strictly enforced, but used for weight estimation.
+    type MaxLocks: Get<u32>;
 }
 
 pub trait BalancesTrait<A, B, NI> {

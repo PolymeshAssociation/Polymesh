@@ -42,11 +42,13 @@
 //! ## Interface
 //!
 //! ### Dispatchable Functions
-//! - `propose` - Members can propose a new dispatchable.
+//! - `vote_or_propose` - Members can propose a new dispatchable.
 //! - `vote` - Members vote on proposals which are automatically dispatched if they meet vote threshold.
 //! - `close` - May be called by any signed account after the voting duration has ended in order to
 //! finish voting and close the proposal.
+//! - `set_vote_threshold` - Changes the threshold for a committee majority.
 //! - `set_release_coordinator` - Changes the release coordinator.
+//! - `set_expires_after` - Sets the time after which a proposal expires.
 //!
 //! ### Other Public Functions
 //! - `is_member` - Returns true if a given DID is contained in the set of committee members, and
@@ -69,7 +71,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    Context, SystematicIssuers, GC_DID,
+    Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
@@ -78,6 +80,8 @@ use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
+
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The committee trait.
 pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
@@ -120,6 +124,8 @@ pub struct PolymeshVotes<IdentityId, BlockNumber> {
     pub nays: Vec<IdentityId>,
     /// The hard end time of this vote.
     pub end: BlockNumber,
+    /// The time **at** which the proposal is expired.
+    pub expiry: MaybeBlock<BlockNumber>,
 }
 
 decl_storage! {
@@ -138,6 +144,8 @@ decl_storage! {
         pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
         /// Release coordinator.
         pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
+        /// Time after which a proposal will expire.
+        pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -147,6 +155,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T, I> where
         <T as frame_system::Trait>::Hash,
+        BlockNumber = <T as frame_system::Trait>::BlockNumber,
     {
         /// A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
         /// Parameters: caller DID, proposal index, proposal hash.
@@ -178,6 +187,9 @@ decl_event!(
         /// Release coordinator has been updated.
         /// Parameters: caller DID, DID of the release coordinator.
         ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
+        /// Proposal expiry time has been updated.
+        /// Parameters: caller DID, new expiry time (if any).
+        ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumber>),
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
@@ -198,6 +210,8 @@ decl_error! {
         BadOrigin,
         /// No such proposal.
         NoSuchProposal,
+        /// Proposal exists, but it has expired.
+        ProposalExpired,
         /// Duplicate proposal.
         DuplicateProposal,
         /// Mismatched voting index.
@@ -205,7 +219,7 @@ decl_error! {
         /// Proportion must be a rational number.
         InvalidProportion,
         /// The close call is made too early, before the end of the voting.
-        TooEarly,
+        CloseBeforeVoteEnd,
         /// When `MotionDuration` is set to 0.
         NotAllowed,
         /// The current DID is missing.
@@ -257,6 +271,17 @@ decl_module! {
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(GC_DID, Some(id)));
         }
 
+        /// Changes the time after which a proposal expires.
+        ///
+        /// # Arguments
+        /// * `expiry` - The new expiry time.
+        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            <ExpiresAfter<T, I>>::put(expiry);
+            Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
+        }
+
         /// May be called by any signed account after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
@@ -277,13 +302,18 @@ decl_module! {
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&who)?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-            // POLYMESH-NOTE- Change specific to Polymesh
+
+            // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
+            let now = system::Module::<T>::block_number();
+            Self::ensure_not_expired(&proposal, voting.expiry, now)?;
+
             ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
-            ensure!(system::Module::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
+            ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
 
             let mut no_votes = voting.nays.len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
@@ -349,9 +379,12 @@ decl_module! {
             // 1. Ensure `origin` is a committee member.
             let did = Self::ensure_is_member(origin)?;
 
-            // 2. Ensure a prior proposal exists and that their indices match.
+            // 2a. Ensure a prior proposal exists and that their indices match.
             let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+
+            // 2b. Ensure proposal hasn't expired. If it has, prune the proposal and bail.
+            Self::ensure_not_expired(&proposal, voting.expiry, system::Module::<T>::block_number())?;
 
             // 3. Vote on aye / nay and remove from the other.
             let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
@@ -385,6 +418,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<IdentityId, DispatchError> {
         let who = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&who)?;
         let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
         Ok(who_id)
@@ -430,6 +464,15 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Accepts or rejects the proposal if its threshold is satisfied.
     fn check_proposal_threshold(proposal: T::Hash) {
         if let Some(voting) = Self::voting(&proposal) {
+            // Make sure we don't have an expired proposal at this point.
+            if let Err(_) = Self::ensure_not_expired(
+                &proposal,
+                voting.expiry,
+                system::Module::<T>::block_number(),
+            ) {
+                return;
+            }
+
             let seats = Self::members().len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
@@ -498,9 +541,32 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             Self::deposit_event(event);
         }
 
-        // remove vote
-        <Voting<T, I>>::remove(&proposal);
-        <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+        // Clear remaining proposal data.
+        Self::clear_proposal(&proposal);
+    }
+
+    /// Clear data for `proposal`, except for `ProposalOf`,
+    /// which needs to be cleared separately.
+    fn clear_proposal(proposal: &T::Hash) {
+        <Voting<T, I>>::remove(proposal);
+        <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != proposal));
+    }
+
+    /// Ensure that the given `proposal` with associated `expiry` hasn't expired relative to `now`.
+    /// As a side-effect, on error, any existing proposal data is pruned.
+    fn ensure_not_expired(
+        proposal: &T::Hash,
+        expiry: MaybeBlock<T::BlockNumber>,
+        now: T::BlockNumber,
+    ) -> Result<(), Error<T, I>> {
+        match expiry {
+            MaybeBlock::Some(e) if e <= now => {
+                Self::clear_proposal(proposal);
+                <ProposalOf<T, I>>::remove(proposal);
+                Err(Error::<T, I>::ProposalExpired)
+            }
+            _ => Ok(()),
+        }
     }
 
     fn execute(
@@ -539,13 +605,15 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             Self::execute(did, proposal, proposal_hash, 1, seats);
         } else {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
-            <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
+            <Proposals<T, I>>::append(proposal_hash);
             <ProposalOf<T, I>>::insert(proposal_hash, proposal);
+            let now = system::Module::<T>::block_number();
             let votes = PolymeshVotes {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: system::Module::<T>::block_number() + T::MotionDuration::get(),
+                end: now + T::MotionDuration::get(),
+                expiry: Self::expires_after() + now,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -571,6 +639,10 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         _expiry: Option<T::Moment>,
         _at: Option<T::Moment>,
     ) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn add_member(_who: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 }

@@ -21,6 +21,10 @@
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
+use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -28,9 +32,6 @@ pub use sp_runtime::{
     traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
     MultiSignature,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -146,18 +147,23 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
 
+pub mod event_only;
+pub use event_only::EventOnly;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
+pub use identity_id::{
+    EventDid, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::{Identity, IdentityWithRoles};
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
@@ -183,7 +189,14 @@ pub mod migrate;
 
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
-pub use secondary_key::{Permission, SecondaryKey, Signatory};
+pub use secondary_key::{
+    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
+    SecondaryKey, Signatory,
+};
+
+/// Subset type.
+pub mod subset;
+pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
@@ -200,21 +213,28 @@ pub use ticker::Ticker;
 
 /// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
+pub use smart_extension::{
+    ExtensionAttributes, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
+    SmartExtensionType, TemplateDetails, TemplateMetadata,
+};
 
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
+pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
-pub use condition::{Condition, ConditionType, TargetIdentity};
+pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, TrustedIssuer};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
-pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
-};
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
+
+/// Timekeeping and checkpoints.
+pub mod calendar;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -237,6 +257,20 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+/// The name of a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletName(pub Vec<u8>);
+
+/// The name of a function within a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DispatchableName(pub Vec<u8>);
 
 #[cfg(test)]
 mod tests {

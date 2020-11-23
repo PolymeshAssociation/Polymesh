@@ -17,6 +17,7 @@
 
 //! Test utilities
 use chrono::prelude::Utc;
+use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -27,27 +28,26 @@ use frame_support::{
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
-use frame_system::EnsureSignedBy;
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
+    asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
-use sp_io;
 use sp_npos_elections::{
     build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
     VoteWeight,
@@ -57,7 +57,7 @@ use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    Perbill,
+    KeyTypeId, Perbill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -196,6 +196,8 @@ impl_outer_dispatch! {
     pub enum Call for Test where origin: Origin {
         staking::Staking,
         pallet_pips::Pips,
+        frame_system::System,
+        pallet_scheduler::Scheduler,
     }
 }
 
@@ -214,6 +216,7 @@ impl_outer_event! {
         protocol_fee<T>,
         identity<T>,
         group Instance2<T>,
+        pallet_scheduler<T>,
     }
 }
 
@@ -237,6 +240,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub const MaxLocks: u32 = 50;
 }
 impl frame_system::Trait for Test {
     type BaseCallFilter = ();
@@ -259,7 +263,7 @@ impl frame_system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type MaximumBlockLength = MaximumBlockLength;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -268,7 +272,7 @@ impl frame_system::Trait for Test {
 
 impl CommonTrait for Test {
     type Balance = Balance;
-    type AcceptTransferTarget = Test;
+    type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = balances::Module<Test>;
 }
 
@@ -279,6 +283,8 @@ impl balances::Trait for Test {
     type AccountStore = System;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
+    type WeightInfo = ();
+    type MaxLocks = MaxLocks;
 }
 
 parameter_types! {
@@ -355,6 +361,7 @@ impl protocol_fee::Trait for Test {
     type Event = MetaEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl IdentityTrait for Test {
@@ -369,6 +376,9 @@ impl IdentityTrait for Test {
     type Public = UintAuthorityId;
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
+    type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = Test;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -406,6 +416,10 @@ impl GroupTrait<Moment> for Test {
         unimplemented!();
     }
 
+    fn add_member(_who: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
     fn get_active_members() -> Vec<IdentityId> {
         Self::get_members()
     }
@@ -438,7 +452,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AcceptTransfer for Test {
+impl AssetSubTrait for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -446,6 +460,15 @@ impl AcceptTransfer for Test {
         Ok(())
     }
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
+        Ok(())
+    }
+}
+
+impl IdentityToCorporateAction for Test {
+    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }
@@ -466,19 +489,27 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
-impl PortfolioSubTrait<Balance> for Test {
+impl PortfolioSubTrait<Balance, AccountId> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+    fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn ensure_portfolio_custody_and_permission(
+        _: PortfolioId,
+        _: IdentityId,
+        _: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -492,14 +523,15 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
+impl PermissionChecker for Test {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
 }
-
-use frame_support::traits::KeyOwnerProofSystem;
-use polymesh_runtime_develop::runtime::{Historical, Offences};
-use sp_runtime::KeyTypeId;
 
 impl From<pallet_babe::Call<Test>> for Call {
     fn from(_: pallet_babe::Call<Test>) -> Self {
@@ -508,6 +540,7 @@ impl From<pallet_babe::Call<Test>> for Call {
 }
 
 impl pallet_babe::Trait for Test {
+    type WeightInfo = ();
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -593,10 +626,28 @@ impl Trait for Test {
     type UnsignedPriority = UnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type RewardScheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Test {
+    type Event = MetaEvent;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -624,6 +675,7 @@ pub struct ExtBuilder {
     invulnerables: Vec<AccountId>,
     has_stakers: bool,
     max_offchain_iterations: u32,
+    slashing_allowed_for: SlashingSwitch,
 }
 
 impl Default for ExtBuilder {
@@ -643,6 +695,7 @@ impl Default for ExtBuilder {
             invulnerables: vec![],
             has_stakers: true,
             max_offchain_iterations: 0,
+            slashing_allowed_for: SlashingSwitch::Validator,
         }
     }
 }
@@ -708,6 +761,10 @@ impl ExtBuilder {
         self.session_per_era(4)
             .session_length(5)
             .election_lookahead(3)
+    }
+    pub fn slashing_allowed_for(mut self, status: SlashingSwitch) -> Self {
+        self.slashing_allowed_for = status;
+        self
     }
     pub fn set_associated_constants(&self) {
         EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
@@ -826,18 +883,38 @@ impl ExtBuilder {
             };
             let nominated = if self.nominate { vec![11, 21] } else { vec![] };
             stakers = vec![
-                // (stash, controller, staked_amount, status)
+                // (IdentityId, stash, controller, staked_amount, status)
                 (
+                    IdentityId::from(11),
                     11,
                     10,
                     balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
-                (21, 20, stake_21, StakerStatus::<AccountId>::Validator),
-                (31, 30, stake_31, StakerStatus::<AccountId>::Validator),
-                (41, 40, balance_factor * 1000, status_41),
+                (
+                    IdentityId::from(21),
+                    21,
+                    20,
+                    stake_21,
+                    StakerStatus::<AccountId>::Validator,
+                ),
+                (
+                    IdentityId::from(31),
+                    31,
+                    30,
+                    stake_31,
+                    StakerStatus::<AccountId>::Validator,
+                ),
+                (
+                    IdentityId::from(41),
+                    41,
+                    40,
+                    balance_factor * 1000,
+                    status_41,
+                ),
                 // nominator
                 (
+                    IdentityId::from(101),
                     101,
                     100,
                     balance_factor * 500,
@@ -846,11 +923,12 @@ impl ExtBuilder {
             ];
         }
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers: stakers,
+            stakers,
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
             slash_reward_fraction: Perbill::from_percent(10),
+            slashing_allowed_for: self.slashing_allowed_for,
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
@@ -901,6 +979,7 @@ pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
+pub type Scheduler = pallet_scheduler::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -917,23 +996,35 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::key_to_identity_ids(account) {
-        None => {
-            let cdd = Origin::signed(1005);
-            assert!(
-                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-                "Error in registering the DID"
-            );
-
-            let did = Identity::get_identity(&account).expect("DID not find in the storage");
-            assert!(
-                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
-                "Error CDD Claim cannot be added to DID"
-            );
-            true
-        }
-        _ => false,
+    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+        return false;
     }
+    let cdd_account_id = 1005;
+    let cdd = Origin::signed(cdd_account_id);
+    assert!(
+        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    assert!(
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    assert!(
+        cdd_did_record.primary_key == cdd_account_id,
+        "CDD identity primary key mismatch"
+    );
+    assert!(
+        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+    let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    assert!(
+        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
 }
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
@@ -943,18 +1034,13 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(vec![]),
+                AuthorizationData::JoinIdentity(Permissions::default()),
                 None
             )
             .is_ok(),
             "Error in providing the authorization"
         );
-        let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_secondary_key,
-        ))
-        .next()
-        .unwrap()
-        .auth_id;
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
@@ -963,14 +1049,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    let mut have_id = false;
-    if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
-        have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(_id) => true,
-            LinkedKeyInfo::Group(_id) => true,
-        };
-    }
-    have_id
+    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
@@ -1063,10 +1142,13 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
         val,
         RewardDestination::Controller,
     ));
-    assert_ok!(Staking::add_permissioned_validator(
-        frame_system::RawOrigin::Root.into(),
-        stash
-    ));
+    let entity_id = Identity::get_identity(&stash).unwrap();
+    if !Staking::permissioned_identity(entity_id) {
+        assert_ok!(Staking::add_permissioned_validator(
+            frame_system::RawOrigin::Root.into(),
+            entity_id
+        ));
+    }
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
@@ -1471,7 +1553,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-pub fn make_account(
+pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000)
@@ -1557,4 +1639,34 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         Claim::make_cdd_wildcard(),
         Some(expiry.into())
     ));
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
+}
+
+pub fn root() -> Origin {
+    Origin::from(frame_system::RawOrigin::Root)
+}
+
+pub fn run_to_block_scheduler(n: u64) {
+    while System::block_number() < n {
+        Staking::on_finalize(System::block_number());
+        Scheduler::on_finalize(System::block_number());
+        System::set_block_number(System::block_number() + 1);
+        Scheduler::on_initialize(System::block_number());
+        Session::on_initialize(System::block_number());
+        Staking::on_initialize(System::block_number());
+        Staking::on_finalize(System::block_number());
+    }
 }

@@ -12,7 +12,7 @@ polymesh-primitives-derive = { path = "../../../primitives_derive", default-feat
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
@@ -26,25 +26,22 @@ rand = { version = "0.7.3", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 no_std = []
 std = [
-    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-asset/std",
@@ -64,10 +61,4 @@ std = [
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
-]
-
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "pallet-asset/runtime-benchmarks",
-    "pallet-identity/runtime-benchmarks",
 ]

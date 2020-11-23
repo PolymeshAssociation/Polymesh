@@ -43,22 +43,24 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    IterableStorageDoubleMap,
+    weights::Weight, IterableStorageDoubleMap,
 };
-use frame_system::ensure_signed;
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait, Context,
+    identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, Signatory, Ticker,
+    PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
-use sp_std::{convert::TryFrom, prelude::Vec};
+use sp_std::{iter, mem, prelude::Vec};
 
 type Identity<T> = identity::Module<T>;
 
@@ -71,8 +73,16 @@ pub struct MovePortfolioItem<Balance> {
     pub amount: Balance,
 }
 
+pub trait WeightInfo {
+    fn create_portfolio(i: u32) -> Weight;
+    fn delete_portfolio() -> Weight;
+    fn move_portfolio_funds(i: u32) -> Weight;
+    fn rename_portfolio(i: u32) -> Weight;
+}
+
 pub trait Trait: CommonTrait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -171,6 +181,10 @@ decl_error! {
         DestinationIsSamePortfolio,
         /// The portfolio couldn't be renamed because the chosen name is already in use.
         PortfolioNameAlreadyInUse,
+        /// The secondary key is restricted and hence cannot create new portfolios.
+        SecondaryKeyCannotCreatePortfolios,
+        /// The secondary key is not authorized to access the portfolio(s).
+        SecondaryKeyNotAuthorizedForPortfolio,
         /// The porfolio's custody is with someone other than the caller.
         UnauthorizedCustodian,
         /// The authorization is for something other than portfolio custody
@@ -192,14 +206,24 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a portfolio with the given `name`.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::ensure_name_unique(&did, &name)?;
-            let num = Self::get_next_portfolio_number(&did);
-            <Portfolios>::insert(&did, &num, name.clone());
-            Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            if let Some(sk) = secondary_key {
+                // Check that the secondary signer is not limited to particular portfolios.
+                ensure!(
+                    sk.permissions.portfolio.is_unrestricted(),
+                    Error::<T>::SecondaryKeyCannotCreatePortfolios
+                );
+            }
+            Self::ensure_name_unique(&primary_did, &name)?;
+            let num = Self::get_next_portfolio_number(&primary_did);
+            <Portfolios>::insert(&primary_did, &num, name.clone());
+            Self::deposit_event(RawEvent::PortfolioCreated(primary_did, num, name));
             Ok(())
         }
 
@@ -208,28 +232,29 @@ decl_module! {
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            // Check that the portfolio exists.
-            ensure!(<Portfolios>::contains_key(&did, &num), Error::<T>::PortfolioDoesNotExist);
-            let portfolio_id = PortfolioId::user_portfolio(did, num);
-            // Check that the portfolio doesn't have any balance
-            ensure!(
-                !<PortfolioAssetBalances<T>>::iter_prefix_values(&portfolio_id).any(|balance| balance > 0.into()),
-                Error::<T>::PortfolioNotEmpty
-            );
+            let portfolio_id = PortfolioId::user_portfolio(primary_did, num);
 
-            <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
-            <Portfolios>::remove(&did, &num);
-            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
+            // Check that the portfolio exists and the secondary key has access to it
+            Self::ensure_user_portfolio_validity(primary_did, num)?;
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), portfolio_id)?;
+            Self::ensure_portfolio_custody(portfolio_id, primary_did)?;
+
+            <Portfolios>::remove(&primary_did, &num);
+            Self::deposit_event(RawEvent::PortfolioDeleted(primary_did, num));
             Ok(())
         }
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
         /// identity. Must be called by the custodian of the sender.
+        /// Funds from deleted portfolios can also be recovered via this method.
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
@@ -237,47 +262,39 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
-        #[weight = 1_000_000_000 + 10_050_000 * u64::try_from(items.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
             from: PortfolioId,
             to: PortfolioId,
             items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
             // Check that the source and destination portfolios are in fact different.
             ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
             // Check that the source and destination did are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
-            // Check that the portfolios exist.
-            Self::ensure_portfolio_validity(&from)?;
-            Self::ensure_portfolio_validity(&to)?;
+
+            // Ensures that the secondary key has access to the sender portfolio.
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
             // Check that the sender is the custodian of the `from` portfolio
-            Self::ensure_portfolio_custody(from, did)?;
+            Self::ensure_portfolio_custody(from, primary_did)?;
+
+            // Check that the receiving portfolio exists.
+            Self::ensure_portfolio_validity(&to)?;
+            // Ensures that the secondary key has access to the receiver's portfolio.
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
 
             for item in items {
-                let from_balance = Self::portfolio_asset_balances(&from, &item.ticker);
-                ensure!(
-                    from_balance.saturating_sub(Self::locked_assets(&from, &item.ticker))
-                        .checked_sub(&item.amount)
-                        .is_some(),
-                    Error::<T>::InsufficientPortfolioBalance
-                );
-                <PortfolioAssetBalances<T>>::insert(
-                    &from,
-                    &item.ticker,
-                    // Cannot underflow, as verified by `ensure!` above.
-                    from_balance - item.amount
-                );
-                let to_balance = Self::portfolio_asset_balances(&to, &item.ticker);
-                <PortfolioAssetBalances<T>>::insert(
-                    &to,
-                    &item.ticker,
-                    to_balance.saturating_add(item.amount)
-                );
+                Self::ensure_sufficient_balance(&from, &item.ticker, &item.amount)?;
+                Self::unchecked_transfer_portfolio_balance(&from, &to, &item.ticker, item.amount);
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                    did,
+                    primary_did,
                     from,
                     to,
                     item.ticker,
@@ -291,20 +308,24 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
-        #[weight = 600_000_000]
+        #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,
             to_name: PortfolioName,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), PortfolioId::user_portfolio(primary_did, num))?;
             // Check that the portfolio exists.
-            ensure!(<Portfolios>::contains_key(&did, &num), Error::<T>::PortfolioDoesNotExist);
-            Self::ensure_name_unique(&did, &to_name)?;
-            <Portfolios>::mutate(&did, &num, |p| *p = to_name.clone());
+            ensure!(<Portfolios>::contains_key(&primary_did, &num), Error::<T>::PortfolioDoesNotExist);
+            Self::ensure_name_unique(&primary_did, &to_name)?;
+            <Portfolios>::mutate(&primary_did, &num, |p| *p = to_name.clone());
             Self::deposit_event(RawEvent::PortfolioRenamed(
-                did,
+                primary_did,
                 num,
                 to_name,
             ));
@@ -342,9 +363,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns the next portfolio number of a given identity and increments the stored number.
     fn get_next_portfolio_number(did: &IdentityId) -> PortfolioNumber {
-        let num = Self::next_portfolio_number(did);
-        <NextPortfolioNumber>::insert(did, num + 1);
-        num
+        NextPortfolioNumber::mutate(did, |num| mem::replace(num, PortfolioNumber(num.0 + 1)))
     }
 
     /// An RPC function that lists all user-defined portfolio number-name pairs.
@@ -384,13 +403,35 @@ impl<T: Trait> Module<T> {
         });
     }
 
-    /// Makes sure that the portfolio exists
-    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
+    /// Ensure that the `portfolio` exists.
+    pub fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         // Default portfolio are always valid. Custom portfolios must be created explicitly.
         if let PortfolioKind::User(num) = portfolio.kind {
+            Self::ensure_user_portfolio_validity(portfolio.did, num)?;
+        }
+        Ok(())
+    }
+
+    /// Ensure that the `PortfolioNumber` is valid.
+    fn ensure_user_portfolio_validity(did: IdentityId, num: PortfolioNumber) -> DispatchResult {
+        ensure!(
+            <Portfolios>::contains_key(did, num),
+            Error::<T>::PortfolioDoesNotExist
+        );
+        Ok(())
+    }
+
+    /// Ensure that the `secondary_key` has access to `portfolio`.
+    pub fn ensure_user_portfolio_permission(
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+        portfolio: PortfolioId,
+    ) -> DispatchResult {
+        // Default portfolio are always allowed. Custom portfolios must be permissioned.
+        if let Some(sk) = secondary_key {
+            // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(
-                <Portfolios>::contains_key(portfolio.did, num),
-                Error::<T>::PortfolioDoesNotExist
+                sk.has_portfolio_permission(iter::once(portfolio)),
+                Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
             );
         }
         Ok(())
@@ -412,7 +453,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Makes sure that a portfolio transfer is valid
+    /// Makes sure that a portfolio transfer is valid. Portfolio access is not checked.
     pub fn ensure_portfolio_transfer_validity(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
@@ -430,20 +471,63 @@ impl<T: Trait> Module<T> {
         Self::ensure_portfolio_validity(to_portfolio)?;
 
         // 3. Ensure sender has enough free balance
-        let from_balance = Self::portfolio_asset_balances(&from_portfolio, ticker);
-        ensure!(
-            from_balance
-                .saturating_sub(Self::locked_assets(&from_portfolio, ticker))
-                .checked_sub(amount)
-                .is_some(),
-            Error::<T>::InsufficientPortfolioBalance
-        );
+        Self::ensure_sufficient_balance(&from_portfolio, ticker, amount)
+    }
+
+    /// Reduces the balance of a portfolio.
+    /// Throws an error if enough free balance is not available.
+    pub fn reduce_portfolio_balance(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: &<T as CommonTrait>::Balance,
+    ) -> DispatchResult {
+        // Ensure portfolio has enough free balance
+        let total_balance = Self::portfolio_asset_balances(&portfolio, ticker);
+        let locked_balance = Self::locked_assets(&portfolio, ticker);
+        let remaining_balance = total_balance
+            .checked_sub(amount)
+            .filter(|rb| rb >= &locked_balance)
+            .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
+
+        // Update portfolio balance
+        <PortfolioAssetBalances<T>>::insert(portfolio, ticker, remaining_balance);
 
         Ok(())
     }
+
+    /// Ensures that the portfolio's custody is with the provided identity
+    /// And the secondary key has the relevant portfolio permission
+    pub fn ensure_portfolio_custody_and_permission(
+        portfolio: PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::ensure_portfolio_custody(portfolio, custodian)?;
+        Self::ensure_user_portfolio_permission(secondary_key, portfolio)
+    }
+
+    /// Ensure `portfolio` has sufficient balance of `ticker` to lock/withdraw `amount`.
+    pub fn ensure_sufficient_balance(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: &T::Balance,
+    ) -> DispatchResult {
+        Self::portfolio_asset_balances(portfolio, ticker)
+            .saturating_sub(Self::locked_assets(portfolio, ticker))
+            .checked_sub(&amount)
+            .ok_or_else(|| Error::<T>::InsufficientPortfolioBalance.into())
+            .map(drop)
+    }
+
+    /// Locks `amount` of `ticker` in `portfolio` without checking that this is sane.
+    ///
+    /// Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
+    pub fn unchecked_lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &T::Balance) {
+        <PortfolioLockedAssets<T>>::mutate(portfolio, ticker, |l| *l = l.saturating_add(*amount));
+    }
 }
 
-impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
+impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
     /// Accepts custody of a portfolio. The authorization must have been issued by the current custodian.
     ///
     /// # Errors
@@ -499,21 +583,8 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         ticker: &Ticker,
         amount: &T::Balance,
     ) -> DispatchResult {
-        // 1. Ensure portfolio has enough free balance
-        let balance = Self::portfolio_asset_balances(portfolio, ticker);
-        ensure!(
-            balance
-                .saturating_sub(Self::locked_assets(portfolio, ticker))
-                .checked_sub(&amount)
-                .is_some(),
-            Error::<T>::InsufficientPortfolioBalance
-        );
-
-        // 2. Lock tokens.
-        // Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
-        <PortfolioLockedAssets<T>>::mutate(portfolio, ticker, |locked| {
-            *locked = locked.saturating_add(*amount)
-        });
+        Self::ensure_sufficient_balance(portfolio, ticker, amount)?;
+        Self::unchecked_lock_tokens(portfolio, ticker, amount);
         Ok(())
     }
 
@@ -538,7 +609,18 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
+    /// Ensures that the portfolio's custody is with the provided identity
     fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::ensure_portfolio_custody(portfolio, custodian)
+    }
+
+    /// Ensures that the portfolio's custody is with the provided identity
+    /// And the secondary key has the relevant portfolio permission
+    fn ensure_portfolio_custody_and_permission(
+        portfolio: PortfolioId,
+        custodian: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
     }
 }

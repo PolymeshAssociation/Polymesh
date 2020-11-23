@@ -15,7 +15,7 @@
 
 use crate::{
     identity_id::IdentityId,
-    secondary_key::{Permission, Signatory},
+    secondary_key::{Permissions, Signatory},
     PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
@@ -28,6 +28,7 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
+    // TODO: Remove Custom type and move NoData at the start
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
@@ -46,21 +47,47 @@ pub enum AuthorizationData<AccountId> {
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
     /// Must be issued by the identity which is being joined
-    JoinIdentity(Vec<Permission>),
+    JoinIdentity(Permissions),
     /// Authorization to take custody of a portfolio
     PortfolioCustody(PortfolioId),
     /// Any other authorization
-    /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
     NoData,
+    /// Authorization to transfer a token's corporate action agent (CAA).
+    /// Must be issued by the current owner of the token.
+    TransferCorporateActionAgent(Ticker),
+}
+
+impl<T> AuthorizationData<T> {
+    /// Returns the `AuthorizationType` of this auth data.
+    pub fn auth_type(&self) -> AuthorizationType {
+        match self {
+            Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
+            Self::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
+            Self::TransferTicker(..) => AuthorizationType::TransferTicker,
+            Self::TransferPrimaryIssuanceAgent(..) => {
+                AuthorizationType::TransferPrimaryIssuanceAgent
+            }
+            Self::TransferCorporateActionAgent(..) => {
+                AuthorizationType::TransferCorporateActionAgent
+            }
+            Self::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
+            Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
+            Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+            Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
+            Self::Custom(..) => AuthorizationType::Custom,
+            Self::NoData => AuthorizationType::NoData,
+        }
+    }
 }
 
 /// Type of authorization.
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
-    /// TBD.
+    // TODO: Remove Custom type and move NoData at the start
+    /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
     /// Authorization to rotate primary key.
     RotatePrimaryKey,
@@ -80,6 +107,8 @@ pub enum AuthorizationType {
     Custom,
     /// Undefined authorization.
     NoData,
+    /// Authorization to transfer a token's corporate action agent (CAA).
+    TransferCorporateActionAgent,
 }
 
 impl<AccountId> Default for AuthorizationData<AccountId> {

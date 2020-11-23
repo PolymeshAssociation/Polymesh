@@ -2,11 +2,13 @@
 This smart contract is a transfer manager for limiting the percentage of token supply that a single address can hold.
   
 
-## Pre-requsite
+## Pre-requisite
 `cargo-contract` Install using below command
 ```
-cargo install --git https://github.com/paritytech/cargo-contract cargo-contract --force
+cargo install cargo-contract
 ```
+
+Make sure the cargo contract version should be >= 0.7.1.
 
 ### Build example contract and generate the contracts metadata
 

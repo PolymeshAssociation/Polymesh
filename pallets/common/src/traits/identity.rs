@@ -24,30 +24,50 @@ use crate::{
     },
     ChargeProtocolFee, SystematicIssuers,
 };
-use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permission, SecondaryKey, Signatory, Ticker,
-};
-
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_event, dispatch::PostDispatchInfo, traits::Currency, weights::GetDispatchInfo, Parameter,
+    decl_event,
+    dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
+    traits::{Currency, EnsureOrigin, GetCallMetadata},
+    weights::{GetDispatchInfo, Weight},
+    Parameter,
+};
+use polymesh_primitives::{
+    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions,
+    Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
-/// Keys could be linked to several identities (`IdentityId`) as primary key or secondary key.
-/// Primary key or external type secondary key are restricted to be linked to just one identity.
-/// Other types of secondary key could be associated with more than one identity.
-/// # TODO
-/// * Use of `Primary` and `Signer` (instead of `Unique`) will optimize the access.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum LinkedKeyInfo {
-    Unique(IdentityId),
-    Group(Vec<IdentityId>),
+/// Runtime upgrade definitions.
+#[allow(missing_docs)]
+pub mod runtime_upgrade {
+    use codec::Decode;
+    use polymesh_primitives::{
+        migrate::{Empty, Migrate},
+        IdentityId,
+    };
+    use sp_std::vec::Vec;
+
+    /// Old type definition kept here for upgrade purposes.
+    #[derive(Decode)]
+    pub enum LinkedKeyInfo {
+        Unique(IdentityId),
+        Group(Vec<IdentityId>),
+    }
+
+    impl Migrate for LinkedKeyInfo {
+        type Into = IdentityId;
+        type Context = Empty;
+
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+            match self {
+                LinkedKeyInfo::Unique(did) => Some(did),
+                LinkedKeyInfo::Group(_) => None,
+            }
+        }
+    }
 }
 
 pub type AuthorizationNonce = u64;
@@ -85,6 +105,36 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
+pub trait WeightInfo {
+    fn register_did(i: u32) -> Weight;
+    fn cdd_register_did(i: u32) -> Weight;
+    fn mock_cdd_register_did() -> Weight;
+    fn invalidate_cdd_claims() -> Weight;
+    fn remove_secondary_keys(i: u32) -> Weight;
+    fn accept_primary_key() -> Weight;
+    fn change_cdd_requirement_for_mk_rotation() -> Weight;
+    fn join_identity_as_key() -> Weight;
+    fn join_identity_as_identity() -> Weight;
+    fn leave_identity_as_key() -> Weight;
+    fn leave_identity_as_identity() -> Weight;
+    fn add_claim() -> Weight;
+    fn forwarded_call() -> Weight;
+    fn revoke_claim() -> Weight;
+    fn set_permission_to_signer() -> Weight;
+    fn freeze_secondary_keys() -> Weight;
+    fn unfreeze_secondary_keys() -> Weight;
+    fn add_authorization() -> Weight;
+    fn remove_authorization() -> Weight;
+    fn revoke_offchain_authorization() -> Weight;
+    fn add_investor_uniqueness_claim() -> Weight;
+}
+
+/// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
+pub trait IdentityToCorporateAction {
+    /// Accept CAA transfer to `did` with `auth_id` as authorization id.
+    fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult;
+}
+
 /// The module's configuration trait.
 pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// The overarching event type.
@@ -92,11 +142,13 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// An extrinsic call.
     type Proposal: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
-        + GetDispatchInfo;
+        + GetCallMetadata
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
-    type Portfolio: PortfolioSubTrait<Self::Balance>;
+    type Portfolio: PortfolioSubTrait<Self::Balance, Self::AccountId>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
@@ -104,15 +156,21 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Trait>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId, Self::Balance>;
+
+    /// Origin for Governance Committee voting majority origin.
+    type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
+    /// Negotiates between Corporate Actions and the Identity pallet.
+    type CorporateAction: IdentityToCorporateAction;
 }
 
-// rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation
-#[rustfmt::skip]
 decl_event!(
     pub enum Event<T>
     where
@@ -132,8 +190,7 @@ decl_event!(
         SignerLeft(IdentityId, Signatory<AccountId>),
 
         /// DID, updated secondary key, previous permissions
-        SecondaryPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Vec<Permission>),
-
+        SecondaryKeyPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Permissions),
 
         /// DID, old primary key account ID, new ID
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
@@ -161,7 +218,7 @@ decl_event!(
             Option<AccountId>,
             u64,
             AuthorizationData<AccountId>,
-            Option<Moment>
+            Option<Moment>,
         ),
 
         /// Authorization revoked by the authorizer.
@@ -192,6 +249,9 @@ decl_event!(
 
         /// All Secondary keys of the identity ID are unfrozen.
         SecondaryKeysUnfrozen(IdentityId),
+
+        /// An unexpected error happened that should be investigated.
+        UnexpectedError(Option<DispatchError>),
     }
 );
 
@@ -203,12 +263,7 @@ pub trait IdentityTrait<AccountId> {
     fn set_current_payer(payer: Option<AccountId>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<AccountId>,
-        permissions: Vec<Permission>,
-    ) -> bool;
-    fn is_primary_key(did: IdentityId, key: &AccountId) -> bool;
+    fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.
     ///
@@ -220,6 +275,10 @@ pub trait IdentityTrait<AccountId> {
     /// It is used when we remove a member from CDD providers or Governance Committee.
     fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
-    // Provides the DID status for the given DID
+    /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Creates a new did and attaches a CDD claim to it.
+    fn create_did_with_cdd(target: AccountId) -> IdentityId;
 }

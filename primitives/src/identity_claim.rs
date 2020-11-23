@@ -13,13 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate as polymesh_primitives;
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
+use crate::{identity_id::IdentityId, CddId, Moment, Ticker};
 
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::*;
+use sp_std::{convert::From, prelude::*};
 
 use super::jurisdiction::CountryCode;
 
@@ -78,8 +77,13 @@ pub enum Claim {
     Exempted(Scope),
     /// User is Blocked
     Blocked(Scope),
-    /// Confidential Scope claim
-    InvestorZKProof(Scope, ScopeId, CddId, InvestorZKProofData),
+    /// Confidential claim that will allow an investor to justify that it's identity can be
+    /// a potential asset holder of given `scope`.
+    ///
+    /// All investors must have this claim, which will help the issuer apply compliance rules
+    /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
+    /// investor entity level for a given scope (will always be a `Ticker`).
+    InvestorUniqueness(Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
 }
@@ -103,7 +107,7 @@ impl Claim {
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
-            Claim::InvestorZKProof(..) => ClaimType::InvestorZKProof,
+            Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -120,7 +124,7 @@ impl Claim {
             Claim::Jurisdiction(.., ref scope) => Some(scope),
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
-            Claim::InvestorZKProof(ref ticker_scope, ..) => Some(ticker_scope),
+            Claim::InvestorUniqueness(ref ticker_scope, ..) => Some(ticker_scope),
             Claim::NoData => None,
         }
     }
@@ -132,9 +136,7 @@ impl Claim {
 }
 
 /// Claim type represent the claim without its data.
-///
-/// # TODO
-/// - Could we use `std::mem::Discriminat`?
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ClaimType {
     /// User is Accredited
@@ -155,8 +157,8 @@ pub enum ClaimType {
     Exempted,
     /// User is Blocked.
     Blocked,
-    ///
-    InvestorZKProof,
+    /// User identity can be bounded under a `ScopeId`.
+    InvestorUniqueness,
     /// Empty type
     NoType,
 }
@@ -177,7 +179,7 @@ pub struct IdentityClaim {
     pub issuance_date: Moment,
     /// Last updated date
     pub last_update_date: Moment,
-    /// Expirty date
+    /// Expiry date
     pub expiry: Option<Moment>,
     /// Claim data
     pub claim: Claim,
