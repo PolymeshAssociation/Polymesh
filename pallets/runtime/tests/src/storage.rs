@@ -6,7 +6,7 @@ use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::{Currency, Imbalance, OnUnbalanced},
+    traits::{Currency, Imbalance, OnInitialize, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
@@ -619,6 +619,9 @@ impl pips::Trait for TestStorage {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl confidential::Trait for TestStorage {
@@ -783,15 +786,15 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
 }
 
 pub fn fast_forward_to_block(n: u64) {
-    let block_number = frame_system::Module::<TestStorage>::block_number();
-    (block_number..n).for_each(|block| {
-        assert_ok!(pips::Module::<TestStorage>::end_block(block));
-        frame_system::Module::<TestStorage>::set_block_number(block + 1);
+    let next_block = System::block_number() + 1;
+    (next_block..=n).for_each(|block| {
+        System::set_block_number(block);
+        Scheduler::on_initialize(block);
     });
 }
 
 pub fn fast_forward_blocks(n: u64) {
-    fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+    fast_forward_to_block(n + System::block_number());
 }
 
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
