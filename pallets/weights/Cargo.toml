@@ -18,6 +18,7 @@ pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../protocol-fee", default-features = false  }
 pallet-settlement = { path = "../settlement", default-features = false  }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false  }
+pallet-utility = { path = "../utility", default-features = false  }
 
 [features]
 default = ["std"]
@@ -33,4 +34,5 @@ std = [
     "pallet-settlement/std",
     "pallet-timestamp/std",
     "pallet-compliance-manager/std",
+    "pallet-utility/std",
 ]

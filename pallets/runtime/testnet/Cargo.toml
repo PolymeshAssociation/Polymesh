@@ -170,3 +170,7 @@ std = [
     "sp-version/std",
     "polymesh-contracts/std"
 ]
+
+runtime-benchmarks = [
+    "pallet-asset/runtime-benchmarks",
+]

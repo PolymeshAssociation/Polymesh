@@ -4785,8 +4785,14 @@ dependencies = [
 name = "pallet-utility"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
+ "hex-literal 0.2.1",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-indices",
  "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -5641,6 +5647,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-settlement",
  "pallet-timestamp",
+ "pallet-utility",
 ]
 
 [[package]]
