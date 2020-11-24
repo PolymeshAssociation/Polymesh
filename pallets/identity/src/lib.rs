@@ -625,14 +625,9 @@ decl_module! {
             } = Self::ensure_origin_call_permissions(origin)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
 
-            // You are trying to add a permission to did's primary key. It is not needed.
-            match signer {
-                Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
-                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
-                    Self::update_secondary_key_permissions(did, &signer, permissions)
-                }
-                _ => Err(Error::<T>::InvalidSender.into()),
-            }
+            // Ensure that the signer is a secondary key of the caller's Identity
+            ensure!(record.secondary_keys.iter().any(|si| si.signer == signer), Error::<T>::NotASigner);
+            Self::update_secondary_key_permissions(did, &signer, permissions)
         }
 
         /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
@@ -999,8 +994,6 @@ decl_error! {
         AlreadyLinked,
         /// Missing current identity on the transaction
         MissingCurrentIdentity,
-        /// Sender is not part of did's secondary keys
-        InvalidSender,
         /// No did linked to the user
         NoDIDFound,
         /// Signatory is not pre authorized by the identity

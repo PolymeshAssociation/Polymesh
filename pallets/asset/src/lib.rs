@@ -999,18 +999,18 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` which must be root.
-        /// * `import` specification for the PMC ticker.
-        /// * `contract_did` to reserve the ticker to if `import.is_contract` holds.
+        /// * `classic_ticker_import` specification for the PMC ticker.
+        /// * `contract_did` to reserve the ticker to if `classic_ticker_import.is_contract` holds.
         /// * `config` to use for expiry and ticker length.
         ///
         /// # Errors
-        /// * `AssetAlreadyCreated` if `import.ticker` was created as an asset.
-        /// * `TickerTooLong` if the `config` considers the `import.ticker` too long.
-        /// * `TickerAlreadyRegistered` if `import.ticker` was already registered.
+        /// * `AssetAlreadyCreated` if `classic_ticker_import.ticker` was created as an asset.
+        /// * `TickerTooLong` if the `config` considers the `classic_ticker_import.ticker` too long.
+        /// * `TickerAlreadyRegistered` if `classic_ticker_import.ticker` was already registered.
         #[weight = 250_000_000]
         pub fn reserve_classic_ticker(
             origin,
-            import: ClassicTickerImport,
+            classic_ticker_import: ClassicTickerImport,
             contract_did: IdentityId,
             config: TickerRegistrationConfig<T::Moment>,
         ) {
@@ -1018,18 +1018,18 @@ decl_module! {
 
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             // Use DID of someone at Polymath if it's a contract-made ticker registration.
-            let did = if import.is_contract { contract_did } else { cm_did };
+            let did = if classic_ticker_import.is_contract { contract_did } else { cm_did };
 
             // Register the ticker...
-            let expiry = Self::ticker_registration_checks(&import.ticker, did, true, || config)?;
-            Self::_register_ticker(&import.ticker, did, expiry);
+            let expiry = Self::ticker_registration_checks(&classic_ticker_import.ticker, did, true, || config)?;
+            Self::_register_ticker(&classic_ticker_import.ticker, did, expiry);
 
             // ..and associate it with additional info needed for claiming.
             let classic_ticker = ClassicTickerRegistration {
-                eth_owner: import.eth_owner,
-                is_created: import.is_created,
+                eth_owner: classic_ticker_import.eth_owner,
+                is_created: classic_ticker_import.is_created,
             };
-            ClassicTickers::insert(&import.ticker, classic_ticker);
+            ClassicTickers::insert(&classic_ticker_import.ticker, classic_ticker);
         }
     }
 }
