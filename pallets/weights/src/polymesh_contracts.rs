@@ -41,7 +41,7 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     // WARNING! Some components were not used: ["u"]
-    fn change_template_meta_url() -> Weight {
+    fn change_template_meta_url(_u: u32) -> Weight {
         (202_054_000 as Weight)
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))

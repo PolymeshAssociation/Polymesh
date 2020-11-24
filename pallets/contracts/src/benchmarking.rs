@@ -16,11 +16,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::{account, benchmarks};
-use frame_support::{storage::IterableStorageMap, traits::Currency};
+use frame_benchmarking::benchmarks;
+use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
-use pallet_identity::benchmarking::make_account;
+use pallet_identity::benchmarking::{User, UserBuilder};
 use parity_wasm::elements::FuncBody;
 use polymesh_primitives::{
     MetaDescription, MetaUrl, MetaVersion, SmartExtensionType, TemplateMetadata,
@@ -164,8 +164,8 @@ benchmarks! {
             version: 5000
         };
         let (wasm_blob, code_hash) = expanded_contract::<T>(l);
-        let (account, origin, did) = make_account::<T>("creator", SEED);
-    }: _(origin, meta_info, 1000.into(), wasm_blob)
+        let user = UserBuilder::<T>::default().build("creator", SEED);
+    }: _(user.origin, meta_info, 1000.into(), wasm_blob)
     verify {
         ensure!(matches!(Module::<T>::get_metadata_of(code_hash), meta_info), "Contracts_putCode: Meta info set incorrect");
         ensure!(PristineCode::<T>::get(code_hash).is_some(), "Contracts_putCode: Base contract doesn't get updated with given code hash");
@@ -175,10 +175,10 @@ benchmarks! {
     instantiate {
         let data = vec![0u8; 128];
         let max_fee = 100;
-        let (account, origin, did) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(max_fee, origin, false)?;
-        let (d_account, d_origin, _) = make_account::<T>("deployer", 1);
-    }: _(d_origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(max_fee, creator.origin, false)?;
+        let deployer = UserBuilder::<T>::default().build("deployer", 1);
+    }: _(deployer.origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
     verify {
         let (key, value) = ExtensionInfo::<T>::iter().next().unwrap();
         let attributes = Module::<T>::ext_details(&code_hash);
@@ -187,38 +187,38 @@ benchmarks! {
 
     // No catalyst.
     freeze_instantiation {
-        let (_, origin, _) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
-    }: _(origin, code_hash)
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+    }: _(creator.origin, code_hash)
     verify {
         ensure!(Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_freeze_instantiation: Failed to freeze instantiation");
     }
 
     // No catalyst.
     unfreeze_instantiation {
-        let (_, origin, _) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
-        Module::<T>::freeze_instantiation(origin.clone().into(), code_hash);
-    }: _(origin, code_hash)
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+        Module::<T>::freeze_instantiation(creator.origin.clone().into(), code_hash);
+    }: _(creator.origin, code_hash)
     verify {
         ensure!(!Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_unfreeze_instantiation: Failed to unfreeze instantiation");
     }
 
     // No catalyst.
     transfer_template_ownership {
-        let (_, origin, did) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), false)?;
-        let (_, _, n_did) = make_account::<T>("newOwner", 1);
-    }: _(origin, code_hash, n_did)
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+        let new_owner = UserBuilder::<T>::default().build("newOwner", 1);
+    }: _(creator.origin, code_hash, new_owner.did())
     verify {
-        ensure!(matches!(Module::<T>::get_template_details(code_hash).owner, n_did), "Contracts_transfer_template_ownership: Failed to transfer ownership");
+        ensure!(Module::<T>::get_template_details(code_hash).owner == new_owner.did(), "Contracts_transfer_template_ownership: Failed to transfer ownership");
     }
 
     // No catalyst.
     change_template_fees {
-        let (_, origin, _) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), true)?;
-    }: _(origin, code_hash, Some(500.into()), Some(650.into()))
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
+    }: _(creator.origin, code_hash, Some(500.into()), Some(650.into()))
     verify {
         ensure!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
         ensure!(Module::<T>::get_metadata_of(code_hash).usage_fee == 650.into(), "Contracts_change_template_fees: Failed to change the usage fees");
@@ -228,9 +228,9 @@ benchmarks! {
         // Catalyst for the MetaUrl length.
         let u in 1 .. MAX_URL_LENGTH;
         let url = Some(MetaUrl::from(vec![b'U'; u as usize].as_slice()));
-        let (_, origin, _) = make_account::<T>("creator", SEED);
-        let code_hash = emulate_blueprint_in_storage::<T>(100, origin.clone(), true)?;
-    }: _(origin, code_hash, url.clone())
+        let creator = UserBuilder::<T>::default().build("creator", SEED);
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
+    }: _(creator.origin, code_hash, url.clone())
     verify {
         ensure!(Module::<T>::get_metadata_of(code_hash).url == url, "Contracts_change_template_meta_url: Failed to change the url of template");
     }
