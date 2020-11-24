@@ -530,6 +530,22 @@ decl_error! {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// NB If you add a new value, don't forget to update the implementation of `Default`.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    /// Default version which could be use during storage initialization.
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Settlement {
         /// Info about a venue. venue_id -> venue_details
@@ -562,6 +578,8 @@ decl_storage! {
         VenueCounter get(fn venue_counter) build(|_| 1u64): u64;
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
 }
 
@@ -574,10 +592,9 @@ decl_module! {
         const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            if spec_version == 2000 {
-
+            let storage_ver = <StorageVersion>::get();
+            if storage_ver == Version::V0 {
                 // Delete all settlement data that were stored at a wrong prefix.
                 let prefix = Twox128::hash(b"StoCapped");
                 storage::unhashed::kill_prefix(&prefix);
@@ -587,6 +604,7 @@ decl_module! {
                 <InstructionCounter>::put(1);
             }
 
+            <StorageVersion>::put(Version::V1);
             1_000
         }
 

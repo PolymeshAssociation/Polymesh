@@ -168,6 +168,22 @@ impl Default for ProposalStatus {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// NB If you add a new value, don't forget to update the implementation of `Default`.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    /// Default version which could be use during storage initialization.
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -195,6 +211,9 @@ decl_storage! {
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
 }
 
@@ -209,10 +228,10 @@ decl_module! {
             use sp_version::RuntimeVersion;
             use polymesh_primitives::migrate::kill_item;
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+            let storage_ver = <StorageVersion>::get();
 
-            if spec_version == 2000
-            {
+            // Migration from V0 to V1.
+            if storage_ver == Version::V0 {
                 // Kill pending proposals if the transaction version is upgraded
                 let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
                 let last_version = TransactionVersion::get();
@@ -222,7 +241,10 @@ decl_module! {
                         kill_item(b"MultiSig", item.as_bytes())
                     }
                 }
+
+                <StorageVersion>::put(Version::V1);
             }
+
 
             //TODO placeholder weight
             1_000

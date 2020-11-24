@@ -136,6 +136,21 @@ use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+    V2,
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
@@ -184,6 +199,9 @@ decl_storage! {
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -251,23 +269,23 @@ decl_module! {
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+            let storage_ver = <StorageVersion>::get();
 
-            if spec_version == 2000
-            {
+            // Migrate from V0 to V1
+            if storage_ver < Version::V1 {
                 migrate_map::<LinkedKeyInfo, _>(
                     b"identity",
                     b"KeyToIdentityIds",
                     |_| Empty
                     );
-            // Migrate secondary key permissions to the new type
-            migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
+                // Migrate secondary key permissions to the new type
+                migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
                     b"identity",
                     b"DidRecords",
                     |_| Empty
                     );
-            // Remove roles from Identities
-            StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
+                // Remove roles from Identities
+                StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
                     .drain()
                     .map(|(key, old)|  (key, DidRecord {
                         primary_key: old.primary_key,
@@ -276,10 +294,13 @@ decl_module! {
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
             }
 
-            if spec_version == 2001 {
+            // Migrate from V1 to V2
+            if storage_ver < Version::V2 {
                 // Migrate claims
                 <Claims>::translate(migration::migrate_claim);
             }
+
+            <StorageVersion>::put(Version::V2);
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

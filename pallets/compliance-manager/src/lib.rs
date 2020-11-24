@@ -247,12 +247,28 @@ pub mod weight_for {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as ComplianceManager {
         /// Asset compliance for a ticker (Ticker -> AssetCompliance)
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) Ticker => AssetCompliance;
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
 }
 
@@ -287,13 +303,14 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::migrate::{Empty, migrate_map};
-            use polymesh_primitives::condition::TrustedIssuerOld;
+            use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
+            let storage_ver = <StorageVersion>::get();
 
-            if spec_version == 2000 {
+            // Migrate from V0 to V1
+            if storage_ver == Version::V0 {
                 migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
+                <StorageVersion>::put(Version::V1);
             }
 
             1_000

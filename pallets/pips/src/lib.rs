@@ -370,6 +370,22 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// NB If you add a new value, don't forget to update the implementation of `Default`.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    /// Default version which could be use during storage initialization.
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Pips {
@@ -453,6 +469,9 @@ decl_storage! {
         /// All existing PIPs where the proposer is a committee.
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
 }
 
@@ -579,10 +598,8 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
-
-            if spec_version == 2000
-            {
+            let storage_ver = <StorageVersion>::get();
+            if storage_ver == Version::V0 {
                 // Larger goal here is to clear Governance V1.
                 use frame_support::{
                     storage::{IterableStorageDoubleMap, migration::StorageIterator},
@@ -621,6 +638,8 @@ decl_module! {
                     kill_item(b"Pips", item.as_bytes());
                 }
             }
+
+            <StorageVersion>::put(Version::V1);
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.

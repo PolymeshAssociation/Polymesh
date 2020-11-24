@@ -259,6 +259,22 @@ decl_error! {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// NB If you add a new value, don't forget to update the implementation of `Default`.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    /// Default version which could be use during storage initialization.
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers accept their
@@ -330,6 +346,9 @@ decl_storage! {
 
         /// Identities not constrained by the bridge limit.
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -382,10 +401,8 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
-
-            if spec_version == 2000
-            {
+            let storage_ver = <StorageVersion>::get();
+            if storage_ver == Version::V0 {
                 let now = frame_system::Module::<T>::block_number();
 
                 // Migrate timelocked transactions.
@@ -400,6 +417,7 @@ decl_module! {
                     });
             }
 
+            <StorageVersion>::put( Version::V1);
             // No need to calculate correct weight for testnet
             0
         }

@@ -256,6 +256,22 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// NB If you add a new value, don't forget to update the implementation of `Default`.
+#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Version {
+    V0,
+    V1,
+}
+
+impl Default for Version {
+    /// Default version which could be use during storage initialization.
+    fn default() -> Self {
+        Version::V0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -313,6 +329,8 @@ decl_storage! {
         /// Tracks the ScopeId of the identity for a given ticker.
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -362,15 +380,12 @@ decl_module! {
 
             // Migrate `AssetDocuments`.
             use frame_support::Blake2_128Concat;
-            use polymesh_primitives::migrate::{migrate_double_map, Migrate};
-            use polymesh_primitives::document::DocumentOld;
+            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
             use sp_std::collections::btree_map::BTreeMap;
 
-            let spec_version = frame_system::LastRuntimeUpgrade::get().map_or(0, |upgrade| upgrade.spec_version.0);
 
-            if spec_version == 2000
-            {
-
+            let storage_ver = <StorageVersion>::get();
+            if storage_ver == Version::V0 {
                 let mut id_map = BTreeMap::<_, u32>::new();
                 migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
                 b"Asset", b"AssetDocuments",
@@ -384,6 +399,8 @@ decl_module! {
                     AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
             }
+
+            <StorageVersion>::put(Version::V1);
 
             1_000
         }
