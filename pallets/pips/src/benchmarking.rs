@@ -28,9 +28,9 @@ use sp_std::{
     prelude::*,
 };
 
-const DESCRIPTION_LEN: usize = 1000;
+const DESCRIPTION_LEN: usize = 1_000;
 const URL_LEN: usize = 500;
-const PROPOSAL_PADDING_LEN: usize = 100_000;
+const PROPOSAL_PADDING_LEN: usize = 10_000;
 const VOTERS_A_NUM: usize = 200;
 const VOTERS_B_NUM: usize = 200;
 const PROPOSALS_NUM: usize = 100;
@@ -451,7 +451,7 @@ benchmarks! {
     }: _(origin, 0)
     verify {
         if Proposals::<T>::contains_key(&0) {
-            assert_eq!(ProposalState::Executed, Module::<T>::proposals(&0).unwrap().state);
+            assert_eq!(ProposalState::Failed, Module::<T>::proposals(&0).unwrap().state);
         }
     }
 
