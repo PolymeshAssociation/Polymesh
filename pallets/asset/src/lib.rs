@@ -98,7 +98,7 @@ use frame_support::{
     traits::{Currency, Get, UnixTime},
     weights::Weight,
 };
-use frame_system::{ensure_root, RawOrigin};
+use frame_system::ensure_root;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -153,6 +153,15 @@ pub trait Trait:
 
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
+
+    /// Max length for the name of an asset.
+    type AssetNameMaxLength: Get<usize>;
+
+    /// Max identifiers per asset.
+    type MaxIdentifiersPerAsset: Get<usize>;
+
+    /// Max length of the funding round name.
+    type FundingRoundNameMaxLength: Get<usize>;
 }
 
 /// Ownership status of a ticker/token.
@@ -322,6 +331,8 @@ decl_storage! {
         /// Smart Extension supported version at genesis.
         config(versions): Vec<(SmartExtensionType, ExtVersion)>;
         build(|config: &GenesisConfig<T>| {
+            use frame_system::RawOrigin;
+
             for &import in &config.classic_migration_tickers {
                 <Module<T>>::reserve_classic_ticker(
                     RawOrigin::Root.into(),
@@ -458,6 +469,10 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
+            ensure!( name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
+            ensure!( identifiers.len() <= T::MaxIdentifiersPerAsset::get(), Error::<T>::MaxIdentifiersPerAssetExceeded);
+            ensure!( funding_round.as_ref().map_or(0, |name| name.len()) <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
+
             let PermissionedCallOriginData {
                 primary_did: did,
                 secondary_key,
@@ -610,12 +625,16 @@ decl_module! {
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
-        pub fn rename_asset(origin, ticker: Ticker, name: AssetName) {
+        pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
+            ensure!( name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
+
             // Verify the ownership of the token
             let sender_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             Self::ensure_asset_exists(&ticker)?;
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
             Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
+
+            Ok(())
         }
 
         /// Function is used to issue(or mint) new tokens to the primary issuance agent.
@@ -788,10 +807,14 @@ decl_module! {
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 600_000_000]
-        pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) {
+        pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) -> DispatchResult {
+            ensure!( name.len() <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
+
             FundingRound::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
+
+            Ok(())
         }
 
         /// Updates the asset identifiers. Can only be called by the token owner.
@@ -809,14 +832,18 @@ decl_module! {
             origin,
             ticker: Ticker,
             identifiers: Vec<AssetIdentifier>
-        ) {
+        ) -> DispatchResult {
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
             let identifiers: Vec<AssetIdentifier> = identifiers
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
                 .collect();
+            ensure!( identifiers.len() <= T::MaxIdentifiersPerAsset::get(), Error::<T>::MaxIdentifiersPerAssetExceeded);
+
             Identifiers::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+
+            Ok(())
         }
 
         /// Permissioning the Smart-Extension address for a given ticker.
@@ -1157,7 +1184,13 @@ decl_error! {
         /// The given Document does not exist.
         NoSuchDoc,
         /// The secondary key does not have the required Asset permission
-        SecondaryKeyNotAuthorizedForAsset
+        SecondaryKeyNotAuthorizedForAsset,
+        /// Maximum length of asset name has been exceeded.
+        MaxLengthOfAssetNameExceeded,
+        /// Maximum number of identifiers per asset has been exceeded.
+        MaxIdentifiersPerAssetExceeded,
+        /// Maximum length of the funding round name has been exceeded.
+        FundingRoundNameMaxLengthExceeded,
     }
 }
 

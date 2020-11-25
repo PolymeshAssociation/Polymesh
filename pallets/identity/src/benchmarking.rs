@@ -65,6 +65,10 @@ impl<T: Trait> User<T> {
         self.account.clone()
     }
 
+    pub fn origin(self: &Self) -> RawOrigin<T::AccountId> {
+        self.origin.clone()
+    }
+
     #[cfg(feature = "std")]
     pub fn sign(&self, message: &[u8]) -> Signature {
         let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
