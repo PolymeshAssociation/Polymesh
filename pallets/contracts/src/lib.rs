@@ -246,7 +246,7 @@ decl_module! {
         /// # Errors
         /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
         /// InsufficientMaxFee - Provided max_fee is less than required.
-        #[weight = 500_000_000 + *gas_limit]
+        #[weight = <T as Trait>::WeightInfo::instantiate() + *gas_limit]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,
@@ -292,7 +292,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Only owner of the template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::freeze_instantiation()]
         pub fn freeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -312,7 +312,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Only owner of the template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::unfreeze_instantiation()]
         pub fn unfreeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -334,7 +334,7 @@ decl_module! {
         /// * origin Owner of the provided code_hash.
         /// * code_hash Unique identifer of the template.
         /// * new_owner Identity that will be the new owner of the provided code_hash.
-        #[weight = 1_600_000_000]
+        #[weight = <T as Trait>::WeightInfo::transfer_template_ownership()]
         pub fn transfer_template_ownership(origin, code_hash: CodeHash<T>, new_owner: IdentityId) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -358,7 +358,7 @@ decl_module! {
         /// * code_hash - Unique hash of the smart extension template.
         /// * new_instantiation_fee - New value of instantiation fee for the smart extension template.
         /// * new_usage_fee - New value of usage fee for the smart extension template.
-        #[weight = 1000_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_template_fees()]
         pub fn change_template_fees(origin, code_hash: CodeHash<T>, new_instantiation_fee: Option<BalanceOf<T>>, new_usage_fee: Option<BalanceOf<T>>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -386,7 +386,7 @@ decl_module! {
         /// * origin - Only owner of template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
         /// * new_url - New meta url that need to replace with old url.
-        #[weight = 400_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_template_meta_url(new_url.as_ref().map_or(0, |u| u.0.len()) as u32 )]
         pub fn change_template_meta_url(origin, code_hash: CodeHash<T>, new_url: Option<MetaUrl>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
