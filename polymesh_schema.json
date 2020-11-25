@@ -19,6 +19,13 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
+        "Version": {
+            "_enum": {
+                "V0": "",
+                "V1": "",
+                "V2": ""
+            }
+        },
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
