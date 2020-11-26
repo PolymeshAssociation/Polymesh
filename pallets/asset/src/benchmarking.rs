@@ -90,6 +90,63 @@ fn make_document() -> Document {
     }
 }
 
+fn make_default_reg_config<T: Trait>() -> TickerRegistrationConfig<T::Moment> {
+    TickerRegistrationConfig {
+        max_ticker_length: 8,
+        registration_length: Some(10000.into()),
+    }
+}
+
+fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: Ticker) {
+    let classic_ticker = ClassicTickerImport {
+        eth_owner,
+        ticker,
+        is_created: false,
+        is_contract: false,
+    };
+    let reg_config = make_default_reg_config::<T>();
+
+    <Module<T>>::reserve_classic_ticker(
+        RawOrigin::Root.into(),
+        classic_ticker,
+        0.into(),
+        reg_config,
+    )
+    .expect("`reserve_classic_ticker` failed");
+}
+
+/*
+fn make_extension<T: Trait>() {
+    let extension_name = b"PTM".into();
+    let (wasm, code_hash) = compile_module::<T>("flipper").unwrap();
+    let input_data = hex!("0222FF18");
+
+    if create_instance {
+        // Create SE template.
+        create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
+    }
+
+    // Create SE instance.
+    assert_ok!(create_contract_instance::<TestStorage>(
+        creator, code_hash, 0, false
+    ));
+
+    NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
+        &code_hash,
+        &input_data.to_vec(),
+        &creator,
+    )
+
+    let extension_id = setup_se_template::<TestStorage>(dave, dave_did, true);
+
+    let extension_details = SmartExtension {
+        extension_type: SmartExtensionType::TransferManager,
+        extension_name,
+        extension_id: extension_id.clone(),
+        is_archive: false,
+    };
+}*/
+
 benchmarks! {
     _ { }
 
@@ -260,13 +317,126 @@ benchmarks! {
     }
 
     add_documents {
-        let d in 0 .. MAX_DOCS_PER_ASSET;
+        // It starts at 1 in order to get something for `verify` section.
+        let d in 1 .. MAX_DOCS_PER_ASSET;
 
         let owner = UserBuilder::default().build_with_did("owner", SEED);
         let (ticker, _) = make_asset::<T>(&owner);
-        let docs = (0..d).map(|_| make_document()).collect::<Vec<_>>();
+        let docs = iter::repeat( make_document()).take( d as usize).collect::<Vec<_>>();
 
-    }: _(owner.origin, docs.clone(), ticker)
+    }: _(owner.origin, docs.clone(), ticker.clone())
     verify {
+        for i in (1..d) {
+            assert_eq!(Asset::asset_documents(ticker, DocumentId(i)), docs[i]);
+        }
+    }
+
+    remove_documents {
+        let d in 1 .. MAX_DOCS_PER_ASSET;
+
+        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let (ticker, _) = make_asset::<T>(&owner);
+        let docs = iter::repeat( make_document()).take( MAX_DOCS_PER_ASSET as usize).collect::<Vec<_>>();
+        Module::<T>::add_documents( owner.origin(), docs.clone(), ticker)
+            .expect("Documents cannot be added");
+
+        let remove_doc_ids = (1..d).map(|i| DocumentId(i-1)).collect::<Vec<_>>();
+
+    }: _(owner.origin, remove_doc_ids.clone(), ticker.clone())
+    verify {
+        for i in (1..d) {
+            assert_eq!(<AssetDocumentsIdSequence>::contains_key( &ticker, DocumentId(i-1)), false);
+        }
+    }
+
+     set_funding_round {
+        let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
+
+        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let (ticker, _) = make_asset::<T>(&owner);
+
+        let fundr = FundingRoundName::from(vec![b'X'; f as usize].as_slice());
+     }: _(owner.origin, ticker.clone(), fundr.clone())
+     verify {
+        assert_eq!( Module::<T>::funding_round(ticker), fundr);
+     }
+
+
+     update_identifiers {
+         let i in 1 .. T::MaxIdentifiersPerAsset::get() as u32;
+
+         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let (ticker, _) = make_asset::<T>(&owner);
+
+         let identifiers: Vec<AssetIdentifier> =
+             iter::repeat(AssetIdentifier::cusip(*b"EE17275R").unwrap()).take(i as usize).collect();
+
+     }: _(owner.origin(), ticker.clone(), identifiers.clone())
+     verify {
+        assert_eq!( Module::<T>::identifiers(tiker), identifiers);
+     }
+
+     /*
+     add_extension {
+         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let (ticker, _) = make_asset::<T>(&owner);
+
+
+     }: _(owner.origin, ticker.clone(), extension_details: SmartExtension<T::AccountId>)
+     verify { }
+
+    archive_extension {
+    }: _(origin, ticker, extension_id: T::AccountId)
+    verify { }
+
+    archive_extension {
+    }: _(origin, ticker, extension_id: T::AccountId)
+    verify { }
+
+    remove_smart_extension {
+    }: _(origin, ticker: Ticker, extension_id: T::AccountId)
+    verify { }
+*/
+
+    remove_primary_issuance_agent {
+        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let (ticker, _) = make_asset::<T>(&owner);
+    }: _(owner.origin, ticker.clone())
+    verify {
+        let token = Module::<T>::token_details(ticker);
+        assert_eq!( token.primary_issuance_agent, None);
+    }
+
+
+    claim_classic_ticker {
+        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner_eth_sk = secp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
+        let owner_eth_pk = ethereum::address(&owner_eth_sk);
+
+        let ticker = Ticker::try_from(&b"CLASSIC_1").unwrap();
+        make_classic_ticker::<T>( owner_eth_pk, ticker.clone());
+
+        let eth_sig = ethereum::eth_msg(owner.did(), b"classic_claim", &owner_eth_sk);
+
+    }: _(owner.origin(), ticker.clone(), eth_sig)
+    verify {
+        assert_eq!(owner.did, Module::<T>::ticker_registration(ticker).owner);
+    }
+
+    reserve_classic_ticker {
+        let root = Origin::from(frame_system::RawOrigin::Root);
+        let owner = UserBuilder::default().build_with_did("owner", SEED);
+
+        let ticker = ticker("ACME");
+        let config = make_default_reg_config::<T>();
+        let classic = ClassicTickerImport {
+            eth_owner: ethereum::EthereumAddress(*b"0x012345678987654321"),
+            ticker: ticker.clone(),
+            is_created: true,
+            is_contract: false,
+        };
+    }: _(root, classic.clone(), owner.did, config)
+    verify {
+        assert_eq!( <ClassicTickers>::get(ticker), classic);
     }
 }
