@@ -397,9 +397,10 @@ decl_module! {
                 for (ticker, id) in id_map {
                     AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
+
+                <StorageVersion>::put(Version::V1);
             }
 
-            <StorageVersion>::put(Version::V1);
 
             1_000
         }

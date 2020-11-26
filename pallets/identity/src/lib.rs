@@ -292,15 +292,17 @@ decl_module! {
                         secondary_keys: old.secondary_keys,
                     }))
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
+
+                <StorageVersion>::put(Version::V1);
             }
 
             // Migrate from V1 to V2
             if storage_ver < Version::V2 {
                 // Migrate claims
                 <Claims>::translate(migration::migrate_claim);
+                <StorageVersion>::put(Version::V2);
             }
 
-            <StorageVersion>::put(Version::V2);
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

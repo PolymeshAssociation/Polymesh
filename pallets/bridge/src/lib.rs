@@ -414,9 +414,10 @@ decl_module! {
                             Self::schedule_call(block_number, tx);
                         }
                     });
+
+                <StorageVersion>::put( Version::V1);
             }
 
-            <StorageVersion>::put( Version::V1);
             // No need to calculate correct weight for testnet
             0
         }

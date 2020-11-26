@@ -601,9 +601,9 @@ decl_module! {
                 // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
                 <VenueCounter>::put(1);
                 <InstructionCounter>::put(1);
+                <StorageVersion>::put(Version::V1);
             }
 
-            <StorageVersion>::put(Version::V1);
             1_000
         }
 

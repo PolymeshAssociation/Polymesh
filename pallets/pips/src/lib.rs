@@ -658,9 +658,10 @@ decl_module! {
                 for item in &["ProposalDuration", "QuorumThreshold"] {
                     kill_item(b"Pips", item.as_bytes());
                 }
+
+                <StorageVersion>::put(Version::V1);
             }
 
-            <StorageVersion>::put(Version::V1);
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.
