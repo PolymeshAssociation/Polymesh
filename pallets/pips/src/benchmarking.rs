@@ -15,8 +15,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-use frame_benchmarking::benchmarks;
-use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
+use frame_benchmarking::{benchmarking::add_to_whitelist, benchmarks};
+use frame_support::{
+    dispatch::DispatchResult, traits::UnfilteredDispatchable, StorageHasher, Twox128, Twox64Concat,
+};
 use frame_system::RawOrigin;
 use pallet_identity::{
     self as identity,
@@ -28,6 +30,7 @@ use sp_std::{
     prelude::*,
 };
 
+const PIPS_PREFIX: &'static [u8] = b"Pips";
 const DESCRIPTION_LEN: usize = 1_000;
 const URL_LEN: usize = 500;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
@@ -48,12 +51,16 @@ fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
 fn make_voters<T: Trait>(
     num_voters: usize,
     prefix: &'static str,
-) -> Vec<(RawOrigin<T::AccountId>, IdentityId)> {
+) -> Vec<(T::AccountId, RawOrigin<T::AccountId>, IdentityId)> {
     (1..=num_voters)
         .map(|i| {
-            let User { origin, did, .. } =
-                UserBuilder::<T>::default().build_with_did(prefix, i as u32);
-            (origin, did.unwrap())
+            let User {
+                account,
+                origin,
+                did,
+                ..
+            } = UserBuilder::<T>::default().build_with_did(prefix, i as u32);
+            (account, origin, did.unwrap())
         })
         .collect()
 }
@@ -61,10 +68,27 @@ fn make_voters<T: Trait>(
 /// Casts an `aye_or_nay` vote from each of the given voters.
 fn cast_votes<T: Trait>(
     id: PipId,
-    voters: &[(RawOrigin<T::AccountId>, IdentityId)],
+    voters: &[(T::AccountId, RawOrigin<T::AccountId>, IdentityId)],
     aye_or_nay: bool,
 ) -> DispatchResult {
-    for (origin, did) in voters {
+    let mut pips_deposits_prefix = Vec::new();
+    pips_deposits_prefix.extend_from_slice(&Twox128::hash(PIPS_PREFIX));
+    pips_deposits_prefix.extend_from_slice(&Twox128::hash(b"Deposits"));
+    let mut pips_proposal_votes_prefix = Vec::new();
+    pips_proposal_votes_prefix.extend_from_slice(&Twox128::hash(PIPS_PREFIX));
+    pips_proposal_votes_prefix.extend_from_slice(&Twox128::hash(b"ProposalVotes"));
+    let id_hash = Twox64Concat::hash(&id.encode());
+
+    for (account, origin, did) in voters {
+        // Whitelist the storage keys that are later removed with `remove_prefix`.
+        let account_hash = Twox64Concat::hash(&account.encode());
+        let mut pips_deposits_key = pips_deposits_prefix.clone();
+        pips_deposits_key.extend_from_slice(&account_hash);
+        let mut pips_proposal_votes_key = pips_proposal_votes_prefix.clone();
+        pips_proposal_votes_key.extend_from_slice(&account_hash);
+        add_to_whitelist(pips_deposits_key.into());
+        add_to_whitelist(pips_proposal_votes_key.into());
+        // Cast a vote.
         identity::CurrentDid::put(did);
         Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1.into())?;
     }
@@ -90,7 +114,7 @@ fn pips_and_votes_setup<T: Trait>(
         let (proposal, url, description) = make_proposal::<T>();
         // Pick a proposer, diversifying like a poor man.
         let (proposer_origin, proposer_did) = if hi_voters.len() >= i + 1 {
-            hi_voters[i].clone()
+            (hi_voters[i].1.clone(), hi_voters[i].2.clone())
         } else {
             (origin.clone(), did)
         };

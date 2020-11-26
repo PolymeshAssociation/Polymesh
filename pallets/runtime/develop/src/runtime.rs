@@ -50,7 +50,6 @@ use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
-    StorageHasher, Twox128,
 };
 use frame_system::EnsureRoot;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -1259,16 +1258,7 @@ impl_runtime_apis! {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
             use frame_system_benchmarking::Module as SystemBench;
 
-            const PIPS_PREFIX: &'static [u8] = b"Pips";
-
             impl frame_system_benchmarking::Trait for Runtime {}
-
-            let mut pips_deposits_key = Vec::new();
-            pips_deposits_key.extend_from_slice(&Twox128::hash(PIPS_PREFIX));
-            pips_deposits_key.extend_from_slice(&Twox128::hash(b"Deposits"));
-            let mut pips_proposal_votes_key = Vec::new();
-            pips_proposal_votes_key.extend_from_slice(&Twox128::hash(PIPS_PREFIX));
-            pips_proposal_votes_key.extend_from_slice(&Twox128::hash(b"ProposalVotes"));
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1283,8 +1273,6 @@ impl_runtime_apis! {
                 hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
                 // Treasury Account
                 hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
-                pips_deposits_key.into(),
-                pips_proposal_votes_key.into(),
             ];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
