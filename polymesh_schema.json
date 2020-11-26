@@ -957,7 +957,7 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "amount": "Option<NonZeroU64>"
+            "amount": "u64"
         },
         "CheckpointSchedule": {
             "start": "Moment",
