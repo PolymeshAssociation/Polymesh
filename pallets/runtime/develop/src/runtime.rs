@@ -669,6 +669,7 @@ impl asset::Trait for Runtime {
     type AssetNameMaxLength = AssetNameMaxLength;
     type MaxIdentifiersPerAsset = MaxIdentifiersPerAsset;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {

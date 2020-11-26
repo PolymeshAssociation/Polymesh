@@ -23,11 +23,17 @@ use polymesh_primitives::Ticker;
 
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
-use sp_std::{convert::TryFrom, iter, prelude::*};
+use frame_system::RawOrigin;
+use sp_io::hashing::keccak_256;
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    iter,
+    prelude::*,
+};
 
 const SEED: u32 = 0;
 const MAX_TICKER_LENGTH: u8 = 12;
-const MAX_DOCS_PER_ASSET: u32 = 1024;
+const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 4096;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
@@ -105,14 +111,10 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
         is_contract: false,
     };
     let reg_config = make_default_reg_config::<T>();
+    let root = frame_system::RawOrigin::Root.into();
 
-    <Module<T>>::reserve_classic_ticker(
-        RawOrigin::Root.into(),
-        classic_ticker,
-        0.into(),
-        reg_config,
-    )
-    .expect("`reserve_classic_ticker` failed");
+    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0.into(), reg_config)
+        .expect("`reserve_classic_ticker` failed");
 }
 
 /*
@@ -326,8 +328,8 @@ benchmarks! {
 
     }: _(owner.origin, docs.clone(), ticker.clone())
     verify {
-        for i in (1..d) {
-            assert_eq!(Asset::asset_documents(ticker, DocumentId(i)), docs[i]);
+        for i in 1..d {
+            assert_eq!(Module::<T>::asset_documents(ticker, DocumentId(i)), docs[i as usize]);
         }
     }
 
@@ -337,15 +339,15 @@ benchmarks! {
         let owner = UserBuilder::default().build_with_did("owner", SEED);
         let (ticker, _) = make_asset::<T>(&owner);
         let docs = iter::repeat( make_document()).take( MAX_DOCS_PER_ASSET as usize).collect::<Vec<_>>();
-        Module::<T>::add_documents( owner.origin(), docs.clone(), ticker)
+        Module::<T>::add_documents( owner.origin().into(), docs.clone(), ticker)
             .expect("Documents cannot be added");
 
         let remove_doc_ids = (1..d).map(|i| DocumentId(i-1)).collect::<Vec<_>>();
 
     }: _(owner.origin, remove_doc_ids.clone(), ticker.clone())
     verify {
-        for i in (1..d) {
-            assert_eq!(<AssetDocumentsIdSequence>::contains_key( &ticker, DocumentId(i-1)), false);
+        for i in 1..d {
+            assert_eq!(<AssetDocuments>::contains_key( &ticker, DocumentId(i-1)), false);
         }
     }
 
@@ -369,11 +371,11 @@ benchmarks! {
          let (ticker, _) = make_asset::<T>(&owner);
 
          let identifiers: Vec<AssetIdentifier> =
-             iter::repeat(AssetIdentifier::cusip(*b"EE17275R").unwrap()).take(i as usize).collect();
+             iter::repeat(AssetIdentifier::cusip(*b"037833100").unwrap()).take(i as usize).collect();
 
      }: _(owner.origin(), ticker.clone(), identifiers.clone())
      verify {
-        assert_eq!( Module::<T>::identifiers(tiker), identifiers);
+        assert_eq!( Module::<T>::identifiers(ticker), identifiers);
      }
 
      /*
@@ -409,25 +411,24 @@ benchmarks! {
 
 
     claim_classic_ticker {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
         let owner_eth_sk = secp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
         let owner_eth_pk = ethereum::address(&owner_eth_sk);
 
-        let ticker = Ticker::try_from(&b"CLASSIC_1").unwrap();
+        let ticker :Ticker = b"USDX1"[..].try_into().unwrap();
         make_classic_ticker::<T>( owner_eth_pk, ticker.clone());
 
         let eth_sig = ethereum::eth_msg(owner.did(), b"classic_claim", &owner_eth_sk);
 
     }: _(owner.origin(), ticker.clone(), eth_sig)
     verify {
-        assert_eq!(owner.did, Module::<T>::ticker_registration(ticker).owner);
+        assert_eq!(owner.did(), Module::<T>::ticker_registration(ticker).owner);
     }
 
     reserve_classic_ticker {
-        let root = Origin::from(frame_system::RawOrigin::Root);
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
 
-        let ticker = ticker("ACME");
+        let ticker :Ticker = b"ACME"[..].try_into().unwrap();
         let config = make_default_reg_config::<T>();
         let classic = ClassicTickerImport {
             eth_owner: ethereum::EthereumAddress(*b"0x012345678987654321"),
@@ -435,8 +436,8 @@ benchmarks! {
             is_created: true,
             is_contract: false,
         };
-    }: _(root, classic.clone(), owner.did, config)
+    }: _( RawOrigin::Root, classic.clone(), owner.did(), config)
     verify {
-        assert_eq!( <ClassicTickers>::get(ticker), classic);
+        assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
     }
 }
