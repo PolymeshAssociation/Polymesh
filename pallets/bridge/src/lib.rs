@@ -387,7 +387,7 @@ decl_event! {
         /// An event emitted after a vector of transactions is handled. The parameter is a vector of
         /// nonces of all processed transactions, each with either the "success" code 0 or its
         /// failure reason (greater than 0).
-        TxsHandled(Vec<(u32, HandledTxStatus)>),        
+        TxsHandled(Vec<(u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
