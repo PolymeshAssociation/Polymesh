@@ -139,7 +139,7 @@ mod percentage_transfer_manager {
             _current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && self.allow_primary_issuance
-                || self.is_exempted_or_not(&(to.unwrap_or_default()))
+                || to.map_or(false, |to| self.is_exempted_or_not(&to))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
                     <= self.max_allowed_percentage
             {
