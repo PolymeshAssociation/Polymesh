@@ -1075,7 +1075,7 @@
         },
         "Tax": "Permill",
         "TargetIdentities": {
-            "identities": "Vec<IdentitityId>",
+            "identities": "Vec<IdentityId>",
             "treatment": "TargetTreatment"
         },
         "TargetTreatment": {
