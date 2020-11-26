@@ -354,7 +354,7 @@ decl_module! {
             with_transaction(|| {
                 <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &investment_amount)?;
 
-               let instruction_id = Settlement::<T>::base_add_instruction(
+                let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
                     fundraiser.venue_id,
                     SettlementType::SettleOnAffirmation,
@@ -372,8 +372,8 @@ decl_module! {
                         instruction_id,
                         vec![receipt],
                         portfolios,
-                    ).map_err(|e| e.error)?,
-                    None => Settlement::<T>::base_affirm_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
+                    )?,
+                    None => Settlement::<T>::base_affirm_instruction(origin, instruction_id, portfolios)?,
                 };
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
