@@ -12,17 +12,21 @@ async function main() {
 
   const api = await reqImports.createApi();
 
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+
+  const ticker = await reqImports.generateRandomTicker(api);
+
   const testEntities = await reqImports.initMain(api);
 
-  let primary_keys = await reqImports.generateKeys( api, 1, "primary7" );
+  let primary_keys = await reqImports.generateKeys( api, 1, primary_dev_seed );
 
   let issuer_dids = await reqImports.createIdentities( api, primary_keys, testEntities[0] );
 
   await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, primary_keys, "DEMOCR" );
+  await reqImports.issueTokenPerDid( api, primary_keys, ticker );
 
-  await createClaimCompliance( api, primary_keys, issuer_dids, "DEMOCR" );
+  await createClaimCompliance( api, primary_keys, issuer_dids, ticker );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -34,9 +38,8 @@ async function main() {
   process.exit();
 }
 
-async function createClaimCompliance(api, accounts, dids, prepend) {
+async function createClaimCompliance(api, accounts, dids, ticker) {
 
-    const ticker = `token${prepend}0`.toUpperCase();
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
     let senderConditions = reqImports.senderConditions1(accounts[0].address);
     let receiverConditions = reqImports.receiverConditions1(accounts[0].address);

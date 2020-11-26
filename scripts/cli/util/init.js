@@ -14,6 +14,7 @@ const BN = require("bn.js");
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const cryptoRandomString = require('crypto-random-string');
 
 let nonces = new Map();
 
@@ -54,22 +55,14 @@ async function initMain(api) {
   let entities = [];
 
   let alice = await generateEntity(api, "Alice");
-  let bob = await generateEntity(api, "Bob");
-  let charlie = await generateEntity(api, "Charlie");
-  let dave = await generateEntity(api, "Dave");
-  let eve = await generateEntity(api, "Eve");
   let relay = await generateEntity(api, "relay_1");
   let govCommittee1 = await generateEntity(api, "governance_committee_1");
   let govCommittee2 = await generateEntity(api, "governance_committee_2");
 
   entities.push(alice);
-  entities.push(bob);
-  entities.push(charlie);
-  entities.push(dave);
   entities.push(relay);
   entities.push(govCommittee1);
   entities.push(govCommittee2);
-  entities.push(eve);
 
   return entities;
 }
@@ -82,7 +75,7 @@ const createApi = async function () {
   const { types } = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
 
   // Start node instance
-  const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
+  const ws_provider = new reqImports.WsProvider(process.env.WS_PROVIDER || "ws://127.0.0.1:9944/");
   const api = await reqImports.ApiPromise.create({
     types,
     provider: ws_provider,
@@ -131,6 +124,21 @@ const generateEntityFromUri = async function (api, uri) {
   nonces.set(entity.address, account_nonce);
   return entity;
 };
+
+const generateRandomEntity = async function (api) {
+  let entity = await generateEntityFromUri(api, cryptoRandomString({length: 10}));
+  return entity;
+}
+
+const generateRandomTicker = async function (api) {
+  let ticker = cryptoRandomString({length: 12, type: 'distinguishable'});
+  return ticker;
+}
+
+const generateRandomKey = async function (api) {
+  let ticker = cryptoRandomString({length: 12, type: 'alphanumeric'});
+  return ticker;
+}
 
 const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
@@ -182,12 +190,16 @@ const createIdentitiesWithExpiry = async function (
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-    console.log(`>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
-    await api.tx.identity
-      .cddRegisterDid(accounts[i].address, [])
-      .signAndSend(alice, { nonce: nonces.get(alice.address) });
+    let account_did = await keyToIdentityIds(api, accounts[i].publicKey);
 
-    nonces.set(alice.address, nonces.get(alice.address).addn(1));
+    if(account_did == 0) {
+        console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
+        const transaction = await api.tx.identity.cddRegisterDid(accounts[i].address, []);
+        await sendTx(alice, transaction);
+    }
+    else {
+        console.log('Identity Already Linked.');
+    }
   }
   await blockTillPoolEmpty(api);
 
@@ -280,8 +292,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function issueTokenPerDid(api, accounts, ticker) {
+
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
@@ -311,10 +323,9 @@ function stringToHex(ticker) {
 }
 
 // Creates claim compliance for an asset
-async function createClaimCompliance(api, accounts, dids, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
-  assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+async function createClaimCompliance(api, accounts, dids, ticker) {
 
+  assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
   let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
@@ -465,8 +476,7 @@ async function jumpLightYears() {
   await api.tx.timestamp.set();
 }
 
-async function mintingAsset(api, minter, did, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function mintingAsset(api, minter, did, ticker) {
   let nonceObj = { nonce: nonces.get(minter.address) };
   const transaction = await api.tx.asset.issue(ticker, 100);
   const result = await sendTransaction(transaction, minter, nonceObj);
@@ -509,8 +519,8 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function authorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.authorizeInstruction(
+async function affirmInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -518,8 +528,8 @@ async function authorizeInstruction(api, sender, instructionCounter, did) {
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.unauthorizeInstruction(
+async function withdrawInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.withdrawInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -657,11 +667,14 @@ let reqImports = {
   addComplianceRequirement,
   createVenue,
   addInstruction,
-  authorizeInstruction,
-  unauthorizeInstruction,
+  affirmInstruction,
+  withdrawInstruction,
   rejectInstruction,
   claimReceipt,
   stringToHex,
+  generateRandomEntity,
+  generateRandomTicker,
+  generateRandomKey,
 };
 
 export { reqImports };

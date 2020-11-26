@@ -15,12 +15,12 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: nightly-2020-09-28
         target: wasm32-unknown-unknown
         override: true
         default: true
     - name: Build docs
-      run: BUILD_DUMMY_WASM_BINARY=true cargo doc --no-deps --workspace --release --verbose
+      run: cargo doc --no-deps --workspace --release --verbose --exclude node-bench --exclude node-testing
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
     - name: Publish to Cloudflare workers

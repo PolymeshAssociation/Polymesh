@@ -35,11 +35,14 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
-    weights::{DispatchClass, Pays},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_identity as identity;
@@ -63,12 +66,19 @@ type NegativeImbalanceOf<T> =
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 type Identity<T> = identity::Module<T>;
 
+pub trait WeightInfo {
+    fn change_coefficient() -> Weight;
+    fn change_base_fee() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
+    /// Weight calaculation.
+    type WeightInfo: WeightInfo;
 }
 
 decl_error! {
@@ -81,6 +91,8 @@ decl_error! {
         AccountIdDecode,
         /// Missing the current identity.
         MissingCurrentIdentity,
+        /// Not able to handled the imbalances
+        UnHandledImbalances
     }
 }
 
@@ -123,7 +135,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::change_coefficient()]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
@@ -137,7 +149,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::change_base_fee()]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
@@ -157,7 +169,7 @@ impl<T: Trait> Module<T> {
     pub fn compute_fee(ops: &[ProtocolOp]) -> BalanceOf<T> {
         let coefficient = Self::coefficient();
         let ratio = Perbill::from_rational_approximation(coefficient.0, coefficient.1);
-        let base = ops.iter().fold(<_>::zero(), |a, e| a + Self::base_fees(e));
+        let base = ops.iter().fold(Zero::zero(), |a, e| a + Self::base_fees(e));
         ratio * base
     }
 
@@ -174,6 +186,31 @@ impl<T: Trait> Module<T> {
         }
         if let Some(payer) = T::CddHandler::get_payer_from_context() {
             let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
+        Ok(())
+    }
+
+    /// Used to charge the instantiation fee of the smart extension.
+    /// fee get divided between the owner of the template and the network (Treasury + Block Author).
+    pub fn charge_extension_instantiation_fee(
+        fee: BalanceOf<T>,
+        owner: T::AccountId,
+        network_share: Perbill,
+    ) -> DispatchResult {
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            // 1. Withdraw fee from the payer balance.
+            let negative_imbalance = Self::withdraw_fee(payer, fee)?;
+
+            // 2. Calculate the amount that need to transfer to the owner of the SE template.
+            let owner_amount = fee.saturating_sub(network_share * fee);
+            // 3. Deposit the `owner_amount` into the owner address.
+            let positive_imbalance = T::Currency::deposit_into_existing(&owner, owner_amount)?;
+
+            // It always return the negative imbalance as negative_imbalance always >= positive_imbalance.
+            let imbalance = negative_imbalance
+                .offset(positive_imbalance)
+                .map_err(|_| Error::<T>::UnHandledImbalances)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }
         Ok(())
@@ -207,7 +244,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
+impl<T: Trait> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
         Self::charge_fees(&[op])
     }
@@ -218,5 +255,13 @@ impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
 
     fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
         Self::batch_charge_fee(op, count)
+    }
+
+    fn charge_extension_instantiation_fee(
+        fee: BalanceOf<T>,
+        owner: T::AccountId,
+        network_share: Perbill,
+    ) -> DispatchResult {
+        Self::charge_extension_instantiation_fee(fee, owner, network_share)
     }
 }

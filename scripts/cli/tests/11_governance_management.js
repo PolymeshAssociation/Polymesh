@@ -4,9 +4,6 @@ module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
-// Import the test keyring (already has dev keys for Alice, Bob, Charlie, Eve & Ferdie)
-const testKeyring = require('@polkadot/keyring/testing');
-
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
@@ -17,21 +14,32 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let govCommittee1 = testEntities[5];
-  let govCommittee2 = testEntities[6];
+  let dave = await reqImports.generateRandomEntity(api);
+  let bob = await reqImports.generateRandomEntity(api);
+  let govCommittee1 = testEntities[2];
+  let govCommittee2 = testEntities[3];
 
-  await reqImports.createIdentities(api, [bob, govCommittee1, govCommittee2], alice);
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(10)));
+  await reqImports.createIdentities(api, [bob, dave, govCommittee1, govCommittee2], alice);
 
-  await sendTx(alice, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
+  // Bob and Dave needs some funds to use.
+  await reqImports.distributePolyBatch(api, [bob, dave], reqImports.transfer_amount, alice);
 
+  await sendTx(dave, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
   // Create a PIP which is then amended.
   const setLimit = api.tx.pips.setActivePipLimit(42);
-  await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
-  await sendTx(bob, api.tx.pips.amendProposal(0, "www.facebook.com", null));
+  // Create a PIP, but first placing the cool-off period.
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(10)));
 
+  let firstPipCount = await api.query.pips.pipIdSequence();
+  await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
+
+  await sendTx(bob, api.tx.pips.amendProposal(firstPipCount, "www.facebook.com", null));
+ 
   // Create a PIP, but first remove the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(0)));
+
+  let secondPipCount = await api.query.pips.pipIdSequence();
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
 
   // GC needs some funds to use.
@@ -39,14 +47,15 @@ async function main() {
 
   // Snapshot and approve second PIP.
   await sendTx(govCommittee1, api.tx.pips.snapshot());
-  const approvePIP = api.tx.pips.enactSnapshotResults([[1, { "Approve": "" }]]);
-  const voteApprove = api.tx.polymeshCommittee.voteOrPropose(true, approvePIP);
-  await sendTx(govCommittee1, voteApprove);
-  await sendTx(govCommittee2, voteApprove);
+  const approvePIP = api.tx.pips.enactSnapshotResults([[secondPipCount, { "Approve": "" }]]);
+  await voteResult(api, approvePIP, [govCommittee1, govCommittee2]);
+
+  // Reject the first PIP
+  const rejectPIP = api.tx.pips.rejectProposal(firstPipCount);
+  await voteResult(api, rejectPIP, [govCommittee1, govCommittee2]);
 
   // Finally reschedule, demonstrating that it had been scheduled.
-  await sendTx(alice, api.tx.pips.rescheduleExecution(1, null));
-
+  await sendTx(alice, api.tx.pips.rescheduleExecution(secondPipCount, null));
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -63,6 +72,13 @@ async function sendTx(signer, tx) {
   const passed = result.findRecord('system', 'ExtrinsicSuccess');
   if (passed) reqImports.fail_count--;
   reqImports.nonces.set(signer.address, reqImports.nonces.get(signer.address).addn(1));
+}
+
+async function voteResult(api, tx, signers) {
+  const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
+  for (let i = 0; i < signers.length; i++) {
+    await sendTx(signers[i], vote);
+  }
 }
 
 main().catch(console.error);

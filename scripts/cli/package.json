@@ -41,7 +41,6 @@
   "dependencies": {
     "@liftr/tscov": "^1.4.7",
     "@polkadot/api": "^1.32.1",
-    "@polkadot/keyring": "^2.6.2",
     "@polkadot/util": "^2.6.2",
     "@polkadot/util-crypto": "^2.6.2",
     "@types/clear": "^0.1.0",
@@ -53,6 +52,7 @@
     "cli-progress": "^3.6.0",
     "command-line-args": "^5.1.1",
     "commander": "^5.1.0",
+    "crypto-random-string": "^3.3.0",
     "esm": "^3.2.25",
     "figlet": "^1.4.0",
     "inquirer": "^7.1.0",

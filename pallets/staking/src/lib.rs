@@ -22,7 +22,7 @@
 // dispatchable gets modified.
 // - Introduce `validate_cdd_expiry_nominators()` to remove the nominators from the potential nominators list
 // when there CDD check get expired.
-// - Commission can be individual or global.
+// - Commission are capped.
 // - Validators stash account should stake a minimum bonding amount to be a potential validator.
 
 //! # Staking Module
@@ -301,6 +301,7 @@ use frame_support::{
     ensure,
     storage::IterableStorageMap,
     traits::{
+        schedule::{Anon, DispatchTime, HIGHEST_PRIORITY},
         Currency, EnsureOrigin, EstimateNextNewSession, Get, Imbalance, LockIdentifier,
         LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
     },
@@ -309,13 +310,15 @@ use frame_support::{
         DispatchClass::Operational,
         Pays, Weight,
     },
+    Twox64Concat,
 };
+use frame_system::RawOrigin;
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
@@ -484,7 +487,7 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// Polymesh-Note: Polymesh specific changes to allow flexibility in commission
+// TODO: Remove before mainnet - only used for storage upgrade
 /// Commission can be set globally or by validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -806,6 +809,8 @@ where
     }
 }
 
+type Identity<T> = identity::Module<T>;
+
 pub mod weight {
     use super::*;
 
@@ -873,6 +878,14 @@ pub mod weight {
             .saturating_sub(T::DbWeight::get().reads(compact.edge_count() as Weight))
             .saturating_add(T::DbWeight::get().reads(winners.len() as Weight))
     }
+
+    /// Weight of `payout_stakers()` & `payout_stakers_by_system()` dispatch.
+    // TODO: Weight is dummy, Need to benchamrk to get exact weight for the dispatch.
+    pub fn weight_for_payout_stakers<T: Trait>() -> Weight {
+        T::DbWeight::get().reads(5) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+            + T::DbWeight::get().writes(3)
+                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+    }
 }
 
 pub trait WeightInfo {
@@ -904,6 +917,7 @@ pub trait WeightInfo {
     fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_weaker(v: u32, n: u32) -> Weight;
+    fn change_slashing_allowed_for() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -991,6 +1005,9 @@ impl WeightInfo for () {
     fn submit_solution_weaker(_v: u32, _n: u32) -> Weight {
         1_000_000_000
     }
+    fn change_slashing_allowed_for() -> Weight {
+        1_000_000_000
+    }
 }
 
 pub trait Trait:
@@ -1038,7 +1055,7 @@ pub trait Trait:
     type SlashDeferDuration: Get<EraIndex>;
 
     /// The origin which can cancel a deferred slash. Root can always do this.
-    type SlashCancelOrigin: EnsureOrigin<Self::Origin>;
+    type SlashCancelOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
     /// Interface for interacting with a session module.
     type SessionInterface: self::SessionInterface<Self::AccountId>;
@@ -1060,7 +1077,10 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
+    type Call: Dispatchable<Origin = Self::Origin>
+        + From<Call<Self>>
+        + IsSubType<Call<Self>>
+        + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -1099,6 +1119,12 @@ pub trait Trait:
 
     /// Required origin for changing the history depth.
     type RequiredChangeHistoryDepthOrigin: EnsureOrigin<Self::Origin>;
+
+    /// To schedule the rewards for the stakers after the end of era.
+    type RewardScheduler: Anon<Self::BlockNumber, <Self as Trait>::Call, Self::PalletsOrigin>;
+
+    /// Overarching type of all pallets origins.
+    type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 /// Mode of era-forcing.
@@ -1117,7 +1143,26 @@ pub enum Forcing {
 
 impl Default for Forcing {
     fn default() -> Self {
-        Forcing::NotForcing
+        Self::NotForcing
+    }
+}
+
+/// Switch used to change the "victim" for slashing. Victims can be
+/// validators, both validators and nominators, or no-one.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum SlashingSwitch {
+    /// Allow validators but not nominators to get slashed.
+    Validator,
+    /// Allow both validators and nominators to get slashed.
+    ValidatorAndNominator,
+    /// Forbid slashing.
+    None,
+}
+
+impl Default for SlashingSwitch {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -1130,11 +1175,12 @@ enum Releases {
     V2_0_0,
     V3_0_0,
     V4_0_0,
+    V5_0_0,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V4_0_0
+        Releases::V5_0_0
     }
 }
 
@@ -1315,33 +1361,38 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
-        /// The map from (wannabe) validators to the status of compliance.
-        pub PermissionedValidators get(fn permissioned_validators):
-            map hasher(twox_64_concat) T::AccountId => bool;
+        /// Entities that are allowed to run operator/validator nodes.
+        pub PermissionedIdentity get(fn permissioned_identity):
+            map hasher(twox_64_concat) IdentityId => bool;
 
-        /// Commission rate to be used by all validators.
-        pub ValidatorCommission get(fn validator_commission) config(): Commission;
+        // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
+        /// Every validator has commission that should be in the range [0, Cap].
+        pub ValidatorCommissionCap get(fn validator_commission_cap) config(): Perbill;
 
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
 
+        // Polymesh-Note: Polymesh specific change to provide slashing switch for validators & Nominators.
+        pub SlashingAllowedFor get(fn slashing_allowed_for) config(): SlashingSwitch;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
-        /// This is set to v3.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V4_0_0): Releases;
+        /// This is set to v5.0.0 for new networks.
+        StorageVersion build(|_: &GenesisConfig<T>| Releases::V5_0_0): Releases;
     }
     add_extra_genesis {
         config(stakers):
-            Vec<(T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
+            Vec<(IdentityId, T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
         build(|config: &GenesisConfig<T>| {
-            for &(ref stash, ref controller, balance, ref status) in &config.stakers {
+            for &(did, ref stash, ref controller, balance, ref status) in &config.stakers {
                 assert!(
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
+                let controller_origin = <Module<T>>::get_origin(controller.clone());
                 let _ = <Module<T>>::bond(
-                    T::Origin::from(Some(stash.clone()).into()),
+                    <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
@@ -1349,21 +1400,22 @@ decl_storage! {
                 let _ = match status {
                     StakerStatus::Validator => {
                         let mut prefs = ValidatorPrefs::default();
-                        if let Commission::Global(commission) = config.validator_commission {
-                            prefs.commission = commission;
-                        }
+                        // Setting the cap value here.
+                        prefs.commission = config.validator_commission_cap;
                         <Module<T>>::validate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        <Module<T>>::add_permissioned_validator(
-                            frame_system::RawOrigin::Root.into(),
-                            stash.clone()
-                        )
+                        if !<Module<T>>::permissioned_identity(&did) {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::insert(&did, true);
+                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
+                        }
+                        Ok(())
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
-                            T::Origin::from(Some(controller.clone()).into()),
+                            controller_origin,
                             votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
                         )
                     }, _ => Ok(())
@@ -1403,20 +1455,24 @@ decl_event!(
         /// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
         /// from the unlocking queue. [stash, amount]
         Withdrawn(AccountId, Balance),
-        /// An entity has issued a candidacy. See the transaction for who.
-        PermissionedValidatorAdded(Option<IdentityId>, AccountId),
+        /// An DID has issued a candidacy. See the transaction for who.
+        /// GC identity , Validator's identity.
+        PermissionedIdentityAdded(IdentityId, IdentityId),
         /// The given member was removed. See the transaction for who.
-        PermissionedValidatorRemoved(Option<IdentityId>, AccountId),
+        /// GC identity , Validator's identity.
+        PermissionedIdentityRemoved(IdentityId, IdentityId),
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
-        /// Individual commissions are enabled.
-        IndividualCommissionEnabled(Option<IdentityId>),
-        /// When changes to commission are made and global commission is in effect.
+        /// When commission cap get updated.
         /// (old value, new value)
-        GlobalCommissionUpdated(Option<IdentityId>, Perbill, Perbill),
+        CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// When scheduling of reward payments get interrupted.
+        RewardPaymentSchedulingInterrupted(AccountId, EraIndex, DispatchError),
+        /// Update for whom balance get slashed.
+        SlashingAllowedForChanged(SlashingSwitch),
     }
 );
 
@@ -1492,17 +1548,21 @@ decl_error! {
         AlreadyExists,
         /// Permissioned validator not exists.
         NotExists,
-        /// Individual commissions already enabled.
-        AlreadyEnabled,
         /// Updates with same value.
         NoChange,
-        /// Updates with same value.
-        InvalidCommission
+        /// Given potential validator identity is invalid.
+        InvalidValidatorIdentity,
+        /// Stash is not a part of any allowed identities.
+        StashNotAllowed,
+        /// Stash doesn't have a DID.
+        InvalidStashKey,
+        /// Validator prefs are not in valid range.
+        InvalidValidatorCommission,
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         /// Number of sessions per era.
         const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -1542,6 +1602,26 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::migrate::migrate_map_keys_and_value;
+            use frame_support::storage::migration::take_storage_value;
+
+            if StorageVersion::get() == Releases::V4_0_0 {
+                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
+                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
+                });
+
+                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
+                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
+                    ValidatorCommissionCap::put(commision);
+                } else {
+                    ValidatorCommissionCap::put(Perbill::from_percent(100));
+                }
+                StorageVersion::put(Releases::V5_0_0);
+            }
+            1_000
+        }
 
         /// sets `ElectionStatus` to `Open(now)` where `now` is the block number at which the
         /// election window has opened, if we are at the last session and less blocks than
@@ -1895,10 +1975,8 @@ decl_module! {
             let stash = &ledger.stash;
 
             ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-            // Polymesh-Note - It is used to check whether the passed commission is same as global.
-            if let Commission::Global(commission) = <ValidatorCommission>::get() {
-                ensure!(prefs.commission == commission, Error::<T>::InvalidCommission);
-            }
+            // Polymesh-Note - It is used to check whether the passed commission is <= commission cap.
+            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
 
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
@@ -1938,9 +2016,9 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
+            if let Some(nominate_identity) = <Identity<T>>::get_identity(stash) {
                 let leeway = Self::get_bonding_duration_period() as u32;
-                if <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
+                if <Identity<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
                     let targets = targets.into_iter()
                         .take(MAX_NOMINATIONS)
                         .map(T::Lookup::lookup)
@@ -2081,40 +2159,39 @@ decl_module! {
             ValidatorCount::mutate(|n| *n += factor * *n);
         }
 
-        /// Governance committee on 2/3 rds majority can introduce a new potential validator
-        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
-        /// validators have completed KYB compliance and considers them for validation.
+        /// Governance committee on 2/3 rds majority can introduce a new potential identity
+        /// to the pool of permissioned entities who can run validators. Staking module uses `PermissionedIdentity`
+        /// to ensure validators have completed KYB compliance and considers them for validation.
         ///
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * identity Validator's IdentityId.
         #[weight = 750_000_000]
-        pub fn add_permissioned_validator(origin, validator: T::AccountId) {
+        pub fn add_permissioned_validator(origin, identity: IdentityId) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
-            // Change validator status to be Permissioned
-            <PermissionedValidators<T>>::insert(&validator, true);
-            let validator_id = <identity::Module<T>>::get_identity(&validator);
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
+            ensure!(!Self::permissioned_identity(&identity), Error::<T>::AlreadyExists);
+            // Validate the cdd status of the identity.
+            ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
+            // Change identity status to be Permissioned
+            PermissionedIdentity::insert(&identity, true);
+            Self::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, identity));
         }
 
-        /// Remove a validator from the pool of validators. Effects are known in the next session.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// Remove an identity from the pool of (wannabe) validator identities. Effects are known in the next session.
+        /// Staking module checks `PermissionedIdentity` to ensure validators have
         /// completed KYB compliance
         ///
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * identity Validator's IdentityId.
         #[weight = 750_000_000]
-        pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
-            T::RequiredRemoveOrigin::ensure_origin(origin.clone())?;
-            let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
-            ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
-            // Change validator status to be Non-Permissioned
-            <PermissionedValidators<T>>::insert(&validator, false);
+        pub fn remove_permissioned_validator(origin, identity: IdentityId) {
+            T::RequiredRemoveOrigin::ensure_origin(origin)?;
+            ensure!(Self::permissioned_identity(&identity), Error::<T>::NotExists);
+            // Change identity status to be Non-Permissioned
+            PermissionedIdentity::insert(&identity, false);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
+            Self::deposit_event(RawEvent::PermissionedIdentityRemoved(GC_DID, identity));
         }
 
         /// Validate the nominators CDD expiry time.
@@ -2140,12 +2217,12 @@ decl_module! {
 
                 if Self::nominators(target).is_some() {
                     // Access the identity of the nominator
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&target) {
+                    if let Some(nominate_identity) = <Identity<T>>::get_identity(&target) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                         // valid CDD otherwise it will be removed from the pool of the nominators.
-                        let is_cdded = <identity::Module<T>>::has_valid_cdd(nominate_identity);
+                        let is_cdded = <Identity<T>>::has_valid_cdd(nominate_identity);
                         if !is_cdded {
                             // Un-bonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
@@ -2168,44 +2245,22 @@ decl_module! {
             Self::deposit_event(RawEvent::InvalidatedNominators(caller_id, caller, expired_nominators));
         }
 
-        /// Enables individual commissions. This can be set only once. Once individual commission
-        /// rates are enabled, there's no going back.  Only Governance committee is allowed to
-        /// change this value.
-        #[weight = (800_000_000, Operational, Pays::Yes)]
-        pub fn enable_individual_commissions(origin) {
-            T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
-
-            // Ensure individual commissions are not already enabled
-            if let Commission::Global(_) = <ValidatorCommission>::get() {
-                <ValidatorCommission>::put(Commission::Individual);
-                Self::deposit_event(RawEvent::IndividualCommissionEnabled(id));
-            } else {
-                return Err(Error::<T>::AlreadyEnabled.into());
-            }
-        }
-
         /// Changes commission rate which applies to all validators. Only Governance
         /// committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `new_value` the new commission to be used for reward calculations
+        /// * `new_cap` the new commission cap.
         #[weight = (800_000_000, Operational, Pays::Yes)]
-        pub fn set_global_commission(origin, new_value: Perbill) {
+        pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
 
-            // Ensure individual commissions are not already enabled
-            if let Commission::Global(old_value) = <ValidatorCommission>::get() {
-                ensure!(old_value != new_value, Error::<T>::NoChange);
-                <ValidatorCommission>::put(Commission::Global(new_value));
-                Self::update_validator_prefs(new_value);
-                Self::deposit_event(RawEvent::GlobalCommissionUpdated(id, old_value, new_value));
-            } else {
-                return Err(Error::<T>::AlreadyEnabled.into())
-            }
+            let old_cap = Self::validator_commission_cap();
+            ensure!(old_cap != new_cap, Error::<T>::NoChange);
+            <ValidatorCommissionCap>::put(new_cap);
+            // Update the validator prefs as per the `new_cap`.
+            // if `prefs.commission` of validator is > `new_cap`, it sets commission = new_cap.
+            Self::update_validator_prefs(new_cap);
+            Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
         /// Changes min bond value to be used in bond(). Only Governance
@@ -2217,7 +2272,7 @@ decl_module! {
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
+            let id = <Identity<T>>::get_identity(&key);
 
             <MinimumBondThreshold<T>>::put(new_value);
             Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
@@ -2380,13 +2435,7 @@ decl_module! {
         /// - Read Each: Bonded, Ledger, Payee, Locks, System Account (5 items)
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
-        #[weight =
-            ((120 * WEIGHT_PER_MICROS
-            + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
-            + T::DbWeight::get().reads(7)
-            + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)) * 25) / 100
-        ]
+        #[weight = weight::weight_for_payout_stakers::<T>()]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
@@ -2604,54 +2653,33 @@ decl_module! {
             );
             Ok(adjustments)
         }
+
+        // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
+        /// System version of `payout_stakers()`. Only be called by the root origin.
+        #[weight = weight::weight_for_payout_stakers::<T>()]
+        pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
+            ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+            ensure_root(origin)?;
+            Self::do_payout_stakers(validator_stash, era)
+        }
+
+        /// Switch slashing status on the basis of given `SlashingSwitch`. Only be called by the root.
+        /// # Arguments
+        /// * origin - AccountId of root.
+        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        pub fn change_slashing_allowed_for(origin, switch: SlashingSwitch) {
+            // Ensure origin should be root.
+            ensure_root(origin)?;
+            SlashingAllowedFor::put(switch);
+            Self::deposit_event(RawEvent::SlashingAllowedForChanged(switch));
+        }
     }
 }
 
 impl<T: Trait> Module<T> {
-    /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
-    /// It is recommended to not call this function on-chain. It is a non-deterministic function that is
-    /// suitable for off-chain workers only.
-    pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
-        let invalid_nominators = <Nominators<T>>::iter()
-            .filter_map(|(nominator_stash_key, _nominations)| {
-                if let Some(nominate_identity) =
-                    <identity::Module<T>>::get_identity(&(nominator_stash_key))
-                {
-                    if (<identity::Module<T>>::fetch_cdd(
-                        nominate_identity,
-                        buffer.saturated_into::<T::Moment>(),
-                    ))
-                    .is_none()
-                    {
-                        return Some(nominator_stash_key);
-                    }
-                }
-                None
-            })
-            .collect::<Vec<T::AccountId>>();
-        invalid_nominators
-    }
-
-    /// POLYMESH-NOTE: This is Polymesh specific change.
-    /// Here we are assuming that passed targets are always be a those nominators whose cdd
-    /// claim get expired or going to expire after the `buffer_time`.
-    pub fn unsafe_validate_cdd_expiry_nominators(targets: Vec<T::AccountId>) -> DispatchResult {
-        // Iterate provided list of accountIds (These accountIds should be stash type account).
-        for target in targets.iter() {
-            // Un-bonding the balance that bonded with the controller account of a Stash account
-            // This unbonded amount only be accessible after completion of the BondingDuration
-            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund.
-
-            let controller = Self::bonded(target).ok_or("not a stash")?;
-            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-            let active_balance = ledger.active;
-            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
-                Self::unbond_balance(controller, &mut ledger, active_balance);
-                // Free the nominator from the valid nominator list
-                <Nominators<T>>::remove(target);
-            }
-        }
-        Ok(())
+    /// Returns the `T::Origin` for given target AccountId.
+    fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
+        <T as frame_system::Trait>::Origin::from(Some(target).into())
     }
 
     /// The total balance that can be slashed from a stash account as of right now.
@@ -3208,6 +3236,34 @@ impl<T: Trait> Module<T> {
             );
             let rest = max_payout.saturating_sub(validator_payout);
 
+            // Schedule Rewards for the validators
+            let next_block_no = <frame_system::Module<T>>::block_number() + 1.into();
+            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+                let schedule_block_no = next_block_no + index.saturated_into::<T::BlockNumber>();
+                match T::RewardScheduler::schedule(
+                    DispatchTime::At(schedule_block_no),
+                    None,
+                    HIGHEST_PRIORITY,
+                    RawOrigin::Root.into(),
+                    Call::<T>::payout_stakers_by_system(validator_id.clone(), active_era.index).into()
+                ) {
+                    Ok(_) => log!(
+                        info,
+                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                        &validator_id,
+                        schedule_block_no,
+                    ),
+                    Err(e) => {
+                        log!(
+                            error,
+                            "⛔ Detected error in scheduling the reward payment: {:?}",
+                            e
+                        );
+                        Self::deposit_event(RawEvent::RewardPaymentSchedulingInterrupted(validator_id, active_era.index, e));
+                    }
+                }
+            }
+
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,
                 validator_payout,
@@ -3397,8 +3453,7 @@ impl<T: Trait> Module<T> {
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter() {
             if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_or_nominator_compliant(&validator)
-                && Self::permissioned_validators(&validator)
+                && Self::is_validator_compliant(&validator)
             {
                 // append self vote
                 let self_vote = (
@@ -3412,7 +3467,7 @@ impl<T: Trait> Module<T> {
         }
 
         let nominator_votes = <Nominators<T>>::iter()
-            .filter(|(nominator, _)| Self::is_validator_or_nominator_compliant(&nominator))
+            .filter(|(nominator, _)| Self::is_nominator_compliant(&nominator))
             .map(|(nominator, nominations)| {
                 let Nominations {
                     submitted_in,
@@ -3581,12 +3636,16 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
-            return <identity::Module<T>>::has_valid_cdd(validator_identity);
-        }
-        false
+    /// Is nominator's `stash` account compliant?
+    pub fn is_nominator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, <Identity<T>>::has_valid_cdd)
+    }
+
+    /// Is validator's `stash` account compliant?
+    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, |id| {
+            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id)
+        })
     }
 
     /// Return reward curve points
@@ -3639,7 +3698,11 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<T::AccountId>>();
 
         for v in validators {
-            <Validators<T>>::mutate(v, |prefs| prefs.commission = commission);
+            <Validators<T>>::mutate(v, |prefs| {
+                if prefs.commission > commission {
+                    prefs.commission = commission
+                }
+            });
         }
     }
 
@@ -3835,6 +3898,12 @@ where
             return Err(());
         }
 
+        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
+        if Self::slashing_allowed_for() == SlashingSwitch::None {
+            // Return `0` weight because no need to run through when Slashing is off.
+            return Ok(Zero::zero());
+        }
+
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;
         let mut add_db_reads_writes = |reads, writes| {
@@ -3873,7 +3942,8 @@ where
             match eras
                 .iter()
                 .rev()
-                .find(|&&(_, ref sesh)| sesh <= &slash_session)
+                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
+                .next()
             {
                 Some(&(ref slash_era, _)) => *slash_era,
                 // before bonding period. defensive - should be filtered out.
@@ -3912,12 +3982,12 @@ where
             });
 
             if let Some(mut unapplied) = unapplied {
-                // `unapplied.others` will always be an empty vector. So skipping consideration of
-                // nominators length (i.e nominators_len).
+                let nominators_len = unapplied.others.len() as u64;
                 let reporters_len = details.reporters.len() as u64;
 
                 {
-                    let rw = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
+                    let rw = upper_bound + nominators_len * upper_bound;
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
@@ -3928,8 +3998,8 @@ where
                         let slash_cost = (6, 5);
                         let reward_cost = (2, 2);
                         add_db_reads_writes(
-                            slash_cost.0 + reward_cost.0 * reporters_len,
-                            slash_cost.1 + reward_cost.1 * reporters_len,
+                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
+                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
                         );
                     }
                 } else {
