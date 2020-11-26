@@ -89,6 +89,7 @@
 //! - `change_bridge_exempted`: Changes the bridge limit exempted.
 //! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
 //! timelock.
+//! - `batch_propose_bridge_tx`: Proposes a vector of bridge transactions.
 //! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
 //! - `freeze_txs`: Freezes given bridge transactions.
