@@ -532,7 +532,6 @@ decl_error! {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-// NB If you add a new value, don't forget to update the implementation of `Default`.
 #[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Version {
     V0,
