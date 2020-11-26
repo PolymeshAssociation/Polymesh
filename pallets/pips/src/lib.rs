@@ -460,7 +460,7 @@ decl_storage! {
         ///
         /// Unlike `SnapshotQueue`, this queue is live, getting updated with each vote cast.
         /// The snapshot is therefore essentially a point-in-time clone of this queue.
-        pub LiveQueue get(fn pre_snapshot): Vec<SnapshottedPip<BalanceOf<T>>>;
+        pub LiveQueue get(fn live_queue): Vec<SnapshottedPip<BalanceOf<T>>>;
 
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPip`.
