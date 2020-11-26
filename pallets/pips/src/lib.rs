@@ -18,9 +18,6 @@
 //! Polymesh Improvement Proposals (PIPs) are dispatchables that can be `propose`d for execution.
 //! These PIPs can either be proposed by a committee, or they can be proposed by a community member,
 //! in which case they can `vote`d on by all POLYX token holders.
-//! Once created, a proposal first enters a cool-off period, during which it can be amended
-//! (via `amend_proposal` and `vote`) or cancelled (via `cancel_proposal`) but not approved.
-//! During cool-off, only the PIPs proposer can use `vote`.
 //!
 //! Voting, or rather "signalling", which currently scales linearly with POLX,
 //! in this system is used to direct the Governance Councils (GCs)
@@ -63,7 +60,6 @@
 //!
 //! - `set_prune_historical_pips` change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` change min deposit to create a proposal
-//! - `set_proposal_cool_off_period` change duration in blocks for which a proposal can be amended
 //! - `set_default_enactment_period` change the period after enactment after which the proposal is executed
 //! - `set_max_pip_skip_count` change the maximum times a PIP can be skipped
 //! - `set_active_pip_limit` change the maximum number of concurrently active PIPs
@@ -266,7 +262,7 @@ pub type HistoricalVotingById<AccountId, VoteType> =
 /// The state a PIP is in.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
-    /// Proposal is created and either in the cool-down period or open to voting.
+    /// Initial state. Proposal is open to voting.
     Pending,
     /// Proposal was rejected by the GC.
     Rejected,
@@ -292,7 +288,7 @@ impl Default for ProposalState {
 pub struct DepositInfo<AccountId, Balance> {
     /// Owner of the deposit.
     pub owner: AccountId,
-    /// Amount. It can be updated during the cool off period.
+    /// Amount deposited.
     pub amount: Balance,
 }
 
@@ -416,8 +412,8 @@ decl_storage! {
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
 
-        /// How many blocks will it take, after a `Pending` PIP's cooling-off period is over,
-        /// until the the PIP expires, assuming it has not transitioned to another `ProposalState`?
+        /// How many blocks will it take, after a `Pending` PIP expires,
+        /// assuming it has not transitioned to another `ProposalState`?
         pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<T::BlockNumber>;
 
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
@@ -459,7 +455,7 @@ decl_storage! {
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
 
         /// A live priority queue (lowest priority at index 0)
-        /// of pending non-cooling PIPs up to the active limit.
+        /// of pending PIPs up to the active limit.
         /// Priority is defined by the `weight` in the `SnapshottedPip`.
         ///
         /// Unlike `SnapshotQueue`, this queue is live, getting updated with each vote cast.
@@ -499,7 +495,7 @@ decl_event!(
         ///
         /// # Parameters:
         ///
-        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, expiry time, proposal data.
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, expiry time, proposal data.
         ProposalCreated(
             IdentityId,
             Proposer<AccountId>,
@@ -524,7 +520,7 @@ decl_event!(
         /// Minimum deposit amount modified
         /// (caller DID, old amount, new amount)
         MinimumProposalDepositChanged(IdentityId, Balance, Balance),
-        /// Amount of blocks, after the cool-off period, after which a pending PIP expires.
+        /// Amount of blocks after which a pending PIP expires.
         /// (caller DID, old expiry, new expiry)
         PendingPipExpiryChanged(IdentityId, MaybeBlock<BlockNumber>, MaybeBlock<BlockNumber>),
         /// The maximum times a PIP can be skipped was changed.
@@ -688,7 +684,7 @@ decl_module! {
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
         }
 
-        /// Change the amount of blocks, after the cool-off, for which a pending PIP is expired.
+        /// Change the amount of blocks after which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
@@ -889,7 +885,7 @@ decl_module! {
             Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
         }
 
-        /// Approves the pending non-cooling committee PIP given by the `id`.
+        /// Approves the pending committee PIP given by the `id`.
         ///
         /// # Errors
         /// * `BadOrigin` unless a GC voting majority executes this function.
@@ -904,7 +900,7 @@ decl_module! {
             // 2. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
-            // 3. Proposal must not be cooling-off and must be by committee.
+            // 3. Proposal must be by committee.
             let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
@@ -914,7 +910,7 @@ decl_module! {
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
         /// assuming it hasn't been cancelled or executed.
-        /// Note that cooling-off and proposals scheduled-for-execution can also be rejected.
+        /// Note that proposals scheduled-for-execution can also be rejected.
         ///
         /// # Errors
         /// * `BadOrigin` unless a GC voting majority executes this function.
@@ -1545,9 +1541,9 @@ impl<T: Trait> Module<T> {
 
     /// Recompute the live queue from all existing PIPs.
     pub fn compute_live_queue() -> Vec<SnapshottedPip<BalanceOf<T>>> {
-        // Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
+        // Fetch intersection of pending && aggregate their votes.
         let mut queue = <Proposals<T>>::iter_values()
-            // Only keep non-cooling pending community PIPs.
+            // Only keep pending community PIPs.
             .filter(|pip| matches!(pip.state, ProposalState::Pending))
             .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
             .map(|pip| pip.id)
