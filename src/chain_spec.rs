@@ -1,5 +1,4 @@
 use codec::{Decode, Encode};
-use core::num::NonZeroU64;
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
@@ -188,7 +187,7 @@ fn general_testnet_genesis(
             use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
             let period = CalendarPeriod {
                 unit: Week,
-                amount: NonZeroU64::new(1),
+                amount: 1,
             };
             Some(GeneralConfig::CheckpointConfig {
                 schedules_max_complexity: period.complexity(),
@@ -328,7 +327,7 @@ fn general_testnet_genesis(
         }),
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 2,
+            validator_count: initial_authorities.len() as u32,
             validator_commission_cap: PerThing::from_rational_approximation(1u64, 4u64),
             stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
@@ -582,7 +581,7 @@ fn alcyone_testnet_genesis(
             use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
             let period = CalendarPeriod {
                 unit: Week,
-                amount: NonZeroU64::new(1),
+                amount: 1,
             };
             Some(GeneralConfig::CheckpointConfig {
                 schedules_max_complexity: period.complexity(),
