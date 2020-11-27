@@ -100,7 +100,7 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
-    /// Weight information for extrinsics in the identity pallet.
+    /// Weight information for extrinsic in this pallet.
     type WeightInfo: WeightInfo;
 }
 
