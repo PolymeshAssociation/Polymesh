@@ -806,8 +806,10 @@ impl<T: Trait> Module<T> {
             <MultiSigSigners<T>>::contains_key(&multisig, &sender_signer),
             Error::<T>::NotASigner
         );
-        let caller_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        let caller_did = match sender_signer {
+            Signatory::Identity(ref did) => did.clone(),
+            Signatory::Account(ref key) => Context::current_identity_or::<Identity<T>>(key)?,
+        };
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
         <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);

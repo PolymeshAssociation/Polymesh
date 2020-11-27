@@ -47,9 +47,7 @@ fn generate_multisig_with_signers<T: Trait>(
     <MultiSig<T>>::create_multisig(origin.clone(), signers.clone(), 1)?;
     for signer in signers {
         let auth_id = get_last_auth_id::<T>(&signer);
-        if let Signatory::Account(key) = signer {
-            <MultiSig<T>>::accept_multisig_signer_as_key(RawOrigin::Signed(key).into(), auth_id)?;
-        }
+        <MultiSig<T>>::unsafe_accept_multisig_signer(signer, auth_id)?;
     }
     Ok(multisig)
 }
