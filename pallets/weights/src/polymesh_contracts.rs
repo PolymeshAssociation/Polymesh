@@ -7,11 +7,11 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl polymesh_contracts::WeightInfo for WeightInfo {
-    fn put_code(l: u32, u: u32, d: u32) -> Weight {
-        (0 as Weight)
-            .saturating_add((338_000 as Weight).saturating_mul(l as Weight))
-            .saturating_add((228_489_000 as Weight).saturating_mul(u as Weight))
-            .saturating_add((13_796_000 as Weight).saturating_mul(d as Weight))
+    // WARNING! Some components were not used: ["d"]
+    fn put_code(l: u32, u: u32, _d: u32) -> Weight {
+        (2_377_166_000 as Weight)
+            .saturating_add((306_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add((6_000 as Weight).saturating_mul(u as Weight))
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
@@ -40,9 +40,9 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    // WARNING! Some components were not used: ["u"]
-    fn change_template_meta_url(_u: u32) -> Weight {
-        (202_054_000 as Weight)
+    fn change_template_meta_url(u: u32) -> Weight {
+        (1_131_628_000 as Weight)
+            .saturating_add((8_000 as Weight).saturating_mul(u as Weight))
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
