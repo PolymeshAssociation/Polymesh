@@ -9,7 +9,6 @@ use crate::{
     },
 };
 use chrono::prelude::Utc;
-use core::num::NonZeroU64;
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchError, IterableStorageMap,
     StorageDoubleMap, StorageMap,
@@ -2866,7 +2865,7 @@ fn next_checkpoint_is_updated_we() {
     // A period of 42 hours.
     let period = CalendarPeriod {
         unit: CalendarUnit::Hour,
-        amount: NonZeroU64::new(42),
+        amount: 42,
     };
     // The increment in seconds.
     let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {
