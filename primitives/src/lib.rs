@@ -315,7 +315,7 @@ macro_rules! storage_migrate_on {
         const TARGET_VERSION: Version = Version::new($ver).unwrap();
         if $curr < TARGET_VERSION {
             $body;
-            <StorageVersion>::put(TARGET_VERSION);
+            StorageVersion::put(TARGET_VERSION);
         }
     }};
 }
