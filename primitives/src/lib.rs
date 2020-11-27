@@ -308,7 +308,7 @@ macro_rules! storage_migration_ver {
 }
 
 /// Helper macro which execute the `$body` if `$curr` is less than version `$ver`.
-/// It also updates `<StorageVersion>` in the current pallet to `$ver`.
+/// It also updates `StorageVersion` in the current pallet to `$ver`.
 #[macro_export]
 macro_rules! storage_migrate_on {
     ($curr: expr, $ver:literal, $body: block) => {{
