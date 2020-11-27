@@ -26,3 +26,4 @@ pub mod pallet_protocol_fee;
 pub mod pallet_settlement;
 pub mod pallet_timestamp;
 pub mod pallet_utility;
+pub mod polymesh_contracts;

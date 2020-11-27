@@ -5300,12 +5300,14 @@ dependencies = [
 name = "polymesh-contracts"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-contracts",
  "pallet-identity",
  "pallet-protocol-fee",
  "parity-scale-codec",
+ "parity-wasm 0.41.0",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
@@ -5313,6 +5315,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "wat",
 ]
 
 [[package]]
@@ -5645,6 +5648,7 @@ dependencies = [
  "pallet-settlement",
  "pallet-timestamp",
  "pallet-utility",
+ "polymesh-contracts",
 ]
 
 [[package]]
