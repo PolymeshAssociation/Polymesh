@@ -503,6 +503,9 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+    pub const AssetNameMaxLength: usize = 1024;
+    pub const MaxIdentifiersPerAsset: usize = 256;
+    pub const FundingRoundNameMaxLength: usize = 1024;
 }
 
 impl asset::Trait for TestStorage {
@@ -511,6 +514,10 @@ impl asset::Trait for TestStorage {
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = Timestamp;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type MaxIdentifiersPerAsset = MaxIdentifiersPerAsset;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
