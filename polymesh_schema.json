@@ -867,6 +867,12 @@
                 "Handled": ""
             }
         },
+        "HandledTxStatus": {
+            "_enum": {
+                "Success": "",
+                "Error": "Text"
+            }
+        },
         "CappedFee": "u64",
         "CanTransferResult": {
             "_enum": {
@@ -951,7 +957,7 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "amount": "Option<NonZeroU64>"
+            "amount": "u64"
         },
         "CheckpointSchedule": {
             "start": "Moment",
@@ -1075,7 +1081,7 @@
         },
         "Tax": "Permill",
         "TargetIdentities": {
-            "identities": "Vec<IdentitityId>",
+            "identities": "Vec<IdentityId>",
             "treatment": "TargetTreatment"
         },
         "TargetTreatment": {
