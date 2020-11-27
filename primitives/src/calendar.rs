@@ -92,8 +92,8 @@ pub struct CalendarPeriod {
     /// The base calendar unit.
     pub unit: CalendarUnit,
     /// The amount of base units in the period.
-    /// When `None`, the "period" is one-shot, i.e. non-recurring.
-    pub amount: Option<NonZeroU64>,
+    /// When `0`, the "period" is one-shot, i.e. non-recurring.
+    pub amount: u64,
 }
 
 impl CalendarPeriod {
@@ -111,7 +111,7 @@ impl CalendarPeriod {
 
     /// Convert the period to a recurring one, if possible.
     pub fn to_recurring(&self) -> Option<RecurringPeriod> {
-        self.amount.map(|amount| RecurringPeriod {
+        NonZeroU64::new(self.amount).map(|amount| RecurringPeriod {
             unit: self.unit,
             amount,
         })
@@ -296,7 +296,6 @@ pub fn is_leap_year(year: i32) -> bool {
 mod tests {
     use super::{CalendarPeriod, CalendarUnit, CheckpointSchedule};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-    use core::num::NonZeroU64;
 
     fn next(schedule: CheckpointSchedule, now: NaiveDateTime) -> NaiveDateTime {
         let ms = schedule
@@ -309,7 +308,7 @@ mod tests {
     fn next_checkpoint_seconds_test() {
         let period_day_seconds = CalendarPeriod {
             unit: CalendarUnit::Second,
-            amount: NonZeroU64::new(60 * 60 * 24),
+            amount: 60 * 60 * 24,
         };
         let schedule_day_seconds = CheckpointSchedule {
             start: 1000 * 60 * 60, // 1:00:00
@@ -337,7 +336,7 @@ mod tests {
     fn next_checkpoint_months_test() {
         let period_5_months = CalendarPeriod {
             unit: CalendarUnit::Month,
-            amount: NonZeroU64::new(5),
+            amount: 5,
         };
         let schedule_5_months = CheckpointSchedule {
             start: 0,
@@ -357,7 +356,7 @@ mod tests {
     fn next_checkpoint_end_of_month_test() {
         let period_1_month = CalendarPeriod {
             unit: CalendarUnit::Month,
-            amount: NonZeroU64::new(1),
+            amount: 1,
         };
         let schedule_end_of_month = CheckpointSchedule {
             start: 1000
