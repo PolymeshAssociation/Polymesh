@@ -18,6 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_system::RawOrigin;
 use pallet_identity::benchmarking::UserBuilder;
+use polymesh_common_utilities::MaybeBlock;
 use sp_std::{convert::TryFrom, prelude::*};
 
 const COMMITTEE_MEMBERS_NUM: usize = 10;
@@ -45,5 +46,12 @@ benchmarks_instance! {
             Module::<T, _>::release_coordinator() == Some(coordinator),
             "incorrect release coordinator"
         );
+    }
+
+    set_expires_after {
+        let maybe_block = MaybeBlock::Some(1.into());
+    }: _(RawOrigin::Root, maybe_block)
+    verify {
+        ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
 }
