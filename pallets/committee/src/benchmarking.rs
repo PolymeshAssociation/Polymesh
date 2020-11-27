@@ -54,4 +54,20 @@ benchmarks_instance! {
     verify {
         ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
+
+    // TODO: generate variable-length proposals
+    vote_or_propose {
+    }: {}
+    verify {
+    }
+
+    vote {
+    }: {}
+    verify {
+    }
+
+    close {
+    }: {}
+    verify {
+    }
 }
