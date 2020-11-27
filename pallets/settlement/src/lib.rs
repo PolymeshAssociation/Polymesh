@@ -46,6 +46,7 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -73,7 +74,7 @@ use polymesh_common_utilities::{
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker, storage_migration_ver, storage_migrate_on};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
     traits::{Dispatchable, Verify, Zero},
@@ -532,18 +533,7 @@ decl_error! {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Version {
-    V0,
-    V1,
-}
-
-impl Default for Version {
-    /// Default version which could be use during storage initialization.
-    fn default() -> Self {
-        Version::V0
-    }
-}
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Settlement {
@@ -578,7 +568,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -593,7 +583,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
 
             let storage_ver = <StorageVersion>::get();
-            if storage_ver == Version::V0 {
+            storage_migrate_on!(storage_ver, 1, {
                 // Delete all settlement data that were stored at a wrong prefix.
                 let prefix = Twox128::hash(b"StoCapped");
                 storage::unhashed::kill_prefix(&prefix);
@@ -601,8 +591,7 @@ decl_module! {
                 // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
                 <VenueCounter>::put(1);
                 <InstructionCounter>::put(1);
-                <StorageVersion>::put(Version::V1);
-            }
+            });
 
             1_000
         }

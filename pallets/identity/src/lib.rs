@@ -71,7 +71,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns)]
+#![feature(or_patterns, const_option)]
 
 pub mod types;
 pub use types::{
@@ -117,10 +117,10 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
+    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::{blake2_128, blake2_256};
@@ -138,18 +138,7 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Version {
-    V0,
-    V1,
-    V2,
-}
-
-impl Default for Version {
-    fn default() -> Self {
-        Version::V0
-    }
-}
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
@@ -201,7 +190,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -271,8 +260,7 @@ decl_module! {
 
             let storage_ver = <StorageVersion>::get();
 
-            // Migrate from V0 to V1
-            if storage_ver < Version::V1 {
+            storage_migrate_on!(storage_ver, 1, {
                 migrate_map::<LinkedKeyInfo, _>(
                     b"identity",
                     b"KeyToIdentityIds",
@@ -292,17 +280,9 @@ decl_module! {
                         secondary_keys: old.secondary_keys,
                     }))
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
+            });
 
-                <StorageVersion>::put(Version::V1);
-            }
-
-            // Migrate from V1 to V2
-            if storage_ver < Version::V2 {
-                // Migrate claims
-                <Claims>::translate(migration::migrate_claim);
-                <StorageVersion>::put(Version::V2);
-            }
-
+           storage_migrate_on!(storage_ver, 2, { <Claims>::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
