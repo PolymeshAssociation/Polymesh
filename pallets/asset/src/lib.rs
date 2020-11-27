@@ -128,24 +128,25 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 
 pub trait WeightInfo {
-    fn register_ticker(t: u32) -> Weight;
+    fn register_ticker() -> Weight;
     fn accept_ticker_transfer() -> Weight;
     fn accept_asset_ownership_transfer() -> Weight;
     fn create_asset(i: u32, f: u32) -> Weight;
     fn freeze() -> Weight;
     fn unfreeze() -> Weight;
-    fn rename_asset() -> Weight;
+    fn rename_asset(n: u32) -> Weight;
     fn issue() -> Weight;
     fn redeem() -> Weight;
     fn make_divisible() -> Weight;
     fn add_documents(d: u32) -> Weight;
     fn remove_documents(d: u32) -> Weight;
-    fn set_funding_round(f: u32) -> Weight;
-    fn update_identifiers(i: u32) -> Weight;
+    fn set_funding_round() -> Weight;
+    fn update_identifiers() -> Weight;
     fn remove_primary_issuance_agent() -> Weight;
     fn claim_classic_ticker() -> Weight;
     fn reserve_classic_ticker() -> Weight;
     fn add_extension() -> Weight;
+    fn remove_smart_extension() -> Weight;
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn accept_primary_issuance_agent_transfer() -> Weight;
@@ -424,7 +425,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `ticker` ticker to register.
-        #[weight = <T as Trait>::WeightInfo::register_ticker(ticker.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::register_ticker()]
         pub fn register_ticker(origin, ticker: Ticker) {
             let to_did = Identity::<T>::ensure_perms(origin)?;
             let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
@@ -484,7 +485,9 @@ decl_module! {
         ///
         /// # Weight
         /// `3_000_000_000 + 20_000 * identifiers.len()`
-        #[weight = <T as Trait>::WeightInfo::create_asset( identifiers.len() as u32, funding_round.as_ref().map_or(0, |name| name.len()) as u32)]
+        #[weight = <T as Trait>::WeightInfo::create_asset(
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32)]
         pub fn create_asset(
             origin,
             name: AssetName,
@@ -650,7 +653,7 @@ decl_module! {
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
-        #[weight = <T as Trait>::WeightInfo::rename_asset()]
+        #[weight = <T as Trait>::WeightInfo::rename_asset(ticker.len() as u32)]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             ensure!( name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
 
@@ -832,7 +835,7 @@ decl_module! {
         /// * `origin` - the secondary key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = <T as Trait>::WeightInfo::set_funding_round(name.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::set_funding_round()]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) -> DispatchResult {
             ensure!( name.len() <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -853,7 +856,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 20_000 * identifiers.len()`
-        #[weight = <T as Trait>::WeightInfo::update_identifiers(identifiers.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::update_identifiers()]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,

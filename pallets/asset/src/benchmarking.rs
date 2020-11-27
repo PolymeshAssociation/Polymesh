@@ -19,7 +19,8 @@ use crate::*;
 use pallet_identity as identity;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetName;
-use polymesh_primitives::Ticker;
+use polymesh_contracts::ExtensionInfo;
+use polymesh_primitives::{ExtensionAttributes, SmartExtension, Ticker};
 
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
@@ -117,37 +118,28 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
         .expect("`reserve_classic_ticker` failed");
 }
 
-/*
-fn make_extension<T: Trait>() {
-    let extension_name = b"PTM".into();
-    let (wasm, code_hash) = compile_module::<T>("flipper").unwrap();
-    let input_data = hex!("0222FF18");
-
-    if create_instance {
-        // Create SE template.
-        create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
-    }
-
-    // Create SE instance.
-    assert_ok!(create_contract_instance::<TestStorage>(
-        creator, code_hash, 0, false
-    ));
-
-    NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-        &code_hash,
-        &input_data.to_vec(),
-        &creator,
-    )
-
-    let extension_id = setup_se_template::<TestStorage>(dave, dave_did, true);
-
+fn make_extension<T: Trait>(is_archive: bool) -> SmartExtension<T::AccountId> {
+    // Simulate that extension was added.
+    let extension_id = UserBuilder::<T>::default().build("extension", 0).account;
     let extension_details = SmartExtension {
         extension_type: SmartExtensionType::TransferManager,
-        extension_name,
+        extension_name: b"PTM".into(),
         extension_id: extension_id.clone(),
-        is_archive: false,
+        is_archive,
     };
-}*/
+
+    // Add extension info into contracts wrapper.
+    let version = 1u32;
+    CompatibleSmartExtVersion::insert(&extension_details.extension_type, version);
+
+    let attr = ExtensionAttributes {
+        version,
+        ..Default::default()
+    };
+    ExtensionInfo::<T>::insert(extension_id, attr);
+
+    extension_details
+}
 
 benchmarks! {
     _ { }
@@ -378,27 +370,55 @@ benchmarks! {
         assert_eq!( Module::<T>::identifiers(ticker), identifiers);
      }
 
-     /*
      add_extension {
          let owner = UserBuilder::default().build_with_did("owner", SEED);
          let (ticker, _) = make_asset::<T>(&owner);
+         let ext_details = make_extension::<T>(false);
+         let ext_id = ext_details.extension_id.clone();
+     }: _(owner.origin(), ticker.clone(), ext_details.clone())
+     verify {
+         assert_eq!( Module::<T>::extension_details((ticker, ext_id)), ext_details);
+     }
 
+     archive_extension {
+         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let (ticker, _) = make_asset::<T>(&owner);
+         let ext_details = make_extension::<T>(false);
+         let ext_id = ext_details.extension_id.clone();
+         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+             .expect( "Extension cannot be added");
 
-     }: _(owner.origin, ticker.clone(), extension_details: SmartExtension<T::AccountId>)
-     verify { }
+     }: _(owner.origin, ticker.clone(), ext_id.clone())
+     verify {
+         let ext_details = Module::<T>::extension_details((ticker,ext_id));
+         assert_eq!( ext_details.is_archive, true);
+     }
 
-    archive_extension {
-    }: _(origin, ticker, extension_id: T::AccountId)
-    verify { }
+     unarchive_extension {
+         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let (ticker, _) = make_asset::<T>(&owner);
+         let ext_details = make_extension::<T>(true);
+         let ext_id = ext_details.extension_id.clone();
+         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+             .expect( "Extension cannot be added");
 
-    archive_extension {
-    }: _(origin, ticker, extension_id: T::AccountId)
-    verify { }
+     }: _(owner.origin(), ticker.clone(), ext_id.clone())
+     verify {
+         let ext_details = Module::<T>::extension_details((ticker,ext_id));
+         assert_eq!( ext_details.is_archive, false);
+     }
 
-    remove_smart_extension {
-    }: _(origin, ticker: Ticker, extension_id: T::AccountId)
-    verify { }
-*/
+     remove_smart_extension {
+         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let (ticker, _) = make_asset::<T>(&owner);
+         let ext_details = make_extension::<T>(false);
+         let ext_id = ext_details.extension_id.clone();
+         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+             .expect( "Extension cannot be added");
+     }: _(owner.origin(), ticker.clone(), ext_id.clone())
+     verify {
+        assert_eq!(<ExtensionDetails<T>>::contains_key((ticker,ext_id)), false);
+     }
 
     remove_primary_issuance_agent {
         let owner = UserBuilder::default().build_with_did("owner", SEED);
@@ -439,5 +459,22 @@ benchmarks! {
     }: _( RawOrigin::Root, classic.clone(), owner.did(), config)
     verify {
         assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
+    }
+
+    accept_primary_issuance_agent_transfer {
+        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+        let primary_issuance_agent = UserBuilder::<T>::default().build_with_did("1stIssuance", SEED);
+        let (ticker, _) = make_asset::<T>(&owner);
+
+        let auth_id = identity::Module::<T>::add_auth(
+            owner.did(),
+            Signatory::from(primary_issuance_agent.did()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker.clone()),
+            None,
+        );
+    }: _(primary_issuance_agent.origin(), auth_id)
+    verify {
+        let token = Module::<T>::token_details(&ticker);
+        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did)
     }
 }
