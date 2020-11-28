@@ -4560,11 +4560,13 @@ dependencies = [
 name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4782,8 +4784,14 @@ dependencies = [
 name = "pallet-utility"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
+ "hex-literal 0.2.1",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-indices",
  "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -5269,6 +5277,7 @@ dependencies = [
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "lazy_static",
@@ -5292,12 +5301,14 @@ dependencies = [
 name = "polymesh-contracts"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-contracts",
  "pallet-identity",
  "pallet-protocol-fee",
  "parity-scale-codec",
+ "parity-wasm 0.41.0",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
@@ -5305,6 +5316,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "wat",
 ]
 
 [[package]]
@@ -5634,7 +5646,10 @@ dependencies = [
  "pallet-identity",
  "pallet-portfolio",
  "pallet-protocol-fee",
+ "pallet-settlement",
  "pallet-timestamp",
+ "pallet-utility",
+ "polymesh-contracts",
 ]
 
 [[package]]

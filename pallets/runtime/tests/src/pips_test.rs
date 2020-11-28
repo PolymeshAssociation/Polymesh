@@ -10,7 +10,7 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
-    StorageDoubleMap, StoragePrefixedMap,
+    StorageDoubleMap, StorageMap,
 };
 use frame_system::{self, EventRecord};
 use pallet_balances as balances;
@@ -35,6 +35,8 @@ type Treasury = treasury::Module<TestStorage>;
 type Error = pallet_pips::Error<TestStorage>;
 type Deposits = pallet_pips::Deposits<TestStorage>;
 type Votes = pallet_pips::ProposalVotes<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
+type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -83,6 +85,24 @@ macro_rules! assert_last_event {
             }]
             if $cond
         ));
+    };
+}
+
+macro_rules! assert_event_exists {
+    ($event:pat) => {
+        assert_event_exists!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
     };
 }
 
@@ -168,14 +188,6 @@ fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
     for signer in signers.iter().copied().cloned() {
         assert_ok!(Committee::vote_or_propose(signer, true, call.clone()));
     }
-}
-
-fn fast_forward_to(n: u64) {
-    let block_number = System::block_number();
-    (block_number..n).for_each(|block| {
-        assert_ok!(Pips::end_block(block));
-        System::set_block_number(block + 1);
-    });
 }
 
 fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
@@ -399,8 +411,9 @@ fn default_enactment_period_works_community() {
                 vec![(last_id, SnapshotResult::Approve)]
             ));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
-            assert!(Pips::execution_schedule(expected).contains(&last_id));
+            let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
+            assert_eq!(1, Agenda::get(expected).len());
         };
         check_community(0);
         check_community(3);
@@ -425,8 +438,9 @@ fn default_enactment_period_works_committee() {
             let block_at_approval = System::block_number();
             assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
-            assert!(Pips::execution_schedule(expected).contains(&last_id));
+            let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
+            assert_eq!(1, Agenda::get(expected).len());
         };
         check_committee(0);
         check_committee(3);
@@ -1123,6 +1137,10 @@ fn scheduled_proposal(signer: &Origin, deposit: u128) -> PipId {
         gc_vmo(),
         vec![(next_id, SnapshotResult::Approve)]
     ));
+    assert_event_exists!(
+        EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Scheduled(b, ..)),
+        *b == System::block_number() + Pips::default_enactment_period()
+    );
     assert_state(next_id, false, ProposalState::Scheduled);
     assert_eq!(Pips::active_pip_count(), active);
     next_id
@@ -1235,9 +1253,8 @@ fn assert_pruned(id: PipId) {
     assert_eq!(Pips::proposals(id), None);
     assert_vote_details(id, VotingResult::default(), vec![], vec![]);
     assert_eq!(Pips::pip_to_schedule(id), None);
-    for v in <pallet_pips::ExecutionSchedule<TestStorage>>::iter_values() {
-        assert!(v.iter().all(|x| *x != id));
-    }
+    // TODO: Check that the PIP has been removed from the schedule. This should be easily done after
+    // fixing this issue: https://github.com/paritytech/substrate/issues/7449
     assert!(Pips::snapshot_queue().iter().all(|p| p.id != id));
     assert_eq!(Pips::pip_skip_count(id), 0);
 }
@@ -1489,10 +1506,12 @@ fn reject_proposal_will_unschedule() {
 
         let check = |id: PipId| {
             let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-            assert_eq!(Pips::execution_schedule(scheduled_at), vec![id]);
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
-            assert_eq!(Pips::execution_schedule(scheduled_at), Vec::<PipId>::new());
+            assert_event_exists!(
+                EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Canceled(when, ..)),
+                *when == scheduled_at
+            );
         };
 
         // Test snapshot method.
@@ -1606,19 +1625,31 @@ fn reschedule_execution_works() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(&rc, 0);
         let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-        assert!(Pips::execution_schedule(scheduled_at).contains(&id));
+        assert_eq!(1, Agenda::get(scheduled_at).len());
 
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, None));
+        assert_event_exists!(EventTest::pallet_scheduler(
+            pallet_scheduler::RawEvent::Canceled(..)
+        ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
-        assert!(!Pips::execution_schedule(scheduled_at).contains(&id));
-        assert!(Pips::execution_schedule(next).contains(&id));
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(scheduled_at).len()
+        );
+        assert_eq!(1, Agenda::get(next).len());
 
         assert_ok!(Pips::reschedule_execution(rc.clone(), id, Some(next + 50)));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert!(!Pips::execution_schedule(scheduled_at).contains(&id));
-        assert!(!Pips::execution_schedule(next).contains(&id));
-        assert!(Pips::execution_schedule(next + 50).contains(&id));
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(scheduled_at).len()
+        );
+        assert_eq!(
+            1, /* the Agenda vec item is None */
+            Agenda::get(next).len()
+        );
+        assert_eq!(1, Agenda::get(next + 50).len());
     });
 }
 

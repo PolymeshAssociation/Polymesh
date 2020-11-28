@@ -9,9 +9,9 @@ use crate::{
     },
 };
 use chrono::prelude::Utc;
-use core::num::NonZeroU64;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
+    assert_err, assert_noop, assert_ok, dispatch::DispatchError, IterableStorageMap,
+    StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -2384,6 +2384,101 @@ fn classic_ticker_genesis_works() {
 }
 
 #[test]
+fn classic_ticker_register_works() {
+    let mut config = default_reg_config();
+    with_asset_genesis(AssetGenesis {
+        ticker_registration_config: config.clone(),
+        classic_migration_tconfig: config.clone(),
+        // Let there be one classic ticker reserved already, to cause a conflict.
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker: ticker("ACME"),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(move || {
+        let alice_eth = ethereum::EthereumAddress(*b"0x012345678987654321");
+        let mut classic = ClassicTickerImport {
+            eth_owner: alice_eth,
+            ticker: ticker("ACME"),
+            is_created: true,
+            is_contract: false,
+        };
+
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+
+        // Only root can call.
+        assert_noop!(
+            Asset::reserve_classic_ticker(alice_signer.clone(), classic, alice_did, config.clone()),
+            DispatchError::BadOrigin
+        );
+
+        // ACME was already registered.
+        assert_noop!(
+            Asset::reserve_classic_ticker(root(), classic, alice_did, config.clone()),
+            AssetError::TickerAlreadyRegistered
+        );
+
+        // Create BETA as an asset and fail to register it.
+        classic.ticker = ticker("BETA");
+        assert_ok!(Asset::create_asset(
+            alice_signer,
+            b"".into(),
+            classic.ticker,
+            0,
+            false,
+            <_>::default(),
+            vec![],
+            None,
+        ));
+        assert_noop!(
+            Asset::reserve_classic_ticker(root(), classic, alice_did, config.clone()),
+            AssetError::AssetAlreadyCreated
+        );
+
+        // Set max-length to 1 and check that it's enforced.
+        // Also set and expect the expiry length.
+        config.max_ticker_length = 1;
+        classic.ticker = ticker("AB");
+        assert_noop!(
+            Asset::reserve_classic_ticker(root(), classic, alice_did, config.clone()),
+            AssetError::TickerTooLong
+        );
+        classic.ticker = ticker("A");
+        config.registration_length = Some(1337);
+        let expiry = Some(Timestamp::get() + 1337);
+        let assert = |classic, owner, is_created| {
+            assert_ok!(Asset::reserve_classic_ticker(
+                root(),
+                classic,
+                alice_did,
+                config.clone()
+            ));
+            assert_eq!(
+                Asset::ticker_registration(classic.ticker),
+                TickerRegistration { owner, expiry },
+            );
+            assert_eq!(
+                Asset::classic_ticker_registration(classic.ticker).unwrap(),
+                ClassicTickerRegistration {
+                    is_created,
+                    eth_owner: alice_eth,
+                },
+            );
+        };
+        assert(classic, SystematicIssuers::ClassicMigration.as_id(), true);
+
+        // Also test the contract situation.
+        classic.ticker = ticker("B");
+        classic.is_contract = true;
+        classic.is_created = false;
+        assert(classic, alice_did, false);
+    });
+}
+
+#[test]
 fn classic_ticker_no_such_classic_ticker() {
     with_asset_genesis(AssetGenesis {
         classic_migration_tconfig: default_reg_config(),
@@ -2770,7 +2865,7 @@ fn next_checkpoint_is_updated_we() {
     // A period of 42 hours.
     let period = CalendarPeriod {
         unit: CalendarUnit::Hour,
-        amount: NonZeroU64::new(42),
+        amount: 42,
     };
     // The increment in seconds.
     let period_secs = match period.to_recurring().unwrap().as_fixed_or_variable() {

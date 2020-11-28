@@ -1,4 +1,17 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
 // Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! # Settlement Module
 //!
@@ -33,6 +46,9 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -75,7 +91,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInAInstruction: Get<u32>;
+    type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
@@ -84,6 +100,8 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
+    /// Weight information for extrinsic in this pallet.
+    type WeightInfo: WeightInfo;
 }
 
 /// A wrapper for VenueDetails
@@ -257,6 +275,12 @@ pub struct Receipt<Balance> {
     pub amount: Balance,
 }
 
+/// A wrapper for VenueDetails
+#[derive(
+    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct ReceiptMetadata(Vec<u8>);
+
 /// Details about an offchain transaction receipt that a user must input
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
@@ -268,6 +292,85 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub signer: AccountId,
     /// signature confirming the receipt details
     pub signature: OffChainSignature,
+    /// Generic text that can be used to attach messages to receipts
+    pub metadata: ReceiptMetadata,
+}
+
+pub trait WeightInfo {
+    fn create_venue(d: u32, u: u32) -> Weight;
+    fn update_venue(d: u32) -> Weight;
+    fn add_instruction(u: u32) -> Weight;
+    fn add_and_affirm_instruction(u: u32) -> Weight;
+    fn affirm_instruction() -> Weight;
+    fn withdraw_affirmation(u: u32) -> Weight;
+    fn reject_instruction() -> Weight;
+    fn affirm_with_receipts() -> Weight;
+    fn claim_receipt() -> Weight;
+    fn unclaim_receipt() -> Weight;
+    fn set_venue_filtering() -> Weight;
+    fn allow_venues(u: u32) -> Weight;
+    fn disallow_venues(u: u32) -> Weight;
+
+    // Some multiple paths based extrinsic.
+    // TODO: Will be removed once we get the worst case weight.
+    fn set_venue_filtering_disallow() -> Weight;
+    fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
+    fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
+    fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
+}
+
+impl WeightInfo for () {
+    fn create_venue(_d: u32, _u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn update_venue(_d: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn affirm_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn reject_instruction() -> Weight {
+        1_000_000_000
+    }
+    fn affirm_with_receipts() -> Weight {
+        1_000_000_000
+    }
+    fn claim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn unclaim_receipt() -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering() -> Weight {
+        1_000_000_000
+    }
+    fn allow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn disallow_venues(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn set_venue_filtering_disallow() -> Weight {
+        1_000_000_000
+    }
+    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
+        1_000_000_000
+    }
+    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
+        1_000_000_000
+    }
 }
 
 pub mod weight_for {
@@ -314,7 +417,7 @@ pub mod weight_for {
     pub fn weight_for_transfer<T: Trait>() -> Weight {
         GAS_LIMIT
             .saturating_mul(
-                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInAInstruction::get()).into(),
+                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
             )
             .saturating_add(70_000_000) // Weight for compliance manager
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
@@ -356,8 +459,8 @@ decl_event!(
         AffirmationWithdrawn(IdentityId, PortfolioId, u64),
         /// An instruction has been rejected (did, instruction_id)
         InstructionRejected(IdentityId, u64),
-        /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer)
-        ReceiptClaimed(IdentityId, u64, u64, u64, AccountId),
+        /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
+        ReceiptClaimed(IdentityId, u64, u64, u64, AccountId, ReceiptMetadata),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
         ReceiptUnclaimed(IdentityId, u64, u64, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
@@ -414,7 +517,7 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Maximum numbers of legs in a instruction > `MaxLegsInAInstruction`.
+        /// Maximum numbers of legs in a instruction > `MaxLegsInInstruction`.
         LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
@@ -468,7 +571,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        const MaxLegsInAInstruction: u32 = T::MaxLegsInAInstruction::get();
+        const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
             // Delete all settlement data that were stored at a wrong prefix.
@@ -580,8 +683,10 @@ decl_module! {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             let legs_count = legs.len();
-            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-            let affirm_instruction_weight = Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())?;
+            let affirm_instruction_weight = with_transaction(|| {
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+                Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
+            })?;
             Ok(
                 Some(
                     weight_for::weight_for_instruction_creation::<T>(legs_count)
@@ -603,7 +708,7 @@ decl_module! {
                 Ok(post_info) => Ok(post_info),
                 Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
                     Ok(e.post_info)
-                }else {
+                } else {
                     Err(e)
                 }
             }
@@ -706,10 +811,7 @@ decl_module! {
             Self::unsafe_claim_receipt(
                 primary_did,
                 instruction_id,
-                receipt_details.leg_id,
-                receipt_details.receipt_uid,
-                receipt_details.signer,
-                receipt_details.signature,
+                receipt_details,
                 secondary_key.as_ref()
             )
         }
@@ -821,7 +923,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
         ensure!(
-            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInAInstruction::get(),
+            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInInstruction::get(),
             Error::<T>::LegsCountExceededMaxLimit
         );
 
@@ -988,6 +1090,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InstructionNotPending
         );
         if let Some(valid_from) = instruction_details.valid_from {
+            #[cfg(not(feature = "runtime-benchmarks"))]
             ensure!(
                 <pallet_timestamp::Module<T>>::get() >= valid_from,
                 Error::<T>::InstructionWaitingValidity
@@ -1171,34 +1274,32 @@ impl<T: Trait> Module<T> {
     fn unsafe_claim_receipt(
         did: IdentityId,
         instruction_id: u64,
-        leg_id: u64,
-        receipt_uid: u64,
-        signer: T::AccountId,
-        signature: T::OffChainSignature,
+        receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_instruction_validity(instruction_id)?;
 
         ensure!(
-            Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending,
+            Self::instruction_leg_status(instruction_id, receipt_details.leg_id)
+                == LegStatus::ExecutionPending,
             Error::<T>::LegNotPending
         );
         let venue_id = Self::instruction_details(instruction_id).venue_id;
         ensure!(
-            Self::venue_signers(venue_id, &signer),
+            Self::venue_signers(venue_id, &receipt_details.signer),
             Error::<T>::UnauthorizedSigner
         );
         ensure!(
-            !Self::receipts_used(&signer, receipt_uid),
+            !Self::receipts_used(&receipt_details.signer, receipt_details.receipt_uid),
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        let leg = Self::instruction_legs(instruction_id, leg_id);
+        let leg = Self::instruction_legs(instruction_id, receipt_details.leg_id);
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
         let msg = Receipt {
-            receipt_uid,
+            receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
             asset: leg.asset,
@@ -1206,25 +1307,31 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(
-            signature.verify(&msg.encode()[..], &signer),
+            receipt_details
+                .signature
+                .verify(&msg.encode()[..], &receipt_details.signer),
             Error::<T>::InvalidSignature
         );
 
         T::Portfolio::unlock_tokens(&leg.from, &leg.asset, &leg.amount)?;
 
-        <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
+        <ReceiptsUsed<T>>::insert(&receipt_details.signer, receipt_details.receipt_uid, true);
 
         <InstructionLegStatus<T>>::insert(
             instruction_id,
-            leg_id,
-            LegStatus::ExecutionToBeSkipped(signer.clone(), receipt_uid),
+            receipt_details.leg_id,
+            LegStatus::ExecutionToBeSkipped(
+                receipt_details.signer.clone(),
+                receipt_details.receipt_uid,
+            ),
         );
         Self::deposit_event(RawEvent::ReceiptClaimed(
             did,
             instruction_id,
-            leg_id,
-            receipt_uid,
-            signer,
+            receipt_details.leg_id,
+            receipt_details.receipt_uid,
+            receipt_details.signer,
+            receipt_details.metadata,
         ));
         Ok(())
     }
@@ -1399,6 +1506,7 @@ impl<T: Trait> Module<T> {
                 receipt.leg_id,
                 receipt.receipt_uid,
                 receipt.signer.clone(),
+                receipt.metadata.clone(),
             ));
         }
 

@@ -475,6 +475,9 @@ impl pallet_pips::Trait for Runtime {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 parameter_types! {
@@ -552,15 +555,17 @@ impl treasury::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInInstruction: u32 = 10;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = ();
 }
 
 impl sto::Trait for Runtime {
@@ -698,12 +703,13 @@ impl IdentityTrait for Runtime {
 }
 
 parameter_types! {
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
 }
 
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
 impl pallet_corporate_actions::Trait for Runtime {
@@ -738,6 +744,7 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+    type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
 }
 
 impl confidential::Trait for Runtime {
@@ -1279,7 +1286,10 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, polymesh_contracts, Contracts);
+            add_benchmark!(params, batches, pallet_utility, Utility);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

@@ -1180,7 +1180,7 @@ enum Releases {
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V5_0_0
+        Releases::V4_0_0
     }
 }
 
@@ -2663,15 +2663,17 @@ decl_module! {
             Self::do_payout_stakers(validator_stash, era)
         }
 
-        /// Switch slashing status on the basis of given `SlashingSwitch`. Only be called by the root.
+        /// Switch slashing status on the basis of given `SlashingSwitch`. Can only be called by root.
+        ///
         /// # Arguments
         /// * origin - AccountId of root.
+        /// * slashing_switch - Switch used to set the targets for slashing.
         #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
-        pub fn change_slashing_allowed_for(origin, switch: SlashingSwitch) {
+        pub fn change_slashing_allowed_for(origin, slashing_switch: SlashingSwitch) {
             // Ensure origin should be root.
             ensure_root(origin)?;
-            SlashingAllowedFor::put(switch);
-            Self::deposit_event(RawEvent::SlashingAllowedForChanged(switch));
+            SlashingAllowedFor::put(slashing_switch);
+            Self::deposit_event(RawEvent::SlashingAllowedForChanged(slashing_switch));
         }
     }
 }

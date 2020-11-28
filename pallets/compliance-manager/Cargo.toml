@@ -33,7 +33,7 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0", optional = true }
 
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
@@ -63,6 +63,6 @@ std = [
 
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"pallet-asset",
-	"pallet-balances",
+	"pallet-asset/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]

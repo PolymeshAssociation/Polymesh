@@ -57,7 +57,9 @@ std = [
     "sp-version/std",
 ]
 runtime-benchmarks = [
+    "polymesh-common-utilities/runtime-benchmarks",
     "frame-benchmarking",
     "cryptography",
     "schnorrkel",
+    "polymesh-common-utilities/runtime-benchmarks",
 ]
