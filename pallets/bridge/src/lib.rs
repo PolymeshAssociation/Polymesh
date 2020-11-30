@@ -412,7 +412,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let storage_ver = <StorageVersion>::get();
+            let storage_ver = StorageVersion::get();
             storage_migrate_on!(storage_ver, 1, {
                 let now = frame_system::Module::<T>::block_number();
 
