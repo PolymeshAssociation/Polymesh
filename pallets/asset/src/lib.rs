@@ -371,7 +371,7 @@ decl_module! {
             use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
             use sp_std::collections::btree_map::BTreeMap;
 
-            let storage_ver = <StorageVersion>::get();
+            let storage_ver = StorageVersion::get();
             storage_migrate_on!(storage_ver, 1, {
                 let mut id_map = BTreeMap::<_, u32>::new();
                 migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
