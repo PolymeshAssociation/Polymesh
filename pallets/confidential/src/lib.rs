@@ -36,6 +36,9 @@ use sp_std::prelude::*;
 pub mod rng;
 pub use rng::native_rng;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
 

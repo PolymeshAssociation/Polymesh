@@ -196,6 +196,7 @@ runtime-benchmarks = [
     "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
+    "pallet-confidential/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]
