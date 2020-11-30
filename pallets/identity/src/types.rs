@@ -1,12 +1,11 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-pub use polymesh_primitives::{
-    Authorization, AuthorizationType, IdentityId, Moment, Permissions, SecondaryKey,
-};
+use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
+use sp_std::{prelude::*, vec::Vec};
+
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_std::{prelude::*, vec::Vec};
 
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
@@ -57,4 +56,16 @@ pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
     /// `Some(did)` iff the current identity (the identity that the call is made from) is a
     /// secondary identity `did` of `primary_did`.
     pub secondary_key: Option<SecondaryKey<AccountId>>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim1stKey {
+    pub target: IdentityId,
+    pub claim_type: ClaimType,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim2ndKey {
+    pub issuer: IdentityId,
+    pub scope: Option<Scope>,
 }

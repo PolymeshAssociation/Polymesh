@@ -92,7 +92,7 @@ pub struct UserBuilder<T: Trait> {
 }
 
 impl<T: Trait> UserBuilder<T> {
-    /// Create an account based on `name` and `u` with 1_000_000 as free balance.
+    /// Create an account based on `name` and `u` with 5_000_000 as free balance.
     /// It also registers the DID for that account.
     pub fn build_with_did(self, name: &'static str, u: u32) -> User<T> {
         let User {
@@ -195,7 +195,7 @@ impl<T: Trait> Default for UserBuilder<T> {
             account: None,
             uid: None,
             did: None,
-            balance: 1_000_000u128,
+            balance: 5_000_000u128,
         }
     }
 }
