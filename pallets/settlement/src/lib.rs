@@ -584,7 +584,7 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
 
-            let storage_ver = <StorageVersion>::get();
+            let storage_ver = StorageVersion::get();
             storage_migrate_on!(storage_ver, 1, {
                 // Delete all settlement data that were stored at a wrong prefix.
                 let prefix = Twox128::hash(b"StoCapped");
