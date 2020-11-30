@@ -10,7 +10,7 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
-    StorageDoubleMap, StorageMap,
+    StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{self, EventRecord};
 use pallet_balances as balances;
@@ -19,6 +19,7 @@ use pallet_group as group;
 use pallet_pips::{
     self as pips, DepositInfo, Pip, PipDescription, PipsMetadata, ProposalState, Proposer,
     RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
+    LiveQueue,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock};
@@ -1793,5 +1794,21 @@ fn expiry_works() {
         for id in &[r, e, f, s] {
             assert_ne!(Pips::proposals(id).unwrap().state, ProposalState::Expired);
         }
+    });
+}
+
+#[test]
+#[should_panic = "called `Result::unwrap_err()` on an `Ok` value: 0"]
+fn propose_dupe_live_insert_panics() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        // Manipulate storage to provoke panic in `insert_live_queue`.
+        let spip = SnapshottedPip { id: 0, weight: (true, 0) };
+        <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip]);
+
+        // Triggers a panic, assertion never reached.
+        assert_ok!(alice_proposal(0));
     });
 }
