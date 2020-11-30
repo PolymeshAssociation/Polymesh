@@ -86,6 +86,7 @@
 //!
 //! - `end_block` - executes scheduled proposals
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use core::mem;
@@ -114,7 +115,7 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -390,18 +391,7 @@ pub trait Trait:
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Version {
-    V0,
-    V1,
-}
-
-impl Default for Version {
-    /// Default version which could be use during storage initialization.
-    fn default() -> Self {
-        Version::V0
-    }
-}
+storage_migration_ver!(1);
 
 // This module's storage items.
 decl_storage! {
@@ -480,7 +470,7 @@ decl_storage! {
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -618,16 +608,15 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            // Larger goal here is to clear Governance V1.
+            use frame_support::{
+                storage::{IterableStorageDoubleMap, migration::StorageIterator},
+                traits::ReservableCurrency,
+            };
+            use polymesh_primitives::migrate::kill_item;
 
             let storage_ver = <StorageVersion>::get();
-            if storage_ver == Version::V0 {
-                // Larger goal here is to clear Governance V1.
-                use frame_support::{
-                    storage::{IterableStorageDoubleMap, migration::StorageIterator},
-                    traits::ReservableCurrency,
-                };
-                use polymesh_primitives::migrate::kill_item;
-
+            storage_migrate_on!(storage_ver, 1, {
                 // 1. Start with refunding all deposits.
                 // As we've `drain`ed  `Deposits`, we need not do so again below.
                 for (_, _, depo) in <Deposits<T>>::drain() {
@@ -658,10 +647,7 @@ decl_module! {
                 for item in &["ProposalDuration", "QuorumThreshold"] {
                     kill_item(b"Pips", item.as_bytes());
                 }
-
-                <StorageVersion>::put(Version::V1);
-            }
-
+            });
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.

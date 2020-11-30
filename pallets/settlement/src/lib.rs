@@ -74,7 +74,9 @@ use polymesh_common_utilities::{
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker, storage_migration_ver, storage_migrate_on};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
     traits::{Dispatchable, Verify, Zero},
