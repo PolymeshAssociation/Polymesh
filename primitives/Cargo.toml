@@ -14,7 +14,7 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
 curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek.git", branch = "v2-packed-simd", default-features = false }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
@@ -43,12 +43,12 @@ serde_json = "1.0.48"
 default = ["std"]
 
 # Backends
-u32_backend = [ "cryptography/u32_backend", "schnorrkel/u32_backend"]
-u64_backend = [ "cryptography/u64_backend", "schnorrkel/u64_backend"]
-avx2_backend = [ "cryptography/avx2_backend", "schnorrkel/u64_backend"]
+u32_backend = [ "confidential_identity/u32_backend", "schnorrkel/u32_backend"]
+u64_backend = [ "confidential_identity/u64_backend", "schnorrkel/u64_backend"]
+avx2_backend = [ "confidential_identity/avx2_backend", "schnorrkel/u64_backend"]
 
 no_std = [
-	"cryptography/no_std",
+	"confidential_identity/no_std",
 ]
 
 std = [
@@ -64,7 +64,7 @@ std = [
 	"frame-system/std",
 	"sp-io/std",
 	# Crypto
-	"cryptography/std",
+	"confidential_identity/std",
 	"schnorrkel/std",
 	"blake2/std",
 	"blake2/simd",

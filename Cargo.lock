@@ -824,6 +824,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "confidential_identity"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-187/cleanup-dir-structure#ac0a27960bddcfc1e913b7f90c4a54dfe8de5552"
+dependencies = [
+ "blake2",
+ "bulletproofs",
+ "byteorder 1.3.4",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
+ "failure",
+ "lazy_static",
+ "merlin",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
+ "serde",
+ "serde_json",
+ "sha3 0.8.2",
+ "sp-std",
+ "zeroize",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1136,25 +1158,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "cryptography"
-version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop#b137bb799c1bcbfcfc6fbc190499b94bb3ed5a55"
+name = "cryptography_core"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-187/cleanup-dir-structure#ac0a27960bddcfc1e913b7f90c4a54dfe8de5552"
 dependencies = [
- "blake2",
  "bulletproofs",
  "byteorder 1.3.4",
- "criterion",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "failure",
- "lazy_static",
- "log",
  "merlin",
  "parity-scale-codec",
  "rand 0.7.3",
  "rand_core 0.5.1",
- "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
- "serde_json",
  "sha3 0.8.2",
  "sp-std",
  "zeroize",
@@ -1204,13 +1220,12 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd#3ad591b06ae0b9ad97f81711296bea8087a345e9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
 dependencies = [
  "byteorder 1.3.4",
  "digest 0.8.1",
- "packed_simd_2",
  "rand_core 0.5.1",
- "serde",
  "subtle 2.3.0",
  "zeroize",
 ]
@@ -1218,12 +1233,13 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
+source = "git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd#3ad591b06ae0b9ad97f81711296bea8087a345e9"
 dependencies = [
  "byteorder 1.3.4",
  "digest 0.8.1",
+ "packed_simd_2",
  "rand_core 0.5.1",
+ "serde",
  "subtle 2.3.0",
  "zeroize",
 ]
@@ -3457,6 +3473,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
 
 [[package]]
+name = "mercat"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-187/cleanup-dir-structure#ac0a27960bddcfc1e913b7f90c4a54dfe8de5552"
+dependencies = [
+ "bulletproofs",
+ "byteorder 1.3.4",
+ "cryptography_core",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
+ "failure",
+ "merlin",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
+ "serde_json",
+ "sha3 0.8.2",
+ "sp-std",
+ "zeroize",
+]
+
+[[package]]
 name = "merlin"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4215,7 +4252,7 @@ name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
  "bulletproofs",
- "cryptography",
+ "cryptography_core",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-support",
  "frame-system",
@@ -4241,11 +4278,12 @@ name = "pallet-confidential-asset"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography",
+ "cryptography_core",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "mercat",
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
@@ -4446,7 +4484,6 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "cryptography",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4694,9 +4731,9 @@ name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "cryptography",
  "frame-support",
  "frame-system",
+ "mercat",
  "pallet-balances 0.1.0",
  "pallet-confidential-asset",
  "pallet-identity",
@@ -5479,7 +5516,7 @@ dependencies = [
  "base64 0.12.3",
  "blake2",
  "chrono",
- "cryptography",
+ "confidential_identity",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "frame-support",
  "frame-system",
@@ -5701,7 +5738,8 @@ version = "1.0.0"
 dependencies = [
  "base64 0.12.3",
  "chrono",
- "cryptography",
+ "confidential_identity",
+ "cryptography_core",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "env_logger",
  "frame-benchmarking",
@@ -5711,6 +5749,7 @@ dependencies = [
  "ink_primitives",
  "lazy_static",
  "libsecp256k1",
+ "mercat",
  "pallet-asset",
  "pallet-authorship",
  "pallet-babe",
@@ -7361,24 +7400,6 @@ dependencies = [
 [[package]]
 name = "schnorrkel"
 version = "0.9.1"
-source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
-dependencies = [
- "arrayref",
- "arrayvec 0.5.2",
- "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
- "getrandom 0.1.15",
- "merlin",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "serde",
- "sha2 0.8.2",
- "subtle 2.3.0",
- "zeroize",
-]
-
-[[package]]
-name = "schnorrkel"
-version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "021b403afe70d81eea68f6ea12f6b3c9588e5d536a94c3bf80f15e7faa267862"
 dependencies = [
@@ -7389,6 +7410,24 @@ dependencies = [
  "merlin",
  "rand 0.7.3",
  "rand_core 0.5.1",
+ "sha2 0.8.2",
+ "subtle 2.3.0",
+ "zeroize",
+]
+
+[[package]]
+name = "schnorrkel"
+version = "0.9.1"
+source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
+dependencies = [
+ "arrayref",
+ "arrayvec 0.5.2",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
+ "getrandom 0.1.15",
+ "merlin",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
  "sha2 0.8.2",
  "subtle 2.3.0",
  "zeroize",
@@ -9262,7 +9301,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.7.3",
+ "rand 0.3.23",
  "static_assertions",
 ]
 

@@ -22,7 +22,7 @@ use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use pallet_identity as identity;
 
 use bulletproofs::RangeProof;
-use cryptography::asset_proofs::range_proof::{
+use cryptography_core::asset_proofs::range_proof::{
     prove_within_range, verify_within_range, InRangeProof,
 };
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};

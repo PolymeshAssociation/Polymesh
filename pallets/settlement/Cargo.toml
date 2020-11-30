@@ -28,7 +28,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 [features]

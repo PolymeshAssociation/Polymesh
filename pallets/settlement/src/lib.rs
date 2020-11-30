@@ -37,7 +37,6 @@
 #![recursion_limit = "256"]
 
 use codec::{Decode, Encode};
-use cryptography::mercat::{InitializedTransferTx, JustifiedTransferTx};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -50,6 +49,7 @@ use frame_support::{
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
+use mercat::{InitializedTransferTx, JustifiedTransferTx};
 use pallet_confidential_asset::{self as confidential_asset, MercatAccountId};
 use pallet_identity as identity;
 use polymesh_common_utilities::{

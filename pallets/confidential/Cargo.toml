@@ -30,7 +30,7 @@ sp-runtime-interface = { git = "https://github.com/paritytech/substrate", defaul
 # Crypto
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true }
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
 curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek.git", branch = "v2-packed-simd", default-features = false, features = ["nightly"] }
 bulletproofs = { git = "https://github.com/PolymathNetwork/bulletproofs.git", branch = "v2-packed-simd", default-features = false, features = ["zeroize"] }
 
@@ -41,19 +41,18 @@ only-staking = []
 default = ["std", "equalize", "u64_backend"]
 
 # Backends
-# u32_backend = ["cryptography/u32_backend"]
-u64_backend = ["cryptography/u64_backend"]
-avx2_backend = ["cryptography/avx2_backend"]
+u64_backend = ["cryptography_core/u64_backend"]
+avx2_backend = ["cryptography_core/avx2_backend"]
 
 no_std = [
-	"cryptography/no_std",
+	"cryptography_core/no_std",
 	"u64_backend"
 ]
 
 std = [
 	"rand/std",
 	"rand_core/std",
-	"cryptography/std",
+	"cryptography_core/std",
 	"codec/std",
 	"sp-core/std",
 	"sp-std/std",

@@ -6,18 +6,18 @@ use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
 use core::convert::{TryFrom, TryInto};
-use cryptography::{
+use cryptography_core::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
-    mercat::{
-        account::{convert_asset_ids, AccountCreator},
-        asset::AssetIssuer,
-        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptionKeys, PubAccountTx,
-        SecAccount,
-    },
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
 use frame_support::{assert_err, assert_ok};
+use mercat::{
+    account::{convert_asset_ids, AccountCreator},
+    asset::AssetIssuer,
+    Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptionKeys, PubAccountTx,
+    SecAccount,
+};
 use pallet_asset as asset;
 use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;

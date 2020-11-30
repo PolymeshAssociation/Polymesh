@@ -11,22 +11,21 @@ use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
 use core::convert::{TryFrom, TryInto};
-use cryptography::{
+use cryptography_core::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
-    mercat::{
-        account::{convert_asset_ids, AccountCreator},
-        asset::AssetIssuer,
-        transaction::{CtxMediator, CtxReceiver, CtxSender},
-        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
-        EncryptionKeys, FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx,
-        SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
-        TransferTransactionSender,
-    },
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
 use frame_support::{
     assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
+};
+use mercat::{
+    account::{convert_asset_ids, AccountCreator},
+    asset::AssetIssuer,
+    transaction::{CtxMediator, CtxReceiver, CtxSender},
+    Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
+    FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx, SecAccount,
+    TransferTransactionMediator, TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_asset as asset;
 use pallet_balances as balances;
