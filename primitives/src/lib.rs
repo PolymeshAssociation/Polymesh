@@ -282,6 +282,8 @@ macro_rules! storage_migration_ver {
         impl Version {
             const MAX: u8 = $ver;
 
+            /// Constructor as `const function` which is interpreted by the compiler at
+            /// compile-time.
             const fn new(ver: u8) -> Option<Self> {
                 if ver <= Self::MAX {
                     Some(Self(ver))

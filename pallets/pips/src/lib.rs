@@ -115,7 +115,7 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId};
+use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -389,10 +389,6 @@ pub trait Trait:
         + From<Call<Self>>;
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
-
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Pips {
@@ -615,39 +611,36 @@ decl_module! {
             };
             use polymesh_primitives::migrate::kill_item;
 
-            let storage_ver = <StorageVersion>::get();
-            storage_migrate_on!(storage_ver, 1, {
-                // 1. Start with refunding all deposits.
-                // As we've `drain`ed  `Deposits`, we need not do so again below.
-                for (_, _, depo) in <Deposits<T>>::drain() {
-                    <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
-                }
+            // 1. Start with refunding all deposits.
+            // As we've `drain`ed  `Deposits`, we need not do so again below.
+            for (_, _, depo) in <Deposits<T>>::drain() {
+                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
+            }
 
-                // 2. Then we clear various storage items that were present on V1.
-                // For future reference, the storage items are defined in:
-                // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
+            // 2. Then we clear various storage items that were present on V1.
+            // For future reference, the storage items are defined in:
+            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
 
-                // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
-                for item in &[
-                    "ProposalMetadata",
-                    "ProposalsMaturingAt",
-                    "Proposals",
-                    "ProposalResult",
-                    "Referendums",
-                    "ScheduledReferendumsAt",
-                    "ProposalVotes",
-                ] {
-                    StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
-                }
+            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
+            for item in &[
+                "ProposalMetadata",
+                "ProposalsMaturingAt",
+                "Proposals",
+                "ProposalResult",
+                "Referendums",
+                "ScheduledReferendumsAt",
+                "ProposalVotes",
+            ] {
+                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
+            }
 
-                // 2b) Reset the PIP ID sequence to `0`.
-                PipIdSequence::kill();
+            // 2b) Reset the PIP ID sequence to `0`.
+            PipIdSequence::kill();
 
-                // 2c) Remove items no longer used in V2.
-                for item in &["ProposalDuration", "QuorumThreshold"] {
-                    kill_item(b"Pips", item.as_bytes());
-                }
-            });
+            // 2c) Remove items no longer used in V2.
+            for item in &["ProposalDuration", "QuorumThreshold"] {
+                kill_item(b"Pips", item.as_bytes());
+            }
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.
