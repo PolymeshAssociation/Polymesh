@@ -297,7 +297,7 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
 
-            let storage_ver = <StorageVersion>::get();
+            let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 1, {
                 migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
