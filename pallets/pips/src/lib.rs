@@ -464,9 +464,6 @@ decl_storage! {
         /// All existing PIPs where the proposer is a committee.
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
-
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
