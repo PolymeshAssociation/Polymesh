@@ -1041,7 +1041,7 @@ decl_module! {
         /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
         /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
         /// * `SnapshotIdMismatch` - if:
-        ///   ```
+        ///   ```text
         ///    ∃ (i ∈ 0..SnapshotQueue.len()).
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
@@ -1586,4 +1586,22 @@ fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
         slice.copy_within(new..old, new + 1);
     }
     slice[new] = elem;
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn compare_spip_works() {
+        let mk = |id, sign, power| super::SnapshottedPip { id, weight: (sign, power) };
+        let a = mk(4, true, 50);
+        let b = mk(3, true, 50);
+        let c = mk(5, true, 50);
+        let d = mk(6, false, 0);
+        let e = mk(7, true, 0);
+        let f = mk(8, false, 50);
+        let g = mk(9, true, 100);
+        let mut queue = vec![a, c, d, b, e, g, f];
+        queue.sort_unstable_by(super::compare_spip);
+        assert_eq!(queue, vec![f, d, e, c, a, b, g]);
+    }
 }
