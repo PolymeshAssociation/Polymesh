@@ -258,7 +258,7 @@ decl_module! {
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            let storage_ver = <StorageVersion>::get();
+            let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 1, {
                 migrate_map::<LinkedKeyInfo, _>(
