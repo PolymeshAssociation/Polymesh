@@ -46,6 +46,7 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -73,7 +74,9 @@ use polymesh_common_utilities::{
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
     traits::{Dispatchable, Verify, Zero},
@@ -530,6 +533,10 @@ decl_error! {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Trait> as Settlement {
         /// Info about a venue. venue_id -> venue_details
@@ -562,6 +569,8 @@ decl_storage! {
         VenueCounter get(fn venue_counter) build(|_| 1u64): u64;
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -574,13 +583,17 @@ decl_module! {
         const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
-            // Delete all settlement data that were stored at a wrong prefix.
-            let prefix = Twox128::hash(b"StoCapped");
-            storage::unhashed::kill_prefix(&prefix);
 
-            // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
-            <VenueCounter>::put(1);
-            <InstructionCounter>::put(1);
+            let storage_ver = StorageVersion::get();
+            storage_migrate_on!(storage_ver, 1, {
+                // Delete all settlement data that were stored at a wrong prefix.
+                let prefix = Twox128::hash(b"StoCapped");
+                storage::unhashed::kill_prefix(&prefix);
+
+                // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
+                <VenueCounter>::put(1);
+                <InstructionCounter>::put(1);
+            });
 
             1_000
         }
