@@ -78,8 +78,7 @@
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(bool_to_option)]
-#![feature(or_patterns)]
+#![feature(bool_to_option, or_patterns, const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -115,9 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, AssetIdentifier, AuthorizationData, Document, DocumentId, DocumentName,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
+    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -258,18 +258,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Version {
-    V0,
-    V1,
-}
-
-impl Default for Version {
-    /// Default version which could be use during storage initialization.
-    fn default() -> Self {
-        Version::V0
-    }
-}
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
@@ -329,7 +318,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -382,9 +371,8 @@ decl_module! {
             use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
             use sp_std::collections::btree_map::BTreeMap;
 
-
             let storage_ver = <StorageVersion>::get();
-            if storage_ver == Version::V0 {
+            storage_migrate_on!(storage_ver, 1, {
                 let mut id_map = BTreeMap::<_, u32>::new();
                 migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
                 b"Asset", b"AssetDocuments",
@@ -397,9 +385,7 @@ decl_module! {
                 for (ticker, id) in id_map {
                     AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
-
-                <StorageVersion>::put(Version::V1);
-            }
+            });
 
 
             1_000

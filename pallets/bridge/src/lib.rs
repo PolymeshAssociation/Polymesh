@@ -95,6 +95,7 @@
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -118,7 +119,9 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
-use polymesh_primitives::{IdentityId, Permissions, Signatory};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, IdentityId, Permissions, Signatory,
+};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -261,18 +264,7 @@ decl_error! {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Version {
-    V0,
-    V1,
-}
-
-impl Default for Version {
-    /// Default version which could be use during storage initialization.
-    fn default() -> Self {
-        Version::V0
-    }
-}
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
@@ -347,7 +339,7 @@ decl_storage! {
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -401,7 +393,7 @@ decl_module! {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
             let storage_ver = <StorageVersion>::get();
-            if storage_ver == Version::V0 {
+            storage_migrate_on!(storage_ver, 1, {
                 let now = frame_system::Module::<T>::block_number();
 
                 // Migrate timelocked transactions.
@@ -414,9 +406,7 @@ decl_module! {
                             Self::schedule_call(block_number, tx);
                         }
                     });
-
-                <StorageVersion>::put( Version::V1);
-            }
+            });
 
             // No need to calculate correct weight for testnet
             0
