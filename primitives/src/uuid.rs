@@ -28,7 +28,9 @@
 /// ```
 ///
 pub mod index {
+    /// Index of variant field
     pub const VARIANT: usize = 8;
+    /// Index of version field. It is inside `time_hi_and_version` field.
     pub const VERSION: usize = 6;
 }
 
