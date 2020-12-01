@@ -2,7 +2,6 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use crate::settlement_test::{next_block, set_current_block_number};
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
@@ -164,7 +163,6 @@ fn raise_happy_path() {
         alice_init_raise
     );
     assert_eq!(Asset::balance_of(&raise_ticker, bob_did), bob_init_raise);
-    set_current_block_number(55);
     // Bob invests in Alice's fundraiser
     assert_ok!(STO::invest(
         bob_signed.clone(),
@@ -176,7 +174,6 @@ fn raise_happy_path() {
         Some(2u128),
         None
     ));
-    next_block();
     check_fundraiser(1_000_000u128 - amount);
 
     assert_eq!(
