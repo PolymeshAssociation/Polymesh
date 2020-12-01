@@ -799,8 +799,8 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCheckpoint",
                 "AssetCreateAsset",
+                "AssetCreateCheckpointSchedule",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
@@ -809,7 +809,10 @@
                 "IdentitySetPrimaryKey",
                 "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
-                "VotingAddBallot"
+                "VotingAddBallot",
+                "ContractsPutCode",
+                "BallotAttachBallot",
+                "DistributionDistribute",
             ]
         },
         "CddStatus": {
