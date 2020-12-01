@@ -19,6 +19,7 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
+        "Version": "u8", 
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -604,7 +605,6 @@
         "ProposalState": {
             "_enum": [
                 "Pending",
-                "Cancelled",
                 "Rejected",
                 "Scheduled",
                 "Failed",
@@ -632,8 +632,7 @@
             "id": "PipId",
             "proposal": "Call",
             "state": "ProposalState",
-            "proposer": "Proposer",
-            "cool_off_until": "u32"
+            "proposer": "Proposer"
         },
         "ProposalData": {
             "_enum": {

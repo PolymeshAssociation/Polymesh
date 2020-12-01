@@ -17,11 +17,6 @@ impl pallet_pips::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn set_proposal_cool_off_period() -> Weight {
-        (67_396_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
     fn set_default_enactment_period() -> Weight {
         (68_348_000 as Weight)
             .saturating_add(DbWeight::get().reads(1 as Weight))
@@ -49,16 +44,6 @@ impl pallet_pips::WeightInfo for WeightInfo {
     }
     fn propose_from_committee() -> Weight {
         (303_359_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
-    }
-    fn amend_proposal() -> Weight {
-        (282_129_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn cancel_proposal() -> Weight {
-        (577_741_000 as Weight)
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }

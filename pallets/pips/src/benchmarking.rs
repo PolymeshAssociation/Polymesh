@@ -159,14 +159,6 @@ benchmarks! {
         assert_eq!(deposit, MinimumProposalDeposit::<T>::get());
     }
 
-    set_proposal_cool_off_period {
-        let origin = RawOrigin::Root;
-        let period = 42.into();
-    }: _(origin, period)
-    verify {
-        assert_eq!(period, ProposalCoolOffPeriod::<T>::get());
-    }
-
     set_default_enactment_period {
         let origin = RawOrigin::Root;
         let period = 42.into();
@@ -230,46 +222,6 @@ benchmarks! {
         assert_eq!(0, meta.id);
         assert_eq!(Some(url), meta.url);
         assert_eq!(Some(description), meta.description);
-    }
-
-    amend_proposal {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
-        let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::propose(
-            origin.clone().into(),
-            proposal,
-            42.into(),
-            None,
-            None,
-        )?;
-    }: _(origin, 0, Some(url.clone()), Some(description.clone()))
-    verify {
-        let meta = Module::<T>::proposal_metadata(0).unwrap();
-        assert_eq!(0, meta.id);
-        assert_eq!(Some(url), meta.url);
-        assert_eq!(Some(description), meta.description);
-    }
-
-    cancel_proposal {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
-        let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::propose(
-            origin.clone().into(),
-            proposal,
-            42.into(),
-            Some(url),
-            Some(description)
-        )?;
-    }: _(origin, 0)
-    verify {
-        assert_eq!(
-            Module::<T>::proposals(0).unwrap().proposer,
-            Proposer::Community(account)
-        );
     }
 
     vote {

@@ -96,6 +96,7 @@
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -119,7 +120,9 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
-use polymesh_primitives::{IdentityId, Permissions, Signatory};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, IdentityId, Permissions, Signatory,
+};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -275,6 +278,10 @@ decl_error! {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers accept their
@@ -346,6 +353,9 @@ decl_storage! {
 
         /// Identities not constrained by the bridge limit.
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -402,18 +412,21 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let now = frame_system::Module::<T>::block_number();
+            let storage_ver = StorageVersion::get();
+            storage_migrate_on!(storage_ver, 1, {
+                let now = frame_system::Module::<T>::block_number();
 
-            // Migrate timelocked transactions.
-            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
-                .drain()
-                .for_each(|(block_number, txs)| {
-                    // Schedule only for future blocks.
-                    let block_number = T::BlockNumber::max(block_number, now + One::one());
-                    for tx in txs {
-                        Self::schedule_call(block_number, tx);
-                    }
-                });
+                // Migrate timelocked transactions.
+                StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                    .drain()
+                    .for_each(|(block_number, txs)| {
+                        // Schedule only for future blocks.
+                        let block_number = T::BlockNumber::max(block_number, now + One::one());
+                        for tx in txs {
+                            Self::schedule_call(block_number, tx);
+                        }
+                    });
+            });
 
             // No need to calculate correct weight for testnet
             0

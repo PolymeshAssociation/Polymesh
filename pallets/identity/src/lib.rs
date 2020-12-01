@@ -71,10 +71,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns)]
+#![feature(or_patterns, const_option)]
 
 pub mod types;
-pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
+pub use types::{
+    Claim1stKey, Claim2ndKey, DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData,
+};
+
+mod migration;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -113,13 +117,13 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
+    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
-use sp_io::hashing::blake2_256;
+use sp_io::hashing::{blake2_128, blake2_256};
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
@@ -132,17 +136,9 @@ use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim1stKey {
-    pub target: IdentityId,
-    pub claim_type: ClaimType,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim2ndKey {
-    pub issuer: IdentityId,
-    pub scope: Option<Scope>,
-}
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
@@ -192,6 +188,9 @@ decl_storage! {
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -259,25 +258,31 @@ decl_module! {
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            migrate_map::<LinkedKeyInfo, _>(
-                b"identity",
-                b"KeyToIdentityIds",
-                |_| Empty
-            );
-            // Migrate secondary key permissions to the new type
-            migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
-                b"identity",
-                b"DidRecords",
-                |_| Empty
-            );
-            // Remove roles from Identities
-            StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
-                .drain()
-                .map(|(key, old)|  (key, DidRecord {
-                    primary_key: old.primary_key,
-                    secondary_keys: old.secondary_keys,
-                }))
+            let storage_ver = StorageVersion::get();
+
+            storage_migrate_on!(storage_ver, 1, {
+                migrate_map::<LinkedKeyInfo, _>(
+                    b"identity",
+                    b"KeyToIdentityIds",
+                    |_| Empty
+                    );
+                // Migrate secondary key permissions to the new type
+                migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
+                    b"identity",
+                    b"DidRecords",
+                    |_| Empty
+                    );
+                // Remove roles from Identities
+                StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
+                    .drain()
+                    .map(|(key, old)|  (key, DidRecord {
+                        primary_key: old.primary_key,
+                        secondary_keys: old.secondary_keys,
+                    }))
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
+            });
+
+           storage_migrate_on!(storage_ver, 2, { Claims::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -344,10 +349,12 @@ decl_module! {
             target_account: T::AccountId,
         ) -> DispatchResult {
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
+
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
+            let target_uid = blake2_128( target_did.as_bytes()).into();
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_did.to_bytes().into()));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid));
             Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
             Ok(())

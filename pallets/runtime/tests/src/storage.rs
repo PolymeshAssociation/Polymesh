@@ -291,6 +291,7 @@ parameter_types! {
 impl polymesh_contracts::Trait for TestStorage {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
 impl multisig::Trait for TestStorage {

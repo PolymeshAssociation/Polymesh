@@ -78,8 +78,7 @@
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(bool_to_option)]
-#![feature(or_patterns)]
+#![feature(bool_to_option, or_patterns, const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -115,9 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, AssetIdentifier, AuthorizationData, Document, DocumentId, DocumentName,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
+    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -256,6 +256,10 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -313,6 +317,8 @@ decl_storage! {
         /// Tracks the ScopeId of the identity for a given ticker.
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -362,21 +368,25 @@ decl_module! {
 
             // Migrate `AssetDocuments`.
             use frame_support::Blake2_128Concat;
-            use polymesh_primitives::migrate::{migrate_double_map, Migrate};
-            use polymesh_primitives::document::DocumentOld;
+            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
             use sp_std::collections::btree_map::BTreeMap;
-            let mut id_map = BTreeMap::<_, u32>::new();
-            migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
+
+            let storage_ver = StorageVersion::get();
+            storage_migrate_on!(storage_ver, 1, {
+                let mut id_map = BTreeMap::<_, u32>::new();
+                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
                 b"Asset", b"AssetDocuments",
-                |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                    let count = id_map.entry(ticker).or_default();
-                    let id = DocumentId(mem::replace(count, *count + 1));
-                    Some((ticker, id, doc.migrate(name)?))
+                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
+                        let count = id_map.entry(ticker).or_default();
+                        let id = DocumentId(mem::replace(count, *count + 1));
+                        Some((ticker, id, doc.migrate(name)?))
+                    }
+                    );
+                for (ticker, id) in id_map {
+                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
-            );
-            for (ticker, id) in id_map {
-                AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
-            }
+            });
+
 
             1_000
         }
