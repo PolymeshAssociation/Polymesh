@@ -15,14 +15,16 @@ const prepend2 = "USD";
 
 async function main() {
   const api = await reqImports.createApi();
-  const tickerHex = reqImports.stringToHex(`${prepend}0`); 
-  const ticker2Hex = reqImports.stringToHex(`${prepend2}0`); 
+
+  const ticker = await reqImports.generateRandomTicker(api);
+  const ticker2 = await reqImports.generateRandomTicker(api);
+  const tickerHex = reqImports.stringToHex(ticker); 
+  const ticker2Hex = reqImports.stringToHex(ticker2); 
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let charlie = testEntities[2];
-
+  let bob = await reqImports.generateRandomEntity(api);
+  let charlie = await reqImports.generateRandomEntity(api);
 
   let alice_did = await reqImports.keyToIdentityIds(api, alice.publicKey);
 
@@ -44,6 +46,15 @@ async function main() {
   // Alice and Bob create their Mercat account locally and submit the proof to the chain
   const bobMercatInfo = await createMercatUserAccount('bob', tickerHex, ticker2Hex, 'chain_dir');
   const aliceMercatInfo = await createMercatUserAccount('alice', tickerHex, ticker2Hex, 'chain_dir');
+
+  // Validate Alice and Bob's Mercat Accounts
+  await validateMercatAccount(api, alice, aliceMercatInfo.mercatAccountID);
+  // await validateMercatAccount(api, bob, bobMercatInfo.mercatAccountProof);
+
+  // Charlie creates his mediator Mercat Account 
+  const charlieMercatInfo = await createMercatMediatorAccount('charlie', 'chain_dir');
+
+  // TODO Validate Charlie's Mercat Account 
  
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -55,6 +66,13 @@ async function main() {
   process.exit();
 }
 
+async function validateMercatAccount(api, signer, proof) {
+    const transaction = await api.tx.confidentialAsset.validateMercatAccount(proof);
+    
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
+}
+
 async function createMercatUserAccount(account, tickerHex, ticker2Hex, dbDir) {
   const { stdout, stderr } = await exec(`mercat-interactive create-user-account --user ${account} --db-dir ${dbDir} --ticker ${tickerHex.substr(2)} --valid-ticker-names ${tickerHex.substr(2)} ${ticker2Hex.substr(2)}`);
 
@@ -64,6 +82,13 @@ async function createMercatUserAccount(account, tickerHex, ticker2Hex, dbDir) {
 
   return {mercatAccountID, mercatAccountProof};
 }
+
+async function createMercatMediatorAccount(account, dbDir) {
+    const { stdout, stderr } = await exec(`mercat-interactive create-mediator-account  --db-dir ${dbDir} --user ${account}`);
+    const splitOutput = stderr.split('\n');
+    
+    return splitOutput[15].trim();
+  }
 
 async function createConfidentialAsset(api, ticker, signer) {
 
