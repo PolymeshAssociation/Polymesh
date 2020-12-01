@@ -10,15 +10,16 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
-    StorageDoubleMap, StorageMap,
+    StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{self, EventRecord};
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_pips::{
-    self as pips, DepositInfo, Pip, PipDescription, PipsMetadata, ProposalState, Proposer,
-    RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
+    self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
+    Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
+    VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock};
@@ -124,12 +125,6 @@ macro_rules! assert_no_pip {
     }};
 }
 
-macro_rules! assert_immutable {
-    ($e:expr) => {{
-        assert_noop!($e, Error::ProposalIsImmutable);
-    }};
-}
-
 fn make_proposal(value: u64) -> Call {
     Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
 }
@@ -219,11 +214,6 @@ fn updating_pips_variables_works() {
         assert_last_event!(Event::MinimumProposalDepositChanged(_, 50, 10));
         assert_eq!(Pips::min_proposal_deposit(), 10);
 
-        assert_eq!(Pips::proposal_cool_off_period(), 100);
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 10));
-        assert_last_event!(Event::ProposalCoolOffPeriodChanged(_, 100, 10));
-        assert_eq!(Pips::proposal_cool_off_period(), 10);
-
         assert_eq!(Pips::default_enactment_period(), 100);
         assert_ok!(Pips::set_default_enactment_period(root(), 10));
         assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
@@ -264,10 +254,6 @@ fn updating_pips_variables_only_root() {
             DispatchError::BadOrigin,
         );
         assert_noop!(
-            Pips::set_proposal_cool_off_period(signer.clone(), 0),
-            DispatchError::BadOrigin,
-        );
-        assert_noop!(
             Pips::set_default_enactment_period(signer.clone(), 0),
             DispatchError::BadOrigin,
         );
@@ -290,13 +276,12 @@ fn historical_prune_works() {
         // We just test one case for brevity.
         System::set_block_number(1);
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
-        assert_pruned(cancelled_proposal());
         assert_pruned(rejected_proposal());
         let bob = User::new(AccountKeyring::Bob);
         set_members(vec![bob.did]);
         assert_pruned(executed_community_proposal(&bob.signer()));
         assert_pruned(failed_community_proposal(bob, 1337));
-        assert_pruned(expired_proposal(7, 13));
+        assert_pruned(expired_proposal(13));
     });
 }
 
@@ -368,29 +353,6 @@ fn active_limit_works() {
 }
 
 #[test]
-fn cool_off_period_works() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let block = System::block_number();
-        let propose_check = |cooling_until| {
-            assert_ok!(Pips::set_proposal_cool_off_period(root(), cooling_until));
-            assert_ok!(alice_proposal(0));
-            assert_eq!(
-                block + cooling_until,
-                Pips::proposals(Pips::pip_id_sequence() - 1)
-                    .unwrap()
-                    .cool_off_until,
-            );
-        };
-        propose_check(0);
-        propose_check(1);
-        propose_check(10);
-        propose_check(42);
-    })
-}
-
-#[test]
 fn default_enactment_period_works_community() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -402,7 +364,7 @@ fn default_enactment_period_works_community() {
             assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
             assert_ok!(alice_proposal(0));
             let last_id = Pips::pip_id_sequence() - 1;
-            fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
+            fast_forward_blocks(1);
             assert_ok!(Pips::snapshot(alice.signer()));
             assert_ok!(Pips::set_default_enactment_period(root(), period));
             let block_at_approval = System::block_number();
@@ -433,7 +395,7 @@ fn default_enactment_period_works_committee() {
         let check_committee = |period| {
             assert_ok!(committee_proposal(0));
             let last_id = Pips::pip_id_sequence() - 1;
-            fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
+            fast_forward_blocks(1);
             assert_ok!(Pips::set_default_enactment_period(root(), period));
             let block_at_approval = System::block_number();
             assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
@@ -454,7 +416,6 @@ fn skip_limit_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
         set_members(vec![alice.did]);
@@ -540,7 +501,6 @@ fn proposal_details_are_correct() {
             proposal: call,
             state: ProposalState::Pending,
             proposer,
-            cool_off_until: System::block_number() + Pips::proposal_cool_off_period(),
         };
         assert_eq!(Pips::proposals(0).unwrap(), expected);
 
@@ -569,30 +529,16 @@ fn propose_committee_pip_only_zero_deposit() {
 }
 
 #[test]
-fn amend_proposal_no_such_proposal() {
+fn vote_no_such_proposal() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        assert_no_pip!(Pips::amend_proposal(root(), 0, None, None));
-        assert_no_pip!(Pips::cancel_proposal(root(), 0));
         let signer = Origin::signed(AccountKeyring::Bob.public());
         assert_no_pip!(Pips::vote(signer, 0, false, 0));
     });
 }
 
 #[test]
-fn amend_proposal_not_owner_bad_origin() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(alice_proposal(0));
-        let bob = Origin::signed(AccountKeyring::Bob.public());
-        assert_bad_origin!(Pips::amend_proposal(bob.clone(), 0, None, None));
-        assert_bad_origin!(Pips::cancel_proposal(bob.clone(), 0));
-    });
-}
-
-#[test]
-fn amend_proposal_not_pending() {
+fn vote_not_pending() {
     let op_and_check = |op_and_check: &dyn Fn(Origin, PipId)| {
         ExtBuilder::default().build().execute_with(|| {
             System::set_block_number(1);
@@ -602,56 +548,14 @@ fn amend_proposal_not_pending() {
             let alice = User::new(AccountKeyring::Alice);
             set_members(vec![alice.did]);
 
-            op_and_check(alice.signer(), cancelled_proposal());
             op_and_check(alice.signer(), rejected_proposal());
             op_and_check(alice.signer(), executed_community_proposal(&alice.signer()));
             op_and_check(alice.signer(), failed_community_proposal(alice, 1337));
             op_and_check(alice.signer(), scheduled_proposal(&alice.signer(), 0));
-            op_and_check(alice.signer(), expired_proposal(42, 24));
+            op_and_check(alice.signer(), expired_proposal(24));
         })
     };
-    op_and_check(&|o, id| assert_bad_state!(Pips::amend_proposal(o, id, None, None)));
-    op_and_check(&|o, id| assert_bad_state!(Pips::cancel_proposal(o, id)));
     op_and_check(&|o, id| assert_bad_state!(Pips::vote(o, id, false, 0)));
-}
-
-#[test]
-fn amend_proposal_beyond_cool_off() {
-    ExtBuilder::default().monied(true).build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
-        assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
-        fast_forward_blocks(Pips::proposal_cool_off_period());
-        let signer = Origin::signed(AccountKeyring::Alice.public());
-        assert_immutable!(Pips::amend_proposal(signer.clone(), 0, None, None));
-        assert_immutable!(Pips::cancel_proposal(signer.clone(), 0));
-    });
-}
-
-#[test]
-fn amend_proposal_works() {
-    ExtBuilder::default().monied(true).build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
-        let signer = Origin::signed(AccountKeyring::Alice.public());
-        let url = Some("https:://example.com".into());
-        let description = Some("foo bar baz".into());
-        assert_ok!(Pips::amend_proposal(
-            signer,
-            0,
-            url.clone(),
-            description.clone()
-        ));
-        let expected = PipsMetadata {
-            id: 0,
-            created_at: 1,
-            url,
-            description,
-            transaction_version: 0,
-            expiry: <_>::default(),
-        };
-        assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
-    });
 }
 
 #[test]
@@ -685,7 +589,6 @@ fn vote_owner_below_min_deposit() {
         let min = 50;
         let sub = min - 1;
         assert_ok!(Pips::set_min_proposal_deposit(root(), min));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -754,34 +657,10 @@ fn vote_on_community_only() {
 }
 
 #[test]
-fn vote_on_cool_off() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
-        assert_ok!(alice_proposal(0));
-        assert!(Pips::proposals(0).unwrap().cool_off_until > System::block_number());
-        // Alice made the PIP, so they can vote during cool-off period.
-        let signer = User::new(AccountKeyring::Alice).signer();
-        assert_ok!(Pips::vote(signer, 0, false, 0));
-        // Bob cannot vote until cool-off has passed.
-        let signer = Origin::signed(AccountKeyring::Bob.public());
-        assert_noop!(
-            Pips::vote(signer.clone(), 0, false, 0),
-            Error::ProposalOnCoolOffPeriod
-        );
-        // Fast-forward beyond cool-off; Bob can vote now.
-        fast_forward_blocks(42);
-        assert_ok!(Pips::vote(signer, 0, false, 0));
-    });
-}
-
-#[test]
 fn vote_duplicate_ok() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         let signer = Origin::signed(AccountKeyring::Alice.public());
 
         assert_ok!(alice_proposal(42));
@@ -840,7 +719,6 @@ fn vote_stake_overflow() {
         let alice = User::new(AccountKeyring::Alice).balance(u128::MAX);
         let bob = User::new(AccountKeyring::Bob).balance(100);
 
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(u128::MAX));
         assert_eq!(
             Pips::proposal_result(0),
@@ -870,7 +748,6 @@ fn vote_insufficient_reserve() {
         .execute_with(|| {
             System::set_block_number(1);
             assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-            assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
             let signer = Origin::signed(AccountKeyring::Bob.public());
             assert_ok!(alice_proposal(0));
             assert_noop!(
@@ -886,7 +763,6 @@ fn vote_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         let alice_acc = AccountKeyring::Alice.public();
         let bob_acc = AccountKeyring::Bob.public();
         let bob = Origin::signed(bob_acc);
@@ -961,12 +837,11 @@ fn approve_committee_proposal_not_pending() {
         set_members(vec![alice.did]);
 
         let acp_bad_state = |id| assert_bad_state!(Pips::approve_committee_proposal(gc_vmo(), id));
-        acp_bad_state(cancelled_proposal());
         acp_bad_state(rejected_proposal());
         acp_bad_state(executed_community_proposal(&alice.signer()));
         acp_bad_state(failed_community_proposal(alice, 1337));
         acp_bad_state(scheduled_proposal(&alice.signer(), 0));
-        acp_bad_state(expired_proposal(8, 9));
+        acp_bad_state(expired_proposal(9));
     });
 }
 
@@ -979,26 +854,11 @@ fn approve_committee_proposal_no_such_proposal() {
 }
 
 #[test]
-fn approve_committee_proposal_on_cool_off() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
-        assert_ok!(committee_proposal(0));
-        assert!(Pips::proposals(0).unwrap().cool_off_until > System::block_number());
-        assert_noop!(
-            Pips::approve_committee_proposal(gc_vmo(), 0),
-            Error::ProposalOnCoolOffPeriod,
-        );
-    });
-}
-
-#[test]
 fn approve_committee_proposal_not_by_committee() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(alice_proposal(0));
-        fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
         assert_noop!(
             Pips::approve_committee_proposal(gc_vmo(), 0),
             Error::NotByCommittee,
@@ -1011,7 +871,6 @@ fn only_gc_majority_stuff() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -1115,23 +974,10 @@ fn cannot_reject_no_such_proposal() {
     });
 }
 
-fn cancelled_proposal() -> PipId {
-    let next_id = Pips::pip_id_sequence();
-    assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
-    let active = Pips::active_pip_count();
-    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
-    assert_ok!(Pips::cancel_proposal(alice_signer, next_id));
-    assert_state(next_id, true, ProposalState::Cancelled);
-    assert_eq!(Pips::pip_id_sequence(), next_id + 1);
-    assert_eq!(Pips::active_pip_count(), active - 1);
-    next_id
-}
-
 fn scheduled_proposal(signer: &Origin, deposit: u128) -> PipId {
     let next_id = Pips::pip_id_sequence();
     assert_ok!(alice_proposal(deposit));
     let active = Pips::active_pip_count();
-    fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
     assert_ok!(Pips::snapshot(signer.clone()));
     assert_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
@@ -1159,16 +1005,16 @@ fn executed_community_proposal(signer: &Origin) -> PipId {
 
 fn failed_community_proposal(user: User, bad_id: PipId) -> PipId {
     let next_id = Pips::pip_id_sequence();
+    let deposit = Pips::min_proposal_deposit();
     assert_ok!(proposal(
         &user.signer(),
         &Proposer::Community(user.acc()),
         Call::Pips(pallet_pips::Call::reject_proposal(bad_id)),
-        Pips::min_proposal_deposit(),
+        deposit,
         None,
         None
     ));
     let active = Pips::active_pip_count();
-    fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
     assert_ok!(Pips::snapshot(user.signer()));
     assert_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
@@ -1193,18 +1039,15 @@ fn rejected_proposal() -> PipId {
     next_id
 }
 
-fn expired_proposal(cool_off: u64, expiry: u64) -> PipId {
+fn expired_proposal(expiry: u64) -> PipId {
     let next_id = Pips::pip_id_sequence();
 
-    // Save old config data and set new ones for cool-off/expiry.
-    let old_cool_off = Pips::proposal_cool_off_period();
+    // Save old config data and set new ones for expiry.
     let old_expiry = Pips::pending_pip_expiry();
-    assert_ok!(Pips::set_proposal_cool_off_period(root(), cool_off));
     assert_ok!(Pips::set_pending_pip_expiry(
         root(),
         MaybeBlock::Some(expiry)
     ));
-    let expiry_time = cool_off + expiry;
 
     // Create a proposal and verify its pending.
     let active = Pips::active_pip_count();
@@ -1212,15 +1055,14 @@ fn expired_proposal(cool_off: u64, expiry: u64) -> PipId {
     assert_state(next_id, false, ProposalState::Pending);
     assert_eq!(
         Pips::proposal_metadata(next_id).unwrap().expiry,
-        MaybeBlock::Some(expiry_time + System::block_number())
+        MaybeBlock::Some(expiry + System::block_number())
     );
 
     // Now fast forward.
-    fast_forward_blocks(expiry_time + 1); // Forward exactly to expiry point + 1.
+    fast_forward_blocks(expiry + 1); // Forward exactly to expiry point + 1.
     assert_eq!(Pips::active_pip_count(), active);
 
     // Restore config to before function was called.
-    assert_ok!(Pips::set_proposal_cool_off_period(root(), old_cool_off));
     assert_ok!(Pips::set_pending_pip_expiry(root(), old_expiry));
 
     next_id
@@ -1237,13 +1079,12 @@ fn cannot_reject_incorrect_state() {
         set_members(vec![bob.did]);
 
         let reject_bad_state = |id| assert_bad_state!(Pips::reject_proposal(gc_vmo(), id));
-        // Cannot reject cancelled, executed, failed, and rejected:
-        let cancelled_id = cancelled_proposal();
-        reject_bad_state(cancelled_id);
-        reject_bad_state(executed_community_proposal(&bob.signer()));
-        reject_bad_state(failed_community_proposal(bob, cancelled_id));
+        // Cannot reject executed, failed, and rejected:
+        let exec_id = executed_community_proposal(&bob.signer());
+        reject_bad_state(exec_id);
+        reject_bad_state(failed_community_proposal(bob, exec_id));
         reject_bad_state(rejected_proposal());
-        reject_bad_state(expired_proposal(77, 23));
+        reject_bad_state(expired_proposal(23));
     });
 }
 
@@ -1270,43 +1111,28 @@ fn can_prune_states_that_cannot_be_rejected() {
         let bob = User::new(AccountKeyring::Bob);
         set_members(vec![bob.did]);
 
-        // Can prune cancelled:
-        assert_ok!(alice_proposal(100));
-        assert_balance(alice.acc(), init_bal, 100);
-        assert_eq!(Pips::pip_id_sequence(), 1);
-        assert_eq!(Pips::active_pip_count(), 1);
-        assert_ok!(Pips::cancel_proposal(alice.signer(), 0));
-        assert_state(0, false, ProposalState::Cancelled);
-        assert_balance(alice.acc(), init_bal, 0);
-        assert_eq!(Pips::pip_id_sequence(), 1);
-        assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), 0));
-        assert_balance(alice.acc(), init_bal, 0);
-        assert_pruned(0);
-
         // Can prune executed:
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_balance(alice.acc(), init_bal, 0);
         assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_ok!(alice_proposal(200));
         assert_balance(alice.acc(), init_bal, 200);
-        assert_eq!(Pips::pip_id_sequence(), 2);
+        assert_eq!(Pips::pip_id_sequence(), 1);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::snapshot(bob.signer()));
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
-            vec![(1, SnapshotResult::Approve)]
+            vec![(0, SnapshotResult::Approve)]
         ));
-        assert_state(1, false, ProposalState::Scheduled);
+        assert_state(0, false, ProposalState::Scheduled);
         assert_balance(alice.acc(), init_bal, 200);
         assert_eq!(Pips::active_pip_count(), 1);
         fast_forward_blocks(Pips::default_enactment_period() + 1);
-        assert_state(1, false, ProposalState::Executed);
+        assert_state(0, false, ProposalState::Executed);
         assert_balance(alice.acc(), init_bal, 0);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), 1));
+        assert_ok!(Pips::prune_proposal(gc_vmo(), 0));
         assert_balance(alice.acc(), init_bal, 0);
-        assert_pruned(1);
+        assert_pruned(0);
 
         // Can prune failed:
         assert_ok!(proposal(
@@ -1318,36 +1144,36 @@ fn can_prune_states_that_cannot_be_rejected() {
             None
         ));
         assert_balance(alice.acc(), init_bal, 300);
-        assert_eq!(Pips::pip_id_sequence(), 3);
+        assert_eq!(Pips::pip_id_sequence(), 2);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::snapshot(bob.signer()));
         assert_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
-            vec![(2, SnapshotResult::Approve)]
+            vec![(1, SnapshotResult::Approve)]
         ));
-        assert_state(2, false, ProposalState::Scheduled);
+        assert_state(1, false, ProposalState::Scheduled);
         assert_balance(alice.acc(), init_bal, 300);
         assert_eq!(Pips::active_pip_count(), 1);
         fast_forward_blocks(Pips::default_enactment_period() + 1);
-        assert_state(2, false, ProposalState::Failed);
+        assert_state(1, false, ProposalState::Failed);
         assert_balance(alice.acc(), init_bal, 0);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), 2));
+        assert_ok!(Pips::prune_proposal(gc_vmo(), 1));
         assert_balance(alice.acc(), init_bal, 0);
-        assert_pruned(2);
+        assert_pruned(1);
 
         // Can prune rejected:
         assert_ok!(alice_proposal(400));
         assert_balance(alice.acc(), init_bal, 400);
-        assert_eq!(Pips::pip_id_sequence(), 4);
+        assert_eq!(Pips::pip_id_sequence(), 3);
         assert_eq!(Pips::active_pip_count(), 1);
-        assert_ok!(Pips::reject_proposal(gc_vmo(), 3));
+        assert_ok!(Pips::reject_proposal(gc_vmo(), 2));
         assert_balance(alice.acc(), init_bal, 0);
-        assert_state(3, false, ProposalState::Rejected);
+        assert_state(2, false, ProposalState::Rejected);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), 3));
+        assert_ok!(Pips::prune_proposal(gc_vmo(), 2));
         assert_balance(alice.acc(), init_bal, 0);
-        assert_pruned(4);
+        assert_pruned(2);
     });
 }
 
@@ -1372,7 +1198,6 @@ fn cannot_prune_active() {
         assert_balance(alice.acc(), init_bal, 50);
 
         // Alice starts a proposal with some deposit.
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(60));
         assert_balance(alice.acc(), init_bal, 50 + 60);
         // Schedule the PIP.
@@ -1423,7 +1248,6 @@ fn reject_proposal_works() {
                 proposal: make_proposal(42),
                 state: ProposalState::Rejected,
                 proposer: Proposer::Community(alice.acc()),
-                cool_off_until: 1 + Pips::proposal_cool_off_period(),
             }
         );
         assert_balance(alice.acc(), init_bal, 0);
@@ -1433,7 +1257,6 @@ fn reject_proposal_works() {
         assert_eq!(Pips::proposal_result(0), result);
 
         // Alice starts a proposal with some deposit.
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(60));
         assert_balance(alice.acc(), init_bal, 60);
         let result = VotingResult {
@@ -1463,7 +1286,6 @@ fn reject_proposal_works() {
                 proposal: make_proposal(42),
                 state: ProposalState::Rejected,
                 proposer: Proposer::Community(alice.acc()),
-                cool_off_until: 1 + Pips::proposal_cool_off_period(),
             }
         );
         assert_balance(alice.acc(), init_bal, 0);
@@ -1479,7 +1301,6 @@ fn reject_proposal_will_unsnapshot() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
@@ -1498,7 +1319,6 @@ fn reject_proposal_will_unschedule() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
@@ -1585,15 +1405,13 @@ fn reschedule_execution_not_scheduled() {
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
         assert_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_ok!(Pips::prune_proposal(gc_vmo(), id));
-        let id = cancelled_proposal();
-        assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
         let id = rejected_proposal();
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
         let id = executed_community_proposal(&rc);
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
         let id = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
-        let id = expired_proposal(3, 2);
+        let id = expired_proposal(2);
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
     });
 }
@@ -1680,7 +1498,6 @@ fn clear_snapshot_works() {
         assert_eq!(Pips::snapshot_metadata(), None);
 
         // Make a snapshot with something and clear it.
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(100));
         assert_ok!(alice_proposal(200));
         assert_ok!(alice_proposal(400));
@@ -1711,16 +1528,15 @@ fn snapshot_only_pending_hot_community() {
         let rc = init_rc();
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let c = cancelled_proposal();
+
         let r = rejected_proposal();
         let e = executed_community_proposal(&rc);
         let f = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
         let s = scheduled_proposal(&rc, 0);
-        let ex = expired_proposal(9, 1);
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 100));
+        let ex = expired_proposal(1);
         assert_ok!(alice_proposal(0));
         let p = Pips::pip_id_sequence() - 1;
-        for id in &[c, r, e, f, s, p, ex] {
+        for id in &[r, e, f, s, p, ex] {
             assert!(matches!(
                 Pips::proposals(*id).unwrap().proposer,
                 Proposer::Community(_)
@@ -1729,7 +1545,13 @@ fn snapshot_only_pending_hot_community() {
         assert_ok!(committee_proposal(0));
 
         assert_ok!(Pips::snapshot(rc));
-        assert_eq!(Pips::snapshot_queue(), vec![]);
+        assert_eq!(
+            Pips::snapshot_queue(),
+            vec![SnapshottedPip {
+                id: p,
+                weight: (true, 0)
+            }]
+        );
         assert_ne!(Pips::snapshot_metadata(), None);
     });
 }
@@ -1743,7 +1565,6 @@ fn snapshot_works() {
         set_members(vec![user.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(Pips::set_active_pip_limit(root(), 0));
 
         assert_ok!(alice_proposal(0)); // 0
@@ -1820,7 +1641,6 @@ fn enact_snapshot_results_input_too_large() {
         set_members(vec![user.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         assert_ok!(Pips::snapshot(user.signer()));
         assert_noop!(
@@ -1860,7 +1680,6 @@ fn enact_snapshot_results_id_mismatch() {
         set_members(vec![user.did]);
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         assert_ok!(alice_proposal(0));
         assert_ok!(alice_proposal(0));
@@ -1889,7 +1708,6 @@ fn enact_snapshot_results_works() {
 
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
         let mk_queue = |ids: &[PipId]| {
             ids.iter()
@@ -1956,7 +1774,7 @@ fn expiry_works() {
 
         // Test non-prune logic. Prune logic is tested elsewhere.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
-        let id = expired_proposal(7, 13);
+        let id = expired_proposal(13);
         assert_state(id, true, ProposalState::Expired);
         // Travel back in time, and ensure expiry is sticky.
         // This doesn't arise in a real world scenario, but tests an edge case in the code.
@@ -1965,18 +1783,35 @@ fn expiry_works() {
 
         // Make sure non-pending PIPs cannot expire.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
-        assert_ok!(Pips::set_proposal_cool_off_period(root(), 7));
         assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
         let alice = User::new(AccountKeyring::Alice);
         set_members(vec![alice.did]);
-        let c = cancelled_proposal();
         let r = rejected_proposal();
         let e = executed_community_proposal(&alice.signer());
         let f = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
         let s = scheduled_proposal(&alice.signer(), 0);
-        fast_forward_blocks(7 + 13 + 100);
-        for id in &[c, r, e, f, s] {
+        fast_forward_blocks(13 + 100);
+        for id in &[r, e, f, s] {
             assert_ne!(Pips::proposals(id).unwrap().state, ProposalState::Expired);
         }
+    });
+}
+
+#[test]
+#[should_panic = "called `Result::unwrap_err()` on an `Ok` value: 0"]
+fn propose_dupe_live_insert_panics() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        // Manipulate storage to provoke panic in `insert_live_queue`.
+        let spip = SnapshottedPip {
+            id: 0,
+            weight: (true, 0),
+        };
+        <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip]);
+
+        // Triggers a panic, assertion never reached.
+        assert_ok!(alice_proposal(0));
     });
 }
