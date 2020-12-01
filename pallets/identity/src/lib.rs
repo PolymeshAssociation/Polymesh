@@ -117,10 +117,11 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
-    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
-    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    secondary_key, storage_migrate_on, storage_migration_ver, uuid, Authorization,
+    AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
+    DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
+    InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::{blake2_128, blake2_256};
@@ -334,6 +335,11 @@ decl_module! {
 
         // TODO: Remove this before mainnet.
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
+        /// The Investor UID is generated deterministically by the hash of the generated DID and
+        /// then we fix it to be compliant with UUID v4.
+        ///
+        /// # See
+        /// - [RFC 4122: UUID](https://tools.ietf.org/html/rfc4122)
         ///
         /// # Failure
         /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
@@ -351,10 +357,12 @@ decl_module! {
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
-            let target_uid = blake2_128( target_did.as_bytes()).into();
+            let mut target_uid = blake2_128(target_did.as_bytes());
+            uuid::set_variant(&mut target_uid, uuid::Variant::RFC4122);
+            uuid::set_version(&mut target_uid, uuid::Version::V4);
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.into()));
             Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
             Ok(())

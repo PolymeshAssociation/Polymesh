@@ -236,6 +236,9 @@ pub use valid_proof_of_investor::ValidProofOfInvestor;
 /// Timekeeping and checkpoints.
 pub mod calendar;
 
+/// UUID utilities.
+pub mod uuid;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
