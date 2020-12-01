@@ -94,7 +94,7 @@ use codec::{Decode, Encode};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
     traits::{
