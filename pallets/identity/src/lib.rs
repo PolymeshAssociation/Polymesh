@@ -362,9 +362,10 @@ decl_module! {
             uuid::set_version(&mut target_uid, uuid::Version::V4);
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.into()));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
             Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
+            Self::deposit_event(RawEvent::MockInvestorUIDCreated( target_did, target_uid.into()));
             Ok(())
         }
 
