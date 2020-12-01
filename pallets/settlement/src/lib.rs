@@ -731,7 +731,7 @@ decl_module! {
 
             // Withdraw an affirmation.
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
-            if Self::has_instruction_already_scheduled(instruction_id) {
+            if Self::has_instruction_already_scheduled(instruction_id) && Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_ID, instruction_id).encode());
                 ScheduledInstructions::remove(instruction_id);

@@ -282,7 +282,7 @@ decl_module! {
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
             });
 
-           storage_migrate_on!(storage_ver, 2, { Claims::translate(migration::migrate_claim); });
+            storage_migrate_on!(storage_ver, 2, { Claims::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
