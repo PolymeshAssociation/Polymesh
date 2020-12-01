@@ -17,9 +17,9 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_pips::{
-    self as pips, DepositInfo, Pip, PipDescription, PipsMetadata, ProposalState, Proposer,
-    RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
-    LiveQueue,
+    self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
+    Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
+    VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock};
@@ -1805,7 +1805,10 @@ fn propose_dupe_live_insert_panics() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Manipulate storage to provoke panic in `insert_live_queue`.
-        let spip = SnapshottedPip { id: 0, weight: (true, 0) };
+        let spip = SnapshottedPip {
+            id: 0,
+            weight: (true, 0),
+        };
         <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip]);
 
         // Triggers a panic, assertion never reached.

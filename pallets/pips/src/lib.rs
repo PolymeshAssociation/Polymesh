@@ -1592,7 +1592,10 @@ fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
 mod test {
     #[test]
     fn compare_spip_works() {
-        let mk = |id, sign, power| super::SnapshottedPip { id, weight: (sign, power) };
+        let mk = |id, sign, power| super::SnapshottedPip {
+            id,
+            weight: (sign, power),
+        };
         let a = mk(4, true, 50);
         let b = mk(3, true, 50);
         let c = mk(5, true, 50);
