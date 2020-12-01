@@ -749,6 +749,8 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {
