@@ -19,6 +19,7 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
+        "Version": "u8", 
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -867,6 +868,12 @@
                 "Handled": ""
             }
         },
+        "HandledTxStatus": {
+            "_enum": {
+                "Success": "",
+                "Error": "Text"
+            }
+        },
         "CappedFee": "u64",
         "CanTransferResult": {
             "_enum": {
@@ -951,7 +958,7 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "amount": "Option<NonZeroU64>"
+            "amount": "u64"
         },
         "CheckpointSchedule": {
             "start": "Moment",

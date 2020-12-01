@@ -89,12 +89,14 @@
 //! - `change_bridge_exempted`: Changes the bridge limit exempted.
 //! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
 //! timelock.
+//! - `batch_propose_bridge_tx`: Proposes a vector of bridge transactions.
 //! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
 //! - `freeze_txs`: Freezes given bridge transactions.
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -118,7 +120,9 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
-use polymesh_primitives::{IdentityId, Permissions, Signatory};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, IdentityId, Permissions, Signatory,
+};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -190,6 +194,21 @@ pub struct BridgeTxDetail<Balance, BlockNumber> {
     pub tx_hash: H256,
 }
 
+/// The status of a handled transaction for reporting purposes.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HandledTxStatus {
+    /// The transaction has been successfully handled.
+    Success,
+    /// Handling the transaction has failed, with the encoding of the error.
+    Error(Vec<u8>),
+}
+
+impl Default for HandledTxStatus {
+    fn default() -> Self {
+        HandledTxStatus::Success
+    }
+}
+
 pub mod weight_for {
     use super::Trait;
     use frame_support::{traits::Get, weights::Weight};
@@ -258,6 +277,10 @@ decl_error! {
         MissingCurrentIdentity
     }
 }
+
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
@@ -330,6 +353,9 @@ decl_storage! {
 
         /// Identities not constrained by the bridge limit.
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -368,6 +394,10 @@ decl_event! {
         ExemptedUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
+        /// An event emitted after a vector of transactions is handled. The parameter is a vector of
+        /// nonces of all processed transactions, each with either the "success" code 0 or its
+        /// failure reason (greater than 0).
+        TxsHandled(Vec<(u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
@@ -382,18 +412,21 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let now = frame_system::Module::<T>::block_number();
+            let storage_ver = StorageVersion::get();
+            storage_migrate_on!(storage_ver, 1, {
+                let now = frame_system::Module::<T>::block_number();
 
-            // Migrate timelocked transactions.
-            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
-                .drain()
-                .for_each(|(block_number, txs)| {
-                    // Schedule only for future blocks.
-                    let block_number = T::BlockNumber::max(block_number, now + One::one());
-                    for tx in txs {
-                        Self::schedule_call(block_number, tx);
-                    }
-                });
+                // Migrate timelocked transactions.
+                StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                    .drain()
+                    .for_each(|(block_number, txs)| {
+                        // Schedule only for future blocks.
+                        let block_number = T::BlockNumber::max(block_number, now + One::one());
+                        for tx in txs {
+                            Self::schedule_call(block_number, tx);
+                        }
+                    });
+            });
 
             // No need to calculate correct weight for testnet
             0
@@ -488,6 +521,25 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             Self::force_handle_signed_bridge_tx(bridge_tx)
+        }
+
+        /// Proposes a vector of bridge transactions. The vector is processed until the first
+        /// proposal which causes an error, in which case the error is returned and the rest of
+        /// proposals are not processed.
+        ///
+        /// # Weight
+        /// `500_000_000 + 7_000_000 * bridge_txs.len()`
+        #[weight =(
+            500_000_000 + 7_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            DispatchClass::Operational,
+            Pays::Yes
+        )]
+        pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+            DispatchResult
+        {
+            ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
+            let sender = ensure_signed(origin)?;
+            Self::batch_propose_signed_bridge_tx(sender, bridge_txs)
         }
 
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
@@ -705,6 +757,28 @@ impl<T: Trait> Module<T> {
         Ok(weight_for::handle_bridge_tx_later::<T>())
     }
 
+    /// Proposes a vector of bridge transaction. The bridge controller must be set.
+    fn batch_propose_signed_bridge_tx(
+        sender: T::AccountId,
+        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
+    ) -> DispatchResult {
+        let sender_signer = Signatory::Account(sender);
+        let propose = |tx| {
+            let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
+            let boxed_proposal = Box::new(proposal.into());
+            <multisig::Module<T>>::create_or_approve_proposal(
+                Self::controller(),
+                sender_signer.clone(),
+                boxed_proposal,
+                None,
+                true,
+            )
+        };
+        let stati = Self::apply_handler(propose, bridge_txs);
+        Self::deposit_event(RawEvent::TxsHandled(stati));
+        Ok(())
+    }
+
     /// Proposes a bridge transaction. The bridge controller must be set.
     fn propose_signed_bridge_tx(
         sender: T::AccountId,
@@ -787,6 +861,29 @@ impl<T: Trait> Module<T> {
             return Err(Error::<T>::NoValidCdd.into());
         }
         Ok(())
+    }
+
+    /// Applies a handler `f` to a vector of transactions `bridge_txs` and outputs a vector of
+    /// processing results.
+    fn apply_handler<F>(
+        f: F,
+        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
+    ) -> Vec<(u32, HandledTxStatus)>
+    where
+        F: Fn(BridgeTx<T::AccountId, T::Balance>) -> DispatchResult,
+    {
+        let g = |tx: BridgeTx<T::AccountId, T::Balance>| {
+            let nonce = tx.nonce;
+            (
+                nonce,
+                if let Err(e) = f(tx) {
+                    HandledTxStatus::Error(e.encode())
+                } else {
+                    HandledTxStatus::Success
+                },
+            )
+        };
+        bridge_txs.into_iter().map(g).collect()
     }
 
     /// Schedules a timelocked transaction call with constant arguments and emits an event on success or
