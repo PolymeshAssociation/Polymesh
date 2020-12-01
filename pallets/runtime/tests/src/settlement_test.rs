@@ -1949,14 +1949,14 @@ fn basic_fuzzing() {
 
             for i in 0..40 {
                 for j in 0..4 {
-                    assert_eq!(
-                        Portfolio::locked_assets(
-                            PortfolioId::default_portfolio(dids[j]),
-                            &tickers[i]
-                        ),
-                        0
-                    );
                     if fail {
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(dids[j]),
+                                &tickers[i]
+                            ),
+                            0
+                        );
                         assert_eq!(
                             Asset::balance_of(&tickers[i], dids[j]),
                             u128::try_from(
