@@ -131,7 +131,7 @@ pub trait WeightInfo {
     fn register_ticker() -> Weight;
     fn accept_ticker_transfer() -> Weight;
     fn accept_asset_ownership_transfer() -> Weight;
-    fn create_asset(i: u32, f: u32) -> Weight;
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight;
     fn freeze() -> Weight;
     fn unfreeze() -> Weight;
     fn rename_asset(n: u32) -> Weight;
@@ -140,8 +140,8 @@ pub trait WeightInfo {
     fn make_divisible() -> Weight;
     fn add_documents(d: u32) -> Weight;
     fn remove_documents(d: u32) -> Weight;
-    fn set_funding_round() -> Weight;
-    fn update_identifiers() -> Weight;
+    fn set_funding_round(f: u32) -> Weight;
+    fn update_identifiers(i: u32) -> Weight;
     fn remove_primary_issuance_agent() -> Weight;
     fn claim_classic_ticker() -> Weight;
     fn reserve_classic_ticker() -> Weight;
@@ -496,6 +496,7 @@ decl_module! {
         /// # Weight
         /// `3_000_000_000 + 20_000 * identifiers.len()`
         #[weight = <T as Trait>::WeightInfo::create_asset(
+            name.len() as u32,
             identifiers.len() as u32,
             funding_round.as_ref().map_or(0, |name| name.len()) as u32)]
         pub fn create_asset(
@@ -845,7 +846,7 @@ decl_module! {
         /// * `origin` - the secondary key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = <T as Trait>::WeightInfo::set_funding_round()]
+        #[weight = <T as Trait>::WeightInfo::set_funding_round( name.len() as u32 )]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) -> DispatchResult {
             ensure!( name.len() <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -866,7 +867,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 20_000 * identifiers.len()`
-        #[weight = <T as Trait>::WeightInfo::update_identifiers()]
+        #[weight = <T as Trait>::WeightInfo::update_identifiers( identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,

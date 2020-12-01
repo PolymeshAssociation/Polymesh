@@ -23,11 +23,11 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(6 as Weight))
     }
-    // WARNING! Some components were not used: ["n"]
-    fn create_asset(i: u32, f: u32) -> Weight {
-        (8_882_929_000 as Weight)
-            .saturating_add((162_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add((106_000 as Weight).saturating_mul(f as Weight))
+    fn create_asset(n: u32, i: u32, f: u32) -> Weight {
+        (285_386_000 as Weight)
+            .saturating_add((8_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add((159_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add((26_000 as Weight).saturating_mul(f as Weight))
             .saturating_add(DbWeight::get().reads(14 as Weight))
             .saturating_add(DbWeight::get().writes(11 as Weight))
     }
@@ -75,15 +75,15 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
     }
-    // WARNING! Some components were not used: ["f"]
-    fn set_funding_round() -> Weight {
-        (2_536_595_000 as Weight)
+    fn set_funding_round(f: u32) -> Weight {
+        (83_968_000 as Weight)
+            .saturating_add((7_000 as Weight).saturating_mul(f as Weight))
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // WARNING! Some components were not used: ["i"]
-    fn update_identifiers() -> Weight {
-        (2_396_244_000 as Weight)
+    fn update_identifiers(i: u32) -> Weight {
+        (92_044_000 as Weight)
+            .saturating_add((102_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }

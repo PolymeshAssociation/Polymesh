@@ -504,9 +504,9 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
-    pub const AssetNameMaxLength: usize = 1024;
+    pub const AssetNameMaxLength: usize = 128;
     pub const MaxIdentifiersPerAsset: usize = 256;
-    pub const FundingRoundNameMaxLength: usize = 1024;
+    pub const FundingRoundNameMaxLength: usize = 128;
 }
 
 impl asset::Trait for TestStorage {
