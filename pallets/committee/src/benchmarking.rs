@@ -16,12 +16,14 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
+use frame_support::traits::UnfilteredDispatchable;
 use frame_system::RawOrigin;
 use pallet_identity::benchmarking::UserBuilder;
 use polymesh_common_utilities::MaybeBlock;
 use sp_std::{convert::TryFrom, prelude::*};
 
 const COMMITTEE_MEMBERS_NUM: usize = 10;
+const PROPOSAL_PADDING_MAX: u32 = 10_000;
 
 benchmarks_instance! {
     _ {}
@@ -29,7 +31,11 @@ benchmarks_instance! {
     set_vote_threshold {
         let n = 1;
         let d = 2;
-    }: _(RawOrigin::Root, n, d)
+        let origin = T::CommitteeOrigin::successful_origin();
+        // let call = Call::<T>::set_vote_threshold(n, d);
+    }: {
+        // call.dispatch_bypass_filter(origin)?;
+    }
     verify {
         ensure!(Module::<T, _>::vote_threshold() == (n, d), "incorrect vote threshold");
     }
@@ -40,7 +46,11 @@ benchmarks_instance! {
             .collect();
         let coordinator = dids[COMMITTEE_MEMBERS_NUM / 2].clone();
         Members::<I>::put(dids);
-    }: _(RawOrigin::Root, coordinator)
+        let origin = T::CommitteeOrigin::successful_origin();
+        // let call = Call::<T>::set_release_coordinator(coordinator);
+    }: {
+        // call.dispatch_bypass_filter(origin)?;
+    }
     verify {
         ensure!(
             Module::<T, _>::release_coordinator() == Some(coordinator),
@@ -50,18 +60,28 @@ benchmarks_instance! {
 
     set_expires_after {
         let maybe_block = MaybeBlock::Some(1.into());
-    }: _(RawOrigin::Root, maybe_block)
+        let origin = T::CommitteeOrigin::successful_origin();
+        // let call = Call::<T>::set_expires_after(maybe_block);
+    }: {
+        // call.dispatch_bypass_filter(origin)?;
+    }
     verify {
         ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
 
     // TODO: generate variable-length proposals
-    vote_or_propose {
+    vote {
+        let p in 1 .. PROPOSAL_PADDING_MAX;
+        let proposal: <T as Trait<I>>::Proposal =
+            frame_system::Call::<T>::remark(vec![1; p as usize]).into();
     }: {}
     verify {
     }
 
-    vote {
+    vote_or_propose {
+        let p in 1 .. PROPOSAL_PADDING_MAX;
+        let proposal: <T as Trait<I>>::Proposal =
+            frame_system::Call::<T>::remark(vec![1; p as usize]).into();
     }: {}
     verify {
     }

@@ -857,6 +857,9 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
+
+        // #[cfg(feature = "runtime-benchmarks")]
+        // Committee_DefaultInstance: committee::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
     }
 );
 
@@ -1289,6 +1292,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
+            add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

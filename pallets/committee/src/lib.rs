@@ -92,7 +92,10 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
 
     /// The outer call dispatch type.
-    type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin> + GetDispatchInfo;
+    type Proposal: Parameter
+        + Dispatchable<Origin = <Self as Trait<I>>::Origin>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
