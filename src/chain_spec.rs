@@ -25,7 +25,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    PerThing,
+    PerThing, AccountId32
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -139,6 +139,112 @@ fn currency_codes() -> Vec<Ticker> {
         .collect()
 }
 
+const STASH: u128 = 5_000_000 * POLY;
+const ENDOWMENT: u128 = 100_000_000 * POLY;
+
+fn balances(
+    accs: &[AccountId],
+    auths: &[(AccountId32, AccountId32, sr25519::Public, sr25519::Public, sr25519::Public, sr25519::Public)]
+) -> Vec<(AccountId32, u128)> {
+    accs
+        .iter()
+        .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+        .chain(auths.iter().map(|x| (x.1.clone(), ENDOWMENT)))
+        .chain(auths.iter().map(|x| (x.0.clone(), STASH)))
+        .collect()
+}
+
+fn bridge_signers() -> Vec<Signatory<AccountId32>> {
+    vec![
+        Signatory::Account(AccountId::from(
+            get_from_seed::<sr25519::Public>("relay_1").0,
+        )),
+        Signatory::Account(AccountId::from(
+            get_from_seed::<sr25519::Public>("relay_2").0,
+        )),
+        Signatory::Account(AccountId::from(
+            get_from_seed::<sr25519::Public>("relay_3").0,
+        )),
+        Signatory::Account(AccountId::from(
+            get_from_seed::<sr25519::Public>("relay_4").0,
+        )),
+        Signatory::Account(AccountId::from(
+            get_from_seed::<sr25519::Public>("relay_5").0,
+        )),
+    ]
+}
+
+macro_rules! staking {
+    ($auths:expr, $stakers:expr, $cap:expr) => {
+        pallet_staking::GenesisConfig {
+            minimum_validator_count: 1,
+            validator_count: $auths.len() as u32,
+            validator_commission_cap: $cap,
+            stakers: $stakers,
+            invulnerables: $auths.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: general::Perbill::from_percent(10),
+            min_bond_threshold: 5_000_000_000_000,
+            ..Default::default()
+        }
+    }
+}
+
+macro_rules! im_online {
+    () => {
+        im_online::GenesisConfig {
+            slashing_params: general::OfflineSlashingParams {
+                max_offline_percent: 10u32,
+                constant: 3u32,
+                max_slash_percent: 7u32,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+macro_rules! committee_membership {
+    ($member:expr) => {
+        pallet_group::GenesisConfig {
+            active_members_limit: 20,
+            active_members: vec![IdentityId::from($member)],
+            phantom: Default::default(),
+        }
+    };
+}
+
+macro_rules! committee {
+    ($rc:expr) => { committee!($rc, (1, 2)) };
+    ($rc:expr, $vote:expr) => {
+        pallet_committee::GenesisConfig {
+            vote_threshold: $vote,
+            members: vec![],
+            release_coordinator: IdentityId::from($rc),
+            expires_after: <_>::default(),
+            phantom: Default::default(),
+        }
+    }
+}
+
+fn protocol_fees() -> Vec<(ProtocolOp, u128)> {
+    vec![
+        (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
+        (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+    ]
+}
+
+macro_rules! protocol_fee {
+    () => {
+        pallet_protocol_fee::GenesisConfig {
+            base_fees: protocol_fees(),
+            coefficient: PosRatio(1, 1),
+        }
+    }
+}
+
+const MULTISIG: GeneralConfig::MultiSigConfig = GeneralConfig::MultiSigConfig {
+    transaction_version: 1,
+};
+
 fn general_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
@@ -152,8 +258,6 @@ fn general_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GeneralConfig::GenesisConfig {
-    const STASH: u128 = 5_000_000 * POLY;
-    const ENDOWMENT: u128 = 100_000_000 * POLY;
     let stakers;
 
     GeneralConfig::GenesisConfig {
@@ -291,23 +395,7 @@ fn general_testnet_genesis(
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
             signatures_required: 1,
-            signers: vec![
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_1").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_2").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_3").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_4").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_5").0,
-                )),
-            ],
+            signers: bridge_signers(),
             timelock: 10,
             bridge_limit: (100_000_000 * POLY, 1000),
         }),
@@ -325,16 +413,7 @@ fn general_testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(GeneralConfig::StakingConfig {
-            minimum_validator_count: 1,
-            validator_count: initial_authorities.len() as u32,
-            validator_commission_cap: PerThing::from_rational_approximation(1u64, 4u64),
-            stakers,
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: general::Perbill::from_percent(10),
-            min_bond_threshold: 5_000_000_000_000,
-            ..Default::default()
-        }),
+        pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::from_rational_approximation(1u64, 4u64))),
         pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
@@ -344,14 +423,7 @@ fn general_testnet_genesis(
             active_pip_limit: 25,
             pending_pip_expiry: <_>::default(),
         }),
-        pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
-            slashing_params: general::OfflineSlashingParams {
-                max_offline_percent: 10u32,
-                constant: 3u32,
-                max_slash_percent: 7u32,
-            },
-            ..Default::default()
-        }),
+        pallet_im_online: Some(im_online!()),
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
@@ -372,13 +444,7 @@ fn general_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(GeneralConfig::PolymeshCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(6),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
+        committee_Instance1: Some(committee!(6)),
         group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
             active_members_limit: u32::MAX,
             // sp1, sp2, first authority
@@ -391,42 +457,14 @@ fn general_testnet_genesis(
             phantom: Default::default(),
         }),
         // Technical Committee:
-        group_Instance3: Some(general::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(3)],
-            phantom: Default::default(),
-        }),
-        committee_Instance3: Some(GeneralConfig::TechnicalCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(3),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
+        group_Instance3: Some(committee_membership!(3)),
+        committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(general::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(4)],
-            phantom: Default::default(),
-        }),
-        committee_Instance4: Some(GeneralConfig::UpgradeCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(4),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
-        protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
-            base_fees: vec![
-                (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
-                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
-            ],
-            coefficient: PosRatio(1, 1),
-        }),
+        group_Instance4: Some(committee_membership!(4)),
+        committee_Instance4: Some(committee!(4)),
+        protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
-        multisig: Some(GeneralConfig::MultiSigConfig {
-            transaction_version: 1,
-        }),
+        multisig: Some(MULTISIG),
     }
 }
 
@@ -547,8 +585,6 @@ fn alcyone_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> AlcyoneConfig::GenesisConfig {
-    const STASH: u128 = 5_000_000 * POLY;
-    const ENDOWMENT: u128 = 100_000_000 * POLY;
     let stakers;
 
     AlcyoneConfig::GenesisConfig {
@@ -681,34 +717,13 @@ fn alcyone_testnet_genesis(
             })
         },
         balances: Some(AlcyoneConfig::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
+            balances: balances(&endowed_accounts, &initial_authorities),
         }),
         bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
-            signers: vec![
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_1").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_2").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_3").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_4").0,
-                )),
-                Signatory::Account(AccountId::from(
-                    get_from_seed::<sr25519::Public>("relay_5").0,
-                )),
-            ],
+            signers: bridge_signers(),
             timelock: alcyoneTime::MINUTES * 15,
             bridge_limit: (30_000_000_000, alcyoneTime::DAYS),
         }),
@@ -726,16 +741,7 @@ fn alcyone_testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(AlcyoneConfig::StakingConfig {
-            minimum_validator_count: 1,
-            validator_count: initial_authorities.len() as u32,
-            validator_commission_cap: PerThing::zero(),
-            stakers,
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: alcyone::Perbill::from_percent(10),
-            min_bond_threshold: 5_000_000_000_000,
-            ..Default::default()
-        }),
+        pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
         pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
@@ -745,14 +751,7 @@ fn alcyone_testnet_genesis(
             active_pip_limit: 1000,
             pending_pip_expiry: <_>::default(),
         }),
-        pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
-            slashing_params: alcyone::OfflineSlashingParams {
-                max_offline_percent: 10u32,
-                constant: 3u32,
-                max_slash_percent: 7u32,
-            },
-            ..Default::default()
-        }),
+        pallet_im_online: Some(im_online!()),
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
@@ -771,13 +770,7 @@ fn alcyone_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(alcyone::runtime::PolymeshCommitteeConfig {
-            vote_threshold: (2, 3),
-            members: vec![],
-            release_coordinator: IdentityId::from(6),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
+        committee_Instance1: Some(committee!(6, (2, 3))),
         group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
             active_members_limit: u32::MAX,
             // sp1, sp2, sp3
@@ -790,42 +783,14 @@ fn alcyone_testnet_genesis(
             phantom: Default::default(),
         }),
         // Technical Committee:
-        group_Instance3: Some(alcyone::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(4)],
-            phantom: Default::default(),
-        }),
-        committee_Instance3: Some(alcyone::runtime::TechnicalCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(4),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
+        group_Instance3: Some(committee_membership!(4)),
+        committee_Instance3: Some(committee!(4)),
         // Upgrade Committee:
-        group_Instance4: Some(alcyone::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(5)],
-            phantom: Default::default(),
-        }),
-        committee_Instance4: Some(alcyone::runtime::UpgradeCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(5),
-            expires_after: <_>::default(),
-            phantom: Default::default(),
-        }),
-        protocol_fee: Some(AlcyoneConfig::ProtocolFeeConfig {
-            base_fees: vec![
-                (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
-                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
-            ],
-            coefficient: PosRatio(1, 1),
-        }),
+        group_Instance4: Some(committee_membership!(5)),
+        committee_Instance4: Some(committee!(5)),
+        protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
-        multisig: Some(GeneralConfig::MultiSigConfig {
-            transaction_version: 1,
-        }),
+        multisig: Some(MULTISIG),
     }
 }
 
