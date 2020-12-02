@@ -812,7 +812,7 @@
                 "VotingAddBallot",
                 "ContractsPutCode",
                 "BallotAttachBallot",
-                "DistributionDistribute",
+                "DistributionDistribute"
             ]
         },
         "CddStatus": {
