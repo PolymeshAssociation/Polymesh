@@ -88,14 +88,7 @@ where
 pub fn get_authority_keys_from_seed(
     seed: &str,
     uniq: bool,
-) -> (
-    AccountId,
-    AccountId,
-    GrandpaId,
-    BabeId,
-    ImOnlineId,
-    AuthorityDiscoveryId,
-) {
+) -> InitialAuth {
     if uniq {
         (
             get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
@@ -286,6 +279,15 @@ fn identities(initial_authorities: &[InitialAuth], initial_identities: &[Identit
     (stakers, all_identities, secondary_keys)
 }
 
+fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId32, u128)> {
+    endoweds
+        .iter()
+        .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+        .chain(inits.iter().map(|x| (x.1.clone(), ENDOWMENT)))
+        .chain(inits.iter().map(|x| (x.0.clone(), STASH)))
+        .collect()
+}
+
 fn bridge_signers() -> Vec<Signatory<AccountId32>> {
     vec![
         Signatory::Account(AccountId::from(
@@ -408,12 +410,7 @@ fn general_testnet_genesis(
             ..Default::default()
         }),
         balances: Some(GeneralConfig::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
+            balances: balances(&initial_authorities, &endowed_accounts)
         }),
         bridge: Some(GeneralConfig::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
@@ -629,12 +626,7 @@ fn alcyone_testnet_genesis(
             ..Default::default()
         }),
         balances: Some(AlcyoneConfig::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
+            balances: balances(&initial_authorities, &endowed_accounts)
         }),
         bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
