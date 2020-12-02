@@ -9,10 +9,6 @@ const exec = util.promisify(require('child_process').exec);
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
-const prepend = "EUR";
-const prepend2 = "USD";
-
-
 async function main() {
   const api = await reqImports.createApi();
 
@@ -21,6 +17,7 @@ async function main() {
   const tickerHex = reqImports.stringToHex(ticker); 
   const ticker2Hex = reqImports.stringToHex(ticker2); 
   const testEntities = await reqImports.initMain(api);
+  const CHAIN_DIR = 'chain_dir';
 
   let alice = testEntities[0];
   let bob = await reqImports.generateRandomEntity(api);
@@ -44,18 +41,22 @@ async function main() {
   await createConfidentialAsset(api, ticker2Hex, alice);
 
   // Alice and Bob create their Mercat account locally and submit the proof to the chain
-  const bobMercatInfo = await createMercatUserAccount('bob', tickerHex, ticker2Hex, 'chain_dir');
-  const aliceMercatInfo = await createMercatUserAccount('alice', tickerHex, ticker2Hex, 'chain_dir');
+  const bobMercatInfo = await createMercatUserAccount('bob', tickerHex, ticker2Hex, CHAIN_DIR);
+  const aliceMercatInfo = await createMercatUserAccount('alice', tickerHex, ticker2Hex, CHAIN_DIR);
 
   // Validate Alice and Bob's Mercat Accounts
-  await validateMercatAccount(api, alice, aliceMercatInfo.mercatAccountID);
-  // await validateMercatAccount(api, bob, bobMercatInfo.mercatAccountProof);
+  await validateMercatAccount(api, alice, aliceMercatInfo.mercatAccountProof);
+  await validateMercatAccount(api, bob, bobMercatInfo.mercatAccountProof);
 
   // Charlie creates his mediator Mercat Account 
-  const charlieMercatInfo = await createMercatMediatorAccount('charlie', 'chain_dir');
+  const charlieMercatInfo = await createMercatMediatorAccount('charlie', CHAIN_DIR);
 
-  // TODO Validate Charlie's Mercat Account 
- 
+  // Validate Charlie's Mercat Account 
+  await addMediatorMercatAccount(api, charlie, charlieMercatInfo);
+
+  // Removes the Chain_Dir
+  await removeChainDir(CHAIN_DIR);
+  
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -64,6 +65,17 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function removeChainDir(chain_dir) {
+    await exec(`rm -rf ${chain_dir}`);
+}
+
+async function addMediatorMercatAccount(api, signer, public_key) {
+    const transaction = await api.tx.confidentialAsset.addMediatorMercatAccount(public_key);
+    
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
 }
 
 async function validateMercatAccount(api, signer, proof) {
