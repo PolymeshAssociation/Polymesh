@@ -20,7 +20,7 @@ use frame_support::traits::UnfilteredDispatchable;
 use frame_system::RawOrigin;
 use pallet_identity::benchmarking::UserBuilder;
 use polymesh_common_utilities::MaybeBlock;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 const COMMITTEE_MEMBERS_NUM: usize = 10;
 const PROPOSAL_PADDING_MAX: u32 = 10_000;
@@ -73,7 +73,8 @@ benchmarks_instance! {
         let p in 1 .. PROPOSAL_PADDING_MAX;
 
         let user = UserBuilder::<T>::default().build_with_did("proposer", 0);
-        <ReleaseCoordinator<I>>::put(user.did());
+//        ReleaseCoordinator::<I>::put(user.did());
+        Members::<I>::put(vec![user.did()]);
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
