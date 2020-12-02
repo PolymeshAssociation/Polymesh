@@ -14,9 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::group::GroupTrait;
-
 use polymesh_primitives::IdentityId;
 
 pub trait GovernanceGroupTrait<Moment: PartialOrd + Copy>: GroupTrait<Moment> {
     fn release_coordinator() -> Option<IdentityId>;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn bench_set_release_coordinator(did: IdentityId);
 }

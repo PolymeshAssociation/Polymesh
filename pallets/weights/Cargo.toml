@@ -13,6 +13,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 # our pallets
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
 pallet-identity = { path = "../identity", default-features = false  }
+pallet-pips = { path = "../pips", default-features = false  }
 pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../protocol-fee", default-features = false  }
 pallet-settlement = { path = "../settlement", default-features = false  }
@@ -28,6 +29,7 @@ std = [
     "frame-system/std",
     "pallet-corporate-actions/std",
     "pallet-identity/std",
+    "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
     "pallet-settlement/std",
