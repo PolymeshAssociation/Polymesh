@@ -27,7 +27,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    AccountId32, PerThing,
+    PerThing,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -176,7 +176,7 @@ macro_rules! checkpoint {
 
 // (primary_account_id, service provider did, target did, expiry time of CDD claim i.e 10 days is ms)
 type Identity = (
-    AccountId32,
+    AccountId,
     IdentityId,
     IdentityId,
     InvestorUid,
@@ -236,13 +236,13 @@ fn identities(
 ) -> (
     Vec<(
         IdentityId,
-        AccountId32,
-        AccountId32,
+        AccountId,
+        AccountId,
         u128,
-        StakerStatus<AccountId32>,
+        StakerStatus<AccountId>,
     )>,
     Vec<Identity>,
-    Vec<(AccountId32, IdentityId)>,
+    Vec<(AccountId, IdentityId)>,
 ) {
     let num_initial_identities = initial_identities.len() as u128;
     let mut identity_counter = num_initial_identities;
@@ -289,7 +289,7 @@ fn identities(
     (stakers, all_identities, secondary_keys)
 }
 
-fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId32, u128)> {
+fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId, u128)> {
     endoweds
         .iter()
         .map(|k: &AccountId| (k.clone(), ENDOWMENT))
@@ -298,7 +298,7 @@ fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId32, 
         .collect()
 }
 
-fn bridge_signers() -> Vec<Signatory<AccountId32>> {
+fn bridge_signers() -> Vec<Signatory<AccountId>> {
     let signer =
         |seed| Signatory::Account(AccountId::from(get_from_seed::<sr25519::Public>(seed).0));
     vec![
