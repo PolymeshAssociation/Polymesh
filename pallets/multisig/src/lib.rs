@@ -808,7 +808,8 @@ impl<T: Trait> Module<T> {
         );
         let caller_did = match sender_signer {
             Signatory::Identity(ref did) => did.clone(),
-            Signatory::Account(ref key) => Context::current_identity_or::<Identity<T>>(key)?,
+            Signatory::Account(ref key) => Context::current_identity_or::<Identity<T>>(key)
+                .unwrap_or(<MultiSigToIdentity<T>>::get(&multisig)),
         };
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
