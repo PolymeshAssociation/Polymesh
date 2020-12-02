@@ -69,16 +69,20 @@ benchmarks_instance! {
         ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
 
-    // TODO: generate variable-length proposals
-    vote {
+    vote_or_propose {
         let p in 1 .. PROPOSAL_PADDING_MAX;
+
+        let user = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        <ReleaseCoordinator<I>>::put(user.did());
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
-    }: {}
+        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+    }: _(user.origin, true, Box::new(proposal.clone()))
     verify {
+        ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "didn't propose");
     }
 
-    vote_or_propose {
+    vote {
         let p in 1 .. PROPOSAL_PADDING_MAX;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
