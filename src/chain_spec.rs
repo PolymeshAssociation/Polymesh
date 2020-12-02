@@ -4,7 +4,8 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, SmartExtensionType, Ticker,
+    AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
+    Ticker,
 };
 use polymesh_runtime_develop::{
     self as general,
@@ -25,7 +26,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    PerThing, AccountId32
+    AccountId32, PerThing,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -122,6 +123,31 @@ fn polymath_props() -> Properties {
         .clone()
 }
 
+macro_rules! asset {
+    () => {
+        pallet_asset::GenesisConfig {
+            ticker_registration_config: ticker_registration_config(),
+            classic_migration_tconfig: ticker_registration_config(),
+            versions: vec![
+                (SmartExtensionType::TransferManager, 5000),
+                (SmartExtensionType::Offerings, 5000),
+                (SmartExtensionType::SmartWallet, 5000),
+            ],
+            // Always use the first id, whomever that may be.
+            classic_migration_contract_did: IdentityId::from(1),
+            classic_migration_tickers: vec![],
+            reserved_country_currency_codes: currency_codes(),
+        }
+    };
+}
+
+fn ticker_registration_config() -> TickerRegistrationConfig<Moment> {
+    TickerRegistrationConfig {
+        max_ticker_length: 12,
+        registration_length: Some(5_184_000_000),
+    }
+}
+
 fn currency_codes() -> Vec<Ticker> {
     // Fiat Currency Struct
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -139,20 +165,65 @@ fn currency_codes() -> Vec<Ticker> {
         .collect()
 }
 
+macro_rules! checkpoint {
+    () => {{
+        // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
+        use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
+        let period = CalendarPeriod {
+            unit: Week,
+            amount: 1,
+        };
+        pallet_asset::checkpoint::GenesisConfig {
+            schedules_max_complexity: period.complexity(),
+        }
+    }};
+}
+
+type Identity = (
+    AccountId32,
+    IdentityId,
+    IdentityId,
+    InvestorUid,
+    Option<Moment>,
+);
+
+fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
+    bytes[bytes.len() - 1] = n + b'0';
+    core::str::from_utf8(bytes).unwrap()
+}
+
+fn cdd_provider(n: u8) -> Identity {
+    (
+        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"cdd_provider_0" }, n)),
+        IdentityId::from(n as u128),
+        IdentityId::from(n as u128),
+        InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
+        None,
+    )
+}
+
+fn gc_mem(n: u8) -> Identity {
+    (
+        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"governance_committee_0" }, n)),
+        IdentityId::from(1 as u128),
+        IdentityId::from(2 + n as u128),
+        InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
+        None,
+    )
+}
+
+fn polymath_mem(n: u8) -> Identity {
+    (
+        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"polymath_0" }, n)),
+        IdentityId::from(n as u128),
+        IdentityId::from(3 + n as u128),
+        InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
+        None,
+    )
+}
+
 const STASH: u128 = 5_000_000 * POLY;
 const ENDOWMENT: u128 = 100_000_000 * POLY;
-
-fn balances(
-    accs: &[AccountId],
-    auths: &[(AccountId32, AccountId32, sr25519::Public, sr25519::Public, sr25519::Public, sr25519::Public)]
-) -> Vec<(AccountId32, u128)> {
-    accs
-        .iter()
-        .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-        .chain(auths.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-        .chain(auths.iter().map(|x| (x.0.clone(), STASH)))
-        .collect()
-}
 
 fn bridge_signers() -> Vec<Signatory<AccountId32>> {
     vec![
@@ -186,7 +257,7 @@ macro_rules! staking {
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }
-    }
+    };
 }
 
 macro_rules! im_online {
@@ -199,7 +270,7 @@ macro_rules! im_online {
             },
             ..Default::default()
         }
-    }
+    };
 }
 
 macro_rules! committee_membership {
@@ -213,7 +284,9 @@ macro_rules! committee_membership {
 }
 
 macro_rules! committee {
-    ($rc:expr) => { committee!($rc, (1, 2)) };
+    ($rc:expr) => {
+        committee!($rc, (1, 2))
+    };
     ($rc:expr, $vote:expr) => {
         pallet_committee::GenesisConfig {
             vote_threshold: $vote,
@@ -222,7 +295,7 @@ macro_rules! committee {
             expires_after: <_>::default(),
             phantom: Default::default(),
         }
-    }
+    };
 }
 
 fn protocol_fees() -> Vec<(ProtocolOp, u128)> {
@@ -238,7 +311,7 @@ macro_rules! protocol_fee {
             base_fees: protocol_fees(),
             coefficient: PosRatio(1, 1),
         }
-    }
+    };
 }
 
 const MULTISIG: GeneralConfig::MultiSigConfig = GeneralConfig::MultiSigConfig {
@@ -265,78 +338,18 @@ fn general_testnet_genesis(
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: {
-            Some(GeneralConfig::AssetConfig {
-                ticker_registration_config: TickerRegistrationConfig {
-                    max_ticker_length: 12,
-                    registration_length: Some(5_184_000_000),
-                },
-                classic_migration_tconfig: TickerRegistrationConfig {
-                    max_ticker_length: 12,
-                    registration_length: Some(5_184_000_000),
-                },
-                versions: vec![
-                    (SmartExtensionType::TransferManager, 5000),
-                    (SmartExtensionType::Offerings, 5000),
-                    (SmartExtensionType::SmartWallet, 5000),
-                ],
-                // Always use the first id, whomever that may be.
-                classic_migration_contract_did: IdentityId::from(1),
-                classic_migration_tickers: vec![],
-                reserved_country_currency_codes: currency_codes(),
-            })
-        },
-        checkpoint: {
-            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
-            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
-            let period = CalendarPeriod {
-                unit: Week,
-                amount: 1,
-            };
-            Some(GeneralConfig::CheckpointConfig {
-                schedules_max_complexity: period.complexity(),
-            })
-        },
+        asset: Some(asset!()),
+        checkpoint: Some(checkpoint!()),
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    InvestorUid::from(b"uid1".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
-                    InvestorUid::from(b"uid2".as_ref()),
-                    None,
-                ),
+                cdd_provider(1),
+                cdd_provider(2),
                 // Governance committee members
-                (
-                    get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(3),
-                    InvestorUid::from(b"uid3".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("governance_committee_2"),
-                    IdentityId::from(1),
-                    IdentityId::from(4),
-                    InvestorUid::from(b"uid4".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
-                    IdentityId::from(1),
-                    IdentityId::from(5),
-                    InvestorUid::from(b"uid4".as_ref()),
-                    None,
-                ),
+                gc_mem(1),
+                gc_mem(2),
+                gc_mem(3),
             ];
             let num_initial_identities = initial_identities.len() as u128;
             let mut identity_counter = num_initial_identities;
@@ -345,8 +358,13 @@ fn general_testnet_genesis(
                 .map(|x| {
                     identity_counter = identity_counter + 1;
                     let did = IdentityId::from(identity_counter);
-                    let investor_uid = InvestorUid::from(did.as_ref());
-                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
+                    (
+                        x.1.clone(),
+                        IdentityId::from(1),
+                        did,
+                        InvestorUid::from(did.as_ref()),
+                        None,
+                    )
                 })
                 .collect::<Vec<_>>();
 
@@ -367,7 +385,7 @@ fn general_testnet_genesis(
                 .iter()
                 .cloned()
                 .zip(initial_authorities.iter().cloned())
-                .map(|((_, _, did, _, _), x)| {
+                .map(|((_, _, did, ..), x)| {
                     (
                         did,
                         x.0.clone(),
@@ -413,7 +431,11 @@ fn general_testnet_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::from_rational_approximation(1u64, 4u64))),
+        pallet_staking: Some(staking!(
+            initial_authorities,
+            stakers,
+            PerThing::from_rational_approximation(1u64, 4u64)
+        )),
         pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
@@ -592,84 +614,19 @@ fn alcyone_testnet_genesis(
             code: alcyone::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: {
-            Some(AlcyoneConfig::AssetConfig {
-                ticker_registration_config: TickerRegistrationConfig {
-                    max_ticker_length: 12,
-                    registration_length: Some(5_184_000_000),
-                },
-                classic_migration_tconfig: TickerRegistrationConfig {
-                    max_ticker_length: 12,
-                    registration_length: Some(5_184_000_000),
-                },
-                versions: vec![
-                    (SmartExtensionType::TransferManager, 5000),
-                    (SmartExtensionType::Offerings, 5000),
-                    (SmartExtensionType::SmartWallet, 5000),
-                ],
-                classic_migration_contract_did: IdentityId::from(1),
-                classic_migration_tickers: vec![],
-                reserved_country_currency_codes: currency_codes(),
-            })
-        },
-        checkpoint: {
-            // We use a weekly complexity. That is, >= 7 days apart per CP is OK.
-            use polymesh_primitives::calendar::{CalendarPeriod, CalendarUnit::Week};
-            let period = CalendarPeriod {
-                unit: Week,
-                amount: 1,
-            };
-            Some(GeneralConfig::CheckpointConfig {
-                schedules_max_complexity: period.complexity(),
-            })
-        },
+        asset: Some(asset!()),
+        checkpoint: Some(checkpoint!()),
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    InvestorUid::from(b"uid1".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
-                    InvestorUid::from(b"uid2".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-                    IdentityId::from(3),
-                    IdentityId::from(3),
-                    InvestorUid::from(b"uid3".as_ref()),
-                    None,
-                ),
+                cdd_provider(1),
+                cdd_provider(2),
+                cdd_provider(3),
                 // Governance committee members
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(4),
-                    InvestorUid::from(b"uid4".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-                    IdentityId::from(2),
-                    IdentityId::from(5),
-                    InvestorUid::from(b"uid5".as_ref()),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
-                    IdentityId::from(3),
-                    IdentityId::from(6),
-                    InvestorUid::from(b"uid6".as_ref()),
-                    None,
-                ),
+                polymath_mem(1),
+                polymath_mem(2),
+                polymath_mem(3),
             ];
             let num_initial_identities = initial_identities.len() as u128;
             let mut identity_counter = num_initial_identities;
@@ -717,7 +674,12 @@ fn alcyone_testnet_genesis(
             })
         },
         balances: Some(AlcyoneConfig::BalancesConfig {
-            balances: balances(&endowed_accounts, &initial_authorities),
+            balances: endowed_accounts
+                .iter()
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+                .collect(),
         }),
         bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
