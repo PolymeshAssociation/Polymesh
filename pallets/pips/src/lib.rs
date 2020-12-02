@@ -562,7 +562,7 @@ decl_event!(
         /// The snapshot was cleared.
         SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId, SnapshotId),
+        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip<Balance>>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -1049,10 +1049,11 @@ decl_module! {
             let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            <SnapshotQueue<T>>::set(<LiveQueue<T>>::get());
+            let queue = <LiveQueue<T>>::get();
+            <SnapshotQueue<T>>::set(queue.clone());
 
             // Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
             Ok(())
         }
 
