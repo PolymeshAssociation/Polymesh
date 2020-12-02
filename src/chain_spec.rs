@@ -298,22 +298,15 @@ fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId32, 
 }
 
 fn bridge_signers() -> Vec<Signatory<AccountId32>> {
+    let signer = |seed| Signatory::Account(AccountId::from(
+        get_from_seed::<sr25519::Public>(seed).0,
+    ));
     vec![
-        Signatory::Account(AccountId::from(
-            get_from_seed::<sr25519::Public>("relay_1").0,
-        )),
-        Signatory::Account(AccountId::from(
-            get_from_seed::<sr25519::Public>("relay_2").0,
-        )),
-        Signatory::Account(AccountId::from(
-            get_from_seed::<sr25519::Public>("relay_3").0,
-        )),
-        Signatory::Account(AccountId::from(
-            get_from_seed::<sr25519::Public>("relay_4").0,
-        )),
-        Signatory::Account(AccountId::from(
-            get_from_seed::<sr25519::Public>("relay_5").0,
-        )),
+        signer("relay_1"),
+        signer("relay_2"),
+        signer("relay_3"),
+        signer("relay_4"),
+        signer("relay_5"),
     ]
 }
 
