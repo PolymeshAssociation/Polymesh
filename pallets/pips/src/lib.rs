@@ -1022,10 +1022,11 @@ decl_module! {
             let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            <SnapshotQueue<T>>::set(<LiveQueue<T>>::get());
+            let queue = <LiveQueue<T>>::get();
+            <SnapshotQueue<T>>::set(queue.clone());
 
             // Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did, id, <SnapshotQueue<T>>::get()));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
             Ok(())
         }
 
