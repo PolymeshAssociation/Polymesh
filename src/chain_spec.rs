@@ -2,12 +2,12 @@ use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
+use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
     Ticker,
 };
-use pallet_staking::StakerStatus;
 use polymesh_runtime_develop::{
     self as general,
     config::{self as GeneralConfig},
@@ -85,10 +85,7 @@ where
 }
 
 /// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed(
-    seed: &str,
-    uniq: bool,
-) -> InitialAuth {
+pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
     if uniq {
         (
             get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
@@ -208,7 +205,10 @@ fn cdd_provider(n: u8) -> Identity {
 
 fn gc_mem(n: u8) -> Identity {
     (
-        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"governance_committee_0" }, n)),
+        get_account_id_from_seed::<sr25519::Public>(adjust_last(
+            &mut { *b"governance_committee_0" },
+            n,
+        )),
         IdentityId::from(1 as u128),
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
@@ -229,10 +229,19 @@ fn polymath_mem(n: u8) -> Identity {
 const STASH: u128 = 5_000_000 * POLY;
 const ENDOWMENT: u128 = 100_000_000 * POLY;
 
-fn identities(initial_authorities: &[InitialAuth], initial_identities: &[Identity]) -> (
-    Vec<(IdentityId, AccountId32, AccountId32, u128, StakerStatus<AccountId32>)>,
+fn identities(
+    initial_authorities: &[InitialAuth],
+    initial_identities: &[Identity],
+) -> (
+    Vec<(
+        IdentityId,
+        AccountId32,
+        AccountId32,
+        u128,
+        StakerStatus<AccountId32>,
+    )>,
     Vec<Identity>,
-    Vec<(AccountId32, IdentityId)>
+    Vec<(AccountId32, IdentityId)>,
 ) {
     let num_initial_identities = initial_identities.len() as u128;
     let mut identity_counter = num_initial_identities;
@@ -387,7 +396,7 @@ fn general_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GeneralConfig::GenesisConfig {
-    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &[
+    let init_ids = [
         // Service providers
         cdd_provider(1),
         cdd_provider(2),
@@ -395,7 +404,8 @@ fn general_testnet_genesis(
         gc_mem(1),
         gc_mem(2),
         gc_mem(3),
-    ]);
+    ];
+    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
@@ -410,7 +420,7 @@ fn general_testnet_genesis(
             ..Default::default()
         }),
         balances: Some(GeneralConfig::BalancesConfig {
-            balances: balances(&initial_authorities, &endowed_accounts)
+            balances: balances(&initial_authorities, &endowed_accounts),
         }),
         bridge: Some(GeneralConfig::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
@@ -603,7 +613,8 @@ fn alcyone_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> AlcyoneConfig::GenesisConfig {
-    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &[                // Service providers
+    let init_ids = [
+        // Service providers
         cdd_provider(1),
         cdd_provider(2),
         cdd_provider(3),
@@ -611,7 +622,8 @@ fn alcyone_testnet_genesis(
         polymath_mem(1),
         polymath_mem(2),
         polymath_mem(3),
-    ]);
+    ];
+    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
@@ -626,7 +638,7 @@ fn alcyone_testnet_genesis(
             ..Default::default()
         }),
         balances: Some(AlcyoneConfig::BalancesConfig {
-            balances: balances(&initial_authorities, &endowed_accounts)
+            balances: balances(&initial_authorities, &endowed_accounts),
         }),
         bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
