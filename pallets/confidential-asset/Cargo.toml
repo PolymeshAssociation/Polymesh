@@ -48,6 +48,7 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
+    "mercat/std",
     "pallet-balances/std",
     "pallet-contracts/std",
     "pallet-identity/std",
