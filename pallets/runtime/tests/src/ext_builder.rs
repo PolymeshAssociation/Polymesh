@@ -392,7 +392,6 @@ impl ExtBuilder {
         pips::GenesisConfig::<TestStorage> {
             prune_historical_pips: false,
             min_proposal_deposit: 50,
-            proposal_cool_off_period: COOL_OFF_PERIOD,
             default_enactment_period: 100,
             max_pip_skip_count: 1,
             active_pip_limit: 5,

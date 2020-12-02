@@ -134,7 +134,7 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -431,7 +431,7 @@ fn rage_quit_we() {
     let did = IdentityId::default();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
