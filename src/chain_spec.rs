@@ -310,6 +310,20 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
     ]
 }
 
+macro_rules! session {
+    ($module:ident, $inits:expr, $build:expr) => {
+        $module::SessionConfig {
+            keys: $inits
+                .iter()
+                .map(|x| {
+                    let sks = $build(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone());
+                    (x.0.clone(), x.0.clone(), sks)
+                })
+                .collect::<Vec<_>>()
+        }
+    }
+}
+
 macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
@@ -338,11 +352,21 @@ macro_rules! im_online {
     };
 }
 
+macro_rules! cdd_membership {
+    ($($member:expr),*) => {
+        pallet_group::GenesisConfig {
+            active_members_limit: u32::MAX,
+            active_members: vec![$(IdentityId::from($member)),*, GC_DID],
+            phantom: Default::default(),
+        }
+    };
+}
+
 macro_rules! committee_membership {
-    ($member:expr) => {
+    ($($member:expr),*) => {
         pallet_group::GenesisConfig {
             active_members_limit: 20,
-            active_members: vec![IdentityId::from($member)],
+            active_members: vec![$(IdentityId::from($member)),*],
             phantom: Default::default(),
         }
     };
@@ -425,18 +449,7 @@ fn general_testnet_genesis(
         }),
         pallet_indices: Some(GeneralConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(GeneralConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(GeneralConfig::SessionConfig {
-            keys: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.0.clone(),
-                        general_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        }),
+        pallet_session: Some(session!(GeneralConfig, initial_authorities, general_session_keys)),
         pallet_staking: Some(staking!(
             initial_authorities,
             stakers,
@@ -462,28 +475,9 @@ fn general_testnet_genesis(
             },
         }),
         // Governance Council:
-        group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![
-                IdentityId::from(3),
-                IdentityId::from(4),
-                IdentityId::from(5),
-                IdentityId::from(6),
-            ],
-            phantom: Default::default(),
-        }),
+        group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
         committee_Instance1: Some(committee!(6)),
-        group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
-            // sp1, sp2, first authority
-            active_members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(6),
-                GC_DID,
-            ],
-            phantom: Default::default(),
-        }),
+        group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
         // Technical Committee:
         group_Instance3: Some(committee_membership!(3)),
         committee_Instance3: Some(committee!(3)),
@@ -643,18 +637,7 @@ fn alcyone_testnet_genesis(
         }),
         pallet_indices: Some(AlcyoneConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(AlcyoneConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(AlcyoneConfig::SessionConfig {
-            keys: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.0.clone(),
-                        alcyone_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        }),
+        pallet_session: Some(session!(AlcyoneConfig, initial_authorities, alcyone_session_keys)),
         pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
         pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
@@ -675,27 +658,9 @@ fn alcyone_testnet_genesis(
                 ..Default::default()
             },
         }),
-        group_Instance1: Some(alcyone::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![
-                IdentityId::from(4),
-                IdentityId::from(5),
-                IdentityId::from(6),
-            ],
-            phantom: Default::default(),
-        }),
+        group_Instance1: Some(committee_membership!(4, 5, 6)),
         committee_Instance1: Some(committee!(6, (2, 3))),
-        group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
-            // sp1, sp2, sp3
-            active_members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-                GC_DID,
-            ],
-            phantom: Default::default(),
-        }),
+        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, sp3
         // Technical Committee:
         group_Instance3: Some(committee_membership!(4)),
         committee_Instance3: Some(committee!(4)),
