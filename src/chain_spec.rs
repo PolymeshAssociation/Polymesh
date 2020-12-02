@@ -7,6 +7,7 @@ use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
     Ticker,
 };
+use pallet_staking::StakerStatus;
 use polymesh_runtime_develop::{
     self as general,
     config::{self as GeneralConfig},
@@ -179,12 +180,22 @@ macro_rules! checkpoint {
     }};
 }
 
+// (primary_account_id, service provider did, target did, expiry time of CDD claim i.e 10 days is ms)
 type Identity = (
     AccountId32,
     IdentityId,
     IdentityId,
     InvestorUid,
     Option<Moment>,
+);
+
+type InitialAuth = (
+    AccountId,
+    AccountId,
+    GrandpaId,
+    BabeId,
+    ImOnlineId,
+    AuthorityDiscoveryId,
 );
 
 fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
@@ -224,6 +235,56 @@ fn polymath_mem(n: u8) -> Identity {
 
 const STASH: u128 = 5_000_000 * POLY;
 const ENDOWMENT: u128 = 100_000_000 * POLY;
+
+fn identities(initial_authorities: &[InitialAuth], initial_identities: &[Identity]) -> (
+    Vec<(IdentityId, AccountId32, AccountId32, u128, StakerStatus<AccountId32>)>,
+    Vec<Identity>,
+    Vec<(AccountId32, IdentityId)>
+) {
+    let num_initial_identities = initial_identities.len() as u128;
+    let mut identity_counter = num_initial_identities;
+    let authority_identities = initial_authorities
+        .iter()
+        .map(|x| {
+            identity_counter += 1;
+            let did = IdentityId::from(identity_counter);
+            let investor_uid = InvestorUid::from(did.as_ref());
+            (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
+        })
+        .collect::<Vec<_>>();
+
+    let all_identities = initial_identities
+        .iter()
+        .cloned()
+        .chain(authority_identities.iter().cloned())
+        .collect::<Vec<_>>();
+    identity_counter = num_initial_identities;
+
+    let secondary_keys = initial_authorities
+        .iter()
+        .map(|x| {
+            identity_counter += 1;
+            (x.0.clone(), IdentityId::from(identity_counter))
+        })
+        .collect::<Vec<_>>();
+
+    let stakers = authority_identities
+        .iter()
+        .cloned()
+        .zip(initial_authorities.iter().cloned())
+        .map(|((_, _, did, ..), x)| {
+            (
+                did,
+                x.0.clone(),
+                x.1.clone(),
+                STASH,
+                general::StakerStatus::Validator,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    (stakers, all_identities, secondary_keys)
+}
 
 fn bridge_signers() -> Vec<Signatory<AccountId32>> {
     vec![
@@ -319,19 +380,20 @@ const MULTISIG: GeneralConfig::MultiSigConfig = GeneralConfig::MultiSigConfig {
 };
 
 fn general_testnet_genesis(
-    initial_authorities: Vec<(
-        AccountId,
-        AccountId,
-        GrandpaId,
-        BabeId,
-        ImOnlineId,
-        AuthorityDiscoveryId,
-    )>,
+    initial_authorities: Vec<InitialAuth>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GeneralConfig::GenesisConfig {
-    let stakers;
+    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &[
+        // Service providers
+        cdd_provider(1),
+        cdd_provider(2),
+        // Governance committee members
+        gc_mem(1),
+        gc_mem(2),
+        gc_mem(3),
+    ]);
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
@@ -340,67 +402,11 @@ fn general_testnet_genesis(
         }),
         asset: Some(asset!()),
         checkpoint: Some(checkpoint!()),
-        identity: {
-            let initial_identities = vec![
-                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Service providers
-                cdd_provider(1),
-                cdd_provider(2),
-                // Governance committee members
-                gc_mem(1),
-                gc_mem(2),
-                gc_mem(3),
-            ];
-            let num_initial_identities = initial_identities.len() as u128;
-            let mut identity_counter = num_initial_identities;
-            let authority_identities = initial_authorities
-                .iter()
-                .map(|x| {
-                    identity_counter = identity_counter + 1;
-                    let did = IdentityId::from(identity_counter);
-                    (
-                        x.1.clone(),
-                        IdentityId::from(1),
-                        did,
-                        InvestorUid::from(did.as_ref()),
-                        None,
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            let all_identities = initial_identities
-                .iter()
-                .cloned()
-                .chain(authority_identities.iter().cloned())
-                .collect::<Vec<_>>();
-            identity_counter = num_initial_identities;
-            let secondary_keys = initial_authorities
-                .iter()
-                .map(|x| {
-                    identity_counter += 1;
-                    (x.0.clone(), IdentityId::from(identity_counter))
-                })
-                .collect::<Vec<_>>();
-            stakers = authority_identities
-                .iter()
-                .cloned()
-                .zip(initial_authorities.iter().cloned())
-                .map(|((_, _, did, ..), x)| {
-                    (
-                        did,
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        general::StakerStatus::Validator,
-                    )
-                })
-                .collect::<Vec<_>>();
-            Some(GeneralConfig::IdentityConfig {
-                identities: all_identities,
-                secondary_keys,
-                ..Default::default()
-            })
-        },
+        identity: Some(GeneralConfig::IdentityConfig {
+            identities: all_identities,
+            secondary_keys,
+            ..Default::default()
+        }),
         balances: Some(GeneralConfig::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -595,19 +601,20 @@ pub fn general_live_testnet_config() -> GeneralChainSpec {
 }
 
 fn alcyone_testnet_genesis(
-    initial_authorities: Vec<(
-        AccountId,
-        AccountId,
-        GrandpaId,
-        BabeId,
-        ImOnlineId,
-        AuthorityDiscoveryId,
-    )>,
+    initial_authorities: Vec<InitialAuth>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> AlcyoneConfig::GenesisConfig {
-    let stakers;
+    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &[                // Service providers
+        cdd_provider(1),
+        cdd_provider(2),
+        cdd_provider(3),
+        // Governance committee members
+        polymath_mem(1),
+        polymath_mem(2),
+        polymath_mem(3),
+    ]);
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
@@ -616,63 +623,11 @@ fn alcyone_testnet_genesis(
         }),
         asset: Some(asset!()),
         checkpoint: Some(checkpoint!()),
-        identity: {
-            let initial_identities = vec![
-                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Service providers
-                cdd_provider(1),
-                cdd_provider(2),
-                cdd_provider(3),
-                // Governance committee members
-                polymath_mem(1),
-                polymath_mem(2),
-                polymath_mem(3),
-            ];
-            let num_initial_identities = initial_identities.len() as u128;
-            let mut identity_counter = num_initial_identities;
-            let authority_identities = initial_authorities
-                .iter()
-                .map(|x| {
-                    identity_counter = identity_counter + 1;
-                    let did = IdentityId::from(identity_counter);
-                    let investor_uid = InvestorUid::from(did.as_ref());
-                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
-                })
-                .collect::<Vec<_>>();
-
-            let all_identities = initial_identities
-                .iter()
-                .cloned()
-                .chain(authority_identities.iter().cloned())
-                .collect::<Vec<_>>();
-            identity_counter = num_initial_identities;
-            let secondary_keys = initial_authorities
-                .iter()
-                .map(|x| {
-                    identity_counter += 1;
-                    (x.0.clone(), IdentityId::from(identity_counter))
-                })
-                .collect::<Vec<_>>();
-            stakers = authority_identities
-                .iter()
-                .cloned()
-                .zip(initial_authorities.iter().cloned())
-                .map(|((_, _, did, _, _), x)| {
-                    (
-                        did,
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        general::StakerStatus::Validator,
-                    )
-                })
-                .collect::<Vec<_>>();
-            Some(AlcyoneConfig::IdentityConfig {
-                identities: all_identities,
-                secondary_keys,
-                ..Default::default()
-            })
-        },
+        identity: Some(AlcyoneConfig::IdentityConfig {
+            identities: all_identities,
+            secondary_keys,
+            ..Default::default()
+        }),
         balances: Some(AlcyoneConfig::BalancesConfig {
             balances: endowed_accounts
                 .iter()
