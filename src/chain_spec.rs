@@ -84,12 +84,16 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
+fn seeded_acc_id(seed: &str) -> AccountId {
+    get_account_id_from_seed::<sr25519::Public>(seed)
+}
+
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
     if uniq {
         (
-            get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-            get_account_id_from_seed::<sr25519::Public>(seed),
+            seeded_acc_id(&format!("{}//stash", seed)),
+            seeded_acc_id(seed),
             get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
             get_from_seed::<BabeId>(&format!("{}//babe", seed)),
             get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
@@ -97,8 +101,8 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
         )
     } else {
         (
-            get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-            get_account_id_from_seed::<sr25519::Public>(seed),
+            seeded_acc_id(&format!("{}//stash", seed)),
+            seeded_acc_id(seed),
             get_from_seed::<GrandpaId>(seed),
             get_from_seed::<BabeId>(seed),
             get_from_seed::<ImOnlineId>(seed),
@@ -195,7 +199,7 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
 
 fn cdd_provider(n: u8) -> Identity {
     (
-        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"cdd_provider_0" }, n)),
+        seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
         IdentityId::from(n as u128),
         IdentityId::from(n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
@@ -205,10 +209,7 @@ fn cdd_provider(n: u8) -> Identity {
 
 fn gc_mem(n: u8) -> Identity {
     (
-        get_account_id_from_seed::<sr25519::Public>(adjust_last(
-            &mut { *b"governance_committee_0" },
-            n,
-        )),
+        seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
         IdentityId::from(1 as u128),
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
@@ -218,7 +219,7 @@ fn gc_mem(n: u8) -> Identity {
 
 fn polymath_mem(n: u8) -> Identity {
     (
-        get_account_id_from_seed::<sr25519::Public>(adjust_last(&mut { *b"polymath_0" }, n)),
+        seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
         IdentityId::from(n as u128),
         IdentityId::from(3 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
@@ -298,9 +299,8 @@ fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId32, 
 }
 
 fn bridge_signers() -> Vec<Signatory<AccountId32>> {
-    let signer = |seed| Signatory::Account(AccountId::from(
-        get_from_seed::<sr25519::Public>(seed).0,
-    ));
+    let signer =
+        |seed| Signatory::Account(AccountId::from(get_from_seed::<sr25519::Public>(seed).0));
     vec![
         signer("relay_1"),
         signer("relay_2"),
@@ -499,14 +499,14 @@ fn general_testnet_genesis(
 fn general_development_genesis() -> GeneralConfig::GenesisConfig {
     general_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice", false)],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        seeded_acc_id("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("Bob"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         true,
     )
@@ -532,16 +532,16 @@ fn general_local_genesis() -> GeneralConfig::GenesisConfig {
             get_authority_keys_from_seed("Alice", false),
             get_authority_keys_from_seed("Bob", false),
         ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        seeded_acc_id("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("Charlie"),
+            seeded_acc_id("Dave"),
+            seeded_acc_id("Charlie//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         true,
     )
@@ -568,19 +568,19 @@ fn general_live_genesis() -> GeneralConfig::GenesisConfig {
             get_authority_keys_from_seed("Bob", false),
             get_authority_keys_from_seed("Charlie", false),
         ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        seeded_acc_id("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Eve"),
-            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("Dave"),
+            seeded_acc_id("Eve"),
+            seeded_acc_id("Ferdie"),
+            seeded_acc_id("Dave//stash"),
+            seeded_acc_id("Eve//stash"),
+            seeded_acc_id("Ferdie//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         false,
     )
@@ -634,8 +634,8 @@ fn alcyone_testnet_genesis(
             balances: balances(&initial_authorities, &endowed_accounts),
         }),
         bridge: Some(AlcyoneConfig::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            admin: seeded_acc_id("polymath_1"),
+            creator: seeded_acc_id("polymath_1"),
             signatures_required: 3,
             signers: bridge_signers(),
             timelock: alcyoneTime::MINUTES * 15,
@@ -717,19 +717,19 @@ fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
             get_authority_keys_from_seed("operator_4", true),
             get_authority_keys_from_seed("operator_5", true),
         ],
-        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+        seeded_acc_id("polymath_1"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
-            get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
-            get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("cdd_provider_1"),
+            seeded_acc_id("cdd_provider_2"),
+            seeded_acc_id("cdd_provider_3"),
+            seeded_acc_id("polymath_1"),
+            seeded_acc_id("polymath_2"),
+            seeded_acc_id("polymath_3"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         false,
     )
@@ -757,15 +757,15 @@ pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
 fn alcyone_develop_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
     alcyone_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice", false)],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        seeded_acc_id("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("Bob"),
+            seeded_acc_id("Bob//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         true,
     )
@@ -793,16 +793,16 @@ fn alcyone_local_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
             get_authority_keys_from_seed("Alice", false),
             get_authority_keys_from_seed("Bob", false),
         ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        seeded_acc_id("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+            seeded_acc_id("Charlie"),
+            seeded_acc_id("Dave"),
+            seeded_acc_id("Charlie//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
         ],
         true,
     )
