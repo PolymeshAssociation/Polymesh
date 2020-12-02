@@ -716,7 +716,7 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            Self::affirm_and_may_schedule_instruction(origin, instruction_id, portfolios)
+            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -793,7 +793,7 @@ decl_module! {
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
             ]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            Self::affirm_with_receipts_and_may_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
         }
 
         /// Claims a signed receipt.
@@ -1542,7 +1542,7 @@ impl<T: Trait> Module<T> {
 
     // It affirms the instruction and may schedule the instruction
     // depends on the settlement type.
-    pub fn affirm_with_receipts_and_may_schedule_instruction(
+    pub fn affirm_with_receipts_and_maybe_schedule_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
@@ -1559,7 +1559,7 @@ impl<T: Trait> Module<T> {
 
     /// It is used for general purpose settlement where instruction get affirmation &
     /// may schedule for the next block execution or it is assumed that it is already scheduled.
-    pub fn affirm_and_may_schedule_instruction(
+    pub fn affirm_and_maybe_schedule_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
@@ -1582,12 +1582,14 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResult {
-        Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
-        Self::is_execute_instruction(
-            instruction_id,
-            Self::instruction_affirms_pending(instruction_id),
-            Self::instruction_details(instruction_id).settlement_type,
-        )
+        with_transaction(|| {
+            Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
+        })
     }
 
     /// It is a specialized function to affirm with receipts & execute the instruction when all affirmations
@@ -1600,15 +1602,17 @@ impl<T: Trait> Module<T> {
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResult {
-        Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
-        Self::is_execute_instruction(
-            instruction_id,
-            Self::instruction_affirms_pending(instruction_id),
-            Self::instruction_details(instruction_id).settlement_type,
-        )
+        with_transaction(|| {
+            Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
+        })
     }
 
-    fn is_execute_instruction(
+    fn execute_settle_on_affirmation_instruction(
         instruction_id: u64,
         affirms_pending: u64,
         settlement_type: SettlementType<T::BlockNumber>,
@@ -1616,7 +1620,9 @@ impl<T: Trait> Module<T> {
         // As this function will assumes that the settlement type will always be `SettleOnAffirmation` but to be
         // defensive it is good to check before executing the instruction.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
-            let _ = Self::execute_instruction(instruction_id);
+            Self::execute_instruction(instruction_id)
+                .1
+                .map_err(|e| e.error)?;
         }
         Ok(())
     }
