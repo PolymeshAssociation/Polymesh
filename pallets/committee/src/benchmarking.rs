@@ -32,9 +32,9 @@ benchmarks_instance! {
         let n = 1;
         let d = 2;
         let origin = T::CommitteeOrigin::successful_origin();
-        // let call = Call::<T>::set_vote_threshold(n, d);
+        let call = Call::<T, I>::set_vote_threshold(n, d);
     }: {
-        // call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin)?;
     }
     verify {
         ensure!(Module::<T, _>::vote_threshold() == (n, d), "incorrect vote threshold");
@@ -47,9 +47,9 @@ benchmarks_instance! {
         let coordinator = dids[COMMITTEE_MEMBERS_NUM / 2].clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
-        // let call = Call::<T>::set_release_coordinator(coordinator);
+        let call = Call::<T, I>::set_release_coordinator(coordinator);
     }: {
-        // call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin)?;
     }
     verify {
         ensure!(
@@ -61,9 +61,9 @@ benchmarks_instance! {
     set_expires_after {
         let maybe_block = MaybeBlock::Some(1.into());
         let origin = T::CommitteeOrigin::successful_origin();
-        // let call = Call::<T>::set_expires_after(maybe_block);
+        let call = Call::<T, I>::set_expires_after(maybe_block);
     }: {
-        // call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin)?;
     }
     verify {
         ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
