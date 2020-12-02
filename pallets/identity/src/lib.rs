@@ -117,14 +117,13 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, storage_migrate_on, storage_migration_ver, uuid, Authorization,
-    AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
-    DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
-    InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
-    ValidProofOfInvestor,
+    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
+    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
-use sp_io::hashing::{blake2_128, blake2_256};
+use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
@@ -133,6 +132,8 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
+
+use cryptography::claim_proofs;
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -357,9 +358,8 @@ decl_module! {
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
-            let mut target_uid = blake2_128(target_did.as_bytes());
-            uuid::set_variant(&mut target_uid, uuid::Variant::RFC4122);
-            uuid::set_version(&mut target_uid, uuid::Version::V4);
+
+            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));

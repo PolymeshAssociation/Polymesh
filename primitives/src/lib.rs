@@ -20,7 +20,7 @@
 #![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
-use curve25519_dalek::scalar::Scalar;
+use cryptography::Scalar;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -235,9 +235,6 @@ pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;
-
-/// UUID utilities.
-pub mod uuid;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
