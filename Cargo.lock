@@ -4421,9 +4421,11 @@ dependencies = [
 name = "pallet-pips"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
+ "pallet-committee",
  "pallet-group",
  "pallet-identity",
  "pallet-timestamp",
@@ -5643,6 +5645,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-settlement",
