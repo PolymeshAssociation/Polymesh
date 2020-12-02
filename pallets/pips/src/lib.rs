@@ -535,7 +535,7 @@ decl_event!(
         /// The snapshot was cleared.
         SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId, SnapshotId),
+        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip<Balance>>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -1025,7 +1025,7 @@ decl_module! {
             <SnapshotQueue<T>>::set(<LiveQueue<T>>::get());
 
             // Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id, <SnapshotQueue<T>>::get()));
             Ok(())
         }
 
