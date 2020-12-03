@@ -471,6 +471,7 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
+        SnapshottedPip = SnapshottedPip<T>,
         <T as frame_system::Trait>::AccountId,
         <T as frame_system::Trait>::BlockNumber,
     {
@@ -526,7 +527,7 @@ decl_event!(
         /// The snapshot was cleared.
         SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId, SnapshotId),
+        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -1114,10 +1115,10 @@ decl_module! {
             // 4. Commit the new snapshot.
             let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            <SnapshotQueue<T>>::set(queue);
+            <SnapshotQueue<T>>::set(queue.clone());
 
             // 5. Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
             Ok(())
         }
 
