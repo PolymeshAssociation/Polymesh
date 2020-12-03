@@ -1122,8 +1122,6 @@ decl_error! {
         TickerTooLong,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
-        /// The token name cannot exceed 64 bytes.
-        AssetNameTooLong,
         /// An invalid total supply.
         InvalidTotalSupply,
         /// The total supply is above the limit.

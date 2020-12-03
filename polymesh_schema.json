@@ -1121,6 +1121,7 @@
         },
         "CorporateAction": {
             "kind": "CAKind",
+            "decl_date": "Moment",
             "record_date": "Option<RecordDate>",
             "details": "Text",
             "targets": "TargetIdentities",

@@ -117,8 +117,6 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
         /// Instantiation is not allowed.
         InstantiationIsNotAllowed,
         /// Smart extension template not exist in the storage.
@@ -129,10 +127,6 @@ decl_error! {
         InstantiationAlreadyUnFrozen,
         /// When un-authorized personnel try to access the un-authorized extrinsic.
         UnAuthorizedOrigin,
-        /// User is not able to pay the protocol fee because of insufficient funds or because of something else.
-        FailedToPayProtocolFee,
-        /// Failed To charge the instantiation fee for the smart extension.
-        FailedToPayInstantiationFee,
         /// Given identityId is not CDD.
         NewOwnerIsNotCDD,
         /// Insufficient max_fee provided by the user to instantiate the SE.
