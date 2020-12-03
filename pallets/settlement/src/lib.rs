@@ -926,7 +926,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::LegsCountExceededMaxLimit
         );
 
-        // Ensure that the scheduled block number is in the future so that T::Scheduler::schedule_named
+        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
             ensure!(
@@ -1379,8 +1379,8 @@ impl<T: Trait> Module<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
         let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
-        if !Self::has_instruction_already_scheduled(instruction_id) {
-            if T::Scheduler::schedule_named(
+        if !Self::has_instruction_already_scheduled(instruction_id)
+            && T::Scheduler::schedule_named(
                 (SETTLEMENT_ID, instruction_id).encode(),
                 DispatchTime::At(execution_at),
                 None,
@@ -1389,9 +1389,8 @@ impl<T: Trait> Module<T> {
                 call,
             )
             .is_ok()
-            {
-                ScheduledInstructions::insert(instruction_id, true);
-            }
+        {
+            ScheduledInstructions::insert(instruction_id, true);
         }
         Ok(())
     }
@@ -1557,8 +1556,8 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// It is used for general purpose settlement where instruction get affirmation &
-    /// may schedule for the next block execution or it is assumed that it is already scheduled.
+    /// Function is used for general purpose settlement, Instruction gets
+    /// scheduled for the excution in the next block, If already scheduled then skip scheduling.
     pub fn affirm_and_maybe_schedule_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
@@ -1573,10 +1572,9 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// It is a specialized function to affirm & execute the instruction when all affirmations
-    /// have received.
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
     ///
-    /// NB - It is recommended to use this function only in the STO pallet to support the DVP settlement.
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
@@ -1592,10 +1590,9 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// It is a specialized function to affirm with receipts & execute the instruction when all affirmations
-    /// have received.
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
     ///
-    /// NB - It is recommended to use this function only in the STO pallet to support the DVP settlement.
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_with_receipts_and_execute_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
@@ -1617,8 +1614,8 @@ impl<T: Trait> Module<T> {
         affirms_pending: u64,
         settlement_type: SettlementType<T::BlockNumber>,
     ) -> DispatchResult {
-        // As this function will assumes that the settlement type will always be `SettleOnAffirmation` but to be
-        // defensive it is good to check before executing the instruction.
+        // We assume `settlement_type == SettleOnAffirmation`,
+        // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
             Self::execute_instruction(instruction_id)
                 .1
