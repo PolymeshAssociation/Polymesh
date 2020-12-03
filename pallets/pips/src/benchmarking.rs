@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
-use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
+use frame_support::{dispatch::{DispatchResult,DispatchError}, traits::UnfilteredDispatchable};
 use frame_system::RawOrigin;
 use pallet_identity::{
     self as identity,
@@ -80,7 +80,6 @@ fn cast_votes<T: Trait>(
 fn pips_and_votes_setup<T: Trait>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
-    Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32)?;
     let (voters_a_num, voters_b_num) = if approve_only {
         (VOTERS_A_NUM + VOTERS_B_NUM, 0)
@@ -212,7 +211,6 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
     }: {
         call.dispatch_bypass_filter(origin)?;
@@ -229,7 +227,6 @@ benchmarks! {
             UserBuilder::<T>::default().build_with_did("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             origin.into(),
             proposal,
@@ -260,7 +257,6 @@ benchmarks! {
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
         propose_call.dispatch_bypass_filter(proposer_origin)?;
         let origin = T::VotingMajorityOrigin::successful_origin();
@@ -277,7 +273,6 @@ benchmarks! {
             UserBuilder::<T>::default().build_with_did("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let deposit = 42.into();
         Module::<T>::propose(
             origin.into(),
@@ -297,7 +292,6 @@ benchmarks! {
     }
 
     prune_proposal {
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         let User { account, origin, did, .. } =
             UserBuilder::<T>::default().build_with_did("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
@@ -328,7 +322,6 @@ benchmarks! {
         let did = did.expect("missing did in reschedule_execution");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             origin.clone().into(),
             proposal,
@@ -353,7 +346,6 @@ benchmarks! {
         let did = did.expect("missing did in clear_snapshot");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::set_proposal_cool_off_period(RawOrigin::Root.into(), 0.into())?;
         Module::<T>::propose(
             origin.clone().into(),
             proposal,

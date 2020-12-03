@@ -19,7 +19,7 @@ use crate::*;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_contracts::ExtensionInfo;
-use polymesh_primitives::{ExtensionAttributes, SmartExtension, Ticker};
+use polymesh_primitives::{ExtensionAttributes, SmartExtension, Ticker, ticker::TICKER_LEN};
 
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
@@ -32,7 +32,6 @@ use sp_std::{
 };
 
 const SEED: u32 = 0;
-const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 4096;
 const MAX_DOC_NAME: usize = 1024;
@@ -41,7 +40,7 @@ const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 /// Create a ticker and register it.
 fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    let ticker = Ticker::try_from(vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()).unwrap();
+    let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap();
     Module::<T>::register_ticker(owner, ticker).unwrap();
 
     ticker
@@ -133,18 +132,14 @@ benchmarks! {
     _ { }
 
     register_ticker {
-        let t in 1 .. MAX_TICKER_LENGTH as u32;
-
         <TickerConfig<T>>::put(TickerRegistrationConfig {
-            max_ticker_length: MAX_TICKER_LENGTH,
+            max_ticker_length: TICKER_LEN as u8,
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
 
         let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
         // Generate a ticker of length `t`.
-        let ticker = Ticker::try_from(vec![b'A'; t as usize].as_slice()).unwrap();
-    }: _(caller.origin, ticker.clone())
-    verify {
+        let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap(); }: _(caller.origin, ticker.clone()) verify {
         assert_eq!(Module::<T>::is_ticker_available(&ticker), false);
     }
 
@@ -201,10 +196,10 @@ benchmarks! {
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
         <TickerConfig<T>>::put(TickerRegistrationConfig {
-            max_ticker_length: MAX_TICKER_LENGTH,
+            max_ticker_length: TICKER_LEN as u8,
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
-        let ticker = Ticker::try_from(vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()).unwrap();
+        let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap();
         let name = AssetName::from(vec![b'N'; n as usize].as_slice());
 
         let identifiers: Vec<AssetIdentifier> =
