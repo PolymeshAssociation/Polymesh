@@ -38,6 +38,10 @@ std = [
     "scale-info",
     "scale-info/std",
 ]
+
+[profile.release]
+overflow-checks = false
+
 ink-as-dependency = []
 
 [workspace]

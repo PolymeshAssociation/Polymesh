@@ -186,6 +186,7 @@ runtime-benchmarks = [
     "pallet-committee/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "pallet-im-online/runtime-benchmarks",
+    "pallet-pips/runtime-benchmarks",
     "pallet-portfolio/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
