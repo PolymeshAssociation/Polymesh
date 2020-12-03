@@ -83,14 +83,8 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Insufficient identity balance to pay the fee.
-        InsufficientIdentityBalance,
         /// Insufficient account balance to pay the fee.
         InsufficientAccountBalance,
-        /// Account ID decoding failed.
-        AccountIdDecode,
-        /// Missing the current identity.
-        MissingCurrentIdentity,
         /// Not able to handled the imbalances
         UnHandledImbalances
     }

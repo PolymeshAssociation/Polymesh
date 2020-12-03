@@ -514,8 +514,6 @@ decl_error! {
         InstructionWaitingValidity,
         /// Instruction's target settle block reached.
         InstructionSettleBlockPassed,
-        /// Instruction waiting for settle block.
-        InstructionWaitingSettleBlock,
         /// Offchain signature is invalid.
         InvalidSignature,
         /// Sender and receiver are the same.

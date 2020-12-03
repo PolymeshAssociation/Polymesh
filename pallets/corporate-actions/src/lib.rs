@@ -773,8 +773,6 @@ decl_error! {
         DeclDateInFuture,
         /// CA does not target the DID.
         NotTargetedByCA,
-        /// CA cannot be removed.
-        CannotRemoveCA,
         /// An existing schedule was used for a new CA that was removable, and that is not allowed.
         ExistingScheduleRemovable,
     }

@@ -266,20 +266,14 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a secondary key for the DID.
-        SenderMustBeSecondaryKeyForDid,
         /// User is not authorized.
         Unauthorized,
         /// Did not exist
         DidNotExist,
-        /// When parameter has length < 1
-        InvalidLength,
         /// Compliance requirement id doesn't exist
         InvalidComplianceRequirementId,
         /// Issuer exist but trying to add it again
         IncorrectOperationOnTrustedIssuer,
-        /// Missing current DID
-        MissingCurrentIdentity,
         /// There are duplicate compliance requirements.
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
