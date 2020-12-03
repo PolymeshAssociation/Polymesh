@@ -17,12 +17,13 @@
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_support::traits::UnfilteredDispatchable;
-use frame_system::RawOrigin;
+//use frame_system::{EventRecord, RawOrigin};
 use pallet_identity::benchmarking::UserBuilder;
 use polymesh_common_utilities::MaybeBlock;
 use sp_std::prelude::*;
 
 const COMMITTEE_MEMBERS_NUM: usize = 10;
+const COMMITTEE_MEMBERS_MAX: u32 = 100;
 const PROPOSAL_PADDING_MAX: u32 = 10_000;
 
 benchmarks_instance! {
@@ -70,17 +71,33 @@ benchmarks_instance! {
     }
 
     vote_or_propose {
+        let m in 0 .. COMMITTEE_MEMBERS_MAX;
         let p in 1 .. PROPOSAL_PADDING_MAX;
 
-        let user = UserBuilder::<T>::default().build_with_did("proposer", 0);
-//        ReleaseCoordinator::<I>::put(user.did());
-        Members::<I>::put(vec![user.did()]);
+        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let mut members: Vec<_> = (0..m)
+            .map(|i| UserBuilder::<T>::default().build_with_did("member", i).did())
+            .collect();
+        members.push(proposer.did());
+        Members::<I>::put(members);
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
-    }: _(user.origin, true, Box::new(proposal.clone()))
+    }: _(proposer.origin.clone(), true, Box::new(proposal.clone()))
     verify {
-        ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "didn't propose");
+        if m == 0 {
+            // The proposal was executed and execution was logged.
+            let pallet_event: <T as Trait<I>>::Event =
+                RawEvent::Executed(proposer.did(), hash, false).into();
+            let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
+            ensure!(frame_system::Module::<T>::events().iter().any(|e| {
+                e.event == system_event
+            }), "proposal was not executed");
+        } else {
+            // The proposal was stored.
+            ensure!(Proposals::<T, I>::get() == vec![hash], "proposal hash not found");
+            ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "proposal not found");
+        }
     }
 
     vote {
