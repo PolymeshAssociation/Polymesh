@@ -200,12 +200,8 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Only primary key of the identity is allowed.
-        OnlyPrimaryKeyAllowed,
         /// Sender Identity is not part of the committee.
         MemberNotFound,
-        /// Last member of the committee can not quit.
-        LastMemberCannotQuit,
         /// The proposer or voter is not a committee member.
         BadOrigin,
         /// No such proposal.
@@ -222,8 +218,6 @@ decl_error! {
         CloseBeforeVoteEnd,
         /// When `MotionDuration` is set to 0.
         NotAllowed,
-        /// The current DID is missing.
-        MissingCurrentIdentity,
         /// First vote on a proposal creates it, so it must be an approval.
         /// All proposals are motions to execute something as "GC majority".
         /// To reject e.g., a PIP, a motion to reject should be *approved*.

@@ -985,8 +985,6 @@ decl_error! {
         AlreadyLinked,
         /// Missing current identity on the transaction
         MissingCurrentIdentity,
-        /// No did linked to the user
-        NoDIDFound,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
         /// Given authorization is not pre-known
@@ -999,18 +997,12 @@ decl_error! {
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
         InvalidAuthorizationFromCddProvider,
-        /// The authorization to change the key was not from the owner of the primary key.
-        KeyChangeUnauthorized,
         /// Attestation was not by a CDD service provider.
         NotCddProviderAttestation,
         /// Authorizations are not for the same DID.
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
-        /// The Claim issuer DID must already exist.
-        ClaimIssuerDidMustAlreadyExist,
-        /// Sender must hold a claim issuer's secondary key.
-        SenderMustHoldClaimIssuerKey,
         /// Current identity cannot be forwarded, it is not a secondary key of target identity.
         CurrentIdentityCannotBeForwarded,
         /// The offchain authorization has expired.

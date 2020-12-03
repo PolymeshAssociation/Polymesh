@@ -348,8 +348,6 @@ decl_error! {
         InvalidSlashingParam,
         /// Unauthorized origin
         NotAuthorised,
-        /// Missing Caller DID
-        MissingCurrentIdentity
     }
 }
 
