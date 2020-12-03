@@ -48,16 +48,20 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     traits::{GetCallMetadata, UnfilteredDispatchable},
-    weights::{DispatchClass, GetDispatchInfo, Weight},
+    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
@@ -79,7 +83,17 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
         + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>
+        + From<balances::Call<Self>>
         + UnfilteredDispatchable<Origin = Self::Origin>;
+
+    type WeightInfo: WeightInfo;
+}
+
+pub trait WeightInfo {
+    fn batch(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn relay_tx(call: &impl GetDispatchInfo) -> Weight;
 }
 
 decl_storage! {
@@ -132,25 +146,6 @@ impl<C> UniqueCall<C> {
     }
 }
 
-fn combine_classes(mut classes: impl Iterator<Item = DispatchClass>) -> DispatchClass {
-    let all_operational = classes.all(|class| class == DispatchClass::Operational);
-    if all_operational {
-        DispatchClass::Operational
-    } else {
-        DispatchClass::Normal
-    }
-}
-
-fn batch_weight(calls: &[impl GetDispatchInfo]) -> (Weight, DispatchClass) {
-    let weight = calls
-        .into_iter()
-        .map(|call| call.get_dispatch_info().weight)
-        .fold(550_000_000, |a: Weight, n| a.saturating_add(n))
-        .saturating_add(10_000_000);
-    let class = combine_classes(calls.into_iter().map(|call| call.get_dispatch_info().class));
-    (weight, class)
-}
-
 fn dispatch_call<T: Trait>(
     origin: T::Origin,
     is_root: bool,
@@ -188,7 +183,7 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
             if !is_root {
@@ -232,7 +227,7 @@ decl_module! {
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::is_root_with_permissions(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
@@ -270,7 +265,7 @@ decl_module! {
         /// If any call failed, then `BatchOptimisticFailed` is deposited,
         /// with a vector of `(index, error)`.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::is_root_with_permissions(origin.clone())?;
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
@@ -301,12 +296,7 @@ decl_module! {
         /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
-        /// # Weight
-        /// - The weight of the call to be relayed plus a static 900_000_000.
-        #[weight = (
-            call.call.get_dispatch_info().weight.saturating_add(900_000_000),
-            call.call.get_dispatch_info().class,
-        )]
+        #[weight = <T as Trait>::WeightInfo::relay_tx(&*call.call)]
         pub fn relay_tx(
             origin,
             target: T::AccountId,

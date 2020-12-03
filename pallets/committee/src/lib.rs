@@ -178,9 +178,9 @@ decl_event!(
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
         Rejected(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
-        /// A motion was executed; `bool` is true if returned without error.
-        /// Parameters: caller DID, proposal hash, status of proposal dispatch.
-        Executed(IdentityId, Hash, bool),
+        /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
+        /// Parameters: caller DID, proposal hash, result of proposal dispatch.
+        Executed(IdentityId, Hash, DispatchResult),
         /// A proposal was closed after its duration was up.
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count.
         Closed(IdentityId, Hash, MemberCount, MemberCount),
@@ -200,12 +200,8 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Only primary key of the identity is allowed.
-        OnlyPrimaryKeyAllowed,
         /// Sender Identity is not part of the committee.
         MemberNotFound,
-        /// Last member of the committee can not quit.
-        LastMemberCannotQuit,
         /// The proposer or voter is not a committee member.
         BadOrigin,
         /// No such proposal.
@@ -222,8 +218,6 @@ decl_error! {
         CloseBeforeVoteEnd,
         /// When `MotionDuration` is set to 0.
         NotAllowed,
-        /// The current DID is missing.
-        MissingCurrentIdentity,
         /// First vote on a proposal creates it, so it must be an approval.
         /// All proposals are motions to execute something as "GC majority".
         /// To reject e.g., a PIP, a motion to reject should be *approved*.
@@ -577,8 +571,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         seats: MemberCount,
     ) {
         let origin = RawOrigin::Members(ayes, seats).into();
-        let ok = proposal.dispatch(origin).is_ok();
-        Self::deposit_event(RawEvent::Executed(did, hash, ok));
+        let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
+        Self::deposit_event(RawEvent::Executed(did, hash, res));
     }
 
     /// Any committee member proposes a dispatchable.

@@ -472,10 +472,13 @@ impl pallet_pips::Trait for Runtime {
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
@@ -562,15 +565,17 @@ impl treasury::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInInstruction: u32 = 10;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = ();
 }
 
 impl sto::Trait for Runtime {
@@ -601,7 +606,6 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -714,6 +718,7 @@ parameter_types! {
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
 impl pallet_corporate_actions::Trait for Runtime {
@@ -747,6 +752,7 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+    type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {

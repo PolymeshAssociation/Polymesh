@@ -19,6 +19,7 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
+        "Version": "u8",
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -800,8 +801,8 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCheckpoint",
                 "AssetCreateAsset",
+                "AssetCreateCheckpointSchedule",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
@@ -810,7 +811,10 @@
                 "IdentitySetPrimaryKey",
                 "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
-                "VotingAddBallot"
+                "VotingAddBallot",
+                "ContractsPutCode",
+                "BallotAttachBallot",
+                "DistributionDistribute"
             ]
         },
         "CddStatus": {
@@ -1113,11 +1117,13 @@
         "RecordDateSpec": {
             "_enum": {
                 "Scheduled": "Moment",
+                "ExistingSchedule": "ScheduleId",
                 "Existing": "CheckpointId"
             }
         },
         "CorporateAction": {
             "kind": "CAKind",
+            "decl_date": "Moment",
             "record_date": "Option<RecordDate>",
             "details": "Text",
             "targets": "TargetIdentities",

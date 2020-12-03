@@ -82,13 +82,12 @@ mod tests;
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure,
-    traits::EnsureOrigin,
     traits::Get,
     weights::{DispatchClass, Weight},
     Parameter,
 };
-use frame_system::ensure_none;
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use frame_system::{ensure_none, ensure_root};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
@@ -283,9 +282,6 @@ pub trait Trait: SendTransactionTypes<Call<Self>> + pallet_session::historical::
     /// This is exposed so that it can be tuned for particular runtime, when
     /// multiple pallets send unsigned transactions.
     type UnsignedPriority: Get<TransactionPriority>;
-
-    /// Origin for changing slashing params.
-    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
 }
 
 decl_event!(
@@ -348,8 +344,6 @@ decl_error! {
         InvalidSlashingParam,
         /// Unauthorized origin
         NotAuthorised,
-        /// Missing Caller DID
-        MissingCurrentIdentity
     }
 }
 
@@ -413,10 +407,9 @@ decl_module! {
         /// Only Governance committee is allowed to set these params.
         #[weight = (100_000, DispatchClass::Operational)]
         fn set_slashing_params(origin, params: OfflineSlashingParams) {
+            ensure_root(origin)?;
             ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
             ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
-
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
             Self::deposit_event(RawEvent::SlashingParamsUpdated(params));
