@@ -5644,6 +5644,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-multisig",
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-settlement",

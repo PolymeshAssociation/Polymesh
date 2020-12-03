@@ -101,6 +101,7 @@ thread_local! {
     pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
     pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
+    pub static MAX_SIGNERS: RefCell<u32> = RefCell::new(256);
 }
 
 impl ExtBuilder {

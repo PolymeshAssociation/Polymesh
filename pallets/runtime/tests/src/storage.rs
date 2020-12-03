@@ -1,5 +1,5 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, MAX_SIGNERS, NETWORK_FEE_SHARE,
     TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
@@ -294,8 +294,14 @@ impl polymesh_contracts::Trait for TestStorage {
     type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
+parameter_types! {
+    pub MaxSigners: u32 = MAX_SIGNERS.with(|v| *v.borrow());
+}
+
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type MaxSigners = MaxSigners;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 parameter_types! {

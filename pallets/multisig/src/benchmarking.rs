@@ -67,7 +67,7 @@ benchmarks! {
 
     create_multisig {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let caller = <UserBuilder<T>>::default().build_with_did("caller", 0);
         let mut signers = vec![Signatory::from(caller.did())];
@@ -76,7 +76,7 @@ benchmarks! {
 
     create_or_approve_proposal_as_identity {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let mut signers = vec![Signatory::from(alice.did())];
@@ -86,7 +86,7 @@ benchmarks! {
 
     create_or_approve_proposal_as_key {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build("bob", 0);
@@ -97,7 +97,7 @@ benchmarks! {
 
     create_proposal_as_identity {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let mut signers = vec![Signatory::from(alice.did())];
@@ -107,7 +107,7 @@ benchmarks! {
 
     create_proposal_as_key {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build("bob", 0);
@@ -223,7 +223,7 @@ benchmarks! {
 
     add_multisig_signers_via_creator {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account());
@@ -234,7 +234,7 @@ benchmarks! {
 
     remove_multisig_signers_via_creator {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build_with_did("bob", 0);
@@ -257,7 +257,7 @@ benchmarks! {
 
     change_all_signers_and_sigs_required {
         // Number of signers
-        let i in 1 .. 256;
+        let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = generate_multisig_with_signers::<T>(alice.account(), alice.origin(), vec![Signatory::from(alice.did())], 1)?;
