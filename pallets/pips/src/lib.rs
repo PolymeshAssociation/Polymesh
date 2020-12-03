@@ -99,7 +99,7 @@ use frame_support::{
         schedule::{DispatchTime, Named as ScheduleNamed, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::{DispatchClass, Pays, Weight},
+    weights::{DispatchClass, Pays},
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
