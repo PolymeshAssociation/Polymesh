@@ -645,14 +645,6 @@ impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> 
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
     }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn bench_set_release_coordinator(id: IdentityId) {
-        if !Self::members().contains(&id) {
-            Self::change_members_sorted(&[id], &[], &[id]);
-        }
-        <ReleaseCoordinator<I>>::put(id);
-    }
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
