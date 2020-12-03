@@ -613,7 +613,6 @@ impl dividend::Trait for TestStorage {
 
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;

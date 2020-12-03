@@ -389,9 +389,6 @@ pub trait Trait:
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
         + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
-    /// Origin for proposals.
-    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
-
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
@@ -685,7 +682,7 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = <T as Trait>::WeightInfo::set_prune_historical_pips()]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
@@ -697,7 +694,7 @@ decl_module! {
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = <T as Trait>::WeightInfo::set_min_proposal_deposit()]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
@@ -705,7 +702,7 @@ decl_module! {
         /// Change the default enact period.
         #[weight = <T as Trait>::WeightInfo::set_default_enactment_period()]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
@@ -715,7 +712,7 @@ decl_module! {
         /// If `expiry` is `None` then PIPs never expire.
         #[weight = <T as Trait>::WeightInfo::set_pending_pip_expiry()]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             let prev = <PendingPipExpiry<T>>::get();
             <PendingPipExpiry<T>>::put(expiry);
             Self::deposit_event(RawEvent::PendingPipExpiryChanged(GC_DID, prev, expiry));
@@ -725,7 +722,7 @@ decl_module! {
         /// New values only
         #[weight = <T as Trait>::WeightInfo::set_max_pip_skip_count()]
         pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             let prev_max = MaxPipSkipCount::get();
             MaxPipSkipCount::put(new_max);
             Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
@@ -734,7 +731,7 @@ decl_module! {
         /// Change the maximum number of active PIPs before community members cannot propose anything.
         #[weight = <T as Trait>::WeightInfo::set_active_pip_limit()]
         pub fn set_active_pip_limit(origin, new_max: u32) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             let prev_max = ActivePipLimit::get();
             ActivePipLimit::put(new_max);
             Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));

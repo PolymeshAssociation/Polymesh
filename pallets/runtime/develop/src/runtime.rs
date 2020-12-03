@@ -468,7 +468,6 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -597,7 +596,6 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
