@@ -605,6 +605,7 @@
         "ProposalState": {
             "_enum": [
                 "Pending",
+                "Cancelled",
                 "Rejected",
                 "Scheduled",
                 "Failed",
@@ -632,7 +633,8 @@
             "id": "PipId",
             "proposal": "Call",
             "state": "ProposalState",
-            "proposer": "Proposer"
+            "proposer": "Proposer",
+            "cool_off_until": "u32"
         },
         "ProposalData": {
             "_enum": {

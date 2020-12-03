@@ -18,6 +18,9 @@
 //! Polymesh Improvement Proposals (PIPs) are dispatchables that can be `propose`d for execution.
 //! These PIPs can either be proposed by a committee, or they can be proposed by a community member,
 //! in which case they can `vote`d on by all POLYX token holders.
+//! Once created, a proposal first enters a cool-off period, during which it can be amended
+//! (via `amend_proposal` and `vote`) or cancelled (via `cancel_proposal`) but not approved.
+//! During cool-off, only the PIPs proposer can use `vote`.
 //!
 //! Voting, or rather "signalling", which currently scales linearly with POLX,
 //! in this system is used to direct the Governance Councils (GCs)
@@ -60,6 +63,7 @@
 //!
 //! - `set_prune_historical_pips` change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` change min deposit to create a proposal
+//! - `set_proposal_cool_off_period` change duration in blocks for which a proposal can be amended
 //! - `set_default_enactment_period` change the period after enactment after which the proposal is executed
 //! - `set_max_pip_skip_count` change the maximum times a PIP can be skipped
 //! - `set_active_pip_limit` change the maximum number of concurrently active PIPs
@@ -81,14 +85,11 @@
 //! ### Public Functions
 //!
 //! - `end_block` - executes scheduled proposals
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
-#![feature(or_patterns)]
-#![feature(bool_to_option)]
 
 use codec::{Decode, Encode};
-use core::{cmp::Ordering, mem};
+use core::mem;
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -155,6 +156,10 @@ pub struct Pip<T: Trait> {
     pub state: ProposalState,
     /// The issuer of `propose`.
     pub proposer: Proposer<T::AccountId>,
+    /// The block until which the PIP is cooling off.
+    /// During the period, the `proposer` can amend details.
+    /// After the period, people can vote on community PIPs.
+    pub cool_off_until: T::BlockNumber,
 }
 
 /// A result of execution of get_votes.
@@ -262,8 +267,10 @@ pub type HistoricalVotingById<AccountId, VoteType> =
 /// The state a PIP is in.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
-    /// Initial state. Proposal is open to voting.
+    /// Proposal is created and either in the cool-down period or open to voting.
     Pending,
+    /// Proposal is cancelled by its owner.
+    Cancelled,
     /// Proposal was rejected by the GC.
     Rejected,
     /// Proposal has been approved by the GC and scheduled for execution.
@@ -288,7 +295,7 @@ impl Default for ProposalState {
 pub struct DepositInfo<AccountId, Balance> {
     /// Owner of the deposit.
     pub owner: AccountId,
-    /// Amount deposited.
+    /// Amount. It can be updated during the cool off period.
     pub amount: Balance,
 }
 
@@ -309,33 +316,15 @@ pub struct SnapshotMetadata<T: Trait> {
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SnapshottedPip<Balance> {
+pub struct SnapshottedPip<T: Trait> {
     /// Identifies the PIP this refers to.
     pub id: PipId,
     /// Weight of the proposal in the snapshot's priority queue.
     /// Higher weights come before lower weights.
     /// The `bool` denotes the sign, where `true` siginfies a positive number.
-    pub weight: (bool, Balance),
-}
-
-/// Defines sorting order for PIP priority queues, with highest priority *last*.
-/// Having higher prio last allows efficient tail popping, so we have a LIFO structure.
-fn compare_spip<B: Ord + Copy>(l: &SnapshottedPip<B>, r: &SnapshottedPip<B>) -> Ordering {
-    let (l_dir, l_stake): (bool, B) = l.weight;
-    let (r_dir, r_stake): (bool, B) = r.weight;
-    l_dir
-        .cmp(&r_dir) // Negative has lower prio.
-        .then_with(|| match l_dir {
-            true => l_stake.cmp(&r_stake), // Higher stake, higher prio...
-            // Unless negative stake, in which case lower abs stake, higher prio.
-            false => r_stake.cmp(&l_stake),
-        })
-        // Lower id was made first, so assigned higher prio.
-        // This also gives us sorting stability through a total order.
-        // Moreover, as `queue` should be in by-id order originally.
-        .then(r.id.cmp(&l.id))
+    pub weight: (bool, BalanceOf<T>),
 }
 
 /// A result to enact for one or many PIPs in the snapshot queue.
@@ -409,11 +398,15 @@ decl_storage! {
         /// The minimum amount to be used as a deposit for community PIP creation.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
+        /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
+        /// proposal.
+        pub ProposalCoolOffPeriod get(fn proposal_cool_off_period) config(): T::BlockNumber;
+
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
 
-        /// How many blocks will it take, after a `Pending` PIP expires,
-        /// assuming it has not transitioned to another `ProposalState`?
+        /// How many blocks will it take, after a `Pending` PIP's cooling-off period is over,
+        /// until the the PIP expires, assuming it has not transitioned to another `ProposalState`?
         pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<T::BlockNumber>;
 
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
@@ -454,20 +447,12 @@ decl_storage! {
         /// Maps PIPs to the block at which they will be executed, if any.
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
 
-        /// A live priority queue (lowest priority at index 0)
-        /// of pending PIPs up to the active limit.
-        /// Priority is defined by the `weight` in the `SnapshottedPip`.
-        ///
-        /// Unlike `SnapshotQueue`, this queue is live, getting updated with each vote cast.
-        /// The snapshot is therefore essentially a point-in-time clone of this queue.
-        pub LiveQueue get(fn live_queue): Vec<SnapshottedPip<BalanceOf<T>>>;
-
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
-        /// Priority is defined by the `weight` in the `SnapshottedPip`.
+        /// Priority is defined by the `weight` in the `SnapshottedPIP`.
         ///
         /// A queued PIP can be skipped. Doing so bumps the `pip_skip_count`.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
-        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<BalanceOf<T>>>;
+        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<T>>;
 
         /// The metadata of the snapshot, if there is one.
         pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
@@ -495,7 +480,7 @@ decl_event!(
         ///
         /// # Parameters:
         ///
-        /// Caller DID, Proposer, PIP ID, deposit, URL, description, expiry time, proposal data.
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, expiry time, proposal data.
         ProposalCreated(
             IdentityId,
             Proposer<AccountId>,
@@ -503,9 +488,12 @@ decl_event!(
             Balance,
             Option<Url>,
             Option<PipDescription>,
+            BlockNumber,
             MaybeBlock<BlockNumber>,
             ProposalData,
         ),
+        /// A PIP's details (url & description) were amended.
+        ProposalDetailsAmended(IdentityId, Proposer<AccountId>, PipId, Option<Url>, Option<PipDescription>),
         /// Triggered each time the state of a proposal is amended
         ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
@@ -520,7 +508,10 @@ decl_event!(
         /// Minimum deposit amount modified
         /// (caller DID, old amount, new amount)
         MinimumProposalDepositChanged(IdentityId, Balance, Balance),
-        /// Amount of blocks after which a pending PIP expires.
+        /// Cool off period for proposals modified
+        /// (caller DID, old period, new period)
+        ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
+        /// Amount of blocks, after the cool-off period, after which a pending PIP expires.
         /// (caller DID, old expiry, new expiry)
         PendingPipExpiryChanged(IdentityId, MaybeBlock<BlockNumber>, MaybeBlock<BlockNumber>),
         /// The maximum times a PIP can be skipped was changed.
@@ -574,6 +565,10 @@ decl_error! {
         NoSuchProposal,
         /// Not part of governance committee.
         NotACommitteeMember,
+        /// After Cool-off period, proposals are not cancelable.
+        ProposalOnCoolOffPeriod,
+        /// Proposal is immutable after cool-off period.
+        ProposalIsImmutable,
         /// When a block number is less than current block number.
         InvalidFutureBlockNumber,
         /// When number of votes overflows.
@@ -644,9 +639,6 @@ decl_module! {
                 kill_item(b"Pips", item.as_bytes());
             }
 
-            // Recompute the live queue.
-            <LiveQueue<T>>::set(Self::compute_live_queue());
-
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.
             0
@@ -675,6 +667,18 @@ decl_module! {
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
+        /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip
+        /// can modify or cancel their proposal, and other voting is prohibited
+        ///
+        /// # Arguments
+        /// * `duration` proposal cool off period duration in blocks
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(GC_DID, Self::proposal_cool_off_period(), duration));
+            <ProposalCoolOffPeriod<T>>::put(duration);
+        }
+
         /// Change the default enact period.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
@@ -684,7 +688,7 @@ decl_module! {
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
         }
 
-        /// Change the amount of blocks after which a pending PIP is expired.
+        /// Change the amount of blocks, after the cool-off, for which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
@@ -759,7 +763,8 @@ decl_module! {
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
             let created_at = <system::Module<T>>::block_number();
-            let expiry = Self::pending_pip_expiry() + created_at;
+            let cool_off_until = created_at + Self::proposal_cool_off_period();
+            let expiry = Self::pending_pip_expiry() + cool_off_until;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             let proposal_data = Self::reportable_proposal_data(&*proposal);
             <ProposalMetadata<T>>::insert(id, PipsMetadata {
@@ -775,6 +780,7 @@ decl_module! {
                 proposal: *proposal,
                 state: ProposalState::Pending,
                 proposer: proposer.clone(),
+                cool_off_until,
             });
             ActivePipCount::mutate(|count| *count += 1);
 
@@ -797,9 +803,6 @@ decl_module! {
                         debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                         vote_error
                     })?;
-
-                // Adjust live queue.
-                Self::insert_live_queue(id);
             } else {
                 CommitteePips::append(id);
             }
@@ -812,9 +815,59 @@ decl_module! {
                 deposit,
                 url,
                 description,
+                cool_off_until,
                 expiry,
                 proposal_data,
             ));
+            Ok(())
+        }
+
+        /// It amends the `url` and the `description` of the proposal with `id`.
+        ///
+        /// # Errors
+        /// * `BadOrigin`: Only the owner of the proposal can amend it.
+        /// * `ProposalIsImmutable`: A proposals is mutable only during its cool off period.
+        ///
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn amend_proposal(
+            origin,
+            id: PipId,
+            url: Option<Url>,
+            description: Option<PipDescription>,
+        ) -> DispatchResult {
+            // 1. Fetch proposer and perform sanity checks.
+            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
+            let current_did = Self::current_did_or_missing()?;
+
+            // 2. Update proposal metadata.
+            <ProposalMetadata<T>>::mutate(id, |meta| {
+                if let Some(meta) = meta {
+                    meta.url = url.clone();
+                    meta.description = description.clone();
+                }
+            });
+
+            // 3. Emit event.
+            Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
+
+            Ok(())
+        }
+
+        /// It cancels the proposal of the id `id`.
+        ///
+        /// Proposals can be cancelled only during its _cool-off period.
+        ///
+        /// # Errors
+        /// * `BadOrigin`: Only the owner of the proposal can amend it.
+        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn cancel_proposal(origin, id: PipId) -> DispatchResult {
+            // 1. Fetch proposer and perform sanity checks.
+            let _ = Self::ensure_owned_by_alterable(origin, id)?;
+
+            // 2. Close that proposal (including refunding).
+            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::maybe_prune(did, id, ProposalState::Cancelled);
             Ok(())
         }
 
@@ -834,6 +887,7 @@ decl_module! {
         /// # Errors
         /// * `NoSuchProposal` if `id` doesn't reference a valid PIP.
         /// * `NotFromCommunity` if proposal was made by a committee.
+        /// * `ProposalOnCoolOffPeriod` if non-owner is voting and PIP is cooling off.
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
         #[weight = 1_000_000_000]
@@ -842,55 +896,55 @@ decl_module! {
             let pip = Self::proposals(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
-            // Proposal must be from the community.
+            // 1. Proposal must be from the community.
             let proposer = match pip.proposer {
                 Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
                 Proposer::Community(p) => p,
             };
 
             if proposer == voter {
-                // a) Deposit must be above minimum.
+                // 2a. Deposit must be above minimum.
                 // Note that proposer can still vote against their own PIP.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
+            } else {
+                // 2b. Only proposer can vote during PIP's cool-off period.
+                let curr_block_number = <system::Module<T>>::block_number();
+                ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
             }
 
-            // Proposal must be pending.
+            // 3. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             let current_did = Self::current_did_or_missing()?;
 
-            let old_res = Self::aggregate_result(id);
-
             with_transaction(|| {
-                // Reserve the deposit, or refund if needed.
+                // 4. Reserve the deposit, or refund if needed.
                 let curr_deposit = Self::deposits(id, &voter).amount;
                 if deposit < curr_deposit {
                     Self::reduce_lock(&voter, curr_deposit - deposit)?;
                 } else {
                     Self::increase_lock(&voter, deposit - curr_deposit)?;
                 }
-                // Save the vote.
+                // 5. Save the vote.
                 Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
             })?;
-
-            // Adjust live queue.
-            Self::adjust_live_queue(id, old_res);
 
             <Deposits<T>>::insert(id, &voter, DepositInfo {
                 owner: voter.clone(),
                 amount: deposit,
             });
 
-            // Emit event.
+            // 6. Emit event.
             Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
         }
 
-        /// Approves the pending committee PIP given by the `id`.
+        /// Approves the pending non-cooling committee PIP given by the `id`.
         ///
         /// # Errors
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal isn't pending.
+        /// * `ProposalOnCoolOffPeriod` if the proposal is cooling off.
         /// * `NotByCommittee` if the proposal isn't by a committee.
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn approve_committee_proposal(origin, id: PipId) {
@@ -900,8 +954,10 @@ decl_module! {
             // 2. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
-            // 3. Proposal must be by committee.
+            // 3. Proposal must not be cooling-off and must be by committee.
             let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let curr_block_number = <system::Module<T>>::block_number();
+            ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
@@ -910,7 +966,7 @@ decl_module! {
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
         /// assuming it hasn't been cancelled or executed.
-        /// Note that proposals scheduled-for-execution can also be rejected.
+        /// Note that cooling-off and proposals scheduled-for-execution can also be rejected.
         ///
         /// # Errors
         /// * `BadOrigin` unless a GC voting majority executes this function.
@@ -1013,18 +1069,54 @@ decl_module! {
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn snapshot(origin) -> DispatchResult {
-            // Ensure a GC member is executing this.
+            // 1. Check that a GC member is executing this.
             let made_by = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&made_by)?;
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
-            // Commit the new snapshot.
-            let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
+            // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
             let created_at = <system::Module<T>>::block_number();
-            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            <SnapshotQueue<T>>::set(<LiveQueue<T>>::get());
+            let mut queue = <Proposals<T>>::iter_values()
+                // Only keep non-cooling pending community PIPs.
+                .filter(|pip| matches!(pip.state, ProposalState::Pending))
+                .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
+                .filter(|pip| pip.cool_off_until <= created_at)
+                .map(|pip| pip.id)
+                // Aggregate the votes; `true` denotes a positive sign.
+                .map(|id| {
+                    let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
+                    let weight = if ayes_stake >= nays_stake {
+                        (true, ayes_stake - nays_stake)
+                    } else {
+                        (false, nays_stake - ayes_stake)
+                    };
+                    SnapshottedPip { id, weight }
+                })
+                .collect::<Vec<_>>();
 
-            // Emit event.
+            // 5. Sort pips into priority queue, with highest priority *last*.
+            // Having higher prio last allows efficient tail popping, so we have a LIFO structure.
+            queue.sort_unstable_by(|l, r| {
+                let (l_dir, l_stake): (bool, BalanceOf<T>) = l.weight;
+                let (r_dir, r_stake): (bool, BalanceOf<T>) = r.weight;
+                l_dir.cmp(&r_dir) // Negative has lower prio.
+                    .then_with(|| match l_dir {
+                        true => l_stake.cmp(&r_stake), // Higher stake, higher prio...
+                         // Unless negative stake, in which case lower abs stake, higher prio.
+                        false => r_stake.cmp(&l_stake)
+                    })
+                    // Lower id was made first, so assigned higher prio.
+                    // This also gives us sorting stability through a total order.
+                    // Moreover, as `queue` should be in by-id order originally.
+                    .then(r.id.cmp(&l.id))
+            });
+
+            // 4. Commit the new snapshot.
+            let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
+            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
+            <SnapshotQueue<T>>::set(queue);
+
+            // 5. Emit event.
             Self::deposit_event(RawEvent::SnapshotTaken(did, id));
             Ok(())
         }
@@ -1041,7 +1133,7 @@ decl_module! {
         /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
         /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
         /// * `SnapshotIdMismatch` - if:
-        ///   ```text
+        ///   ```
         ///    ∃ (i ∈ 0..SnapshotQueue.len()).
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
@@ -1069,7 +1161,7 @@ decl_module! {
                         // The id at queue position vs. results mismatches.
                         Some(p) if p.id != id => return Err(Error::<T>::SnapshotIdMismatch.into()),
                         // All is right...
-                        Some(_) => {}
+                        Some(_) => {},
                     }
                     match action {
                         // Make sure the PIP can be skipped and enqueue bumping of skip.
@@ -1077,7 +1169,7 @@ decl_module! {
                             let count = PipSkipCount::get(id);
                             ensure!(count < max_pip_skip_count, Error::<T>::CannotSkipPip);
                             to_bump_skipped.push((id, count + 1));
-                        }
+                        },
                         // Mark PIP as rejected.
                         SnapshotResult::Reject => to_reject.push(id),
                         // Approve PIP.
@@ -1090,11 +1182,6 @@ decl_module! {
                     PipSkipCount::insert(pip_id, new_count);
                     Self::deposit_event(RawEvent::PipSkipped(GC_DID, pip_id, new_count));
                 }
-
-                // Adjust the live queue, removing scheduled and rejected PIPs.
-                <LiveQueue<T>>::mutate(|live| {
-                    live.retain(|e| !(to_reject.contains(&e.id) || to_approve.contains(&e.id)));
-                });
 
                 // Reject proposals as instructed & refund.
                 for pip_id in to_reject.iter().copied() {
@@ -1128,7 +1215,6 @@ decl_module! {
         fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
-                Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
                 Self::maybe_prune(did, id, ProposalState::Expired);
             }
         }
@@ -1162,6 +1248,34 @@ impl<T: Trait> Module<T> {
     /// Returns the current identity or emits `MissingCurrentIdentity`.
     fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
+    }
+
+    /// Ensure that the proposer inferred via `origin` is the owner of the proposal,
+    /// which must be in the cool off period.
+    ///
+    /// # Errors
+    /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
+    fn ensure_owned_by_alterable(
+        origin: T::Origin,
+        id: PipId,
+    ) -> Result<Proposer<T::AccountId>, DispatchError> {
+        // 1. Only owner can act on proposal.
+        let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        let proposer = Self::ensure_infer_proposer(origin)?;
+        ensure!(proposer == pip.proposer, DispatchError::BadOrigin);
+
+        // 2. Check that the proposal is pending.
+        Self::is_proposal_state(id, ProposalState::Pending)?;
+
+        // 3. Proposal is *ONLY* alterable during its cool-off period.
+        let curr_block_number = <system::Module<T>>::block_number();
+        ensure!(
+            pip.cool_off_until > curr_block_number,
+            Error::<T>::ProposalIsImmutable
+        );
+
+        Ok(pip.proposer)
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
@@ -1201,11 +1315,13 @@ impl<T: Trait> Module<T> {
     /// Remove the PIP with `id` from the snapshot if it is there.
     fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Pending = state {
-            // Pending so therefore in live queue; evict `id`.
-            <LiveQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
-
-            if <SnapshotMeta<T>>::get().is_some() {
-                // Proposal is pending and wasn't when snapshot was made.
+            let cool_until = Self::proposals(id).unwrap().cool_off_until;
+            if cool_until <= <system::Module<T>>::block_number()
+                && <SnapshotMeta<T>>::get()
+                    .filter(|m| cool_until <= m.created_at)
+                    .is_some()
+            {
+                // Proposal is pending, no longer in cool-down, and wasn't when snapshot was made.
                 // Hence, it is in the snapshot and filtering it out will have an effect.
                 // Note: These checks are not strictly necessary, but are done to avoid work.
                 <SnapshotQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
@@ -1485,79 +1601,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Construct a `SnapshottedPip` from a `PipId`.
-    /// `true` denotes a positive sign.
-    fn aggregate_result(id: PipId) -> SnapshottedPip<BalanceOf<T>> {
-        let VotingResult {
-            ayes_stake,
-            nays_stake,
-            ..
-        } = <ProposalResult<T>>::get(id);
-        let weight = if ayes_stake >= nays_stake {
-            (true, ayes_stake - nays_stake)
-        } else {
-            (false, nays_stake - ayes_stake)
-        };
-        SnapshottedPip { id, weight }
-    }
-
-    /// Adjust the live queue under the assumption that `id` should be moved up or down the queue.
-    fn adjust_live_queue(id: PipId, old: SnapshottedPip<BalanceOf<T>>) {
-        let new = Self::aggregate_result(id);
-        <LiveQueue<T>>::mutate(|queue| {
-            let old_pos = queue.binary_search_by(|res| compare_spip(res, &old));
-            let new_pos = queue.binary_search_by(|res| compare_spip(res, &new));
-            match (old_pos, new_pos) {
-                // First time adding to queue, so insert.
-                (Err(_), Ok(pos) | Err(pos)) => queue.insert(pos, new),
-                // Already in queue. Swap positions.
-                (Ok(old_pos), Err(new_pos)) => {
-                    // Cannot underflow by definition of binary search finding an element.
-                    let new_pos = new_pos.min(queue.len() - 1);
-                    move_element(queue, old_pos, new_pos);
-                    queue[new_pos] = new;
-                }
-                // We have `old_res == new_res`. Queue state is already good.
-                (Ok(_), Ok(_)) => {}
-            }
-        });
-    }
-
-    /// Insert a new PIP into the live queue.
-    ///
-    /// The `id` should not exist in the queue previously.
-    /// Panics if it did.
-    fn insert_live_queue(id: PipId) {
-        let new = Self::aggregate_result(id);
-        <LiveQueue<T>>::mutate(|queue| {
-            // Inserting a new PIP entails that `id` is nowhere to be found.
-            // It follows that binary search will return `Err(_)`.
-            let pos = queue
-                .binary_search_by(|res| compare_spip(res, &new))
-                .unwrap_err();
-            queue.insert(pos, new);
-        });
-    }
-
-    /// Recompute the live queue from all existing PIPs.
-    pub fn compute_live_queue() -> Vec<SnapshottedPip<BalanceOf<T>>> {
-        // Fetch intersection of pending && aggregate their votes.
-        let mut queue = <Proposals<T>>::iter_values()
-            // Only keep pending community PIPs.
-            .filter(|pip| matches!(pip.state, ProposalState::Pending))
-            .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
-            .map(|pip| pip.id)
-            // Aggregate the votes; `true` denotes a positive sign.
-            .map(Self::aggregate_result)
-            .collect::<Vec<_>>();
-
-        // Sort pips into priority queue, with highest priority *last*.
-        // Having higher prio last allows efficient tail popping, so we have a LIFO structure.
-        queue.sort_unstable_by(compare_spip);
-
-        queue
-    }
-
     /// Returns a reportable representation of a proposal taking care that the reported data are not
     /// too large.
     fn reportable_proposal_data(proposal: &T::Proposal) -> ProposalData {
@@ -1568,43 +1611,5 @@ impl<T: Trait> Module<T> {
             ProposalData::Proposal(encoded_proposal)
         };
         proposal_data
-    }
-}
-
-/// Move `slice[old]` to `slice[new]`, shifting other elements as necessary.
-///
-/// For example, given `let arr = [1, 2, 3, 4, 5];`,
-/// then `move_element(&mut arr, 1, 3);` would result in `[1, 3, 4, 2, 5]`
-/// whereas `move_element(&mut arr, 3, 1)` would yield `[1, 4, 2, 3, 5]`.
-fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
-    let elem = slice[old];
-    if old < new {
-        // Left shift elements after `old` by one element.
-        slice.copy_within(old + 1..=new, old);
-    } else {
-        // Right shift elements from `new` by one element.
-        slice.copy_within(new..old, new + 1);
-    }
-    slice[new] = elem;
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn compare_spip_works() {
-        let mk = |id, sign, power| super::SnapshottedPip {
-            id,
-            weight: (sign, power),
-        };
-        let a = mk(4, true, 50);
-        let b = mk(3, true, 50);
-        let c = mk(5, true, 50);
-        let d = mk(6, false, 0);
-        let e = mk(7, true, 0);
-        let f = mk(8, false, 50);
-        let g = mk(9, true, 100);
-        let mut queue = vec![a, c, d, b, e, g, f];
-        queue.sort_unstable_by(super::compare_spip);
-        assert_eq!(queue, vec![f, d, e, c, a, b, g]);
     }
 }

@@ -338,6 +338,7 @@ fn general_testnet_genesis(
         pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
+            proposal_cool_off_period: generalTime::MINUTES,
             default_enactment_period: generalTime::MINUTES,
             max_pip_skip_count: 1,
             active_pip_limit: 25,
@@ -738,6 +739,7 @@ fn alcyone_testnet_genesis(
         pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
+            proposal_cool_off_period: alcyoneTime::HOURS * 6,
             default_enactment_period: alcyoneTime::DAYS * 7,
             max_pip_skip_count: 1,
             active_pip_limit: 1000,
