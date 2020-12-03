@@ -375,8 +375,6 @@ decl_error! {
         CANotBenefit,
         /// A distribution already exists for this CA.
         AlreadyExists,
-        /// The amount to distribute was less than available in the CAAs provided portfolio.
-        InsufficientFunds,
         /// A distributions provided expiry date was strictly before its payment date.
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,

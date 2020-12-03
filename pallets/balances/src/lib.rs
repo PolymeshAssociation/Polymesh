@@ -216,14 +216,8 @@ decl_error! {
         InsufficientBalance,
         /// Value too low to create account due to existential deposit
         ExistentialDeposit,
-        /// Transfer/payment would kill account
-        KeepAlive,
-        /// AccountId is not attached with Identity
-        UnAuthorized,
         /// Receiver does not have a valid CDD
         ReceiverCddMissing,
-        /// Un handled imbalances
-        UnHandledImbalances
     }
 }
 
