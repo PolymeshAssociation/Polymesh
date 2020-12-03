@@ -1117,6 +1117,7 @@
         "RecordDateSpec": {
             "_enum": {
                 "Scheduled": "Moment",
+                "ExistingSchedule": "ScheduleId",
                 "Existing": "CheckpointId"
             }
         },
