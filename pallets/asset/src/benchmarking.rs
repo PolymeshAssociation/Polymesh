@@ -16,7 +16,6 @@
 
 use crate::*;
 
-use pallet_identity as identity;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_contracts::ExtensionInfo;

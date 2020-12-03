@@ -21,6 +21,7 @@ pallet-compliance-manager = { path = "../compliance-manager", default-features =
 polymesh-contracts = { path = "../contracts", default-features = false }
 pallet-utility = { path = "../utility", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false  }
+pallet-confidential = { path = "../confidential", default-features = false  }
 
 [features]
 default = ["std"]
@@ -39,4 +40,5 @@ std = [
     "pallet-compliance-manager/std",
     "pallet-utility/std",
     "pallet-asset/std",
+    "pallet-confidential/std",
 ]
