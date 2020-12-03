@@ -1557,7 +1557,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Function is used for general purpose settlement, Instruction gets
-    /// scheduled for the excution in the next block, If already scheduled then skip scheduling.
+    /// scheduled for the execution in the next block, If already scheduled then skip scheduling.
     pub fn affirm_and_maybe_schedule_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
