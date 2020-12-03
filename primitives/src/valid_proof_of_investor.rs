@@ -1,6 +1,5 @@
 use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
-use confidential_identity::ProofPublicKey;
-use curve25519_dalek::ristretto::CompressedRistretto;
+use confidential_identity::{ ProofPublicKey, CompressedRistretto};
 
 // ZKProofs claims
 // =========================================================

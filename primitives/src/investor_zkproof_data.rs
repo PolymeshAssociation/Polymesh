@@ -1,10 +1,10 @@
 use crate::{IdentityId, InvestorUid, Ticker};
 use confidential_identity::{
     build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
+    schnorrkel::Signature
 };
 
 use blake2::{Blake2s, Digest};
-use schnorrkel::Signature;
 
 use codec::{Decode, Encode, Error as CodecError, Input, Output};
 #[cfg(feature = "std")]
