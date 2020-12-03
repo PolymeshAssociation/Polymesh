@@ -259,6 +259,8 @@ pub enum RecordDateSpec {
 pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
+    /// When the CA was declared off-chain.
+    pub decl_date: Moment,
     /// Date at which any impact, if any, should be calculated.
     pub record_date: Option<RecordDate>,
     /// Free-form text up to a limit.
@@ -521,6 +523,7 @@ decl_module! {
             origin,
             ticker: Ticker,
             kind: CAKind,
+            decl_date: Moment,
             record_date: Option<RecordDateSpec>,
             details: CADetails,
             targets: Option<TargetIdentities>,
@@ -552,9 +555,16 @@ decl_module! {
                 ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
             }
 
+            // Declaration date must be <= now.
+            ensure!(decl_date <= <Checkpoint<T>>::now_unix(), Error::<T>::DeclDateInFuture);
+
             // If provided, either use the existing CP ID or schedule one to be made.
             let record_date = record_date
-                .map(|date| Self::handle_record_date(caa, ticker, date))
+                .map(|date| with_transaction(|| -> Result<_, DispatchError> {
+                    let rd = Self::handle_record_date(caa, ticker, date)?;
+                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
+                    Ok(rd)
+                }))
                 .transpose()?;
 
             // Commit the next local CA ID.
@@ -572,6 +582,7 @@ decl_module! {
             // Commit CA to storage.
             let ca = CorporateAction {
                 kind,
+                decl_date,
                 record_date,
                 details,
                 targets,
@@ -756,10 +767,12 @@ decl_error! {
         /// where "start" is context dependent.
         /// For example, it could be the start of a ballot, or the start-of-payment in capital distribution.
         RecordDateAfterStart,
+        /// A CA's declaration date was strictly after its record date.
+        DeclDateAfterRecordDate,
+        /// A CA's declaration date occurs in the future.
+        DeclDateInFuture,
         /// CA does not target the DID.
         NotTargetedByCA,
-        /// CA cannot be removed.
-        CannotRemoveCA,
         /// An existing schedule was used for a new CA that was removable, and that is not allowed.
         ExistingScheduleRemovable,
     }

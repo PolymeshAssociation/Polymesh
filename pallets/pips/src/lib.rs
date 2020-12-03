@@ -87,19 +87,22 @@
 #![feature(or_patterns)]
 #![feature(bool_to_option)]
 
-use codec::{Decode, Encode};
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::{DispatchClass, Pays, Weight},
-    Parameter,
+    weights::Weight,
+    Parameter, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
@@ -126,6 +129,27 @@ use sp_std::{convert::From, prelude::*};
 use sp_version::RuntimeVersion;
 
 const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
+
+pub trait WeightInfo {
+    fn set_prune_historical_pips() -> Weight;
+    fn set_min_proposal_deposit() -> Weight;
+    fn set_default_enactment_period() -> Weight;
+    fn set_pending_pip_expiry() -> Weight;
+    fn set_max_pip_skip_count() -> Weight;
+    fn set_active_pip_limit() -> Weight;
+    fn propose_from_community() -> Weight;
+    fn propose_from_committee() -> Weight;
+    fn vote() -> Weight;
+    fn approve_committee_proposal() -> Weight;
+    fn reject_proposal() -> Weight;
+    fn prune_proposal() -> Weight;
+    fn reschedule_execution() -> Weight;
+    fn clear_snapshot() -> Weight;
+    fn snapshot() -> Weight;
+    fn enact_snapshot_results() -> Weight;
+    fn execute_scheduled_pip() -> Weight;
+    fn expire_scheduled_pip() -> Weight;
+}
 
 /// Balance
 type BalanceOf<T> =
@@ -365,9 +389,6 @@ pub trait Trait:
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
         + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
-    /// Origin for proposals.
-    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
-
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
@@ -384,6 +405,9 @@ pub trait Trait:
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
+    /// Weight calaculation.
+    type WeightInfo: WeightInfo;
 
     /// Scheduler of executed or expired proposals. Since the scheduler module does not have
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
@@ -535,7 +559,7 @@ decl_event!(
         /// The snapshot was cleared.
         SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId, SnapshotId),
+        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip<Balance>>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -555,8 +579,8 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Incorrect origin
-        BadOrigin,
+        /// Only the GC release coordinator is allowed to reschedule proposal execution.
+        RescheduleNotByReleaseCoordinator,
         /// The given dispatchable call is not valid for this proposal.
         /// The proposal must be from the community, but isn't.
         NotFromCommunity,
@@ -606,43 +630,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            // Larger goal here is to clear Governance V1.
-            use frame_support::{
-                storage::{IterableStorageDoubleMap, migration::StorageIterator},
-                traits::ReservableCurrency,
-            };
-            use polymesh_primitives::migrate::kill_item;
-
-            // 1. Start with refunding all deposits.
-            // As we've `drain`ed  `Deposits`, we need not do so again below.
-            for (_, _, depo) in <Deposits<T>>::drain() {
-                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
-            }
-
-            // 2. Then we clear various storage items that were present on V1.
-            // For future reference, the storage items are defined in:
-            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
-
-            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
-            for item in &[
-                "ProposalMetadata",
-                "ProposalsMaturingAt",
-                "Proposals",
-                "ProposalResult",
-                "Referendums",
-                "ScheduledReferendumsAt",
-                "ProposalVotes",
-            ] {
-                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
-            }
-
-            // 2b) Reset the PIP ID sequence to `0`.
-            PipIdSequence::kill();
-
-            // 2c) Remove items no longer used in V2.
-            for item in &["ProposalDuration", "QuorumThreshold"] {
-                kill_item(b"Pips", item.as_bytes());
-            }
 
             // Recompute the live queue.
             <LiveQueue<T>>::set(Self::compute_live_queue());
@@ -652,65 +639,65 @@ decl_module! {
             0
         }
 
-        /// Change whether completed PIPs are pruned. Can only be called by governance council
+        /// Change whether completed PIPs are pruned.
+        /// Can only be called by root.
         ///
         /// # Arguments
-        /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_prune_historical_pips(origin, new_value: bool) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
-            <PruneHistoricalPips>::put(new_value);
+        /// * `prune` specifies whether completed PIPs should be pruned.
+        #[weight = <T as Trait>::WeightInfo::set_prune_historical_pips()]
+        pub fn set_prune_historical_pips(origin, prune: bool) {
+            Self::config::<PruneHistoricalPips, _, _>(origin, prune, RawEvent::HistoricalPipsPruned)?;
         }
 
-        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
-        /// committee is allowed to change this value.
+        /// Change the minimum proposal deposit amount required to start a proposal.
+        /// Can only be called by root.
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::set_min_proposal_deposit()]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
-            <MinimumProposalDeposit<T>>::put(deposit);
+            Self::config::<MinimumProposalDeposit<T>, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
         }
 
-        /// Change the default enact period.
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        /// Change the default enactment period.
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
+        #[weight = <T as Trait>::WeightInfo::set_default_enactment_period()]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            let prev = <DefaultEnactmentPeriod<T>>::get();
-            <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
+            Self::config::<DefaultEnactmentPeriod<T>, _, _>(origin, duration, RawEvent::DefaultEnactmentPeriodChanged)?;
         }
 
         /// Change the amount of blocks after which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
+        #[weight = <T as Trait>::WeightInfo::set_pending_pip_expiry()]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            let prev = <PendingPipExpiry<T>>::get();
-            <PendingPipExpiry<T>>::put(expiry);
-            Self::deposit_event(RawEvent::PendingPipExpiryChanged(GC_DID, prev, expiry));
+            Self::config::<PendingPipExpiry<T>, _, _>(origin, expiry, RawEvent::PendingPipExpiryChanged)?;
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
-        /// New values only
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            let prev_max = MaxPipSkipCount::get();
-            MaxPipSkipCount::put(new_max);
-            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `max` skips before a PIP cannot be skipped by GC anymore.
+        #[weight = <T as Trait>::WeightInfo::set_max_pip_skip_count()]
+        pub fn set_max_pip_skip_count(origin, max: SkippedCount) {
+            Self::config::<MaxPipSkipCount, _, _>(origin, max, RawEvent::MaxPipSkipCountChanged)?;
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_active_pip_limit(origin, new_max: u32) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            let prev_max = ActivePipLimit::get();
-            ActivePipLimit::put(new_max);
-            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `limit` of concurrent active PIPs.
+        #[weight = <T as Trait>::WeightInfo::set_active_pip_limit()]
+        pub fn set_active_pip_limit(origin, limit: u32) {
+            Self::config::<ActivePipLimit, _, _>(origin, limit, RawEvent::ActivePipLimitChanged)?;
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -722,7 +709,7 @@ decl_module! {
         /// * `proposal` a dispatchable call
         /// * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
         /// * `url` a link to a website for proposal discussion
-        #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::propose_from_community()]
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
@@ -836,7 +823,7 @@ decl_module! {
         /// * `NotFromCommunity` if proposal was made by a committee.
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::vote()]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
             let pip = Self::proposals(id)
@@ -892,7 +879,7 @@ decl_module! {
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal isn't pending.
         /// * `NotByCommittee` if the proposal isn't by a committee.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::approve_committee_proposal()]
         pub fn approve_committee_proposal(origin, id: PipId) {
             // 1. Only GC can do this.
             T::VotingMajorityOrigin::ensure_origin(origin)?;
@@ -916,7 +903,7 @@ decl_module! {
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal was cancelled or executed.
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::reject_proposal()]
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
@@ -935,7 +922,7 @@ decl_module! {
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal is active.
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::prune_proposal()]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
@@ -950,9 +937,9 @@ decl_module! {
         ///    `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
-        /// * `BadOrigin` unless triggered by release coordinator.
+        /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::reschedule_execution()]
         pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -960,7 +947,7 @@ decl_module! {
             // 1. Only release coordinator
             ensure!(
                 Some(current_did) == T::GovernanceCommittee::release_coordinator(),
-                DispatchError::BadOrigin
+                Error::<T>::RescheduleNotByReleaseCoordinator
             );
 
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
@@ -987,7 +974,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::clear_snapshot()]
         pub fn clear_snapshot(origin) -> DispatchResult {
             // 1. Check that a GC member is executing this.
             let actor = ensure_signed(origin)?;
@@ -1011,7 +998,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::snapshot()]
         pub fn snapshot(origin) -> DispatchResult {
             // Ensure a GC member is executing this.
             let made_by = ensure_signed(origin)?;
@@ -1022,10 +1009,11 @@ decl_module! {
             let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            <SnapshotQueue<T>>::set(<LiveQueue<T>>::get());
+            let queue = <LiveQueue<T>>::get();
+            <SnapshotQueue<T>>::set(queue.clone());
 
             // Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
             Ok(())
         }
 
@@ -1046,7 +1034,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results()]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1115,7 +1103,7 @@ decl_module! {
         }
 
         /// Internal dispatchable that handles execution of a PIP.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_pip()]
         fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
@@ -1123,8 +1111,7 @@ decl_module! {
         }
 
         /// Internal dispatchable that handles expiration of a PIP.
-        // TODO: Compute the actual weight.
-        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::expire_scheduled_pip()]
         fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
@@ -1136,6 +1123,18 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    fn config<SV, X, E>(origin: T::Origin, new: X, event: E) -> DispatchResult
+    where
+        SV: StorageValue<X, Query = X>,
+        X: FullCodec + Clone,
+        E: FnOnce(IdentityId, X, X) -> Event<T>,
+    {
+        ensure_root(origin)?;
+        let prev = SV::mutate(|slot| mem::replace(slot, new.clone()));
+        Self::deposit_event(event(GC_DID, prev, new));
+        Ok(())
+    }
+
     /// Ensure that `origin` represents one of:
     /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
     /// - a committee, where the committee is also inferred.

@@ -317,13 +317,13 @@ impl pallet_session::historical::Trait for Test {
 
 impl pallet_pips::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;

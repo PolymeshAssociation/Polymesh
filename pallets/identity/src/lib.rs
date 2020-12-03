@@ -123,7 +123,7 @@ use polymesh_primitives::{
     Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
-use sp_io::hashing::{blake2_128, blake2_256};
+use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
@@ -132,6 +132,8 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
+
+use cryptography::claim_proofs;
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -334,6 +336,11 @@ decl_module! {
 
         // TODO: Remove this before mainnet.
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
+        /// The Investor UID is generated deterministically by the hash of the generated DID and
+        /// then we fix it to be compliant with UUID v4.
+        ///
+        /// # See
+        /// - [RFC 4122: UUID](https://tools.ietf.org/html/rfc4122)
         ///
         /// # Failure
         /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
@@ -351,12 +358,14 @@ decl_module! {
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
-            let target_uid = blake2_128( target_did.as_bytes()).into();
+
+            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
             Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
+            Self::deposit_event(RawEvent::MockInvestorUIDCreated( target_did, target_uid.into()));
             Ok(())
         }
 
@@ -976,8 +985,6 @@ decl_error! {
         AlreadyLinked,
         /// Missing current identity on the transaction
         MissingCurrentIdentity,
-        /// No did linked to the user
-        NoDIDFound,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
         /// Given authorization is not pre-known
@@ -990,18 +997,12 @@ decl_error! {
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
         InvalidAuthorizationFromCddProvider,
-        /// The authorization to change the key was not from the owner of the primary key.
-        KeyChangeUnauthorized,
         /// Attestation was not by a CDD service provider.
         NotCddProviderAttestation,
         /// Authorizations are not for the same DID.
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
-        /// The Claim issuer DID must already exist.
-        ClaimIssuerDidMustAlreadyExist,
-        /// Sender must hold a claim issuer's secondary key.
-        SenderMustHoldClaimIssuerKey,
         /// Current identity cannot be forwarded, it is not a secondary key of target identity.
         CurrentIdentityCannotBeForwarded,
         /// The offchain authorization has expired.

@@ -468,20 +468,20 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
@@ -749,6 +749,8 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {
@@ -853,7 +855,7 @@ construct_runtime!(
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config},
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
@@ -1259,8 +1261,8 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-
             use frame_system_benchmarking::Module as SystemBench;
+
             impl frame_system_benchmarking::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -1284,6 +1286,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, pallet_pips, Pips);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
@@ -1293,6 +1296,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
+            add_benchmark!(params, batches, pallet_confidential, Confidential);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
