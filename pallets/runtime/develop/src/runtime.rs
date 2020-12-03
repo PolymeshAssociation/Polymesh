@@ -748,6 +748,8 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {
@@ -852,7 +854,7 @@ construct_runtime!(
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config},
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
@@ -1289,6 +1291,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
+            add_benchmark!(params, batches, pallet_confidential, Confidential);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

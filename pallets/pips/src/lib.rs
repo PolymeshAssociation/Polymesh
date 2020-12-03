@@ -90,7 +90,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
@@ -102,7 +102,7 @@ use frame_support::{
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
     weights::Weight,
-    Parameter,
+    Parameter, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
@@ -630,43 +630,6 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            // Larger goal here is to clear Governance V1.
-            use frame_support::{
-                storage::{IterableStorageDoubleMap, migration::StorageIterator},
-                traits::ReservableCurrency,
-            };
-            use polymesh_primitives::migrate::kill_item;
-
-            // 1. Start with refunding all deposits.
-            // As we've `drain`ed  `Deposits`, we need not do so again below.
-            for (_, _, depo) in <Deposits<T>>::drain() {
-                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
-            }
-
-            // 2. Then we clear various storage items that were present on V1.
-            // For future reference, the storage items are defined in:
-            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
-
-            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
-            for item in &[
-                "ProposalMetadata",
-                "ProposalsMaturingAt",
-                "Proposals",
-                "ProposalResult",
-                "Referendums",
-                "ScheduledReferendumsAt",
-                "ProposalVotes",
-            ] {
-                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
-            }
-
-            // 2b) Reset the PIP ID sequence to `0`.
-            PipIdSequence::kill();
-
-            // 2c) Remove items no longer used in V2.
-            for item in &["ProposalDuration", "QuorumThreshold"] {
-                kill_item(b"Pips", item.as_bytes());
-            }
 
             // Recompute the live queue.
             <LiveQueue<T>>::set(Self::compute_live_queue());
@@ -676,65 +639,65 @@ decl_module! {
             0
         }
 
-        /// Change whether completed PIPs are pruned. Can only be called by governance council
+        /// Change whether completed PIPs are pruned.
+        /// Can only be called by root.
         ///
         /// # Arguments
-        /// * `deposit` the new min deposit required to start a proposal
+        /// * `prune` specifies whether completed PIPs should be pruned.
         #[weight = <T as Trait>::WeightInfo::set_prune_historical_pips()]
-        pub fn set_prune_historical_pips(origin, new_value: bool) {
-            ensure_root(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
-            <PruneHistoricalPips>::put(new_value);
+        pub fn set_prune_historical_pips(origin, prune: bool) {
+            Self::config::<PruneHistoricalPips, _, _>(origin, prune, RawEvent::HistoricalPipsPruned)?;
         }
 
-        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
-        /// committee is allowed to change this value.
+        /// Change the minimum proposal deposit amount required to start a proposal.
+        /// Can only be called by root.
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = <T as Trait>::WeightInfo::set_min_proposal_deposit()]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            ensure_root(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
-            <MinimumProposalDeposit<T>>::put(deposit);
+            Self::config::<MinimumProposalDeposit<T>, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
         }
 
-        /// Change the default enact period.
+        /// Change the default enactment period.
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
         #[weight = <T as Trait>::WeightInfo::set_default_enactment_period()]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
-            ensure_root(origin)?;
-            let prev = <DefaultEnactmentPeriod<T>>::get();
-            <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
+            Self::config::<DefaultEnactmentPeriod<T>, _, _>(origin, duration, RawEvent::DefaultEnactmentPeriodChanged)?;
         }
 
         /// Change the amount of blocks after which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
         #[weight = <T as Trait>::WeightInfo::set_pending_pip_expiry()]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
-            ensure_root(origin)?;
-            let prev = <PendingPipExpiry<T>>::get();
-            <PendingPipExpiry<T>>::put(expiry);
-            Self::deposit_event(RawEvent::PendingPipExpiryChanged(GC_DID, prev, expiry));
+            Self::config::<PendingPipExpiry<T>, _, _>(origin, expiry, RawEvent::PendingPipExpiryChanged)?;
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
-        /// New values only
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `max` skips before a PIP cannot be skipped by GC anymore.
         #[weight = <T as Trait>::WeightInfo::set_max_pip_skip_count()]
-        pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
-            ensure_root(origin)?;
-            let prev_max = MaxPipSkipCount::get();
-            MaxPipSkipCount::put(new_max);
-            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
+        pub fn set_max_pip_skip_count(origin, max: SkippedCount) {
+            Self::config::<MaxPipSkipCount, _, _>(origin, max, RawEvent::MaxPipSkipCountChanged)?;
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
+        /// Can only be called by root.
+        ///
+        /// # Arguments
+        /// * `limit` of concurrent active PIPs.
         #[weight = <T as Trait>::WeightInfo::set_active_pip_limit()]
-        pub fn set_active_pip_limit(origin, new_max: u32) {
-            ensure_root(origin)?;
-            let prev_max = ActivePipLimit::get();
-            ActivePipLimit::put(new_max);
-            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
+        pub fn set_active_pip_limit(origin, limit: u32) {
+            Self::config::<ActivePipLimit, _, _>(origin, limit, RawEvent::ActivePipLimitChanged)?;
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -1160,6 +1123,18 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    fn config<SV, X, E>(origin: T::Origin, new: X, event: E) -> DispatchResult
+    where
+        SV: StorageValue<X, Query = X>,
+        X: FullCodec + Clone,
+        E: FnOnce(IdentityId, X, X) -> Event<T>,
+    {
+        ensure_root(origin)?;
+        let prev = SV::mutate(|slot| mem::replace(slot, new.clone()));
+        Self::deposit_event(event(GC_DID, prev, new));
+        Ok(())
+    }
+
     /// Ensure that `origin` represents one of:
     /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
     /// - a committee, where the committee is also inferred.
