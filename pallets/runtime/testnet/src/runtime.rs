@@ -606,7 +606,6 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
