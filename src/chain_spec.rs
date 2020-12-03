@@ -372,6 +372,14 @@ macro_rules! committee_membership {
     };
 }
 
+macro_rules! corporate_actions {
+    () => {
+        pallet_corporate_actions::GenesisConfig {
+            max_details_length: 1024,
+        }
+    };
+}
+
 macro_rules! committee {
     ($rc:expr) => {
         committee!($rc, (1, 2))
@@ -491,6 +499,7 @@ fn general_testnet_genesis(
         protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
         multisig: Some(MULTISIG),
+        pallet_corporate_actions: Some(corporate_actions!()),
     }
 }
 
@@ -673,6 +682,7 @@ fn alcyone_testnet_genesis(
         protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
         multisig: Some(MULTISIG),
+        pallet_corporate_actions: Some(corporate_actions!()),
     }
 }
 

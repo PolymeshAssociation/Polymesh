@@ -5226,6 +5226,7 @@ dependencies = [
  "pallet-confidential",
  "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
+ "pallet-corporate-actions",
  "pallet-group",
  "pallet-group-rpc",
  "pallet-group-rpc-runtime-api",
