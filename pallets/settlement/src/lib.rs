@@ -568,9 +568,6 @@ decl_storage! {
         /// Venues that are allowed to create instructions involving a particular ticker. Oly used if filtering is enabled.
         /// (ticker, venue_id) -> allowed
         VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => bool;
-        /// To know whether the instruction is scheduled or not.
-        /// (instruction_id) => boolean value to know whether instruction is scheduled or not.
-        ScheduledInstructions get(fn has_instruction_already_scheduled): map hasher(identity) u64 => bool;
         /// Number of venues in the system (It's one more than the actual number)
         VenueCounter get(fn venue_counter) build(|_| 1u64): u64;
         /// Number of instructions in the system (It's one more than the actual number)
@@ -731,10 +728,9 @@ decl_module! {
 
             // Withdraw an affirmation.
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
-            if Self::has_instruction_already_scheduled(instruction_id) && Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
+            if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_ID, instruction_id).encode());
-                ScheduledInstructions::remove(instruction_id);
             }
             Ok(())
         }
@@ -773,11 +769,7 @@ decl_module! {
 
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
             // Schedule the instruction to execute in the next block only if it was meant to be executed on affirmation.
-            Self::maybe_schedule_instruction(
-                Zero::zero(),
-                Self::instruction_details(instruction_id).settlement_type,
-                instruction_id
-            )
+            Self::maybe_schedule_instruction(Zero::zero(), instruction_id)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -1174,7 +1166,6 @@ impl<T: Trait> Module<T> {
         <InstructionLegs<T>>::remove_prefix(instruction_id);
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
-        ScheduledInstructions::remove(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
         Self::prune_user_affirmations(&legs, instruction_id);
@@ -1359,12 +1350,10 @@ impl<T: Trait> Module<T> {
 
     /// Schedule a given instruction to be executed on the next block only if the
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
-    fn maybe_schedule_instruction(
-        affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
-        id: u64,
-    ) -> DispatchResult {
-        if affirms_pending == 0 && settlement_type == SettlementType::SettleOnAffirmation {
+    fn maybe_schedule_instruction(affirms_pending: u64, id: u64) -> DispatchResult {
+        if affirms_pending == 0
+            && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
+        {
             // Schedule instruction to be executed in the next block.
             let execution_at = system::Module::<T>::block_number() + One::one();
             Self::schedule_instruction(id, execution_at)?;
@@ -1379,19 +1368,14 @@ impl<T: Trait> Module<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
         let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
-        if !Self::has_instruction_already_scheduled(instruction_id)
-            && T::Scheduler::schedule_named(
-                (SETTLEMENT_ID, instruction_id).encode(),
-                DispatchTime::At(execution_at),
-                None,
-                SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
-                RawOrigin::Root.into(),
-                call,
-            )
-            .is_ok()
-        {
-            ScheduledInstructions::insert(instruction_id, true);
-        }
+        let _ = T::Scheduler::schedule_named(
+            (SETTLEMENT_ID, instruction_id).encode(),
+            DispatchTime::At(execution_at),
+            None,
+            SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+            RawOrigin::Root.into(),
+            call,
+        );
         Ok(())
     }
 
@@ -1551,13 +1535,12 @@ impl<T: Trait> Module<T> {
         // Schedule instruction to be execute in the next block (expected) if conditions are met.
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
-            Self::instruction_details(instruction_id).settlement_type,
             instruction_id,
         )
     }
 
-    /// Function is used for general purpose settlement, Instruction gets
-    /// scheduled for the execution in the next block, If already scheduled then skip scheduling.
+    /// Schedule settlement instruction execution in the next block, unless already scheduled.
+    /// Used for general purpose settlement.
     pub fn affirm_and_maybe_schedule_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
@@ -1567,7 +1550,6 @@ impl<T: Trait> Module<T> {
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
-            Self::instruction_details(instruction_id).settlement_type,
             instruction_id,
         )
     }
