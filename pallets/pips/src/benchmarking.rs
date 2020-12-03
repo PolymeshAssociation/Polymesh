@@ -16,7 +16,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks;
-use frame_support::{dispatch::{DispatchResult,DispatchError}, traits::UnfilteredDispatchable};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    traits::UnfilteredDispatchable,
+};
 use frame_system::RawOrigin;
 use pallet_identity::{
     self as identity,

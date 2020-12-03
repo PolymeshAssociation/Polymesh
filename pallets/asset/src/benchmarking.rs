@@ -19,7 +19,7 @@ use crate::*;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetName;
 use polymesh_contracts::ExtensionInfo;
-use polymesh_primitives::{ExtensionAttributes, SmartExtension, Ticker, ticker::TICKER_LEN};
+use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
 
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
