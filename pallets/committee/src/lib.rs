@@ -178,9 +178,9 @@ decl_event!(
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
         Rejected(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
-        /// A motion was executed; `bool` is true if returned without error.
-        /// Parameters: caller DID, proposal hash, status of proposal dispatch.
-        Executed(IdentityId, Hash, bool),
+        /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
+        /// Parameters: caller DID, proposal hash, result of proposal dispatch.
+        Executed(IdentityId, Hash, DispatchResult),
         /// A proposal was closed after its duration was up.
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count.
         Closed(IdentityId, Hash, MemberCount, MemberCount),
@@ -577,8 +577,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         seats: MemberCount,
     ) {
         let origin = RawOrigin::Members(ayes, seats).into();
-        let ok = proposal.dispatch(origin).is_ok();
-        Self::deposit_event(RawEvent::Executed(did, hash, ok));
+        let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
+        Self::deposit_event(RawEvent::Executed(did, hash, res));
     }
 
     /// Any committee member proposes a dispatchable.
@@ -650,6 +650,14 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn bench_set_release_coordinator(id: IdentityId) {
+        if !Self::members().contains(&id) {
+            Self::change_members_sorted(&[id], &[], &[id]);
+        }
+        <ReleaseCoordinator<I>>::put(id);
     }
 }
 

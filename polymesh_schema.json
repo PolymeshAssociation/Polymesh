@@ -605,7 +605,6 @@
         "ProposalState": {
             "_enum": [
                 "Pending",
-                "Cancelled",
                 "Rejected",
                 "Scheduled",
                 "Failed",
@@ -633,8 +632,7 @@
             "id": "PipId",
             "proposal": "Call",
             "state": "ProposalState",
-            "proposer": "Proposer",
-            "cool_off_until": "u32"
+            "proposer": "Proposer"
         },
         "ProposalData": {
             "_enum": {
@@ -801,8 +799,8 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCheckpoint",
                 "AssetCreateAsset",
+                "AssetCreateCheckpointSchedule",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
@@ -811,7 +809,10 @@
                 "IdentitySetPrimaryKey",
                 "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
-                "VotingAddBallot"
+                "VotingAddBallot",
+                "ContractsPutCode",
+                "BallotAttachBallot",
+                "DistributionDistribute"
             ]
         },
         "CddStatus": {

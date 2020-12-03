@@ -32,6 +32,10 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
+# Benchmarking
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
+pallet-committee = { path = "../committee", default-features = false, optional = true }
+
 [features]
 equalize = []
 default = ["std", "equalize"]
@@ -56,4 +60,8 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "pallet-committee",
 ]
