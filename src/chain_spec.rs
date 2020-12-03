@@ -319,9 +319,9 @@ macro_rules! session {
                     let sks = $build(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone());
                     (x.0.clone(), x.0.clone(), sks)
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         }
-    }
+    };
 }
 
 macro_rules! staking {
@@ -449,7 +449,11 @@ fn general_testnet_genesis(
         }),
         pallet_indices: Some(GeneralConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(GeneralConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(session!(GeneralConfig, initial_authorities, general_session_keys)),
+        pallet_session: Some(session!(
+            GeneralConfig,
+            initial_authorities,
+            general_session_keys
+        )),
         pallet_staking: Some(staking!(
             initial_authorities,
             stakers,
@@ -506,17 +510,22 @@ fn general_development_genesis() -> GeneralConfig::GenesisConfig {
     )
 }
 
+fn general_config(
+    name: &str,
+    id: &str,
+    ctype: ChainType,
+    genesis: impl 'static + Sync + Send + Fn() -> GeneralConfig::GenesisConfig,
+) -> GeneralChainSpec {
+    let props = Some(polymath_props());
+    GeneralChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
+}
+
 pub fn general_development_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+    general_config(
         "Development",
         "dev",
         ChainType::Development,
         general_development_genesis,
-        vec![],
-        None,
-        None,
-        Some(polymath_props()),
-        None,
     )
 }
 
@@ -542,16 +551,11 @@ fn general_local_genesis() -> GeneralConfig::GenesisConfig {
 }
 
 pub fn general_local_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+    general_config(
         "Local Development",
         "local_dev",
         ChainType::Local,
         general_local_genesis,
-        vec![],
-        None,
-        None,
-        Some(polymath_props()),
-        None,
     )
 }
 
@@ -581,16 +585,11 @@ fn general_live_genesis() -> GeneralConfig::GenesisConfig {
 }
 
 pub fn general_live_testnet_config() -> GeneralChainSpec {
-    GeneralChainSpec::from_genesis(
+    general_config(
         "Live Development",
         "live_dev",
         ChainType::Live,
         general_live_genesis,
-        vec![],
-        None,
-        None,
-        Some(polymath_props()),
-        None,
     )
 }
 
@@ -637,7 +636,11 @@ fn alcyone_testnet_genesis(
         }),
         pallet_indices: Some(AlcyoneConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(AlcyoneConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(session!(AlcyoneConfig, initial_authorities, alcyone_session_keys)),
+        pallet_session: Some(session!(
+            AlcyoneConfig,
+            initial_authorities,
+            alcyone_session_keys
+        )),
         pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
         pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
