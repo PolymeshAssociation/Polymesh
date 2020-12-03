@@ -1085,7 +1085,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1369/mocked_investor_uid#0537e6e7da1383a88bc75b5285971eafba9c5c31"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1369/mocked_investor_uid#bcdd427fc61dacb92a1028b18511b04aa1b93363"
 dependencies = [
  "blake2",
  "bulletproofs",

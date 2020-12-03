@@ -16,8 +16,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
-use frame_support::traits::UnfilteredDispatchable;
-//use frame_system::{EventRecord, RawOrigin};
+use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable};
+use frame_system::RawOrigin;
 use pallet_identity::benchmarking::UserBuilder;
 use polymesh_common_utilities::MaybeBlock;
 use sp_std::prelude::*;
@@ -25,6 +25,23 @@ use sp_std::prelude::*;
 const COMMITTEE_MEMBERS_NUM: usize = 10;
 const COMMITTEE_MEMBERS_MAX: u32 = 100;
 const PROPOSAL_PADDING_MAX: u32 = 10_000;
+
+fn make_additional_proposals<T, I>(
+    origin: RawOrigin<T::AccountId>,
+    padding_len: usize,
+) -> DispatchResult
+where
+    I: Instance,
+    T: Trait<I>,
+{
+    let origin: <T as frame_system::Trait>::Origin = origin.into();
+    for i in 0..100 {
+        let proposal: <T as Trait<I>>::Proposal =
+            frame_system::Call::<T>::remark(vec![i + 2; padding_len]).into();
+        Module::<T, I>::vote_or_propose(origin.clone(), true, Box::new(proposal))?;
+    }
+    Ok(())
+}
 
 benchmarks_instance! {
     _ {}
@@ -70,7 +87,7 @@ benchmarks_instance! {
         ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
 
-    vote_or_propose {
+    vote_or_propose_new_proposal {
         let m in 0 .. COMMITTEE_MEMBERS_MAX;
         let p in 1 .. PROPOSAL_PADDING_MAX;
 
@@ -80,22 +97,54 @@ benchmarks_instance! {
             .collect();
         members.push(proposer.did());
         Members::<I>::put(members);
+        make_additional_proposals::<T, I>(proposer.origin.clone(), p as usize)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
-    }: _(proposer.origin.clone(), true, Box::new(proposal.clone()))
+    }: vote_or_propose(proposer.origin.clone(), true, Box::new(proposal.clone()))
     verify {
         if m == 0 {
             // The proposal was executed and execution was logged.
             let pallet_event: <T as Trait<I>>::Event =
-                RawEvent::Executed(proposer.did(), hash, false).into();
+                RawEvent::Executed(proposer.did(), hash, Ok(())).into();
             let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
             ensure!(frame_system::Module::<T>::events().iter().any(|e| {
                 e.event == system_event
             }), "proposal was not executed");
         } else {
             // The proposal was stored.
-            ensure!(Proposals::<T, I>::get() == vec![hash], "proposal hash not found");
+            ensure!(Proposals::<T, I>::get().contains(&hash), "proposal hash not found");
+            ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "proposal not found");
+        }
+    }
+
+    vote_or_propose_existing_proposal {
+        let m in 0 .. COMMITTEE_MEMBERS_MAX;
+        let p in 1 .. PROPOSAL_PADDING_MAX;
+
+        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let mut members: Vec<_> = (0..m)
+            .map(|i| UserBuilder::<T>::default().build_with_did("member", i).did())
+            .collect();
+        members.push(proposer.did());
+        Members::<I>::put(members);
+        make_additional_proposals::<T, I>(proposer.origin.clone(), p as usize)?;
+        let proposal: <T as Trait<I>>::Proposal =
+            frame_system::Call::<T>::remark(vec![2; p as usize]).into();
+        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+    }: vote_or_propose(proposer.origin.clone(), true, Box::new(proposal.clone()))
+    verify {
+        if m == 0 {
+            // The proposal was executed and execution was logged.
+            let pallet_event: <T as Trait<I>>::Event =
+                RawEvent::Executed(proposer.did(), hash, Ok(())).into();
+            let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
+            ensure!(frame_system::Module::<T>::events().iter().any(|e| {
+                e.event == system_event
+            }), "proposal was not executed");
+        } else {
+            // The proposal was stored.
+            ensure!(Proposals::<T, I>::get().contains(&hash), "proposal hash not found");
             ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "proposal not found");
         }
     }
