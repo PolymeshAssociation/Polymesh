@@ -613,7 +613,6 @@ impl dividend::Trait for TestStorage {
 
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -628,6 +627,8 @@ impl pips::Trait for TestStorage {
 
 impl confidential::Trait for TestStorage {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl pallet_utility::Trait for TestStorage {

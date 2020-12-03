@@ -56,12 +56,18 @@ members = [
 ]
 
 [dependencies]
-polymesh-primitives = { path = "primitives" }
-polymesh-common-utilities = { path = "pallets/common" }
-polymesh-runtime-common = { path = "pallets/runtime/common" }
-pallet-asset = { path = "pallets/asset" }
-pallet-confidential = { path = "pallets/confidential" }
 im-online = { package = "pallet-im-online", path = "pallets/im-online" }
+pallet-asset = { path = "pallets/asset" }
+pallet-balances = { path = "pallets/balances", default-features = false  }
+pallet-committee = { path = "pallets/committee", default-features = false }
+pallet-confidential = { path = "pallets/confidential" }
+pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
+pallet-group = { path = "pallets/group", default-features = false }
+pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
+pallet-staking = { path = "pallets/staking", default-features = false }
+polymesh-common-utilities = { path = "pallets/common" }
+polymesh-primitives = { path = "primitives" }
+polymesh-runtime-common = { path = "pallets/runtime/common" }
 
 # RPC
 node-rpc = { path = "rpc" }
@@ -92,6 +98,7 @@ chrono = "0.4.11"
 codec = { version = "1.2.0", package = "parity-scale-codec" }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
 sp-offchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
@@ -146,4 +153,5 @@ runtime-benchmarks = [
 ]
 std = [
     "serde/std",
+    "polymesh-common-utilities/std"
 ]

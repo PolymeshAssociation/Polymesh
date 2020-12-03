@@ -19,6 +19,7 @@
 
 pub mod frame_system;
 pub mod pallet_compliance_manager;
+pub mod pallet_confidential;
 pub mod pallet_corporate_actions;
 pub mod pallet_identity;
 pub mod pallet_pips;
