@@ -7,7 +7,6 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl pallet_asset::WeightInfo for WeightInfo {
-    // WARNING! Some components were not used: ["t"]
     fn register_ticker() -> Weight {
         (3_776_977_000 as Weight)
             .saturating_add(DbWeight::get().reads(11 as Weight))
