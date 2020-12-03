@@ -317,6 +317,7 @@ impl pallet_session::historical::Trait for Test {
 
 impl pallet_pips::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;

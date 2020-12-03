@@ -90,7 +90,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode, FullCodec};
+use codec::{Decode, Encode};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
@@ -102,7 +102,7 @@ use frame_support::{
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
     weights::Weight,
-    Parameter, StorageValue,
+    Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
@@ -389,6 +389,9 @@ pub trait Trait:
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
         + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
+    /// Origin for proposals.
+    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
@@ -639,65 +642,65 @@ decl_module! {
             0
         }
 
-        /// Change whether completed PIPs are pruned.
-        /// Can only be called by root.
+        /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
         /// # Arguments
-        /// * `prune` specifies whether completed PIPs should be pruned.
+        /// * `deposit` the new min deposit required to start a proposal
         #[weight = <T as Trait>::WeightInfo::set_prune_historical_pips()]
-        pub fn set_prune_historical_pips(origin, prune: bool) {
-            Self::config::<PruneHistoricalPips, _, _>(origin, prune, RawEvent::HistoricalPipsPruned)?;
+        pub fn set_prune_historical_pips(origin, new_value: bool) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
+            <PruneHistoricalPips>::put(new_value);
         }
 
-        /// Change the minimum proposal deposit amount required to start a proposal.
-        /// Can only be called by root.
+        /// Change the minimum proposal deposit amount required to start a proposal. Only Governance
+        /// committee is allowed to change this value.
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = <T as Trait>::WeightInfo::set_min_proposal_deposit()]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            Self::config::<MinimumProposalDeposit<T>, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
+            <MinimumProposalDeposit<T>>::put(deposit);
         }
 
-        /// Change the default enactment period.
-        /// Can only be called by root.
-        ///
-        /// # Arguments
-        /// * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
+        /// Change the default enact period.
         #[weight = <T as Trait>::WeightInfo::set_default_enactment_period()]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
-            Self::config::<DefaultEnactmentPeriod<T>, _, _>(origin, duration, RawEvent::DefaultEnactmentPeriodChanged)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev = <DefaultEnactmentPeriod<T>>::get();
+            <DefaultEnactmentPeriod<T>>::put(duration);
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
         }
 
         /// Change the amount of blocks after which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
-        /// Can only be called by root.
-        ///
-        /// # Arguments
-        /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
         #[weight = <T as Trait>::WeightInfo::set_pending_pip_expiry()]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
-            Self::config::<PendingPipExpiry<T>, _, _>(origin, expiry, RawEvent::PendingPipExpiryChanged)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev = <PendingPipExpiry<T>>::get();
+            <PendingPipExpiry<T>>::put(expiry);
+            Self::deposit_event(RawEvent::PendingPipExpiryChanged(GC_DID, prev, expiry));
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
-        /// Can only be called by root.
-        ///
-        /// # Arguments
-        /// * `max` skips before a PIP cannot be skipped by GC anymore.
+        /// New values only
         #[weight = <T as Trait>::WeightInfo::set_max_pip_skip_count()]
-        pub fn set_max_pip_skip_count(origin, max: SkippedCount) {
-            Self::config::<MaxPipSkipCount, _, _>(origin, max, RawEvent::MaxPipSkipCountChanged)?;
+        pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = MaxPipSkipCount::get();
+            MaxPipSkipCount::put(new_max);
+            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
-        /// Can only be called by root.
-        ///
-        /// # Arguments
-        /// * `limit` of concurrent active PIPs.
         #[weight = <T as Trait>::WeightInfo::set_active_pip_limit()]
-        pub fn set_active_pip_limit(origin, limit: u32) {
-            Self::config::<ActivePipLimit, _, _>(origin, limit, RawEvent::ActivePipLimitChanged)?;
+        pub fn set_active_pip_limit(origin, new_max: u32) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = ActivePipLimit::get();
+            ActivePipLimit::put(new_max);
+            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -1123,18 +1126,6 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    fn config<SV, X, E>(origin: T::Origin, new: X, event: E) -> DispatchResult
-    where
-        SV: StorageValue<X, Query = X>,
-        X: FullCodec + Clone,
-        E: FnOnce(IdentityId, X, X) -> Event<T>,
-    {
-        ensure_root(origin)?;
-        let prev = SV::mutate(|slot| mem::replace(slot, new.clone()));
-        Self::deposit_event(event(GC_DID, prev, new));
-        Ok(())
-    }
-
     /// Ensure that `origin` represents one of:
     /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
     /// - a committee, where the committee is also inferred.
