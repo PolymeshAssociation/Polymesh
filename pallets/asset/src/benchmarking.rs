@@ -38,6 +38,7 @@ const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 4096;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
+const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 /// Create a ticker and register it.
 fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
@@ -154,12 +155,7 @@ benchmarks! {
         let ticker = make_ticker::<T>(owner.origin().into());
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker.clone());
-        let new_owner_auth_id = identity::Module::<T>::add_auth(
-            owner.did(),
-            Signatory::from(new_owner.did()),
-            AuthorizationData::TransferTicker(ticker),
-            None,
-            );
+        let new_owner_auth_id = identity::Module::<T>::add_auth( owner.did(), Signatory::from(new_owner.did()), AuthorizationData::TransferTicker(ticker), None);
     }: _(new_owner.origin(), new_owner_auth_id)
     verify {
         assert_eq!(
@@ -201,7 +197,7 @@ benchmarks! {
         // Token name length.
         let n in 1 .. T::AssetNameMaxLength::get() as u32;
         // Length of the vector of identifiers.
-        let i in 1 .. T::MaxIdentifiersPerAsset::get() as u32;
+        let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
         // Funding round name length.
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
@@ -345,7 +341,7 @@ benchmarks! {
 
 
      update_identifiers {
-         let i in 1 .. T::MaxIdentifiersPerAsset::get() as u32;
+         let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
 
          let owner = UserBuilder::default().build_with_did("owner", SEED);
          let ticker = make_asset::<T>(&owner);

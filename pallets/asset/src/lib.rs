@@ -182,9 +182,6 @@ pub trait Trait:
     /// Max length for the name of an asset.
     type AssetNameMaxLength: Get<usize>;
 
-    /// Max identifiers per asset.
-    type MaxIdentifiersPerAsset: Get<usize>;
-
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<usize>;
 
@@ -510,7 +507,6 @@ decl_module! {
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             ensure!( name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
-            ensure!( identifiers.len() <= T::MaxIdentifiersPerAsset::get(), Error::<T>::MaxIdentifiersPerAssetExceeded);
             ensure!( funding_round.as_ref().map_or(0, |name| name.len()) <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
 
             let PermissionedCallOriginData {
@@ -878,7 +874,6 @@ decl_module! {
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
                 .collect();
-            ensure!( identifiers.len() <= T::MaxIdentifiersPerAsset::get(), Error::<T>::MaxIdentifiersPerAssetExceeded);
 
             Identifiers::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
@@ -1227,8 +1222,6 @@ decl_error! {
         SecondaryKeyNotAuthorizedForAsset,
         /// Maximum length of asset name has been exceeded.
         MaxLengthOfAssetNameExceeded,
-        /// Maximum number of identifiers per asset has been exceeded.
-        MaxIdentifiersPerAssetExceeded,
         /// Maximum length of the funding round name has been exceeded.
         FundingRoundNameMaxLengthExceeded,
     }
