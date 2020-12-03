@@ -146,12 +146,8 @@ decl_error! {
         FundraiserFrozen,
         /// Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
-        /// Interacting with a fundraiser before the start `Moment`.
-        FundraiserNotStarted,
         /// Using an invalid venue
         InvalidVenue,
-        /// Using an invalid portfolio
-        InvalidPortfolio,
         /// An individual price tier was invalid or a set of price tiers was invalid
         InvalidPriceTiers,
         /// Window (start time, end time) has invalid parameters, e.g start time is after end time.

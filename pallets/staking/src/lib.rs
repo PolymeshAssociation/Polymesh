@@ -1489,8 +1489,6 @@ decl_error! {
         AlreadyPaired,
         /// Targets cannot be empty.
         EmptyTargets,
-        /// Duplicate index.
-        DuplicateIndex,
         /// Slash record index out of bounds.
         InvalidSlashIndex,
         /// Can not bond with value less than minimum balance.
@@ -1503,8 +1501,6 @@ decl_error! {
         FundedTarget,
         /// Invalid era to reward.
         InvalidEraToReward,
-        /// Invalid number of nominations.
-        InvalidNumberOfNominations,
         /// Items are not sorted and unique.
         NotSortedAndUnique,
         /// Rewards for this era have already been claimed for this validator.
@@ -1540,8 +1536,6 @@ decl_error! {
         OffchainElectionBogusElectionSize,
         /// The call is not allowed at the given time due to restrictions of election period.
         CallNotAllowed,
-        /// Incorrect previous history depth input provided.
-        IncorrectHistoryDepth,
         /// Incorrect number of slashing spans provided.
         IncorrectSlashingSpans,
         /// Permissioned validator already exists.
@@ -1552,10 +1546,6 @@ decl_error! {
         NoChange,
         /// Given potential validator identity is invalid.
         InvalidValidatorIdentity,
-        /// Stash is not a part of any allowed identities.
-        StashNotAllowed,
-        /// Stash doesn't have a DID.
-        InvalidStashKey,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
     }
