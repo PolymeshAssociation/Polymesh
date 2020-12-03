@@ -68,5 +68,4 @@ std = [
 runtime-benchmarks = [
     "polymesh-common-utilities/runtime-benchmarks",
     "frame-benchmarking",
-    "polymesh-common-utilities/runtime-benchmarks",
 ]
