@@ -270,15 +270,11 @@ benchmarks! {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
-        let multisig_new = <MultiSig<T>>::get_next_multisig_address(alice.account());
-        <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
-    }: _(alice.origin, multisig_new)
+    }: _(alice.origin, multisig)
 
     make_multisig_primary {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account().clone());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
-        let multisig_new = <MultiSig<T>>::get_next_multisig_address(alice.account().clone());
-        <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
-    }: _(alice.origin, multisig_new, None)
+    }: _(alice.origin, multisig, None)
 }
