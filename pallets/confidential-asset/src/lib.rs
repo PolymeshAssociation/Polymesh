@@ -104,7 +104,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use cryptography_core::AssetId;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -114,6 +113,7 @@ use frame_system::ensure_signed;
 use mercat::{
     account::{convert_asset_ids, AccountValidator},
     asset::AssetValidator,
+    cryptography_core::AssetId,
     transaction::TransactionValidator,
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
     EncryptionPubKey, InitializedAssetTx, JustifiedTransferTx, PubAccount, PubAccountTx,

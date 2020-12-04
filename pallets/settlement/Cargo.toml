@@ -28,19 +28,20 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 [features]
 equalize = []
 default = ["std", "equalize"]
-no_std = []
+no_std = [ "mercat/no_std" ]
 only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
     "mercat/std",
+    "mercat/avx2_backend",
     "pallet-balances/std",
     "pallet-identity/std",
     "pallet-timestamp/std",

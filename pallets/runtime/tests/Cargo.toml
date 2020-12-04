@@ -40,11 +40,11 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
-curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek.git", branch = "v2-packed-simd", default-features = false, features = ["nightly"] }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -95,9 +95,20 @@ wat = "1.0"
 equalize = []
 only-staking = []
 default = ["std", "equalize"]
+no_std = [
+    "confidential_identity/no_std", 
+    "cryptography_core/no_std",
+    "mercat/no_std",
+]
 std = [
+    # Crypto
+    "confidential_identity/std",
+    "confidential_identity/avx2_backend",
     "cryptography_core/std",
+    "cryptography_core/avx2_backend",
     "mercat/std",
+    "mercat/avx2_backend",
+    # Other
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",

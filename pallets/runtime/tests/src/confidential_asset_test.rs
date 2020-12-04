@@ -8,9 +8,9 @@ use confidential_asset::{
 use core::convert::{TryFrom, TryInto};
 use cryptography_core::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+    curve25519_dalek::scalar::Scalar,
     AssetId,
 };
-use curve25519_dalek::scalar::Scalar;
 use frame_support::{assert_err, assert_ok};
 use mercat::{
     account::{convert_asset_ids, AccountCreator},

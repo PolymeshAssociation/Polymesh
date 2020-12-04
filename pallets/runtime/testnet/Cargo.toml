@@ -101,7 +101,6 @@ default = ["std", "equalize"]
 equalize = []
 no_std = [
     "pallet-confidential/no_std",
-    "pallet-confidential/u64_backend",
 ]
 std = [
     "codec/std",

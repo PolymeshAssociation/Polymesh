@@ -101,10 +101,7 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https:
 [features]
 default = ["std", "equalize"]
 equalize = []
-no_std = [
-    "pallet-confidential/no_std",
-    "pallet-confidential/u64_backend",
-]
+no_std = [ "pallet-confidential/no_std", ]
 std = [
     "codec/std",
     "frame-benchmarking/std",
