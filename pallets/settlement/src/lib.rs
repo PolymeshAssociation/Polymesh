@@ -1382,10 +1382,10 @@ impl<T: Trait> Module<T> {
                 Self::deposit_event(RawEvent::SchedulingFailed(
                     Error::<T>::FailedToSchedule.into(),
                 ));
-                Ok(())
             }
-            Ok(_) => Ok(()),
-        }
+            Ok(_) => {}
+        };
+        Ok(())
     }
 
     pub fn base_affirm_with_receipts(
