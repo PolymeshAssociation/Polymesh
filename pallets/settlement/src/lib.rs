@@ -26,7 +26,7 @@
 //! compliance failure, all other legs will also fail.
 //!
 //! An instruction must be authorized by all the counter parties involved for it to be executed.
-//! An instruction can be set to automatically execute when all authorizations are received or at a particular block number.
+//! An instruction can be set to automatically execute in the next block when all authorizations are received or at a particular block number.
 //!
 //! Offchain settlements are represented via receipts. If a leg has a receipt attached to it, it will not be executed onchain.
 //! All other legs will be executed onchain during settlement.
@@ -57,8 +57,8 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure, storage,
     traits::{
-        schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
-        Get,
+        schedule::{DispatchTime, Named as ScheduleNamed},
+        Get, LockIdentifier,
     },
     weights::{PostDispatchInfo, Weight},
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
@@ -67,6 +67,7 @@ use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
+    constants::queue_priority::*,
     traits::{
         asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
         CommonTrait,
@@ -79,7 +80,7 @@ use polymesh_primitives::{
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
-    traits::{Dispatchable, Verify, Zero},
+    traits::{Dispatchable, One, Verify, Zero},
     DispatchErrorWithPostInfo,
 };
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
@@ -87,6 +88,8 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
+
+const SETTLEMENT_ID: LockIdentifier = *b"settlemt";
 
 pub trait Trait:
     frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
@@ -96,14 +99,14 @@ pub trait Trait:
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
-    /// Weight information for extrinsic in this pallet.
+    /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
 
@@ -186,9 +189,9 @@ impl Default for AffirmationStatus {
 /// Type of settlement
 #[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SettlementType<BlockNumber> {
-    /// Instruction should be settled as soon as all affirmations are received
+    /// Instruction should be settled in the next block as soon as all affirmations are received.
     SettleOnAffirmation,
-    /// Instruction should be settled on a particular block
+    /// Instruction should be settled on a particular block.
     SettleOnBlock(BlockNumber),
 }
 
@@ -480,6 +483,8 @@ decl_event!(
         InstructionExecuted(IdentityId, u64),
         /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
         VenueUnauthorized(IdentityId, Ticker, u64),
+        /// Scheduling of instruction fails.
+        SchedulingFailed(DispatchError),
     }
 );
 
@@ -527,7 +532,9 @@ decl_error! {
         /// Portfolio based actions require at least one portfolio to be provided as input.
         NoPortfolioProvided,
         /// The current instruction affirmation status does not support the requested action.
-        UnexpectedAffirmationStatus
+        UnexpectedAffirmationStatus,
+        /// Scheduling of an instruction fails.
+        FailedToSchedule
     }
 }
 
@@ -651,7 +658,7 @@ decl_module! {
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirmations or waiting till a specific block.
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
         /// * `valid_from` - Optional date from which people can interact with this instruction.
         /// * `legs` - Legs included in this instruction.
         ///
@@ -675,7 +682,7 @@ decl_module! {
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirmations or waiting till a specific block.
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
         /// * `valid_from` - Optional date from which people can interact with this instruction.
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
@@ -690,20 +697,13 @@ decl_module! {
             valid_from: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>,
             portfolios: Vec<PortfolioId>
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            let legs_count = legs.len();
-            let affirm_instruction_weight = with_transaction(|| {
+            with_transaction(|| {
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
                 Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
-            })?;
-            Ok(
-                Some(
-                    weight_for::weight_for_instruction_creation::<T>(legs_count)
-                        .saturating_add(affirm_instruction_weight.actual_weight.unwrap_or_default())
-                ).into()
-            )
+            })
         }
 
         /// Provide affirmation to an existing instruction.
@@ -714,15 +714,8 @@ decl_module! {
         #[weight = weight_for::weight_for_affirmation_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
-        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
-                    Ok(e.post_info)
-                } else {
-                    Err(e)
-                }
-            }
+        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
+            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -736,7 +729,12 @@ decl_module! {
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
+            if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
+                // Cancel the scheduled task for the execution of a given instruction.
+                let _ = T::Scheduler::cancel_named((SETTLEMENT_ID, instruction_id).encode());
+            }
+            Ok(())
         }
 
         /// Rejects an existing instruction.
@@ -747,7 +745,7 @@ decl_module! {
         #[weight = weight_for::weight_for_reject_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             ensure!(portfolios_set.len() > 0, Error::<T>::NoPortfolioProvided);
@@ -771,18 +769,9 @@ decl_module! {
                 <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
             }
 
-            // Execute the instruction if it was meant to be executed on affirmation
-            let weight_for_instruction_execution = Self::is_instruction_executed(
-                Zero::zero(),
-                Self::instruction_details(instruction_id).settlement_type,
-                instruction_id
-            );
-
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
-            match weight_for_instruction_execution {
-                Ok(post_info) => Ok(post_info.actual_weight.map(|w| w.saturating_add(weight_for::weight_for_reject_instruction::<T>())).into()),
-                Err(e) => Ok(e.post_info)
-            }
+            // Schedule the instruction to execute in the next block only if it was meant to be executed on affirmation.
+            Self::maybe_schedule_instruction(Zero::zero(), instruction_id)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -797,15 +786,8 @@ decl_module! {
         #[weight = weight_for::weight_for_affirmation_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
             ]
-        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            match Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios) {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => if e == Error::<T>::InstructionFailed.into() || e == Error::<T>::UnauthorizedVenue.into() {
-                    Ok(e.post_info)
-                }else {
-                    Err(e)
-                }
-            }
+        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
         }
 
         /// Claims a signed receipt.
@@ -938,7 +920,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::LegsCountExceededMaxLimit
         );
 
-        // Ensure that the scheduled block number is in the future so that T::Scheduler::schedule
+        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
             ensure!(
@@ -1001,14 +983,7 @@ impl<T: Trait> Module<T> {
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            let call = Call::<T>::execute_scheduled_instruction(instruction_counter).into();
-            T::Scheduler::schedule(
-                DispatchTime::At(block_number),
-                None,
-                LOWEST_PRIORITY,
-                RawOrigin::Root.into(),
-                call,
-            )?;
+            Self::schedule_instruction(instruction_counter, block_number)?;
         }
 
         <InstructionDetails<T>>::insert(instruction_counter, instruction);
@@ -1374,21 +1349,42 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn is_instruction_executed(
-        affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
-        id: u64,
-    ) -> DispatchResultWithPostInfo {
-        let execute_instruction_result =
-            if affirms_pending == 0 && settlement_type == SettlementType::SettleOnAffirmation {
-                Self::execute_instruction(id).1
-            } else {
-                Ok(PostDispatchInfo {
-                    actual_weight: Some(Zero::zero()),
-                    pays_fee: Default::default(),
-                })
-            };
-        execute_instruction_result
+    /// Schedule a given instruction to be executed on the next block only if the
+    /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
+    fn maybe_schedule_instruction(affirms_pending: u64, id: u64) -> DispatchResult {
+        if affirms_pending == 0
+            && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
+        {
+            // Schedule instruction to be executed in the next block.
+            let execution_at = system::Module::<T>::block_number() + One::one();
+            Self::schedule_instruction(id, execution_at)?;
+        }
+        Ok(())
+    }
+
+    /// Schedule execution of given instruction at given block number.
+    ///
+    /// NB - It is expected to execute the given instruction into the given block number but
+    /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
+    /// for the given block so there are chances where the instruction execution block no. may drift.
+    fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
+        let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
+        match T::Scheduler::schedule_named(
+            (SETTLEMENT_ID, instruction_id).encode(),
+            DispatchTime::At(execution_at),
+            None,
+            SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+            RawOrigin::Root.into(),
+            call,
+        ) {
+            Err(_) => {
+                Self::deposit_event(RawEvent::SchedulingFailed(
+                    Error::<T>::FailedToSchedule.into(),
+                ));
+            }
+            Ok(_) => {}
+        };
+        Ok(())
     }
 
     pub fn base_affirm_with_receipts(
@@ -1396,7 +1392,7 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1519,55 +1515,103 @@ impl<T: Trait> Module<T> {
                 receipt.metadata.clone(),
             ));
         }
-
-        // Execute instruction if conditions are met.
-        let execute_instruction_weight = Self::is_instruction_executed(
-            affirms_pending,
-            instruction_details.settlement_type,
-            instruction_id,
-        );
-
-        execute_instruction_weight.map(|info| {
-            info.actual_weight
-                .map(|w| {
-                    w.saturating_add(weight_for::weight_for_affirmation_with_receipts::<T>(
-                        u32::try_from(receipt_details.len()).unwrap_or_default(),
-                    ))
-                })
-                .into()
-        })
+        Ok(())
     }
 
     pub fn base_affirm_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(
-            did,
-            instruction_id,
-            portfolios_set,
-            secondary_key.as_ref(),
-        )?;
+        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set, secondary_key.as_ref())
+    }
 
-        // Execute the instruction if conditions are met
-        let affirms_pending = Self::instruction_affirms_pending(instruction_id);
-        let weight_for_instruction_execution = Self::is_instruction_executed(
-            affirms_pending,
-            Self::instruction_details(instruction_id).settlement_type,
+    // It affirms the instruction and may schedule the instruction
+    // depends on the settlement type.
+    pub fn affirm_with_receipts_and_maybe_schedule_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+        // Schedule instruction to be execute in the next block (expected) if conditions are met.
+        Self::maybe_schedule_instruction(
+            Self::instruction_affirms_pending(instruction_id),
             instruction_id,
-        );
+        )
+    }
 
-        weight_for_instruction_execution.map(|info| {
-            info.actual_weight
-                .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
-                .into()
+    /// Schedule settlement instruction execution in the next block, unless already scheduled.
+    /// Used for general purpose settlement.
+    pub fn affirm_and_maybe_schedule_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
+        // Schedule the instruction if conditions are met
+        Self::maybe_schedule_instruction(
+            Self::instruction_affirms_pending(instruction_id),
+            instruction_id,
+        )
+    }
+
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    ///
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
+    pub fn affirm_and_execute_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        with_transaction(|| {
+            Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
         })
+    }
+
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    ///
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
+    pub fn affirm_with_receipts_and_execute_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        with_transaction(|| {
+            Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
+        })
+    }
+
+    fn execute_settle_on_affirmation_instruction(
+        instruction_id: u64,
+        affirms_pending: u64,
+        settlement_type: SettlementType<T::BlockNumber>,
+    ) -> DispatchResult {
+        // We assume `settlement_type == SettleOnAffirmation`,
+        // to be defensive, however, this is checked before instruction execution.
+        if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
+            Self::execute_instruction(instruction_id)
+                .1
+                .map_err(|e| e.error)?;
+        }
+        Ok(())
     }
 
     fn ensure_portfolios_and_affirmation_status(

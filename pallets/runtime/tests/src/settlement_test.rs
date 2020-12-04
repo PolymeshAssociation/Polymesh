@@ -55,6 +55,13 @@ macro_rules! assert_add_claim {
     };
 }
 
+macro_rules! assert_instruction_execution {
+    ($assert:ident, $x:expr, $y:expr $(,)?) => {
+        next_block();
+        $assert!($x, $y);
+    };
+}
+
 fn init(token_name: &[u8], ticker: Ticker, keyring: Public) -> u64 {
     create_token(token_name, ticker, keyring);
     let venue_counter = Settlement::venue_counter();
@@ -86,10 +93,14 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
     ));
 }
 
-fn next_block() {
+pub fn next_block() {
     let block_number = System::block_number() + 1;
-    System::set_block_number(block_number);
+    set_current_block_number(block_number);
     let _ = Scheduler::on_initialize(block_number);
+}
+
+pub fn set_current_block_number(block: u64) {
+    System::set_block_number(block);
 }
 
 #[test]
@@ -199,16 +210,20 @@ fn basic_settlement() {
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
+            set_current_block_number(5);
+            // Instruction get scheduled to next block.
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did)
             ));
 
-            // Instruction should've settled
-            assert_eq!(
+            // Advances the block no. to execute the instruction.
+            let new_balance = alice_init_balance - amount;
+            assert_instruction_execution!(
+                assert_eq,
                 Asset::balance_of(&ticker, alice_did),
-                alice_init_balance - amount
+                new_balance
             );
             assert_eq!(
                 Asset::balance_of(&ticker, bob_did),
@@ -282,18 +297,20 @@ fn create_and_affirm_instruction() {
                 ),
                 AffirmationStatus::Pending
             );
-
+            set_current_block_number(5);
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did)
             ));
 
-            // Instruction should've settled
-            assert_eq!(
+            // Advances the block no.
+            assert_instruction_execution!(
+                assert_eq,
                 Asset::balance_of(&ticker, alice_did),
                 alice_init_balance - amount
             );
+
             assert_eq!(
                 Asset::balance_of(&ticker, bob_did),
                 bob_init_balance + amount
@@ -612,15 +629,15 @@ fn token_swap() {
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
-
+            set_current_block_number(500);
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did)
             ));
 
-            // Instruction should've settled
-            assert_eq!(
+            assert_instruction_execution!(
+                assert_eq,
                 Settlement::user_affirmations(
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
@@ -785,7 +802,7 @@ fn claiming_receipt() {
                 ),
                 Error::LegNotPending
             );
-
+            set_current_block_number(4);
             assert_ok!(Settlement::affirm_instruction(
                 alice_signed.clone(),
                 instruction_counter,
@@ -1057,14 +1074,16 @@ fn claiming_receipt() {
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
+            set_current_block_number(10);
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did)
             ));
 
-            // Instruction should've settled
-            assert_eq!(
+            // Advances block.
+            assert_instruction_execution!(
+                assert_eq,
                 Settlement::user_affirmations(
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
@@ -1930,14 +1949,14 @@ fn basic_fuzzing() {
 
             for i in 0..40 {
                 for j in 0..4 {
-                    assert_eq!(
-                        Portfolio::locked_assets(
-                            PortfolioId::default_portfolio(dids[j]),
-                            &tickers[i]
-                        ),
-                        0
-                    );
                     if fail {
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(dids[j]),
+                                &tickers[i]
+                            ),
+                            0
+                        );
                         assert_eq!(
                             Asset::balance_of(&tickers[i], dids[j]),
                             u128::try_from(
@@ -2142,14 +2161,16 @@ fn claim_multiple_receipts_during_authorization() {
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
+            set_current_block_number(1);
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did)
             ));
 
-            // Instruction should've settled
-            assert_eq!(
+            // Advances block
+            assert_instruction_execution!(
+                assert_eq,
                 Settlement::user_affirmations(
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
@@ -2498,22 +2519,13 @@ fn test_weights_for_settlement_transaction() {
                 weight_for::weight_for_affirmation_instruction::<TestStorage>(),
                 weight_for_affirm_instruction_1 - weight_for::weight_for_transfer::<TestStorage>()
             );
-
-            let weight_for_affirm_instruction_2 =
-                SettlementCall::<TestStorage>::affirm_instruction(
-                    instruction_counter,
-                    default_portfolio_vec(bob_did),
-                )
-                .get_dispatch_info()
-                .weight;
-            let result_affirm_instruction_2 = Settlement::affirm_instruction(
+            set_current_block_number(100);
+            assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did),
-            );
-            assert_ok!(result_affirm_instruction_2);
-            assert_eq!(Asset::balance_of(ticker, bob_did), 100);
-            let acutal_weight = result_affirm_instruction_2.unwrap().actual_weight.unwrap();
+            ));
+            assert_instruction_execution!(assert_eq, Asset::balance_of(ticker, bob_did), 100);
             let (transfer_result, _weight_for_is_valid_transfer) = Asset::_is_valid_transfer(
                 &ticker,
                 alice,
@@ -2523,7 +2535,6 @@ fn test_weights_for_settlement_transaction() {
             )
             .unwrap();
             assert_eq!(transfer_result, 81);
-            assert!(weight_for_affirm_instruction_2 > acutal_weight);
         });
 }
 
@@ -2584,7 +2595,7 @@ fn cross_portfolio_settlement() {
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
                 0
             );
-
+            set_current_block_number(10);
             // Approved by Alice
             assert_ok!(Settlement::affirm_instruction(
                 alice_signed.clone(),
@@ -2606,10 +2617,10 @@ fn cross_portfolio_settlement() {
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
                 amount
             );
-
             // Bob fails to approve the instruction with a
             // different portfolio than the one specified in the instruction
-            assert_noop!(
+            assert_instruction_execution!(
+                assert_noop,
                 Settlement::affirm_instruction(
                     bob_signed.clone(),
                     instruction_counter,
@@ -2618,18 +2629,20 @@ fn cross_portfolio_settlement() {
                 Error::UnexpectedAffirmationStatus
             );
 
+            next_block();
             // Bob approves the instruction with the correct portfolio
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
                 user_portfolio_vec(bob_did, num)
             ));
-
             // Instruction should've settled
-            assert_eq!(
+            assert_instruction_execution!(
+                assert_eq,
                 Asset::balance_of(&ticker, alice_did),
                 alice_init_balance - amount
             );
+
             assert_eq!(
                 Asset::balance_of(&ticker, bob_did),
                 bob_init_balance + amount
@@ -2769,7 +2782,7 @@ fn multiple_portfolio_settlement() {
                 PortfolioId::user_portfolio(alice_did, alice_num),
                 vec![MovePortfolioItem { ticker, amount }]
             ));
-
+            set_current_block_number(15);
             // Alice is now able to approve the instruction with the user portfolio
             assert_ok!(Settlement::affirm_instruction(
                 alice_signed.clone(),
@@ -2811,6 +2824,8 @@ fn multiple_portfolio_settlement() {
                 PortfolioId::default_portfolio(bob_did),
                 PortfolioId::user_portfolio(bob_did, bob_num),
             ];
+
+            next_block();
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
                 instruction_counter,
@@ -2818,7 +2833,8 @@ fn multiple_portfolio_settlement() {
             ));
 
             // Instruction should've settled
-            assert_eq!(
+            assert_instruction_execution!(
+                assert_eq,
                 Asset::balance_of(&ticker, alice_did),
                 alice_init_balance - amount * 2
             );
@@ -2947,6 +2963,7 @@ fn multiple_custodian_settlement() {
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(alice_did, alice_num),
             ];
+            set_current_block_number(10);
             assert_ok!(Settlement::affirm_instruction(
                 alice_signed.clone(),
                 instruction_counter,
@@ -3003,6 +3020,7 @@ fn multiple_custodian_settlement() {
                 PortfolioError::UnauthorizedCustodian
             );
 
+            next_block();
             // Bob can approve instruction from the portfolio he has custody of
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),
@@ -3011,7 +3029,8 @@ fn multiple_custodian_settlement() {
             ));
 
             // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
-            assert_noop!(
+            assert_instruction_execution!(
+                assert_noop,
                 Settlement::withdraw_affirmation(
                     alice_signed.clone(),
                     instruction_counter,
@@ -3036,6 +3055,7 @@ fn multiple_custodian_settlement() {
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(bob_did, bob_num),
             ];
+            next_block();
             assert_ok!(Settlement::affirm_instruction(
                 alice_signed.clone(),
                 instruction_counter,
@@ -3043,7 +3063,8 @@ fn multiple_custodian_settlement() {
             ));
 
             // Instruction should've settled
-            assert_eq!(
+            assert_instruction_execution!(
+                assert_eq,
                 Asset::balance_of(&ticker, alice_did),
                 alice_init_balance - amount * 2
             );
@@ -3104,6 +3125,7 @@ fn reject_instruction() {
 
             let create_instruction = || {
                 let instruction_id = Settlement::instruction_counter();
+                set_current_block_number(10);
                 assert_ok!(Settlement::add_and_affirm_instruction(
                     alice_signed.clone(),
                     venue_counter,
@@ -3139,13 +3161,13 @@ fn reject_instruction() {
                 ),
                 PortfolioError::UnauthorizedCustodian
             );
-
+            next_block();
             assert_ok!(Settlement::reject_instruction(
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did)
             ));
-
+            next_block();
             // Instruction should've been deleted
             assert_user_affirmatons(
                 instruction_counter,
@@ -3161,7 +3183,7 @@ fn reject_instruction() {
                 instruction_counter2,
                 default_portfolio_vec(bob_did)
             ));
-
+            next_block();
             // Instruction should've been deleted
             assert_user_affirmatons(
                 instruction_counter2,

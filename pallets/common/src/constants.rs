@@ -34,6 +34,14 @@ pub mod did {
     pub const FIAT_TICKERS_RESERVATION_DID: &[u8; 32] = b"system:fiat_tickers_reservation\0";
 }
 
+/// Priorities for the task that get scheduled.
+pub mod queue_priority {
+    use frame_support::traits::schedule::Priority;
+
+    /// Queue priority for the settlement instruction execution.
+    pub const SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY: Priority = 100;
+}
+
 // ERC1400 transfer status codes
 pub const ERC1400_TRANSFER_FAILURE: u8 = 0x50;
 pub const ERC1400_TRANSFER_SUCCESS: u8 = 0x51;

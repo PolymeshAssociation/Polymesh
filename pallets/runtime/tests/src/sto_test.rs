@@ -163,7 +163,6 @@ fn raise_happy_path() {
         alice_init_raise
     );
     assert_eq!(Asset::balance_of(&raise_ticker, bob_did), bob_init_raise);
-
     // Bob invests in Alice's fundraiser
     assert_ok!(STO::invest(
         bob_signed.clone(),
@@ -175,7 +174,6 @@ fn raise_happy_path() {
         Some(2u128),
         None
     ));
-
     check_fundraiser(1_000_000u128 - amount);
 
     assert_eq!(
