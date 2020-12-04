@@ -20,7 +20,8 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
 
 use sp_std::convert::TryFrom;
 
-const TICKER_LEN: usize = 12;
+/// Ticker length.
+pub const TICKER_LEN: usize = 12;
 
 /// Ticker symbol.
 ///

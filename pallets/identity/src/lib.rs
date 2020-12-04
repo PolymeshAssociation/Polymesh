@@ -710,11 +710,13 @@ decl_module! {
             auth_id: u64,
             _auth_issuer_pays: bool,
         ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did: from_did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
+            let sender = ensure_signed(origin)?;
+            let from_did = if <KeyToIdentityIds<T>>::contains_key(&sender) {
+                // If the sender is linked to an identity, ensure that it has relevant permissions
+                CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did
+            } else {
+                Context::current_identity_or::<Self>(&sender)?
+            };
 
             let auth = Self::ensure_authorization(&target, auth_id)?;
             let revoked = auth.authorized_by == from_did;
