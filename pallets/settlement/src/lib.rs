@@ -483,6 +483,8 @@ decl_event!(
         InstructionExecuted(IdentityId, u64),
         /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
         VenueUnauthorized(IdentityId, Ticker, u64),
+        /// Scheduling of instruction fails.
+        SchedulingFailed(DispatchError),
     }
 );
 
@@ -530,7 +532,9 @@ decl_error! {
         /// Portfolio based actions require at least one portfolio to be provided as input.
         NoPortfolioProvided,
         /// The current instruction affirmation status does not support the requested action.
-        UnexpectedAffirmationStatus
+        UnexpectedAffirmationStatus,
+        /// Scheduling of an instruction fails.
+        FailedToSchedule
     }
 }
 
@@ -1366,15 +1370,22 @@ impl<T: Trait> Module<T> {
     /// for the given block so there are chances where the instruction execution block no. may drift.
     fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
         let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
-        let _ = T::Scheduler::schedule_named(
+        match T::Scheduler::schedule_named(
             (SETTLEMENT_ID, instruction_id).encode(),
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
             RawOrigin::Root.into(),
             call,
-        );
-        Ok(())
+        ) {
+            Err(_) => {
+                Self::deposit_event(RawEvent::SchedulingFailed(
+                    Error::<T>::FailedToSchedule.into(),
+                ));
+                Ok(())
+            }
+            Ok(_) => Ok(()),
+        }
     }
 
     pub fn base_affirm_with_receipts(
