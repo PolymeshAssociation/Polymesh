@@ -178,7 +178,7 @@ impl<T: Trait> UserBuilder<T> {
     fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, SecretKey) {
         let seed = (name, u).using_encoded(blake2_256);
         let pair = Pair::from_seed(&seed);
-        let keypair: &Keypair = pair.as_ref();
+        let keypair = pair.as_ref();
 
         let secret = keypair.secret.to_bytes();
         let public = keypair.public.to_bytes();
