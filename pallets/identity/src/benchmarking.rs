@@ -42,6 +42,7 @@ pub type SecretKey = [u8; 64]; // Only in sr25519
 pub type PublicKey = [u8; 32]; // Only in sr25519
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct User<T: Trait> {
     pub account: T::AccountId,
     pub secret: SecretKey,
