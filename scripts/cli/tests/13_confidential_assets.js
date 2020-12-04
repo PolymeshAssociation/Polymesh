@@ -56,13 +56,14 @@ async function main() {
   // Validate Charlie's Mercat Account 
   await addMediatorMercatAccount(api, charlie, charlieMercatInfo);
 
-  // Get Alice and Bob's encrypted balances 
-  const aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.mercatAccountID);
-  const bobEncryptedBalance = await getEncryptedBalance(api, bob_did, bobMercatInfo.mercatAccountID);
-
-  // Decrypt Alice and Bob's balances
-  let aliceBalance = await decryptBalances('alice', tickerHexSubStr, aliceEncryptedBalance, CHAIN_DIR);
-  let bobBalance = await decryptBalances('bob', tickerHexSubStr, bobEncryptedBalance, CHAIN_DIR);
+  await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
+  await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
+  
+  // Mint Tokens 
+  await mintTokens(api, 'alice', alice, tickerHex, 1000, CHAIN_DIR);
+  
+  await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
+  await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
 
   // Removes the Chain_Dir
   await removeChainDir(CHAIN_DIR);
@@ -75,6 +76,24 @@ async function main() {
   }
 
   process.exit();
+}
+async function displayBalance(api, did, mercatAccountID, account, tickerHex, dbDir) {
+    // Get encrypted balance
+    const accountEncryptedBalance = await getEncryptedBalance(api, did, mercatAccountID);
+    // Decrypt balance
+    const accountBalance = await decryptBalances(account, tickerHex, accountEncryptedBalance, dbDir);
+    console.log(`${account}'s Balance: ${accountBalance}`);
+}
+
+async function mintTokens(api, account, signer, tickerHex, amount, dbDir) {
+    await exec('mkdir chain_dir/on-chain/common');
+    const { stdout, stderr } = await exec(`mercat-interactive mint --db-dir ${dbDir} --amount ${amount} --issuer ${account} --account-id-from-ticker ${tickerHex.substr(2)}`);
+    const splitOutput = stderr.split('\n');
+    const mintProof = splitOutput[19].trim();
+
+    const transaction = await api.tx.confidentialAsset.mintConfidentialAsset(tickerHex, amount, mintProof);
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
 }
 
 async function getEncryptedBalance(api, did, mercatAccountID){
