@@ -612,22 +612,6 @@
                 "Expired"
             ]
         },
-        "ReferendumState": {
-            "_enum": [
-                "Pending",
-                "Scheduled",
-                "Rejected",
-                "Failed",
-                "Executed"
-            ]
-        },
-        "ReferendumType": {
-            "_enum": [
-                "FastTracked",
-                "Emergency",
-                "Community"
-            ]
-        },
         "Pip": {
             "id": "PipId",
             "proposal": "Call",
@@ -639,12 +623,6 @@
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
             }
-        },
-        "Referendum": {
-            "id": "PipId",
-            "state": "ReferendumState",
-            "referendum_type": "ReferendumType",
-            "enactment_period": "u32"
         },
         "TickerTransferApproval": {
             "authorized_by": "IdentityId",
