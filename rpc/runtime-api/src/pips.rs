@@ -98,10 +98,10 @@ sp_api::decl_runtime_apis! {
         /// Retrieve proposals `address` voted on.
         fn voted_on(address: AccountId) -> Vec<u32>;
 
-        /// Retrieve referendums voted on information by `address` account.
+        /// Retrieve PIPs voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>>;
 
-        /// Retrieve referendums voted on information by `id` identity (and its secondary keys).
+        /// Retrieve PIPs voted on information by `id` identity (and its secondary keys).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>>;
     }
 }
