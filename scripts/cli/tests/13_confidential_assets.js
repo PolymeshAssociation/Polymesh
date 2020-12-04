@@ -14,8 +14,10 @@ async function main() {
 
   const ticker = await reqImports.generateRandomTicker(api);
   const ticker2 = await reqImports.generateRandomTicker(api);
-  const tickerHex = reqImports.stringToHex(ticker); 
+  const tickerHex = reqImports.stringToHex(ticker);
   const ticker2Hex = reqImports.stringToHex(ticker2); 
+  const tickerHexSubStr = tickerHex.substr(2);
+  const ticker2HexSubStr = ticker2Hex.substr(2);
   const testEntities = await reqImports.initMain(api);
   const CHAIN_DIR = 'chain_dir';
 
@@ -41,8 +43,8 @@ async function main() {
   await createConfidentialAsset(api, ticker2Hex, alice);
 
   // Alice and Bob create their Mercat account locally and submit the proof to the chain
-  const bobMercatInfo = await createMercatUserAccount('bob', tickerHex, ticker2Hex, CHAIN_DIR);
-  const aliceMercatInfo = await createMercatUserAccount('alice', tickerHex, ticker2Hex, CHAIN_DIR);
+  const aliceMercatInfo = await createMercatUserAccount('alice', tickerHexSubStr, ticker2HexSubStr, CHAIN_DIR);
+  const bobMercatInfo = await createMercatUserAccount('bob', tickerHexSubStr, ticker2HexSubStr, CHAIN_DIR);
 
   // Validate Alice and Bob's Mercat Accounts
   await validateMercatAccount(api, alice, aliceMercatInfo.mercatAccountProof);
@@ -53,6 +55,14 @@ async function main() {
 
   // Validate Charlie's Mercat Account 
   await addMediatorMercatAccount(api, charlie, charlieMercatInfo);
+
+  // Get Alice and Bob's encrypted balances 
+  const aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.mercatAccountID);
+  const bobEncryptedBalance = await getEncryptedBalance(api, bob_did, bobMercatInfo.mercatAccountID);
+
+  // Decrypt Alice and Bob's balances
+  let aliceBalance = await decryptBalances('alice', tickerHexSubStr, aliceEncryptedBalance, CHAIN_DIR);
+  let bobBalance = await decryptBalances('bob', tickerHexSubStr, bobEncryptedBalance, CHAIN_DIR);
 
   // Removes the Chain_Dir
   await removeChainDir(CHAIN_DIR);
@@ -65,6 +75,18 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function getEncryptedBalance(api, did, mercatAccountID){
+    return await api.query.confidentialAsset.mercatAccountBalance(did, mercatAccountID);
+}
+
+async function decryptBalances(account, tickerHex, encryptedBalance, dbDir) {
+    const { stdout, stderr } = await exec(
+      `mercat-interactive decrypt --db-dir ${dbDir} --ticker ${tickerHex} --user ${account} --encrypted-value ${encryptedBalance}`
+    );
+    const splitOutput = stderr.split('\n');
+    return splitOutput[11].substr(65).trim();
 }
 
 async function removeChainDir(chain_dir) {
@@ -86,7 +108,9 @@ async function validateMercatAccount(api, signer, proof) {
 }
 
 async function createMercatUserAccount(account, tickerHex, ticker2Hex, dbDir) {
-  const { stdout, stderr } = await exec(`mercat-interactive create-user-account --user ${account} --db-dir ${dbDir} --ticker ${tickerHex.substr(2)} --valid-ticker-names ${tickerHex.substr(2)} ${ticker2Hex.substr(2)}`);
+  const { stdout, stderr } = await exec(
+    `mercat-interactive create-user-account --user ${account} --db-dir ${dbDir} --ticker ${tickerHex} --valid-ticker-names ${tickerHex} ${ticker2Hex}`
+  );
 
   const splitOutput = stderr.split('\n');
   const mercatAccountID = splitOutput[21].trim();
@@ -96,7 +120,9 @@ async function createMercatUserAccount(account, tickerHex, ticker2Hex, dbDir) {
 }
 
 async function createMercatMediatorAccount(account, dbDir) {
-    const { stdout, stderr } = await exec(`mercat-interactive create-mediator-account  --db-dir ${dbDir} --user ${account}`);
+    const { stdout, stderr } = await exec(
+      `mercat-interactive create-mediator-account  --db-dir ${dbDir} --user ${account}`
+    );
     const splitOutput = stderr.split('\n');
     
     return splitOutput[15].trim();
