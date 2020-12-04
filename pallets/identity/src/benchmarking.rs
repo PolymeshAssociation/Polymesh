@@ -24,11 +24,9 @@ use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
 };
 
-use schnorrkel::Signature;
+use cryptography::schnorrkel;
 use sp_std::prelude::*;
 
-#[cfg(feature = "std")]
-use schnorrkel::Keypair;
 #[cfg(feature = "std")]
 use sp_core::{crypto::Pair as TPair, sr25519::Pair};
 
@@ -73,9 +71,11 @@ impl<T: Trait> User<T> {
     pub fn sign(&self, message: &[u8]) -> Signature {
         let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
             .expect("Invalid sr25519 secret key");
-        let pair = Keypair::from(sk);
+        let pair = schnorrkel::Keypair::from(sk);
         let context = schnorrkel::signing_context(SIGNING_CTX);
-        pair.sign(context.bytes(message)).into()
+        let raw_signature = pair.sign(context.bytes(message)).to_bytes();
+
+        Signature::from_raw(raw_signature)
     }
 
     #[cfg(not(feature = "std"))]
@@ -227,7 +227,7 @@ fn setup_investor_uniqueness_claim<T: Trait>(
     let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
 
     let inv_proof = InvestorZKProofData(
-        Signature::from_bytes(&[
+        schnorrkel::Signature::from_bytes(&[
             216u8, 224, 57, 254, 200, 45, 150, 202, 12, 108, 226, 233, 148, 213, 237, 7, 35, 150,
             142, 18, 127, 146, 162, 19, 161, 164, 95, 67, 181, 100, 156, 25, 201, 210, 209, 165,
             182, 74, 184, 145, 230, 255, 215, 144, 223, 100, 100, 147, 226, 58, 142, 92, 103, 153,

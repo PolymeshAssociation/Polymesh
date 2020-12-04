@@ -78,7 +78,7 @@ fn remark_call_builder<T: Trait>(
         // Signer signs the relay call.
         // NB: Decode as T::OffChainSignature because there is not type constraints in
         // `T::OffChainSignature` to limit it.
-        let raw_signature: [u8; 64] = signer.sign(&call.encode()).to_bytes();
+        let raw_signature: [u8; 64] = signer.sign(&call.encode()).0;
         let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
 
         // Native execution can generate a hard-coded signature using the following code:
@@ -108,7 +108,7 @@ fn transfer_call_builder<T: Trait>(
         // Signer signs the relay call.
         // NB: Decode as T::OffChainSignature because there is not type constraints in
         // `T::OffChainSignature` to limit it.
-        let raw_signature: [u8; 64] = signer.sign(&call.encode()).to_bytes();
+        let raw_signature: [u8; 64] = signer.sign(&call.encode()).0;
         MultiSignature::from(Signature::from_raw(raw_signature)).encode()
     };
     #[cfg(not(feature = "std"))]

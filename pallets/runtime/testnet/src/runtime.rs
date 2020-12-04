@@ -664,6 +664,8 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const AssetNameMaxLength: usize = 128;
+    pub const FundingRoundNameMaxLength: usize = 128;
 }
 
 impl asset::Trait for Runtime {
@@ -672,6 +674,9 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
