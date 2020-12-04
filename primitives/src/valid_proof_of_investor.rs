@@ -1,5 +1,5 @@
 use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
-use confidential_identity::{ ProofPublicKey, CompressedRistretto};
+use confidential_identity::{CompressedRistretto, ProofPublicKey};
 
 // ZKProofs claims
 // =========================================================

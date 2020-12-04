@@ -14,8 +14,7 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-confidential_identity = { path = "../../cryptography/confidential-identity", default-features = false }
-# git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 rand_core = { version = "0.5", default-features = false }
@@ -39,18 +38,8 @@ hex = { version = "^0.4.0", default-features = false }
 serde_json = "1.0.48"
 
 [features]
-default = ["std", "u64_backend"]
-
-# Backends
-u32_backend = [ "confidential_identity/u32_backend"]
-u64_backend = [ "confidential_identity/u64_backend"]
-avx2_backend = [ "confidential_identity/avx2_backend"]
-
-no_std = [
-	"confidential_identity/no_std",
-	"u64_backend",
-]
-
+default = ["std"]
+no_std = [ "confidential_identity/no_std" ]
 std = [
 	"rand/std",
 	"rand_core/std",
@@ -65,6 +54,7 @@ std = [
 	"sp-io/std",
 	# Crypto
 	"confidential_identity/std",
+	"confidential_identity/avx2_backend",
 	"blake2/std",
 	"blake2/simd",
 	"polymesh-primitives-derive/std",

@@ -1,7 +1,6 @@
 use crate::{IdentityId, InvestorUid, Ticker};
 use confidential_identity::{
-    build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
-    schnorrkel::Signature
+    build_scope_claim_proof_data, schnorrkel::Signature, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
 
 use blake2::{Blake2s, Digest};

@@ -18,10 +18,7 @@ pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 # Crypto
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure", default-features = false }
-curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek.git", branch = "v2-packed-simd", default-features = false, features = ["nightly"] }
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 # Substrate
@@ -38,17 +35,15 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 [features]
 equalize = []
 default = ["std", "equalize", "runtime-benchmarks"]
-no_std = [
-    "cryptography_core/no_std",
-]
+no_std = [ "mercat/no_std" ]
 only-staking = []
 std = [
     "codec/std",
-    "cryptography_core/std",
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
     "mercat/std",
+    "mercat/avx2_backend",
     "pallet-balances/std",
     "pallet-contracts/std",
     "pallet-identity/std",
