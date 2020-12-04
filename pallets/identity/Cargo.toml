@@ -16,7 +16,6 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 
 # Cryptography 
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "MESH-1369/mocked_investor_uid", default-features = false }
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -40,7 +39,6 @@ default = ["std", "equalize"]
 no_cdd = []
 no_std = [
     "cryptography/u64_backend",
-    "schnorrkel/u64_backend",
 ]
 only-staking = []
 std = [
@@ -62,8 +60,6 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
-    "schnorrkel/std",
-    "schnorrkel/u64_backend",
 ]
 runtime-benchmarks = [
     "polymesh-common-utilities/runtime-benchmarks",
