@@ -19,7 +19,7 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
-        "Version": "u8", 
+        "Version": "u8",
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -1115,11 +1115,13 @@
         "RecordDateSpec": {
             "_enum": {
                 "Scheduled": "Moment",
+                "ExistingSchedule": "ScheduleId",
                 "Existing": "CheckpointId"
             }
         },
         "CorporateAction": {
             "kind": "CAKind",
+            "decl_date": "Moment",
             "record_date": "Option<RecordDate>",
             "details": "Text",
             "targets": "TargetIdentities",

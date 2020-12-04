@@ -47,7 +47,12 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {}
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // This definition is needed because the construct_runtime! macro uses it to generate metadata.
+        // Without this definition, the metadata won't have details about the errors of this module.
+        // That will lead to UIs either throwing fits or showing incorrect error messages.
+        type Error = Error<T>;
+    }
 }
 
 decl_error! {

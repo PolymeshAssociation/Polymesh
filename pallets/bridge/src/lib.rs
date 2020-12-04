@@ -241,10 +241,6 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The bridge controller address is not set.
         ControllerNotSet,
-        /// The signer does not have an identity.
-        IdentityMissing,
-        /// Failure to credit the recipient account or identity.
-        CannotCreditRecipient,
         /// The origin is not the controller or the admin address.
         BadCaller,
         /// The origin is not the admin address.
@@ -261,10 +257,6 @@ decl_error! {
         NotFrozen,
         /// The transaction is frozen.
         FrozenTx,
-        /// There is no proposal corresponding to a given bridge transaction.
-        NoSuchProposal,
-        /// All the blocks in the timelock block range are full.
-        TimelockBlockRangeFull,
         /// The identity's minted total has reached the bridge limit.
         BridgeLimitReached,
         /// The identity's minted total has overflowed.
@@ -273,8 +265,6 @@ decl_error! {
         DivisionByZero,
         /// The transaction is timelocked.
         TimelockedTx,
-        /// Missing Current Identity
-        MissingCurrentIdentity
     }
 }
 
