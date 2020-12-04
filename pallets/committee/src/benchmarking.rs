@@ -92,11 +92,11 @@ benchmarks_instance! {
         let p in 1 .. PROPOSAL_PADDING_MAX;
 
         let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
-        let members: Vec<_> = (1..m)
+        let mut members: Vec<_> = (1..m)
             .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
             .collect();
         members.push(proposer.clone());
-        Members::<I>::put(members.iter().map(|m| m.did()).collect());
+        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
         make_additional_proposals::<T, I>(proposer.origin.clone(), p as usize)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
@@ -127,7 +127,7 @@ benchmarks_instance! {
             .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
             .collect();
         members.push(proposer.clone());
-        Members::<I>::put(members.iter().map(|m| m.did()).collect());
+        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
         make_additional_proposals::<T, I>(members[0].origin.clone(), p as usize)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![2; p as usize]).into();
