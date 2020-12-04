@@ -40,9 +40,9 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
 
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 

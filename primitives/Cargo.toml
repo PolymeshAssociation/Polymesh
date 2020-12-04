@@ -14,7 +14,7 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 rand_core = { version = "0.5", default-features = false }

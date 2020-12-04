@@ -18,7 +18,7 @@ pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 # Crypto
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-187/cleanup-dir-structure_miguel", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 # Substrate
