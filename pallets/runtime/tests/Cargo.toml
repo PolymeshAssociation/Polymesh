@@ -41,7 +41,6 @@ pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-f
 
 # Crypto
 confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
 mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
 
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
@@ -97,15 +96,12 @@ only-staking = []
 default = ["std", "equalize"]
 no_std = [
     "confidential_identity/no_std", 
-    "cryptography_core/no_std",
     "mercat/no_std",
 ]
 std = [
     # Crypto
     "confidential_identity/std",
     "confidential_identity/avx2_backend",
-    "cryptography_core/std",
-    "cryptography_core/avx2_backend",
     "mercat/std",
     "mercat/avx2_backend",
     # Other

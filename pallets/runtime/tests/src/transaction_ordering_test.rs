@@ -7,15 +7,15 @@ use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
 use core::convert::{TryFrom, TryInto};
-use cryptography_core::{
-    asset_proofs::{CommitmentWitness, ElgamalSecretKey},
-    curve25519_dalek::scalar::Scalar,
-    AssetId,
-};
 use frame_support::assert_ok;
 use mercat::{
     account::{convert_asset_ids, AccountCreator},
     asset::AssetIssuer,
+    cryptography_core::{
+        asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+        curve25519_dalek::scalar::Scalar,
+        AssetId,
+    },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
     FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx, SecAccount,

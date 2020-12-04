@@ -5729,7 +5729,6 @@ dependencies = [
  "base64 0.12.3",
  "chrono",
  "confidential_identity",
- "cryptography_core",
  "env_logger",
  "frame-benchmarking",
  "frame-support",
