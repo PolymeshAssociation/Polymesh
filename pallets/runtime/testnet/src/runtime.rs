@@ -664,6 +664,8 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const AssetNameMaxLength: usize = 128;
+    pub const FundingRoundNameMaxLength: usize = 128;
 }
 
 impl asset::Trait for Runtime {
@@ -672,6 +674,9 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
@@ -1115,13 +1120,13 @@ impl_runtime_apis! {
             Pips::voted_on(address)
         }
 
-        /// Retrieve referendums voted on information by `address` account.
+        /// Retrieve PIPs voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
             Pips::voting_history_by_address(address)
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
+        /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }

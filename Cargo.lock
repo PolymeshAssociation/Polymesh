@@ -5668,6 +5668,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-asset",
  "pallet-compliance-manager",
  "pallet-confidential",
  "pallet-corporate-actions",
