@@ -20,15 +20,12 @@ use frame_benchmarking::benchmarks;
 use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
-use pallet_identity::benchmarking::{User, UserBuilder};
+use pallet_identity::benchmarking::UserBuilder;
 use parity_wasm::elements::FuncBody;
-use polymesh_primitives::{
-    MetaDescription, MetaUrl, MetaVersion, SmartExtensionType, TemplateMetadata,
-};
+use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;
-type System<T> = frame_system::Module<T>;
 
 const SEED: u32 = 0;
 const MAX_URL_LENGTH: u32 = 100000;
@@ -198,7 +195,7 @@ benchmarks! {
     unfreeze_instantiation {
         let creator = UserBuilder::<T>::default().build_with_did("creator", SEED);
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
-        Module::<T>::freeze_instantiation(creator.origin.clone().into(), code_hash);
+        Module::<T>::freeze_instantiation(creator.origin.clone().into(), code_hash)?;
     }: _(creator.origin, code_hash)
     verify {
         ensure!(!Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_unfreeze_instantiation: Failed to unfreeze instantiation");

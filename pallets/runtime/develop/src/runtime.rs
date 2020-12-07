@@ -1134,13 +1134,13 @@ impl_runtime_apis! {
             Pips::voted_on(address)
         }
 
-        /// Retrieve referendums voted on information by `address` account.
+        /// Retrieve PIPs voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
             Pips::voting_history_by_address(address)
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
+        /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }

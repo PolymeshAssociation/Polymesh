@@ -31,7 +31,6 @@ use sp_std::{
     prelude::*,
 };
 
-const PIPS_PREFIX: &'static [u8] = b"Pips";
 const DESCRIPTION_LEN: usize = 1_000;
 const URL_LEN: usize = 500;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
@@ -72,7 +71,7 @@ fn cast_votes<T: Trait>(
     voters: &[(T::AccountId, RawOrigin<T::AccountId>, IdentityId)],
     aye_or_nay: bool,
 ) -> DispatchResult {
-    for (account, origin, did) in voters {
+    for (_, origin, did) in voters {
         identity::CurrentDid::put(did);
         Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1.into())?;
     }
@@ -115,14 +114,6 @@ fn pips_and_votes_setup<T: Trait>(
     }
     identity::CurrentDid::kill();
     Ok((origin, did))
-}
-
-/// Sets up snapshot and enact benches.
-fn snapshot_setup<T: Trait>() -> Result<RawOrigin<T::AccountId>, DispatchError> {
-    let (origin, did) = pips_and_votes_setup::<T>(false)?;
-    identity::CurrentDid::put(did);
-    T::GovernanceCommittee::bench_set_release_coordinator(did);
-    Ok(origin)
 }
 
 fn enact_call<T: Trait>() -> Call<T> {

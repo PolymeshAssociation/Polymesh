@@ -14,8 +14,9 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
-# Cryptography 
+# Cryptography
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "MESH-1369/mocked_investor_uid", default-features = false }
+schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -43,6 +44,8 @@ no_std = [
 only-staking = []
 std = [
     "codec/std",
+    "cryptography/std",
+    "cryptography/u64_backend",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
@@ -52,8 +55,6 @@ std = [
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
-    "cryptography/std",
-    "cryptography/u64_backend",
     "sp-api/std",
     "sp-core/std",
     "sp-io/std",
@@ -62,6 +63,7 @@ std = [
     "sp-version/std",
 ]
 runtime-benchmarks = [
-    "polymesh-common-utilities/runtime-benchmarks",
     "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
+    "schnorrkel",
 ]

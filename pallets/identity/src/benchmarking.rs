@@ -24,7 +24,6 @@ use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
 };
 
-use cryptography::schnorrkel;
 use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
