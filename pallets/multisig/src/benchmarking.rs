@@ -75,44 +75,32 @@ benchmarks! {
     }: _(caller.origin, signers, i as u64)
 
     create_or_approve_proposal_as_identity {
-        // Number of signers
-        let i in 1 .. T::MaxSigners::get();
-
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let mut signers = vec![Signatory::from(alice.did())];
-        generate_signers::<T>(&mut signers, i as usize);
+        generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
     }: _(alice.origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_or_approve_proposal_as_key {
-        // Number of signers
-        let i in 1 .. T::MaxSigners::get();
-
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build("bob", 0);
         let mut signers = vec![Signatory::Account(bob.account())];
-        generate_signers::<T>(&mut signers, i as usize);
+        generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
     }: _(bob.origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_proposal_as_identity {
-        // Number of signers
-        let i in 1 .. T::MaxSigners::get();
-
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let mut signers = vec![Signatory::from(alice.did())];
-        generate_signers::<T>(&mut signers, i as usize);
+        generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
     }: _(alice.origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
     create_proposal_as_key {
-        // Number of signers
-        let i in 1 .. T::MaxSigners::get();
-
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build("bob", 0);
         let mut signers = vec![Signatory::Account(bob.account())];
-        generate_signers::<T>(&mut signers, i as usize);
+        generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
     }: _(bob.origin, multisig, Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
 
@@ -238,19 +226,17 @@ benchmarks! {
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let bob = <UserBuilder<T>>::default().build_with_did("bob", 0);
-        let signers = vec![
+        let mut signers = vec![
             Signatory::from(alice.did()),
-            Signatory::from(bob.did()),
         ];
-        let multisig = generate_multisig_with_signers::<T>(alice.account(), alice.origin(), signers, 1)?;
-        let signers = vec![
-            Signatory::from(bob.did()),
-        ];
-    }: _(alice.origin, multisig, signers)
+        generate_signers::<T>(&mut signers, i as usize);
+        let multisig = generate_multisig_with_signers::<T>(alice.account(), alice.origin(), signers.clone(), 1)?;
+    }: _(alice.origin, multisig, signers[1..].to_vec())
 
     change_sigs_required {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
-        let signers = vec![Signatory::from(alice.did())];
+        let mut signers = vec![Signatory::from(alice.did())];
+        generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let origin = RawOrigin::Signed(multisig);
     }: _(origin, 1)
@@ -260,7 +246,9 @@ benchmarks! {
         let i in 1 .. T::MaxSigners::get();
 
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
-        let multisig = generate_multisig_with_signers::<T>(alice.account(), alice.origin(), vec![Signatory::from(alice.did())], 1)?;
+        let mut signers = vec![];
+        generate_signers::<T>(&mut signers, T::MaxSigners::get() as usize);
+        let multisig = generate_multisig::<T>(alice.account(), alice.origin(), vec![Signatory::from(alice.did())])?;
         let mut signers = vec![];
         generate_signers::<T>(&mut signers, i as usize);
         let origin = RawOrigin::Signed(multisig);
