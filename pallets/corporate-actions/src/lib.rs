@@ -93,6 +93,9 @@
 #![feature(bool_to_option)]
 #![feature(crate_visibility_modifier)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 pub mod ballot;
 pub mod distribution;
 

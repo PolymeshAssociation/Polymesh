@@ -4230,6 +4230,7 @@ dependencies = [
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "libsecp256k1",
@@ -4296,6 +4297,7 @@ dependencies = [
 name = "pallet-group"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -5691,6 +5693,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-confidential",
  "pallet-corporate-actions",
+ "pallet-group",
  "pallet-identity",
  "pallet-im-online",
  "pallet-pips",
