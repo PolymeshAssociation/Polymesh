@@ -57,13 +57,14 @@ jobs:
             - v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
-          command: cargo build --features=runtime-benchmarks || cargo build -j 1 --features=runtime-benchmarks
+          command: cargo build --release --features=runtime-benchmarks || cargo build --release -j 1 --features=runtime-benchmarks
           no_output_timeout: 30m
       - save_cache:
           key: v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
+          when: always
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2020-09-28
