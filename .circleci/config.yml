@@ -64,7 +64,6 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
-          when: always
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2020-09-28
