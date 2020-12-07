@@ -3,7 +3,7 @@ use super::ext_builder::{
     TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+use confidential_identity::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{Currency, Imbalance, OnUnbalanced},

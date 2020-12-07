@@ -104,23 +104,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use cryptography::{
-    mercat::{
-        account::{convert_asset_ids, AccountValidator},
-        asset::AssetValidator,
-        transaction::TransactionValidator,
-        AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-        EncryptionPubKey, InitializedAssetTx, JustifiedTransferTx, PubAccount, PubAccountTx,
-        TransferTransactionVerifier,
-    },
-    AssetId,
-};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
 use frame_system::ensure_signed;
+use mercat::{
+    account::{convert_asset_ids, AccountValidator},
+    asset::AssetValidator,
+    cryptography_core::AssetId,
+    transaction::TransactionValidator,
+    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
+    EncryptionPubKey, InitializedAssetTx, JustifiedTransferTx, PubAccount, PubAccountTx,
+    TransferTransactionVerifier,
+};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
