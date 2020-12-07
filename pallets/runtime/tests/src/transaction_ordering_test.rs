@@ -7,21 +7,20 @@ use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
 use core::convert::{TryFrom, TryInto};
-use cryptography::{
-    asset_proofs::{CommitmentWitness, ElgamalSecretKey},
-    mercat::{
-        account::{convert_asset_ids, AccountCreator},
-        asset::AssetIssuer,
-        transaction::{CtxMediator, CtxReceiver, CtxSender},
-        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
-        EncryptionKeys, FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx,
-        SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
-        TransferTransactionSender,
-    },
-    AssetId,
-};
-use curve25519_dalek::scalar::Scalar;
 use frame_support::assert_ok;
+use mercat::{
+    account::{convert_asset_ids, AccountCreator},
+    asset::AssetIssuer,
+    cryptography_core::{
+        asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+        curve25519_dalek::scalar::Scalar,
+        AssetId,
+    },
+    transaction::{CtxMediator, CtxReceiver, CtxSender},
+    Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
+    FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx, SecAccount,
+    TransferTransactionMediator, TransferTransactionReceiver, TransferTransactionSender,
+};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
