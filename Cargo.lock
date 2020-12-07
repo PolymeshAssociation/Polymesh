@@ -4342,6 +4342,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
  "serde_derive",
  "sp-api",
