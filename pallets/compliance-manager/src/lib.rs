@@ -445,7 +445,7 @@ decl_module! {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
-                issuers.retain(|ti| ti.issuer != &issuer);
+                issuers.retain(|ti| ti.issuer != issuer);
                 ensure!(len != issuers.len(), Error::<T>::IncorrectOperationOnTrustedIssuer);
                 Ok(()) as DispatchResult
             })?;
