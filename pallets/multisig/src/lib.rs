@@ -121,8 +121,6 @@ pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// Nax number of signers allowed in a multisig.
-    type MaxSigners: Get<u32>;
     /// Weight information for extrinsics in the multisig pallet.
     type WeightInfo: WeightInfo;
 }
@@ -283,7 +281,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_identity(T::MaxSigners::get())]
+        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_identity(0)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -305,7 +303,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_key(T::MaxSigners::get())]
+        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_key(0)]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -350,7 +348,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_proposal_as_key(T::MaxSigners::get())]
+        #[weight = <T as Trait>::WeightInfo::create_proposal_as_key(0)]
         pub fn create_proposal_as_key(
             origin,
             multisig: T::AccountId,

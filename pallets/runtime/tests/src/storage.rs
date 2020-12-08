@@ -294,13 +294,8 @@ impl polymesh_contracts::Trait for TestStorage {
     type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
-parameter_types! {
-    pub MaxSigners: u32 = MAX_SIGNERS.with(|v| *v.borrow());
-}
-
 impl multisig::Trait for TestStorage {
     type Event = Event;
-    type MaxSigners = MaxSigners;
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 

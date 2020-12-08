@@ -636,13 +636,8 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
-parameter_types! {
-    pub const MaxSigners: u32 = 256;
-}
-
 impl multisig::Trait for Runtime {
     type Event = Event;
-    type MaxSigners = MaxSigners;
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
