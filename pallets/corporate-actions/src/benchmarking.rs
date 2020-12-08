@@ -20,7 +20,9 @@ use pallet_asset::benchmarking::make_asset;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use frame_support::assert_ok;
 use core::iter;
+use polymesh_primitives::Document;
 use pallet_timestamp::Module as Timestamp;
 
 const TAX: Tax = Tax::one();
@@ -28,6 +30,7 @@ const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 100;
 const MAX_DID_WHT_IDS: u32 = 100;
 const MAX_DETAILS_LEN: u32 = 100;
+const MAX_DOCS: u32 = 100;
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
@@ -156,5 +159,24 @@ benchmarks! {
     )
     verify {
         ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
+    }
+
+    link_ca_doc {
+        let i in 0..MAX_DOCS;
+
+        let (owner, ticker) = setup::<T>();
+        <Timestamp<T>>::set_timestamp(1000.into());
+        let origin: T::Origin = owner.origin().into();
+        let ids = (0..i).map(DocumentId).collect::<Vec<_>>();
+        let ids2 = ids.clone();
+        let docs = (0..i).map(|_| Document::default()).collect::<Vec<_>>();
+        assert_ok!(<Asset<T>>::add_documents(origin.clone(), docs, ticker));
+        assert_ok!(<Module<T>>::initiate_corporate_action(
+            origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
+        ));
+        let ca_id = CAId { ticker, local_id: LocalCAId(0) };
+    }: _(owner.origin(), ca_id, ids)
+    verify {
+        ensure!(CADocLink::get(ca_id) == ids2, "Docs not linked")
     }
 }
