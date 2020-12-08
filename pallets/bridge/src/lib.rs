@@ -342,7 +342,7 @@ decl_storage! {
         PolyxBridged get(fn polyx_bridged): map hasher(identity) IdentityId => (T::Balance, T::BlockNumber);
 
         /// Identities not constrained by the bridge limit.
-        BridgeLimitExempted get(fn bridge_exempted): map hasher(identity) IdentityId => bool;
+        BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;

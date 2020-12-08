@@ -163,7 +163,7 @@ decl_storage! {
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
-            map hasher(identity) T::AccountId => IdentityId;
+            map hasher(twox_64_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
