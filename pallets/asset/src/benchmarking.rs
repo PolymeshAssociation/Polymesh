@@ -75,7 +75,7 @@ fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
     ticker
 }
 
-fn make_document() -> Document {
+pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
         content_hash: [b'7'; 64].into(), // Hash output 512bits.

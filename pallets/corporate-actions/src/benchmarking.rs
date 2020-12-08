@@ -16,13 +16,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use pallet_asset::benchmarking::make_asset;
+use pallet_asset::benchmarking::{make_document, make_asset};
 use pallet_identity::benchmarking::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use frame_support::assert_ok;
 use core::iter;
-use polymesh_primitives::Document;
+use core::convert::TryFrom;
 use pallet_timestamp::Module as Timestamp;
 
 const TAX: Tax = Tax::one();
@@ -32,6 +32,8 @@ const MAX_DID_WHT_IDS: u32 = 100;
 const MAX_DETAILS_LEN: u32 = 100;
 const MAX_DOCS: u32 = 100;
 
+const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
+
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
@@ -40,6 +42,7 @@ fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
 }
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
+    <Timestamp<T>>::set_timestamp(1000.into());
     let owner = user("owner", SEED);
     let ticker = make_asset::<T>(&owner);
     (owner, ticker)
@@ -70,6 +73,26 @@ fn init_did_whts<T: Trait>(ticker: Ticker, n: u32) -> Vec<(IdentityId, Tax)> {
 
 fn details(len: u32) -> CADetails {
     iter::repeat(b'a').take(len as usize).collect::<Vec<_>>().into()
+}
+
+fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
+    let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
+    let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
+    assert_ok!(<Asset<T>>::add_documents(origin.clone(), docs, ticker));
+    ids
+}
+
+fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
+    let (owner, ticker) = setup::<T>();
+    <Timestamp<T>>::set_timestamp(1000.into());
+    let origin: T::Origin = owner.origin().into();
+    assert_ok!(<Module<T>>::initiate_corporate_action(
+        origin.clone(), ticker, kind, 1000, RD_SPEC, "".into(), None, None, None
+    ));
+    let ca_id = CAId { ticker, local_id: LocalCAId(0) };
+    let ids = add_docs::<T>(&origin, ticker, 1);
+    assert_ok!(<Module<T>>::link_ca_doc(origin.clone(), ca_id, ids));
+    (owner, ca_id)
 }
 
 benchmarks! {
@@ -128,15 +151,12 @@ benchmarks! {
         let k in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        <Timestamp<T>>::set_timestamp(1000.into());
         let details = details(i);
         let whts = init_did_whts::<T>(ticker, j);
         let targets = target_ids::<T>(k, TargetTreatment::Exclude).dedup();
         DefaultTargetIdentities::insert(ticker, targets);
     }: initiate_corporate_action(
-        owner.origin(), ticker, CAKind::Other, 1000,
-        Some(RecordDateSpec::Scheduled(2000)),
-        details, None, None, None
+        owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, None, None, None
     )
     verify {
         ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
@@ -148,14 +168,11 @@ benchmarks! {
         let k in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        <Timestamp<T>>::set_timestamp(1000.into());
         let details = details(i);
         let whts = Some(did_whts::<T>(j));
         let targets = Some(target_ids::<T>(k, TargetTreatment::Exclude));
     }: initiate_corporate_action(
-        owner.origin(), ticker, CAKind::Other, 1000,
-        Some(RecordDateSpec::Scheduled(2000)),
-        details, targets, Some(TAX), whts
+        owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
     verify {
         ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
@@ -165,12 +182,9 @@ benchmarks! {
         let i in 0..MAX_DOCS;
 
         let (owner, ticker) = setup::<T>();
-        <Timestamp<T>>::set_timestamp(1000.into());
         let origin: T::Origin = owner.origin().into();
-        let ids = (0..i).map(DocumentId).collect::<Vec<_>>();
+        let ids = add_docs::<T>(&origin, ticker, i);
         let ids2 = ids.clone();
-        let docs = (0..i).map(|_| Document::default()).collect::<Vec<_>>();
-        assert_ok!(<Asset<T>>::add_documents(origin.clone(), docs, ticker));
         assert_ok!(<Module<T>>::initiate_corporate_action(
             origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
         ));
@@ -179,4 +193,42 @@ benchmarks! {
     verify {
         ensure!(CADocLink::get(ca_id) == ids2, "Docs not linked")
     }
+
+    remove_ca_with_ballot {
+        let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
+        let range = ballot::BallotTimeRange { start: 3000, end: 4000 };
+        let motion = ballot::Motion { title: "".into(), info_link: "".into(), choices: vec!["".into()] };
+        let meta = ballot::BallotMeta { title: "".into(), motions: vec![motion] };
+        assert_ok!(<Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true));
+    }: remove_ca(owner.origin(), ca_id)
+    verify {
+        ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
+        ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+    }
+
+    remove_ca_with_dist {
+        let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
+
+        let currency = Ticker::try_from(b"B" as &[_]).unwrap();
+        Asset::<T>::create_asset(
+            owner.origin().into(),
+            currency.as_slice().into(),
+            currency,
+            1_000_000.into(),
+            true,
+            <_>::default(),
+            vec![],
+            None,
+        )
+        .expect("Asset cannot be created");
+
+        assert_ok!(<Distribution<T>>::distribute(
+            owner.origin().into(), ca_id, None, currency, 1000.into(), 3000, None
+        ));
+    }: remove_ca(owner.origin(), ca_id)
+    verify {
+        ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
+        ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+    }
+
 }
