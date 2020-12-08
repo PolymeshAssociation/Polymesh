@@ -206,23 +206,22 @@ benchmarks_instance! {
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
         let proposals = Proposals::<T, I>::get();
-        ensure!(proposals.contains(&hash), "cannot find the first proposal for voting");
-        let first_proposal_num = proposals.binary_search(&hash).unwrap() as u32;
+        // ensure!(proposals.contains(&hash), "cannot find the first proposal for voting");
+        let first_proposal_num = 0; // proposals.binary_search(&hash).unwrap() as u32;
         let origin = members[0].origin.clone();
         let did = members[0].did();
         identity::CurrentDid::put(did);
     }: _(origin, hash, first_proposal_num, a != 0)
     verify {
-        if let Some(votes) = Voting::<T, I>::get(&hash) {
-            ensure!(votes.index == first_proposal_num, "wrong first proposal index");
-            if a != 0 {
-                ensure!(votes.ayes.contains(&did), "aye vote missing");
-            } else {
-                ensure!(votes.nays.contains(&did), "nay vote missing");
-            }
-        }//  else {
-        //     panic!("cannot find votes");
-        // }
+        let voting = Voting::<T, I>::get(&hash);
+        ensure!(voting.is_some(), "cannot get votes");
+        let votes = voting.unwrap();
+        ensure!(votes.index == first_proposal_num, "wrong first proposal index");
+        if a != 0 {
+            ensure!(votes.ayes.contains(&did), "aye vote missing");
+        } else {
+            ensure!(votes.nays.contains(&did), "nay vote missing");
+        }
     }
 
     close {
