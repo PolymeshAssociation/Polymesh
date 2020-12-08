@@ -16,8 +16,18 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
+use pallet_asset::benchmarking::make_asset;
+use pallet_identity::benchmarking::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+
+const SEED: u32 = 0;
+
+fn setup<T: Trait>() -> (User<T>, Ticker) {
+    let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+    let ticker = make_asset::<T>(&owner);
+    (owner, ticker)
+}
 
 benchmarks! {
     _ {}
@@ -25,5 +35,16 @@ benchmarks! {
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
         ensure!(MaxDetailsLength::get() == 100, "Wrong length set");
+    }
+
+    reset_caa {
+        let (owner, ticker) = setup::<T>();
+        // Generally the code path for no CAA is more complex,
+        // but in this case having a different CAA already could cause more storage writes.
+        let caa = UserBuilder::<T>::default().build_with_did("caa", SEED);
+        Agent::insert(ticker, caa.did());
+    }: _(owner.origin(), ticker)
+    verify {
+        ensure!(Agent::get(ticker) == None, "CAA not reset.");
     }
 }

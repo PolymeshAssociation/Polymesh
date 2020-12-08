@@ -47,7 +47,7 @@ fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
     ticker
 }
 
-fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
+pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
     make_base_asset::<T>(owner, true)
 }
 
