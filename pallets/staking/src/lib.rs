@@ -1759,7 +1759,7 @@ decl_module! {
 
             let stash_balance = T::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Bonded(did, stash.clone(), value));
             let item = StakingLedger {
                 stash,
@@ -1811,7 +1811,7 @@ decl_module! {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
                 ledger.active += extra;
-                let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+                let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
             }
@@ -2197,7 +2197,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
+            let caller_id = Context::current_identity_or::<T::IdentityFn>(&caller)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -3670,7 +3670,7 @@ impl<T: Trait> Module<T> {
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk { value, era });
             Self::update_ledger(&controller, &ledger);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Unbonded(did, ledger.stash.clone(), value));
         }
     }

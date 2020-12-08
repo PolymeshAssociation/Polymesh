@@ -15,17 +15,19 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
+
+use pallet_identity::{self as identity};
+use polymesh_common_utilities::{
+    benchs::{User, UserBuilder},
+    MaybeBlock, SystematicIssuers, GC_DID,
+};
+
 use frame_benchmarking::benchmarks;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
-use pallet_identity::{
-    self as identity,
-    benchmarking::{User, UserBuilder},
-};
-use polymesh_common_utilities::{MaybeBlock, SystematicIssuers, GC_DID};
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
@@ -59,7 +61,9 @@ fn make_voters<T: Trait>(
                 origin,
                 did,
                 ..
-            } = UserBuilder::<T>::default().build_with_did(prefix, i as u32);
+            } = UserBuilder::<T>::default()
+                .generate_did()
+                .build(prefix, i as u32);
             (account, origin, did.unwrap())
         })
         .collect()
@@ -90,7 +94,9 @@ fn pips_and_votes_setup<T: Trait>(
     };
     let hi_voters = make_voters::<T>(voters_a_num, "hi");
     let bye_voters = make_voters::<T>(voters_b_num, "bye");
-    let User { origin, did, .. } = UserBuilder::<T>::default().build_with_did("initial", 0);
+    let User { origin, did, .. } = UserBuilder::<T>::default()
+        .generate_did()
+        .build("initial", 0);
     let did = did.expect("no did in pips_and_votes_setup");
     for i in 0..PROPOSALS_NUM {
         let (proposal, url, description) = make_proposal::<T>();
@@ -186,7 +192,7 @@ benchmarks! {
 
     propose_from_community {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
     }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
@@ -200,7 +206,7 @@ benchmarks! {
     // `propose` from a committee origin.
     propose_from_committee {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
@@ -218,7 +224,7 @@ benchmarks! {
 
     vote {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
@@ -235,7 +241,7 @@ benchmarks! {
         cast_votes::<T>(0, nay_voters.as_slice(), false)?;
         // Cast an opposite vote.
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("voter", 0);
+            UserBuilder::<T>::default().generate_did().build("voter", 0);
         identity::CurrentDid::put(did.unwrap());
         let voter_deposit = 43.into();
         // Cast an opposite vote.
@@ -264,7 +270,7 @@ benchmarks! {
 
     reject_proposal {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42.into();
@@ -287,7 +293,7 @@ benchmarks! {
 
     prune_proposal {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
@@ -312,7 +318,7 @@ benchmarks! {
 
     reschedule_execution {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         let did = did.expect("missing did in reschedule_execution");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
@@ -336,7 +342,7 @@ benchmarks! {
 
     clear_snapshot {
         let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().build_with_did("proposer", 0);
+            UserBuilder::<T>::default().generate_did().build("proposer", 0);
         let did = did.expect("missing did in clear_snapshot");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();

@@ -20,14 +20,17 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-
-use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_system::RawOrigin;
-// use polymesh_primitives::{CddId, Claim, IdentityId, InvestorUid};
-
 use crate::Module as Balances;
+use polymesh_common_utilities::benchs::UserBuilder;
+
+use frame_benchmarking::benchmarks;
+use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
+
+fn make_worst_memo() -> Option<Memo> {
+    Some(Memo([7u8; 32]))
+}
 
 benchmarks! {
     _ { }
@@ -35,17 +38,61 @@ benchmarks! {
     // Benchmark `transfer` extrinsic with the worst possible conditions:
     // * Transfer will create the recipient account.
     transfer {
-        let caller = whitelisted_caller();
-        // Give some balance to the caller
-        let transfer_amount = T::Balance::from(500);
-        let _ = <Balances<T> as Currency<_>>::make_free_balance_be(&caller, transfer_amount*2.into());
-        // Give a valid CDD to the receiver
-        let recipient: T::AccountId = account("recipient", 0, SEED);
-        let recipient_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(recipient.clone());
-        T::Identity::create_did_with_cdd(recipient.clone());
-    }: transfer(RawOrigin::Signed(caller.clone()), recipient_lookup, transfer_amount)
+        let amount = T::Balance::from(500);
+        let caller = UserBuilder::<T>::default().balance(1200).generate_did().build("caller", SEED);
+        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build( "recipient", SEED);
+    }: _(caller.origin(), recipient.lookup(), amount)
     verify {
-        assert_eq!(Balances::<T>::free_balance(&caller), transfer_amount);
-        assert_eq!(Balances::<T>::free_balance(&recipient), transfer_amount);
+        assert_eq!(Balances::<T>::free_balance(&caller.account), (1200-500).into());
+        assert_eq!(Balances::<T>::free_balance(&recipient.account), amount);
+    }
+
+    transfer_with_memo {
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build("recipient", SEED);
+        let amount = 42.into();
+        let memo = make_worst_memo();
+
+    }: _(caller.origin(), recipient.lookup(), amount, memo)
+    verify {
+        assert_eq!(Balances::<T>::free_balance(&caller.account), (1000-42).into());
+        assert_eq!(Balances::<T>::free_balance(&recipient.account), amount);
+    }
+
+    deposit_block_reward_reserve_balance {
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let amount = 500.into();
+    }: _(caller.origin(), amount)
+    verify {
+        assert_eq!(Balances::<T>::free_balance(&caller.account), (1000-500).into());
+        assert_eq!(Balances::<T>::block_rewards_reserve_balance(), amount);
+    }
+
+    set_balance {
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let free_balance :T::Balance = 1_000_000.into();
+        let reserved_balance :T::Balance = 100.into();
+    }: _(RawOrigin::Root, caller.lookup(), free_balance.clone(), reserved_balance)
+    verify {
+        assert_eq!(Balances::<T>::free_balance(&caller.account), free_balance);
+        assert_eq!(Balances::<T>::reserved_balance(&caller.account), reserved_balance);
+    }
+
+    force_transfer {
+        let source = UserBuilder::<T>::default().balance(1000).generate_did().build("source", SEED);
+        let dest = UserBuilder::<T>::default().balance(1).generate_did().build("dest", SEED);
+        let amount = 500.into();
+    }: _(RawOrigin::Root, source.lookup(), dest.lookup(), amount)
+    verify {
+        assert_eq!(Balances::<T>::free_balance(&source.account), (1000-500).into());
+        assert_eq!(Balances::<T>::free_balance(&dest.account), (1+500).into());
+    }
+
+    burn_account_balance {
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let amount = 500.into();
+    }: _(caller.origin(), amount)
+    verify {
+        assert_eq!(Balances::<T>::free_balance(&caller.account), (1000-500).into());
     }
 }

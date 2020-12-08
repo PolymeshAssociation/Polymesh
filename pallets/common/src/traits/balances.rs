@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
+use crate::traits::{identity::Trait as IdentityTrait, CommonTrait, NegativeImbalance};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
@@ -140,45 +140,12 @@ pub trait WeightInfo {
     fn transfer() -> Weight;
     fn transfer_with_memo() -> Weight;
     fn deposit_block_reward_reserve_balance() -> Weight;
-    fn set_balance_creating() -> Weight;
-    fn set_balance_killing() -> Weight;
+    fn set_balance() -> Weight;
     fn force_transfer() -> Weight;
     fn burn_account_balance() -> Weight;
 }
 
-impl WeightInfo for () {
-    fn transfer() -> Weight {
-        (65949000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn transfer_with_memo() -> Weight {
-        70_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
-    }
-    fn deposit_block_reward_reserve_balance() -> Weight {
-        1_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
-    }
-    fn set_balance_creating() -> Weight {
-        (27086000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn set_balance_killing() -> Weight {
-        (33424000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn force_transfer() -> Weight {
-        (65343000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    fn burn_account_balance() -> Weight {
-        2_000_000.saturating_add(DbWeight::get().reads_writes(1, 1))
-    }
-}
-
-pub trait Trait: CommonTrait {
+pub trait Trait: IdentityTrait {
     /// The means of storing the balances of an account.
     type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
 
@@ -191,9 +158,6 @@ pub trait Trait: CommonTrait {
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
     type ExistentialDeposit: Get<<Self as CommonTrait>::Balance>;
-
-    /// Used to charge fee to identity rather than user directly
-    type Identity: IdentityTrait<Self::AccountId>;
 
     /// Used to check if an account is linked to a CDD'd identity
     type CddChecker: CheckCdd<Self::AccountId>;

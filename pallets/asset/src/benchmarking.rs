@@ -16,8 +16,10 @@
 
 use crate::*;
 
-use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_common_utilities::traits::asset::AssetName;
+use polymesh_common_utilities::{
+    benchs::{User, UserBuilder},
+    traits::asset::AssetName,
+};
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
 
@@ -137,15 +139,15 @@ benchmarks! {
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
 
-        let caller = UserBuilder::<T>::default().build_with_did("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
         // Generate a ticker of length `t`.
         let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap(); }: _(caller.origin, ticker.clone()) verify {
         assert_eq!(Module::<T>::is_ticker_available(&ticker), false);
     }
 
     accept_ticker_transfer {
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
-        let new_owner = UserBuilder::<T>::default().build_with_did("new_owner", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
+        let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner", SEED);
         let ticker = make_ticker::<T>(owner.origin().into());
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker.clone());
@@ -163,8 +165,8 @@ benchmarks! {
     }
 
     accept_asset_ownership_transfer {
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
-        let new_owner = UserBuilder::<T>::default().build_with_did("new_owner", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
+        let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner", SEED);
 
         let ticker = make_asset::<T>(&owner);
 
@@ -205,7 +207,7 @@ benchmarks! {
         let identifiers: Vec<AssetIdentifier> =
             iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
         let total_supply: T::Balance = 1_000_000.into();
 
         let token = SecurityToken {
@@ -226,7 +228,7 @@ benchmarks! {
 
 
     freeze {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
     }: _(owner.origin, ticker.clone())
     verify {
@@ -234,7 +236,7 @@ benchmarks! {
     }
 
     unfreeze {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
 
         Module::<T>::freeze( owner.origin().into(), ticker.clone())
@@ -251,7 +253,7 @@ benchmarks! {
         let n in 1 .. T::AssetNameMaxLength::get() as u32;
 
         let new_name = AssetName::from(vec![b'N'; n as usize].as_slice());
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
     }: _(owner.origin(), ticker.clone(), new_name.clone())
     verify {
@@ -260,7 +262,7 @@ benchmarks! {
     }
 
     issue {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
 
     }: _(owner.origin, ticker.clone(), 1_000_000.into())
@@ -271,7 +273,7 @@ benchmarks! {
 
 
     redeem {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
     }: _(owner.origin, ticker.clone(), 600_000.into())
     verify {
@@ -280,7 +282,7 @@ benchmarks! {
     }
 
     make_divisible {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_indivisible_asset::<T>(&owner);
     }: _(owner.origin, ticker)
     verify {
@@ -292,7 +294,7 @@ benchmarks! {
         // It starts at 1 in order to get something for `verify` section.
         let d in 1 .. MAX_DOCS_PER_ASSET;
 
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
         let docs = iter::repeat( make_document()).take( d as usize).collect::<Vec<_>>();
 
@@ -306,7 +308,7 @@ benchmarks! {
     remove_documents {
         let d in 1 .. MAX_DOCS_PER_ASSET;
 
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
         let docs = iter::repeat( make_document()).take( MAX_DOCS_PER_ASSET as usize).collect::<Vec<_>>();
         Module::<T>::add_documents( owner.origin().into(), docs.clone(), ticker)
@@ -324,7 +326,7 @@ benchmarks! {
      set_funding_round {
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
 
         let fundr = FundingRoundName::from(vec![b'X'; f as usize].as_slice());
@@ -337,7 +339,7 @@ benchmarks! {
      update_identifiers {
          let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
 
-         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let owner = UserBuilder::default().generate_did().build("owner", SEED);
          let ticker = make_asset::<T>(&owner);
 
          let identifiers: Vec<AssetIdentifier> =
@@ -349,7 +351,7 @@ benchmarks! {
      }
 
      add_extension {
-         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let owner = UserBuilder::default().generate_did().build("owner", SEED);
          let ticker = make_asset::<T>(&owner);
          let ext_details = make_extension::<T>(false);
          let ext_id = ext_details.extension_id.clone();
@@ -359,7 +361,7 @@ benchmarks! {
      }
 
      archive_extension {
-         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let owner = UserBuilder::default().generate_did().build("owner", SEED);
          let ticker = make_asset::<T>(&owner);
          let ext_details = make_extension::<T>(false);
          let ext_id = ext_details.extension_id.clone();
@@ -373,7 +375,7 @@ benchmarks! {
      }
 
      unarchive_extension {
-         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let owner = UserBuilder::default().generate_did().build("owner", SEED);
          let ticker = make_asset::<T>(&owner);
          let ext_details = make_extension::<T>(true);
          let ext_id = ext_details.extension_id.clone();
@@ -387,7 +389,7 @@ benchmarks! {
      }
 
      remove_smart_extension {
-         let owner = UserBuilder::default().build_with_did("owner", SEED);
+         let owner = UserBuilder::default().generate_did().build("owner", SEED);
          let ticker = make_asset::<T>(&owner);
          let ext_details = make_extension::<T>(false);
          let ext_id = ext_details.extension_id.clone();
@@ -399,7 +401,7 @@ benchmarks! {
      }
 
     remove_primary_issuance_agent {
-        let owner = UserBuilder::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::default().generate_did().build("owner", SEED);
         let ticker = make_asset::<T>(&owner);
     }: _(owner.origin, ticker.clone())
     verify {
@@ -409,7 +411,7 @@ benchmarks! {
 
 
     claim_classic_ticker {
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
         let owner_eth_sk = secp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
         let owner_eth_pk = ethereum::address(&owner_eth_sk);
 
@@ -424,7 +426,7 @@ benchmarks! {
     }
 
     reserve_classic_ticker {
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
 
         let ticker :Ticker = b"ACME"[..].try_into().unwrap();
         let config = make_default_reg_config::<T>();
@@ -440,8 +442,8 @@ benchmarks! {
     }
 
     accept_primary_issuance_agent_transfer {
-        let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
-        let primary_issuance_agent = UserBuilder::<T>::default().build_with_did("1stIssuance", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
+        let primary_issuance_agent = UserBuilder::<T>::default().generate_did().build("1stIssuance", SEED);
         let ticker = make_asset::<T>(&owner);
 
         let auth_id = identity::Module::<T>::add_auth(

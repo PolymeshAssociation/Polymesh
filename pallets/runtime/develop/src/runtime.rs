@@ -285,9 +285,8 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
-    type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -704,6 +703,7 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
+    type IdentityFn = identity::Module<Runtime>;
 }
 
 parameter_types! {
