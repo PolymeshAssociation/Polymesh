@@ -1523,7 +1523,7 @@ fn vote_works() {
         assert_ballot(
             id,
             &BallotData {
-                votes: vec![(voter.did, votes(vs1)), (other.did, votes(vs2))],
+                votes: vec![(other.did, votes(vs2)), (voter.did, votes(vs1))],
                 results: vs1.iter().zip(vs2).map(|(a, b)| a + b).collect(),
                 ..data.clone()
             },
