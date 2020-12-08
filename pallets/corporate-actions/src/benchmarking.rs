@@ -21,11 +21,13 @@ use pallet_identity::benchmarking::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use core::iter;
+use pallet_timestamp::Module as Timestamp;
 
 const TAX: Tax = Tax::one();
 const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 100;
 const MAX_DID_WHT_IDS: u32 = 100;
+const MAX_DETAILS_LEN: u32 = 100;
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
@@ -52,6 +54,21 @@ fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities 
     TargetIdentities { identities, treatment }
 }
 
+fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
+    (0..n).map(target::<T>).map(|did| (did, TAX)).collect::<Vec<_>>()
+}
+
+fn init_did_whts<T: Trait>(ticker: Ticker, n: u32) -> Vec<(IdentityId, Tax)> {
+    let mut whts = did_whts::<T>(n);
+    whts.sort_by_key(|(did, _)| *did);
+    DidWithholdingTax::insert(ticker, whts.clone());
+    whts
+}
+
+fn details(len: u32) -> CADetails {
+    iter::repeat(b'a').take(len as usize).collect::<Vec<_>>().into()
+}
+
 benchmarks! {
     _ {}
 
@@ -72,8 +89,9 @@ benchmarks! {
     }
 
     set_default_targets {
-        let (owner, ticker) = setup::<T>();
         let i in 0..MAX_TARGET_IDENTITIES;
+
+        let (owner, ticker) = setup::<T>();
         let targets = target_ids::<T>(i, TargetTreatment::Exclude);
         let targets2 = targets.clone();
     }: _(owner.origin(), ticker, targets)
@@ -89,16 +107,54 @@ benchmarks! {
     }
 
     set_did_withholding_tax {
-        let (owner, ticker) = setup::<T>();
         let i in 0..MAX_DID_WHT_IDS;
-        let mut whts = (0..i).map(target::<T>).map(|did| (did, TAX)).collect::<Vec<_>>();
-        whts.sort_by_key(|(did, _)| *did);
-        DidWithholdingTax::insert(ticker, whts.clone());
+
+        let (owner, ticker) = setup::<T>();
+        let mut whts = init_did_whts::<T>(ticker, i);
         let last = target::<T>(i + 1);
     }: _(owner.origin(), ticker, last, Some(TAX))
     verify {
         whts.push((last, TAX));
         whts.sort_by_key(|(did, _)| *did);
         ensure!(DidWithholdingTax::get(ticker) == whts, "Wrong DID WHTs");
+    }
+
+    initiate_corporate_action_use_defaults {
+        let i in 0..MAX_DETAILS_LEN;
+        let j in 0..MAX_DID_WHT_IDS;
+        let k in 0..MAX_TARGET_IDENTITIES;
+
+        let (owner, ticker) = setup::<T>();
+        <Timestamp<T>>::set_timestamp(1000.into());
+        let details = details(i);
+        let whts = init_did_whts::<T>(ticker, j);
+        let targets = target_ids::<T>(k, TargetTreatment::Exclude).dedup();
+        DefaultTargetIdentities::insert(ticker, targets);
+    }: initiate_corporate_action(
+        owner.origin(), ticker, CAKind::Other, 1000,
+        Some(RecordDateSpec::Scheduled(2000)),
+        details, None, None, None
+    )
+    verify {
+        ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
+    }
+
+    initiate_corporate_action_provided {
+        let i in 0..MAX_DETAILS_LEN;
+        let j in 0..MAX_DID_WHT_IDS;
+        let k in 0..MAX_TARGET_IDENTITIES;
+
+        let (owner, ticker) = setup::<T>();
+        <Timestamp<T>>::set_timestamp(1000.into());
+        let details = details(i);
+        let whts = Some(did_whts::<T>(j));
+        let targets = Some(target_ids::<T>(k, TargetTreatment::Exclude));
+    }: initiate_corporate_action(
+        owner.origin(), ticker, CAKind::Other, 1000,
+        Some(RecordDateSpec::Scheduled(2000)),
+        details, targets, Some(TAX), whts
+    )
+    verify {
+        ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
     }
 }
