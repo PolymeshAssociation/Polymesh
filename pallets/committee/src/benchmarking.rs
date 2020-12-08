@@ -205,7 +205,7 @@ benchmarks_instance! {
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; p as usize]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
-        let proposals = Proposals::<T, I>::get();
+        // let proposals = Proposals::<T, I>::get();
         // ensure!(proposals.contains(&hash), "cannot find the first proposal for voting");
         let first_proposal_num = 0; // proposals.binary_search(&hash).unwrap() as u32;
         let origin = members[0].origin.clone();
@@ -213,19 +213,46 @@ benchmarks_instance! {
         identity::CurrentDid::put(did);
     }: _(origin, hash, first_proposal_num, a != 0)
     verify {
-        let voting = Voting::<T, I>::get(&hash);
-        ensure!(voting.is_some(), "cannot get votes");
-        let votes = voting.unwrap();
-        ensure!(votes.index == first_proposal_num, "wrong first proposal index");
-        if a != 0 {
-            ensure!(votes.ayes.contains(&did), "aye vote missing");
+        if m > 4 {
+            // The proposal is not finalised because there is no quorum yet.
+            let voting = Voting::<T, I>::get(&hash);
+            ensure!(voting.is_some(), "cannot get votes");
+            let votes = voting.unwrap();
+            ensure!(votes.index == first_proposal_num, "wrong first proposal index");
+            if a != 0 {
+                ensure!(votes.ayes.contains(&did), "aye vote missing");
+            } else {
+                ensure!(votes.nays.contains(&did), "nay vote missing");
+            }
         } else {
-            ensure!(votes.nays.contains(&did), "nay vote missing");
+            // The proposal is finalised and removed from storage.
+            // TODO: pattern-match an event emitted during proposal finalisation.
         }
     }
 
+    // TODO: change the permission check in close() to allow members only.
     close {
-    }: {}
+        let m in 2 .. COMMITTEE_MEMBERS_MAX;
+        let p in 1 .. PROPOSAL_PADDING_MAX;
+        // reject or approve
+        let a in 0 .. 1;
+
+        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let mut members: Vec<_> = (1..m)
+            .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
+            .collect();
+        members.push(proposer.clone());
+        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
+        identity::CurrentDid::put(proposer.did());
+        make_proposals::<T, I>(proposer.origin.clone(), p as usize)?;
+        let proposal: <T as Trait<I>>::Proposal =
+            frame_system::Call::<T>::remark(vec![1; p as usize]).into();
+        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+        let first_proposal_num = 0; // proposals.binary_search(&hash).unwrap() as u32;
+        let origin = members[0].origin.clone();
+        let did = members[0].did();
+        identity::CurrentDid::put(did);
+    }: _(origin, hash, first_proposal_num)
     verify {
     }
 }
