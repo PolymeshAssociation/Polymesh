@@ -263,12 +263,13 @@ benchmarks! {
 
         // Delete the latest trusted issuer.
         let issuer = Module::<T>::trusted_claim_issuer(d.ticker).pop().unwrap();
-    }: _(d.owner.origin, d.ticker, issuer.clone())
+    }: _(d.owner.origin, d.ticker, issuer.issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
         ensure!(
-            trusted_issuers.contains(&issuer) == false,
-            "Default trusted claim issuer was not removed");
+            !trusted_issuers.contains(&issuer),
+            "Default trusted claim issuer was not removed"
+        );
     }
 
     change_compliance_requirement {
