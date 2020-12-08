@@ -22,7 +22,7 @@ use frame_support::{
         BalanceStatus as Status, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
         OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons,
     },
-    weights::{constants::RocksDbWeight as DbWeight, Weight},
+    weights::Weight,
 };
 use frame_system::{self as system};
 use polymesh_primitives::IdentityId;
