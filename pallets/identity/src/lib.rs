@@ -1859,17 +1859,25 @@ impl<T: Trait> Module<T> {
         Ok(primary_did)
     }
 
-    /// Checks whether the sender and the receiver of a transfer have valid scope claims
-    pub fn verify_scope_claims_for_transfer(
-        ticker: &Ticker,
+    /// Checks whether the sender and the receiver of a transfer have valid investor uniqueness claims for a given ticker
+    pub fn verify_iu_claims_for_transfer(
+        ticker: Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
     ) -> bool {
-        let verify_scope_claim = |did| {
-            let asset_scope = Some(Scope::from(*ticker));
-            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
-        };
-        verify_scope_claim(from_did) && verify_scope_claim(to_did)
+        let asset_scope = Some(Scope::from(ticker));
+        Self::base_verify_iu_claim(asset_scope.clone(), from_did)
+            && Self::base_verify_iu_claim(asset_scope, to_did)
+    }
+
+    /// Checks whether the identity has a valid investor uniqueness claim for a given ticker
+    pub fn verify_iu_claim(ticker: Ticker, did: IdentityId) -> bool {
+        let asset_scope = Some(Scope::from(ticker));
+        Self::base_verify_iu_claim(asset_scope, did)
+    }
+
+    fn base_verify_iu_claim(scope: Option<Scope>, did: IdentityId) -> bool {
+        Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, scope).is_some()
     }
 }
 

@@ -1556,11 +1556,7 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
-        if !Identity::<T>::verify_scope_claims_for_transfer(
-            ticker,
-            from_portfolio.did,
-            to_portfolio.did,
-        ) {
+        if !Identity::<T>::verify_iu_claim(*ticker, to_portfolio.did) {
             return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
         }
 
@@ -2070,11 +2066,7 @@ impl<T: Trait> Module<T> {
             return Ok(INVALID_SENDER_DID);
         }
 
-        if !Identity::<T>::verify_scope_claims_for_transfer(
-            ticker,
-            from_portfolio.did,
-            to_portfolio.did,
-        ) {
+        if !Identity::<T>::verify_iu_claim(*ticker, to_portfolio.did) {
             return Ok(SCOPE_CLAIM_MISSING);
         }
 
