@@ -359,7 +359,7 @@ benchmarks! {
     verify {
         ensure!(
             sigs_required != <MultiSigSignsRequired<T>>::get(&multisig),
-            "change_sigs_required"
+            "change_all_signers_and_sigs_required"
         );
     }
 
@@ -367,11 +367,25 @@ benchmarks! {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
+        let old_record = <Identity<T>>::did_records(alice.did());
     }: _(alice.origin(), multisig)
+    verify {
+        ensure!(
+            old_record != <Identity<T>>::did_records(alice.did()),
+            "make_multisig_signer"
+        );
+    }
 
     make_multisig_primary {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account().clone());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
+        let old_record = <Identity<T>>::did_records(alice.did());
     }: _(alice.origin(), multisig, None)
+    verify {
+        ensure!(
+            old_record != <Identity<T>>::did_records(alice.did()),
+            "make_multisig_primary"
+        );
+    }
 }
