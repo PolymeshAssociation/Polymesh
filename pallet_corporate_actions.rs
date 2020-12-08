@@ -8,22 +8,28 @@ use frame_support::weights::{Weight, constants::RocksDbWeight as DbWeight};
 pub struct WeightInfo;
 impl pallet_corporate_actions::WeightInfo for WeightInfo {
 	fn set_max_details_length() -> Weight {
-		(11_381_000 as Weight)
+		(10_101_000 as Weight)
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn reset_caa() -> Weight {
-		(35_821_000 as Weight)
+		(36_456_000 as Weight)
 			.saturating_add(DbWeight::get().reads(6 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn set_default_targets(i: u32, ) -> Weight {
-		(48_291_000 as Weight)
-			.saturating_add((180_000 as Weight).saturating_mul(i as Weight))
+		(45_845_000 as Weight)
+			.saturating_add((158_000 as Weight).saturating_mul(i as Weight))
 			.saturating_add(DbWeight::get().reads(7 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn set_default_withholding_tax() -> Weight {
-		(43_354_000 as Weight)
+		(36_456_000 as Weight)
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
+	fn set_did_withholding_tax(i: u32, ) -> Weight {
+		(46_232_000 as Weight)
+			.saturating_add((291_000 as Weight).saturating_mul(i as Weight))
 			.saturating_add(DbWeight::get().reads(7 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}

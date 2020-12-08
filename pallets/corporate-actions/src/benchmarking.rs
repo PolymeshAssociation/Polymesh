@@ -22,8 +22,10 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use core::iter;
 
+const TAX: Tax = Tax::one();
 const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 100;
+const MAX_DID_WHT_IDS: u32 = 100;
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
@@ -38,9 +40,14 @@ fn setup<T: Trait>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
+fn target<T: Trait>(u: u32) -> IdentityId {
+    user::<T>("target", u).did()
+}
+
 fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities {
     let identities = (0..n)
-        .flat_map(|i| iter::repeat(user::<T>("target", i).did()).take(2))
+        .map(target::<T>)
+        .flat_map(|did| iter::repeat(did).take(2))
         .collect::<Vec<_>>();
     TargetIdentities { identities, treatment }
 }
@@ -76,8 +83,22 @@ benchmarks! {
 
     set_default_withholding_tax {
         let (owner, ticker) = setup::<T>();
-    }: _(owner.origin(), ticker, Tax::one())
+    }: _(owner.origin(), ticker, TAX)
     verify {
-        ensure!(DefaultWithholdingTax::get(ticker) == Tax::one(), "Default WHT not set");
+        ensure!(DefaultWithholdingTax::get(ticker) == TAX, "Default WHT not set");
+    }
+
+    set_did_withholding_tax {
+        let (owner, ticker) = setup::<T>();
+        let i in 0..MAX_DID_WHT_IDS;
+        let mut whts = (0..i).map(target::<T>).map(|did| (did, TAX)).collect::<Vec<_>>();
+        whts.sort_by_key(|(did, _)| *did);
+        DidWithholdingTax::insert(ticker, whts.clone());
+        let last = target::<T>(i + 1);
+    }: _(owner.origin(), ticker, last, Some(TAX))
+    verify {
+        whts.push((last, TAX));
+        whts.sort_by_key(|(did, _)| *did);
+        ensure!(DidWithholdingTax::get(ticker) == whts, "Wrong DID WHTs");
     }
 }
