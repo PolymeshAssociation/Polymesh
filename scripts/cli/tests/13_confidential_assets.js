@@ -56,14 +56,41 @@ async function main() {
   // Validate Charlie's Mercat Account 
   await addMediatorMercatAccount(api, charlie, charlieMercatInfo);
 
-  await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
-  await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
+  let aliceBalance = await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
+  let bobBalance = await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
   
   // Mint Tokens 
   await mintTokens(api, 'alice', alice, tickerHex, 1000, CHAIN_DIR);
   
-  await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
-  await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
+  aliceBalance = await displayBalance(api, alice_did, aliceMercatInfo.mercatAccountID, 'alice', tickerHexSubStr, CHAIN_DIR);
+  bobBalance = await displayBalance(api, bob_did, bobMercatInfo.mercatAccountID, 'bob', tickerHexSubStr, CHAIN_DIR);
+
+  // Create Venue
+  const venueCounter = await reqImports.createVenue(api, charlie);
+ 
+  // Create Confidential Instruction
+  const instructionCounter = await reqImports.addConfidentialInstruction(
+    api,
+    venueCounter,
+    charlie,
+    alice_did,
+    bob_did,
+    charlie_did,
+    aliceMercatInfo.mercatAccountID,
+    bobMercatInfo.mercatAccountID
+  );
+  
+  const transactionProof = await createTransaction(
+    "alice",
+    CHAIN_DIR,
+    tickerHexSubStr,
+    100,
+    { publicKey: bob.publicKey, encryptedAssetId: bobMercatInfo.mercatAccountID },
+    charlie,
+    aliceBalance
+  );
+
+  await affirmConfidentialInstruction(api, instructionCounter, transactionProof, alice, alice_did);
 
   // Removes the Chain_Dir
   await removeChainDir(CHAIN_DIR);
@@ -77,12 +104,44 @@ async function main() {
 
   process.exit();
 }
+
+function encodeToBase64(data) {
+    let buffer = Buffer.from(data);
+    return buffer.toString('base64');
+}
+
+async function affirmConfidentialInstruction(api, instruction_id, proof, signer, signer_did) {
+    const portfolio = reqImports.getDefaultPortfolio(signer_did);
+    const transaction = await api.tx.settlement.affirmConfidentialInstruction(instruction_id, {InitializedTransfer: proof}, [portfolio]);
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
+}
+
+async function createTransaction(account, dbDir, tickerHex, amount, receiver, mediator, balance) {
+
+    let base64Receiver = encodeToBase64(receiver.publicKey);
+    let base64Mediator = encodeToBase64(mediator.publicKey);
+
+    const { stdout, stderr } = await exec(
+      `mercat-interactive create-transaction --db-dir ${dbDir} --account-id-from-ticker ${tickerHex} --amount ${amount} --sender ${account} \
+      --receiver ${receiver.encryptedAssetId} ${base64Receiver} \
+      --mediator ${base64Mediator} \
+      --pending-balance ${balance}`
+    );
+    const splitOutput = stderr.split('\n');
+    const transactionProof = splitOutput[22].trim();
+
+    return transactionProof;
+}
+
 async function displayBalance(api, did, mercatAccountID, account, tickerHex, dbDir) {
     // Get encrypted balance
     const accountEncryptedBalance = await getEncryptedBalance(api, did, mercatAccountID);
     // Decrypt balance
     const accountBalance = await decryptBalances(account, tickerHex, accountEncryptedBalance, dbDir);
     console.log(`${account}'s Balance: ${accountBalance}`);
+
+    return accountEncryptedBalance;
 }
 
 async function mintTokens(api, account, signer, tickerHex, amount, dbDir) {
