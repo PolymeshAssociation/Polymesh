@@ -20,13 +20,29 @@ use pallet_asset::benchmarking::make_asset;
 use pallet_identity::benchmarking::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use core::iter;
 
 const SEED: u32 = 0;
+const MAX_TARGET_IDENTITIES: u32 = 100;
+
+// NOTE(Centril): A non-owner CAA is the less complex code path.
+// Therefore, in general, we'll be using the owner as the CAA.
+
+fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default().build_with_did(prefix, u)
+}
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
-    let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
+    let owner = user("owner", SEED);
     let ticker = make_asset::<T>(&owner);
     (owner, ticker)
+}
+
+fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities {
+    let identities = (0..n)
+        .flat_map(|i| iter::repeat(user::<T>("target", i).did()).take(2))
+        .collect::<Vec<_>>();
+    TargetIdentities { identities, treatment }
 }
 
 benchmarks! {
@@ -46,5 +62,15 @@ benchmarks! {
     }: _(owner.origin(), ticker)
     verify {
         ensure!(Agent::get(ticker) == None, "CAA not reset.");
+    }
+
+    set_default_targets {
+        let (owner, ticker) = setup::<T>();
+        let i in 0..MAX_TARGET_IDENTITIES;
+        let targets = target_ids::<T>(i, TargetTreatment::Exclude);
+        let targets2 = targets.clone();
+    }: _(owner.origin(), ticker, targets)
+    verify {
+        ensure!(DefaultTargetIdentities::get(ticker) == targets2.dedup(), "Default targets not set");
     }
 }
