@@ -73,4 +73,11 @@ benchmarks! {
     verify {
         ensure!(DefaultTargetIdentities::get(ticker) == targets2.dedup(), "Default targets not set");
     }
+
+    set_default_withholding_tax {
+        let (owner, ticker) = setup::<T>();
+    }: _(owner.origin(), ticker, Tax::one())
+    verify {
+        ensure!(DefaultWithholdingTax::get(ticker) == Tax::one(), "Default WHT not set");
+    }
 }
