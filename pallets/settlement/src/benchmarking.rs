@@ -13,27 +13,39 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
+//#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+use polymesh_primitives::{Claim, Scope, CddId, InvestorUid };
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
-use pallet_asset::{BalanceOf, SecurityToken, Tokens};
+use pallet_asset::{BalanceOf, SecurityToken, Tokens, benchmarking::make_base_asset};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, benchmarking::uid_from_name_and_idx};
+use pallet_identity::{self as identity, benchmarking::{ uid_from_name_and_idx, UserBuilder, User }};
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
+#[cfg(not(feature = "std"))]
+use hex_literal::hex;
+
+#[cfg(feature = "std")]
+use sp_core::sr25519::Signature;
+#[cfg(feature = "std")]
+use sp_runtime::MultiSignature;
+
 const SEED: u32 = 0;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
+const MAX_TM_ALLOWED: u32 = 10;
+const MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED: u32 = 400;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+
 pub struct Account<T: Trait> {
     account_id: T::AccountId,
     origin: RawOrigin<T::AccountId>,
@@ -85,6 +97,15 @@ fn set_instruction_let_status_to_skipped<T: Trait>(
         instruction_id,
         leg_id,
         LegStatus::ExecutionToBeSkipped(signer, receipt_uid),
+    );
+}
+
+/// Set Leg status to `LegStatus::ExecutionPending`
+fn set_instruction_leg_status_to_pending<T: Trait>(instruction_id: u64, leg_id: u64) {
+    <InstructionLegStatus<T>>::insert(
+        instruction_id,
+        leg_id,
+        LegStatus::ExecutionPending
     );
 }
 
@@ -230,7 +251,7 @@ fn emulate_add_instruction<T: Trait>(
     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
     if create_portfolios {
         // Assumption here is that instruction will never be executed as still there is one auth pending.
-        for n in 1..l {
+        for n in 0..l {
             setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios);
         }
     } else {
@@ -239,6 +260,78 @@ fn emulate_add_instruction<T: Trait>(
         }
     }
     Ok((legs, venue_id, origin, did, portfolios, account_id))
+}
+
+fn setup_leg_and_portfolio_with_ticker<T: Trait>(
+    to_did: Option<IdentityId>,
+    from_did: Option<IdentityId>,
+    from_ticker: Ticker,
+    to_ticker: Ticker,
+    index: u32,
+    legs: &mut Vec<Leg<T::Balance>>,
+    sender_portfolios: &mut Vec<PortfolioId>,
+    receiver_portfolios: &mut Vec<PortfolioId>
+) {
+    let mut emulate_portfolios = |sender: Option<IdentityId>, receiver: Option<IdentityId>, portfolios: &mut Vec<PortfolioId>, ticker: &Ticker, default_portfolio: &mut Vec<PortfolioId>| {
+        let sender_portfolio = generate_portfolio::<T>("", index, 500, sender);
+        let receiver_portfolio = generate_portfolio::<T>("", index, 500, receiver);
+        let _ = fund_portfolio::<T>(&sender_portfolio, ticker, 500.into());
+        portfolios.push(sender_portfolio);
+        default_portfolio.push(receiver_portfolio);
+        legs.push(Leg {
+            from: sender_portfolio,
+            to: receiver_portfolio,
+            asset: *ticker,
+            amount: 500.into()
+        })
+    };
+    emulate_portfolios(from_did, to_did, sender_portfolios, &from_ticker, receiver_portfolios);
+    emulate_portfolios(to_did, from_did, receiver_portfolios, &to_ticker, sender_portfolios);
+}
+
+// Generate signature.
+fn get_encoded_signature<T: Trait>(
+    signer: &User<T>,
+    msg: &Receipt<T::Balance>,
+) -> Vec<u8> {
+
+    #[cfg(feature = "std")]
+    let encoded = {
+        // Signer signs the relay call.
+        // NB: Decode as T::OffChainSignature because there is not type constraints in
+        // `T::OffChainSignature` to limit it.
+        let raw_signature: [u8; 64] = signer.sign(&msg.encode()).0;
+        let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
+
+        // Native execution can generate a hard-coded signature using the following code:
+        // ```ignore
+        let hex_encoded = hex::encode(&encoded);
+        frame_support::debug::info!("encoded signature :{:?}", &hex_encoded);
+        //  ```
+
+        encoded
+    };
+    #[cfg(not(feature = "std"))]
+    let encoded = hex!("015e902873fc7de21faaccd58569ba0d6bde06d81c425abf136448625910713735d1905121a2368fcc254439ab50302c8c2169a55c2816182e10ea0a937e79548d").to_vec();
+
+    encoded
+}
+
+fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
+    identity::Module::<T>::base_add_claim(did, Claim::InvestorUniqueness(Scope::Ticker(ticker), did, CddId::new(did, InvestorUid::from(did.to_bytes()))), did, None);
+}
+
+fn compliance_setup<T: Trait>(
+    ticker: Ticker,
+    origin: RawOrigin<T::AccountId>,
+    from_did: IdentityId,
+    to_did: IdentityId
+) {
+    // Add investor uniqueness claim.
+    add_investor_uniqueness_claim::<T>(from_did, ticker);
+    add_investor_uniqueness_claim::<T>(to_did, ticker);
+
+    //pallet_compliance_manager::Module::<T>::add_compliance_requirement(origin.into(), ticker).expect("Failed to pause the asset compliance");
 }
 
 benchmarks! {
@@ -469,94 +562,127 @@ benchmarks! {
         ensure!(!Module::<T>::receipts_used(&account_id, 0), "Fail: Receipt status didn't get update");
     }
 
-    // TODO: Need to solve the signature type mismatch problem
-    // claim_receipt {
-    //     // There is no catalyst in this dispatchable, It will always be time constant.
 
-    //     // create venue
-    //     let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-    //     let did_to = make_account::<T>("to_did", 5).did;
-    //     let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
+    reject_instruction_with_all_pre_affirmations {
+        // At least one portfolio needed
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
+        // Add and affirm instruction.
+        Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
+        let instruction_id: u64 = 1;
+    }: reject_instruction(origin, instruction_id, portfolios.clone())
+    verify {
+        for p in portfolios.iter() {
+            ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
+        }
+    }
 
-    //     let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-    //     let portfolio_from = PortfolioId::user_portfolio(did, 100u64);
-    //     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-    //     let portfolio_to = PortfolioId::user_portfolio(did_to, 500u64);
-    //     let legs = vec![Leg {
-    //         from: portfolio_from,
-    //         to: portfolio_to,
-    //         asset: ticker,
-    //         amount: 100.into(),
-    //     }];
 
-    //     // Add instruction
-    //     Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
-    //     let instruction_id = 1;
+    reject_instruction_with_no_pre_affirmations {
+        // At least one portfolio needed
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
+        // Add instruction
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        let instruction_id: u64 = 1;
+    }: reject_instruction(origin, instruction_id, portfolios.clone())
+    verify {
+        for p in portfolios.iter() {
+            ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
+        }
+    }
 
-    //     let msg = Receipt {
-    //         receipt_uid: 0,
-    //         from: portfolio_from,
-    //         to: portfolio_to,
-    //         asset: ticker,
-    //         amount: 100.into(),
-    //     };
 
-    //     let signature = T::OffChainSignature::from(MultiSignature::from(SrPair::from_entropy(&("creator", SEED, SEED).using_encoded(blake2_256), None).0.sign(&msg.encode())));
+    affirm_instruction {
 
-    //     // Receipt details.
-    //     let receipt = ReceiptDetails {
-    //         receipt_uid: 0,
-    //         leg_id: 0,
-    //         signer: account_id,
-    //         signature
-    //     };
+        let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
 
-    //     set_instruction_leg_status_to_pending::<T>(instruction_id, 0, legs[0])?;
-    // }: _(origin, instruction_id, receipt)
+        // create venue
+        let from = UserBuilder::<T>::default().build_with_did("creator", SEED);
+        let venue_id = create_venue_::<T>(from.did(), vec![]);
+        let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
+        let to = UserBuilder::<T>::default().build_with_did("receiver", 1);
+        let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+        let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+        let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
 
-    // TODO (SA): Will tackle this once pallet_contracts, pallet_asset & pallet_compliance_manager have benchmarks.
-    // affirm_instruction {
+        // Create legs vector.
+        // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
+        // Assumption here is that instruction will never be executed as still there is one auth pending.
+        let from_ticker = make_base_asset::<T>(&from, true, Some(Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap()));
+        let to_ticker = make_base_asset::<T>(&to, true, Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()));
+        for n in 1 .. l/2 {
+            setup_leg_and_portfolio_with_ticker::<T>(Some(to.did()), Some(from.did()), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to);
+        }
+        Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from).expect("Unable to add and affirm the instruction");
+        let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
+    }: _(to.origin, instruction_id, portfolios_to.clone())
+    verify {
+        for p in portfolios_to.iter() {
+            ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
+        }
+    }
 
-    //     // Worst case for the affirm_instruction will be.
-    //     // 1. An instruction can have the maximum no. of legs.
-    //     //      a. Two tickers are used.
-    //     //      b. All legs are between the same sender and receiver.
-    //     //      c. All portfolios get affirmation at once.
-    //     // 2. Tickers for every leg will be different.
-    //     // 3. Maximum no. of Smart extensions are used.
-    //     // 4. User's compliance get verified by the last asset compliance rules.
 
-    //     let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
-    //     let t in 0 .. MAX_TM_ALLOWED;
-    //     let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
+    claim_receipt {
+        // There is no catalyst in this dispatchable, It will always be time constant.
 
-    //     // 1. Create instruction will maximum legs.
+        // create venue
+        let creator = UserBuilder::<T>::default().build_with_did("creator", SEED);
+        let to = UserBuilder::<T>::default().build_with_did("to_did", 5);
+        let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
 
-    //     // create venue
-    //     let from = make_account::<T>("creator", SEED);
-    //     let venue_id = create_venue_::<T>(from.did, vec![]);
-    //     let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
-    //     let to = make_account::<T>("receiver", 1);
-    //     let portfolio_count = l/2;
-    //     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(portfolio_count as usize);
-    //     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(portfolio_count  as usize);
-    //     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity((portfolio_count * 2) as usize);
+        let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
+        let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
+        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
+        let portfolio_to = PortfolioId::user_portfolio(to.did(), (500u64).into());
+        let legs = vec![Leg {
+            from: portfolio_from,
+            to: portfolio_to,
+            asset: ticker,
+            amount: 100.into(),
+        }];
 
-    //     // Create legs vector.
-    //     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
-    //     // Assumption here is that instruction will never be executed as still there is one auth pending.
-    //     let from_ticker = create_asset_::<T>(from.did)?;
-    //     let to_ticker = create_asset_::<T>(to.did)?;
-    //     for n in 1 .. portfolio_count {
-    //         setup_leg_and_portfolio_with_ticker::<T>(Some(to.did), Some(from.did), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to)?;
-    //     }
-    //     // ensure!(legs.len() == ((portfolio_count * 2) as usize), "Incorrect length of legs");
-    //     // ensure!(portfolios_from.len() == (portfolio_count as usize), "Incorrect length of from portfolio");
-    //     // ensure!(portfolios_to.len() == (portfolio_count as usize), "Incorrect length of to portfolio");
-    //     Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from)?;
-    //     let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-    //     ensure!(matches!(Module::<T>::instruction_affirms_pending(instruction_id), 0), "Instruction not set properly");
-    //     ensure!(Module::<T>::user_affirmations(portfolios_to[0], instruction_id) == AffirmationStatus::Pending, "Some problem in the portfolios");
-    // }: _(to.origin, instruction_id, portfolios_to)
+        // Add instruction
+        Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        let instruction_id = 1;
 
+        let msg = Receipt {
+            receipt_uid: 0,
+            from: portfolio_from,
+            to: portfolio_to,
+            asset: ticker,
+            amount: 100.into(),
+        };
+
+        // #[cfg(feature = "std")]
+        // frame_support::debug::info!("Receipt data :{:?}", &msg);
+        // #[cfg(feature = "std")]
+        // frame_support::debug::info!("Creator did :{:?}", &creator.did());
+        // #[cfg(feature = "std")]
+        // frame_support::debug::info!("Creator Secret :{:?}", &creator.secret);
+
+        let encoded = get_encoded_signature::<T>(&creator, &msg);
+        let signature = T::OffChainSignature::decode(&mut &encoded[..])
+            .expect("OffChainSignature cannot be decoded from a MultiSignature");
+        let leg_id = 0;
+        // Receipt details.
+        let receipt = ReceiptDetails {
+            receipt_uid: 0,
+            leg_id,
+            signer: creator.account(),
+            signature,
+            metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice())
+        };
+
+        set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
+    }: _(creator.origin, instruction_id, receipt.clone())
+    verify {
+        ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
+            receipt.signer,
+            receipt.receipt_uid,
+        ), "Settlement: Fail to unclaim the receipt");
+    }
 }

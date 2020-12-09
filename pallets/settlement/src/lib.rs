@@ -92,7 +92,7 @@ type Asset<T> = asset::Module<T>;
 const SETTLEMENT_ID: LockIdentifier = *b"settlemt";
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait + pallet_compliance_manager::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -1076,6 +1076,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InstructionNotPending
         );
         if let Some(valid_from) = instruction_details.valid_from {
+            #[cfg(not(feature = "runtime-benchmarks"))]
             ensure!(
                 <pallet_timestamp::Module<T>>::get() >= valid_from,
                 Error::<T>::InstructionWaitingValidity

@@ -39,23 +39,26 @@ const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 /// Create a ticker and register it.
-fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap();
+pub fn make_ticker<T: Trait>(owner: T::Origin, ticker_: Option<Ticker>) -> Ticker {
+    let ticker = match ticker_ {
+        None => Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap(),
+        Some(t) => t
+    };
     Module::<T>::register_ticker(owner, ticker).unwrap();
 
     ticker
 }
 
-fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, true)
+pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    make_base_asset::<T>(owner, true, None)
 }
 
-fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, false)
+pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    make_base_asset::<T>(owner, false, None)
 }
 
-fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into());
+pub fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, ticker_: Option<Ticker>) -> Ticker {
+    let ticker = make_ticker::<T>(owner.origin().into(), ticker_);
     let name: AssetName = ticker.as_slice().into();
     let total_supply: T::Balance = 1_000_000.into();
 
@@ -146,7 +149,7 @@ benchmarks! {
     accept_ticker_transfer {
         let owner = UserBuilder::<T>::default().build_with_did("owner", SEED);
         let new_owner = UserBuilder::<T>::default().build_with_did("new_owner", SEED);
-        let ticker = make_ticker::<T>(owner.origin().into());
+        let ticker = make_ticker::<T>(owner.origin().into(), None);
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker.clone());
         let new_owner_auth_id = identity::Module::<T>::add_auth( owner.did(), Signatory::from(new_owner.did()), AuthorizationData::TransferTicker(ticker), None);
