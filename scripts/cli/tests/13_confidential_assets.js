@@ -92,6 +92,8 @@ async function main() {
 
   await affirmConfidentialInstruction(api, instructionCounter, transactionProof, alice, alice_did);
 
+  await finalizeTransaction('bob', tickerHexSubStr, 100, transactionProof, CHAIN_DIR);
+  
   // Removes the Chain_Dir
   await removeChainDir(CHAIN_DIR);
   
@@ -108,6 +110,13 @@ async function main() {
 function encodeToBase64(data) {
     let buffer = Buffer.from(data);
     return buffer.toString('base64');
+}
+
+async function finalizeTransaction(account, tickerHex, amount, proof, dbDir) {
+    const { stdout, stderr } = await exec(
+        `mercat-interactive finalize-transaction --db-dir ${dbDir} --account-id-from-ticker ${tickerHex} --amount ${amount} --receiver ${account} --init-tx ${proof}`
+      );
+   
 }
 
 async function affirmConfidentialInstruction(api, instruction_id, proof, signer, signer_did) {
