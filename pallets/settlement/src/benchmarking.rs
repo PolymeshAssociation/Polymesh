@@ -17,14 +17,17 @@
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use polymesh_primitives::{Claim, Scope, CddId, InvestorUid };
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
-use pallet_asset::{BalanceOf, SecurityToken, Tokens, benchmarking::make_base_asset};
+use pallet_asset::{benchmarking::make_base_asset, BalanceOf, SecurityToken, Tokens};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, benchmarking::{ uid_from_name_and_idx, UserBuilder, User }};
+use pallet_identity::{
+    self as identity,
+    benchmarking::{uid_from_name_and_idx, User, UserBuilder},
+};
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
+use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
@@ -102,11 +105,7 @@ fn set_instruction_let_status_to_skipped<T: Trait>(
 
 /// Set Leg status to `LegStatus::ExecutionPending`
 fn set_instruction_leg_status_to_pending<T: Trait>(instruction_id: u64, leg_id: u64) {
-    <InstructionLegStatus<T>>::insert(
-        instruction_id,
-        leg_id,
-        LegStatus::ExecutionPending
-    );
+    <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
 }
 
 /// Set user affirmation without any sanity checks.
@@ -270,31 +269,44 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
     sender_portfolios: &mut Vec<PortfolioId>,
-    receiver_portfolios: &mut Vec<PortfolioId>
+    receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
-    let mut emulate_portfolios = |sender: Option<IdentityId>, receiver: Option<IdentityId>, portfolios: &mut Vec<PortfolioId>, ticker: &Ticker, default_portfolio: &mut Vec<PortfolioId>| {
-        let sender_portfolio = generate_portfolio::<T>("", index, 500, sender);
-        let receiver_portfolio = generate_portfolio::<T>("", index, 500, receiver);
-        let _ = fund_portfolio::<T>(&sender_portfolio, ticker, 500.into());
-        portfolios.push(sender_portfolio);
-        default_portfolio.push(receiver_portfolio);
-        legs.push(Leg {
-            from: sender_portfolio,
-            to: receiver_portfolio,
-            asset: *ticker,
-            amount: 500.into()
-        })
-    };
-    emulate_portfolios(from_did, to_did, sender_portfolios, &from_ticker, receiver_portfolios);
-    emulate_portfolios(to_did, from_did, receiver_portfolios, &to_ticker, sender_portfolios);
+    let mut emulate_portfolios =
+        |sender: Option<IdentityId>,
+         receiver: Option<IdentityId>,
+         portfolios: &mut Vec<PortfolioId>,
+         ticker: &Ticker,
+         default_portfolio: &mut Vec<PortfolioId>| {
+            let sender_portfolio = generate_portfolio::<T>("", index, 500, sender);
+            let receiver_portfolio = generate_portfolio::<T>("", index, 500, receiver);
+            let _ = fund_portfolio::<T>(&sender_portfolio, ticker, 500.into());
+            portfolios.push(sender_portfolio);
+            default_portfolio.push(receiver_portfolio);
+            legs.push(Leg {
+                from: sender_portfolio,
+                to: receiver_portfolio,
+                asset: *ticker,
+                amount: 500.into(),
+            })
+        };
+    emulate_portfolios(
+        from_did,
+        to_did,
+        sender_portfolios,
+        &from_ticker,
+        receiver_portfolios,
+    );
+    emulate_portfolios(
+        to_did,
+        from_did,
+        receiver_portfolios,
+        &to_ticker,
+        sender_portfolios,
+    );
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Trait>(
-    signer: &User<T>,
-    msg: &Receipt<T::Balance>,
-) -> Vec<u8> {
-
+fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
     #[cfg(feature = "std")]
     let encoded = {
         // Signer signs the relay call.
@@ -318,14 +330,23 @@ fn get_encoded_signature<T: Trait>(
 }
 
 fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
-    identity::Module::<T>::base_add_claim(did, Claim::InvestorUniqueness(Scope::Ticker(ticker), did, CddId::new(did, InvestorUid::from(did.to_bytes()))), did, None);
+    identity::Module::<T>::base_add_claim(
+        did,
+        Claim::InvestorUniqueness(
+            Scope::Ticker(ticker),
+            did,
+            CddId::new(did, InvestorUid::from(did.to_bytes())),
+        ),
+        did,
+        None,
+    );
 }
 
 fn compliance_setup<T: Trait>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     from_did: IdentityId,
-    to_did: IdentityId
+    to_did: IdentityId,
 ) {
     // Add investor uniqueness claim.
     add_investor_uniqueness_claim::<T>(from_did, ticker);

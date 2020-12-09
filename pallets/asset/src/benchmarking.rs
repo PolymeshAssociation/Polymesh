@@ -42,7 +42,7 @@ const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 pub fn make_ticker<T: Trait>(owner: T::Origin, ticker_: Option<Ticker>) -> Ticker {
     let ticker = match ticker_ {
         None => Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap(),
-        Some(t) => t
+        Some(t) => t,
     };
     Module::<T>::register_ticker(owner, ticker).unwrap();
 
@@ -57,7 +57,11 @@ pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
     make_base_asset::<T>(owner, false, None)
 }
 
-pub fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, ticker_: Option<Ticker>) -> Ticker {
+pub fn make_base_asset<T: Trait>(
+    owner: &User<T>,
+    divisible: bool,
+    ticker_: Option<Ticker>,
+) -> Ticker {
     let ticker = make_ticker::<T>(owner.origin().into(), ticker_);
     let name: AssetName = ticker.as_slice().into();
     let total_supply: T::Balance = 1_000_000.into();
