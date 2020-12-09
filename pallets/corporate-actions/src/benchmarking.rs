@@ -16,13 +16,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use pallet_asset::benchmarking::{make_document, make_asset};
-use pallet_identity::benchmarking::{User, UserBuilder};
-use frame_benchmarking::benchmarks;
-use frame_system::RawOrigin;
-use frame_support::assert_ok;
-use core::iter;
 use core::convert::TryFrom;
+use core::iter;
+use frame_benchmarking::benchmarks;
+use frame_support::assert_ok;
+use frame_system::RawOrigin;
+use pallet_asset::benchmarking::{make_asset, make_document};
+use pallet_identity::benchmarking::{User, UserBuilder};
 use pallet_timestamp::Module as Timestamp;
 
 const TAX: Tax = Tax::one();
@@ -58,11 +58,17 @@ fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities 
         .map(target::<T>)
         .flat_map(|did| iter::repeat(did).take(2))
         .collect::<Vec<_>>();
-    TargetIdentities { identities, treatment }
+    TargetIdentities {
+        identities,
+        treatment,
+    }
 }
 
 fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
-    (0..n).map(target::<T>).map(|did| (did, TAX)).collect::<Vec<_>>()
+    (0..n)
+        .map(target::<T>)
+        .map(|did| (did, TAX))
+        .collect::<Vec<_>>()
 }
 
 fn init_did_whts<T: Trait>(ticker: Ticker, n: u32) -> Vec<(IdentityId, Tax)> {
@@ -73,7 +79,10 @@ fn init_did_whts<T: Trait>(ticker: Ticker, n: u32) -> Vec<(IdentityId, Tax)> {
 }
 
 fn details(len: u32) -> CADetails {
-    iter::repeat(b'a').take(len as usize).collect::<Vec<_>>().into()
+    iter::repeat(b'a')
+        .take(len as usize)
+        .collect::<Vec<_>>()
+        .into()
 }
 
 fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
@@ -88,19 +97,46 @@ fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     <Timestamp<T>>::set_timestamp(1000.into());
     let origin: T::Origin = owner.origin().into();
     assert_ok!(<Module<T>>::initiate_corporate_action(
-        origin.clone(), ticker, kind, 1000, RD_SPEC, "".into(), None, None, None
+        origin.clone(),
+        ticker,
+        kind,
+        1000,
+        RD_SPEC,
+        "".into(),
+        None,
+        None,
+        None
     ));
-    let ca_id = CAId { ticker, local_id: LocalCAId(0) };
+    let ca_id = CAId {
+        ticker,
+        local_id: LocalCAId(0),
+    };
     let ids = add_docs::<T>(&origin, ticker, 1);
     assert_ok!(<Module<T>>::link_ca_doc(origin.clone(), ca_id, ids));
     (owner, ca_id)
 }
 
 fn attach_ballot<T: Trait>(owner: &User<T>, ca_id: CAId) {
-    let range = ballot::BallotTimeRange { start: 4000, end: 5000 };
-    let motion = ballot::Motion { title: "".into(), info_link: "".into(), choices: vec!["".into()] };
-    let meta = ballot::BallotMeta { title: "".into(), motions: vec![motion] };
-    assert_ok!(<Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true));
+    let range = ballot::BallotTimeRange {
+        start: 4000,
+        end: 5000,
+    };
+    let motion = ballot::Motion {
+        title: "".into(),
+        info_link: "".into(),
+        choices: vec!["".into()],
+    };
+    let meta = ballot::BallotMeta {
+        title: "".into(),
+        motions: vec![motion],
+    };
+    assert_ok!(<Ballot<T>>::attach_ballot(
+        owner.origin().into(),
+        ca_id,
+        range,
+        meta,
+        true
+    ));
 }
 
 fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
@@ -118,7 +154,13 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
     .expect("Asset cannot be created");
 
     assert_ok!(<Distribution<T>>::distribute(
-        owner.origin().into(), ca_id, None, currency, 1000.into(), 4000, None
+        owner.origin().into(),
+        ca_id,
+        None,
+        currency,
+        1000.into(),
+        4000,
+        None
     ));
 }
 
@@ -128,7 +170,10 @@ fn check_ca_created<T: Trait>(ca_id: CAId) -> DispatchResult {
 }
 
 fn check_ca_exists<T: Trait>(ca_id: CAId) -> DispatchResult {
-    ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+    ensure!(
+        CorporateActions::get(ca_id.ticker, ca_id.local_id) == None,
+        "CA not removed"
+    );
     Ok(())
 }
 
