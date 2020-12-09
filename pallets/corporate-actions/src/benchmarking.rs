@@ -33,6 +33,7 @@ const MAX_DETAILS_LEN: u32 = 100;
 const MAX_DOCS: u32 = 100;
 
 const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
+const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
@@ -93,6 +94,52 @@ fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let ids = add_docs::<T>(&origin, ticker, 1);
     assert_ok!(<Module<T>>::link_ca_doc(origin.clone(), ca_id, ids));
     (owner, ca_id)
+}
+
+fn attach_ballot<T: Trait>(owner: &User<T>, ca_id: CAId) {
+    let range = ballot::BallotTimeRange { start: 4000, end: 5000 };
+    let motion = ballot::Motion { title: "".into(), info_link: "".into(), choices: vec!["".into()] };
+    let meta = ballot::BallotMeta { title: "".into(), motions: vec![motion] };
+    assert_ok!(<Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true));
+}
+
+fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
+    let currency = Ticker::try_from(b"B" as &[_]).unwrap();
+    Asset::<T>::create_asset(
+        owner.origin().into(),
+        currency.as_slice().into(),
+        currency,
+        1_000_000.into(),
+        true,
+        <_>::default(),
+        vec![],
+        None,
+    )
+    .expect("Asset cannot be created");
+
+    assert_ok!(<Distribution<T>>::distribute(
+        owner.origin().into(), ca_id, None, currency, 1000.into(), 4000, None
+    ));
+}
+
+fn check_ca_created<T: Trait>(ca_id: CAId) -> DispatchResult {
+    ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
+    Ok(())
+}
+
+fn check_ca_exists<T: Trait>(ca_id: CAId) -> DispatchResult {
+    ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+    Ok(())
+}
+
+fn check_rd<T: Trait>(ca_id: CAId) -> DispatchResult {
+    let rd = CorporateActions::get(ca_id.ticker, ca_id.local_id)
+        .unwrap()
+        .record_date
+        .unwrap()
+        .date;
+    ensure!(rd == 3000, "CA not removed");
+    Ok(())
 }
 
 benchmarks! {
@@ -196,39 +243,37 @@ benchmarks! {
 
     remove_ca_with_ballot {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-        let range = ballot::BallotTimeRange { start: 3000, end: 4000 };
-        let motion = ballot::Motion { title: "".into(), info_link: "".into(), choices: vec!["".into()] };
-        let meta = ballot::BallotMeta { title: "".into(), motions: vec![motion] };
-        assert_ok!(<Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true));
+        attach_ballot(&owner, ca_id);
     }: remove_ca(owner.origin(), ca_id)
     verify {
-        ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
-        ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+        check_ca_created::<T>(ca_id)?;
+        check_ca_exists::<T>(ca_id)?;
     }
 
     remove_ca_with_dist {
         let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
-
-        let currency = Ticker::try_from(b"B" as &[_]).unwrap();
-        Asset::<T>::create_asset(
-            owner.origin().into(),
-            currency.as_slice().into(),
-            currency,
-            1_000_000.into(),
-            true,
-            <_>::default(),
-            vec![],
-            None,
-        )
-        .expect("Asset cannot be created");
-
-        assert_ok!(<Distribution<T>>::distribute(
-            owner.origin().into(), ca_id, None, currency, 1000.into(), 3000, None
-        ));
+        distribute(&owner, ca_id);
     }: remove_ca(owner.origin(), ca_id)
     verify {
-        ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
-        ensure!(CorporateActions::get(ca_id.ticker, ca_id.local_id) == None, "CA not removed");
+        check_ca_created::<T>(ca_id)?;
+        check_ca_exists::<T>(ca_id)?;
     }
 
+    change_record_date_with_ballot {
+        let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
+        attach_ballot(&owner, ca_id);
+    }: change_record_date(owner.origin(), ca_id, RD_SPEC2)
+    verify {
+        check_ca_created::<T>(ca_id)?;
+        check_rd::<T>(ca_id)?;
+    }
+
+    change_record_date_with_dist {
+        let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
+        distribute(&owner, ca_id);
+    }: change_record_date(owner.origin(), ca_id, RD_SPEC2)
+    verify {
+        check_ca_created::<T>(ca_id)?;
+        check_rd::<T>(ca_id)?;
+    }
 }
