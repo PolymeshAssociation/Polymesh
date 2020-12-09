@@ -141,7 +141,7 @@ decl_storage! {
         ///
         /// (checkpoint ID) -> checkpoint timestamp
         pub Timestamps get(fn timestamps):
-            map hasher(identity) CheckpointId => Moment;
+            map hasher(twox_64_concat) CheckpointId => Moment;
 
         // -------------------- Checkpoint Schedule storage --------------------
 

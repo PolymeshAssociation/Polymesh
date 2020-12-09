@@ -388,7 +388,7 @@ decl_storage! {
         ///
         /// (ticker => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
         /// (CAId => [DocumentId])
