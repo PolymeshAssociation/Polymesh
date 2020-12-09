@@ -29,7 +29,6 @@ use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;
 
-const SEED: u32 = 0;
 const MAX_URL_LENGTH: u32 = 100000;
 const MAX_DESCRIPTION_LENGTH: u32 = 100000;
 
@@ -163,7 +162,7 @@ benchmarks! {
             version: 5000
         };
         let (wasm_blob, code_hash) = expanded_contract::<T>(l);
-        let user = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
     }: _(user.origin, meta_info, 1000.into(), wasm_blob)
     verify {
         ensure!(matches!(Module::<T>::get_metadata_of(code_hash), meta_info), "Contracts_putCode: Meta info set incorrect");
@@ -174,9 +173,9 @@ benchmarks! {
     instantiate {
         let data = vec![0u8; 128];
         let max_fee = 100;
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(max_fee, creator.origin, false)?;
-        let deployer = UserBuilder::<T>::default().generate_did().build("deployer", 1);
+        let deployer = UserBuilder::<T>::default().generate_did().build("deployer");
     }: _(deployer.origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
     verify {
         let (key, value) = ExtensionInfo::<T>::iter().next().unwrap();
@@ -186,7 +185,7 @@ benchmarks! {
 
     // No catalyst.
     freeze_instantiation {
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
     }: _(creator.origin, code_hash)
     verify {
@@ -195,7 +194,7 @@ benchmarks! {
 
     // No catalyst.
     unfreeze_instantiation {
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
         Module::<T>::freeze_instantiation(creator.origin.clone().into(), code_hash)?;
     }: _(creator.origin, code_hash)
@@ -205,9 +204,9 @@ benchmarks! {
 
     // No catalyst.
     transfer_template_ownership {
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
-        let new_owner = UserBuilder::<T>::default().generate_did().build("newOwner", 1);
+        let new_owner = UserBuilder::<T>::default().generate_did().build("newOwner");
     }: _(creator.origin, code_hash, new_owner.did())
     verify {
         ensure!(Module::<T>::get_template_details(code_hash).owner == new_owner.did(), "Contracts_transfer_template_ownership: Failed to transfer ownership");
@@ -215,7 +214,7 @@ benchmarks! {
 
     // No catalyst.
     change_template_fees {
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
     }: _(creator.origin, code_hash, Some(500.into()), Some(650.into()))
     verify {
@@ -227,7 +226,7 @@ benchmarks! {
         // Catalyst for the MetaUrl length.
         let u in 1 .. MAX_URL_LENGTH;
         let url = Some(MetaUrl::from(vec![b'U'; u as usize].as_slice()));
-        let creator = UserBuilder::<T>::default().generate_did().build("creator", SEED);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
     }: _(creator.origin, code_hash, url.clone())
     verify {

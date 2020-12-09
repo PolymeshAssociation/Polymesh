@@ -40,12 +40,8 @@ fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128)
 
 #[cfg(feature = "std")]
 fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
-    let alice = UserBuilder::<T>::default()
-        .generate_did()
-        .build("Caller", 1);
-    let bob = UserBuilder::<T>::default()
-        .generate_did()
-        .build("Target", 1);
+    let alice = UserBuilder::<T>::default().generate_did().build("Caller");
+    let bob = UserBuilder::<T>::default().generate_did().build("Target");
 
     (alice, bob)
 }
@@ -62,11 +58,11 @@ fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
     let alice = UserBuilder::<T>::default()
         .account(alice_acc)
         .generate_did()
-        .build("alice", 1);
+        .build("alice");
     let bob = UserBuilder::<T>::default()
         .account(bob_acc)
         .generate_did()
-        .build("bob", 1);
+        .build("bob");
 
     (alice, bob)
 }
@@ -129,7 +125,7 @@ benchmarks! {
     batch {
         let c in 0..MAX_CALLS;
 
-        let u = UserBuilder::<T>::default().generate_did().build("ALICE", 1);
+        let u = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
 
     }: _(u.origin, calls)
@@ -144,8 +140,8 @@ benchmarks! {
     batch_transfer {
         let c in 0..MAX_CALLS;
 
-        let sender = UserBuilder::<T>::default().generate_did().build("SENDER", 1);
-        let receiver = UserBuilder::<T>::default().generate_did().build("RECEIVER", 1);
+        let sender = UserBuilder::<T>::default().generate_did().build("SENDER");
+        let receiver = UserBuilder::<T>::default().generate_did().build("RECEIVER");
 
         let transfer_calls = make_transfer_calls::<T>(c, receiver.account(), 500);
     }: batch(sender.origin, transfer_calls)
@@ -157,7 +153,7 @@ benchmarks! {
     batch_atomic {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
     }: _(alice.origin, calls)
     verify {
@@ -167,8 +163,8 @@ benchmarks! {
     batch_atomic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE", 1);
-        let bob = UserBuilder::<T>::default().generate_did().build("BOB", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_atomic(alice.origin, calls)
@@ -180,7 +176,7 @@ benchmarks! {
     batch_optimistic {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
 
     }: _(alice.origin, calls)
@@ -191,8 +187,8 @@ benchmarks! {
     batch_optimistic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().generate_did().build("ALICE", 1);
-        let bob = UserBuilder::<T>::default().generate_did().build("BOB", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_optimistic(alice.origin, calls)

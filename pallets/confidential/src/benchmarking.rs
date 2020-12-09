@@ -24,7 +24,6 @@ use polymesh_common_utilities::{
 use frame_benchmarking::benchmarks;
 use sp_std::convert::TryFrom;
 
-const SEED: u32 = 0;
 const MAX_TICKER_LENGTH: u8 = 12;
 const SECRET_VALUE: u64 = 42;
 
@@ -50,8 +49,8 @@ benchmarks! {
     _ {}
 
     add_range_proof {
-        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
-        let prover = UserBuilder::<T>::default().generate_did().build("prover", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner");
+        let prover = UserBuilder::<T>::default().generate_did().build("prover");
         let ticker = make_ticker::<T>(&owner);
 
     }: _(prover.origin(), owner.did(), ticker.clone(), SECRET_VALUE)
@@ -61,9 +60,9 @@ benchmarks! {
     }
 
     add_verify_range_proof {
-        let owner = UserBuilder::<T>::default().generate_did().build("owner", SEED);
-        let prover = UserBuilder::<T>::default().generate_did().build("prover", SEED);
-        let verifier = UserBuilder::<T>::default().generate_did().build("verifier", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("owner");
+        let prover = UserBuilder::<T>::default().generate_did().build("prover");
+        let verifier = UserBuilder::<T>::default().generate_did().build("verifier");
         let ticker = make_ticker::<T>(&owner);
 
         Module::<T>::add_range_proof(prover.origin().into(), owner.did(), ticker.clone(), SECRET_VALUE)

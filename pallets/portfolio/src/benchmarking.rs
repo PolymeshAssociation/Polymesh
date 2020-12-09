@@ -49,7 +49,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = UserBuilder::<T>::default().generate_did().build("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -59,7 +59,7 @@ benchmarks! {
     }
 
     delete_portfolio {
-        let target = UserBuilder::<T>::default().generate_did().build("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -74,7 +74,7 @@ benchmarks! {
         // Number of assets being moved
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
-        let target = UserBuilder::<T>::default().generate_did().build("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let first_ticker = generate_ticker(0u64);
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
@@ -105,7 +105,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = UserBuilder::<T>::default().generate_did().build("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);

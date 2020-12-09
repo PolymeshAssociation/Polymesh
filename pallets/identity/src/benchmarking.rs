@@ -29,10 +29,11 @@ use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
+
 fn setup_investor_uniqueness_claim<T: Trait>(
     name: &'static str,
 ) -> (User<T>, Claim, InvestorZKProofData) {
-    let mut user = UserBuilder::<T>::default().build(name, SEED);
+    let mut user = UserBuilder::<T>::default().build(name);
 
     let did = IdentityId::from([
         152u8, 25, 31, 70, 229, 131, 2, 22, 68, 84, 54, 151, 136, 3, 105, 122, 94, 58, 182, 27, 30,
@@ -88,8 +89,8 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd", SEED);
-        let caller = UserBuilder::<T>::default().build("caller", SEED);
+        let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let caller = UserBuilder::<T>::default().build("caller");
         let uid = uid_from_name_and_idx("caller", SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(caller.origin, uid, secondary_keys)
@@ -98,13 +99,13 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd", SEED);
+        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
 
     mock_cdd_register_did {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd", SEED);
+        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(cdd.origin, target)
 
@@ -113,7 +114,7 @@ benchmarks! {
         // Therefore, it's unbounded in complexity. However, this can only be called by governance.
         // Hence, the weight is for best case scenario
 
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd", SEED);
+        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
 
     }: _(RawOrigin::Root, cdd.did(), 0.into(), None)
 
@@ -121,7 +122,7 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
 
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
@@ -132,9 +133,9 @@ benchmarks! {
     }: _(target.origin, signatories.clone())
 
     accept_primary_key {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd", SEED);
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let new_key = UserBuilder::<T>::default().build("key", SEED);
+        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
 
         let cdd_auth_id =  Module::<T>::add_auth(
@@ -157,8 +158,8 @@ benchmarks! {
     change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
 
     join_identity_as_key {
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let new_key = UserBuilder::<T>::default().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let new_key = UserBuilder::<T>::default().build("key");
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
@@ -169,8 +170,8 @@ benchmarks! {
     }: _(new_key.origin, auth_id)
 
     join_identity_as_identity {
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let new_user = UserBuilder::<T>::default().generate_did().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let new_user = UserBuilder::<T>::default().generate_did().build("key");
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
@@ -181,8 +182,8 @@ benchmarks! {
     }: _(new_user.origin, auth_id)
 
     leave_identity_as_key {
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let key = UserBuilder::<T>::default().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account());
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
@@ -190,8 +191,8 @@ benchmarks! {
     }: _(key.origin)
 
     leave_identity_as_identity {
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let new_user = UserBuilder::<T>::default().generate_did().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let new_user = UserBuilder::<T>::default().generate_did().build("key");
         let signatory = Signatory::Identity(new_user.did());
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
@@ -199,8 +200,8 @@ benchmarks! {
     }: _(new_user.origin, target.did())
 
     add_claim {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
     }: _(caller.origin, target.did(), claim, Some(666.into()))
@@ -208,8 +209,8 @@ benchmarks! {
     forwarded_call {
         // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
         // The weight of the forwarded call must be added to the weight calculated by this benchmark.
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let key = UserBuilder::<T>::default().generate_did().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let key = UserBuilder::<T>::default().generate_did().build("key");
 
         let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
         let boxed_proposal = Box::new(call);
@@ -224,30 +225,30 @@ benchmarks! {
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
-        let target = UserBuilder::<T>::default().generate_did().build("target", SEED);
-        let key = UserBuilder::<T>::default().build("key", SEED);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account);
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone())?;
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
     }: _(caller.origin)
 
     unfreeze_secondary_keys {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
         Module::<T>::freeze_secondary_keys(caller.origin.clone().into())?;
     }: _(caller.origin)
 
     add_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
         let signatory = Signatory::Identity(caller.did());
         let auth_data = AuthorizationData::JoinIdentity(Permissions::default());
     }: _(caller.origin, signatory, auth_data, Some(666.into()))
 
     remove_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
         let signatory = Signatory::Identity(caller.did());
         let auth_id =  Module::<T>::add_auth(
             caller.did(),
@@ -302,7 +303,7 @@ benchmarks! {
     // }: _(origin, secondary_keys_with_auth, expires_at)
 
     revoke_offchain_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().build("caller");
         let nonce = Module::<T>::offchain_authorization_nonce(caller.did());
 
         let authorization = TargetIdAuthorization::<T::Moment> {

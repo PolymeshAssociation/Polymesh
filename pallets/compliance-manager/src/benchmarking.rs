@@ -26,7 +26,6 @@ use polymesh_primitives::{TrustedFor, TrustedIssuer};
 
 use frame_benchmarking::benchmarks;
 
-const SEED: u32 = 1;
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
 const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
@@ -37,7 +36,8 @@ const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 pub fn make_issuer<T: IdentityTrait + BalancesTrait>(id: u32) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
-        .build("ISSUER", id);
+        .seed(id)
+        .build("ISSUER");
     TrustedIssuer {
         issuer: IdentityId::from(u.did.unwrap()),
         trusted_for: TrustedFor::Any,
@@ -125,12 +125,8 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
         receiver_conditions_count: u32,
     ) -> Self {
         // Create accounts and token.
-        let owner = UserBuilder::<T>::default()
-            .generate_did()
-            .build("OWNER", SEED);
-        let buyer = UserBuilder::<T>::default()
-            .generate_did()
-            .build("BUYER", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
+        let buyer = UserBuilder::<T>::default().generate_did().build("BUYER");
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).

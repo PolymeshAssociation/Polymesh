@@ -26,8 +26,6 @@ use polymesh_common_utilities::benchs::UserBuilder;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
-const SEED: u32 = 0;
-
 fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))
 }
@@ -39,8 +37,8 @@ benchmarks! {
     // * Transfer will create the recipient account.
     transfer {
         let amount = T::Balance::from(500);
-        let caller = UserBuilder::<T>::default().balance(1200).generate_did().build("caller", SEED);
-        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build( "recipient", SEED);
+        let caller = UserBuilder::<T>::default().balance(1200).generate_did().build("caller");
+        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build( "recipient");
     }: _(caller.origin(), recipient.lookup(), amount)
     verify {
         assert_eq!(Balances::<T>::free_balance(&caller.account), (1200-500).into());
@@ -48,8 +46,8 @@ benchmarks! {
     }
 
     transfer_with_memo {
-        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
-        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build("recipient", SEED);
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller");
+        let recipient = UserBuilder::<T>::default().balance(0).generate_did().build("recipient");
         let amount = 42.into();
         let memo = make_worst_memo();
 
@@ -60,7 +58,7 @@ benchmarks! {
     }
 
     deposit_block_reward_reserve_balance {
-        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller");
         let amount = 500.into();
     }: _(caller.origin(), amount)
     verify {
@@ -69,7 +67,7 @@ benchmarks! {
     }
 
     set_balance {
-        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller");
         let free_balance :T::Balance = 1_000_000.into();
         let reserved_balance :T::Balance = 100.into();
     }: _(RawOrigin::Root, caller.lookup(), free_balance.clone(), reserved_balance)
@@ -79,8 +77,8 @@ benchmarks! {
     }
 
     force_transfer {
-        let source = UserBuilder::<T>::default().balance(1000).generate_did().build("source", SEED);
-        let dest = UserBuilder::<T>::default().balance(1).generate_did().build("dest", SEED);
+        let source = UserBuilder::<T>::default().balance(1000).generate_did().build("source");
+        let dest = UserBuilder::<T>::default().balance(1).generate_did().build("dest");
         let amount = 500.into();
     }: _(RawOrigin::Root, source.lookup(), dest.lookup(), amount)
     verify {
@@ -89,7 +87,7 @@ benchmarks! {
     }
 
     burn_account_balance {
-        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller", SEED);
+        let caller = UserBuilder::<T>::default().balance(1000).generate_did().build("caller");
         let amount = 500.into();
     }: _(caller.origin(), amount)
     verify {
