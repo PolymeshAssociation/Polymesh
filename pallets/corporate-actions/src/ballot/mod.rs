@@ -74,6 +74,9 @@
 //! - `change_rcv(origin, ca_id, rcv)` changes the support for RCV to `rcv` in the ballot for CA with `ca_id`.
 //! - `remove_ballot(origin, ca_id)` removes the ballot for CA with `ca_id`.
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use crate as ca;
 use ca::{CAId, CAKind, CorporateAction, Trait};
 use codec::{Decode, Encode};

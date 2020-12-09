@@ -32,7 +32,7 @@ const MAX_DID_WHT_IDS: u32 = 100;
 const MAX_DETAILS_LEN: u32 = 100;
 const MAX_DOCS: u32 = 100;
 
-const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
+crate const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
 const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
@@ -92,7 +92,7 @@ fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Documen
     ids
 }
 
-fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
+crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
     <Timestamp<T>>::set_timestamp(1000.into());
     let origin: T::Origin = owner.origin().into();
@@ -116,7 +116,7 @@ fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     (owner, ca_id)
 }
 
-fn attach_ballot<T: Trait>(owner: &User<T>, ca_id: CAId) {
+fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
     let range = ballot::BallotTimeRange {
         start: 4000,
         end: 5000,
@@ -288,7 +288,7 @@ benchmarks! {
 
     remove_ca_with_ballot {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-        attach_ballot(&owner, ca_id);
+        attach(&owner, ca_id);
     }: remove_ca(owner.origin(), ca_id)
     verify {
         check_ca_created::<T>(ca_id)?;
@@ -306,7 +306,7 @@ benchmarks! {
 
     change_record_date_with_ballot {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-        attach_ballot(&owner, ca_id);
+        attach(&owner, ca_id);
     }: change_record_date(owner.origin(), ca_id, RD_SPEC2)
     verify {
         check_ca_created::<T>(ca_id)?;
