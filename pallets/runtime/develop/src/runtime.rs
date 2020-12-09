@@ -411,7 +411,7 @@ impl pallet_staking::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MotionDuration: BlockNumber = 0;
+    pub const MotionDuration: BlockNumber = 1;
 }
 
 /// Voting majority origin for `Instance`.

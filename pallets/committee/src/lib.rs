@@ -282,7 +282,7 @@ decl_module! {
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
         }
 
-        /// May be called by any signed account after the voting duration has ended in order to
+        /// May be called by a committee member after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
         /// Abstentions are counted as rejections.
@@ -301,10 +301,7 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&who)?;
-            let did = Context::current_identity_or::<Identity<T>>(&who)?;
-
+            let did = Self::ensure_is_member(origin)?;
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
 
             // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
