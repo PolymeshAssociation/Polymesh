@@ -561,6 +561,7 @@ where
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 parameter_types! {

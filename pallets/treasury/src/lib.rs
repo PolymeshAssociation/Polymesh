@@ -33,19 +33,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use frame_support::{
     decl_error, decl_event, decl_module,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
-    weights::{DispatchClass, Pays},
+    weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{ensure_root, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID,
-    traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context, GC_DID,
+    constants::TREASURY_MODULE_ID, traits::balances::Trait as BalancesTrait, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -60,16 +61,23 @@ type BalanceOf<T> =
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
-pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait + IdentityTrait {
+pub trait Trait: frame_system::Trait + BalancesTrait {
     // The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The native currency.
     type Currency: Currency<Self::AccountId>;
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
 }
 
 pub trait TreasuryTrait<Balance> {
     fn disbursement(target: IdentityId, amount: Balance);
     fn balance() -> Balance;
+}
+
+pub trait WeightInfo {
+    fn reimbursement() -> Weight;
+    fn disbursement(beneficiary_count: u32) -> Weight;
 }
 
 decl_event!(
@@ -106,7 +114,7 @@ decl_module! {
         /// # Error
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
-        #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::disbursement( beneficiaries.len() as u32)]
         pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult
         {
             ensure_root(origin)?;
@@ -126,7 +134,7 @@ decl_module! {
         /// It transfers the specific `amount` from `origin` account into treasury.
         ///
         /// Only accounts which are associated to an identity can make a donation to treasury.
-        #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait>::WeightInfo::reimbursement()]
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
