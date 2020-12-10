@@ -17,13 +17,16 @@
 
 use super::*;
 use core::iter;
-use crate::benchmarking::setup_ca;
+use crate::{CorporateActions, TargetTreatment};
+use crate::benchmarking::{setup_ca, target_ids};
 use pallet_identity::benchmarking::User;
 use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
+use pallet_timestamp::Module as Timestamp;
 
 const MAX_MOTIONS: u32 = 10;
 const MAX_CHOICES: u32 = 10;
+const MAX_TARGETS: u32 = 100;
 
 const RANGE: BallotTimeRange = BallotTimeRange { start: 3000, end: 4000 };
 
@@ -56,6 +59,44 @@ benchmarks! {
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
         ensure!(TimeRanges::get(ca_id) == Some(RANGE), "ballot not created");
+    }
+
+    vote {
+        let i in 0..MAX_MOTIONS;
+        let j in 0..MAX_CHOICES;
+        let k in 0..MAX_TARGETS;
+
+        // Attach and prepare to vote.
+        let (owner, ca_id) = attach::<T>(i, j);
+        <Timestamp<T>>::set_timestamp(3000.into());
+
+        // Change targets, as they are read in voting.
+        CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
+            let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
+            ids.identities.sort();
+            ca.as_mut()
+                .unwrap()
+                .targets = ids;
+        });
+
+        // Construct the voting list.
+        let votes = (0..i)
+            .flat_map(|_| {
+                (0..j)
+                    .map(|j| BallotVote {
+                        power: 0.into(),
+                        fallback: (j as u16).checked_sub(1),
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        // Vote already to force a longer code path.
+        assert_ok!(<Module<T>>::vote(owner.origin().into(), ca_id, votes.clone()));
+        let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
+    }: _(owner.origin(), ca_id, votes)
+    verify {
+        ensure!(<Results<T>>::get(ca_id) == results, "voting results are wrong")
     }
 
     change_end {

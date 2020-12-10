@@ -53,7 +53,7 @@ fn target<T: Trait>(u: u32) -> IdentityId {
     user::<T>("target", u).did()
 }
 
-fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities {
+crate fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdentities {
     let identities = (0..n)
         .map(target::<T>)
         .flat_map(|did| iter::repeat(did).take(2))
