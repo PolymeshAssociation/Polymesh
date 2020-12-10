@@ -96,7 +96,7 @@ use frame_support::{
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
@@ -106,7 +106,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityToCorporateAction, IdentityTrait, RawEvent,
+            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction, RawEvent,
             SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
@@ -572,7 +572,7 @@ decl_module! {
 
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            let new_origin = RawOrigin::Signed(sender).into();
 
             let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
                 proposal.dispatch(new_origin)
@@ -2122,7 +2122,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
+impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
@@ -2193,13 +2193,12 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    /// Creates a new DID with a CDD claim issued by self
-    fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
-        let did = Self::_register_did(target, vec![], None).unwrap_or_default();
-        // Add CDD claim
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::default()));
-        Self::base_add_claim(did, cdd_claim, did, None);
-        did
+    fn register_did(
+        target: T::AccountId,
+        investor: InvestorUid,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
     }
 }
 
