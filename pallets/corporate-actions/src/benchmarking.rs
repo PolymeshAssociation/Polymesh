@@ -139,7 +139,7 @@ fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
     ));
 }
 
-fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
+crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
     let currency = Ticker::try_from(b"B" as &[_]).unwrap();
     Asset::<T>::create_asset(
         owner.origin().into(),
@@ -152,7 +152,11 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
         None,
     )
     .expect("Asset cannot be created");
+    currency
+}
 
+fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
+    let currency = currency::<T>(owner);
     assert_ok!(<Distribution<T>>::distribute(
         owner.origin().into(),
         ca_id,
