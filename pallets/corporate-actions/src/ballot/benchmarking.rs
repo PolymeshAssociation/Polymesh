@@ -71,4 +71,11 @@ benchmarks! {
     verify {
         ensure!(!RCV::get(ca_id), "RCV not changed");
     }
+
+    remove_ballot {
+        let (owner, ca_id) = attach::<T>(0, 0);
+    }: _(owner.origin(), ca_id)
+    verify {
+        ensure!(TimeRanges::get(ca_id) == None, "ballot not removed");
+    }
 }

@@ -615,8 +615,6 @@ impl<T: Trait> Module<T> {
         Metas::remove(ca_id);
         MotionNumChoices::remove(ca_id);
         RCV::remove(ca_id);
-        <Results<T>>::remove(ca_id);
-        <Votes<T>>::remove_prefix(ca_id);
 
         // Emit event.
         Self::deposit_event(Event::<T>::Removed(caa, ca_id));
