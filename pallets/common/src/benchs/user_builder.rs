@@ -19,21 +19,15 @@ use crate::{
         identity::{IdentityFnTrait, Trait},
     },
 };
-use codec::Encode;
+
+use schnorrkel::{ExpansionMode, MiniSecretKey};
+
+use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_primitives::{IdentityId, InvestorUid};
-use sp_std::{convert::TryInto, prelude::*};
-
-#[cfg(not(feature = "std"))]
-use frame_benchmarking::account;
-
-#[cfg(feature = "std")]
-use codec::Decode;
-#[cfg(feature = "std")]
-use sp_core::{crypto::Pair as TPair, sr25519::Pair};
-#[cfg(feature = "std")]
 use sp_io::hashing::blake2_256;
+use sp_std::{convert::TryInto, prelude::*};
 
 pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -60,10 +54,10 @@ macro_rules! self_update {
 impl<T: Trait> UserBuilder<T> {
     /// Create an account based on the builder configuration.
     pub fn build(self, name: &'static str) -> User<T> {
-        let (account, secret) = self.account.clone().map_or_else(
-            || Self::make_key_pair(name, self.seed),
-            |acc| (acc, [0u8; 64]),
-        );
+        let (account, secret) = self
+            .account
+            .clone()
+            .map_or_else(|| Self::make_key_pair(name, self.seed), |acc| (acc, None));
         let origin = RawOrigin::Signed(account.clone());
         let amount: u32 = self.balance.try_into().unwrap_or_default() as u32;
         let _ = T::Balances::make_free_balance_be(&account, amount.into());
@@ -126,25 +120,17 @@ impl<T: Trait> UserBuilder<T> {
         self_update!(self, balance, b.into())
     }
 
-    #[cfg(not(feature = "std"))]
-    fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, SecretKey) {
-        let public: T::AccountId = account(name, u, 0);
-        let secret = [0u8; 64];
-
-        (public, secret)
-    }
-
-    #[cfg(feature = "std")]
-    fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, SecretKey) {
+    fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, Option<SecretKey>) {
         let seed = (name, u).using_encoded(blake2_256);
-        let pair = Pair::from_seed(&seed);
-        let keypair = pair.as_ref();
 
-        let secret = keypair.secret.to_bytes();
+        let keypair = MiniSecretKey::from_bytes(&seed[..])
+            .expect("Schnorrkell cannot create a secret key from that seed")
+            .expand_to_keypair(ExpansionMode::Ed25519);
+
         let public = keypair.public.to_bytes();
         let id = T::AccountId::decode(&mut &public[..]).unwrap();
 
-        (id, secret)
+        (id, Some(keypair.secret.clone()))
     }
 
     /// Create a DID for account `acc` using the specified investor ID.

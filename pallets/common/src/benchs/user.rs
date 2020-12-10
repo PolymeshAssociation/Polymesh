@@ -14,22 +14,18 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::identity::Trait;
-use polymesh_primitives::{IdentityId, InvestorUid};
+use polymesh_primitives::{crypto::native_schnorrkel, IdentityId, InvestorUid};
 
 use frame_system::RawOrigin;
 use sp_core::sr25519::Signature;
 use sp_runtime::traits::StaticLookup;
 
-#[cfg(feature = "std")]
-const SIGNING_CTX: &[u8] = b"substrate";
-
-pub type SecretKey = [u8; 64]; // Only in sr25519
-pub type PublicKey = [u8; 32]; // Only in sr25519
+pub use schnorrkel::keys::{PublicKey, SecretKey};
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
 pub struct User<T: Trait> {
     pub account: T::AccountId,
-    pub secret: SecretKey,
+    pub secret: Option<SecretKey>,
     pub origin: RawOrigin<T::AccountId>,
     pub uid: Option<InvestorUid>,
     pub did: Option<IdentityId>,
@@ -56,19 +52,11 @@ impl<T: Trait> User<T> {
         T::Lookup::unlookup(self.account.clone())
     }
 
-    #[cfg(feature = "std")]
-    pub fn sign(&self, message: &[u8]) -> Signature {
-        let sk = schnorrkel::keys::SecretKey::from_bytes(&self.secret[..])
-            .expect("Invalid sr25519 secret key");
-        let pair = schnorrkel::Keypair::from(sk);
-        let context = schnorrkel::signing_context(SIGNING_CTX);
-        let raw_signature = pair.sign(context.bytes(message)).to_bytes();
-
-        Signature::from_raw(raw_signature)
-    }
-
-    #[cfg(not(feature = "std"))]
-    pub fn sign(&self, _message: &[u8]) -> Signature {
-        panic!("Cannot sign without 'std' support");
+    pub fn sign(&self, message: &[u8]) -> Option<Signature> {
+        match self.secret.clone() {
+            // Some(sk) => NativeSchnorrkel::sign( sk, message),
+            Some(sk) => native_schnorrkel::sign(sk.to_bytes(), message),
+            None => None,
+        }
     }
 }
