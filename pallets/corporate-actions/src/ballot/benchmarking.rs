@@ -64,4 +64,11 @@ benchmarks! {
     verify {
         ensure!(TimeRanges::get(ca_id).unwrap().end == 5000, "range not changed");
     }
+
+    change_rcv {
+        let (owner, ca_id) = attach::<T>(0, 0);
+    }: _(owner.origin(), ca_id, false)
+    verify {
+        ensure!(!RCV::get(ca_id), "RCV not changed");
+    }
 }
