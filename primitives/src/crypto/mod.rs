@@ -26,14 +26,13 @@ pub trait NativeSchnorrkel {
     /// Sign the message `message`, using the given secret key.
     /// It returns `None` if the secret key cannot be created from the input raw bytes.
     fn sign(raw_sk: [u8; 64], message: &[u8]) -> Option<Signature> {
-        match SecretKey::from_bytes(&raw_sk[..]) {
-            Ok(sk) => {
+        SecretKey::from_bytes(&raw_sk[..])
+            .map(|sk| {
                 let pair = Keypair::from(sk);
                 let context = signing_context(SIGNING_CTX);
                 let raw_signature = pair.sign(context.bytes(message)).to_bytes();
-                Some(Signature::from_raw(raw_signature))
-            }
-            Err(_) => None,
-        }
+                Signature::from_raw(raw_signature)
+            })
+            .ok()
     }
 }
