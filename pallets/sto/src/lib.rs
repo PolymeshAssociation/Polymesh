@@ -123,8 +123,8 @@ decl_event!(
         Moment = <T as TimestampTrait>::Moment,
     {
         /// A new fundraiser has been created
-        /// (primary issuance agent, fundraiser)
-        FundraiserCreated(IdentityId, Fundraiser<Balance, Moment>),
+        /// (primary issuance agent, fundraiser id, fundraiser details)
+        FundraiserCreated(IdentityId, u64, Fundraiser<Balance, Moment>),
         /// An investor invested in the fundraiser
         /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
         FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
@@ -247,7 +247,7 @@ decl_module! {
             );
 
             Self::deposit_event(
-                RawEvent::FundraiserCreated(did, fundraiser)
+                RawEvent::FundraiserCreated(did, fundraiser_id, fundraiser)
             );
 
             Ok(())
