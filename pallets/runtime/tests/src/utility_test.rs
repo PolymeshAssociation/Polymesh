@@ -1,5 +1,5 @@
 use super::{
-    assert_event_doesnt_exist, assert_last_event,
+    assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
         add_secondary_key, register_keyring_account_with_balance, Balances, Call, EventTest,
@@ -15,7 +15,7 @@ use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    PalletPermissions, Permissions, PortfolioName, Signatory, SubsetRestriction,
+    PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory, SubsetRestriction,
 };
 use sp_core::sr25519::{Public, Signature};
 use test_client::AccountKeyring;
@@ -240,6 +240,7 @@ fn batch_secondary_with_permissions_works() {
 }
 
 fn batch_secondary_with_permissions() {
+    System::set_block_number(1);
     let alice_key = AccountKeyring::Alice.public();
     let alice_origin = Origin::signed(alice_key);
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
@@ -248,10 +249,17 @@ fn batch_secondary_with_permissions() {
     let bob_signer = Signatory::Account(bob_key);
 
     add_secondary_key(alice_did, bob_signer);
+    let low_risk_name: PortfolioName = b"low risk".into();
     assert_ok!(Portfolio::create_portfolio(
         bob_origin.clone(),
-        b"low risk".into()
+        low_risk_name.clone()
     ));
+    println!("{:?}", System::events());
+    assert_last_event!(EventTest::portfolio(pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)));
+    assert_eq!(
+        Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
+        low_risk_name.clone()
+    );
     let bob_pallet_permissions = vec![
         PalletPermissions::new(b"identity".into(), SubsetRestriction(None)),
         PalletPermissions::new(
@@ -278,8 +286,12 @@ fn batch_secondary_with_permissions() {
     ];
     assert_ok!(Utility::batch(bob_origin, calls));
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
-    assert_last_event!(
+    assert_event_exists!(
         EventTest::pallet_utility(Event::BatchInterrupted(_, err)),
         *err == pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into()
+    );
+    assert_eq!(
+        Portfolio::portfolios(&alice_did, &PortfolioNumber(0)),
+        low_risk_name.clone()
     );
 }
