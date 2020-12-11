@@ -686,9 +686,9 @@ fn alcyone_testnet_genesis(
 fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
     alcyone_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("Alice", true),
-            get_authority_keys_from_seed("Bob", true),
-            get_authority_keys_from_seed("Charlie", true),
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+            get_authority_keys_from_seed("Charlie", false),
         ],
         seeded_acc_id("Alice"),
         vec![
