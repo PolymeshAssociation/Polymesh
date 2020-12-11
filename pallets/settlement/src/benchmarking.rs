@@ -17,7 +17,7 @@
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::Currency;
+use frame_support::{traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_asset::{benchmarking::make_base_asset, BalanceOf, SecurityToken, Tokens};
 use pallet_balances as balances;
@@ -25,11 +25,15 @@ use pallet_identity::{
     self as identity,
     benchmarking::{uid_from_name_and_idx, User, UserBuilder},
 };
-use pallet_portfolio::PortfolioAssetBalances;
+use pallet_portfolio::{PortfolioAssetBalances, Portfolios};
 use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
-use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
-use sp_runtime::SaturatedConversion;
+use polymesh_contracts::{ benchmarking::emulate_blueprint_in_storage};
+use polymesh_primitives::{
+    CddId, Claim, Condition, ConditionType, IdentityId, InvestorUid, PortfolioId, PortfolioName,
+    Scope, Ticker, SmartExtension, SmartExtensionType
+};
+use pallet_contracts::ContractAddressFor;
+use sp_runtime::{ traits::Hash, SaturatedConversion };
 use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
@@ -163,14 +167,20 @@ fn generate_portfolio<T: Trait>(
     salt: u32,
     did: Option<IdentityId>,
 ) -> PortfolioId {
-    let pusedo_random_no = variable + salt;
-    let portfolio_no = (pusedo_random_no as u64).into();
+    let pseudo_random_no = variable + salt;
+    let portfolio_no = (pseudo_random_no as u64).into();
+    let portfolio_name =
+        PortfolioName::try_from(vec![b'P'; pseudo_random_no as usize].as_slice()).unwrap();
     match did {
-        None => PortfolioId::user_portfolio(
-            make_account::<T>(portfolio_to, pusedo_random_no).did,
-            portfolio_no,
-        ),
-        Some(id) => PortfolioId::user_portfolio(id, portfolio_no),
+        None => {
+            let user = UserBuilder::<T>::default().build_with_did(portfolio_to, pseudo_random_no);
+            Portfolios::insert(user.did(), portfolio_no, portfolio_name);
+            PortfolioId::user_portfolio(user.did(), portfolio_no)
+        }
+        Some(id) => {
+            Portfolios::insert(id, portfolio_no, portfolio_name);
+            PortfolioId::user_portfolio(id, portfolio_no)
+        }
     }
 }
 
@@ -329,6 +339,7 @@ fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) 
     encoded
 }
 
+// Add investor uniqueness claim directly in the storage.
 fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
     identity::Module::<T>::base_add_claim(
         did,
@@ -343,6 +354,7 @@ fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
 }
 
 fn compliance_setup<T: Trait>(
+    max_complexity: u32,
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     from_did: IdentityId,
@@ -351,8 +363,89 @@ fn compliance_setup<T: Trait>(
     // Add investor uniqueness claim.
     add_investor_uniqueness_claim::<T>(from_did, ticker);
     add_investor_uniqueness_claim::<T>(to_did, ticker);
+    pallet_compliance_manager::Module::<T>::pause_asset_compliance(origin.into(), ticker)
+        .expect("Settlement: Failed to pause asset compliances");
+    // Add compliance for the assets.
+    // add_compliance = || {
 
-    //pallet_compliance_manager::Module::<T>::add_compliance_requirement(origin.into(), ticker).expect("Failed to pause the asset compliance");
+    // }
+    // let sender_conditions = vec![Condition]
+    // pallet_compliance_manager::Module::<T>::add_compliance_requirement(origin.into(), ticker).expect("Failed to pause the asset compliance");
+}
+
+fn setup_affirm_instruction<T: Trait>(
+    l: u32,
+) -> (Vec<PortfolioId>, User<T>, User<T>, Ticker, Ticker) {
+    // create venue
+    let from = UserBuilder::<T>::default().build_with_did("creator", SEED);
+    let venue_id = create_venue_::<T>(from.did(), vec![]);
+    let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
+    let to = UserBuilder::<T>::default().build_with_did("receiver", 1);
+    let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
+
+    // Create legs vector.
+    // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
+    // Assumption here is that instruction will never be executed as still there is one auth pending.
+    let from_ticker = make_base_asset::<T>(
+        &from,
+        true,
+        Some(Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap()),
+    );
+    let to_ticker = make_base_asset::<T>(
+        &to,
+        true,
+        Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()),
+    );
+    for n in 1..l / 2 {
+        setup_leg_and_portfolio_with_ticker::<T>(
+            Some(to.did()),
+            Some(from.did()),
+            from_ticker,
+            to_ticker,
+            n,
+            &mut legs,
+            &mut portfolios_from,
+            &mut portfolios_to,
+        );
+    }
+    Module::<T>::add_and_affirm_instruction(
+        (from.origin.clone()).into(),
+        venue_id,
+        settlement_type,
+        None,
+        legs,
+        portfolios_from,
+    )
+    .expect("Unable to add and affirm the instruction");
+    (portfolios_to, from, to, from_ticker, to_ticker)
+}
+
+fn add_smart_extension_to_ticker<T: Trait>(
+    code_hash: <T::Hashing as Hash>::Output,
+    origin: RawOrigin<T::AccountId>,
+    account: T::AccountId,
+    ticker: Ticker,
+) -> T::AccountId {
+    let data = vec![0u8; 128];
+    <polymesh_contracts::Module<T>>::instantiate(
+        origin.clone().into(),
+        0.into(),
+        Weight::max_value(),
+        code_hash,
+        data.clone(),
+        0.into(),
+    )
+    .expect("Settlement: Failed to instantiate the contract");
+    let extension_id = T::DetermineContractAddress::contract_address_for(&code_hash, &data, &account);
+    let extension_details = SmartExtension {
+        extension_type: SmartExtensionType::TransferManager,
+        extension_name: b"PTM".into(),
+        extension_id,
+        is_archive: false
+    };
+    <pallet_asset::Module<T>>::add_extension(origin.into(), ticker, extension_details).expect("Settlement: Fail to add the smart extension to a given asset");
 }
 
 benchmarks! {
@@ -619,25 +712,7 @@ benchmarks! {
     affirm_instruction {
 
         let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
-
-        // create venue
-        let from = UserBuilder::<T>::default().build_with_did("creator", SEED);
-        let venue_id = create_venue_::<T>(from.did(), vec![]);
-        let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
-        let to = UserBuilder::<T>::default().build_with_did("receiver", 1);
-        let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-        let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-        let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
-
-        // Create legs vector.
-        // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
-        // Assumption here is that instruction will never be executed as still there is one auth pending.
-        let from_ticker = make_base_asset::<T>(&from, true, Some(Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap()));
-        let to_ticker = make_base_asset::<T>(&to, true, Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()));
-        for n in 1 .. l/2 {
-            setup_leg_and_portfolio_with_ticker::<T>(Some(to.did()), Some(from.did()), from_ticker, to_ticker, n, &mut legs, &mut portfolios_from, &mut portfolios_to);
-        }
-        Module::<T>::add_and_affirm_instruction((from.origin).into(), venue_id, settlement_type, None, legs, portfolios_from).expect("Unable to add and affirm the instruction");
+        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
     }: _(to.origin, instruction_id, portfolios_to.clone())
     verify {
@@ -706,4 +781,34 @@ benchmarks! {
             receipt.receipt_uid,
         ), "Settlement: Fail to unclaim the receipt");
     }
+
+    execute_scheduled_instruction {
+        // This dispatch execute an instruction.
+        //
+        // Worst case scenarios.
+        // 1. Create maximum legs and both traded assets are different assets/securities.
+        // 2. Assets should have worst compliance restrictions ?
+        // 3. Assets have maximum no. of TMs.
+
+        let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let s in 0 .. T::MaxNumberOfTMExtensionForAsset::get() as u32;
+        let c in 0 .. MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED;
+        // Setup affirm instruction (One party (i.e from) already affirms the instruction)
+        let (portfolios_to, from, to, from_ticker, to_ticker) = setup_affirm_instruction::<T>(l);
+        // It always be one as no other instruction is already scheduled.
+        let instruction_id = 1;
+        let origin = RawOrigin::Root;
+        // Do another affirmations that lead to scheduling an instruction.
+        Module::<T>::affirm_instruction((to.origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
+
+        // Need to provide the Investor uniqueness claim for both sender and receiver,
+        // for both assets also add the compliance rules as per the `MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED`.
+        compliance_setup::<T>(s, from_ticker, from.origin.clone(), from.did(), to.did());
+        compliance_setup::<T>(s, to_ticker, to.origin.clone(), from.did(), to.did());
+        let code_hash = emulate_blueprint_in_storage::<T>(0, from.origin.clone(), "dummy")?;
+        for i in 0 .. MAX_TM_ALLOWED {
+            add_smart_extension_to_ticker::<T>(code_hash, from.origin.clone(), from.account().clone(), from_ticker);
+            add_smart_extension_to_ticker::<T>(code_hash, to.origin.clone(), to.account().clone(), to_ticker);
+        }
+    }: _(origin, instruction_id)
 }

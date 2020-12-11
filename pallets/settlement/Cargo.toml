@@ -13,6 +13,7 @@ pallet-asset = { path = "../asset", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
+polymesh-contracts = { path = "../contracts", default-features = false }
 
 
 serde = { version = "1.0.104", default-features = false }
@@ -31,6 +32,7 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 # Only in STD
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
@@ -45,6 +47,8 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-contracts/std",
+    "polymesh-contracts/std",
     "pallet-balances/std",
     "pallet-asset/std",
     "pallet-identity/std",

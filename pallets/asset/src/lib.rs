@@ -1554,7 +1554,7 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
-        // #[cfg(not(feature = "runtime-benchmarks"))]
+
         if !Identity::<T>::verify_scope_claims_for_transfer(
             ticker,
             from_portfolio.did,
