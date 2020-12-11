@@ -930,7 +930,7 @@ macro_rules! assert_event_doesnt_exist {
         assert_event_doesnt_exist!($event, true);
     };
     ($event:pat, $cond:expr) => {
-        assert!(System::events().iter().any(|e| {
+        assert!(System::events().iter().all(|e| {
             !matches!(
                 e,
                 EventRecord {
