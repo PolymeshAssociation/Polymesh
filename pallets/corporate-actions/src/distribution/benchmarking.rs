@@ -19,7 +19,6 @@ use super::*;
 use crate::benchmarking::{currency, set_ca_targets, setup_ca, user, SEED};
 use crate::CAKind;
 use frame_benchmarking::benchmarks;
-use frame_support::assert_ok;
 use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_timestamp::Module as Timestamp;
@@ -30,16 +29,14 @@ const MAX_TARGETS: u32 = 100;
 fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: T::Balance) {
     let did = owner.did();
     let origin: T::Origin = owner.origin().into();
-    assert_ok!(<Portfolio<T>>::create_portfolio(
-        origin.clone(),
-        "portfolio".into()
-    ));
-    assert_ok!(<Portfolio<T>>::move_portfolio_funds(
+    <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();
+    <Portfolio<T>>::move_portfolio_funds(
         origin,
         PortfolioId::default_portfolio(did),
         PortfolioId::user_portfolio(did, pnum),
         vec![MovePortfolioItem { ticker, amount }],
-    ));
+    )
+    .unwrap();
 }
 
 fn dist<T: Trait>(k: u32) -> (User<T>, CAId, Ticker) {
@@ -50,7 +47,7 @@ fn dist<T: Trait>(k: u32) -> (User<T>, CAId, Ticker) {
     let pnum = 1.into();
     portfolio::<T>(&owner, pnum, currency, amount);
 
-    assert_ok!(<Module<T>>::distribute(
+    <Module<T>>::distribute(
         owner.origin().into(),
         ca_id,
         Some(pnum),
@@ -58,7 +55,8 @@ fn dist<T: Trait>(k: u32) -> (User<T>, CAId, Ticker) {
         amount,
         3000,
         Some(4000),
-    ));
+    )
+    .unwrap();
 
     set_ca_targets::<T>(ca_id, k);
 
@@ -80,13 +78,14 @@ fn add_investor_uniqueness_claim<T: Trait>(user: &User<T>, scope: Ticker) {
 
     let signed_claim_to = <Origin<T>>::Signed(<Identity<T>>::did_records(claim_to).primary_key);
 
-    assert_ok!(<Identity<T>>::add_investor_uniqueness_claim(
+    <Identity<T>>::add_investor_uniqueness_claim(
         signed_claim_to.into(),
         claim_to,
         Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
         proof,
-        None
-    ));
+        None,
+    )
+    .unwrap();
 }
 
 fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
@@ -100,12 +99,13 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
     let holder = user::<T>("holder", SEED);
     add_investor_uniqueness_claim(&owner, currency);
     add_investor_uniqueness_claim(&holder, currency);
-    assert_ok!(<ComplianceManager<T>>::add_compliance_requirement(
+    <ComplianceManager<T>>::add_compliance_requirement(
         owner.origin().into(),
         currency,
         vec![],
-        vec![]
-    ));
+        vec![],
+    )
+    .unwrap();
 
     (owner, holder, ca_id)
 }

@@ -19,7 +19,6 @@ use crate::*;
 use core::convert::TryFrom;
 use core::iter;
 use frame_benchmarking::benchmarks;
-use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::{make_asset, make_document};
 use pallet_timestamp::Module as Timestamp;
@@ -94,7 +93,7 @@ fn details(len: u32) -> CADetails {
 fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
     let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
     let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
-    assert_ok!(<Asset<T>>::add_documents(origin.clone(), docs, ticker));
+    <Asset<T>>::add_documents(origin.clone(), docs, ticker).unwrap();
     ids
 }
 
@@ -105,7 +104,7 @@ crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     <Timestamp<T>>::set_timestamp(1000.into());
 
     let origin: T::Origin = owner.origin().into();
-    assert_ok!(<Module<T>>::initiate_corporate_action(
+    <Module<T>>::initiate_corporate_action(
         origin.clone(),
         ticker,
         kind,
@@ -114,14 +113,15 @@ crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
         "".into(),
         None,
         None,
-        None
-    ));
+        None,
+    )
+    .unwrap();
     let ca_id = CAId {
         ticker,
         local_id: LocalCAId(0),
     };
     let ids = add_docs::<T>(&origin, ticker, 1);
-    assert_ok!(<Module<T>>::link_ca_doc(origin.clone(), ca_id, ids));
+    <Module<T>>::link_ca_doc(origin.clone(), ca_id, ids).unwrap();
     (owner, ca_id)
 }
 
@@ -139,13 +139,7 @@ fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
         title: "".into(),
         motions: vec![motion],
     };
-    assert_ok!(<Ballot<T>>::attach_ballot(
-        owner.origin().into(),
-        ca_id,
-        range,
-        meta,
-        true
-    ));
+    <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
 
 crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
@@ -166,15 +160,16 @@ crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
 
 fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
     let currency = currency::<T>(owner);
-    assert_ok!(<Distribution<T>>::distribute(
+    <Distribution<T>>::distribute(
         owner.origin().into(),
         ca_id,
         None,
         currency,
         1000.into(),
         4000,
-        None
-    ));
+        None,
+    )
+    .unwrap();
 }
 
 crate fn set_ca_targets<T: Trait>(ca_id: CAId, k: u32) {
@@ -298,9 +293,9 @@ benchmarks! {
         let origin: T::Origin = owner.origin().into();
         let ids = add_docs::<T>(&origin, ticker, i);
         let ids2 = ids.clone();
-        assert_ok!(<Module<T>>::initiate_corporate_action(
+        <Module<T>>::initiate_corporate_action(
             origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
-        ));
+        ).unwrap();
         let ca_id = CAId { ticker, local_id: LocalCAId(0) };
     }: _(owner.origin(), ca_id, ids)
     verify {

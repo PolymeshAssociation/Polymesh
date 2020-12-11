@@ -19,7 +19,6 @@ use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
 use core::iter;
 use frame_benchmarking::benchmarks;
-use frame_support::assert_ok;
 use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::User;
 
@@ -48,13 +47,7 @@ fn meta(i: u32, j: u32) -> BallotMeta {
 fn attach<T: Trait>(i: u32, j: u32) -> (User<T>, CAId) {
     let meta = meta(i, j);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-    assert_ok!(<Module<T>>::attach_ballot(
-        owner.origin().into(),
-        ca_id,
-        RANGE,
-        meta,
-        true
-    ));
+    <Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
     (owner, ca_id)
 }
 
@@ -98,7 +91,7 @@ benchmarks! {
             .collect::<Vec<_>>();
 
         // Vote already to force a longer code path.
-        assert_ok!(<Module<T>>::vote(owner.origin().into(), ca_id, votes.clone()));
+        <Module<T>>::vote(owner.origin().into(), ca_id, votes.clone()).unwrap();
         let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
     }: _(owner.origin(), ca_id, votes)
     verify {
