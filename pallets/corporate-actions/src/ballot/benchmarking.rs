@@ -79,6 +79,7 @@ benchmarks! {
 
         // Attach and prepare to vote.
         let (owner, ca_id) = attach::<T>(i, j);
+        #[cfg(feature = "std")]
         <Timestamp<T>>::set_timestamp(3000.into());
 
         // Change targets, as they are read in voting.

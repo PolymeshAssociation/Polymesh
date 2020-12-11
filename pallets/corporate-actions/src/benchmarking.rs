@@ -47,7 +47,9 @@ crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
 }
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
+    #[cfg(feature = "std")]
     <Timestamp<T>>::set_timestamp(1000.into());
+
     let owner = user("owner", SEED);
     let ticker = make_asset::<T>(&owner);
     (owner, ticker)
@@ -98,7 +100,10 @@ fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Documen
 
 crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
+
+    #[cfg(feature = "std")]
     <Timestamp<T>>::set_timestamp(1000.into());
+
     let origin: T::Origin = owner.origin().into();
     assert_ok!(<Module<T>>::initiate_corporate_action(
         origin.clone(),

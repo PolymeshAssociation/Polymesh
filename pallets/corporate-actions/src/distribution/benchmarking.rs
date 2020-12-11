@@ -93,6 +93,8 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
     k: u32,
 ) -> (User<T>, User<T>, CAId) {
     let (owner, ca_id, currency) = dist::<T>(k);
+
+    #[cfg(feature = "std")]
     <Timestamp<T>>::set_timestamp(3000.into());
 
     let holder = user::<T>("holder", SEED);
@@ -144,6 +146,8 @@ benchmarks! {
 
     reclaim {
         let (owner, ca_id, currency) = dist::<T>(0);
+
+        #[cfg(feature = "std")]
         <Timestamp<T>>::set_timestamp(5000.into());
     }: _(owner.origin(), ca_id)
     verify {
