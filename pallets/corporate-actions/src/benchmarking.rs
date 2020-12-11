@@ -22,11 +22,11 @@ use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::{make_asset, make_document};
-use pallet_identity::benchmarking::{User, UserBuilder};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 use pallet_timestamp::Module as Timestamp;
 
 const TAX: Tax = Tax::one();
-const SEED: u32 = 0;
+crate const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 100;
 const MAX_DID_WHT_IDS: u32 = 100;
 const MAX_DETAILS_LEN: u32 = 100;
@@ -38,8 +38,8 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
-fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default().build_with_did(prefix, u)
+crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default().generate_did().seed(u).become_cdd_provider().build(prefix)
 }
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
@@ -168,6 +168,16 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
     ));
 }
 
+crate fn set_ca_targets<T: Trait>(ca_id: CAId, k: u32) {
+    CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
+        let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
+        ids.identities.sort();
+        ca.as_mut()
+            .unwrap()
+            .targets = ids;
+    });
+}
+
 fn check_ca_created<T: Trait>(ca_id: CAId) -> DispatchResult {
     ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
     Ok(())
@@ -203,7 +213,7 @@ benchmarks! {
         let (owner, ticker) = setup::<T>();
         // Generally the code path for no CAA is more complex,
         // but in this case having a different CAA already could cause more storage writes.
-        let caa = UserBuilder::<T>::default().build_with_did("caa", SEED);
+        let caa = UserBuilder::<T>::default().generate_did().seed(SEED).build("caa");
         Agent::insert(ticker, caa.did());
     }: _(owner.origin(), ticker)
     verify {

@@ -36,6 +36,9 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
 
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "MESH-1369/mocked_investor_uid", default-features = false, optional = true }
+pallet-compliance-manager = { path = "../compliance-manager", default-features = false, optional = true }
+
 [features]
 default = ["std"]
 no_std = []
@@ -59,4 +62,6 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "cryptography",
+    "pallet-compliance-manager"
 ]

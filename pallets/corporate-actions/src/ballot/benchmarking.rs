@@ -17,9 +17,8 @@
 
 use super::*;
 use core::iter;
-use crate::{CorporateActions, TargetTreatment};
-use crate::benchmarking::{setup_ca, target_ids};
-use pallet_identity::benchmarking::User;
+use crate::benchmarking::{setup_ca, set_ca_targets};
+use polymesh_common_utilities::benchs::User;
 use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
 use pallet_timestamp::Module as Timestamp;
@@ -71,13 +70,7 @@ benchmarks! {
         <Timestamp<T>>::set_timestamp(3000.into());
 
         // Change targets, as they are read in voting.
-        CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
-            let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
-            ids.identities.sort();
-            ca.as_mut()
-                .unwrap()
-                .targets = ids;
-        });
+        set_ca_targets::<T>(ca_id, k);
 
         // Construct the voting list.
         let votes = (0..i)
