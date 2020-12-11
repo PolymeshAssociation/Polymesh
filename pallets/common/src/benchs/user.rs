@@ -55,7 +55,6 @@ impl<T: Trait> User<T> {
     pub fn sign(&self, message: &[u8]) -> Option<Signature> {
         self.secret
             .as_ref()
-            .map(|sk| native_schnorrkel::sign(sk.to_bytes(), message))
-            .unwrap_or(None)
+            .and_then(|sk| native_schnorrkel::sign(sk.to_bytes(), message))
     }
 }
