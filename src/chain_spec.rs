@@ -220,8 +220,8 @@ fn gc_mem(n: u8) -> Identity {
 fn polymath_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        IdentityId::from(n as u128),
-        IdentityId::from(3 + n as u128),
+        IdentityId::from(1 as u128),
+        IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
     )
@@ -667,15 +667,15 @@ fn alcyone_testnet_genesis(
                 ..Default::default()
             },
         }),
-        group_Instance1: Some(committee_membership!(4, 5, 6)),
+        group_Instance1: Some(committee_membership!(3, 4, 5)),
         committee_Instance1: Some(committee!(6, (2, 3))),
         group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, sp3
         // Technical Committee:
-        group_Instance3: Some(committee_membership!(4)),
-        committee_Instance3: Some(committee!(4)),
+        group_Instance3: Some(committee_membership!(3)),
+        committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(5)),
-        committee_Instance4: Some(committee!(5)),
+        group_Instance4: Some(committee_membership!(4)),
+        committee_Instance4: Some(committee!(4)),
         protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
         multisig: Some(MULTISIG),
