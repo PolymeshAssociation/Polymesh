@@ -16,18 +16,21 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::benchmarking::{set_ca_targets, setup_ca};
 use core::iter;
-use crate::benchmarking::{setup_ca, set_ca_targets};
-use polymesh_common_utilities::benchs::User;
 use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
 use pallet_timestamp::Module as Timestamp;
+use polymesh_common_utilities::benchs::User;
 
 const MAX_MOTIONS: u32 = 10;
 const MAX_CHOICES: u32 = 10;
 const MAX_TARGETS: u32 = 100;
 
-const RANGE: BallotTimeRange = BallotTimeRange { start: 3000, end: 4000 };
+const RANGE: BallotTimeRange = BallotTimeRange {
+    start: 3000,
+    end: 4000,
+};
 
 fn meta(i: u32, j: u32) -> BallotMeta {
     let motion = Motion {
@@ -36,13 +39,22 @@ fn meta(i: u32, j: u32) -> BallotMeta {
         choices: iter::repeat("".into()).take(j as usize).collect(),
     };
     let motions = iter::repeat(motion).take(i as usize).collect();
-    BallotMeta { title: "".into(), motions }
+    BallotMeta {
+        title: "".into(),
+        motions,
+    }
 }
 
 fn attach<T: Trait>(i: u32, j: u32) -> (User<T>, CAId) {
     let meta = meta(i, j);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
-    assert_ok!(<Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true));
+    assert_ok!(<Module<T>>::attach_ballot(
+        owner.origin().into(),
+        ca_id,
+        RANGE,
+        meta,
+        true
+    ));
     (owner, ca_id)
 }
 

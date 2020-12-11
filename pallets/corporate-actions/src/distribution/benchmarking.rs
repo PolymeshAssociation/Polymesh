@@ -16,21 +16,24 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::benchmarking::{currency, set_ca_targets, setup_ca, user, SEED};
 use crate::CAKind;
-use crate::benchmarking::{setup_ca, currency, set_ca_targets, user, SEED};
-use polymesh_common_utilities::benchs::User;
 use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
-use pallet_timestamp::Module as Timestamp;
 use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
+use pallet_timestamp::Module as Timestamp;
+use polymesh_common_utilities::benchs::User;
 
 const MAX_TARGETS: u32 = 100;
 
 fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: T::Balance) {
     let did = owner.did();
     let origin: T::Origin = owner.origin().into();
-    assert_ok!(<Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()));
+    assert_ok!(<Portfolio<T>>::create_portfolio(
+        origin.clone(),
+        "portfolio".into()
+    ));
     assert_ok!(<Portfolio<T>>::move_portfolio_funds(
         origin,
         PortfolioId::default_portfolio(did),
@@ -63,9 +66,9 @@ fn dist<T: Trait>(k: u32) -> (User<T>, CAId, Ticker) {
 }
 
 fn add_investor_uniqueness_claim<T: Trait>(user: &User<T>, scope: Ticker) {
-    use frame_system::Origin;
-    use polymesh_primitives::{Claim, Scope, InvestorZKProofData};
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+    use frame_system::Origin;
+    use polymesh_primitives::{Claim, InvestorZKProofData, Scope};
 
     let claim_to = user.did();
     let investor_uid = user.uid();
@@ -86,7 +89,9 @@ fn add_investor_uniqueness_claim<T: Trait>(user: &User<T>, scope: Ticker) {
     ));
 }
 
-fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(k: u32) -> (User<T>, User<T>, CAId) {
+fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
+    k: u32,
+) -> (User<T>, User<T>, CAId) {
     let (owner, ca_id, currency) = dist::<T>(k);
     <Timestamp<T>>::set_timestamp(3000.into());
 

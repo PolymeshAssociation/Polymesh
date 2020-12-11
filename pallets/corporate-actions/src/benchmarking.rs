@@ -22,8 +22,8 @@ use frame_benchmarking::benchmarks;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::{make_asset, make_document};
-use polymesh_common_utilities::benchs::{User, UserBuilder};
 use pallet_timestamp::Module as Timestamp;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 const TAX: Tax = Tax::one();
 crate const SEED: u32 = 0;
@@ -39,7 +39,11 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // Therefore, in general, we'll be using the owner as the CAA.
 
 crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default().generate_did().seed(u).become_cdd_provider().build(prefix)
+    UserBuilder::<T>::default()
+        .generate_did()
+        .seed(u)
+        .become_cdd_provider()
+        .build(prefix)
 }
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
@@ -172,9 +176,7 @@ crate fn set_ca_targets<T: Trait>(ca_id: CAId, k: u32) {
     CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();
-        ca.as_mut()
-            .unwrap()
-            .targets = ids;
+        ca.as_mut().unwrap().targets = ids;
     });
 }
 
