@@ -611,7 +611,6 @@ fn alcyone_testnet_genesis(
         // Service providers
         cdd_provider(1),
         cdd_provider(2),
-        cdd_provider(3),
         // Governance committee members
         polymath_mem(1),
         polymath_mem(2),
@@ -670,7 +669,7 @@ fn alcyone_testnet_genesis(
         }),
         group_Instance1: Some(committee_membership!(4, 5, 6)),
         committee_Instance1: Some(committee!(6, (2, 3))),
-        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, sp3
+        group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, sp3
         // Technical Committee:
         group_Instance3: Some(committee_membership!(4)),
         committee_Instance3: Some(committee!(4)),
@@ -687,17 +686,14 @@ fn alcyone_testnet_genesis(
 fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
     alcyone_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("operator_1", true),
-            get_authority_keys_from_seed("operator_2", true),
-            get_authority_keys_from_seed("operator_3", true),
-            get_authority_keys_from_seed("operator_4", true),
-            get_authority_keys_from_seed("operator_5", true),
+            get_authority_keys_from_seed("Alice", true),
+            get_authority_keys_from_seed("Bob", true),
+            get_authority_keys_from_seed("Charlie", true),
         ],
-        seeded_acc_id("polymath_1"),
+        seeded_acc_id("Alice"),
         vec![
             seeded_acc_id("cdd_provider_1"),
             seeded_acc_id("cdd_provider_2"),
-            seeded_acc_id("cdd_provider_3"),
             seeded_acc_id("polymath_1"),
             seeded_acc_id("polymath_2"),
             seeded_acc_id("polymath_3"),
