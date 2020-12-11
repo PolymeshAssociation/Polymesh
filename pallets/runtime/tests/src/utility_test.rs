@@ -1,23 +1,26 @@
 use super::{
+    assert_event_doesnt_exist, assert_last_event,
     pips_test::assert_balance,
-    storage::{register_keyring_account_with_balance, Call, EventTest, TestStorage},
+    storage::{
+        add_secondary_key, register_keyring_account_with_balance, Balances, Call, EventTest,
+        Identity, Origin, Portfolio, System, TestStorage, Utility,
+    },
     ExtBuilder,
 };
-use pallet_balances::{self as balances, Call as BalancesCall};
-use pallet_utility::{self as utility, Event};
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
-use pallet_utility::UniqueCall;
+use frame_system::EventRecord;
+use pallet_balances::{self as balances, Call as BalancesCall};
+use pallet_portfolio::Call as PortfolioCall;
+use pallet_utility::{self as utility, Event, UniqueCall};
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_primitives::{
+    PalletPermissions, Permissions, PortfolioName, Signatory, SubsetRestriction,
+};
 use sp_core::sr25519::{Public, Signature};
 use test_client::AccountKeyring;
 
-type Balances = balances::Module<TestStorage>;
-type Utility = utility::Module<TestStorage>;
 type Error = utility::Error<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
-type System = frame_system::Module<TestStorage>;
 
 fn transfer(to: Public, amount: u128) -> Call {
     Call::Balances(BalancesCall::transfer(to, amount))
@@ -226,5 +229,57 @@ fn _relay_unhappy_cases() {
             transaction
         ),
         Error::InvalidNonce
+    );
+}
+
+#[test]
+fn batch_secondary_with_permissions_works() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(batch_secondary_with_permissions);
+}
+
+fn batch_secondary_with_permissions() {
+    let alice_key = AccountKeyring::Alice.public();
+    let alice_origin = Origin::signed(alice_key);
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_origin = Origin::signed(bob_key);
+    let bob_signer = Signatory::Account(bob_key);
+
+    add_secondary_key(alice_did, bob_signer);
+    assert_ok!(Portfolio::create_portfolio(
+        bob_origin.clone(),
+        b"low risk".into()
+    ));
+    let bob_pallet_permissions = vec![
+        PalletPermissions::new(b"identity".into(), SubsetRestriction(None)),
+        PalletPermissions::new(
+            b"portfolio".into(),
+            SubsetRestriction::elems(vec![
+                b"move_portfolio_funds".into(),
+                b"rename_portfolio".into(),
+            ]),
+        ),
+    ];
+    assert_ok!(Identity::set_permission_to_signer(
+        alice_origin,
+        bob_signer,
+        Permissions::from_pallet_permissions(bob_pallet_permissions),
+    ));
+    let high_risk_name: PortfolioName = b"high risk".into();
+    assert_err!(
+        Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+    );
+    let calls = vec![
+        Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
+        Call::Portfolio(PortfolioCall::rename_portfolio(0.into(), high_risk_name)),
+    ];
+    assert_ok!(Utility::batch(bob_origin, calls));
+    assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
+    assert_last_event!(
+        EventTest::pallet_utility(Event::BatchInterrupted(_, err)),
+        *err == pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into()
     );
 }

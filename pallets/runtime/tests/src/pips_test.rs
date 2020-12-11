@@ -1,4 +1,5 @@
 use super::{
+    assert_event_exists,
     committee_test::{gc_vmo, set_members},
     storage::{
         fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
@@ -86,24 +87,6 @@ macro_rules! assert_last_event {
             }]
             if $cond
         ));
-    };
-}
-
-macro_rules! assert_event_exists {
-    ($event:pat) => {
-        assert_event_exists!($event, true);
-    };
-    ($event:pat, $cond:expr) => {
-        assert!(System::events().iter().any(|e| {
-            matches!(
-                e,
-                EventRecord {
-                    event: $event,
-                    ..
-                }
-                if $cond
-            )
-        }));
     };
 }
 

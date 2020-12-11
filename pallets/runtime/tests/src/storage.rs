@@ -105,6 +105,7 @@ impl_outer_dispatch! {
         pallet_scheduler::Scheduler,
         pallet_settlement::Settlement,
         checkpoint::Checkpoint,
+        pallet_portfolio::Portfolio,
     }
 }
 
@@ -885,4 +886,59 @@ pub fn provide_scope_claim_to_multiple_parties(
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+#[macro_export]
+macro_rules! assert_last_event {
+    ($event:pat) => {
+        assert_last_event!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(matches!(
+            &*System::events(),
+            [.., EventRecord {
+                event: $event,
+                ..
+            }]
+            if $cond
+        ));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_exists {
+    ($event:pat) => {
+        assert_event_exists!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_doesnt_exist {
+    ($event:pat) => {
+        assert_event_doesnt_exist!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            !matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
 }

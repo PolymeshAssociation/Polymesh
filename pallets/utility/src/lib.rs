@@ -187,10 +187,6 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
-            if !is_root {
-                let sender = ensure_signed(origin.clone())?;
-                CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            }
             for (index, call) in calls.into_iter().enumerate() {
                 // Dispatch the call in a modified metadata context.
                 let result = with_call_metadata(call.get_call_metadata(), || {
@@ -230,7 +226,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = Self::is_root_with_permissions(origin.clone())?;
+            let is_root = ensure_root(origin.clone()).is_ok();
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
                     if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
@@ -268,7 +264,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = Self::is_root_with_permissions(origin.clone())?;
+            let is_root = ensure_root(origin.clone()).is_ok();
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
@@ -343,22 +339,5 @@ decl_module! {
                     })
             })
         }
-    }
-}
-
-impl<T: Trait> Module<T> {
-    /// Returns a boolean value designating whether `origin` is root. If the origin is not root then
-    /// the function succeeds only if `origin` is signed and has permissions to call the current
-    /// extrinsic.
-    fn is_root_with_permissions(origin: T::Origin) -> Result<bool, DispatchError> {
-        let is_root = match origin.into() {
-            Ok(RawOrigin::Root) => true,
-            Ok(RawOrigin::Signed(sender)) => {
-                CallPermissions::<T>::ensure_call_permissions(&sender)?;
-                false
-            }
-            _ => false,
-        };
-        Ok(is_root)
     }
 }
