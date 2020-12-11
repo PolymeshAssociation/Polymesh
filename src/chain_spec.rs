@@ -713,10 +713,13 @@ fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
 
 pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
     // provide boot nodes
-    let boot_nodes = vec![];
+    let boot_nodes = vec![
+        "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
+        "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+    ];
     AlcyoneChainSpec::from_genesis(
-        "Polymesh Alcyone Testnet",
-        "alcyone",
+        "Polymesh Buffron Testnet",
+        "buffron",
         ChainType::Live,
         alcyone_live_testnet_genesis,
         boot_nodes,
@@ -724,7 +727,7 @@ pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
             TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                 .expect("Alcyone live telemetry url is valid; qed"),
         ),
-        Some(&*"/polymath/alcyone/1"),
+        Some(&*"/polymath/buffron/1"),
         Some(polymath_props()),
         Default::default(),
     )
