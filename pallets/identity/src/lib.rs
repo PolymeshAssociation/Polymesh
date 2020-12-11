@@ -133,8 +133,6 @@ use sp_runtime::{
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
-use cryptography::claim_proofs;
-
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
@@ -359,7 +357,7 @@ decl_module! {
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
 
-            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
+            let target_uid = confidential_identity::mocked::make_investor_uid( target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
