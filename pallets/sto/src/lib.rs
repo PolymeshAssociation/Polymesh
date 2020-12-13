@@ -40,8 +40,9 @@ use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
     with_transaction, CommonTrait,
 };
+
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedMul};
+use sp_runtime::traits::{CheckedAdd, CheckedMul, CheckedDiv};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
@@ -299,6 +300,11 @@ decl_module! {
             // Primary use is to calculate the blended price (offering_token_amount / cost).
             // Blended price must be <= to max_price or the investment will fail.
             let mut cost = T::Balance::from(0);
+
+            // Price is entered as a multiple of 1_000_000
+            // i.e. a price of 1 unit is 1_000_000
+            // a price of 1.5 units is 1_500_00
+            let price_divisor = T::Balance::from(1_000_000);
             // Individual purchases from each tier that accumulate to fulfil the investment amount.
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
@@ -322,6 +328,8 @@ decl_module! {
                 purchases.push((id, purchase_amount));
                 cost = purchase_amount
                     .checked_mul(&tier.price)
+                    .ok_or(Error::<T>::Overflow)?
+                    .checked_div(&price_divisor)
                     .and_then(|pa| cost.checked_add(&pa))
                     .ok_or(Error::<T>::Overflow)?;
             }

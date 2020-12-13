@@ -467,7 +467,6 @@ decl_event!(
         InstructionRejected(IdentityId, u64),
         /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
         ReceiptClaimed(IdentityId, u64, u64, u64, AccountId, ReceiptMetadata),
-        ReceiptDetailsEvent(bool, Receipt<Balance>, Vec<u8>),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
         ReceiptUnclaimed(IdentityId, u64, u64, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
@@ -1444,13 +1443,10 @@ impl<T: Trait> Module<T> {
                 asset: leg.asset,
                 amount: leg.amount,
             };
-            let res = receipt.signature.verify(&msg.encode()[..], &receipt.signer);
-            // ensure!(
-            //     receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-            //     Error::<T>::InvalidSignature
-            // );
-            Self::deposit_event(RawEvent::ReceiptDetailsEvent(res, msg.clone(), msg.encode()[..].to_vec()));
-
+            ensure!(
+                receipt.signature.verify(&msg.encode()[..], &receipt.signer),
+                Error::<T>::InvalidSignature
+            );
         }
 
         // Lock tokens that do not have a receipt attached to their leg.
