@@ -42,7 +42,7 @@ use polymesh_common_utilities::{
 };
 
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedMul, CheckedDiv};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 

@@ -1098,6 +1098,21 @@ impl<T: Trait> Module<T> {
         let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
+            for (leg_id, _) in legs.iter() {
+                match Self::instruction_leg_status(instruction_id, leg_id) {
+                    LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
+                        <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
+                        Self::deposit_event(RawEvent::ReceiptUnclaimed(
+                            SettlementDID.as_id(),
+                            instruction_id,
+                            *leg_id,
+                            receipt_uid,
+                            signer,
+                        ));
+                    }
+                    _ => {}
+                }
+            }
             Self::deposit_event(RawEvent::InstructionRejected(
                 SettlementDID.as_id(),
                 instruction_id,
@@ -1324,16 +1339,6 @@ impl<T: Trait> Module<T> {
     fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
         for (leg_id, leg_details) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
-                LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
-                    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-                    Self::deposit_event(RawEvent::ReceiptUnclaimed(
-                        SettlementDID.as_id(),
-                        instruction_id,
-                        *leg_id,
-                        receipt_uid,
-                        signer,
-                    ));
-                }
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed
@@ -1344,7 +1349,7 @@ impl<T: Trait> Module<T> {
                     )
                     .ok();
                 }
-                LegStatus::PendingTokenLock => {}
+                _ => {}
             }
         }
     }
@@ -1492,17 +1497,8 @@ impl<T: Trait> Module<T> {
         // Update storage
         let affirms_pending = Self::instruction_affirms_pending(instruction_id)
             .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-        for portfolio in portfolios_set {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(RawEvent::InstructionAffirmed(
-                did,
-                portfolio,
-                instruction_id,
-            ));
-        }
 
-        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
+        // Mark receipts used in affirmation as claimed
         for receipt in &receipt_details {
             <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
             Self::deposit_event(RawEvent::ReceiptClaimed(
@@ -1514,6 +1510,18 @@ impl<T: Trait> Module<T> {
                 receipt.metadata.clone(),
             ));
         }
+
+        for portfolio in portfolios_set {
+            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAffirmed(
+                did,
+                portfolio,
+                instruction_id,
+            ));
+        }
+
+        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
         Ok(())
     }
 
