@@ -2,15 +2,15 @@ use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, register_keyring_account_with_balance, Balances, Call, EventTest,
-        Identity, Origin, Portfolio, System, TestStorage, Utility,
+        add_secondary_key, register_keyring_account_with_balance, Call, EventTest, Identity,
+        Origin, Portfolio, System, TestStorage, Utility,
     },
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError, IterableStorageDoubleMap};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use frame_system::EventRecord;
-use pallet_balances::{self as balances, Call as BalancesCall};
+use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
@@ -260,7 +260,7 @@ fn batch_secondary_with_permissions() {
         low_risk_name.clone()
     );
     let bob_pallet_permissions = vec![
-        PalletPermissions::new(b"identity".into(), SubsetRestriction(None)),
+        PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
         PalletPermissions::new(
             b"Portfolio".into(),
             SubsetRestriction::elems(vec![
@@ -279,7 +279,17 @@ fn batch_secondary_with_permissions() {
         bob_signer,
         bob_permissions,
     ));
-    println!("permissions: {:?}", Identity::did_records(&alice_did));
+    let bob_secondary_key = &Identity::did_records(&alice_did).secondary_keys[0];
+    assert_eq!(
+        true,
+        bob_secondary_key
+            .has_extrinsic_permission(&b"Portfolio".into(), &b"rename_portfolio".into())
+    );
+    assert_eq!(
+        false,
+        bob_secondary_key
+            .has_extrinsic_permission(&b"Portfolio".into(), &b"create_portfolio".into())
+    );
     let high_risk_name: PortfolioName = b"high risk".into();
     assert_err!(
         Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
@@ -288,29 +298,22 @@ fn batch_secondary_with_permissions() {
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
         Call::Portfolio(PortfolioCall::rename_portfolio(
-            0.into(),
+            1.into(),
             high_risk_name.clone(),
         )),
     ];
     assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
-    // TODO: Why doesn't this error code match with 0?
-    // assert_event_exists!(
-    //     EventTest::pallet_utility(Event::BatchInterrupted(_, err)),
-    //     *err == pallet_permissions::Error::<TestStorage>::UnauthorizedCaller.into()
-    // );
     assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(_, _)));
-    println!(
-        "Alice's: {:?}",
-        pallet_portfolio::Portfolios::iter_prefix(&alice_did).collect::<Vec<_>>()
-    );
     assert_eq!(
         Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
         low_risk_name
     );
     assert_ok!(Utility::batch_optimistic(bob_origin, calls));
-    println!("{:?}", System::events());
-    assert_event_exists!(EventTest::pallet_utility(Event::BatchOptimisticFailed(_)));
+    assert_event_exists!(
+        EventTest::pallet_utility(Event::BatchOptimisticFailed(errors)),
+        errors.len() == 1
+    );
     assert_eq!(
         Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
         high_risk_name
