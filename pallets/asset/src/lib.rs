@@ -1965,8 +1965,8 @@ impl<T: Trait> Module<T> {
         holder_count: Counter,
         dest: T::AccountId,
     ) -> RestrictionResult {
-        // 4 byte selector of verify_transfer - 0xD9386E41
-        let selector = hex!("D9386E41");
+        // 4 byte selector of verify_transfer - 0xD1140AC9
+        let selector = hex!("D1140AC9");
         let balance_to = match to_did {
             Some(did) => {
                 let scope_id = Self::scope_id_of(ticker, &did);
@@ -2018,7 +2018,7 @@ impl<T: Trait> Module<T> {
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
         let (res, _gas_spent) =
             Self::call_extension(extension_caller, dest, GAS_LIMIT, encoded_data);
-        if let Ok(is_allowed) = res {
+        if let Ok(is_allowed) = &res {
             if is_allowed.is_success() {
                 if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                     return allowed;

@@ -7595,9 +7595,26 @@
     i32.add
     i32.load
     i32.load8_u
-    call $f70
+    call $f69
     unreachable)
   (func $f65 (type $t3) (param $p0 i32)
+    (local $l1 i32)
+    global.get $g0
+    i32.const 16
+    i32.sub
+    local.tee $l1
+    global.set $g0
+    local.get $l1
+    local.get $p0
+    i32.store offset=12
+    local.get $l1
+    i32.const 12
+    i32.add
+    i32.load
+    i32.load8_u
+    call $f68
+    unreachable)
+  (func $f66 (type $t3) (param $p0 i32)
     (local $l1 i32)
     global.get $g0
     i32.const 16
@@ -7618,23 +7635,6 @@
     i32.add
     i64.load
     call $f67
-    unreachable)
-  (func $f66 (type $t3) (param $p0 i32)
-    (local $l1 i32)
-    global.get $g0
-    i32.const 16
-    i32.sub
-    local.tee $l1
-    global.set $g0
-    local.get $l1
-    local.get $p0
-    i32.store offset=12
-    local.get $l1
-    i32.const 12
-    i32.add
-    i32.load
-    i32.load8_u
-    call $f68
     unreachable)
   (func $f67 (type $t12) (param $p0 i64) (param $p1 i64)
     (local $l2 i32)
@@ -7667,7 +7667,7 @@
     i32.load offset=8
     local.get $l2
     i32.load offset=12
-    call $f72
+    call $f73
     unreachable)
   (func $f68 (type $t3) (param $p0 i32)
     (local $l1 i32)
@@ -7694,46 +7694,14 @@
     i32.const 16
     i32.add
     local.get $p0
-    call $f73
+    call $f72
     local.get $l1
     i32.load offset=8
     local.get $l1
     i32.load offset=12
-    call $f72
+    call $f73
     unreachable)
   (func $f69 (type $t3) (param $p0 i32)
-    (local $l1 i32)
-    global.get $g0
-    i32.const 32
-    i32.sub
-    local.tee $l1
-    global.set $g0
-    local.get $l1
-    i32.const 24
-    i32.add
-    i32.const 16384
-    i32.store
-    local.get $l1
-    i32.const 65796
-    i32.store offset=20
-    local.get $l1
-    i32.const 0
-    i32.store offset=16
-    local.get $l1
-    i32.const 8
-    i32.add
-    local.get $l1
-    i32.const 16
-    i32.add
-    local.get $p0
-    call $f33
-    local.get $l1
-    i32.load offset=8
-    local.get $l1
-    i32.load offset=12
-    call $f72
-    unreachable)
-  (func $f70 (type $t3) (param $p0 i32)
     (local $l1 i32)
     global.get $g0
     i32.const 32
@@ -7763,7 +7731,39 @@
     i32.load offset=8
     local.get $l1
     i32.load offset=12
-    call $f72
+    call $f73
+    unreachable)
+  (func $f70 (type $t3) (param $p0 i32)
+    (local $l1 i32)
+    global.get $g0
+    i32.const 32
+    i32.sub
+    local.tee $l1
+    global.set $g0
+    local.get $l1
+    i32.const 24
+    i32.add
+    i32.const 16384
+    i32.store
+    local.get $l1
+    i32.const 65796
+    i32.store offset=20
+    local.get $l1
+    i32.const 0
+    i32.store offset=16
+    local.get $l1
+    i32.const 8
+    i32.add
+    local.get $l1
+    i32.const 16
+    i32.add
+    local.get $p0
+    call $f33
+    local.get $l1
+    i32.load offset=8
+    local.get $l1
+    i32.load offset=12
+    call $f73
     unreachable)
   (func $f71 (type $t2) (param $p0 i32) (param $p1 i32)
     (local $l2 i32) (local $l3 i32)
@@ -7854,13 +7854,7 @@
     i32.const 80
     i32.add
     global.set $g0)
-  (func $f72 (type $t2) (param $p0 i32) (param $p1 i32)
-    i32.const 0
-    local.get $p0
-    local.get $p1
-    call $seal0.seal_return
-    unreachable)
-  (func $f73 (type $t0) (param $p0 i32) (param $p1 i32) (param $p2 i32)
+  (func $f72 (type $t0) (param $p0 i32) (param $p1 i32) (param $p2 i32)
     (local $l3 i32) (local $l4 i32) (local $l5 i32)
     global.get $g0
     i32.const 16
@@ -7914,6 +7908,12 @@
     i32.const 16
     i32.add
     global.set $g0)
+  (func $f73 (type $t2) (param $p0 i32) (param $p1 i32)
+    i32.const 0
+    local.get $p0
+    local.get $p1
+    call $seal0.seal_return
+    unreachable)
   (func $f74 (type $t0) (param $p0 i32) (param $p1 i32) (param $p2 i32)
     (local $l3 i32) (local $l4 i32)
     local.get $p1
@@ -10492,7 +10492,7 @@
                         local.get $l1
                         i32.const 520
                         i32.add
-                        call $f65
+                        call $f66
                         unreachable
                       end
                       local.get $l1
@@ -10599,7 +10599,7 @@
                     i32.const 12
                     i32.add
                     i32.load
-                    call $f69
+                    call $f70
                     unreachable
                   end
                   local.get $l1
@@ -10806,7 +10806,7 @@
         local.get $l1
         i32.const 416
         i32.add
-        call $f66
+        call $f65
         unreachable
       end
       unreachable

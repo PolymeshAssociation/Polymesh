@@ -19,7 +19,10 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::{traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
-use pallet_asset::{benchmarking::make_base_asset, BalanceOf, SecurityToken, Tokens};
+use pallet_asset::{
+    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, SecurityToken,
+    Tokens,
+};
 use pallet_balances as balances;
 use pallet_compliance_manager::benchmarking::make_issuers;
 use pallet_contracts::ContractAddressFor;
@@ -28,7 +31,10 @@ use pallet_identity::{
     benchmarking::{uid_from_name_and_idx, User, UserBuilder},
 };
 use pallet_portfolio::{PortfolioAssetBalances, Portfolios};
-use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
+use polymesh_common_utilities::{
+    constants::currency::POLY,
+    traits::asset::{AssetName, AssetType},
+};
 use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
 use polymesh_primitives::{
     CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, PortfolioId,
@@ -51,7 +57,7 @@ const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
 const MAX_COMPLIANCE_RESTRICTION: u32 = 45;
-const MAX_TRUSTED_ISSUER: u32 = 50;
+const MAX_TRUSTED_ISSUER: u32 = 5;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
@@ -289,16 +295,17 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
          portfolios: &mut Vec<PortfolioId>,
          ticker: &Ticker,
          default_portfolio: &mut Vec<PortfolioId>| {
+            let transacted_amount = 500 * POLY;
             let sender_portfolio = generate_portfolio::<T>("", index, 500, sender);
             let receiver_portfolio = generate_portfolio::<T>("", index, 500, receiver);
-            let _ = fund_portfolio::<T>(&sender_portfolio, ticker, 500.into());
+            let _ = fund_portfolio::<T>(&sender_portfolio, ticker, transacted_amount.into());
             portfolios.push(sender_portfolio);
             default_portfolio.push(receiver_portfolio);
             legs.push(Leg {
                 from: sender_portfolio,
                 to: receiver_portfolio,
                 asset: *ticker,
-                amount: 500.into(),
+                amount: transacted_amount.into(),
             })
         };
     emulate_portfolios(
@@ -353,6 +360,9 @@ fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
         did,
         None,
     );
+    let current_balance = <pallet_asset::Module<T>>::balance_of(ticker, did);
+    <AggregateBalance<T>>::insert(ticker, &did, current_balance);
+    <BalanceOfAtScope<T>>::insert(did, did, current_balance);
 }
 
 fn add_trusted_issuer<T: Trait>(
@@ -377,7 +387,10 @@ pub fn create_condition<T: Trait>(
     let condition_type = get_condition_type::<T>(&c_count, Scope::Ticker(ticker));
     let trusted_issuers = make_issuers::<T>(t_count);
     trusted_issuers.clone().into_iter().for_each(|issuer| {
-        add_trusted_issuer::<T>(token_owner.clone().into(), ticker, issuer);
+        let t_issuer = <pallet_compliance_manager::Module<T>>::trusted_claim_issuer(ticker);
+        if !t_issuer.contains(&issuer) {
+            add_trusted_issuer::<T>(token_owner.clone().into(), ticker, issuer);
+        }
     });
     vec![Condition::new(condition_type, trusted_issuers)]
 }
@@ -386,7 +399,7 @@ pub fn get_condition_type<T: Trait>(condition_count: &u32, scope: Scope) -> Cond
     let target_identity = UserBuilder::<T>::default()
         .build_with_did("TargetIdentity", 10)
         .did();
-    if (1..8).contains(condition_count) {
+    if (2..8).contains(condition_count) {
         ConditionType::IsPresent(Claim::Affiliate(scope))
     } else if (9..18).contains(condition_count) {
         ConditionType::IsAbsent(Claim::KnowYourCustomer(scope))
@@ -398,8 +411,8 @@ pub fn get_condition_type<T: Trait>(condition_count: &u32, scope: Scope) -> Cond
         ])
     } else if (28..36).contains(condition_count) {
         ConditionType::IsNoneOf(vec![
+            Claim::Accredited(scope.clone()),
             Claim::Exempted(scope.clone()),
-            Claim::Blocked(scope.clone()),
             Claim::Jurisdiction(CountryCode::AF, scope.clone()),
         ])
     } else {
@@ -414,19 +427,20 @@ fn compliance_setup<T: Trait>(
     origin: RawOrigin<T::AccountId>,
     from_did: IdentityId,
     to_did: IdentityId,
+    trusted_issuer: TrustedIssuer,
+    t_issuer_origin: RawOrigin<T::AccountId>,
 ) {
     // Add investor uniqueness claim.
     add_investor_uniqueness_claim::<T>(from_did, ticker);
     add_investor_uniqueness_claim::<T>(to_did, ticker);
-    let t_issuer = UserBuilder::<T>::default().build_with_did("TrustedClaimIssuer", 100);
-    let trusted_issuer = TrustedIssuer::from(t_issuer.did());
+    // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
-    // pallet_compliance_manager::Module::<T>::pause_asset_compliance(origin.into(), ticker)
-    //     .expect("Settlement: Failed to pause asset compliances");
-    for i in 1..max_condition {
-        let (s_cond, r_cond) = if i == max_condition {
+
+    let claim_to_pass = Claim::Accredited(Scope::Ticker(ticker));
+    for i in 0..max_condition {
+        let (s_cond, r_cond) = if i == (max_condition - 1) {
             let cond = vec![Condition::new(
-                ConditionType::IsPresent(Claim::Accredited(Scope::Ticker(ticker))),
+                ConditionType::IsPresent(claim_to_pass.clone()),
                 vec![trusted_issuer.clone()],
             )];
             (cond.clone(), cond)
@@ -440,8 +454,18 @@ fn compliance_setup<T: Trait>(
             s_cond,
             r_cond,
         )
-        .expect("Failed to pause the asset compliance");
+        .expect("Failed to add the asset compliance");
     }
+    // Provide Claim to the sender and receiver
+    <identity::Module<T>>::add_claim(
+        t_issuer_origin.clone().into(),
+        from_did,
+        claim_to_pass.clone(),
+        None,
+    )
+    .expect("Settlement: Failed to add claim");
+    <identity::Module<T>>::add_claim(t_issuer_origin.into(), to_did, claim_to_pass, None)
+        .expect("Settlement: Failed to add claim");
 }
 
 fn setup_affirm_instruction<T: Trait>(
@@ -501,7 +525,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
 ) {
     let data = vec![
         209, 131, 81, 43, 160, 134, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    ];
+    ]; // Allow 100% as percentage ownership and allow primary issuance.
     <polymesh_contracts::Module<T>>::instantiate(
         origin.clone().into(),
         0.into(),
@@ -516,7 +540,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
     let extension_details = SmartExtension {
         extension_type: SmartExtensionType::TransferManager,
         extension_name: b"PTM".into(),
-        extension_id,
+        extension_id: extension_id.clone(),
         is_archive: false,
     };
     <pallet_asset::Module<T>>::add_extension(origin.into(), ticker, extension_details)
@@ -877,10 +901,14 @@ benchmarks! {
         // Do another affirmations that lead to scheduling an instruction.
         Module::<T>::affirm_instruction((to.origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
 
+        // Create trusted issuer for both the ticker
+        let t_issuer = UserBuilder::<T>::default().build_with_did("TrustedClaimIssuer", 99999);
+        let trusted_issuer = TrustedIssuer::from(t_issuer.did());
+
         // Need to provide the Investor uniqueness claim for both sender and receiver,
         // for both assets also add the compliance rules as per the `MAX_COMPLIANCE_RESTRICTION`.
-        compliance_setup::<T>(c, t, from_ticker, from.origin.clone(), from.did(), to.did());
-        compliance_setup::<T>(c, t, to_ticker, to.origin.clone(), from.did(), to.did());
+        compliance_setup::<T>(c, t, from_ticker, from.origin.clone(), from.did(), to.did(), trusted_issuer.clone(), t_issuer.origin.clone());
+        compliance_setup::<T>(c, t, to_ticker, to.origin.clone(), from.did(), to.did(), trusted_issuer, t_issuer.origin);
         let code_hash = emulate_blueprint_in_storage::<T>(0, from.origin.clone(), "ptm")?;
         for i in 0 .. s {
             add_smart_extension_to_ticker::<T>(code_hash, from.origin.clone(), from.account().clone(), from_ticker);

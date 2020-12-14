@@ -17,7 +17,7 @@
 use crate::*;
 
 use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_common_utilities::traits::asset::AssetName;
+use polymesh_common_utilities::{constants::currency::POLY, traits::asset::AssetName};
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
 
@@ -64,7 +64,7 @@ pub fn make_base_asset<T: Trait>(
 ) -> Ticker {
     let ticker = make_ticker::<T>(owner.origin().into(), ticker_);
     let name: AssetName = ticker.as_slice().into();
-    let total_supply: T::Balance = 1_000_000.into();
+    let total_supply: T::Balance = (1_000_000 * POLY).into();
 
     Module::<T>::create_asset(
         owner.origin().into(),
