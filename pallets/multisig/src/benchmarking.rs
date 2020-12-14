@@ -25,7 +25,10 @@ pub type Identity<T> = identity::Module<T>;
 fn generate_signers<T: Trait>(signers: &mut Vec<Signatory<T::AccountId>>, n: usize) {
     for x in 0..n {
         let signer = Signatory::Account(
-            <UserBuilder<T>>::default().seed(x as u32).build("key").account,
+            <UserBuilder<T>>::default()
+                .seed(x as u32)
+                .build("key")
+                .account,
         );
         signers.push(signer);
     }

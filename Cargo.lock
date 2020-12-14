@@ -4770,6 +4770,7 @@ dependencies = [
 name = "pallet-treasury"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
@@ -5396,6 +5397,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-runtime-interface",
  "sp-std",
  "sp-version",
 ]
@@ -5680,6 +5682,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-settlement",
  "pallet-timestamp",
+ "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-contracts",
 ]
