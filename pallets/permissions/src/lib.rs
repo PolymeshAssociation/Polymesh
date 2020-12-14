@@ -19,6 +19,7 @@
 //! the current extrinsic.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
