@@ -49,7 +49,7 @@ parameter_types! {
     /// We allow for 2 seconds of compute with a 6 second average block time.
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+    pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
     /// 20 ms is needed to create a block
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
     // 0.8 ms is needed to process an empty extrinsic
