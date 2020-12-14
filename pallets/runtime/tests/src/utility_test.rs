@@ -262,18 +262,24 @@ fn batch_secondary_with_permissions() {
     let bob_pallet_permissions = vec![
         PalletPermissions::new(b"identity".into(), SubsetRestriction(None)),
         PalletPermissions::new(
-            b"portfolio".into(),
+            b"Portfolio".into(),
             SubsetRestriction::elems(vec![
                 b"move_portfolio_funds".into(),
                 b"rename_portfolio".into(),
             ]),
         ),
     ];
+    let bob_permissions = Permissions {
+        asset: SubsetRestriction::default(),
+        extrinsic: SubsetRestriction(Some(bob_pallet_permissions.into_iter().collect())),
+        portfolio: SubsetRestriction::default(),
+    };
     assert_ok!(Identity::set_permission_to_signer(
         alice_origin,
         bob_signer,
-        Permissions::from_pallet_permissions(bob_pallet_permissions),
+        bob_permissions,
     ));
+    println!("permissions: {:?}", Identity::did_records(&alice_did));
     let high_risk_name: PortfolioName = b"high risk".into();
     assert_err!(
         Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
@@ -281,10 +287,12 @@ fn batch_secondary_with_permissions() {
     );
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
-        Call::Portfolio(PortfolioCall::rename_portfolio(0.into(), high_risk_name)),
+        Call::Portfolio(PortfolioCall::rename_portfolio(
+            0.into(),
+            high_risk_name.clone(),
+        )),
     ];
-    assert_ok!(Utility::batch(bob_origin, calls));
-    println!("{:?}", System::events());
+    assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
     // TODO: Why doesn't this error code match with 0?
     // assert_event_exists!(
@@ -296,12 +304,15 @@ fn batch_secondary_with_permissions() {
         "Alice's: {:?}",
         pallet_portfolio::Portfolios::iter_prefix(&alice_did).collect::<Vec<_>>()
     );
-    // println!(
-    //     "Bob's: {}",
-    //     Portfolio::Portfolios::iter_prefix(&bob_did).collect::<Vec<_>>()
-    // );
     assert_eq!(
         Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
-        low_risk_name.clone()
+        low_risk_name
+    );
+    assert_ok!(Utility::batch_optimistic(bob_origin, calls));
+    println!("{:?}", System::events());
+    assert_event_exists!(EventTest::pallet_utility(Event::BatchOptimisticFailed(_)));
+    assert_eq!(
+        Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
+        high_risk_name
     );
 }

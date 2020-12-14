@@ -1,3 +1,4 @@
+
 // This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
 // Copyright (c) 2020 Polymath
 //
@@ -86,7 +87,7 @@ pub trait Trait: CommonTrait + IdentityTrait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Session {
+    trait Store for Module<T: Trait> as Portfolio {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
