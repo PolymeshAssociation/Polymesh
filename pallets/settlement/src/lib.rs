@@ -1512,8 +1512,8 @@ impl<T: Trait> Module<T> {
         }
 
         for portfolio in portfolios_set {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
             Self::deposit_event(RawEvent::InstructionAffirmed(
                 did,
                 portfolio,
