@@ -31,7 +31,7 @@ use frame_support::{
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
 };
-use polymesh_primitives::{storage_migration_ver, DispatchableName, PalletName, Version};
+use polymesh_primitives::{storage_migration_ver, DispatchableName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
@@ -59,29 +59,17 @@ decl_module! {
         type Error = Error<T>;
 
         fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{
-                migrate::{migrate_map_rename_module, Empty},
-                storage_migrate_on,
-            };
+            use frame_support::migration::remove_storage_prefix;
+            use polymesh_primitives::storage_migrate_on;
 
             let storage_ver = StorageVersion::get();
 
             // These fields should not be persisted in storage because they are unset after each
-            // dispatchable call. However we ensure that any trace (perhaps None values) of them is
+            // dispatchable call. However we ensure that any trace of them (perhaps None values) is
             // removed from the Session prefix.
             storage_migrate_on!(storage_ver, 1, {
-                migrate_map_rename_module::<PalletName, _>(
-                    b"Session",
-                    b"Permissions",
-                    b"CurrentPalletName",
-                    |_| Empty
-                );
-                migrate_map_rename_module::<DispatchableName, _>(
-                    b"Session",
-                    b"Permissions",
-                    b"CurrentDispatchableName",
-                    |_| Empty
-                );
+                remove_storage_prefix(b"Session", b"CurrentPalletName", b"");
+                remove_storage_prefix(b"Session", b"CurrentDispatchableName", b"");
             });
 
             0
