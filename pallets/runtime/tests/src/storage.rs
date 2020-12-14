@@ -537,6 +537,8 @@ impl bridge::Trait for TestStorage {
 impl corporate_actions::Trait for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for TestStorage {

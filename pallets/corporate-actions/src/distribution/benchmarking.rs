@@ -24,7 +24,7 @@ use pallet_portfolio::MovePortfolioItem;
 use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::User;
 
-const MAX_TARGETS: u32 = 100;
+const MAX_TARGETS: u32 = 1000;
 
 fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: T::Balance) {
     let did = owner.did();

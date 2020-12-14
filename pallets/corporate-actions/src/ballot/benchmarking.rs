@@ -22,30 +22,29 @@ use frame_benchmarking::benchmarks;
 use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::User;
 
-const MAX_MOTIONS: u32 = 10;
-const MAX_CHOICES: u32 = 10;
-const MAX_TARGETS: u32 = 100;
+const MAX_CHOICES: u32 = 1000;
+const MAX_TARGETS: u32 = 1000;
 
 const RANGE: BallotTimeRange = BallotTimeRange {
     start: 3000,
     end: 4000,
 };
 
-fn meta(i: u32, j: u32) -> BallotMeta {
+fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
     let motion = Motion {
         title: "".into(),
         info_link: "".into(),
-        choices: iter::repeat("".into()).take(j as usize).collect(),
+        choices: iter::repeat("".into()).take(n_choices as usize).collect(),
     };
-    let motions = iter::repeat(motion).take(i as usize).collect();
+    let motions = iter::repeat(motion).take(n_motions as usize).collect();
     BallotMeta {
         title: "".into(),
         motions,
     }
 }
 
-fn attach<T: Trait>(i: u32, j: u32) -> (User<T>, CAId) {
-    let meta = meta(i, j);
+fn attach<T: Trait>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
+    let meta = meta(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     <Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
     (owner, ca_id)
@@ -55,10 +54,9 @@ benchmarks! {
     _ {}
 
     attach_ballot {
-        let i in 0..MAX_MOTIONS;
         let j in 0..MAX_CHOICES;
 
-        let meta = meta(i, j);
+        let meta = meta(1, j);
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
@@ -66,12 +64,11 @@ benchmarks! {
     }
 
     vote {
-        let i in 0..MAX_MOTIONS;
         let j in 0..MAX_CHOICES;
         let k in 0..MAX_TARGETS;
 
         // Attach and prepare to vote.
-        let (owner, ca_id) = attach::<T>(i, j);
+        let (owner, ca_id) = attach::<T>(1, j);
         #[cfg(feature = "std")]
         <Timestamp<T>>::set_timestamp(3000.into());
 
@@ -79,14 +76,10 @@ benchmarks! {
         set_ca_targets::<T>(ca_id, k);
 
         // Construct the voting list.
-        let votes = (0..i)
-            .flat_map(|_| {
-                (0..j)
-                    .map(|j| BallotVote {
-                        power: 0.into(),
-                        fallback: (j as u16).checked_sub(1),
-                    })
-                    .collect::<Vec<_>>()
+        let votes = (0..j)
+            .map(|j| BallotVote {
+                power: 0.into(),
+                fallback: (j as u16).checked_sub(1),
             })
             .collect::<Vec<_>>();
 
@@ -103,6 +96,17 @@ benchmarks! {
     }: _(owner.origin(), ca_id, 5000)
     verify {
         ensure!(TimeRanges::get(ca_id).unwrap().end == 5000, "range not changed");
+    }
+
+    change_meta {
+        let j in 0..MAX_CHOICES;
+
+        let (owner, ca_id) = attach::<T>(0, 0);
+        let meta = meta(1, j);
+        let meta2 = meta.clone();
+    }: _(owner.origin(), ca_id, meta)
+    verify {
+        ensure!(Metas::get(ca_id).unwrap() == meta2, "meta not changed");
     }
 
     change_rcv {

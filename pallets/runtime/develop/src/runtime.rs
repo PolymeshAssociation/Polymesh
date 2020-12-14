@@ -723,6 +723,8 @@ impl polymesh_contracts::Trait for Runtime {
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for Runtime {

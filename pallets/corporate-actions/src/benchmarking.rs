@@ -26,10 +26,10 @@ use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 const TAX: Tax = Tax::one();
 crate const SEED: u32 = 0;
-const MAX_TARGET_IDENTITIES: u32 = 100;
-const MAX_DID_WHT_IDS: u32 = 100;
-const MAX_DETAILS_LEN: u32 = 100;
-const MAX_DOCS: u32 = 100;
+const MAX_TARGET_IDENTITIES: u32 = 1000;
+const MAX_DID_WHT_IDS: u32 = 1000;
+const DETAILS_LEN: u32 = 1000;
+const MAX_DOCS: u32 = 1000;
 
 crate const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
 const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
@@ -41,7 +41,6 @@ crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)
-        .become_cdd_provider()
         .build(prefix)
 }
 
@@ -254,12 +253,11 @@ benchmarks! {
     }
 
     initiate_corporate_action_use_defaults {
-        let i in 0..MAX_DETAILS_LEN;
         let j in 0..MAX_DID_WHT_IDS;
         let k in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        let details = details(i);
+        let details = details(DETAILS_LEN);
         let whts = init_did_whts::<T>(ticker, j);
         let targets = target_ids::<T>(k, TargetTreatment::Exclude).dedup();
         DefaultTargetIdentities::insert(ticker, targets);
@@ -271,12 +269,11 @@ benchmarks! {
     }
 
     initiate_corporate_action_provided {
-        let i in 0..MAX_DETAILS_LEN;
         let j in 0..MAX_DID_WHT_IDS;
         let k in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        let details = details(i);
+        let details = details(DETAILS_LEN);
         let whts = Some(did_whts::<T>(j));
         let targets = Some(target_ids::<T>(k, TargetTreatment::Exclude));
     }: initiate_corporate_action(

@@ -308,16 +308,31 @@ pub struct CAId {
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
     fn set_max_details_length() -> Weight;
-
     fn reset_caa() -> Weight;
-    fn set_default_targets(num_targets: u32) -> Weight;
+    fn set_default_targets(i: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
-    fn set_did_withholding_tax() -> Weight;
+    fn set_did_withholding_tax(existing_overrides: u32) -> Weight;
 
-    fn initiate_corporate_action() -> Weight;
-    fn link_ca_doc(num_docs: u32) -> Weight;
-    fn remove_ca() -> Weight;
-    fn change_record_date() -> Weight;
+    fn initiate_corporate_action_use_defaults(whts: u32, target_ids: u32) -> Weight;
+    fn initiate_corporate_action_provided(whts: u32, target_ids: u32) -> Weight;
+    fn initiate_corporate_action(whts: u32, target_ids: u32) -> Weight {
+        Self::initiate_corporate_action_use_defaults(1, 1)
+            .max(Self::initiate_corporate_action_provided(whts, target_ids))
+    }
+
+    fn link_ca_doc(docs: u32) -> Weight;
+
+    fn remove_ca() -> Weight {
+        Self::remove_ca_with_ballot().max(Self::remove_ca_with_dist())
+    }
+    fn remove_ca_with_ballot() -> Weight;
+    fn remove_ca_with_dist() -> Weight;
+
+    fn change_record_date() -> Weight {
+        Self::change_record_date_with_ballot().max(Self::change_record_date_with_dist())
+    }
+    fn change_record_date_with_ballot() -> Weight;
+    fn change_record_date_with_dist() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -330,6 +345,12 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
 
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
+
+    /// Weight information for extrinsics in the corporate ballot pallet.
+    type BallotWeightInfo: ballot::WeightInfo;
+
+    /// Weight information for extrinsics in the capital distribution pallet.
+    type DistWeightInfo: distribution::WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -482,7 +503,7 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
-        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
+        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(1)]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             DidWithholdingTax::mutate(ticker, |whts| {
@@ -521,7 +542,10 @@ decl_module! {
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action(
+            withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+            targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+        )]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,

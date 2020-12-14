@@ -71,6 +71,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    weights::Weight,
 };
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -116,6 +117,15 @@ pub struct Distribution<Balance> {
 /// Has the distribution expired?
 fn expired(expiry: Option<Moment>, now: Moment) -> bool {
     expiry.filter(|&e| e <= now).is_some()
+}
+
+/// Weight abstraction for the corporate actions module.
+pub trait WeightInfo {
+    fn distribute() -> Weight;
+    fn claim(target_ids: u32) -> Weight;
+    fn push_benefit(target_ids: u32) -> Weight;
+    fn reclaim() -> Weight;
+    fn remove_distribution() -> Weight;
 }
 
 decl_storage! {
@@ -165,7 +175,7 @@ decl_module! {
         /// - `UnauthorizedCustodian` if CAA is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[weight = 2_000_000_000]
+        #[weight = <T as Trait>::DistWeightInfo::distribute()]
         pub fn distribute(
             origin,
             ca_id: CAId,
@@ -256,7 +266,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::DistWeightInfo::claim(1)]
         pub fn claim(origin, ca_id: CAId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::transfer_benefit(did.for_event(), did, ca_id)?;
@@ -284,7 +294,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::DistWeightInfo::push_benefit(1)]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
             // N.B. we allow the asset owner to call this as well, not just the CAA.
             let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
@@ -303,7 +313,7 @@ decl_module! {
         /// - `NotDistributionCreator` if `origin` is not the original creator of the distribution.
         /// - `AlreadyReclaimed` if this function has already been called successfully.
         /// - `NotExpired` if `now < expiry`.
-        #[weight = 900_000_000]
+        #[weight = <T as Trait>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
             // Ensure DID is the dist creator, they haven't reclaimed, and that expiry has passed.
             let did = <Identity<T>>::ensure_perms(origin)?;
@@ -335,7 +345,7 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `DistributionStarted` if `payment_at >= now`.
-        #[weight = 900_000_000]
+        #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
