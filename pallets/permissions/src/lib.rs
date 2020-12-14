@@ -31,12 +31,14 @@ use frame_support::{
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
 };
-use polymesh_primitives::{DispatchableName, PalletName};
+use polymesh_primitives::{storage_migration_ver, DispatchableName, PalletName, Version};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 use sp_std::{fmt, marker::PhantomData, result::Result};
+
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Permissions {
