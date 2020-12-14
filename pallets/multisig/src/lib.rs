@@ -175,10 +175,10 @@ impl Default for ProposalStatus {
 
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;
-    fn create_or_approve_proposal_as_identity(signers: u32) -> Weight;
-    fn create_or_approve_proposal_as_key(signers: u32) -> Weight;
+    fn create_or_approve_proposal_as_identity() -> Weight;
+    fn create_or_approve_proposal_as_key() -> Weight;
     fn create_proposal_as_identity() -> Weight;
-    fn create_proposal_as_key(signers: u32) -> Weight;
+    fn create_proposal_as_key() -> Weight;
     fn approve_as_identity() -> Weight;
     fn approve_as_key() -> Weight;
     fn reject_as_identity() -> Weight;
@@ -190,7 +190,7 @@ pub trait WeightInfo {
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn change_all_signers_and_sigs_required(signers: u32) -> Weight;
+    fn change_all_signers_and_sigs_required() -> Weight;
     fn make_multisig_signer() -> Weight;
     fn make_multisig_primary() -> Weight;
 }
@@ -281,7 +281,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_identity(0)]
+        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_identity()]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -303,7 +303,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_key(0)]
+        #[weight = <T as Trait>::WeightInfo::create_or_approve_proposal_as_key()]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -348,7 +348,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = <T as Trait>::WeightInfo::create_proposal_as_key(0)]
+        #[weight = <T as Trait>::WeightInfo::create_proposal_as_key()]
         pub fn create_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -567,7 +567,7 @@ decl_module! {
         ///
         /// # Weight
         /// `900_000_000 + 3_000_000 * signers.len()`
-        #[weight = <T as Trait>::WeightInfo::change_all_signers_and_sigs_required(signers.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::change_all_signers_and_sigs_required()]
         pub fn change_all_signers_and_sigs_required(
             origin,
             signers: Vec<Signatory<T::AccountId>>,
