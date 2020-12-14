@@ -1521,7 +1521,7 @@ impl<T: Trait> Module<T> {
             ));
         }
 
-        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
+        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
         Ok(())
     }
 
