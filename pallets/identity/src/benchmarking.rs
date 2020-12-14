@@ -65,8 +65,12 @@ impl<T: Trait> User<T> {
         self.account.clone()
     }
 
+    pub fn raw_origin(self: &Self) -> RawOrigin<T::AccountId> {
+        self.origin.clone()
+    }
+
     pub fn origin(self: &Self) -> T::Origin {
-        self.origin.clone().into()
+        self.raw_origin().into()
     }
 
     #[cfg(feature = "std")]

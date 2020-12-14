@@ -75,7 +75,7 @@ benchmarks! {
         let mut signers = vec![Signatory::from(caller.did())];
         generate_signers::<T>(&mut signers, i as usize);
         let multisig = <MultiSig<T>>::get_next_multisig_address(caller.account());
-    }: _(caller.origin, signers, i as u64)
+    }: _(caller.raw_origin(), signers, i as u64)
     verify {
         ensure!(<MultiSigToIdentity<T>>::contains_key(multisig), "create_multisig");
     }
@@ -86,7 +86,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(alice.raw_origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_identity");
     }
@@ -98,7 +98,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(bob.origin, multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(bob.raw_origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_key");
     }
@@ -109,7 +109,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(alice.origin, multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(alice.raw_origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_proposal_as_identity");
     }
@@ -121,7 +121,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(bob.raw_origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_proposal_as_key");
     }
@@ -142,7 +142,7 @@ benchmarks! {
             None,
             true
         )?;
-    }: _(bob.origin(), multisig.clone(), 0)
+    }: _(bob.raw_origin(), multisig.clone(), 0)
     verify {
         ensure!(
             <MultiSig<T>>::votes((multisig.clone(), Signatory::from(bob.did()), proposal_id)),
@@ -167,7 +167,7 @@ benchmarks! {
             None,
             true
         )?;
-    }: _(charlie.origin(), multisig.clone(), 0)
+    }: _(charlie.raw_origin(), multisig.clone(), 0)
     verify {
         ensure!(
             <MultiSig<T>>::votes((multisig.clone(), Signatory::Account(charlie.account()), proposal_id)),
@@ -191,7 +191,7 @@ benchmarks! {
             None,
             true
         )?;
-    }: _(bob.origin(), multisig.clone(), 0)
+    }: _(bob.raw_origin(), multisig.clone(), 0)
     verify {
         ensure!(
             <MultiSig<T>>::votes((multisig.clone(), Signatory::from(bob.did()), proposal_id)),
@@ -217,7 +217,7 @@ benchmarks! {
             None,
             true
         )?;
-    }: _(charlie.origin(), multisig.clone(), 0)
+    }: _(charlie.raw_origin(), multisig.clone(), 0)
     verify {
         ensure!(
             <MultiSig<T>>::votes((multisig.clone(), Signatory::Account(charlie.account()), proposal_id)),
@@ -232,7 +232,7 @@ benchmarks! {
         let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice.did()));
         Context::set_current_identity::<Identity<T>>(Some(alice.did()));
         let num_of_signers = <NumberOfSigners<T>>::get(multisig.clone());
-    }: _(alice.origin(), alice_auth_id)
+    }: _(alice.raw_origin(), alice_auth_id)
     verify {
         ensure!(
             num_of_signers < <NumberOfSigners<T>>::get(multisig.clone()),
@@ -247,7 +247,7 @@ benchmarks! {
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::Account(bob.account())], 1)?;
         let auth_id = get_last_auth_id::<T>(&Signatory::Account(bob.account()));
         let num_of_signers = <NumberOfSigners<T>>::get(multisig.clone());
-    }: _(bob.origin(), auth_id)
+    }: _(bob.raw_origin(), auth_id)
     verify {
         ensure!(
             num_of_signers < <NumberOfSigners<T>>::get(multisig.clone()),
@@ -261,11 +261,13 @@ benchmarks! {
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
         let origin = RawOrigin::Signed(multisig.clone());
-        let auth_id = get_last_auth_id::<T>(&Signatory::Account(bob.account()));
     }: _(origin, Signatory::Account(bob.account()))
     verify {
         ensure!(
-            auth_id < get_last_auth_id::<T>(&Signatory::Account(bob.account())),
+            <identity::Authorizations<T>>::iter_prefix_values(Signatory::Account(bob.account()))
+            .into_iter()
+            .max_by_key(|x| x.auth_id)
+            .is_some(),
             "add_multisig_signer"
         );
     }
@@ -298,11 +300,11 @@ benchmarks! {
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
         let mut signers = vec![];
         generate_signers::<T>(&mut signers, i as usize);
-        let num_of_signers = <NumberOfSigners<T>>::get(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), signers)
+        let count = <identity::Authorizations<T>>::iter().count();
+    }: _(alice.raw_origin(), multisig.clone(), signers)
     verify {
         ensure!(
-            num_of_signers < <NumberOfSigners<T>>::get(multisig.clone()),
+            <identity::Authorizations<T>>::iter().count() > count,
             "add_multisig_signers_via_creator"
         );
     }
@@ -319,7 +321,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, i as usize);
         let multisig = generate_multisig_with_signers::<T>(alice.account(), alice.origin(), signers.clone(), 1)?;
         let num_of_signers = <NumberOfSigners<T>>::get(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), signers[1..].to_vec())
+    }: _(alice.raw_origin(), multisig.clone(), signers[1..].to_vec())
     verify {
         ensure!(
             num_of_signers > <NumberOfSigners<T>>::get(multisig.clone()),
@@ -350,12 +352,12 @@ benchmarks! {
         let alice = <UserBuilder<T>>::default().build_with_did("alice", 0);
         let mut signers = vec![];
         generate_signers::<T>(&mut signers, MAX_SIGNERS as usize);
-        let multisig = generate_multisig::<T>(alice.account(), alice.origin(), vec![Signatory::from(alice.did())])?;
+        let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let mut signers = vec![];
         generate_signers::<T>(&mut signers, i as usize);
         let origin = RawOrigin::Signed(multisig.clone());
         let sigs_required = <MultiSigSignsRequired<T>>::get(&multisig);
-    }: _(origin, signers, 1)
+    }: _(origin, signers, i as u64)
     verify {
         ensure!(
             sigs_required != <MultiSigSignsRequired<T>>::get(&multisig),
@@ -368,7 +370,7 @@ benchmarks! {
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
         let old_record = <Identity<T>>::did_records(alice.did());
-    }: _(alice.origin(), multisig)
+    }: _(alice.raw_origin(), multisig)
     verify {
         ensure!(
             old_record != <Identity<T>>::did_records(alice.did()),
@@ -381,7 +383,7 @@ benchmarks! {
         let multisig = <MultiSig<T>>::get_next_multisig_address(alice.account().clone());
         <MultiSig<T>>::create_multisig(alice.origin(), vec![Signatory::from(alice.did())], 1)?;
         let old_record = <Identity<T>>::did_records(alice.did());
-    }: _(alice.origin(), multisig, None)
+    }: _(alice.raw_origin(), multisig, None)
     verify {
         ensure!(
             old_record != <Identity<T>>::did_records(alice.did()),
