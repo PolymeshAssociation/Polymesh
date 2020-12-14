@@ -1357,8 +1357,7 @@ impl<T: Trait> Module<T> {
                     )
                     .ok();
                 }
-                LegStatus::ExecutionToBeSkipped(_, _) => {}
-                LegStatus::PendingTokenLock => {}
+                LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
             }
         }
     }
