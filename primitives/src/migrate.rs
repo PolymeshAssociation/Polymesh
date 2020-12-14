@@ -67,7 +67,20 @@ pub fn migrate_map<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
     item: &[u8],
     derive_context: C,
 ) {
-    migrate_map_rename::<T, C>(module, item, item, derive_context)
+    migrate_map_rename::<T, C>(module, module, item, item, derive_context)
+}
+
+/// Migrate the values with old type `T` in `module::item` to `T::Into` and renames the module to
+/// `new_module`.
+///
+/// Migrations mapping to `None` are silently dropped from storage.
+pub fn migrate_map_rename_module<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
+    module: &[u8],
+    new_module: &[u8],
+    item: &[u8],
+    derive_context: C,
+) {
+    migrate_map_rename::<T, C>(module, new_module, item, item, derive_context)
 }
 
 /// Migrate the values with old type `T` in `module::item` to `T::Into` in `module::new_item`.
@@ -75,6 +88,7 @@ pub fn migrate_map<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
 /// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
 pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
     module: &[u8],
+    new_module: &[u8],
     item: &[u8],
     new_item: &[u8],
     mut derive_context: C,
@@ -85,7 +99,7 @@ pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
             let new = old.migrate(derive_context(&key))?;
             Some((key, new))
         })
-        .for_each(|(key, new)| put_storage_value(module, new_item, &key, new));
+        .for_each(|(key, new)| put_storage_value(new_module, new_item, &key, new));
 }
 
 /// Migrate the key & value of a map `KO, VO` to key & value of type `KN, VN` via `map`.

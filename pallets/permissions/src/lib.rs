@@ -43,6 +43,8 @@ decl_storage! {
         pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
         pub CurrentDispatchableName get(fn current_dispatchable_name): DispatchableName;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -52,6 +54,32 @@ decl_module! {
         // Without this definition, the metadata won't have details about the errors of this module.
         // That will lead to UIs either throwing fits or showing incorrect error messages.
         type Error = Error<T>;
+
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::migrate::{migrate_map_rename_module, Empty};
+
+            let storage_ver = StorageVersion::get();
+
+            // These fields should not be persisted in storage because they are unset after each
+            // dispatchable call. However we ensure that any trace (perhaps None values) of them is
+            // removed from the Session prefix.
+            storage_migrate_on!(storage_ver, 1, {
+                migrate_map_rename_module::<PalletName>(
+                    b"Session",
+                    b"Permissions",
+                    b"CurrentPalletName",
+                    |_| Empty
+                );
+                migrate_map_rename_module::<PalletName>(
+                    b"Session",
+                    b"Permissions",
+                    b"CurrentDispatchableName",
+                    |_| Empty
+                );
+            });
+
+            0
+        }
     }
 }
 

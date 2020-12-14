@@ -1,4 +1,3 @@
-
 // This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
 // Copyright (c) 2020 Polymath
 //
