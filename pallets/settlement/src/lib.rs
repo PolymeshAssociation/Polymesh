@@ -1098,21 +1098,7 @@ impl<T: Trait> Module<T> {
         let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
-            for (leg_id, _) in legs.iter() {
-                match Self::instruction_leg_status(instruction_id, leg_id) {
-                    LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
-                        <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-                        Self::deposit_event(RawEvent::ReceiptUnclaimed(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                            *leg_id,
-                            receipt_uid,
-                            signer,
-                        ));
-                    }
-                    _ => {}
-                }
-            }
+            Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::deposit_event(RawEvent::InstructionRejected(
                 SettlementDID.as_id(),
                 instruction_id,
@@ -1171,6 +1157,8 @@ impl<T: Trait> Module<T> {
                             SettlementDID.as_id(),
                             instruction_id,
                         ));
+                        // We need to unclaim receipts for the failed transaction so that they can be reused
+                        Self::unsafe_unclaim_receipts(instruction_id, &legs);
                         result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
                     }
                 }
@@ -1336,6 +1324,27 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    // Unclaims all receipts for an instruction
+    // Should only be used if user is unclaiming, or instruction has failed
+    fn unsafe_unclaim_receipts(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+        for (leg_id, _) in legs.iter() {
+            match Self::instruction_leg_status(instruction_id, leg_id) {
+                LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
+                    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
+                    Self::deposit_event(RawEvent::ReceiptUnclaimed(
+                        SettlementDID.as_id(),
+                        instruction_id,
+                        *leg_id,
+                        receipt_uid,
+                        signer,
+                    ));
+                }
+                LegStatus::PendingTokenLock => {}
+                LegStatus::ExecutionPending => {}
+            }
+        }
+    }
+
     fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
         for (leg_id, leg_details) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
@@ -1349,7 +1358,8 @@ impl<T: Trait> Module<T> {
                     )
                     .ok();
                 }
-                _ => {}
+                LegStatus::ExecutionToBeSkipped(_, _) => {}
+                LegStatus::PendingTokenLock => {}
             }
         }
     }
