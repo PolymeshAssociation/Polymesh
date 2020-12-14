@@ -3,11 +3,11 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::weights::{Weight, constants::RocksDbWeight as DbWeight};
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl pallet_multisig::WeightInfo for WeightInfo {
-    fn create_multisig(i: u32, ) -> Weight {
+    fn create_multisig(i: u32) -> Weight {
         (380_536_000 as Weight)
             .saturating_add((6_271_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
@@ -74,14 +74,14 @@ impl pallet_multisig::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    fn add_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn add_multisig_signers_via_creator(i: u32) -> Weight {
         (46_415_000 as Weight)
             .saturating_add((10_725_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
     }
-    fn remove_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn remove_multisig_signers_via_creator(i: u32) -> Weight {
         (135_618_000 as Weight)
             .saturating_add((10_111_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
