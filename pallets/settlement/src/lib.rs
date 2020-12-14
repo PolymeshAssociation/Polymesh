@@ -1339,8 +1339,7 @@ impl<T: Trait> Module<T> {
                         signer,
                     ));
                 }
-                LegStatus::PendingTokenLock => {}
-                LegStatus::ExecutionPending => {}
+                LegStatus::PendingTokenLock | LegStatus::ExecutionPending => {}
             }
         }
     }
