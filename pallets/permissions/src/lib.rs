@@ -26,6 +26,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     storage::StorageValue,
     traits::{CallMetadata, GetCallMetadata},
+    weights::Weight,
 };
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
@@ -56,7 +57,10 @@ decl_module! {
         type Error = Error<T>;
 
         fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::migrate::{migrate_map_rename_module, Empty};
+            use polymesh_primitives::{
+                migrate::{migrate_map_rename_module, Empty},
+                storage_migrate_on,
+            };
 
             let storage_ver = StorageVersion::get();
 
@@ -64,13 +68,13 @@ decl_module! {
             // dispatchable call. However we ensure that any trace (perhaps None values) of them is
             // removed from the Session prefix.
             storage_migrate_on!(storage_ver, 1, {
-                migrate_map_rename_module::<PalletName>(
+                migrate_map_rename_module::<PalletName, _>(
                     b"Session",
                     b"Permissions",
                     b"CurrentPalletName",
                     |_| Empty
                 );
-                migrate_map_rename_module::<PalletName>(
+                migrate_map_rename_module::<DispatchableName, _>(
                     b"Session",
                     b"Permissions",
                     b"CurrentDispatchableName",
