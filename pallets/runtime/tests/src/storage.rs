@@ -549,6 +549,7 @@ impl voting::Trait for TestStorage {
 impl treasury::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 thread_local! {
