@@ -102,7 +102,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
-    authoring_version: 0,
+    authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
@@ -282,9 +282,8 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
-    type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -714,6 +713,7 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
+    type IdentityFn = identity::Module<Runtime>;
 }
 
 parameter_types! {

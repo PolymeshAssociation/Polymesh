@@ -110,7 +110,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2001,
+    spec_version: 2002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -285,9 +285,8 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
-    type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -704,6 +703,7 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
+    type IdentityFn = identity::Module<Runtime>;
 }
 
 parameter_types! {

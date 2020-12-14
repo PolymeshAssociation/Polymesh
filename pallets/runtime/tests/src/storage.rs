@@ -267,9 +267,8 @@ impl balances::Trait for TestStorage {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<TestStorage>;
-    type Identity = identity::Module<TestStorage>;
     type CddChecker = CddChecker<Self>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
     type MaxLocks = MaxLocks;
 }
 
@@ -440,6 +439,7 @@ impl IdentityTrait for TestStorage {
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
+    type IdentityFn = identity::Module<TestStorage>;
 }
 
 parameter_types! {

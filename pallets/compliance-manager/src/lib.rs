@@ -441,11 +441,11 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
         #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
-        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
+        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
-                issuers.retain(|ti| ti != &issuer);
+                issuers.retain(|ti| ti.issuer != issuer);
                 ensure!(len != issuers.len(), Error::<T>::IncorrectOperationOnTrustedIssuer);
                 Ok(()) as DispatchResult
             })?;
@@ -508,7 +508,7 @@ decl_event!(
         TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
         /// Emitted when default claim issuer list for a given ticker get removed.
         /// (caller DID, Ticker, Removed TrustedIssuer).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, TrustedIssuer),
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
     }
 );
 

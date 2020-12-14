@@ -16,7 +16,7 @@
 //#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+pub use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_asset::{
@@ -26,12 +26,10 @@ use pallet_asset::{
 use pallet_balances as balances;
 use pallet_compliance_manager::benchmarking::make_issuers;
 use pallet_contracts::ContractAddressFor;
-use pallet_identity::{
-    self as identity,
-    benchmarking::{uid_from_name_and_idx, User, UserBuilder},
-};
+use pallet_identity as identity;
 use pallet_portfolio::{PortfolioAssetBalances, Portfolios};
 use polymesh_common_utilities::{
+    benchs::{uid_from_name_and_idx, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
@@ -41,7 +39,8 @@ use polymesh_primitives::{
     PortfolioName, Scope, SmartExtension, SmartExtensionType, TargetIdentity, Ticker,
     TrustedIssuer,
 };
-use sp_runtime::{traits::Hash, SaturatedConversion};
+use sp_runtime::traits::Hash;
+use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
@@ -52,7 +51,6 @@ use sp_core::sr25519::Signature;
 #[cfg(feature = "std")]
 use sp_runtime::MultiSignature;
 
-const SEED: u32 = 0;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
@@ -60,26 +58,6 @@ const MAX_COMPLIANCE_RESTRICTION: u32 = 45;
 const MAX_TRUSTED_ISSUER: u32 = 5;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
-
-pub struct Account<T: Trait> {
-    account_id: T::AccountId,
-    origin: RawOrigin<T::AccountId>,
-    did: IdentityId,
-}
-
-fn make_account<T: Trait>(name: &'static str, u: u32) -> Account<T> {
-    let account_id: T::AccountId = account(name, u, SEED);
-    let origin = RawOrigin::Signed(account_id.clone());
-    let _ = balances::Module::<T>::make_free_balance_be(&account_id, 1_000_000.into());
-    let uid = uid_from_name_and_idx(name, u);
-    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
-    let did = identity::Module::<T>::get_identity(&account_id).unwrap_or_default();
-    Account {
-        account_id,
-        origin,
-        did,
-    }
-}
 
 fn set_block_number<T: Trait>(new_block_no: u64) {
     system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
@@ -181,7 +159,10 @@ fn generate_portfolio<T: Trait>(
         PortfolioName::try_from(vec![b'P'; pseudo_random_no as usize].as_slice()).unwrap();
     match did {
         None => {
-            let user = UserBuilder::<T>::default().build_with_did(portfolio_to, pseudo_random_no);
+            let user = UserBuilder::<T>::default()
+                .generate_did()
+                .seed(pseudo_random_no)
+                .build(portfolio_to);
             Portfolios::insert(user.did(), portfolio_no, portfolio_name);
             PortfolioId::user_portfolio(user.did(), portfolio_no)
         }
@@ -257,26 +238,27 @@ fn emulate_add_instruction<T: Trait>(
     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
     let mut portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
-    let Account {
-        account_id,
+    let User {
         origin,
         did,
-    } = make_account::<T>("creator", SEED);
-    let venue_id = create_venue_::<T>(did, vec![]);
+        account,
+        ..
+    } = UserBuilder::<T>::default().generate_did().build("creator");
+    let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
 
     // Create legs vector.
     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
     if create_portfolios {
         // Assumption here is that instruction will never be executed as still there is one auth pending.
         for n in 0..l {
-            setup_leg_and_portfolio::<T>(None, Some(did), n, &mut legs, &mut portfolios);
+            setup_leg_and_portfolio::<T>(None, Some(did.unwrap()), n, &mut legs, &mut portfolios);
         }
     } else {
         for i in 1..l {
             populate_legs_for_instruction::<T>(i, &mut legs);
         }
     }
-    Ok((legs, venue_id, origin, did, portfolios, account_id))
+    Ok((legs, venue_id, origin, did.unwrap(), portfolios, account))
 }
 
 fn setup_leg_and_portfolio_with_ticker<T: Trait>(
@@ -397,7 +379,8 @@ pub fn create_condition<T: Trait>(
 
 pub fn get_condition_type<T: Trait>(condition_count: &u32, scope: Scope) -> ConditionType {
     let target_identity = UserBuilder::<T>::default()
-        .build_with_did("TargetIdentity", 10)
+        .generate_did()
+        .build("TargetIdentity")
         .did();
     if (2..8).contains(condition_count) {
         ConditionType::IsPresent(Claim::Affiliate(scope))
@@ -472,10 +455,10 @@ fn setup_affirm_instruction<T: Trait>(
     l: u32,
 ) -> (Vec<PortfolioId>, User<T>, User<T>, Ticker, Ticker) {
     // create venue
-    let from = UserBuilder::<T>::default().build_with_did("creator", SEED);
+    let from = UserBuilder::<T>::default().generate_did().build("creator");
     let venue_id = create_venue_::<T>(from.did(), vec![]);
     let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
-    let to = UserBuilder::<T>::default().build_with_did("receiver", 1);
+    let to = UserBuilder::<T>::default().generate_did().build("receiver");
     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
@@ -556,17 +539,17 @@ benchmarks! {
         // Variations for the no. of signers allowed.
         let s in 0 .. MAX_SIGNERS_ALLOWED;
         let mut signers = Vec::with_capacity(s as usize);
-        let Account {origin, did, .. } = make_account::<T>("caller", SEED);
+        let User {origin, did, .. } = UserBuilder::<T>::default().generate_did().build("caller");
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
         let venue_type = VenueType::Distribution;
         // Create signers vector.
         for signer in 0 .. s {
-            signers.push(make_account::<T>("signers", signer).account_id);
+            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
         ensure!(matches!(Module::<T>::venue_counter(), 2), "Invalid venue counter");
-        ensure!(matches!(Module::<T>::user_venues(did).into_iter().last(), Some(1)), "Invalid venue id");
+        ensure!(matches!(Module::<T>::user_venues(did.unwrap()).into_iter().last(), Some(1)), "Invalid venue id");
         ensure!(Module::<T>::venue_info(1).is_some(), "Incorrect venue info set");
     }
 
@@ -577,9 +560,9 @@ benchmarks! {
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
         // Venue type.
         let venue_type = VenueType::Sto;
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
+        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
         // create venue
-        let venue_id = create_venue_::<T>(did, vec![]);
+        let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
     }: _(origin, venue_id, Some(venue_details), Some(venue_type))
     verify {
         let updated_venue_details = Module::<T>::venue_info(1).unwrap();
@@ -646,8 +629,8 @@ benchmarks! {
 
     set_venue_filtering {
         // Constant time function. It is only for allow venue filtering.
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let ticker = create_asset_::<T>(did)?;
+        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(did.unwrap())?;
     }: _(origin, ticker, true)
     verify {
         ensure!(Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
@@ -656,8 +639,8 @@ benchmarks! {
 
     set_venue_filtering_disallow {
         // Constant time function. It is only for disallowing venue filtering.
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let ticker = create_asset_::<T>(did)?;
+        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(did.unwrap())?;
     }: set_venue_filtering(origin, ticker, false)
     verify {
         ensure!(!Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
@@ -667,8 +650,8 @@ benchmarks! {
     allow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let ticker = create_asset_::<T>(did)?;
+        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(did.unwrap())?;
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
@@ -684,8 +667,8 @@ benchmarks! {
     disallow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let ticker = create_asset_::<T>(did)?;
+        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(did.unwrap())?;
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
@@ -748,12 +731,12 @@ benchmarks! {
     unclaim_receipt {
         // There is no catalyst in this dispatchable, It will be time constant always.
 
-        let Account {account_id, origin, did} = make_account::<T>("creator", SEED);
-        let did_to = make_account::<T>("to_did", 5).did;
-        let venue_id = create_venue_::<T>(did, vec![account_id.clone()]);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
+        let did_to = UserBuilder::<T>::default().generate_did().build("to_did").did();
+        let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
 
         let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-        let portfolio_from = PortfolioId::user_portfolio(did, (100u64).into());
+        let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
         let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
         let portfolio_to = PortfolioId::user_portfolio(did_to, (500u64).into());
         let legs = vec![Leg {
@@ -764,15 +747,15 @@ benchmarks! {
         }];
 
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
         let instruction_id = 1;
         let leg_id = 0;
 
-        set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
-    }: _(origin, instruction_id, leg_id)
+        set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, creator.account().clone(), 0);
+    }: _(creator.origin.clone(), instruction_id, leg_id)
     verify {
         ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::ExecutionPending), "Fail: unclaim_receipt dispatch");
-        ensure!(!Module::<T>::receipts_used(&account_id, 0), "Fail: Receipt status didn't get update");
+        ensure!(!Module::<T>::receipts_used(&creator.account(), 0), "Fail: Receipt status didn't get update");
     }
 
 
@@ -825,8 +808,8 @@ benchmarks! {
         // There is no catalyst in this dispatchable, It will always be time constant.
 
         // create venue
-        let creator = UserBuilder::<T>::default().build_with_did("creator", SEED);
-        let to = UserBuilder::<T>::default().build_with_did("to_did", 5);
+        let creator = UserBuilder::<T>::default().generate_did().build("creator");
+        let to = UserBuilder::<T>::default().generate_did().build("to_did");
         let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
 
         let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
@@ -902,7 +885,7 @@ benchmarks! {
         Module::<T>::affirm_instruction((to.origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
 
         // Create trusted issuer for both the ticker
-        let t_issuer = UserBuilder::<T>::default().build_with_did("TrustedClaimIssuer", 99999);
+        let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());
 
         // Need to provide the Investor uniqueness claim for both sender and receiver,

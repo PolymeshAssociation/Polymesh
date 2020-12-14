@@ -281,9 +281,8 @@ impl balances::Trait for Test {
     type Event = MetaEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type Identity = identity::Module<Test>;
     type CddChecker = Test;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
     type MaxLocks = MaxLocks;
 }
 
@@ -383,6 +382,7 @@ impl IdentityTrait for Test {
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
+    type IdentityFn = identity::Module<Test>;
 }
 
 parameter_types! {

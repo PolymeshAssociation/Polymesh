@@ -70,7 +70,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
@@ -133,9 +133,9 @@ decl_storage! {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map hasher(twox_64_concat) T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
+        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
