@@ -19,6 +19,7 @@
             "doc_type": "Option<DocumentType>",
             "filing_date": "Option<Moment>"
         },
+        "Version": "u8",
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -604,7 +605,6 @@
         "ProposalState": {
             "_enum": [
                 "Pending",
-                "Cancelled",
                 "Rejected",
                 "Scheduled",
                 "Failed",
@@ -612,40 +612,17 @@
                 "Expired"
             ]
         },
-        "ReferendumState": {
-            "_enum": [
-                "Pending",
-                "Scheduled",
-                "Rejected",
-                "Failed",
-                "Executed"
-            ]
-        },
-        "ReferendumType": {
-            "_enum": [
-                "FastTracked",
-                "Emergency",
-                "Community"
-            ]
-        },
         "Pip": {
             "id": "PipId",
             "proposal": "Call",
             "state": "ProposalState",
-            "proposer": "Proposer",
-            "cool_off_until": "u32"
+            "proposer": "Proposer"
         },
         "ProposalData": {
             "_enum": {
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
             }
-        },
-        "Referendum": {
-            "id": "PipId",
-            "state": "ReferendumState",
-            "referendum_type": "ReferendumType",
-            "enactment_period": "u32"
         },
         "TickerTransferApproval": {
             "authorized_by": "IdentityId",
@@ -800,8 +777,8 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCheckpoint",
                 "AssetCreateAsset",
+                "AssetCreateCheckpointSchedule",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
@@ -810,7 +787,10 @@
                 "IdentitySetPrimaryKey",
                 "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
-                "VotingAddBallot"
+                "VotingAddBallot",
+                "ContractsPutCode",
+                "BallotAttachBallot",
+                "DistributionDistribute"
             ]
         },
         "CddStatus": {
@@ -1113,11 +1093,13 @@
         "RecordDateSpec": {
             "_enum": {
                 "Scheduled": "Moment",
+                "ExistingSchedule": "ScheduleId",
                 "Existing": "CheckpointId"
             }
         },
         "CorporateAction": {
             "kind": "CAKind",
+            "decl_date": "Moment",
             "record_date": "Option<RecordDate>",
             "details": "Text",
             "targets": "TargetIdentities",

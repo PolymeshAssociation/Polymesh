@@ -15,7 +15,6 @@
 
 use crate::{
     traits::{
-        balances,
         group::GroupTrait,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
@@ -33,8 +32,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions,
-    Signatory, Ticker,
+    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
+    Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -136,7 +135,7 @@ pub trait IdentityToCorporateAction {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
@@ -169,6 +168,8 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type WeightInfo: WeightInfo;
     /// Negotiates between Corporate Actions and the Identity pallet.
     type CorporateAction: IdentityToCorporateAction;
+
+    type IdentityFn: IdentityFnTrait<Self::AccountId>;
 }
 
 decl_event!(
@@ -252,10 +253,13 @@ decl_event!(
 
         /// An unexpected error happened that should be investigated.
         UnexpectedError(Option<DispatchError>),
+
+        /// Mocked InvestorUid created.
+        MockInvestorUIDCreated(IdentityId, InvestorUid),
     }
 );
 
-pub trait IdentityTrait<AccountId> {
+pub trait IdentityFnTrait<AccountId> {
     fn get_identity(key: &AccountId) -> Option<IdentityId>;
     fn current_identity() -> Option<IdentityId>;
     fn set_current_identity(id: Option<IdentityId>);
@@ -280,5 +284,9 @@ pub trait IdentityTrait<AccountId> {
 
     #[cfg(feature = "runtime-benchmarks")]
     /// Creates a new did and attaches a CDD claim to it.
-    fn create_did_with_cdd(target: AccountId) -> IdentityId;
+    fn register_did(
+        target: AccountId,
+        investor: InvestorUid,
+        secondary_keys: Vec<SecondaryKey<AccountId>>,
+    ) -> DispatchResult;
 }

@@ -146,12 +146,8 @@ decl_error! {
         FundraiserFrozen,
         /// Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
-        /// Interacting with a fundraiser before the start `Moment`.
-        FundraiserNotStarted,
         /// Using an invalid venue
         InvalidVenue,
-        /// Using an invalid portfolio
-        InvalidPortfolio,
         /// An individual price tier was invalid or a set of price tiers was invalid
         InvalidPriceTiers,
         /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
@@ -166,7 +162,7 @@ decl_storage! {
         /// All fundraisers that are currently running. (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
         /// Total fundraisers created for a token
-        FundraiserCount get(fn fundraiser_count): map hasher(twox_64_concat) Ticker => u64;
+        FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
     }
 }
 
@@ -354,7 +350,7 @@ decl_module! {
             with_transaction(|| {
                 <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &investment_amount)?;
 
-               let instruction_id = Settlement::<T>::base_add_instruction(
+                let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
                     fundraiser.venue_id,
                     SettlementType::SettleOnAffirmation,
@@ -367,13 +363,13 @@ decl_module! {
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
                 match receipt {
-                    Some(receipt) => Settlement::<T>::base_affirm_with_receipts(
+                    Some(receipt) => Settlement::<T>::affirm_with_receipts_and_execute_instruction(
                         origin,
                         instruction_id,
                         vec![receipt],
                         portfolios,
-                    ).map_err(|e| e.error)?,
-                    None => Settlement::<T>::base_affirm_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
+                    )?,
+                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios)?,
                 };
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {

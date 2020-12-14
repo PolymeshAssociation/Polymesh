@@ -110,7 +110,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2000,
+    spec_version: 2002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -285,9 +285,8 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
-    type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -468,20 +467,20 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
@@ -596,7 +595,6 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -656,6 +654,8 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const AssetNameMaxLength: usize = 1024;
+    pub const FundingRoundNameMaxLength: usize = 1024;
 }
 
 impl asset::Trait for Runtime {
@@ -664,6 +664,9 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
@@ -701,6 +704,7 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
+    type IdentityFn = identity::Module<Runtime>;
 }
 
 parameter_types! {
@@ -750,6 +754,8 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {
@@ -854,7 +860,7 @@ construct_runtime!(
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config},
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
@@ -1126,13 +1132,13 @@ impl_runtime_apis! {
             Pips::voted_on(address)
         }
 
-        /// Retrieve referendums voted on information by `address` account.
+        /// Retrieve PIPs voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
             Pips::voting_history_by_address(address)
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
+        /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1257,8 +1263,8 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-
             use frame_system_benchmarking::Module as SystemBench;
+
             impl frame_system_benchmarking::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -1282,6 +1288,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, pallet_pips, Pips);
             add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
@@ -1291,6 +1298,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
+            add_benchmark!(params, batches, pallet_confidential, Confidential);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

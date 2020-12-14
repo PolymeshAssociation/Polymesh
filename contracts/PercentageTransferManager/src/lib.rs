@@ -139,7 +139,7 @@ mod percentage_transfer_manager {
             _current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && self.allow_primary_issuance
-                || self.is_exempted_or_not(&(to.unwrap_or_default()))
+                || to.map_or(false, |to| self.is_exempted(&to))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
                     <= self.max_allowed_percentage
             {
@@ -192,7 +192,7 @@ mod percentage_transfer_manager {
         pub fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
             self.ensure_owner(self.env().caller());
             assert!(
-                self.is_exempted_or_not(&identity) != is_exempted,
+                self.is_exempted(&identity) != is_exempted,
                 "Must change setting"
             );
             self.exemption_list.insert(identity, is_exempted);
@@ -248,10 +248,10 @@ mod percentage_transfer_manager {
         /// Function to know whether given Identity is exempted or not
         #[ink(message)]
         pub fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
-            self.is_exempted_or_not(&of)
+            self.is_exempted(&of)
         }
 
-        fn is_exempted_or_not(&self, of: &IdentityId) -> bool {
+        fn is_exempted(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
         }
 

@@ -183,7 +183,6 @@ impl Trait for Runtime {
     type Event = ();
     type ReportUnresponsiveness = OffenceHandler;
     type SessionDuration = Period;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime

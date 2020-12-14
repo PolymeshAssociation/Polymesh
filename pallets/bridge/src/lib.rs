@@ -96,6 +96,7 @@
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -116,17 +117,21 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
-    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
+    traits::{
+        balances::{CheckCdd, Trait as BalancesTrait},
+        identity::Trait as IdentityTrait,
+        CommonTrait,
+    },
     Context, GC_DID,
 };
-use polymesh_primitives::{IdentityId, Permissions, Signatory};
+use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + scheduler::Trait {
+pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
@@ -238,10 +243,6 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The bridge controller address is not set.
         ControllerNotSet,
-        /// The signer does not have an identity.
-        IdentityMissing,
-        /// Failure to credit the recipient account or identity.
-        CannotCreditRecipient,
         /// The origin is not the controller or the admin address.
         BadCaller,
         /// The origin is not the admin address.
@@ -258,10 +259,6 @@ decl_error! {
         NotFrozen,
         /// The transaction is frozen.
         FrozenTx,
-        /// There is no proposal corresponding to a given bridge transaction.
-        NoSuchProposal,
-        /// All the blocks in the timelock block range are full.
-        TimelockBlockRangeFull,
         /// The identity's minted total has reached the bridge limit.
         BridgeLimitReached,
         /// The identity's minted total has overflowed.
@@ -270,10 +267,12 @@ decl_error! {
         DivisionByZero,
         /// The transaction is timelocked.
         TimelockedTx,
-        /// Missing Current Identity
-        MissingCurrentIdentity
     }
 }
+
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
@@ -282,6 +281,7 @@ decl_storage! {
         /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             use frame_support::debug;
+            use polymesh_primitives::Permissions;
 
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
@@ -342,10 +342,13 @@ decl_storage! {
 
         /// Amount of POLYX bridged by the identity in last block interval. Fields: the bridged
         /// amount and the last interval number.
-        PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
+        PolyxBridged get(fn polyx_bridged): map hasher(identity) IdentityId => (T::Balance, T::BlockNumber);
 
         /// Identities not constrained by the bridge limit.
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -402,18 +405,21 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Twox64Concat};
 
-            let now = frame_system::Module::<T>::block_number();
+            let storage_ver = StorageVersion::get();
+            storage_migrate_on!(storage_ver, 1, {
+                let now = frame_system::Module::<T>::block_number();
 
-            // Migrate timelocked transactions.
-            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
-                .drain()
-                .for_each(|(block_number, txs)| {
-                    // Schedule only for future blocks.
-                    let block_number = T::BlockNumber::max(block_number, now + One::one());
-                    for tx in txs {
-                        Self::schedule_call(block_number, tx);
-                    }
-                });
+                // Migrate timelocked transactions.
+                StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                    .drain()
+                    .for_each(|(block_number, txs)| {
+                        // Schedule only for future blocks.
+                        let block_number = T::BlockNumber::max(block_number, now + One::one());
+                        for tx in txs {
+                            Self::schedule_call(block_number, tx);
+                        }
+                    });
+            });
 
             // No need to calculate correct weight for testnet
             0

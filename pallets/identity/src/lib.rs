@@ -71,10 +71,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns)]
+#![feature(or_patterns, const_option)]
 
 pub mod types;
-pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
+pub use types::{
+    Claim1stKey, Claim2ndKey, DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData,
+};
+
+mod migration;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -92,7 +96,7 @@ use frame_support::{
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
@@ -102,7 +106,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityToCorporateAction, IdentityTrait, RawEvent,
+            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction, RawEvent,
             SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
@@ -113,10 +117,10 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker, ValidProofOfInvestor,
+    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
+    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -129,29 +133,23 @@ use sp_runtime::{
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
+use cryptography::claim_proofs;
+
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim1stKey {
-    pub target: IdentityId,
-    pub claim_type: ClaimType,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Claim2ndKey {
-    pub issuer: IdentityId,
-    pub scope: Option<Scope>,
-}
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord<T::AccountId>;
+        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
-        pub IsDidFrozen get(fn is_did_frozen): map hasher(twox_64_concat) IdentityId => bool;
+        pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
 
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
@@ -160,18 +158,18 @@ decl_storage! {
         pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
-            map hasher(blake2_128_concat) T::AccountId => IdentityId;
+            map hasher(twox_64_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(identity) IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
@@ -182,7 +180,7 @@ decl_storage! {
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
+        pub AuthorizationsGiven: double_map hasher(identity)
             IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
         /// Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
@@ -192,6 +190,9 @@ decl_storage! {
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -259,25 +260,31 @@ decl_module! {
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
-            migrate_map::<LinkedKeyInfo, _>(
-                b"identity",
-                b"KeyToIdentityIds",
-                |_| Empty
-            );
-            // Migrate secondary key permissions to the new type
-            migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
-                b"identity",
-                b"DidRecords",
-                |_| Empty
-            );
-            // Remove roles from Identities
-            StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
-                .drain()
-                .map(|(key, old)|  (key, DidRecord {
-                    primary_key: old.primary_key,
-                    secondary_keys: old.secondary_keys,
-                }))
+            let storage_ver = StorageVersion::get();
+
+            storage_migrate_on!(storage_ver, 1, {
+                migrate_map::<LinkedKeyInfo, _>(
+                    b"identity",
+                    b"KeyToIdentityIds",
+                    |_| Empty
+                    );
+                // Migrate secondary key permissions to the new type
+                migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
+                    b"identity",
+                    b"DidRecords",
+                    |_| Empty
+                    );
+                // Remove roles from Identities
+                StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
+                    .drain()
+                    .map(|(key, old)|  (key, DidRecord {
+                        primary_key: old.primary_key,
+                        secondary_keys: old.secondary_keys,
+                    }))
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
+            });
+
+            storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -329,6 +336,11 @@ decl_module! {
 
         // TODO: Remove this before mainnet.
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
+        /// The Investor UID is generated deterministically by the hash of the generated DID and
+        /// then we fix it to be compliant with UUID v4.
+        ///
+        /// # See
+        /// - [RFC 4122: UUID](https://tools.ietf.org/html/rfc4122)
         ///
         /// # Failure
         /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
@@ -344,12 +356,16 @@ decl_module! {
             target_account: T::AccountId,
         ) -> DispatchResult {
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
+
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
 
+            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
+
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_did.to_bytes().into()));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
             Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
+            Self::deposit_event(RawEvent::MockInvestorUIDCreated( target_did, target_uid.into()));
             Ok(())
         }
 
@@ -556,7 +572,7 @@ decl_module! {
 
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            let new_origin = RawOrigin::Signed(sender).into();
 
             let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
                 proposal.dispatch(new_origin)
@@ -694,11 +710,13 @@ decl_module! {
             auth_id: u64,
             _auth_issuer_pays: bool,
         ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did: from_did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
+            let sender = ensure_signed(origin)?;
+            let from_did = if <KeyToIdentityIds<T>>::contains_key(&sender) {
+                // If the sender is linked to an identity, ensure that it has relevant permissions
+                CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did
+            } else {
+                Context::current_identity_or::<Self>(&sender)?
+            };
 
             let auth = Self::ensure_authorization(&target, auth_id)?;
             let revoked = auth.authorized_by == from_did;
@@ -969,8 +987,6 @@ decl_error! {
         AlreadyLinked,
         /// Missing current identity on the transaction
         MissingCurrentIdentity,
-        /// No did linked to the user
-        NoDIDFound,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
         /// Given authorization is not pre-known
@@ -983,18 +999,12 @@ decl_error! {
         InvalidAuthorizationFromOwner,
         /// An invalid authorization from the CDD provider.
         InvalidAuthorizationFromCddProvider,
-        /// The authorization to change the key was not from the owner of the primary key.
-        KeyChangeUnauthorized,
         /// Attestation was not by a CDD service provider.
         NotCddProviderAttestation,
         /// Authorizations are not for the same DID.
         AuthorizationsNotForSameDids,
         /// The DID must already exist.
         DidMustAlreadyExist,
-        /// The Claim issuer DID must already exist.
-        ClaimIssuerDidMustAlreadyExist,
-        /// Sender must hold a claim issuer's secondary key.
-        SenderMustHoldClaimIssuerKey,
         /// Current identity cannot be forwarded, it is not a secondary key of target identity.
         CurrentIdentityCannotBeForwarded,
         /// The offchain authorization has expired.
@@ -1849,17 +1859,25 @@ impl<T: Trait> Module<T> {
         Ok(primary_did)
     }
 
-    /// Checks whether the sender and the receiver of a transfer have valid scope claims
-    pub fn verify_scope_claims_for_transfer(
-        ticker: &Ticker,
+    /// Checks whether the sender and the receiver of a transfer have valid investor uniqueness claims for a given ticker
+    pub fn verify_iu_claims_for_transfer(
+        ticker: Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
     ) -> bool {
-        let verify_scope_claim = |did| {
-            let asset_scope = Some(Scope::from(*ticker));
-            Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, asset_scope).is_some()
-        };
-        verify_scope_claim(from_did) && verify_scope_claim(to_did)
+        let asset_scope = Some(Scope::from(ticker));
+        Self::base_verify_iu_claim(asset_scope.clone(), from_did)
+            && Self::base_verify_iu_claim(asset_scope, to_did)
+    }
+
+    /// Checks whether the identity has a valid investor uniqueness claim for a given ticker
+    pub fn verify_iu_claim(ticker: Ticker, did: IdentityId) -> bool {
+        let asset_scope = Some(Scope::from(ticker));
+        Self::base_verify_iu_claim(asset_scope, did)
+    }
+
+    fn base_verify_iu_claim(scope: Option<Scope>, did: IdentityId) -> bool {
+        Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, scope).is_some()
     }
 }
 
@@ -2104,7 +2122,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
+impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
@@ -2175,13 +2193,12 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    /// Creates a new DID with a CDD claim issued by self
-    fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
-        let did = Self::_register_did(target, vec![], None).unwrap_or_default();
-        // Add CDD claim
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::default()));
-        Self::base_add_claim(did, cdd_claim, did, None);
-        did
+    fn register_did(
+        target: T::AccountId,
+        investor: InvestorUid,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
     }
 }
 

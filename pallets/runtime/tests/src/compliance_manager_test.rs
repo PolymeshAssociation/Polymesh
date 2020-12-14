@@ -809,7 +809,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        trusted_issuer_did_1.into()
+        trusted_issuer_did_1
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);

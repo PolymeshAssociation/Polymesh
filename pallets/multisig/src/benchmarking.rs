@@ -17,7 +17,7 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use pallet_identity::benchmarking::UserBuilder;
+use polymesh_common_utilities::benchs::UserBuilder;
 
 pub type MultiSig<T> = crate::Module<T>;
 pub type Identity<T> = identity::Module<T>;

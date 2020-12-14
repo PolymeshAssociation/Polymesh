@@ -267,9 +267,8 @@ impl balances::Trait for TestStorage {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<TestStorage>;
-    type Identity = identity::Module<TestStorage>;
     type CddChecker = CddChecker<Self>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
     type MaxLocks = MaxLocks;
 }
 
@@ -441,6 +440,7 @@ impl IdentityTrait for TestStorage {
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
+    type IdentityFn = identity::Module<TestStorage>;
 }
 
 parameter_types! {
@@ -505,6 +505,8 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+    pub const AssetNameMaxLength: usize = 128;
+    pub const FundingRoundNameMaxLength: usize = 128;
 }
 
 impl asset::Trait for TestStorage {
@@ -513,6 +515,9 @@ impl asset::Trait for TestStorage {
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = Timestamp;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
@@ -614,13 +619,13 @@ impl dividend::Trait for TestStorage {
 
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
@@ -628,6 +633,8 @@ impl pips::Trait for TestStorage {
 
 impl confidential::Trait for TestStorage {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl pallet_utility::Trait for TestStorage {

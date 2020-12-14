@@ -13,6 +13,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 # our pallets
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
 pallet-identity = { path = "../identity", default-features = false  }
+pallet-pips = { path = "../pips", default-features = false  }
 pallet-multisig = { path = "../multisig", default-features = false  }
 pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../protocol-fee", default-features = false  }
@@ -20,6 +21,9 @@ pallet-settlement = { path = "../settlement", default-features = false  }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false  }
 polymesh-contracts = { path = "../contracts", default-features = false }
 pallet-utility = { path = "../utility", default-features = false  }
+pallet-asset = { path = "../asset", default-features = false  }
+pallet-confidential = { path = "../confidential", default-features = false  }
+pallet-balances = { path = "../balances", default-features = false  }
 
 [features]
 default = ["std"]
@@ -29,6 +33,7 @@ std = [
     "frame-system/std",
     "pallet-corporate-actions/std",
     "pallet-identity/std",
+    "pallet-pips/std",
     "pallet-multisig/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
@@ -37,4 +42,7 @@ std = [
     "polymesh-contracts/std",
     "pallet-compliance-manager/std",
     "pallet-utility/std",
+    "pallet-asset/std",
+    "pallet-confidential/std",
+    "pallet-balances/std",
 ]

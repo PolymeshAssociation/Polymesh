@@ -1,11 +1,11 @@
-use crate::traits::identity::IdentityTrait;
+use crate::traits::identity::IdentityFnTrait;
 use polymesh_primitives::IdentityId;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 
 /// Helper class to access to some context information.
 /// Currently it allows to access to
-///     - `current_identity` throught an `IdentityTrait`, because it is stored using extrinsics.
+///     - `current_identity` throught an `IdentityFnTrait`, because it is stored using extrinsics.
 ///     .
 #[derive(Default)]
 pub struct Context<AccountId> {
@@ -15,28 +15,28 @@ pub struct Context<AccountId> {
 impl<AccountId> Context<AccountId> {
     #[inline]
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityFnTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity()
     }
 
     #[inline]
     #[cfg(feature = "default_identity")]
-    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityFnTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity().or_else(|| Some(IdentityId::default()))
     }
 
     #[inline]
-    pub fn set_current_identity<I: IdentityTrait<AccountId>>(id: Option<IdentityId>) {
+    pub fn set_current_identity<I: IdentityFnTrait<AccountId>>(id: Option<IdentityId>) {
         I::set_current_identity(id)
     }
 
     #[inline]
-    pub fn current_payer<I: IdentityTrait<AccountId>>() -> Option<AccountId> {
+    pub fn current_payer<I: IdentityFnTrait<AccountId>>() -> Option<AccountId> {
         I::current_payer()
     }
 
     #[inline]
-    pub fn set_current_payer<I: IdentityTrait<AccountId>>(payer: Option<AccountId>) {
+    pub fn set_current_payer<I: IdentityFnTrait<AccountId>>(payer: Option<AccountId>) {
         I::set_current_payer(payer)
     }
 
@@ -44,7 +44,7 @@ impl<AccountId> Context<AccountId> {
     /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+    pub fn current_identity_or<I: IdentityFnTrait<AccountId>>(
         key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         Self::current_identity::<I>()
@@ -57,7 +57,7 @@ impl<AccountId> Context<AccountId> {
     }
 
     #[cfg(feature = "default_identity")]
-    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+    pub fn current_identity_or<I: IdentityFnTrait<AccountId>>(
         key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         I::current_identity()
@@ -83,7 +83,7 @@ mod test {
 
     struct IdentityTest {}
 
-    impl IdentityTrait<AccountId> for IdentityTest {
+    impl IdentityFnTrait<AccountId> for IdentityTest {
         fn get_identity(key: &AccountId) -> Option<IdentityId> {
             let keys: BTreeMap<AccountId, u128> = vec![
                 (AccountId::from(AccountKeyring::Alice.public().0), 1u128),

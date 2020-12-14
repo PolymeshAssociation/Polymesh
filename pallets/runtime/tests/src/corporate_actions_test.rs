@@ -133,6 +133,10 @@ fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
 
 type CAResult = Result<CorporateAction, DispatchError>;
 
+fn get_ca(id: CAId) -> Option<CorporateAction> {
+    CA::corporate_actions(id.ticker, id.local_id)
+}
+
 fn init_ca(
     owner: User,
     ticker: Ticker,
@@ -143,11 +147,22 @@ fn init_ca(
     default_wht: Option<Tax>,
     wht: Option<Vec<(IdentityId, Tax)>>,
 ) -> CAResult {
-    let id = CA::ca_id_sequence(ticker);
+    let id = next_ca_id(ticker);
     let sig = owner.signer();
     let details = CADetails(details.as_bytes().to_vec());
-    CA::initiate_corporate_action(sig, ticker, kind, date, details, targets, default_wht, wht)?;
-    Ok(CA::corporate_actions(ticker, id).unwrap())
+    let now = Checkpoint::now_unix();
+    CA::initiate_corporate_action(
+        sig,
+        ticker,
+        kind,
+        now,
+        date,
+        details,
+        targets,
+        default_wht,
+        wht,
+    )?;
+    Ok(get_ca(id).unwrap())
 }
 
 fn basic_ca(
@@ -524,6 +539,46 @@ fn initiate_corporate_action_kind() {
 }
 
 #[test]
+fn initiate_corporate_action_decl_date() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let ca = |decl, record| -> DispatchResult {
+            let id = next_ca_id(ticker);
+            CA::initiate_corporate_action(
+                owner.signer(),
+                ticker,
+                CAKind::Other,
+                decl,
+                record,
+                "".into(),
+                None,
+                None,
+                None,
+            )?;
+            assert_eq!(get_ca(id).unwrap().decl_date, decl);
+            Ok(())
+        };
+
+        // Now + no record date works.
+        let now = Checkpoint::now_unix();
+        assert_ok!(ca(now, None));
+
+        // Now + 1 in the future => error.
+        assert_noop!(ca(now + 1, None), Error::DeclDateInFuture);
+
+        // decl date == now == record date
+        assert_ok!(ca(now, Some(RecordDateSpec::Scheduled(now))));
+
+        // decl date == now + 1 > record date => error
+        assert_noop!(
+            ca(now + 1, Some(RecordDateSpec::Scheduled(now))),
+            Error::DeclDateInFuture
+        );
+    });
+}
+
+#[test]
 fn initiate_corporate_action_default_tax() {
     test(|ticker, [owner, ..]| {
         let ca = |dwt| {
@@ -653,7 +708,7 @@ fn remove_ca_works() {
         let remove = |id| CA::remove_ca(owner.signer(), id);
 
         let assert_no_ca = |id: CAId| {
-            assert_eq!(None, CA::corporate_actions(ticker, id.local_id));
+            assert_eq!(None, get_ca(id));
             assert_eq!(CA::ca_doc_link(id), vec![]);
         };
 
@@ -778,12 +833,7 @@ fn change_record_date_works() {
         let change = |id, date| CA::change_record_date(owner.signer(), id, date);
         let change_ok = |id, date, expect| {
             assert_ok!(change(id, date));
-            assert_eq!(
-                expect,
-                CA::corporate_actions(id.ticker, id.local_id)
-                    .unwrap()
-                    .record_date
-            );
+            assert_eq!(expect, get_ca(id).unwrap().record_date);
         };
 
         // Change for a CA that doesn't exist, and ensure failure.
@@ -1473,7 +1523,7 @@ fn vote_works() {
         assert_ballot(
             id,
             &BallotData {
-                votes: vec![(voter.did, votes(vs1)), (other.did, votes(vs2))],
+                votes: vec![(other.did, votes(vs2)), (voter.did, votes(vs1))],
                 results: vs1.iter().zip(vs2).map(|(a, b)| a + b).collect(),
                 ..data.clone()
             },

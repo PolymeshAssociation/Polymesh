@@ -15,26 +15,29 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(box_syntax)]
 
-use polymesh_common_utilities::identity::Trait as IdentityTrait;
+use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use pallet_identity as identity;
 
-use bulletproofs::RangeProof;
-use cryptography::asset_proofs::range_proof::{
-    prove_within_range, verify_within_range, InRangeProof,
+use cryptography::{
+    asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
+    CompressedRistretto, RangeProof, Scalar,
 };
-use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
+    weights::Weight,
 };
 use sp_std::prelude::*;
 
 pub mod rng;
 pub use rng::native_rng;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
@@ -51,8 +54,16 @@ pub struct TickerRangeProof {
     pub max_two_exp: u32,
 }
 
+pub trait WeightInfo {
+    fn add_range_proof() -> Weight;
+    fn add_verify_range_proof() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type WeightInfo: WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -66,9 +77,9 @@ pub struct ProverTickerKey {
 decl_storage! {
     trait Store for Module<T: Trait> as Confidential {
         /// Number of investor per asset.
-        pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
+        pub RangeProofs get(fn range_proof): double_map hasher(identity) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
-        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
+        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(identity) IdentityId => bool;
     }
 }
 
@@ -78,7 +89,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = 8_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_range_proof()]
         pub fn add_range_proof(origin,
             target_id: IdentityId,
             ticker: Ticker,
@@ -106,7 +117,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = 6_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_verify_range_proof()]
         pub fn add_verify_range_proof(origin,
             target: IdentityId,
             prover: IdentityId,

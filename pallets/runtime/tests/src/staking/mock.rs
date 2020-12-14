@@ -281,9 +281,8 @@ impl balances::Trait for Test {
     type Event = MetaEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type Identity = identity::Module<Test>;
     type CddChecker = Test;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
     type MaxLocks = MaxLocks;
 }
 
@@ -317,13 +316,13 @@ impl pallet_session::historical::Trait for Test {
 
 impl pallet_pips::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
@@ -383,6 +382,7 @@ impl IdentityTrait for Test {
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
+    type IdentityFn = identity::Module<Test>;
 }
 
 parameter_types! {

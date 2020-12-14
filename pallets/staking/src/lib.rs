@@ -1489,8 +1489,6 @@ decl_error! {
         AlreadyPaired,
         /// Targets cannot be empty.
         EmptyTargets,
-        /// Duplicate index.
-        DuplicateIndex,
         /// Slash record index out of bounds.
         InvalidSlashIndex,
         /// Can not bond with value less than minimum balance.
@@ -1503,8 +1501,6 @@ decl_error! {
         FundedTarget,
         /// Invalid era to reward.
         InvalidEraToReward,
-        /// Invalid number of nominations.
-        InvalidNumberOfNominations,
         /// Items are not sorted and unique.
         NotSortedAndUnique,
         /// Rewards for this era have already been claimed for this validator.
@@ -1540,8 +1536,6 @@ decl_error! {
         OffchainElectionBogusElectionSize,
         /// The call is not allowed at the given time due to restrictions of election period.
         CallNotAllowed,
-        /// Incorrect previous history depth input provided.
-        IncorrectHistoryDepth,
         /// Incorrect number of slashing spans provided.
         IncorrectSlashingSpans,
         /// Permissioned validator already exists.
@@ -1552,10 +1546,6 @@ decl_error! {
         NoChange,
         /// Given potential validator identity is invalid.
         InvalidValidatorIdentity,
-        /// Stash is not a part of any allowed identities.
-        StashNotAllowed,
-        /// Stash doesn't have a DID.
-        InvalidStashKey,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
     }
@@ -1769,7 +1759,7 @@ decl_module! {
 
             let stash_balance = T::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Bonded(did, stash.clone(), value));
             let item = StakingLedger {
                 stash,
@@ -1821,7 +1811,7 @@ decl_module! {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
                 ledger.active += extra;
-                let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+                let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
             }
@@ -2207,7 +2197,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
+            let caller_id = Context::current_identity_or::<T::IdentityFn>(&caller)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -3680,7 +3670,7 @@ impl<T: Trait> Module<T> {
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk { value, era });
             Self::update_ledger(&controller, &ledger);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Unbonded(did, ledger.stash.clone(), value));
         }
     }

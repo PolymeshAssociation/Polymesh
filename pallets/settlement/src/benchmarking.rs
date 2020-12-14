@@ -16,15 +16,19 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::Currency;
-use frame_system::RawOrigin;
 use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, benchmarking::uid_from_name_and_idx};
+use pallet_identity::{self as identity};
 use pallet_portfolio::PortfolioAssetBalances;
-use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
+use polymesh_common_utilities::{
+    benchs::uid_from_name_and_idx,
+    traits::asset::{AssetName, AssetType},
+};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+
+use frame_benchmarking::{account, benchmarks};
+use frame_support::traits::Currency;
+use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
@@ -32,8 +36,6 @@ const SEED: u32 = 0;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
-const MAX_TM_ALLOWED: u32 = 10;
-const MAX_COMPLIANCE_RESTRICTION_COMPLEXITY_ALLOWED: u32 = 50;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 pub struct Account<T: Trait> {
@@ -90,16 +92,6 @@ fn set_instruction_let_status_to_skipped<T: Trait>(
     );
 }
 
-/// Set instruction leg status to `LegStatus::ExecutionPending` without any sanity checks.
-fn set_instruction_leg_status_to_pending<T: Trait>(
-    instruction_id: u64,
-    leg_id: u64,
-    leg: Leg<T::Balance>,
-) -> DispatchResult {
-    <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
-    T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
-}
-
 /// Set user affirmation without any sanity checks.
 fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: AffirmationStatus) {
     UserAffirmations::insert(portfolio, instruction_id, affirm);
@@ -149,37 +141,6 @@ fn setup_leg_and_portfolio<T: Trait>(
     sender_portfolios.push(portfolio_from);
 }
 
-fn setup_leg_and_portfolio_with_ticker<T: Trait>(
-    to_did: Option<IdentityId>,
-    from_did: Option<IdentityId>,
-    from_ticker: Ticker,
-    to_ticker: Ticker,
-    index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
-    portfolios_from: &mut Vec<PortfolioId>,
-    portfolios_to: &mut Vec<PortfolioId>,
-) -> DispatchResult {
-    let portfolio_from = generate_portfolio::<T>("from_did", index, 100, from_did);
-    let _ = fund_portfolio::<T>(&portfolio_from, &from_ticker, 500.into());
-    let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
-    let _ = fund_portfolio::<T>(&portfolio_to, &to_ticker, 500.into());
-    legs.push(Leg {
-        from: portfolio_from,
-        to: portfolio_to,
-        asset: from_ticker,
-        amount: 100.into(),
-    });
-    legs.push(Leg {
-        from: portfolio_to,
-        to: portfolio_from,
-        asset: to_ticker,
-        amount: 100.into(),
-    });
-    portfolios_from.push(portfolio_from);
-    portfolios_to.push(portfolio_to);
-    Ok(())
-}
-
 fn generate_portfolio<T: Trait>(
     portfolio_to: &'static str,
     variable: u32,
@@ -221,12 +182,9 @@ fn verify_add_instruction<T: Trait>(
         settlement_type,
         ..
     } = Module::<T>::instruction_details(Module::<T>::instruction_counter() - 1);
-    ensure!(matches!(instruction_id, 1u64), "Invalid instruction");
-    ensure!(matches!(venue_id, v_id), "Invalid venue");
-    ensure!(
-        matches!(settlement_type, s_type),
-        "Invalid instruction type"
-    );
+    assert_eq!(instruction_id, 1u64);
+    assert_eq!(venue_id, v_id);
+    assert_eq!(settlement_type, s_type);
     Ok(())
 }
 
