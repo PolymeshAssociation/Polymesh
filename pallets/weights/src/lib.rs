@@ -24,6 +24,7 @@ pub mod pallet_compliance_manager;
 pub mod pallet_confidential;
 pub mod pallet_corporate_actions;
 pub mod pallet_identity;
+pub mod pallet_im_online;
 pub mod pallet_pips;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;

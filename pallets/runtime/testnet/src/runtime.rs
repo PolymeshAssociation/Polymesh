@@ -605,6 +605,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
+    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
 }
 
 impl pallet_grandpa::Trait for Runtime {

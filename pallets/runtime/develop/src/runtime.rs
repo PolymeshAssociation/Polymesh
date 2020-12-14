@@ -595,6 +595,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
+    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -1297,6 +1298,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
