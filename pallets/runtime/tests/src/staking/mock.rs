@@ -331,6 +331,7 @@ impl pallet_pips::Trait for Test {
 impl pallet_treasury::Trait for Test {
     type Event = MetaEvent;
     type Currency = pallet_balances::Module<Self>;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 impl pallet_authorship::Trait for Test {
