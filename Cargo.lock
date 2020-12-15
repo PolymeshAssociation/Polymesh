@@ -5680,6 +5680,7 @@ dependencies = [
  "pallet-confidential",
  "pallet-corporate-actions",
  "pallet-identity",
+ "pallet-im-online",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
