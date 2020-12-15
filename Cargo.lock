@@ -814,6 +814,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "confidential_identity"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.0#e4af2c6fae4caaa2167cef126971c377c334b4e0"
+dependencies = [
+ "blake2",
+ "byteorder 1.3.4",
+ "criterion",
+ "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
+ "failure",
+ "lazy_static",
+ "merlin",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
+ "serde",
+ "serde_json",
+ "sha3 0.8.2",
+ "sp-io",
+ "sp-std",
+ "zeroize",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,27 +1106,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "cryptography"
-version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1369/mocked_investor_uid#0537e6e7da1383a88bc75b5285971eafba9c5c31"
+name = "cryptography_core"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.0#e4af2c6fae4caaa2167cef126971c377c334b4e0"
 dependencies = [
- "blake2",
  "bulletproofs",
  "byteorder 1.3.4",
  "criterion",
  "curve25519-dalek 2.1.0 (git+https://github.com/PolymathNetwork/curve25519-dalek.git?branch=v2-packed-simd)",
  "failure",
- "lazy_static",
- "log",
  "merlin",
  "parity-scale-codec",
  "rand 0.7.3",
  "rand_core 0.5.1",
- "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
- "serde_json",
  "sha3 0.8.2",
- "sp-io",
  "sp-std",
  "zeroize",
 ]
@@ -4125,7 +4142,7 @@ dependencies = [
 name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
- "cryptography",
+ "cryptography_core",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4332,7 +4349,7 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "cryptography",
+ "confidential_identity",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5388,7 +5405,7 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "cryptography",
+ "confidential_identity",
  "frame-support",
  "frame-system",
  "hex",
@@ -5604,7 +5621,7 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "cryptography",
+ "confidential_identity",
  "env_logger",
  "frame-benchmarking",
  "frame-support",
