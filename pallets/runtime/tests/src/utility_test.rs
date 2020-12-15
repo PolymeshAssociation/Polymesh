@@ -252,6 +252,7 @@ fn batch_secondary_with_permissions() {
         assert_eq!(Portfolio::portfolios(&alice_did, &PortfolioNumber(1)), name);
     };
 
+    // Add Bob.
     add_secondary_key(alice_did, bob_signer);
     let low_risk_name: PortfolioName = b"low risk".into();
     assert_ok!(Portfolio::create_portfolio(
@@ -260,6 +261,8 @@ fn batch_secondary_with_permissions() {
     ));
     assert_last_event!(EventTest::portfolio(pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)));
     check_name(low_risk_name.clone());
+
+    // Set and check Bob's permissions.
     let bob_pallet_permissions = vec![
         PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
         PalletPermissions::new(
@@ -280,21 +283,23 @@ fn batch_secondary_with_permissions() {
         bob_permissions,
     ));
     let bob_secondary_key = &Identity::did_records(&alice_did).secondary_keys[0];
-    assert_eq!(
-        true,
-        bob_secondary_key
-            .has_extrinsic_permission(&b"Portfolio".into(), &b"rename_portfolio".into())
-    );
-    assert_eq!(
-        false,
-        bob_secondary_key
-            .has_extrinsic_permission(&b"Portfolio".into(), &b"create_portfolio".into())
-    );
+    let check_permission = |name, t| {
+        assert_eq!(
+            t,
+            bob_secondary_key.has_extrinsic_permission(&b"Portfolio".into(), &name.into())
+        );
+    };
+    check_permission(b"rename_portfolio", true);
+    check_permission(b"create_portfolio", false);
+
+    // Call a disallowed extrinsic.
     let high_risk_name: PortfolioName = b"high risk".into();
     assert_err!(
         Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
+
+    // Call one dissallowed and one allowed extrinsic in a batch.
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
         Call::Portfolio(PortfolioCall::rename_portfolio(
@@ -306,6 +311,8 @@ fn batch_secondary_with_permissions() {
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
     assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(0, _)));
     check_name(low_risk_name);
+
+    // Call the same extrinsics optimistically.
     assert_ok!(Utility::batch_optimistic(bob_origin, calls));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchOptimisticFailed(errors)),
