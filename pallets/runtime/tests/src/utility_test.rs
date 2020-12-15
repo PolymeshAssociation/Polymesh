@@ -299,7 +299,7 @@ fn batch_secondary_with_permissions() {
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
 
-    // Call one dissallowed and one allowed extrinsic in a batch.
+    // Call one disallowed and one allowed extrinsic in a batch.
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
         Call::Portfolio(PortfolioCall::rename_portfolio(
