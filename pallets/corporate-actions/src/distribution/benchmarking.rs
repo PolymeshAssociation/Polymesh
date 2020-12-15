@@ -64,7 +64,7 @@ fn dist<T: Trait>(k: u32) -> (User<T>, CAId, Ticker) {
 }
 
 fn add_investor_uniqueness_claim<T: Trait>(user: &User<T>, scope: Ticker) {
-    use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+    use confidential_identity::{compute_cdd_id, compute_scope_id};
     use frame_system::Origin;
     use polymesh_primitives::{Claim, InvestorZKProofData, Scope};
 

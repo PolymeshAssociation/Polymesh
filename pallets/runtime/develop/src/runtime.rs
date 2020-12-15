@@ -1301,15 +1301,15 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
+            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
+            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
-            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
-            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
-            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
