@@ -69,7 +69,7 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::queue_priority::*,
     traits::{
-        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
+        identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
         CommonTrait,
     },
     with_transaction,
@@ -315,7 +315,7 @@ pub trait WeightInfo {
     fn affirm_instruction(l: u32) -> Weight;
     fn withdraw_affirmation(u: u32) -> Weight;
     fn reject_instruction(l: u32) -> Weight;
-    fn affirm_with_receipts() -> Weight;
+    fn affirm_with_receipts(r: u32) -> Weight;
     fn claim_receipt() -> Weight;
     fn unclaim_receipt() -> Weight;
     fn set_venue_filtering() -> Weight;
@@ -354,7 +354,7 @@ impl WeightInfo for () {
     fn reject_instruction(_l: u32) -> Weight {
         1_000_000_000
     }
-    fn affirm_with_receipts() -> Weight {
+    fn affirm_with_receipts(_r: u32) -> Weight {
         1_000_000_000
     }
     fn claim_receipt() -> Weight {
@@ -408,45 +408,6 @@ pub mod weight_for {
         T::DbWeight::get()
             .reads_writes(2, 1) // For read and write
             .saturating_add(900_000_000) // Mocking unchecked_release_locks() function weight.
-    }
-
-    pub fn weight_for_affirmation_with_receipts<T: Trait>(no_of_receipts: u32) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(6, 3) // weight for read and write
-            .saturating_add((no_of_receipts * 80_000_000).into()) // Weight for receipts.
-            .saturating_add(
-                T::DbWeight::get()
-                    .reads_writes(3, 1)
-                    .saturating_mul(no_of_receipts.into()),
-            ) // weight for read and write related to receipts.
-    }
-
-    pub fn weight_for_affirmation_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(5, 3) // weight for read and writes
-            .saturating_add(600_000_000)
-    }
-
-    pub fn weight_for_reject_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(3, 2) // weight for read and writes
-            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction_affirmation()`
-    }
-
-    pub fn weight_for_transfer<T: Trait>() -> Weight {
-        GAS_LIMIT
-            .saturating_mul(
-                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
-            )
-            .saturating_add(70_000_000) // Weight for compliance manager
-            .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
-            .saturating_add(150_000_000)
-    }
-
-    pub fn weight_for_instruction_creation<T: Trait>(no_of_legs: usize) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 5)
-            .saturating_add(u64::try_from(no_of_legs * 50_000_000).unwrap_or_default())
     }
 }
 
@@ -792,7 +753,7 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with
-        #[weight = 5000000000]
+        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(receipt_details.len() as u32)]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
         }

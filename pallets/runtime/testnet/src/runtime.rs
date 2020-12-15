@@ -575,7 +575,7 @@ impl settlement::Trait for Runtime {
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for Runtime {

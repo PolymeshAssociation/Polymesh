@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//#![cfg(feature = "runtime-benchmarks")]
+#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks};
@@ -45,9 +45,7 @@ use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
 use hex_literal::hex;
 
-#[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
-#[cfg(feature = "std")]
 use sp_runtime::MultiSignature;
 
 const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
@@ -132,17 +130,20 @@ fn setup_leg_and_portfolio<T: Trait>(
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
     sender_portfolios: &mut Vec<PortfolioId>,
+    receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
-    let ticker = Ticker::try_from(vec![b'A'; index as usize].as_slice()).unwrap();
-    let portfolio_from = generate_portfolio::<T>("", index, 100, from_did);
+    let variance = if index == 0 { 1 } else { index };
+    let ticker = Ticker::try_from(vec![b'A'; variance as usize].as_slice()).unwrap();
+    let portfolio_from = generate_portfolio::<T>("", variance, 100, from_did);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-    let portfolio_to = generate_portfolio::<T>("to_did", index, 500, to_did);
+    let portfolio_to = generate_portfolio::<T>("to_did", variance, 500, to_did);
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
         asset: ticker,
         amount: 100.into(),
     });
+    receiver_portfolios.push(portfolio_to);
     sender_portfolios.push(portfolio_from);
 }
 
@@ -230,34 +231,52 @@ fn emulate_add_instruction<T: Trait>(
         RawOrigin<T::AccountId>,
         IdentityId,
         Vec<PortfolioId>,
+        Vec<PortfolioId>,
         T::AccountId,
     ),
     DispatchError,
 > {
     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
-    let mut portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut sender_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
     let User {
         origin,
         did,
         account,
+        secret,
         ..
     } = UserBuilder::<T>::default().generate_did().build("creator");
-    let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
+    let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
 
     // Create legs vector.
     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
     if create_portfolios {
         // Assumption here is that instruction will never be executed as still there is one auth pending.
         for n in 0..l {
-            setup_leg_and_portfolio::<T>(None, Some(did.unwrap()), n, &mut legs, &mut portfolios);
+            setup_leg_and_portfolio::<T>(
+                None,
+                Some(did.unwrap()),
+                n,
+                &mut legs,
+                &mut sender_portfolios,
+                &mut receiver_portfolios,
+            );
         }
     } else {
         for i in 1..l {
             populate_legs_for_instruction::<T>(i, &mut legs);
         }
     }
-    Ok((legs, venue_id, origin, did.unwrap(), portfolios, account))
+    Ok((
+        legs,
+        venue_id,
+        origin,
+        did.unwrap(),
+        sender_portfolios,
+        receiver_portfolios,
+        account,
+    ))
 }
 
 fn setup_leg_and_portfolio_with_ticker<T: Trait>(
@@ -307,25 +326,8 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
 
 // Generate signature.
 fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
-    #[cfg(feature = "std")]
-    let encoded = {
-        // Signer signs the relay call.
-        // NB: Decode as T::OffChainSignature because there is not type constraints in
-        // `T::OffChainSignature` to limit it.
-        let raw_signature: [u8; 64] = signer.sign(&msg.encode()).0;
-        let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-
-        // Native execution can generate a hard-coded signature using the following code:
-        // ```ignore
-        let hex_encoded = hex::encode(&encoded);
-        frame_support::debug::info!("encoded signature :{:?}", &hex_encoded);
-        //  ```
-
-        encoded
-    };
-    #[cfg(not(feature = "std"))]
-    let encoded = hex!("015e902873fc7de21faaccd58569ba0d6bde06d81c425abf136448625910713735d1905121a2368fcc254439ab50302c8c2169a55c2816182e10ea0a937e79548d").to_vec();
-
+    let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
+    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded
 }
 
@@ -529,6 +531,39 @@ fn add_smart_extension_to_ticker<T: Trait>(
         .expect("Settlement: Fail to add the smart extension to a given asset");
 }
 
+fn create_receipt_details<T: Trait>(
+    index: u32,
+    leg: Leg<T::Balance>,
+) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
+    let (account, secret) = UserBuilder::<T>::make_key_pair("creator", 0);
+    let msg = Receipt {
+        receipt_uid: index as u64,
+        from: leg.from,
+        to: leg.to,
+        asset: leg.asset,
+        amount: leg.amount,
+    };
+    let origin = RawOrigin::Signed(account.clone());
+    let creator = User {
+        account: account.clone(),
+        secret,
+        origin,
+        uid: None,
+        did: None,
+    };
+    let encoded = get_encoded_signature::<T>(&creator, &msg);
+    let signature = T::OffChainSignature::decode(&mut &encoded[..])
+        .expect("OffChainSignature cannot be decoded from a MultiSignature");
+    // Receipt details.
+    ReceiptDetails {
+        receipt_uid: index as u64,
+        leg_id: index as u64,
+        signer: account,
+        signature,
+        metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice()),
+    }
+}
+
 benchmarks! {
     _{}
 
@@ -576,7 +611,7 @@ benchmarks! {
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _ ) = emulate_add_instruction::<T>(l, false)?;
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false)?;
 
     }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs)
     verify {
@@ -591,7 +626,7 @@ benchmarks! {
         set_block_number::<T>(50);
 
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _,_ ) = emulate_add_instruction::<T>(l, false)?;
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false)?;
 
     }: add_instruction(origin, venue_id, settlement_type, Some(99999999.into()), legs)
     verify {
@@ -604,7 +639,7 @@ benchmarks! {
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
 
     }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs, portfolios.clone())
     verify {
@@ -618,7 +653,7 @@ benchmarks! {
         let settlement_type = SettlementType::SettleOnBlock(100.into());
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
 
     }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), legs, portfolios.clone())
     verify {
@@ -685,7 +720,7 @@ benchmarks! {
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
         let instruction_id: u64 = 1;
@@ -706,7 +741,7 @@ benchmarks! {
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
         let instruction_id: u64 = 1;
@@ -762,7 +797,7 @@ benchmarks! {
         // At least one portfolio needed
         let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
@@ -778,7 +813,7 @@ benchmarks! {
         // At least one portfolio needed
         let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
         let instruction_id: u64 = 1;
@@ -803,65 +838,50 @@ benchmarks! {
     }
 
 
-    // claim_receipt {
-    //     // There is no catalyst in this dispatchable, It will always be time constant.
+    claim_receipt {
+        // There is no catalyst in this dispatchable, It will always be time constant.
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true)?;
+        // Add instruction
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        let instruction_id = 1;
+        let ticker = Ticker::try_from(vec![b'A'; 1 as usize].as_slice()).unwrap();
+        let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
+        let leg_id = 0;
+        let amount = 100;
+        // Some manual setup to support the extrinsic.
+        set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
+        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into())?;
+    }: _(origin, instruction_id, receipt.clone())
+    verify {
+        ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
+            receipt.signer,
+            receipt.receipt_uid,
+        ), "Settlement: Fail to unclaim the receipt");
+    }
 
-    //     // create venue
-    //     let creator = UserBuilder::<T>::default().generate_did().build("creator");
-    //     let to = UserBuilder::<T>::default().generate_did().build("to_did");
-    //     let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
 
-    //     let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-    //     let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
-    //     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-    //     let portfolio_to = PortfolioId::user_portfolio(to.did(), (500u64).into());
-    //     let legs = vec![Leg {
-    //         from: portfolio_from,
-    //         to: portfolio_to,
-    //         asset: ticker,
-    //         amount: 100.into(),
-    //     }];
-
-    //     // Add instruction
-    //     Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
-    //     let instruction_id = 1;
-
-    //     let msg = Receipt {
-    //         receipt_uid: 0,
-    //         from: portfolio_from,
-    //         to: portfolio_to,
-    //         asset: ticker,
-    //         amount: 100.into(),
-    //     };
-
-    //     // #[cfg(feature = "std")]
-    //     // frame_support::debug::info!("Receipt data :{:?}", &msg);
-    //     // #[cfg(feature = "std")]
-    //     // frame_support::debug::info!("Creator did :{:?}", &creator.did());
-    //     // #[cfg(feature = "std")]
-    //     // frame_support::debug::info!("Creator Secret :{:?}", &creator.secret);
-
-    //     let encoded = get_encoded_signature::<T>(&creator, &msg);
-    //     let signature = T::OffChainSignature::decode(&mut &encoded[..])
-    //         .expect("OffChainSignature cannot be decoded from a MultiSignature");
-    //     let leg_id = 0;
-    //     // Receipt details.
-    //     let receipt = ReceiptDetails {
-    //         receipt_uid: 0,
-    //         leg_id,
-    //         signer: creator.account(),
-    //         signature,
-    //         metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice())
-    //     };
-
-    //     set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-    // }: _(creator.origin, instruction_id, receipt.clone())
-    // verify {
-    //     ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
-    //         receipt.signer,
-    //         receipt.receipt_uid,
-    //     ), "Settlement: Fail to unclaim the receipt");
-    // }
+    affirm_with_receipts {
+        // Catalyst here is the length of receipts vector.
+        let r in 1 .. T::MaxLegsInInstruction::get() as u32;
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true)?;
+        // Add instruction
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        let instruction_id = 1;
+        let mut receipt_details = Vec::with_capacity(r as usize);
+        legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
+            receipt_details.push(create_receipt_details::<T>(idx as u32, l));
+        });
+    }: _(origin, instruction_id, receipt_details.clone(), s_portfolios)
+    verify {
+        for (i, receipt) in receipt_details.iter().enumerate() {
+            ensure!(Module::<T>::instruction_leg_status(instruction_id, i as u64) ==  LegStatus::ExecutionToBeSkipped(
+                receipt.signer.clone(),
+                receipt.receipt_uid,
+            ), "Settlement: Fail to affirm with receipts");
+        }
+    }
 
     execute_scheduled_instruction {
         // This dispatch execute an instruction.

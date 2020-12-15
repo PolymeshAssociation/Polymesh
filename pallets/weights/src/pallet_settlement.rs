@@ -119,6 +119,18 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
     }
+    fn claim_receipt() -> Weight {
+        (432_078_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn affirm_with_receipts(r: u32) -> Weight {
+        (695_891_000 as Weight)
+            .saturating_add((151_078_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(r as Weight)))
+            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(r as Weight)))
+    }
     fn execute_scheduled_instruction(l: u32, s: u32, c: u32, t: u32) -> Weight {
         (0 as Weight)
             .saturating_add((72_103_794_000 as Weight).saturating_mul(l as Weight))
@@ -130,11 +142,5 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(c as Weight)))
             .saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(t as Weight)))
             .saturating_add(DbWeight::get().writes((8 as Weight).saturating_mul(l as Weight)))
-    }
-    fn claim_receipt() -> u64 {
-        todo!()
-    }
-    fn affirm_with_receipts() -> u64 {
-        todo!()
     }
 }
