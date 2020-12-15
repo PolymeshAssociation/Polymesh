@@ -15,7 +15,7 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
 # Cryptography
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "MESH-1369/mocked_investor_uid", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate
@@ -39,13 +39,13 @@ equalize = []
 default = ["std", "equalize"]
 no_cdd = []
 no_std = [
-    "cryptography/u64_backend",
+    "confidential_identity/u64_backend",
 ]
 only-staking = []
 std = [
     "codec/std",
-    "cryptography/std",
-    "cryptography/u64_backend",
+    "confidential_identity/std",
+    "confidential_identity/u64_backend",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",

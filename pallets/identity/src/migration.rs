@@ -1,6 +1,6 @@
 use crate::types::{Claim1stKey, Claim2ndKey};
 
-use cryptography::claim_proofs::mocked::make_investor_uid;
+use confidential_identity::mocked::make_investor_uid;
 use polymesh_primitives::{CddId, Claim, ClaimType, IdentityClaim, IdentityId};
 
 /// Migrate claim

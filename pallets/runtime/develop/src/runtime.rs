@@ -259,7 +259,7 @@ impl WeightToFeePolynomial for WeightToFee {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    pub const TransactionByteFee: Balance = 100 * MILLICENTS;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
     pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
 }
