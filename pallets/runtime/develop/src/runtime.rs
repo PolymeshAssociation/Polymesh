@@ -551,6 +551,7 @@ where
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 parameter_types! {
@@ -1298,6 +1299,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
+            add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
