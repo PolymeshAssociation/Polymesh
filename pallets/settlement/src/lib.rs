@@ -68,10 +68,7 @@ use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::queue_priority::*,
-    traits::{
-        identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
-        CommonTrait,
-    },
+    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
