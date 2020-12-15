@@ -171,18 +171,9 @@ decl_module! {
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn add_member(origin, who: IdentityId) {
+        pub fn add_member(origin, who: IdentityId) -> DispatchResult {
             T::AddOrigin::ensure_origin(origin)?;
-
-            let mut members = <ActiveMembers<I>>::get();
-            let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
-            members.insert(location, who);
-            Self::ensure_within_active_members_limit(&members)?;
-            <ActiveMembers<I>>::put(&members);
-
-            T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
-            Self::deposit_event(RawEvent::MemberAdded(current_did, who));
+            <Self as GroupTrait<T::Moment>>::add_member(who)
         }
 
         /// Removes a member `who` from the set. May only be called from `RemoveOrigin` or root.
@@ -268,7 +259,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_primary_key(remove_id, &who),
+            ensure!(<Identity<T>>::is_primary_key(&remove_id, &who),
                 Error::<T,I>::OnlyPrimaryKeyAllowed);
 
             let mut members = Self::get_members();
@@ -439,6 +430,23 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         });
 
         Self::deposit_event(RawEvent::MemberRevoked(current_did, who));
+        Ok(())
+    }
+
+    /// Adds a new member to the group
+    fn add_member(who: IdentityId) -> DispatchResult {
+        let mut members = <ActiveMembers<I>>::get();
+        let location = members
+            .binary_search(&who)
+            .err()
+            .ok_or(Error::<T, I>::DuplicateMember)?;
+        members.insert(location, who);
+        Self::ensure_within_active_members_limit(&members)?;
+        <ActiveMembers<I>>::put(&members);
+
+        T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
+        Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         Ok(())
     }
 }

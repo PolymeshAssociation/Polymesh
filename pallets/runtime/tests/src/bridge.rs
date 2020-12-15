@@ -1,5 +1,8 @@
 use super::{
-    storage::{register_keyring_account, register_keyring_account_with_balance, Call, TestStorage},
+    storage::{
+        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance, Call,
+        TestStorage,
+    },
     ExtBuilder,
 };
 
@@ -7,22 +10,20 @@ use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, OnInitialize},
     weights::Weight,
-    StorageDoubleMap,
 };
 use pallet_balances as balances;
-use pallet_identity as identity;
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
-use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Authorizations = identity::Authorizations<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 macro_rules! assert_tx_approvals {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
@@ -43,7 +44,7 @@ fn can_issue_to_identity() {
 }
 
 fn can_issue_to_identity_we() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -65,24 +66,18 @@ fn can_issue_to_identity_we() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         dave.clone(),
-        last_authorization(dave_key)
+        get_last_auth_id(&Signatory::Account(dave_key))
     ));
 
     assert_eq!(
@@ -153,8 +148,7 @@ fn can_issue_to_identity_we() {
 #[test]
 fn can_change_controller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did =
-            register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
 
         let bob_key = AccountKeyring::Bob.public();
@@ -176,24 +170,18 @@ fn can_change_controller() {
         ));
 
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
-        let last_authorization = |account| {
-            <Authorizations>::iter_prefix_values(Signatory::Account(account))
-                .next()
-                .unwrap()
-                .auth_id
-        };
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            last_authorization(bob_key)
+            get_last_auth_id(&Signatory::Account(bob_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
-            last_authorization(charlie_key)
+            get_last_auth_id(&Signatory::Account(charlie_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             dave.clone(),
-            last_authorization(dave_key)
+            get_last_auth_id(&Signatory::Account(dave_key))
         ));
 
         assert_eq!(
@@ -262,7 +250,7 @@ fn can_freeze_and_unfreeze_bridge() {
 }
 
 fn do_freeze_and_unfreeze_bridge() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -278,20 +266,14 @@ fn do_freeze_and_unfreeze_bridge() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -345,7 +327,7 @@ fn do_freeze_and_unfreeze_bridge() {
         BridgeTxStatus::Timelocked
     );
     // Weight calculation when bridge is freezed
-    assert_eq!(next_block(), 500000240);
+    assert_eq!(next_block(), 500000210);
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
@@ -357,7 +339,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // It will be 0 as txn has to wait for 1 more block to execute.
     assert_eq!(next_block(), 0);
-    assert_eq!(next_block(), 700800360);
+    assert_eq!(next_block(), 500000210);
 
     // Now the tokens are issued.
     assert_eq!(alices_balance(), starting_alices_balance + amount);
@@ -376,7 +358,7 @@ fn next_block() -> Weight {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
     // Call the timelocked tx handler.
-    let weight = Bridge::on_initialize(block_number);
+    let weight = Scheduler::on_initialize(block_number);
     return weight;
 }
 
@@ -390,7 +372,7 @@ fn can_timelock_txs() {
 }
 
 fn do_timelock_txs() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -406,20 +388,14 @@ fn do_timelock_txs() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -463,10 +439,6 @@ fn do_timelock_txs() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -482,7 +454,6 @@ fn do_timelock_txs() {
     assert_eq!(alices_balance(), starting_alices_balance);
     next_block();
     assert_eq!(System::block_number(), unlock_block_number);
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
@@ -504,7 +475,7 @@ fn can_rate_limit() {
 }
 
 fn do_rate_limit() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -520,20 +491,14 @@ fn do_rate_limit() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -573,10 +538,6 @@ fn do_rate_limit() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -606,7 +567,6 @@ fn do_rate_limit() {
     next_block();
     next_block();
     // Mint successful after limit is increased
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
@@ -641,20 +601,14 @@ fn do_exempted() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_eq!(
         MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
@@ -690,10 +644,6 @@ fn do_exempted() {
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
-    );
-    assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
     );
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
@@ -724,7 +674,6 @@ fn do_exempted() {
     next_block();
     next_block();
     // Mint successful after exemption
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
@@ -743,7 +692,7 @@ fn can_force_mint() {
 
 fn do_force_mint() {
     let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -759,20 +708,14 @@ fn do_force_mint() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -812,10 +755,6 @@ fn do_force_mint() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -838,7 +777,6 @@ fn do_force_mint() {
         bridge_tx.clone()
     ));
     // Mint successful after force handle
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,

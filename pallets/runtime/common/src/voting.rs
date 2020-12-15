@@ -44,7 +44,7 @@
 //! - `add_ballot` - Creates a ballot.
 //! - `vote` - Casts a vote.
 //! - `cancel_ballot` - Cancels an existing ballot.
-use pallet_asset as asset;
+use pallet_asset::checkpoint;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -52,7 +52,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
-use polymesh_primitives::{IdentityId, Signatory, Ticker};
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, Signatory, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -66,7 +66,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 /// The module's configuration trait.
 pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 }
 
 /// A wrapper for a motion title.
@@ -85,7 +85,7 @@ pub struct MotionInfoLink(pub Vec<u8>);
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct Ballot<V> {
     /// The user's historic balance at this checkpoint is used as maximum vote weight
-    pub checkpoint_id: u64,
+    pub checkpoint_id: CheckpointId,
 
     /// Timestamp at which voting should start
     pub voting_start: V,
@@ -224,8 +224,8 @@ decl_module! {
             ensure!(ballot.voting_end > now, Error::<T>::AlreadyEnded);
 
             // Ensure validity of checkpoint
-            ensure!(<asset::TotalCheckpoints>::contains_key(&ticker), Error::<T>::NoCheckpoints);
-            let count = <asset::TotalCheckpoints>::get(&ticker);
+            ensure!(checkpoint::CheckpointIdSequence::contains_key(&ticker), Error::<T>::NoCheckpoints);
+            let count = checkpoint::CheckpointIdSequence::get(&ticker);
             ensure!(ballot.checkpoint_id <= count, Error::<T>::NoCheckpoints);
 
             // Ensure vote is valid

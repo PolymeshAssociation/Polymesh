@@ -17,7 +17,13 @@ const path = require("path");
 const cryptoRandomString = require('crypto-random-string');
 
 let nonces = new Map();
-let sk_roles = [[0], [1], [2], [1, 2]];
+
+let totalPermissions =
+{
+  "asset": null,
+  "extrinsic": null,
+  "portfolio": null
+};
 
 let fail_count = 1;
 let block_sizes = {};
@@ -37,23 +43,12 @@ const senderConditions1 = function (trusted_did, asset_did) {
           "Exempted": asset_did
         }
       },
-      issuers: [trusted_did],
+      issuers: [{ "issuer": trusted_did, "trusted_for": { "Any": "" } }]
     },
   ];
 };
 
-const receiverConditions1 = function (trusted_did, asset_did) {
-  return [
-    {
-      "condition_type": {
-        "IsPresent": {
-          "Exempted": asset_did
-        }
-      },
-      issuers: [trusted_did],
-    },
-  ];
-};
+const receiverConditions1 = senderConditions1;
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
@@ -210,8 +205,8 @@ const createIdentitiesWithExpiry = async function (
 
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.toHuman().Unique);
-    console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
+    dids.push(d.toHuman());
+    console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
   }
 
   // Add CDD Claim with CDD_ID
@@ -222,7 +217,7 @@ const createIdentitiesWithExpiry = async function (
     };
     const expiry = expiries.length == 0 ? null : expiries[i];
 
-    console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`);
+    console.log(`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`);
     await api.tx.identity
       .addClaim(dids[i], claim, expiry)
       .signAndSend(alice, { nonce: nonces.get(alice.address) });
@@ -236,7 +231,7 @@ const createIdentitiesWithExpiry = async function (
 // Fetches DID that belongs to the Account Key
 async function keyToIdentityIds(api, accountKey) {
   let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-  return account_did;
+  return account_did.toHuman();
 }
 
 // Sends transfer_amount to accounts[] from alice
@@ -261,8 +256,8 @@ async function addSecondaryKeys(api, accounts, dids, secondary_accounts) {
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Secondary Item to identity.
 
-    let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+    let nonceObj = { nonce: nonces.get(accounts[i].address) };
+    const transaction = api.tx.identity.addAuthorization({ Account: secondary_accounts[i].publicKey }, { JoinIdentity: reqImports.totalPermissions }, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -283,7 +278,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
       }
     }
 
-    let nonceObj = {nonce: nonces.get(secondary_accounts[i].address)};
+    let nonceObj = { nonce: nonces.get(secondary_accounts[i].address) };
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
     await sendTransaction(transaction, secondary_accounts[i], nonceObj);
 
@@ -301,13 +296,13 @@ async function issueTokenPerDid(api, accounts, ticker) {
 
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  let nonceObj = {nonce: nonces.get(accounts[0].address)};
-    const transaction = api.tx.asset.createAsset(
-      ticker, ticker, 1000000, true, 0, [], "abc"
-    );
-    await sendTransaction(transaction, accounts[0], nonceObj);
+  let nonceObj = { nonce: nonces.get(accounts[0].address) };
+  const transaction = api.tx.asset.createAsset(
+    ticker, ticker, 1000000, true, 0, [], "abc"
+  );
+  await sendTransaction(transaction, accounts[0], nonceObj);
 
-    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Returns the asset did
@@ -517,8 +512,8 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function authorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.authorizeInstruction(
+async function affirmInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -526,8 +521,8 @@ async function authorizeInstruction(api, sender, instructionCounter, did) {
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter, did) {
-  const transaction = await api.tx.settlement.unauthorizeInstruction(
+async function withdrawInstruction(api, sender, instructionCounter, did) {
+  const transaction = await api.tx.settlement.withdrawInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)]
   );
@@ -631,9 +626,9 @@ let reqImports = {
   path,
   fs,
   nonces,
+  totalPermissions,
   transfer_amount,
   fail_count,
-  sk_roles,
   createApi,
   createIdentities,
   initMain,
@@ -665,8 +660,8 @@ let reqImports = {
   addComplianceRequirement,
   createVenue,
   addInstruction,
-  authorizeInstruction,
-  unauthorizeInstruction,
+  affirmInstruction,
+  withdrawInstruction,
   rejectInstruction,
   claimReceipt,
   generateRandomEntity,

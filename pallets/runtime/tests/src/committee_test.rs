@@ -1,7 +1,7 @@
 use super::{
     ext_builder::{ExtBuilder, COOL_OFF_PERIOD},
     storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, Call, EventTest,
+        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
         TestStorage,
     },
 };
@@ -14,7 +14,7 @@ use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRa
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{self as pips, ProposalState, SnapshotResult};
-use polymesh_common_utilities::traits::pip::PipId;
+use polymesh_common_utilities::{traits::pip::PipId, MaybeBlock};
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
@@ -91,10 +91,6 @@ fn check_scheduled(id: PipId) {
     assert_eq!(Pips::proposals(id).unwrap().state, ProposalState::Scheduled);
 }
 
-pub fn root() -> Origin {
-    Origin::from(frame_system::RawOrigin::Root)
-}
-
 fn enact_snapshot_results_call() -> Call {
     Call::Pips(pallet_pips::Call::enact_snapshot_results(APPROVE_0.into()))
 }
@@ -138,7 +134,7 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -227,6 +223,7 @@ fn motions_revoting_works_we() {
             ayes: vec![alice_did],
             nays: vec![],
             end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
     assert_noop!(
@@ -241,6 +238,7 @@ fn motions_revoting_works_we() {
             ayes: vec![],
             nays: vec![alice_did],
             end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
     assert_noop!(
@@ -357,6 +355,7 @@ fn rage_quit_we() {
             ayes: vec![bob_did],
             nays: vec![charlie_did],
             end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
 
@@ -369,6 +368,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![charlie_did],
             end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
 
@@ -381,6 +381,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![],
             end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
 
@@ -396,7 +397,8 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![bob_did],
-            end: System::block_number()
+            end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
     assert_ok!(vote(&alice_signer, true));
@@ -406,7 +408,8 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![bob_did],
-            end: System::block_number()
+            end: System::block_number(),
+            expiry: <_>::default(),
         })
     );
 
@@ -428,7 +431,7 @@ fn rage_quit_we() {
     let did = IdentityId::default();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -578,6 +581,7 @@ fn mesh_1065_regression_test() {
                     ayes,
                     nays: vec![],
                     end: System::block_number(),
+                    expiry: <_>::default(),
                 })
             );
         };
@@ -599,5 +603,39 @@ fn mesh_1065_regression_test() {
         // Bob revotes, and there's no `DuplicateVote` error.
         assert_ok!(vote(&bob_signer, true));
         assert_ayes(vec![bob_did]);
+    });
+}
+
+#[test]
+fn expiry_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        assert_ok!(Committee::set_expires_after(gc_vmo(), MaybeBlock::Some(13)));
+
+        let alice_ring = AccountKeyring::Alice;
+        let alice_signer = Origin::signed(alice_ring.public());
+        let alice_did = register_keyring_account(alice_ring).unwrap();
+        let _bob_signer = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+        set_members(vec![alice_did, bob_did, charlie_did]);
+        prepare_proposal(alice_ring);
+        assert_eq!(Committee::proposals(), vec![]);
+
+        assert_ok!(vote(&alice_signer, true));
+        assert_eq!(
+            Committee::voting(&hash_enact_snapshot_results())
+                .unwrap()
+                .expiry,
+            MaybeBlock::Some(System::block_number() + 13),
+        );
+        fast_forward_blocks(13 + 1);
+        assert_err!(
+            vote(&alice_signer, true),
+            committee::Error::<TestStorage, committee::Instance1>::ProposalExpired
+        );
     });
 }

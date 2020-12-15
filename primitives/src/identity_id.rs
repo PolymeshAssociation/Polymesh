@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::EventOnly;
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -47,9 +48,19 @@ const UUID_LEN: usize = 32usize;
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
 )]
-pub struct IdentityId([u8; UUID_LEN]);
+pub struct IdentityId(pub [u8; UUID_LEN]);
+
+/// Alias for `EventOnly<IdentityId>`.
+// Exists because schema checks don't know how to handle `EventOnly`.
+pub type EventDid = EventOnly<IdentityId>;
 
 impl IdentityId {
+    /// Protect the DID as only for use in events.
+    #[inline]
+    pub fn for_event(self) -> EventDid {
+        EventDid::new(self)
+    }
+
     /// Returns a byte slice of this IdentityId's contents
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
@@ -99,11 +110,13 @@ impl sp_std::fmt::Debug for IdentityId {
 
 impl From<u128> for IdentityId {
     fn from(id: u128) -> Self {
-        let mut encoded_id = id.encode();
-        encoded_id.resize(32, 0);
+        let encoded_id = id.encode();
         let mut did = [0; 32];
-        did.copy_from_slice(&encoded_id);
-        IdentityId(did)
+        for (i, n) in encoded_id.into_iter().enumerate() {
+            did[i] = n;
+        }
+
+        Self(did)
     }
 }
 
@@ -139,7 +152,7 @@ impl TryFrom<&[u8]> for IdentityId {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
             fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
-            Ok(IdentityId::from_bytes(fixed))
+            Ok(Self(fixed))
         } else {
             // case where a string represented as u8 is being converted
             let did_str = str::from_utf8(did).map_err(|_| "DID is not valid UTF-8")?;
@@ -150,15 +163,7 @@ impl TryFrom<&[u8]> for IdentityId {
 
 impl From<[u8; UUID_LEN]> for IdentityId {
     fn from(s: [u8; UUID_LEN]) -> Self {
-        Self::from_bytes(s)
-    }
-}
-
-impl IdentityId {
-    /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
-    pub const fn from_bytes(mut s: [u8; UUID_LEN]) -> Self {
-        //s[UUID_LEN - 1] &= 0b0111_1111;
-        IdentityId(s)
+        Self(s)
     }
 }
 
@@ -185,7 +190,21 @@ impl Printable for IdentityId {
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-pub type PortfolioNumber = u64;
+#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PortfolioNumber(pub u64);
+
+impl Default for PortfolioNumber {
+    fn default() -> Self {
+        Self(1)
+    }
+}
+
+impl From<u64> for PortfolioNumber {
+    fn from(num: u64) -> Self {
+        Self(num)
+    }
+}
 
 /// TBD
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -199,7 +218,13 @@ pub enum PortfolioKind {
 
 impl Default for PortfolioKind {
     fn default() -> Self {
-        PortfolioKind::Default
+        Self::Default
+    }
+}
+
+impl From<Option<PortfolioNumber>> for PortfolioKind {
+    fn from(num: Option<PortfolioNumber>) -> Self {
+        num.map_or(Self::Default, Self::User)
     }
 }
 
@@ -222,7 +247,7 @@ impl Printable for PortfolioId {
                 sp_io::misc::print_utf8(b"default");
             }
             PortfolioKind::User(num) => {
-                sp_io::misc::print_hex(&num.to_be_bytes());
+                sp_io::misc::print_num(num.0);
             }
         }
     }

@@ -17,9 +17,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-pub mod bridge;
 pub mod cdd_check;
-pub mod contracts_wrapper;
 pub mod dividend;
 pub mod exemption;
 pub mod impls;

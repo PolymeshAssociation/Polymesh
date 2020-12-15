@@ -48,22 +48,29 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
-    traits::UnfilteredDispatchable,
-    weights::{DispatchClass, GetDispatchInfo, Weight},
+    traits::{GetCallMetadata, UnfilteredDispatchable},
+    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use pallet_balances::{self as balances};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
     with_transaction,
 };
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
+
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// Configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait {
@@ -73,9 +80,20 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching call type.
     type Call: Parameter
         + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>
+        + From<balances::Call<Self>>
         + UnfilteredDispatchable<Origin = Self::Origin>;
+
+    type WeightInfo: WeightInfo;
+}
+
+pub trait WeightInfo {
+    fn batch(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight;
+    fn relay_tx(call: &impl GetDispatchInfo) -> Weight;
 }
 
 decl_storage! {
@@ -128,25 +146,6 @@ impl<C> UniqueCall<C> {
     }
 }
 
-fn combine_classes(mut classes: impl Iterator<Item = DispatchClass>) -> DispatchClass {
-    let all_operational = classes.all(|class| class == DispatchClass::Operational);
-    if all_operational {
-        DispatchClass::Operational
-    } else {
-        DispatchClass::Normal
-    }
-}
-
-fn batch_weight(calls: &[impl GetDispatchInfo]) -> (Weight, DispatchClass) {
-    let weight = calls
-        .into_iter()
-        .map(|call| call.get_dispatch_info().weight)
-        .fold(550_000_000, |a: Weight, n| a.saturating_add(n))
-        .saturating_add(10_000_000);
-    let class = combine_classes(calls.into_iter().map(|call| call.get_dispatch_info().class));
-    (weight, class)
-}
-
 fn dispatch_call<T: Trait>(
     origin: T::Origin,
     is_root: bool,
@@ -184,12 +183,25 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                let sender = ensure_signed(origin.clone())?;
+                CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            }
             for (index, call) in calls.into_iter().enumerate() {
-                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
-                    Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
+                // Dispatch the call in a modified metadata context.
+                let result = with_call_metadata(call.get_call_metadata(), || {
+                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                        Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
+                        Err(e)
+                    } else {
+                        Ok(())
+                    }
+                });
+                if result.is_err() {
+                    // Abort the batch.
                     return Ok(());
                 }
             }
@@ -215,13 +227,16 @@ decl_module! {
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root(origin.clone()).is_ok();
+            let is_root = Self::is_root_with_permissions(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
-                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
-                        return Err((index as u32, e.error))
+                    if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
+                        dispatch_call::<T>(origin.clone(), is_root, call)
+                    }) {
+                        // Abort the batch.
+                        return Err((index as u32, e.error));
                     }
                 }
                 Ok(())
@@ -250,13 +265,15 @@ decl_module! {
         /// If any call failed, then `BatchOptimisticFailed` is deposited,
         /// with a vector of `(index, error)`.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = batch_weight(&calls)]
+        #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root(origin.clone()).is_ok();
+            let is_root = Self::is_root_with_permissions(origin.clone())?;
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
-                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
+                    dispatch_call::<T>(origin.clone(), is_root, call)
+                }) {
                     errors.push((index as u32, e.error));
                 }
             }
@@ -279,19 +296,15 @@ decl_module! {
         /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
-        /// # Weight
-        /// - The weight of the call to be relayed plus a static 900_000_000.
-        #[weight = (
-            call.call.get_dispatch_info().weight.saturating_add(900_000_000),
-            call.call.get_dispatch_info().class,
-        )]
+        #[weight = <T as Trait>::WeightInfo::relay_tx(&*call.call)]
         pub fn relay_tx(
             origin,
             target: T::AccountId,
             signature: <T as IdentityTrait>::OffChainSignature,
             call: UniqueCall<<T as Trait>::Call>
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             let target_nonce = <Nonces<T>>::get(&target);
 
@@ -312,12 +325,39 @@ decl_module! {
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
-            call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|info| info.actual_weight.map(|w| w.saturating_add(90_000_000)).into())
-                .map_err(|e| DispatchErrorWithPostInfo {
-                    error: e.error,
-                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(90_000_000)).into()
-                })
+            let call = call.call;
+            with_call_metadata(call.get_call_metadata(), || {
+                call.dispatch(RawOrigin::Signed(target).into())
+                    .map(|info| info
+                         .actual_weight
+                         .map(|w| w.saturating_add(90_000_000))
+                         .into())
+                    .map_err(|e| DispatchErrorWithPostInfo {
+                        error: e.error,
+                        post_info: e
+                            .post_info
+                            .actual_weight
+                            .map(|w| w.saturating_add(90_000_000))
+                            .into()
+                    })
+            })
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// Returns a boolean value designating whether `origin` is root. If the origin is not root then
+    /// the function succeeds only if `origin` is signed and has permissions to call the current
+    /// extrinsic.
+    fn is_root_with_permissions(origin: T::Origin) -> Result<bool, DispatchError> {
+        let is_root = match origin.into() {
+            Ok(RawOrigin::Root) => true,
+            Ok(RawOrigin::Signed(sender)) => {
+                CallPermissions::<T>::ensure_call_permissions(&sender)?;
+                false
+            }
+            _ => false,
+        };
+        Ok(is_root)
     }
 }

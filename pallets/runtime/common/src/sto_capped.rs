@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+// TODO: Remove this module before mainnet launch
+
 //! # SecurityToken offering Module
 //!
 //! The STO module provides the way of investing into an asset.
@@ -111,20 +113,8 @@ decl_error! {
         PrevalidationFailed,
         /// Insufficient sender balance.
         InsufficientBalance,
-        /// The STO has already started.
-        StoAlreadyStarted,
-        /// The sender is not authorized to perform the given operation.
-        Unauthorized,
-        /// The STO has already reached the given state.
-        AlreadyInThatState,
         /// An overflow in the new token count.
         StoCountOverflow,
-        /// An overflow in the new token count.
-        TokenCountOverflow,
-        /// An underflow in the new token count.
-        TokenCountUnderflow,
-        /// The given token is not a permitted investment currency.
-        TokenIsNotPermitted,
         /// An overflow while calculating sold tokens.
         SoldTokensOverflow,
         /// An overflow while updating the simple token investment.

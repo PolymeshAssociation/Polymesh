@@ -37,10 +37,35 @@ macro_rules! assert_session_era {
     };
 }
 
+macro_rules! assert_present_identity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
+            true
+        );
+    };
+}
+
+macro_rules! assert_absent_identity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
+            false
+        );
+    };
+}
+
+macro_rules! assert_add_permissioned_validator {
+    ($acc_id:expr) => {
+        assert_ok!(Staking::add_permissioned_validator(
+            root(),
+            Identity::get_identity($acc_id).unwrap()
+        ));
+    };
+}
+
 mod mock;
 use mock::*;
-
-use pallet_staking::*;
 
 use chrono::prelude::Utc;
 use codec::Decode;
@@ -51,6 +76,7 @@ use frame_support::{
     StorageMap,
 };
 use pallet_balances::Error as BalancesError;
+use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
@@ -397,10 +423,7 @@ fn staking_should_work() {
                 1500,
                 RewardDestination::Controller
             ));
-            assert_ok!(Staking::add_permissioned_validator(
-                frame_system::RawOrigin::Root.into(),
-                3
-            ));
+            assert_add_permissioned_validator!(&3);
             assert_ok!(Staking::validate(
                 Origin::signed(4),
                 ValidatorPrefs::default()
@@ -1914,10 +1937,7 @@ fn switching_roles() {
             1000,
             RewardDestination::Controller
         ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            5
-        ));
+        assert_add_permissioned_validator!(&5);
         assert_ok!(Staking::validate(
             Origin::signed(6),
             ValidatorPrefs::default()
@@ -1928,10 +1948,7 @@ fn switching_roles() {
         // with current nominators 10 and 5 have the most stake
         assert_eq_uvec!(validator_controllers(), vec![6, 10]);
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            1
-        ));
+        assert_add_permissioned_validator!(&1);
         // 2 decides to be a validator. Consequences:
         assert_ok!(Staking::validate(
             Origin::signed(2),
@@ -2075,10 +2092,7 @@ fn bond_with_little_staked_value_bounded() {
                 RewardDestination::Controller
             ));
             add_secondary_key(1, 2);
-            assert_ok!(Staking::add_permissioned_validator(
-                frame_system::RawOrigin::Root.into(),
-                1
-            ));
+            assert_add_permissioned_validator!(&1);
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
@@ -2527,11 +2541,11 @@ fn reporters_receive_their_slice() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2560,11 +2574,11 @@ fn subsequent_reports_in_same_span_pay_out_less() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount, but less and less if they submit multiple reports in one span.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only not the total.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2822,13 +2836,13 @@ fn garbage_collection_on_window_pruning() {
         assert_eq!(Balances::free_balance(101), 2000);
 
         assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-        // Storage get update even the nominator didn't get slashed
-        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+        // Storage will not be updates as nominator didn't get slashed so it will be none.
+        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
             assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
             mock::start_era(era);
         }
@@ -2839,6 +2853,7 @@ fn garbage_collection_on_window_pruning() {
 }
 
 #[test]
+#[ignore] // Ignored because nominator will no more slashed and no storage will be updated.
 fn slashing_nominators_by_span_max() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_era(1);
@@ -3697,7 +3712,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenEarlySubmission,
+                    Error::<Test>::OffchainElectionEarlySubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(1)),
                 );
             })
@@ -3723,7 +3738,7 @@ mod offchain_phragmen {
                 let (compact, winners, score) = horrible_phragmen_with_post_processing(false);
                 assert_err_with_weight!(
                     submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
-                    Error::<Test>::PhragmenWeakSubmission,
+                    Error::<Test>::OffchainElectionWeakSubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(3))
                 );
             })
@@ -3870,7 +3885,7 @@ mod offchain_phragmen {
                     TransactionSource::Local,
                     &inner,
                 ),
-                TransactionValidity::Err(InvalidTransaction::Custom(16).into(),),
+                TransactionValidity::Err(InvalidTransaction::Custom(14).into()),
             )
         })
     }
@@ -3894,7 +3909,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3918,7 +3933,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenBogusElectionSize,
+                    Error::<Test>::OffchainElectionBogusElectionSize,
                 );
             })
     }
@@ -3943,7 +3958,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3991,7 +4006,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4018,7 +4033,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4044,7 +4059,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinner,
+                    Error::<Test>::OffchainElectionBogusWinner,
                 );
             })
     }
@@ -4074,7 +4089,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusEdge,
+                    Error::<Test>::OffchainElectionBogusEdge,
                 );
             })
     }
@@ -4104,7 +4119,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4134,7 +4149,7 @@ mod offchain_phragmen {
                 // This raises score issue.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4163,7 +4178,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4199,7 +4214,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusNomination,
+                    Error::<Test>::OffchainElectionBogusNomination,
                 );
             })
     }
@@ -4264,7 +4279,7 @@ mod offchain_phragmen {
                 // is rejected.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenSlashedNomination,
+                    Error::<Test>::OffchainElectionSlashedNomination,
                 );
             })
     }
@@ -4286,7 +4301,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusScore,
+                    Error::<Test>::OffchainElectionBogusScore,
                 );
             })
     }
@@ -4948,13 +4963,10 @@ fn offences_weight_calculated_correctly() {
 			},
 		];
 
-		let n = 1; // Number of offenders
-		let rw = 3 + 3 * n; // rw reads and writes
+		let rw = 3; // rw reads and writes
 		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)
 			// One `slash_cost`
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
-			// `slash_cost` * nominators (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(2, 2);
@@ -5013,7 +5025,7 @@ fn add_nominator_with_invalid_expiry() {
 
             // For valid trusted CDD service providers
             let account_bob = 600;
-            let (_bob_signed, bob_did) = make_account(account_bob).unwrap();
+            let (_bob_signed, bob_did) = make_account_with_uid(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
@@ -5056,7 +5068,7 @@ fn add_valid_nominator_with_multiple_claims() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
@@ -5066,7 +5078,7 @@ fn add_valid_nominator_with_multiple_claims() {
             // add one more claim issuer
             let claim_issuer_2 = 700;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
@@ -5103,7 +5115,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_1 = 600;
             let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account(claim_issuer_1).unwrap();
+                make_account_with_uid(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
@@ -5114,7 +5126,7 @@ fn validate_nominators_with_valid_cdd() {
 
             let claim_issuer_2 = 800;
             let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account(claim_issuer_2).unwrap();
+                make_account_with_uid(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             let mut now = Utc::now();
@@ -5233,16 +5245,13 @@ fn should_add_permissioned_validators() {
         let acc_10 = 10;
         let acc_20 = 20;
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_10.clone()
-        ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_20.clone()
-        ));
-        assert_eq!(Staking::permissioned_validators(acc_10), true);
-        assert_eq!(Staking::permissioned_validators(acc_20), true);
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
+        assert_present_identity!(&acc_10);
+        assert_present_identity!(&acc_20);
     });
 }
 
@@ -5253,24 +5262,21 @@ fn should_remove_permissioned_validators() {
         let acc_20 = 20;
         let acc_30 = 30;
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_10
-        ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_20
-        ));
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+        provide_did_to_user(30);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
 
         assert_ok!(Staking::remove_permissioned_validator(
             Origin::signed(2000),
-            acc_20
+            Identity::get_identity(&acc_20).unwrap()
         ));
 
-        assert_eq!(Staking::permissioned_validators(&acc_10), true);
-        assert_eq!(Staking::permissioned_validators(&acc_20), false);
-
-        assert_eq!(Staking::permissioned_validators(&acc_30), false);
+        assert_present_identity!(&acc_10);
+        assert_absent_identity!(&acc_20);
+        assert_absent_identity!(&acc_30);
     });
 }
 
@@ -5411,4 +5417,238 @@ fn voting_for_pip_overlays_with_staking() {
         // Error, because we don't have 101 tokens to bond.
         assert_noop!(alice_proposal(1), Error::InsufficientDeposit);
     });
+}
+
+#[test]
+fn test_with_multiple_validators_from_entity() {
+    ExtBuilder::default()
+        .validator_count(5)
+        .minimum_validator_count(5)
+        .build()
+        .execute_with(|| {
+            start_era(1);
+
+            // add new validator
+            bond_validator(50, 51, 500000);
+
+            // Add other stash and controller to the same did.
+            // 60 stash and 61 controller.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            assert_ok!(Staking::bond(
+                Origin::signed(60),
+                61,
+                700000,
+                RewardDestination::Controller,
+            ));
+            let entity_id = Identity::get_identity(&60).unwrap();
+            if !Staking::permissioned_identity(entity_id) {
+                assert_add_permissioned_validator!(&60);
+            }
+            assert_ok!(Staking::validate(
+                Origin::signed(61),
+                ValidatorPrefs::default()
+            ));
+
+            start_era(2);
+
+            assert!(Session::validators().contains(&50));
+            assert!(Session::validators().contains(&60));
+        });
+}
+
+#[test]
+fn test_reward_scheduling() {
+    ExtBuilder::default()
+        .validator_count(2)
+        .nominate(true)
+        .build()
+        .execute_with(|| {
+            let init_balance_10 = Balances::total_balance(&10);
+            let init_balance_11 = Balances::total_balance(&11);
+            let init_balance_20 = Balances::total_balance(&20);
+            let init_balance_21 = Balances::total_balance(&21);
+            let init_balance_100 = Balances::total_balance(&100);
+            let init_balance_101 = Balances::total_balance(&101);
+
+            // Check state
+            Payee::<Test>::insert(11, RewardDestination::Controller);
+            Payee::<Test>::insert(21, RewardDestination::Controller);
+            Payee::<Test>::insert(101, RewardDestination::Controller);
+
+            <Module<Test>>::reward_by_ids(vec![(11, 50)]);
+            <Module<Test>>::reward_by_ids(vec![(11, 50)]);
+            // This is the second validator of the current elected set.
+            <Module<Test>>::reward_by_ids(vec![(21, 50)]);
+
+            // Compute total payout now for whole duration as other parameter won't change
+            let total_payout_0 = current_total_payout_for_duration(3 * 1000);
+            assert!(total_payout_0 > 10); // Test is meaningful if reward something
+
+            println!("Print the total payout for the reward {:?}", total_payout_0);
+
+            start_session(1);
+
+            assert_eq!(Balances::total_balance(&10), init_balance_10);
+            assert_eq!(Balances::total_balance(&11), init_balance_11);
+            assert_eq!(Balances::total_balance(&20), init_balance_20);
+            assert_eq!(Balances::total_balance(&21), init_balance_21);
+            assert_eq!(Balances::total_balance(&100), init_balance_100);
+            assert_eq!(Balances::total_balance(&101), init_balance_101);
+            assert_eq_uvec!(Session::validators(), vec![21, 11]);
+            assert_eq!(
+                Staking::eras_reward_points(Staking::active_era().unwrap().index),
+                EraRewardPoints {
+                    total: 50 * 3,
+                    individual: vec![(11, 100), (21, 50)].into_iter().collect(),
+                }
+            );
+            let part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
+            let part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
+            let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
+            let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
+
+            start_session(2);
+            start_session(3);
+
+            assert_eq!(Staking::active_era().unwrap().index, 1);
+            assert_eq!(
+                mock::REWARD_REMAINDER_UNBALANCED.with(|v| *v.borrow()),
+                7050
+            );
+
+            let current_block_no = System::block_number();
+            // Check whether the rewards get scheduled or not.
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 1).len(),
+                1
+            );
+            assert_eq!(
+                pallet_scheduler::Agenda::<Test>::get(current_block_no + 2).len(),
+                1
+            );
+
+            run_to_block_scheduler(current_block_no + 1);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&20),
+                init_balance_20 + part_for_20 * total_payout_0 * 1 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&21), init_balance_21, 2);
+
+            // Balance of 10 & 11 remain same as reward scheduled only for 21
+            assert_eq!(Balances::total_balance(&10), init_balance_10);
+            assert_eq!(Balances::total_balance(&11), init_balance_11);
+
+            // Execute scheduling for the validator 11
+            run_to_block_scheduler(current_block_no + 2);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&10),
+                init_balance_10 + part_for_10 * total_payout_0 * 2 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&11), init_balance_11, 2);
+
+            assert_eq_error_rate!(
+                Balances::total_balance(&100),
+                init_balance_100
+                    + part_for_100_from_10 * total_payout_0 * 2 / 3
+                    + part_for_100_from_20 * total_payout_0 * 1 / 3,
+                2
+            );
+            assert_eq_error_rate!(Balances::total_balance(&101), init_balance_101, 2);
+        });
+}
+
+#[test]
+fn check_slashing_switch_for_validators_and_nominators() {
+    ExtBuilder::default()
+        .slashing_allowed_for(SlashingSwitch::None)
+        .validator_count(5)
+        .build()
+        .execute_with(|| {
+            // Check the initial state of the Slashing Switch.
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+
+            let change_slashing_allowed_for = |switch: SlashingSwitch| {
+                assert_ok!(Staking::change_slashing_allowed_for(root(), switch));
+                assert_eq!(Staking::slashing_allowed_for(), switch);
+            };
+
+            change_slashing_allowed_for(SlashingSwitch::Validator);
+            change_slashing_allowed_for(SlashingSwitch::ValidatorAndNominator);
+        });
+}
+
+#[test]
+fn offence_is_blocked_when_slashing_status_is_off() {
+    ExtBuilder::default()
+        .offchain_phragmen_ext()
+        .validator_count(4)
+        .slashing_allowed_for(SlashingSwitch::None)
+        .has_stakers(false)
+        .build()
+        .execute_with(|| {
+            assert_eq!(Staking::slashing_allowed_for(), SlashingSwitch::None);
+            let initial_balance = Balances::free_balance(10);
+            create_on_offence_now(10);
+            // No slashing happened.
+            assert_eq!(Balances::free_balance(10), initial_balance);
+        });
+}
+
+#[test]
+fn check_slashing_for_different_switches() {
+    ExtBuilder::default().build_and_execute(|| {
+        mock::start_era(1);
+
+        assert_eq!(Balances::free_balance(11), 1000);
+        assert_eq!(Balances::free_balance(21), 2000);
+
+        // Switch to ValidatorAndNominator.
+        assert_ok!(Staking::change_slashing_allowed_for(
+            root(),
+            SlashingSwitch::ValidatorAndNominator
+        ));
+        assert_eq!(
+            Staking::slashing_allowed_for(),
+            SlashingSwitch::ValidatorAndNominator
+        );
+
+        // Add nominator.
+        // add a new candidate for being a nominator. account 3 controlled by 4.
+        bond_nominator_with_expiry(3, 2000, 99999999, vec![11, 21]);
+        add_secondary_key(4, 3);
+
+        mock::start_era(2);
+
+        assert_eq!(Balances::free_balance(101), 2000);
+
+        create_on_offence_now(11);
+
+        create_on_offence_now(21);
+
+        // Balance of account 11 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(11), 900);
+        // Balance of account 4 [nominator] get slashed by 10% i.e 10 % of 2000 (total staked).
+        assert_eq!(Balances::free_balance(4), 1800);
+        // Balance of account 21 [validator] get slashed by 10% i.e 10 % of 1000 (total staked).
+        assert_eq!(Balances::free_balance(21), 1900);
+    })
+}
+
+fn create_on_offence_now(offender: u64) {
+    on_offence_now(
+        &[OffenceDetails {
+            offender: (
+                offender,
+                Staking::eras_stakers(Staking::active_era().unwrap().index, offender),
+            ),
+            reporters: vec![],
+        }],
+        &[Perbill::from_percent(10)],
+    );
 }

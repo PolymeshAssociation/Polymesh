@@ -20,7 +20,11 @@
 #![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
-use curve25519_dalek::scalar::Scalar;
+use cryptography::Scalar;
+use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -28,9 +32,6 @@ pub use sp_runtime::{
     traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
     MultiSignature,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -146,18 +147,23 @@ pub use ignored_case_string::IgnoredCaseString;
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
 
+pub mod event_only;
+pub use event_only::EventOnly;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
+pub use identity_id::{
+    EventDid, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::{Identity, IdentityWithRoles};
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
@@ -183,7 +189,14 @@ pub mod migrate;
 
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
-pub use secondary_key::{Permission, SecondaryKey, Signatory};
+pub use secondary_key::{
+    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
+    SecondaryKey, Signatory,
+};
+
+/// Subset type.
+pub mod subset;
+pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
@@ -200,21 +213,28 @@ pub use ticker::Ticker;
 
 /// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
+pub use smart_extension::{
+    ExtensionAttributes, MetaDescription, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
+    SmartExtensionType, TemplateDetails, TemplateMetadata,
+};
 
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
+pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
-pub use condition::{Condition, ConditionType, TargetIdentity};
+pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, TrustedIssuer};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
-pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
-};
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
+
+/// Timekeeping and checkpoints.
+pub mod calendar;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -238,9 +258,76 @@ pub struct Beneficiary<Balance> {
     pub amount: Balance,
 }
 
+/// The name of a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletName(pub Vec<u8>);
+
+/// The name of a function within a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DispatchableName(pub Vec<u8>);
+
+/// Create a `Version` struct with an upper limit.
+#[macro_export]
+macro_rules! storage_migration_ver {
+    ($ver:literal) => {
+        #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub struct Version(u8);
+
+        impl Version {
+            const MAX: u8 = $ver;
+
+            /// Constructor as `const function` which is interpreted by the compiler at
+            /// compile-time.
+            const fn new(ver: u8) -> Option<Self> {
+                if ver <= Self::MAX {
+                    Some(Self(ver))
+                } else {
+                    None
+                }
+            }
+        }
+
+        impl Default for Version {
+            fn default() -> Self {
+                Version(0)
+            }
+        }
+
+        impl sp_std::convert::TryFrom<u8> for Version {
+            type Error = &'static str;
+
+            fn try_from(ver: u8) -> Result<Self, Self::Error> {
+                Self::new(ver).ok_or("Unsupported version")
+            }
+        }
+    };
+}
+
+/// Helper macro which execute the `$body` if `$curr` is less than version `$ver`.
+/// It also updates `StorageVersion` in the current pallet to `$ver`.
+#[macro_export]
+macro_rules! storage_migrate_on {
+    ($curr: expr, $ver:literal, $body: block) => {{
+        const TARGET_VERSION: Version = Version::new($ver).unwrap();
+        if $curr < TARGET_VERSION {
+            $body;
+            StorageVersion::put(TARGET_VERSION);
+        }
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+
+    use codec::{Decode, Encode};
+    use sp_std::convert::TryInto;
 
     #[derive(VecU8StrongTyped)]
     struct A(Vec<u8>);
@@ -303,5 +390,19 @@ mod tests {
         // Strong types are not equal.
         // The below line does NOT compile.
         // let c3 :C = _d1;
+    }
+
+    #[test]
+    fn storage_migration_ver_test_1() {
+        storage_migration_ver!(3);
+
+        assert!(Version::new(2).is_some());
+        assert!(Version::new(4).is_none());
+
+        let v: Result<Version, _> = 3u8.try_into();
+        assert!(v.is_ok());
+
+        let v: Result<Version, _> = 5u8.try_into();
+        assert!(v.is_err());
     }
 }
