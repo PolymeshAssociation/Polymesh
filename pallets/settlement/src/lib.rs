@@ -54,13 +54,13 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure, storage,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get, LockIdentifier,
     },
-    weights::{PostDispatchInfo, Weight},
+    weights::Weight,
     IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
@@ -76,10 +76,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::{
-    traits::{Dispatchable, One, Verify, Zero},
-    DispatchErrorWithPostInfo,
-};
+use sp_runtime::traits::{Dispatchable, One, Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -327,85 +324,6 @@ pub trait WeightInfo {
     fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
-}
-
-impl WeightInfo for () {
-    fn create_venue(_d: u32, _u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn update_venue(_d: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn affirm_instruction(_l: u32) -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn reject_instruction(_l: u32) -> Weight {
-        1_000_000_000
-    }
-    fn affirm_with_receipts(_r: u32) -> Weight {
-        1_000_000_000
-    }
-    fn claim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn unclaim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering() -> Weight {
-        1_000_000_000
-    }
-    fn allow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn disallow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering_disallow() -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn execute_scheduled_instruction(_l: u32, _s: u32, _c: u32, _t: u32) -> Weight {
-        1_000_000_000
-    }
-    fn reject_instruction_with_no_pre_affirmations(_l: u32) -> Weight {
-        1_000_000_000
-    }
-}
-
-pub mod weight_for {
-    use super::*;
-
-    pub fn weight_for_execute_instruction_if_no_pending_affirm<T: Trait>(
-        weight_for_custodian_transfer: Weight,
-    ) -> Weight {
-        T::DbWeight::get()
-            .reads(4) // Weight for read
-            .saturating_add(150_000_000) // General weight
-            .saturating_add(weight_for_custodian_transfer) // Weight for custodian transfer
-    }
-
-    pub fn weight_for_execute_instruction_if_pending_affirm<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 1) // For read and write
-            .saturating_add(900_000_000) // Mocking unchecked_release_locks() function weight.
-    }
 }
 
 decl_event!(
@@ -850,9 +768,10 @@ decl_module! {
 
         /// An internal call to execute a scheduled settlement instruction.
         #[weight = 500_000_000]
-        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResultWithPostInfo {
+        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResult {
             ensure_root(origin)?;
-            Self::execute_instruction(instruction_id).1
+            Self::execute_instruction(instruction_id)?;
+            Ok(())
         }
     }
 }
@@ -1056,12 +975,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_instruction(instruction_id: u64) -> (u32, DispatchResultWithPostInfo) {
+    fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
-        let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
+        if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
             Self::deposit_event(RawEvent::InstructionRejected(
@@ -1069,9 +988,7 @@ impl<T: Trait> Module<T> {
                 instruction_id,
             ));
             result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-            weight_for::weight_for_execute_instruction_if_pending_affirm::<T>()
         } else {
-            let mut transaction_weight = 0;
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
             let venue_id = Self::instruction_details(instruction_id).venue_id;
@@ -1092,15 +1009,14 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         status == LegStatus::ExecutionPending
                     }) {
-                        let result = <Asset<T>>::base_transfer(
+                        if <Asset<T>>::base_transfer(
                             leg_details.from,
                             leg_details.to,
                             &leg_details.asset,
                             leg_details.amount,
-                        );
-                        if let Ok(post_info) = result {
-                            transaction_weight += post_info.actual_weight.unwrap_or_default();
-                        } else {
+                        )
+                        .is_err()
+                        {
                             return Err(leg_id);
                         }
                     }
@@ -1126,7 +1042,6 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(transaction_weight)
         };
 
         // Clean up instruction details to reduce chain bloat
@@ -1137,16 +1052,7 @@ impl<T: Trait> Module<T> {
         AffirmsReceived::remove_prefix(instruction_id);
         Self::prune_user_affirmations(&legs, instruction_id);
 
-        let post_info = PostDispatchInfo {
-            actual_weight: Some(weight_for_execution.saturating_add(T::DbWeight::get().writes(5))),
-            pays_fee: Default::default(),
-        };
-        (
-            instructions_processed,
-            result
-                .map(|_| post_info)
-                .map_err(|error| DispatchErrorWithPostInfo { post_info, error }),
-        )
+        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
     }
 
     fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
@@ -1573,9 +1479,7 @@ impl<T: Trait> Module<T> {
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
-            Self::execute_instruction(instruction_id)
-                .1
-                .map_err(|e| e.error)?;
+            Self::execute_instruction(instruction_id)?;
         }
         Ok(())
     }

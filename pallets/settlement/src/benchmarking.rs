@@ -244,7 +244,6 @@ fn emulate_add_instruction<T: Trait>(
         origin,
         did,
         account,
-        secret,
         ..
     } = UserBuilder::<T>::default().generate_did().build("creator");
     let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
