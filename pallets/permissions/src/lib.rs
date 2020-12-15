@@ -19,27 +19,22 @@
 //! the current extrinsic.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
 
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    storage::StorageValue,
     traits::{CallMetadata, GetCallMetadata},
-    weights::Weight,
 };
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
 };
-use polymesh_primitives::{storage_migration_ver, DispatchableName, PalletName};
+use polymesh_primitives::{DispatchableName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 use sp_std::{fmt, marker::PhantomData, result::Result};
-
-storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Permissions {
@@ -47,8 +42,6 @@ decl_storage! {
         pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
         pub CurrentDispatchableName get(fn current_dispatchable_name): DispatchableName;
-        /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -58,23 +51,6 @@ decl_module! {
         // Without this definition, the metadata won't have details about the errors of this module.
         // That will lead to UIs either throwing fits or showing incorrect error messages.
         type Error = Error<T>;
-
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::remove_storage_prefix;
-            use polymesh_primitives::storage_migrate_on;
-
-            let storage_ver = StorageVersion::get();
-
-            // These fields should not be persisted in storage because they are unset after each
-            // dispatchable call. However we ensure that any trace of them (perhaps None values) is
-            // removed from the Session prefix.
-            storage_migrate_on!(storage_ver, 1, {
-                remove_storage_prefix(b"Session", b"CurrentPalletName", b"");
-                remove_storage_prefix(b"Session", b"CurrentDispatchableName", b"");
-            });
-
-            0
-        }
     }
 }
 
