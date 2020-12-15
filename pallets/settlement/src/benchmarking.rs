@@ -17,19 +17,18 @@
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::{traits::Currency, weights::Weight};
+use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_asset::{
     benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, SecurityToken,
     Tokens,
 };
-use pallet_balances as balances;
 use pallet_compliance_manager::benchmarking::make_issuers;
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::{PortfolioAssetBalances, Portfolios};
 use polymesh_common_utilities::{
-    benchs::{uid_from_name_and_idx, User, UserBuilder},
+    benchs::{User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
@@ -51,7 +50,7 @@ use sp_core::sr25519::Signature;
 #[cfg(feature = "std")]
 use sp_runtime::MultiSignature;
 
-const MAX_VENUE_DETAILS_LENGTH: u32 = 50000;
+const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
 const MAX_COMPLIANCE_RESTRICTION: u32 = 45;
@@ -759,7 +758,7 @@ benchmarks! {
     }
 
 
-    reject_instruction_with_all_pre_affirmations {
+    reject_instruction {
         // At least one portfolio needed
         let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
@@ -767,7 +766,7 @@ benchmarks! {
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-    }: reject_instruction(origin, instruction_id, portfolios.clone())
+    }: _(origin, instruction_id, portfolios.clone())
     verify {
         for p in portfolios.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
@@ -804,65 +803,65 @@ benchmarks! {
     }
 
 
-    claim_receipt {
-        // There is no catalyst in this dispatchable, It will always be time constant.
+    // claim_receipt {
+    //     // There is no catalyst in this dispatchable, It will always be time constant.
 
-        // create venue
-        let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let to = UserBuilder::<T>::default().generate_did().build("to_did");
-        let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
+    //     // create venue
+    //     let creator = UserBuilder::<T>::default().generate_did().build("creator");
+    //     let to = UserBuilder::<T>::default().generate_did().build("to_did");
+    //     let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
 
-        let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-        let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
-        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-        let portfolio_to = PortfolioId::user_portfolio(to.did(), (500u64).into());
-        let legs = vec![Leg {
-            from: portfolio_from,
-            to: portfolio_to,
-            asset: ticker,
-            amount: 100.into(),
-        }];
+    //     let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
+    //     let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
+    //     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
+    //     let portfolio_to = PortfolioId::user_portfolio(to.did(), (500u64).into());
+    //     let legs = vec![Leg {
+    //         from: portfolio_from,
+    //         to: portfolio_to,
+    //         asset: ticker,
+    //         amount: 100.into(),
+    //     }];
 
-        // Add instruction
-        Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
-        let instruction_id = 1;
+    //     // Add instruction
+    //     Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+    //     let instruction_id = 1;
 
-        let msg = Receipt {
-            receipt_uid: 0,
-            from: portfolio_from,
-            to: portfolio_to,
-            asset: ticker,
-            amount: 100.into(),
-        };
+    //     let msg = Receipt {
+    //         receipt_uid: 0,
+    //         from: portfolio_from,
+    //         to: portfolio_to,
+    //         asset: ticker,
+    //         amount: 100.into(),
+    //     };
 
-        // #[cfg(feature = "std")]
-        // frame_support::debug::info!("Receipt data :{:?}", &msg);
-        // #[cfg(feature = "std")]
-        // frame_support::debug::info!("Creator did :{:?}", &creator.did());
-        // #[cfg(feature = "std")]
-        // frame_support::debug::info!("Creator Secret :{:?}", &creator.secret);
+    //     // #[cfg(feature = "std")]
+    //     // frame_support::debug::info!("Receipt data :{:?}", &msg);
+    //     // #[cfg(feature = "std")]
+    //     // frame_support::debug::info!("Creator did :{:?}", &creator.did());
+    //     // #[cfg(feature = "std")]
+    //     // frame_support::debug::info!("Creator Secret :{:?}", &creator.secret);
 
-        let encoded = get_encoded_signature::<T>(&creator, &msg);
-        let signature = T::OffChainSignature::decode(&mut &encoded[..])
-            .expect("OffChainSignature cannot be decoded from a MultiSignature");
-        let leg_id = 0;
-        // Receipt details.
-        let receipt = ReceiptDetails {
-            receipt_uid: 0,
-            leg_id,
-            signer: creator.account(),
-            signature,
-            metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice())
-        };
+    //     let encoded = get_encoded_signature::<T>(&creator, &msg);
+    //     let signature = T::OffChainSignature::decode(&mut &encoded[..])
+    //         .expect("OffChainSignature cannot be decoded from a MultiSignature");
+    //     let leg_id = 0;
+    //     // Receipt details.
+    //     let receipt = ReceiptDetails {
+    //         receipt_uid: 0,
+    //         leg_id,
+    //         signer: creator.account(),
+    //         signature,
+    //         metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice())
+    //     };
 
-        set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-    }: _(creator.origin, instruction_id, receipt.clone())
-    verify {
-        ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
-            receipt.signer,
-            receipt.receipt_uid,
-        ), "Settlement: Fail to unclaim the receipt");
-    }
+    //     set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
+    // }: _(creator.origin, instruction_id, receipt.clone())
+    // verify {
+    //     ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
+    //         receipt.signer,
+    //         receipt.receipt_uid,
+    //     ), "Settlement: Fail to unclaim the receipt");
+    // }
 
     execute_scheduled_instruction {
         // This dispatch execute an instruction.
