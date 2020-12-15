@@ -187,6 +187,9 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                ensure_signed(origin.clone())?;
+            }
             for (index, call) in calls.into_iter().enumerate() {
                 // Dispatch the call in a modified metadata context.
                 let result = with_call_metadata(call.get_call_metadata(), || {
@@ -227,6 +230,9 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                ensure_signed(origin.clone())?;
+            }
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
                     if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
@@ -265,6 +271,9 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                ensure_signed(origin.clone())?;
+            }
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {

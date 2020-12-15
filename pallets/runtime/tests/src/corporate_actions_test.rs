@@ -1,6 +1,7 @@
 use super::{
-    pips_test::User,
-    storage::{provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, TestStorage},
+    storage::{
+        provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, TestStorage, User,
+    },
     ExtBuilder,
 };
 use core::iter;

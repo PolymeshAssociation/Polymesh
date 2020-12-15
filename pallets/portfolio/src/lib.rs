@@ -42,11 +42,9 @@
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 
 #![feature(const_option)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-
 pub mod benchmarking;
 
 use codec::{Decode, Encode};

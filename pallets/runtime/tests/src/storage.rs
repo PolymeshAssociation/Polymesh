@@ -145,6 +145,38 @@ impl_outer_event! {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct User {
+    pub ring: AccountKeyring,
+    pub did: IdentityId,
+}
+
+impl User {
+    pub fn new(ring: AccountKeyring) -> Self {
+        let did = register_keyring_account(ring).unwrap();
+        Self { ring, did }
+    }
+
+    pub fn existing(ring: AccountKeyring) -> Self {
+        let did = get_identity_id(ring).unwrap();
+        User { ring, did }
+    }
+
+    pub fn balance(self, balance: u128) -> Self {
+        use frame_support::traits::Currency as _;
+        Balances::make_free_balance_be(&self.acc(), balance);
+        self
+    }
+
+    pub fn acc(&self) -> Public {
+        self.ring.public()
+    }
+
+    pub fn signer(&self) -> Origin {
+        Origin::signed(self.acc())
+    }
+}
+
 // For testing the module, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of modules we want to use.

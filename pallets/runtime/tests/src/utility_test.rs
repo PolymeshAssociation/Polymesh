@@ -3,7 +3,7 @@ use super::{
     pips_test::assert_balance,
     storage::{
         add_secondary_key, register_keyring_account_with_balance, Call, EventTest, Identity,
-        Origin, Portfolio, System, TestStorage, Utility,
+        Origin, Portfolio, System, TestStorage, User, Utility,
     },
     ExtBuilder,
 };
@@ -241,12 +241,16 @@ fn batch_secondary_with_permissions_works() {
 
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
+    let alice = User::new(AccountKeyring::Alice).balance(1_000);
     let alice_key = AccountKeyring::Alice.public();
     let alice_origin = Origin::signed(alice_key);
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice_did = alice.did;
     let bob_key = AccountKeyring::Bob.public();
     let bob_origin = Origin::signed(bob_key);
     let bob_signer = Signatory::Account(bob_key);
+    let check_name = |name| {
+        assert_eq!(Portfolio::portfolios(&alice_did, &PortfolioNumber(1)), name);
+    };
 
     add_secondary_key(alice_did, bob_signer);
     let low_risk_name: PortfolioName = b"low risk".into();
@@ -255,10 +259,7 @@ fn batch_secondary_with_permissions() {
         low_risk_name.clone()
     ));
     assert_last_event!(EventTest::portfolio(pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)));
-    assert_eq!(
-        Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
-        low_risk_name.clone()
-    );
+    check_name(low_risk_name.clone());
     let bob_pallet_permissions = vec![
         PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
         PalletPermissions::new(
@@ -270,9 +271,8 @@ fn batch_secondary_with_permissions() {
         ),
     ];
     let bob_permissions = Permissions {
-        asset: SubsetRestriction::default(),
         extrinsic: SubsetRestriction(Some(bob_pallet_permissions.into_iter().collect())),
-        portfolio: SubsetRestriction::default(),
+        ..Permissions::default()
     };
     assert_ok!(Identity::set_permission_to_signer(
         alice_origin,
@@ -304,18 +304,12 @@ fn batch_secondary_with_permissions() {
     ];
     assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
-    assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(_, _)));
-    assert_eq!(
-        Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
-        low_risk_name
-    );
+    assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(0, _)));
+    check_name(low_risk_name);
     assert_ok!(Utility::batch_optimistic(bob_origin, calls));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchOptimisticFailed(errors)),
-        errors.len() == 1
+        errors.len() == 1 && errors[0].0 == 0
     );
-    assert_eq!(
-        Portfolio::portfolios(&alice_did, &PortfolioNumber(1)),
-        high_risk_name
-    );
+    check_name(high_risk_name);
 }

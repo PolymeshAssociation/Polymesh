@@ -1,10 +1,7 @@
 use super::{
     assert_event_exists,
     committee_test::{gc_vmo, set_members},
-    storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
-        TestStorage,
-    },
+    storage::{fast_forward_blocks, root, Call, EventTest, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{
@@ -24,7 +21,6 @@ use pallet_pips::{
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock};
-use polymesh_primitives::IdentityId;
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -41,38 +37,6 @@ type Scheduler = pallet_scheduler::Module<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
-
-#[derive(Copy, Clone)]
-pub struct User {
-    pub ring: AccountKeyring,
-    pub did: IdentityId,
-}
-
-impl User {
-    pub fn new(ring: AccountKeyring) -> Self {
-        let did = register_keyring_account(ring).unwrap();
-        Self { ring, did }
-    }
-
-    pub fn existing(ring: AccountKeyring) -> Self {
-        let did = get_identity_id(ring).unwrap();
-        User { ring, did }
-    }
-
-    pub fn balance(self, balance: u128) -> Self {
-        use frame_support::traits::Currency as _;
-        Balances::make_free_balance_be(&self.acc(), balance);
-        self
-    }
-
-    pub fn acc(&self) -> Public {
-        self.ring.public()
-    }
-
-    pub fn signer(&self) -> Origin {
-        Origin::signed(self.acc())
-    }
-}
 
 macro_rules! assert_last_event {
     ($event:pat) => {
