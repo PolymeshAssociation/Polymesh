@@ -283,7 +283,7 @@ fn batch_secondary_with_permissions() {
         bob_permissions,
     ));
     let bob_secondary_key = &Identity::did_records(&alice_did).secondary_keys[0];
-    let check_permission = |name, t| {
+    let check_permission = |name: &[u8], t| {
         assert_eq!(
             t,
             bob_secondary_key.has_extrinsic_permission(&b"Portfolio".into(), &name.into())
