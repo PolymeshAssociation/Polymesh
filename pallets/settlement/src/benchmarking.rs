@@ -453,7 +453,14 @@ fn compliance_setup<T: Trait>(
 
 fn setup_affirm_instruction<T: Trait>(
     l: u32,
-) -> (Vec<PortfolioId>, User<T>, User<T>, Ticker, Ticker) {
+) -> (
+    Vec<PortfolioId>,
+    User<T>,
+    User<T>,
+    Ticker,
+    Ticker,
+    Vec<Leg<T::Balance>>,
+) {
     // create venue
     let from = UserBuilder::<T>::default().generate_did().build("creator");
     let venue_id = create_venue_::<T>(from.did(), vec![]);
@@ -476,7 +483,7 @@ fn setup_affirm_instruction<T: Trait>(
         true,
         Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()),
     );
-    for n in 1..l / 2 {
+    for n in 0..l / 2 {
         setup_leg_and_portfolio_with_ticker::<T>(
             Some(to.did()),
             Some(from.did()),
@@ -493,11 +500,11 @@ fn setup_affirm_instruction<T: Trait>(
         venue_id,
         settlement_type,
         None,
-        legs,
+        legs.clone(),
         portfolios_from,
     )
     .expect("Unable to add and affirm the instruction");
-    (portfolios_to, from, to, from_ticker, to_ticker)
+    (portfolios_to, from, to, from_ticker, to_ticker, legs)
 }
 
 fn add_smart_extension_to_ticker<T: Trait>(
@@ -534,7 +541,9 @@ fn create_receipt_details<T: Trait>(
     index: u32,
     leg: Leg<T::Balance>,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let (account, secret) = UserBuilder::<T>::make_key_pair("creator", 0);
+    let User {
+        account, secret, ..
+    } = UserBuilder::<T>::default().build("creator");
     let msg = Receipt {
         receipt_uid: index as u64,
         from: leg.from,
@@ -763,32 +772,18 @@ benchmarks! {
 
     unclaim_receipt {
         // There is no catalyst in this dispatchable, It will be time constant always.
-
-        let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let did_to = UserBuilder::<T>::default().generate_did().build("to_did").did();
-        let venue_id = create_venue_::<T>(creator.did(), vec![creator.account().clone()]);
-
-        let ticker = Ticker::try_from(vec![b'A'; 10 as usize].as_slice()).unwrap();
-        let portfolio_from = PortfolioId::user_portfolio(creator.did(), (100u64).into());
-        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-        let portfolio_to = PortfolioId::user_portfolio(did_to, (500u64).into());
-        let legs = vec![Leg {
-            from: portfolio_from,
-            to: portfolio_to,
-            asset: ticker,
-            amount: 100.into(),
-        }];
-
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(creator.did(), venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
         let instruction_id = 1;
         let leg_id = 0;
 
-        set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, creator.account().clone(), 0);
-    }: _(creator.origin.clone(), instruction_id, leg_id)
+        set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
+    }: _(origin, instruction_id, leg_id)
     verify {
         ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::ExecutionPending), "Fail: unclaim_receipt dispatch");
-        ensure!(!Module::<T>::receipts_used(&creator.account(), 0), "Fail: Receipt status didn't get update");
+        ensure!(!Module::<T>::receipts_used(&account_id, 0), "Fail: Receipt status didn't get update");
     }
 
 
@@ -827,7 +822,7 @@ benchmarks! {
     affirm_instruction {
 
         let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
-        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
+        let (portfolios_to, _, to, _, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
     }: _(to.origin, instruction_id, portfolios_to.clone())
     verify {
@@ -895,7 +890,10 @@ benchmarks! {
         let c in 1 .. MAX_COMPLIANCE_RESTRICTION; // At least 1 compliance restriction needed.
         let t in 1 .. MAX_TRUSTED_ISSUER; // At least 1 trusted issuer needed.
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
-        let (portfolios_to, from, to, from_ticker, to_ticker) = setup_affirm_instruction::<T>(l);
+        let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
+        // Keep the portfolio asset balance before the instruction execution to verify it later.
+        let first_leg = legs.into_iter().nth(0).unwrap();
+        let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
         let origin = RawOrigin::Root;
@@ -916,4 +914,11 @@ benchmarks! {
             add_smart_extension_to_ticker::<T>(code_hash, to.origin.clone(), to.account().clone(), to_ticker);
         }
     }: _(origin, instruction_id)
+    verify {
+        // Ensure that any one leg processed through that give sufficient evidence of successful execution of instruction.
+        let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let traded_amount = before_transfer_balance - after_transfer_balance;
+        let expected_transfer_amount = first_leg.amount;
+        ensure!(matches!(traded_amount, expected_transfer_amount),"Settlement: Failed to execute the instruction");
+    }
 }

@@ -525,10 +525,7 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000
-        #[weight = <T as Trait>::WeightInfo::update_venue((match details {
-            Some(v) => v.len(),
-            None => 0 as usize
-        }) as u32)]
+        #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
         pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             // Check if a venue exists and the sender is the creator of the venue

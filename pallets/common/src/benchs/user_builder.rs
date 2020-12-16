@@ -120,7 +120,7 @@ impl<T: Trait> UserBuilder<T> {
         self_update!(self, balance, b.into())
     }
 
-    pub fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, Option<SecretKey>) {
+    fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, Option<SecretKey>) {
         let seed = (name, u).using_encoded(blake2_256);
 
         let keypair = MiniSecretKey::from_bytes(&seed[..])
