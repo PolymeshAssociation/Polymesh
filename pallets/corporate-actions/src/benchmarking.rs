@@ -21,7 +21,6 @@ use core::iter;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::{make_asset, make_document};
-use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 const TAX: Tax = Tax::one();
@@ -45,8 +44,7 @@ crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
 }
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
-    #[cfg(feature = "std")]
-    <Timestamp<T>>::set_timestamp(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000.into());
 
     let owner = user("owner", SEED);
     let ticker = make_asset::<T>(&owner);
@@ -99,8 +97,7 @@ fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Documen
 crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
 
-    #[cfg(feature = "std")]
-    <Timestamp<T>>::set_timestamp(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000.into());
 
     let origin: T::Origin = owner.origin().into();
     <Module<T>>::initiate_corporate_action(

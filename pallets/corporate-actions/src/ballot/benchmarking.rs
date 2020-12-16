@@ -19,7 +19,6 @@ use super::*;
 use crate::benchmarking::{set_ca_targets, setup_ca};
 use core::iter;
 use frame_benchmarking::benchmarks;
-use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::User;
 
 const MAX_CHOICES: u32 = 1000;
@@ -69,8 +68,7 @@ benchmarks! {
 
         // Attach and prepare to vote.
         let (owner, ca_id) = attach::<T>(1, j);
-        #[cfg(feature = "std")]
-        <Timestamp<T>>::set_timestamp(3000.into());
+        <pallet_timestamp::Now<T>>::set(3000.into());
 
         // Change targets, as they are read in voting.
         set_ca_targets::<T>(ca_id, k);

@@ -21,7 +21,6 @@ use crate::CAKind;
 use frame_benchmarking::benchmarks;
 use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
-use pallet_timestamp::Module as Timestamp;
 use polymesh_common_utilities::benchs::User;
 
 const MAX_TARGETS: u32 = 1000;
@@ -93,8 +92,7 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
 ) -> (User<T>, User<T>, CAId) {
     let (owner, ca_id, currency) = dist::<T>(k);
 
-    #[cfg(feature = "std")]
-    <Timestamp<T>>::set_timestamp(3000.into());
+    <pallet_timestamp::Now<T>>::set(3000.into());
 
     let holder = user::<T>("holder", SEED);
     add_investor_uniqueness_claim(&owner, currency);
@@ -126,6 +124,7 @@ benchmarks! {
         ensure!(<Distributions<T>>::get(ca_id).is_some(), "distribution not created");
     }
 
+    // TODO(Centril): make this work with WASM execution.
     claim {
         let k in 0..MAX_TARGETS;
 
@@ -135,6 +134,7 @@ benchmarks! {
         ensure!(HolderPaid::get((ca_id, holder.did())), "not paid");
     }
 
+    // TODO(Centril): make this work with WASM execution.
     push_benefit {
         let k in 0..MAX_TARGETS;
 
@@ -147,8 +147,7 @@ benchmarks! {
     reclaim {
         let (owner, ca_id, currency) = dist::<T>(0);
 
-        #[cfg(feature = "std")]
-        <Timestamp<T>>::set_timestamp(5000.into());
+        <pallet_timestamp::Now<T>>::set(5000.into());
     }: _(owner.origin(), ca_id)
     verify {
         ensure!(<Distributions<T>>::get(ca_id).unwrap().reclaimed, "not reclaimed");
