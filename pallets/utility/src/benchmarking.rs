@@ -1,6 +1,6 @@
 use crate::*;
 use pallet_balances::{self as balances, Call as BalancesCall};
-use pallet_identity::benchmarking::{User, UserBuilder};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 
 use frame_benchmarking::benchmarks;
 use sp_runtime::traits::StaticLookup;
@@ -8,9 +8,7 @@ use sp_runtime::traits::StaticLookup;
 #[cfg(not(feature = "std"))]
 use hex_literal::hex;
 
-#[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
-#[cfg(feature = "std")]
 use sp_runtime::MultiSignature;
 
 const MAX_CALLS: u32 = 30;
@@ -38,29 +36,15 @@ fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128)
     assert_eq!(acc_balance, expected_balance.into())
 }
 
-#[cfg(feature = "std")]
 fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
-    let alice = UserBuilder::<T>::default().build_with_did("Caller", 1);
-    let bob = UserBuilder::<T>::default().build_with_did("Target", 1);
-
-    (alice, bob)
-}
-
-#[cfg(not(feature = "std"))]
-fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
-    // Keys generated
-    let alice_pk = hex!("6a4f597d1a0004ee6fd08622baf93fc350c048aeb8a6bf253208b1a536539333");
-    let bob_pk = hex!("8a2f30f00294ca72f2e9572263c8cf96695a1d9fffff3f8b0d49171a917d9f31");
-    let alice_acc = T::AccountId::decode(&mut &alice_pk[..]).unwrap();
-    let bob_acc = T::AccountId::decode(&mut &bob_pk[..]).unwrap();
-
-    // Create account from generated keys.
     let alice = UserBuilder::<T>::default()
-        .account(alice_acc)
-        .build_with_did("alice", 1);
+        .balance(1_000_000)
+        .generate_did()
+        .build("Caller");
     let bob = UserBuilder::<T>::default()
-        .account(bob_acc)
-        .build_with_did("bob", 1);
+        .balance(1_000_000)
+        .generate_did()
+        .build("Target");
 
     (alice, bob)
 }
@@ -73,24 +57,14 @@ fn remark_call_builder<T: Trait>(
     let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
 
-    #[cfg(feature = "std")]
-    let encoded = {
-        // Signer signs the relay call.
-        // NB: Decode as T::OffChainSignature because there is not type constraints in
-        // `T::OffChainSignature` to limit it.
-        let raw_signature: [u8; 64] = signer.sign(&call.encode()).0;
-        let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-
-        // Native execution can generate a hard-coded signature using the following code:
-        // ```ignore
-        // let hex_encoded = hex::encode(&encoded);
-        // frame_support::debug::info!("Signer nonce:{} encoded:{:?}", nonce, &hex_encoded);
-        //  ```
-
-        encoded
-    };
-    #[cfg(not(feature = "std"))]
-    let encoded = hex!("01d6dda327f7ab364e0a6c3aa8db761c796073efe820574b2564672c99bfbdfb129dd9505a770b03161182f29d3c6e44a63a589eb3357e94644e9a7a285add8c8e").to_vec();
+    // Signer signs the relay call.
+    // NB: Decode as T::OffChainSignature because there is not type constraints in
+    // `T::OffChainSignature` to limit it.
+    let raw_signature: [u8; 64] = signer
+        .sign(&call.encode())
+        .expect("Data cannot be signed")
+        .0;
+    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
 
     (call, encoded)
 }
@@ -103,16 +77,14 @@ fn transfer_call_builder<T: Trait>(
     let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
 
-    #[cfg(feature = "std")]
-    let encoded = {
-        // Signer signs the relay call.
-        // NB: Decode as T::OffChainSignature because there is not type constraints in
-        // `T::OffChainSignature` to limit it.
-        let raw_signature: [u8; 64] = signer.sign(&call.encode()).0;
-        MultiSignature::from(Signature::from_raw(raw_signature)).encode()
-    };
-    #[cfg(not(feature = "std"))]
-    let encoded = hex!("01aa3fb75dddaa9d1c058097aa10814a46a411192124a1970e21fc9547a075045090a318672bd44baa8f2069c4484ffc1b0e133011a80a1aaf2a484970bcffd987").to_vec();
+    // Signer signs the relay call.
+    // NB: Decode as T::OffChainSignature because there is not type constraints in
+    // `T::OffChainSignature` to limit it.
+    let raw_signature: [u8; 64] = signer
+        .sign(&call.encode())
+        .expect("Data cannot be signed")
+        .0;
+    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
 
     (call, encoded)
 }
@@ -123,7 +95,7 @@ benchmarks! {
     batch {
         let c in 0..MAX_CALLS;
 
-        let u = UserBuilder::<T>::default().build_with_did("ALICE", 1);
+        let u = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
 
     }: _(u.origin, calls)
@@ -138,8 +110,8 @@ benchmarks! {
     batch_transfer {
         let c in 0..MAX_CALLS;
 
-        let sender = UserBuilder::<T>::default().build_with_did("SENDER", 1);
-        let receiver = UserBuilder::<T>::default().build_with_did("RECEIVER", 1);
+        let sender = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("SENDER");
+        let receiver = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("RECEIVER");
 
         let transfer_calls = make_transfer_calls::<T>(c, receiver.account(), 500);
     }: batch(sender.origin, transfer_calls)
@@ -151,7 +123,7 @@ benchmarks! {
     batch_atomic {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().build_with_did("ALICE", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
     }: _(alice.origin, calls)
     verify {
@@ -161,8 +133,8 @@ benchmarks! {
     batch_atomic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().build_with_did("ALICE", 1);
-        let bob = UserBuilder::<T>::default().build_with_did("BOB", 1);
+        let alice = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_atomic(alice.origin, calls)
@@ -174,7 +146,7 @@ benchmarks! {
     batch_optimistic {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().build_with_did("ALICE", 1);
+        let alice = UserBuilder::<T>::default().generate_did().build("ALICE");
         let calls = make_calls::<T>(c);
 
     }: _(alice.origin, calls)
@@ -185,8 +157,8 @@ benchmarks! {
     batch_optimistic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().build_with_did("ALICE", 1);
-        let bob = UserBuilder::<T>::default().build_with_did("BOB", 1);
+        let alice = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_optimistic(alice.origin, calls)

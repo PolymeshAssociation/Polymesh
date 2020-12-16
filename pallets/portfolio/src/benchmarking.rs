@@ -15,9 +15,11 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-use frame_benchmarking::benchmarks;
-use pallet_identity::benchmarking::UserBuilder;
+
+use polymesh_common_utilities::benchs::UserBuilder;
 use polymesh_primitives::PortfolioName;
+
+use frame_benchmarking::benchmarks;
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Given a number, this function generates a ticker with
@@ -47,7 +49,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = UserBuilder::<T>::default().build_with_did("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -57,7 +59,7 @@ benchmarks! {
     }
 
     delete_portfolio {
-        let target = UserBuilder::<T>::default().build_with_did("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -72,7 +74,7 @@ benchmarks! {
         // Number of assets being moved
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
-        let target = UserBuilder::<T>::default().build_with_did("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let first_ticker = generate_ticker(0u64);
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
@@ -103,7 +105,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let target = UserBuilder::<T>::default().build_with_did("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);

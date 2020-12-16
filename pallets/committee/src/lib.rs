@@ -73,7 +73,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;

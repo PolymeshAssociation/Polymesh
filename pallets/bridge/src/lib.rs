@@ -117,19 +117,21 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
-    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
+    traits::{
+        balances::{CheckCdd, Trait as BalancesTrait},
+        identity::Trait as IdentityTrait,
+        CommonTrait,
+    },
     Context, GC_DID,
 };
-use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, IdentityId, Permissions, Signatory,
-};
+use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + scheduler::Trait {
+pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
@@ -279,6 +281,7 @@ decl_storage! {
         /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             use frame_support::debug;
+            use polymesh_primitives::Permissions;
 
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {

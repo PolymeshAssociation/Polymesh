@@ -16,15 +16,19 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::Currency;
-use frame_system::RawOrigin;
 use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, benchmarking::uid_from_name_and_idx};
+use pallet_identity::{self as identity};
 use pallet_portfolio::PortfolioAssetBalances;
-use polymesh_common_utilities::traits::asset::{AssetName, AssetType};
+use polymesh_common_utilities::{
+    benchs::uid_from_name_and_idx,
+    traits::asset::{AssetName, AssetType},
+};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+
+use frame_benchmarking::{account, benchmarks};
+use frame_support::traits::Currency;
+use frame_system::RawOrigin;
 use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 

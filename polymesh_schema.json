@@ -1036,11 +1036,22 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserTier": {
+            "total": "Balance",
+            "price": "Balance",
+            "remaining": "Balance"
+        },
         "Fundraiser": {
-            "raise_token": "Ticker",
-            "remaining_amount": "Balance",
-            "price_per_token": "Balance",
-            "venue_id": "u64"
+            "creator": "IdentityId",
+            "offering_portfolio": "PortfolioId",
+            "offering_asset": "Ticker",
+            "raising_portfolio": "PortfolioId",
+            "raising_asset": "Ticker",
+            "tiers": "Vec<FundraiserTier>",
+            "venue_id": "u64",
+            "start": "Moment",
+            "end": "Option<Moment>",
+            "frozen": "bool"
         },
         "VenueType": {
             "_enum": [

@@ -119,7 +119,7 @@ fn raise_happy_path() {
         raise_ticker,
         vec![PriceTier {
             total: 1_000_000u128,
-            price: 1u128
+            price: 1_000_000u128
         }],
         venue_counter,
         None,
@@ -138,7 +138,7 @@ fn raise_happy_path() {
                 tiers: vec![FundraiserTier {
                     total: 1_000_000u128,
                     remaining,
-                    price: 1u128
+                    price: 1_000_000u128
                 }],
                 venue_id: venue_counter,
                 start: Timestamp::get(),

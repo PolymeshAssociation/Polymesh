@@ -96,7 +96,7 @@ use frame_support::{
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
@@ -106,7 +106,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityToCorporateAction, IdentityTrait, RawEvent,
+            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction, RawEvent,
             SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
@@ -133,14 +133,12 @@ use sp_runtime::{
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
-use cryptography::claim_proofs;
-
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
@@ -192,7 +190,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -284,7 +282,7 @@ decl_module! {
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
             });
 
-            storage_migrate_on!(storage_ver, 2, { Claims::translate(migration::migrate_claim); });
+            storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -359,7 +357,7 @@ decl_module! {
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
 
-            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
+            let target_uid = confidential_identity::mocked::make_investor_uid( target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
@@ -572,7 +570,7 @@ decl_module! {
 
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            let new_origin = RawOrigin::Signed(sender).into();
 
             let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
                 proposal.dispatch(new_origin)
@@ -2122,7 +2120,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
+impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Fetches identity of a key.
     fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
         Self::get_identity(key)
@@ -2193,13 +2191,12 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    /// Creates a new DID with a CDD claim issued by self
-    fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
-        let did = Self::_register_did(target, vec![], None).unwrap_or_default();
-        // Add CDD claim
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::default()));
-        Self::base_add_claim(did, cdd_claim, did, None);
-        did
+    fn register_did(
+        target: T::AccountId,
+        investor: InvestorUid,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+    ) -> DispatchResult {
+        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
     }
 }
 
