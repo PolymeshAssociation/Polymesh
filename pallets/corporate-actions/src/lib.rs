@@ -312,25 +312,11 @@ pub trait WeightInfo {
     fn set_default_targets(i: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
     fn set_did_withholding_tax(existing_overrides: u32) -> Weight;
-
     fn initiate_corporate_action_use_defaults(whts: u32, target_ids: u32) -> Weight;
     fn initiate_corporate_action_provided(whts: u32, target_ids: u32) -> Weight;
-    fn initiate_corporate_action(whts: u32, target_ids: u32) -> Weight {
-        Self::initiate_corporate_action_use_defaults(1, 1)
-            .max(Self::initiate_corporate_action_provided(whts, target_ids))
-    }
-
     fn link_ca_doc(docs: u32) -> Weight;
-
-    fn remove_ca() -> Weight {
-        Self::remove_ca_with_ballot().max(Self::remove_ca_with_dist())
-    }
     fn remove_ca_with_ballot() -> Weight;
     fn remove_ca_with_dist() -> Weight;
-
-    fn change_record_date() -> Weight {
-        Self::change_record_date_with_ballot().max(Self::change_record_date_with_dist())
-    }
     fn change_record_date_with_ballot() -> Weight;
     fn change_record_date_with_dist() -> Weight;
 }
@@ -542,10 +528,12 @@ decl_module! {
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action(
-            withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-            targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-        )]
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(1, 1)
+            .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+            ))
+        ]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
@@ -662,7 +650,8 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
-        #[weight = <T as Trait>::WeightInfo::remove_ca()]
+        #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
+            .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -701,7 +690,8 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::change_record_date()]
+        #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
+            .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
