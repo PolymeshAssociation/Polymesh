@@ -345,7 +345,7 @@ decl_module! {
 fn ensure_root_or_signed<T: Trait>(origin: T::Origin) -> Result<bool, DispatchError> {
     let is_root = ensure_root(origin.clone()).is_ok();
     if !is_root {
-        ensure_signed(origin.clone())?;
+        ensure_signed(origin)?;
     }
     Ok(is_root)
 }
