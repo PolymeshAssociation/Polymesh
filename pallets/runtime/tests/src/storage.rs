@@ -172,7 +172,7 @@ impl User {
         self.ring.public()
     }
 
-    pub fn signer(&self) -> Origin {
+    pub fn origin(&self) -> Origin {
         Origin::signed(self.acc())
     }
 }

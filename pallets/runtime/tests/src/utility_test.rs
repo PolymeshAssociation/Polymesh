@@ -242,18 +242,15 @@ fn batch_secondary_with_permissions_works() {
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
     let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let alice_key = AccountKeyring::Alice.public();
-    let alice_origin = Origin::signed(alice_key);
-    let alice_did = alice.did;
     let bob_key = AccountKeyring::Bob.public();
     let bob_origin = Origin::signed(bob_key);
     let bob_signer = Signatory::Account(bob_key);
     let check_name = |name| {
-        assert_eq!(Portfolio::portfolios(&alice_did, &PortfolioNumber(1)), name);
+        assert_eq!(Portfolio::portfolios(&alice.did, &PortfolioNumber(1)), name);
     };
 
     // Add Bob.
-    add_secondary_key(alice_did, bob_signer);
+    add_secondary_key(alice.did, bob_signer);
     let low_risk_name: PortfolioName = b"low risk".into();
     assert_ok!(Portfolio::create_portfolio(
         bob_origin.clone(),
@@ -278,11 +275,11 @@ fn batch_secondary_with_permissions() {
         ..Permissions::default()
     };
     assert_ok!(Identity::set_permission_to_signer(
-        alice_origin,
+        alice.origin(),
         bob_signer,
         bob_permissions,
     ));
-    let bob_secondary_key = &Identity::did_records(&alice_did).secondary_keys[0];
+    let bob_secondary_key = &Identity::did_records(&alice.did).secondary_keys[0];
     let check_permission = |name: &[u8], t| {
         assert_eq!(
             t,
