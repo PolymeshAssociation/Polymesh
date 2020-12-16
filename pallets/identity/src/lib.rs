@@ -947,7 +947,7 @@ decl_module! {
             // otherwise throw and error.
             match &claim {
                 Claim::InvestorUniqueness(..) => {
-                    Self::base_add_confidential_scope_claim(
+                    Self::base_add_investor_uniqueness_claim(
                         target,
                         claim,
                         issuer,
@@ -1037,6 +1037,8 @@ decl_error! {
         InvalidScopeClaim,
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
+        /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
+        TargetHasNonZeroBalanceAtScopeId
     }
 }
 
@@ -1682,8 +1684,7 @@ impl<T: Trait> Module<T> {
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();
-        let pk = Claim1stKey { target, claim_type };
-        let sk = Claim2ndKey { issuer, scope };
+        let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
         let id_claim = IdentityClaim {
             claim_issuer: issuer,
             issuance_date,
@@ -1694,6 +1695,18 @@ impl<T: Trait> Module<T> {
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
+    }
+
+    /// Returns claim keys.
+    pub fn get_claim_keys(
+        target: IdentityId,
+        claim_type: ClaimType,
+        issuer: IdentityId,
+        scope: Option<Scope>,
+    ) -> (Claim1stKey, Claim2ndKey) {
+        let pk = Claim1stKey { target, claim_type };
+        let sk = Claim2ndKey { issuer, scope };
+        (pk, sk)
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
@@ -1718,7 +1731,7 @@ impl<T: Trait> Module<T> {
     ///     - You are not the owner of that CDD_ID.
     ///     - If claim is not valid.
     ///
-    fn base_add_confidential_scope_claim(
+    fn base_add_investor_uniqueness_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
@@ -1773,10 +1786,23 @@ impl<T: Trait> Module<T> {
         issuer: IdentityId,
         scope: Option<Scope>,
     ) -> DispatchResult {
+        // Ensure the target is the issuer of the claim.
         ensure!(
             target == issuer,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
+        let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope.clone());
+        if let IdentityClaim {
+            claim: Claim::InvestorUniqueness(_, scope_id, _),
+            ..
+        } = <Claims>::get(&pk, &sk)
+        {
+            // Ensure that the target has balance at scope = 0.
+            ensure!(
+                T::AssetSubTraitTarget::balance_of_at_scope(&scope_id, &target) == Zero::zero(),
+                Error::<T>::TargetHasNonZeroBalanceAtScopeId
+            );
+        }
         Self::base_revoke_claim(target, claim_type, issuer, scope);
         Ok(())
     }
@@ -1788,10 +1814,8 @@ impl<T: Trait> Module<T> {
         issuer: IdentityId,
         scope: Option<Scope>,
     ) {
-        let pk = Claim1stKey { target, claim_type };
-        let sk = Claim2ndKey { scope, issuer };
-        let claim = <Claims>::get(&pk, &sk);
-        <Claims>::remove(&pk, &sk);
+        let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
+        let claim = <Claims>::take(&pk, &sk);
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
     }
 

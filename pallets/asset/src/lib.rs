@@ -1307,7 +1307,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     }
 }
 
-impl<T: Trait> AssetSubTrait for Module<T> {
+impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1339,6 +1339,11 @@ impl<T: Trait> AssetSubTrait for Module<T> {
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
         <ScopeIdOf>::insert(ticker, target_did, of);
         Ok(())
+    }
+
+    /// Returns balance for a given scope id and target DID.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> T::Balance {
+        Self::balance_of_at_scope(scope_id, target)
     }
 }
 
