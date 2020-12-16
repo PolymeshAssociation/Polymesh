@@ -14,12 +14,15 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg(feature = "runtime-benchmarks")]
+
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable, StorageValue};
 use frame_system::RawOrigin;
-use pallet_identity::benchmarking::{User, UserBuilder};
-use polymesh_common_utilities::MaybeBlock;
+use polymesh_common_utilities::{
+    benchs::{User, UserBuilder},
+    MaybeBlock,
+};
 use sp_std::prelude::*;
 
 const COMMITTEE_MEMBERS_NUM: usize = 10;
@@ -78,8 +81,12 @@ benchmarks_instance! {
 
     set_release_coordinator {
         let dids: Vec<_> = (0..COMMITTEE_MEMBERS_NUM)
-            .map(|i| UserBuilder::<T>::default().build_with_did("member", i as u32).did())
-            .collect();
+            .map(|i| UserBuilder::<T>::default()
+                 .generate_did()
+                 .seed(i as u32)
+                 .build("member")
+                 .did()
+            ).collect();
         let coordinator = dids[COMMITTEE_MEMBERS_NUM / 2].clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
@@ -108,9 +115,9 @@ benchmarks_instance! {
     vote_or_propose_new_proposal {
         let m in 1 .. COMMITTEE_MEMBERS_MAX;
 
-        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let proposer = UserBuilder::<T>::default().generate_did().build("proposer");
         let mut members: Vec<_> = (1..m)
-            .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
+            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         members.push(proposer.clone());
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
@@ -191,9 +198,9 @@ benchmarks_instance! {
         // reject or approve
         let a in 0 .. 1;
 
-        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let proposer = UserBuilder::<T>::default().generate_did().build("proposer");
         let mut members: Vec<_> = (1..m)
-            .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
+            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         members.push(proposer.clone());
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
@@ -233,9 +240,9 @@ benchmarks_instance! {
         // reject or approve
         let a in 0 .. 1;
 
-        let proposer = UserBuilder::<T>::default().build_with_did("proposer", 0);
+        let proposer = UserBuilder::<T>::default().generate_did().build("proposer");
         let mut members: Vec<_> = (1..m)
-            .map(|i| UserBuilder::<T>::default().build_with_did("member", i))
+            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         members.push(proposer.clone());
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());

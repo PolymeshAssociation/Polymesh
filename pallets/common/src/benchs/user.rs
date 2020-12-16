@@ -23,6 +23,7 @@ use sp_runtime::traits::StaticLookup;
 pub use schnorrkel::keys::{PublicKey, SecretKey};
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct User<T: Trait> {
     pub account: T::AccountId,
     pub secret: Option<SecretKey>,
