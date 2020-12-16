@@ -486,7 +486,7 @@ impl AssetSubTrait<Balance> for Test {
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
-    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance {
+    fn balance_of_at_scope(_scope_id: &ScopeId, _target: &IdentityId) -> Balance {
         0
     }
 }
