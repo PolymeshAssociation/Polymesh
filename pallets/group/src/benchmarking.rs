@@ -27,7 +27,7 @@ fn make_members<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<Identit
         .collect::<Vec<_>>()
 }
 
-/// Check if inactive members contain the given identity. 
+/// Check if inactive members contain the given identity.
 fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool {
     Module::<T, I>::get_inactive_members()
         .into_iter()
