@@ -1795,7 +1795,7 @@ impl<T: Trait> Module<T> {
         if let IdentityClaim {
             claim: Claim::InvestorUniqueness(_, scope_id, _),
             ..
-        } = <Claims>::get(&pk, &sk)
+        } = Claims::get(&pk, &sk)
         {
             // Ensure that the target has balance at scope = 0.
             ensure!(
@@ -1815,7 +1815,7 @@ impl<T: Trait> Module<T> {
         scope: Option<Scope>,
     ) {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
-        let claim = <Claims>::take(&pk, &sk);
+        let claim = Claims::take(&pk, &sk);
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
     }
 
