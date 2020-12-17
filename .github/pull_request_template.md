@@ -1,17 +1,19 @@
 If your PR has an external impact, please complete the `changelog` below. Headings under the `changelog` are optional, and should only be included if relevant for this PR.
 
-Please add any general description of the changes before the `changelog`
+Please add any general description of the changes before the `changelog`.
+
+Items should be added to the `changelog` using bulletpoints.
 
 ## changelog
 
 ### new features
 
-[new feature, schema, events, RPC]
+- [new feature, schema, events, RPC]
 
 ### modified API
 
-[modified APIs, schema, events, RPC]
+- [modified APIs, schema, events, RPC]
 
 ### modified logic
 
-[modified behaviour, bug fixes]
+- [modified behaviour, bug fixes]
