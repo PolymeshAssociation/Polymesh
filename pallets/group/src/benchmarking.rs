@@ -11,6 +11,7 @@ use frame_system::RawOrigin;
 
 const MAX_MEMBERS: u32 = 1_000;
 
+/// Create `m` new users and add them into the group.
 fn make_members<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
     (0..m)
         .map(|s| {
@@ -26,6 +27,7 @@ fn make_members<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<Identit
         .collect::<Vec<_>>()
 }
 
+/// Check if inactive members contain the given identity. 
 fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool {
     Module::<T, I>::get_inactive_members()
         .into_iter()
@@ -72,7 +74,6 @@ benchmarks_instance! {
         assert_eq!( inactive_members_contains::<T,I>(&new_member), false);
     }
 
-    // Worst case where all members have expired.
     disable_member {
         let members = make_members::<T,I>(MAX_MEMBERS);
         let target = members.last().unwrap().clone();
