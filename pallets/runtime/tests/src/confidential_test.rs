@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+use confidential_identity::{compute_cdd_id, compute_scope_id};
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
