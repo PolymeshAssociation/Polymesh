@@ -135,7 +135,7 @@ pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    type Scheduler: ScheduleAnon<Self::BlockNumber, <Self as Trait>::SchedulerCall, <Self as Trait>::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
@@ -885,7 +885,7 @@ impl<T: Trait> Module<T> {
     fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
-        if let Err(e) = T::Scheduler::schedule(
+        if let Err(e) = <T as Trait>::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,
             LOWEST_PRIORITY,
