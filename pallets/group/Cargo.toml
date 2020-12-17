@@ -9,7 +9,6 @@ polymesh-common-utilities = { path = "../common", default-features = false}
 polymesh-primitives = { path = "../../primitives", default-features = false}
 pallet-identity = { path = "../identity", default-features = false }
 
-
 # Others
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
@@ -27,6 +26,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
+# Only ofr benchmarking
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
 [features]
 equalize = []
@@ -49,4 +50,9 @@ std = [
 	"polymesh-primitives/std",
 	"pallet-identity/std",
 	"polymesh-common-utilities/std",
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
 ]
