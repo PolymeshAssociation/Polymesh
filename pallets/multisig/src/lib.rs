@@ -85,15 +85,19 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode, Error as CodecError};
 use core::convert::{From, TryInto};
+use frame_support::traits::LockIdentifier;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{Get, GetCallMetadata},
-    weights::{GetDispatchInfo, Weight},
-    StorageDoubleMap, StorageValue,
+    traits::{
+        schedule::{DispatchTime, Named as ScheduleNamed},
+        Get, GetCallMetadata,
+    },
+    weights::{GetDispatchInfo, PostDispatchInfo, Weight},
+    Parameter, StorageDoubleMap, StorageValue,
 };
-use frame_system::ensure_signed;
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
@@ -105,11 +109,14 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PalletPermissions, Permissions, Signatory,
 };
-use sp_runtime::traits::{Dispatchable, Hash};
+use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, iter, prelude::*};
+use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
 
 type Identity<T> = identity::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
+
+const MULTISIG_ID: LockIdentifier = *b"multisig";
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
@@ -121,6 +128,14 @@ pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    /// Scheduler of multisig proposals.
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
+    type SchedulerCall: Parameter
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + From<Call<Self>>;
     /// Weight information for extrinsics in the multisig pallet.
     type WeightInfo: WeightInfo;
 }
@@ -288,11 +303,16 @@ decl_module! {
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
             auto_close: bool
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let sender_signer = Signatory::from(sender_did);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
+            let info = PostDispatchInfo {
+                actual_weight: Some(<T as Trait>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)),
+                pays_fee: Default::default(),
+            };
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
+            Ok(info)
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -650,6 +670,20 @@ decl_module! {
                 optional_cdd_auth_id
             )
         }
+
+        /// An internal call to execute a scheduled multisig proposal.
+        #[weight = 500_000_000]
+        fn execute_scheduled_proposal(
+            origin,
+            multisig: T::AccountId,
+            proposal_id: u64,
+            proposal: T::Proposal,
+            proposal_details: ProposalDetails<T::Moment>,
+            current_did: IdentityId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::execute_proposal(multisig, proposal_id, proposal, proposal_details, current_did)
+        }
     }
 }
 
@@ -696,6 +730,8 @@ decl_event!(
         ProposalRejected(IdentityId, AccountId, u64),
         /// Event emitted when there's an error in proposal execution
         ProposalExecutionFailed(DispatchError),
+        /// Scheduling of proposal fails.
+        SchedulingFailed(DispatchError),
     }
 );
 
@@ -745,7 +781,9 @@ decl_error! {
         /// Proposal was executed earlier
         ProposalAlreadyExecuted,
         /// Multisig is not attached to an identity
-        MultisigMissingIdentity
+        MultisigMissingIdentity,
+        /// Scheduling of a proposal fails
+        FailedToSchedule,
     }
 }
 
@@ -889,8 +927,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyVoted
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            let mut proposal_details = Self::proposal_detail(&multisig_proposal);
-            proposal_details.approvals += 1u64;
+            let proposal_details = Self::proposal_detail(&multisig_proposal);
+            <ProposalDetail<T>>::mutate(&multisig_proposal, |proposal_details| proposal_details.approvals += 1u64);
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
             match proposal_details.status {
                 ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
@@ -904,13 +942,30 @@ impl<T: Trait> Module<T> {
                             Error::<T>::ProposalExpired
                         );
                     }
-                    Self::execute_proposal(
+
+                    let execution_at = system::Module::<T>::block_number() + One::one();
+                    let call = Call::<T>::execute_scheduled_proposal(
                         multisig.clone(),
                         proposal_id,
                         proposal,
-                        &mut proposal_details,
+                        proposal_details.clone(),
                         current_did,
-                    )?;
+                    ).into();
+                    match T::Scheduler::schedule_named(
+                        (MULTISIG_ID, proposal_id).encode(),
+                        DispatchTime::At(execution_at),
+                        None,
+                        MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
+                        RawOrigin::Root.into(),
+                        call,
+                    ) {
+                        Err(_) => {
+                            Self::deposit_event(RawEvent::SchedulingFailed(
+                                Error::<T>::FailedToSchedule.into(),
+                            ));
+                        }
+                        Ok(_) => {}
+                    };
                 }
             }
             // Update storage
@@ -934,7 +989,7 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         proposal_id: u64,
         proposal: T::Proposal,
-        proposal_details: &mut ProposalDetails<T::Moment>,
+        proposal_details: ProposalDetails<T::Moment>,
         current_did: IdentityId,
     ) -> DispatchResult {
         let approvals_needed = Self::ms_signs_required(multisig.clone());
@@ -963,13 +1018,13 @@ impl<T: Trait> Module<T> {
                 proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
             }) {
                 Ok(_) => {
-                    proposal_details.status = ProposalStatus::ExecutionSuccessful;
+                    <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| proposal_details.status = ProposalStatus::ExecutionSuccessful);
                     true
                 }
                 Err(e) => {
                     let e: DispatchError = e.error;
                     Self::deposit_event(RawEvent::ProposalExecutionFailed(e));
-                    proposal_details.status = ProposalStatus::ExecutionFailed;
+                    <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| proposal_details.status = ProposalStatus::ExecutionFailed);
                     false
                 }
             };

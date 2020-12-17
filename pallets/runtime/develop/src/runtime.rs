@@ -637,6 +637,9 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 

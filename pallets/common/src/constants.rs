@@ -40,6 +40,8 @@ pub mod queue_priority {
 
     /// Queue priority for the settlement instruction execution.
     pub const SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY: Priority = 100;
+    /// Queue priority for the settlement instruction execution.
+    pub const MULTISIG_PROPOSAL_EXECUTION_PRIORITY: Priority = 1;
 }
 
 // ERC1400 transfer status codes
