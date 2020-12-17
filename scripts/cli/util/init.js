@@ -228,6 +228,17 @@ const createIdentitiesWithExpiry = async function (
   return dids;
 };
 
+async function getLastAuth(api, account) {
+  const auths = await api.query.identity.authorizations.entries({Account: account.publicKey});
+    let last_auth_id = 0;
+    for (let i = 0; i < auths.length; i++) {    
+      if (auths[i][1].auth_id.toNumber() > last_auth_id) {
+        last_auth_id = auths[i][1].auth_id.toNumber();
+      }
+    }
+    return last_auth_id;
+}
+
 // Fetches DID that belongs to the Account Key
 async function keyToIdentityIds(api, accountKey) {
   let account_did = await api.query.identity.keyToIdentityIds(accountKey);
@@ -710,6 +721,7 @@ let reqImports = {
   generateRandomKey,
   addConfidentialInstruction,
   getDefaultPortfolio,
+  getLastAuth,
 };
 
 export { reqImports };

@@ -15,7 +15,7 @@ async function main() {
   let alice = testEntities[0];
   let relay = testEntities[1];
 
-  await acceptMultisigSignerAsKey(api, relay, 9);
+  await acceptMultisigSignerAsKey(api, relay);
   
   await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
 
@@ -39,9 +39,9 @@ async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function acceptMultisigSignerAsKey(api, signer, authId) {
+async function acceptMultisigSignerAsKey(api, signer) {
   // 1. Change Controller
-
+  let authId = await reqImports.getLastAuth(api, signer);
   const transaction = api.tx.multiSig.acceptMultisigSignerAsKey(authId);
 
   let tx = await reqImports.sendTx(signer, transaction);
