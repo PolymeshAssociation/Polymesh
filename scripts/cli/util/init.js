@@ -570,12 +570,14 @@ async function addInstruction(
       venueCounter,
       0,
       null,
+      null,
       [leg]
     );
   } else {
     transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
+      null,
       null,
       [leg, leg2]
     );
