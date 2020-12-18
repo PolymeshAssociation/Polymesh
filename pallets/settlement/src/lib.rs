@@ -1086,10 +1086,6 @@ impl<T: Trait> Module<T> {
             Error::<T>::InstructionNotPending
         );
         if let Some(trade_date) = instruction_details.trade_date {
-            ensure!(
-                <pallet_timestamp::Module<T>>::get() >= trade_date,
-                Error::<T>::InstructionDatesInvalid
-            );
             if let Some(value_date) = instruction_details.value_date {
                 ensure!(
                     value_date >= trade_date,
