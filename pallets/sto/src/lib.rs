@@ -363,6 +363,7 @@ decl_module! {
                     fundraiser.venue_id,
                     SettlementType::SettleOnAffirmation,
                     None,
+                    None,
                     legs
                 )?;
 

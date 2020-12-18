@@ -294,7 +294,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _, _ ) = emulate_add_instruction::<T>(l, false)?;
 
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs)
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs)
     verify {
         verify_add_instruction::<T>(venue_id, settlement_type)?;
     }
@@ -309,7 +309,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _,_ ) = emulate_add_instruction::<T>(l, false)?;
 
-    }: add_instruction(origin, venue_id, settlement_type, Some(99999999.into()), legs)
+    }: add_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs)
     verify {
         verify_add_instruction::<T>(venue_id, settlement_type)?;
     }
@@ -322,7 +322,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
 
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), legs, portfolios.clone())
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -336,7 +336,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
 
-    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), legs, portfolios.clone())
+    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -403,7 +403,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id: u64 = 1;
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
@@ -424,7 +424,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id: u64 = 1;
         // Affirm an instruction
         portfolios.clone().into_iter().for_each(|p| {
@@ -462,7 +462,7 @@ benchmarks! {
         }];
 
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
         let leg_id = 0;
 
@@ -494,7 +494,7 @@ benchmarks! {
     //     }];
 
     //     // Add instruction
-    //     Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+    //     Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
     //     let instruction_id = 1;
 
     //     let msg = Receipt {
