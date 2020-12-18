@@ -133,14 +133,12 @@ use sp_runtime::{
 };
 use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
-use cryptography::claim_proofs;
-
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
@@ -192,7 +190,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -284,7 +282,7 @@ decl_module! {
                 .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
             });
 
-            storage_migrate_on!(storage_ver, 2, { Claims::translate(migration::migrate_claim); });
+            storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -359,7 +357,7 @@ decl_module! {
 
             let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
 
-            let target_uid = claim_proofs::mocked::make_investor_uid( target_did.as_bytes());
+            let target_uid = confidential_identity::mocked::make_investor_uid( target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
@@ -591,14 +589,7 @@ decl_module! {
             let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
-
-            match &claim {
-                Claim::InvestorUniqueness(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
-                _ => {
-                    Self::base_revoke_claim(target, claim_type, issuer, scope);
-                    Ok(())
-                }
-            }
+            Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
         /// It sets permissions for an specific `target_key` key.
@@ -949,7 +940,7 @@ decl_module! {
             // otherwise throw and error.
             match &claim {
                 Claim::InvestorUniqueness(..) => {
-                    Self::base_add_confidential_scope_claim(
+                    Self::base_add_investor_uniqueness_claim(
                         target,
                         claim,
                         issuer,
@@ -974,7 +965,7 @@ decl_module! {
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
         #[weight = (<T as Trait>::WeightInfo::add_claim(), Operational, Pays::Yes)]
-        pub fn gc_revoke_cdd_claim(origin, target: IdentityId) {
+        pub fn gc_revoke_cdd_claim(origin, target: IdentityId) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
         }
@@ -1039,6 +1030,8 @@ decl_error! {
         InvalidScopeClaim,
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
+        /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
+        TargetHasNonZeroBalanceAtScopeId
     }
 }
 
@@ -1684,8 +1677,7 @@ impl<T: Trait> Module<T> {
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();
-        let pk = Claim1stKey { target, claim_type };
-        let sk = Claim2ndKey { issuer, scope };
+        let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
         let id_claim = IdentityClaim {
             claim_issuer: issuer,
             issuance_date,
@@ -1696,6 +1688,18 @@ impl<T: Trait> Module<T> {
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
+    }
+
+    /// Returns claim keys.
+    pub fn get_claim_keys(
+        target: IdentityId,
+        claim_type: ClaimType,
+        issuer: IdentityId,
+        scope: Option<Scope>,
+    ) -> (Claim1stKey, Claim2ndKey) {
+        let pk = Claim1stKey { target, claim_type };
+        let sk = Claim2ndKey { issuer, scope };
+        (pk, sk)
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
@@ -1720,7 +1724,7 @@ impl<T: Trait> Module<T> {
     ///     - You are not the owner of that CDD_ID.
     ///     - If claim is not valid.
     ///
-    fn base_add_confidential_scope_claim(
+    fn base_add_investor_uniqueness_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
@@ -1769,32 +1773,29 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn revoke_confidential_scope_claim(
-        target: IdentityId,
-        claim_type: ClaimType,
-        issuer: IdentityId,
-        scope: Option<Scope>,
-    ) -> DispatchResult {
-        ensure!(
-            target == issuer,
-            Error::<T>::ConfidentialScopeClaimNotAllowed
-        );
-        Self::base_revoke_claim(target, claim_type, issuer, scope);
-        Ok(())
-    }
-
     /// It removes a claim from `target` which was issued by `issuer` without any security check.
     fn base_revoke_claim(
         target: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
         scope: Option<Scope>,
-    ) {
-        let pk = Claim1stKey { target, claim_type };
-        let sk = Claim2ndKey { scope, issuer };
-        let claim = <Claims>::get(&pk, &sk);
-        <Claims>::remove(&pk, &sk);
+    ) -> DispatchResult {
+        let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
+        if let Claim::InvestorUniqueness(_, scope_id, _) = Claims::get(&pk, &sk).claim {
+            // Ensure the target is the issuer of the claim.
+            ensure!(
+                target == issuer,
+                Error::<T>::ConfidentialScopeClaimNotAllowed
+            );
+            // Ensure that the target has balance at scope = 0.
+            ensure!(
+                T::AssetSubTraitTarget::balance_of_at_scope(&scope_id, &target) == Zero::zero(),
+                Error::<T>::TargetHasNonZeroBalanceAtScopeId
+            );
+        }
+        let claim = Claims::take(&pk, &sk);
         Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
+        Ok(())
     }
 
     /// Returns an auth id if it is present and not expired.
@@ -2178,12 +2179,12 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Removes systematic CDD claims.
     fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|removed_member| {
-            Self::base_revoke_claim(
+            let _ = Self::base_revoke_claim(
                 *removed_member,
                 ClaimType::CustomerDueDiligence,
                 issuer.as_id(),
                 None,
-            )
+            );
         });
     }
 

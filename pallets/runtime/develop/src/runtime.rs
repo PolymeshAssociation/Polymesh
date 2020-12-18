@@ -110,7 +110,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2001,
+    spec_version: 2002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -259,7 +259,7 @@ impl WeightToFeePolynomial for WeightToFee {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    pub const TransactionByteFee: Balance = 100 * MILLICENTS;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
     pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
 }
@@ -551,6 +551,7 @@ where
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 parameter_types! {
@@ -595,6 +596,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
+    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -1297,6 +1299,8 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
+            add_benchmark!(params, batches, pallet_treasury, Treasury);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

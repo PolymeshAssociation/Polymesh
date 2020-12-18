@@ -23,6 +23,8 @@ pallet-utility = { path = "../utility", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false  }
 pallet-confidential = { path = "../confidential", default-features = false  }
 pallet-balances = { path = "../balances", default-features = false  }
+pallet-treasury = { path = "../treasury", default-features = false  }
+pallet-im-online = { path = "../im-online", default-features = false  }
 
 [features]
 default = ["std"]
@@ -43,4 +45,6 @@ std = [
     "pallet-asset/std",
     "pallet-confidential/std",
     "pallet-balances/std",
+    "pallet-treasury/std",
+    "pallet-im-online/std",
 ]

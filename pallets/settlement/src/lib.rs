@@ -215,7 +215,9 @@ pub struct Instruction<Moment, BlockNumber> {
     /// Date at which this instruction was created
     pub created_at: Option<Moment>,
     /// Date from which this instruction is valid
-    pub valid_from: Option<Moment>,
+    pub trade_date: Option<Moment>,
+    /// Date after which the instruction should be settled (not enforced)
+    pub value_date: Option<Moment>,
 }
 
 /// Details of a leg including the leg id in the instruction
@@ -450,12 +452,13 @@ decl_event!(
         /// An existing venue has been updated (did, venue_id, details, type)
         VenueUpdated(IdentityId, u64, VenueDetails, VenueType),
         /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, valid_from, legs)
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
             IdentityId,
             u64,
             u64,
             SettlementType<BlockNumber>,
+            Option<Moment>,
             Option<Moment>,
             Vec<Leg<Balance>>,
         ),
@@ -515,8 +518,8 @@ decl_error! {
         FailedToLockTokens,
         /// Instruction failed to execute.
         InstructionFailed,
-        /// Instruction validity has not started yet.
-        InstructionWaitingValidity,
+        /// Instruction has invalid dates
+        InstructionDatesInvalid,
         /// Instruction's target settle block reached.
         InstructionSettleBlockPassed,
         /// Offchain signature is invalid.
@@ -659,7 +662,8 @@ decl_module! {
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
         ///    in the next block after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         ///
         /// # Weight
@@ -669,11 +673,12 @@ decl_module! {
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
             Ok(())
         }
 
@@ -683,7 +688,8 @@ decl_module! {
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
         ///    in the next block after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
         #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())
@@ -694,14 +700,15 @@ decl_module! {
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>,
             portfolios: Vec<PortfolioId>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             with_transaction(|| {
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
                 Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
             })
         }
@@ -911,7 +918,8 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         venue_id: u64,
         settlement_type: SettlementType<T::BlockNumber>,
-        valid_from: Option<T::Moment>,
+        trade_date: Option<T::Moment>,
+        value_date: Option<T::Moment>,
         legs: Vec<Leg<T::Balance>>,
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
@@ -962,7 +970,8 @@ impl<T: Trait> Module<T> {
             status: InstructionStatus::Pending,
             settlement_type,
             created_at: Some(<pallet_timestamp::Module<T>>::get()),
-            valid_from,
+            trade_date,
+            value_date,
         };
 
         // write data to storage
@@ -999,7 +1008,8 @@ impl<T: Trait> Module<T> {
             venue_id,
             instruction_counter,
             settlement_type,
-            valid_from,
+            trade_date,
+            value_date,
             legs,
         ));
         Ok(instruction_counter)
@@ -1075,11 +1085,13 @@ impl<T: Trait> Module<T> {
             instruction_details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
-        if let Some(valid_from) = instruction_details.valid_from {
-            ensure!(
-                <pallet_timestamp::Module<T>>::get() >= valid_from,
-                Error::<T>::InstructionWaitingValidity
-            );
+        if let Some(trade_date) = instruction_details.trade_date {
+            if let Some(value_date) = instruction_details.value_date {
+                ensure!(
+                    value_date >= trade_date,
+                    Error::<T>::InstructionDatesInvalid
+                );
+            }
         }
         if let SettlementType::SettleOnBlock(block_number) = instruction_details.settlement_type {
             ensure!(
@@ -1098,6 +1110,7 @@ impl<T: Trait> Module<T> {
         let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
+            Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::deposit_event(RawEvent::InstructionRejected(
                 SettlementDID.as_id(),
                 instruction_id,
@@ -1156,6 +1169,8 @@ impl<T: Trait> Module<T> {
                             SettlementDID.as_id(),
                             instruction_id,
                         ));
+                        // We need to unclaim receipts for the failed transaction so that they can be reused
+                        Self::unsafe_unclaim_receipts(instruction_id, &legs);
                         result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
                     }
                 }
@@ -1321,8 +1336,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
-        for (leg_id, leg_details) in legs.iter() {
+    // Unclaims all receipts for an instruction
+    // Should only be used if user is unclaiming, or instruction has failed
+    fn unsafe_unclaim_receipts(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+        for (leg_id, _) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
@@ -1334,6 +1351,14 @@ impl<T: Trait> Module<T> {
                         signer,
                     ));
                 }
+                LegStatus::PendingTokenLock | LegStatus::ExecutionPending => {}
+            }
+        }
+    }
+
+    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+        for (leg_id, leg_details) in legs.iter() {
+            match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed
@@ -1344,7 +1369,7 @@ impl<T: Trait> Module<T> {
                     )
                     .ok();
                 }
-                LegStatus::PendingTokenLock => {}
+                LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
             }
         }
     }
@@ -1443,7 +1468,6 @@ impl<T: Trait> Module<T> {
                 asset: leg.asset,
                 amount: leg.amount,
             };
-
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),
                 Error::<T>::InvalidSignature
@@ -1493,17 +1517,8 @@ impl<T: Trait> Module<T> {
         // Update storage
         let affirms_pending = Self::instruction_affirms_pending(instruction_id)
             .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-        for portfolio in portfolios_set {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(RawEvent::InstructionAffirmed(
-                did,
-                portfolio,
-                instruction_id,
-            ));
-        }
 
-        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
+        // Mark receipts used in affirmation as claimed
         for receipt in &receipt_details {
             <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
             Self::deposit_event(RawEvent::ReceiptClaimed(
@@ -1515,6 +1530,18 @@ impl<T: Trait> Module<T> {
                 receipt.metadata.clone(),
             ));
         }
+
+        for portfolio in portfolios_set {
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAffirmed(
+                did,
+                portfolio,
+                instruction_id,
+            ));
+        }
+
+        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
         Ok(())
     }
 

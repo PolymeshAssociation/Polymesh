@@ -262,7 +262,7 @@ impl CommonTrait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    pub const TransactionByteFee: Balance = 100 * MILLICENTS;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
     pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
 }
@@ -561,6 +561,7 @@ where
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 parameter_types! {
@@ -605,6 +606,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
+    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
 }
 
 impl pallet_grandpa::Trait for Runtime {
