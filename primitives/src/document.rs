@@ -14,12 +14,13 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Document type
-use crate::{self as polymesh_primitives, Moment};
+use crate::{self as polymesh_primitives, DocumentHash, Moment};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
+use sp_std::prelude::Vec;
+
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_std::prelude::Vec;
 
 /// The local, per-ticker, ID of an asset documentation.
 #[derive(Decode, Encode, Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -40,13 +41,6 @@ pub struct DocumentName(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentUri(pub Vec<u8>);
 
-/// A wrapper for a document hash.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct DocumentHash(pub Vec<u8>);
-
 /// A wrapper for a document's type.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
@@ -55,7 +49,7 @@ pub struct DocumentHash(pub Vec<u8>);
 pub struct DocumentType(pub Vec<u8>);
 
 /// Represents a document associated with an asset
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Migrate)]
+#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, Migrate)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[migrate_context(DocumentName)]
 pub struct Document {

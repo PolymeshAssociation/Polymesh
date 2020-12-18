@@ -658,7 +658,7 @@ fn add_doc(owner: User, ticker: Ticker) {
     let doc = Document {
         name: b"foo".into(),
         uri: b"https://example.com".into(),
-        content_hash: b"0xdeadbeef".into(),
+        content_hash: [1u8; 16][..].try_into().unwrap(),
         doc_type: None,
         filing_date: None,
     };
