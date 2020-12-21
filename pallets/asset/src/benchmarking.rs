@@ -47,7 +47,7 @@ fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
     ticker
 }
 
-fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
+pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
     make_base_asset::<T>(owner, true)
 }
 
@@ -75,7 +75,7 @@ fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
     ticker
 }
 
-fn make_document() -> Document {
+pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
         content_hash: b"572cdd8d8f1754dd0c4a75d99b569845"[..].try_into().unwrap(), // MD5 output is 128bits.
