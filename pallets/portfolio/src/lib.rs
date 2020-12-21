@@ -209,17 +209,17 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{storage_migrate_on, migrate::copy_map_rename_module};
+            use polymesh_primitives::{storage_migrate_on, migrate::move_map_rename_module};
 
             let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 1, {
-                copy_map_rename_module::<PortfolioName>(b"Session", b"Portfolio", b"Portfolios");
-                copy_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioAssetBalances");
-                copy_map_rename_module::<PortfolioNumber>(b"Session", b"Portfolio", b"NextPortfolioNumber");
-                copy_map_rename_module::<Option<IdentityId>>(b"Session", b"Portfolio", b"PortfolioCustodian");
-                copy_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioLockedAssets");
-                copy_map_rename_module::<bool>(b"Session", b"Portfolio", b"PortfoliosInCustody");
+                move_map_rename_module::<PortfolioName>(b"Session", b"Portfolio", b"Portfolios");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioAssetBalances");
+                move_map_rename_module::<PortfolioNumber>(b"Session", b"Portfolio", b"NextPortfolioNumber");
+                move_map_rename_module::<Option<IdentityId>>(b"Session", b"Portfolio", b"PortfolioCustodian");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioLockedAssets");
+                move_map_rename_module::<bool>(b"Session", b"Portfolio", b"PortfoliosInCustody");
             });
 
             0

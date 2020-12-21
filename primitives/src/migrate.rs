@@ -176,11 +176,11 @@ pub fn kill_item(module: &[u8], item: &[u8]) {
     kill_prefix(&prefix)
 }
 
-/// Copies a single or double map storage item under a new module prefix and removes the map from
+/// Moves a single or double map storage item under a new module prefix and removes the map from
 /// the old module prefix.
 ///
 /// Migrations mapping to `None` are silently dropped from storage.
-pub fn copy_map_rename_module<T: Decode + Encode>(
+pub fn move_map_rename_module<T: Decode + Encode>(
     old_module: &[u8],
     new_module: &[u8],
     item: &[u8],
