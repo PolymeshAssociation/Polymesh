@@ -105,6 +105,7 @@ impl_outer_dispatch! {
         pallet_scheduler::Scheduler,
         pallet_settlement::Settlement,
         checkpoint::Checkpoint,
+        pallet_portfolio::Portfolio,
     }
 }
 
@@ -141,6 +142,38 @@ impl_outer_event! {
         corporate_ballots<T>,
         capital_distributions<T>,
         checkpoint<T>,
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct User {
+    pub ring: AccountKeyring,
+    pub did: IdentityId,
+}
+
+impl User {
+    pub fn new(ring: AccountKeyring) -> Self {
+        let did = register_keyring_account(ring).unwrap();
+        Self { ring, did }
+    }
+
+    pub fn existing(ring: AccountKeyring) -> Self {
+        let did = get_identity_id(ring).unwrap();
+        User { ring, did }
+    }
+
+    pub fn balance(self, balance: u128) -> Self {
+        use frame_support::traits::Currency as _;
+        Balances::make_free_balance_be(&self.acc(), balance);
+        self
+    }
+
+    pub fn acc(&self) -> Public {
+        self.ring.public()
+    }
+
+    pub fn origin(&self) -> Origin {
+        Origin::signed(self.acc())
     }
 }
 
@@ -891,4 +924,59 @@ pub fn provide_scope_claim_to_multiple_parties(
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+#[macro_export]
+macro_rules! assert_last_event {
+    ($event:pat) => {
+        assert_last_event!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(matches!(
+            &*System::events(),
+            [.., EventRecord {
+                event: $event,
+                ..
+            }]
+            if $cond
+        ));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_exists {
+    ($event:pat) => {
+        assert_event_exists!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_doesnt_exist {
+    ($event:pat) => {
+        assert_event_doesnt_exist!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
 }
