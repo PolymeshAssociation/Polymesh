@@ -1477,9 +1477,16 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Ensure `ticker` is fully ASCII.
+    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
     fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
-        ensure!(ticker.as_slice().is_ascii(), Error::<T>::TickerNotAscii);
+        let bytes = ticker.as_slice();
+        // Find first byte not printable ASCII.
+        let good = bytes
+            .iter()
+            .position(|b| !matches!(b, 32..=126))
+            // Everything after must be a NULL byte.
+            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
+        ensure!(good, Error::<T>::TickerNotAscii);
         Ok(())
     }
 
