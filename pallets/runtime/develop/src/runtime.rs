@@ -723,6 +723,8 @@ impl polymesh_contracts::Trait for Runtime {
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for Runtime {
@@ -1302,6 +1304,9 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
+            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
+            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);

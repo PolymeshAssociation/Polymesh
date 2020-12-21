@@ -4230,11 +4230,14 @@ dependencies = [
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
+ "confidential_identity",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "libsecp256k1",
  "pallet-asset",
  "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
  "pallet-identity",
  "pallet-portfolio",
  "pallet-session",
