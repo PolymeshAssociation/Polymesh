@@ -21,7 +21,7 @@ use core::iter;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::{make_asset, make_document};
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::benchs::{user, User, UserBuilder};
 
 const TAX: Tax = Tax::one();
 crate const SEED: u32 = 0;
@@ -35,13 +35,6 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
-
-crate fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
-    UserBuilder::<T>::default()
-        .generate_did()
-        .seed(u)
-        .build(prefix)
-}
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000.into());

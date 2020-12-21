@@ -16,12 +16,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::benchmarking::{currency, set_ca_targets, setup_ca, user, SEED};
+use crate::benchmarking::{currency, set_ca_targets, setup_ca, SEED};
 use crate::CAKind;
 use frame_benchmarking::benchmarks;
 use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_common_utilities::benchs::User;
+use polymesh_common_utilities::benchs::{user, User};
 
 const MAX_TARGETS: u32 = 1000;
 
