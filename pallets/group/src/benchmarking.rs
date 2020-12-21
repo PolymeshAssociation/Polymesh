@@ -1,6 +1,6 @@
 use crate::*;
 use polymesh_common_utilities::{
-    benchs::UserBuilder,
+    benchs::{User, UserBuilder},
     group::{GroupTrait, Trait},
     identity::Trait as IdentityTrait,
     Context,
@@ -11,20 +11,27 @@ use frame_system::RawOrigin;
 
 const MAX_MEMBERS: u32 = 1_000;
 
-/// Create `m` new users and add them into the group.
-fn make_members<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
+/// Create `m` new users.
+fn make_users<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
     (0..m)
         .map(|s| {
-            let did = UserBuilder::<T>::default()
+            UserBuilder::<T>::default()
                 .generate_did()
                 .seed(s)
                 .build("member")
-                .did();
-            Module::<T, I>::add_member(RawOrigin::Root.into(), did)
-                .expect("Member cannot be added");
-            did
+                .did()
         })
         .collect::<Vec<_>>()
+}
+
+/// Create `m` new users and add them into the group.
+fn make_members<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<IdentityId> {
+    let dids = make_users::<T, I>(m);
+    dids.iter().for_each(|did| {
+        Module::<T, I>::add_member(RawOrigin::Root.into(), *did).expect("Member cannot be added");
+    });
+
+    dids
 }
 
 /// Check if inactive members contain the given identity.
@@ -34,6 +41,12 @@ fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool
         .map(|m| m.id)
         .find(|m_id| m_id == did)
         .is_some()
+}
+
+fn build_new_member<T: Trait<I>, I: Instance>() -> User<T> {
+    UserBuilder::<T>::default()
+        .generate_did()
+        .build("new member")
 }
 
 benchmarks_instance! {
@@ -49,7 +62,7 @@ benchmarks_instance! {
 
     add_member {
         let _members = make_members::<T,I>(MAX_MEMBERS-1);
-        let new_member = UserBuilder::<T>::default().generate_did().build("new member").did();
+        let new_member = build_new_member::<T,I>().did();
     }: _(RawOrigin::Root, new_member)
     verify {
         assert_eq!( Module::<T,I>::get_members().contains(&new_member), true);
@@ -57,7 +70,7 @@ benchmarks_instance! {
 
     remove_member {
         let members = make_members::<T,I>(MAX_MEMBERS-1);
-        let new_member = UserBuilder::<T>::default().generate_did().build("new member").did();
+        let new_member = build_new_member::<T,I>().did();
         Module::<T,I>::add_member(RawOrigin::Root.into(), new_member).expect("Member cannot be added");
 
 
@@ -77,7 +90,8 @@ benchmarks_instance! {
     disable_member {
         let members = make_members::<T,I>(MAX_MEMBERS);
         let target = members.last().unwrap().clone();
-    }: _(RawOrigin::Root, target, None, None)
+        let expiry_at = Some(200.into());
+    }: _(RawOrigin::Root, target, expiry_at, None)
     verify {
         assert_eq!( Module::<T,I>::get_members().contains(&target), false);
         assert_eq!( inactive_members_contains::<T,I>(&target), true);
@@ -87,21 +101,20 @@ benchmarks_instance! {
         let members = make_members::<T,I>(MAX_MEMBERS);
 
         let old_member = members.last().unwrap().clone();
-        let new_member = UserBuilder::<T>::default().generate_did().build("new member").did();
+        let new_member = build_new_member::<T,I>().did();
 
     }: _(RawOrigin::Root, old_member, new_member)
     verify {
-        assert_eq!( Module::<T,I>::get_members().contains(&new_member), true);
-        assert_eq!( Module::<T,I>::get_members().contains(&old_member), false);
+        let members = Module::<T,I>::get_members();
+        assert_eq!( members.contains(&new_member), true);
+        assert_eq!( members.contains(&old_member), false);
         assert_eq!( inactive_members_contains::<T,I>(&old_member), false);
     }
 
     reset_members {
         let m in 1..MAX_MEMBERS;
+        let new_members = make_users::<T,I>(m);
 
-        let new_members = (0..m)
-            .map(|s| UserBuilder::<T>::default().generate_did().seed(s).build("member").did())
-            .collect::<Vec<_>>();
         let mut new_members_exp = new_members.clone();
         new_members_exp.sort();
 
@@ -112,7 +125,7 @@ benchmarks_instance! {
 
     abdicate_membership {
         let members = make_members::<T,I>(MAX_MEMBERS-1);
-        let new_member = UserBuilder::<T>::default().generate_did().build("new member");
+        let new_member = build_new_member::<T,I>();
 
         Module::<T,I>::add_member( RawOrigin::Root.into(), new_member.did())
             .expect("Member cannot be added");
