@@ -220,7 +220,7 @@ pub use smart_extension::{
 
 /// Document hash
 pub mod document_hash;
-pub use document_hash::DocumentHash;
+pub use document_hash::{DocumentHash, DocumentHashOld};
 
 /// Document types
 pub mod document;

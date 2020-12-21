@@ -13,16 +13,40 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, EncodeLike, Error, Input, WrapperTypeEncode};
+use crate::migrate::{Empty, Migrate};
+
+use codec::{Decode, Encode};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::{
     convert::{TryFrom, TryInto},
     ops::Deref,
     vec::Vec,
 };
 
+/// Previous version of `DocumentHash`.
+/// It is only used during the migration.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DocumentHashOld(pub Vec<u8>);
+
+impl Migrate for DocumentHashOld {
+    type Into = DocumentHash;
+    type Context = Empty;
+
+    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+        DocumentHash::try_from(self.0.as_slice())
+            .ok()
+            .or_else(|| Some(DocumentHash::None))
+    }
+}
+
 /// A wrapper for a document hash.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode)]
 pub enum DocumentHash {
+    /// No hash
+    None,
     /// 512 bits output: Blake2b, SHA-512, SHA-3, Whirlpool
     H512([u8; 64]),
     /// 384 bits output: SHA-384, SHA-3
@@ -39,8 +63,6 @@ pub enum DocumentHash {
     H160([u8; 20]),
     /// 128 bits output: HAVAL, MD2, MD4, MD5, RIPEMD-128, Tiger-128
     H128([u8; 16]),
-    /// No hash
-    None,
 }
 
 impl DocumentHash {
@@ -117,23 +139,6 @@ impl AsRef<[u8]> for DocumentHash {
     }
 }
 
-// Parity Scale Codec support
-// ==================================
-
-impl WrapperTypeEncode for DocumentHash {}
-
-// DocumentHash is encoded/decoded as a `Vec<u8>`.
-impl EncodeLike<Vec<u8>> for DocumentHash {}
-
-impl Decode for DocumentHash {
-    #[inline]
-    fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-        <Vec<u8>>::decode(input)?
-            .try_into()
-            .map_err(|err: &'static str| Error::from(err))
-    }
-}
-
 // Serde support
 // ======================
 
@@ -166,7 +171,6 @@ impl<'de> Deserialize<'de> for DocumentHash {
 #[cfg(test)]
 mod test {
     use super::*;
-    use codec::{Decode, Encode};
 
     fn make_hashes() -> Vec<DocumentHash> {
         vec![
@@ -191,21 +195,6 @@ mod test {
             let raw = h.as_ref();
             let new_h = DocumentHash::try_from(raw);
             assert_eq!(Ok(h), new_h);
-        }
-    }
-
-    #[test]
-    fn code_tests() {
-        let hashes = make_hashes();
-
-        // Verify that Parity-scale-codec wraps `DocumentHash` as `&[u8]` type
-        for h in hashes.into_iter() {
-            let encoded = h.encode();
-            let raw_encoded = h.as_ref().encode();
-            assert_eq!(encoded, raw_encoded);
-
-            let decoded = DocumentHash::decode(&mut &encoded[..]);
-            assert_eq!(Ok(h), decoded);
         }
     }
 

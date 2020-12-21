@@ -115,9 +115,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
-    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
-    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    AuthorizationData, Document, DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId,
+    ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -291,7 +291,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
@@ -352,7 +352,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -404,25 +404,14 @@ decl_module! {
 
             // Migrate `AssetDocuments`.
             use frame_support::Blake2_128Concat;
-            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
-            use sp_std::collections::btree_map::BTreeMap;
+            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
-            storage_migrate_on!(storage_ver, 1, {
-                let mut id_map = BTreeMap::<_, u32>::new();
+            storage_migrate_on!(storage_ver, 2, {
                 migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
                 b"Asset", b"AssetDocuments",
-                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                        let count = id_map.entry(ticker).or_default();
-                        let id = DocumentId(mem::replace(count, *count + 1));
-                        Some((ticker, id, doc.migrate(name)?))
-                    }
-                    );
-                for (ticker, id) in id_map {
-                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
-                }
+                    |t: Ticker, id: DocumentId, doc: DocumentOld| Some((t, id, doc.migrate(Empty)?)));
             });
-
 
             1_000
         }

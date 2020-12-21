@@ -154,11 +154,9 @@ where
     KN1: Encode,
     KN2: Encode,
 {
-    let old_map = StorageIterator::<V1>::new(module, item)
-        .drain()
-        .collect::<Vec<(Vec<u8>, _)>>();
+    let old_map_iter = StorageIterator::<V1>::new(module, item).drain();
 
-    for (key, value) in old_map.into_iter().filter_map(|(raw_key, value)| {
+    for (key, value) in old_map_iter.filter_map(|(raw_key, value)| {
         let (k1, k2) = decode_double_key::<H, _, _>(&raw_key)?;
         let (kn1, kn2, value) = map(k1, k2, value)?;
         Some((encode_double_key::<H, _, _>(kn1, kn2), value))
