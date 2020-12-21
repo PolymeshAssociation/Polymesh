@@ -407,6 +407,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -419,6 +420,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl group::Trait<group::Instance2> for TestStorage {
@@ -430,6 +432,7 @@ impl group::Trait<group::Instance2> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
