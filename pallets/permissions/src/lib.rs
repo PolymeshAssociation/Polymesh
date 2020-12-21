@@ -24,7 +24,6 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    storage::StorageValue,
     traits::{CallMetadata, GetCallMetadata},
 };
 use polymesh_common_utilities::traits::{
