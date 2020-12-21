@@ -432,6 +432,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 macro_rules! committee_config {
@@ -455,6 +456,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
+            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
         }
     };
 }
@@ -752,6 +754,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl statistics::Trait for Runtime {}

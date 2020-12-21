@@ -5,9 +5,6 @@ use polymesh_common_utilities::benchs::{User, UserBuilder};
 use frame_benchmarking::benchmarks;
 use sp_runtime::traits::StaticLookup;
 
-#[cfg(not(feature = "std"))]
-use hex_literal::hex;
-
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 
