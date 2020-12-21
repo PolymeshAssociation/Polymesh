@@ -359,6 +359,7 @@ impl group::Trait<group::Instance2> for Test {
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl protocol_fee::Trait for Test {
