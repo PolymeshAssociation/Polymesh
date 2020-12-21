@@ -668,15 +668,15 @@ fn alcyone_testnet_genesis(
             },
         }),
         // Governing council
-        group_Instance1: Some(committee_membership!(3, 4, 5)), //gc1,gc2,gc3
+        group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
         committee_Instance1: Some(committee!(3, (2, 3))),
         // CDD providers
-        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, gc1
+        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
         // Technical Committee:
-        group_Instance3: Some(committee_membership!(3)), //gc1
+        group_Instance3: Some(committee_membership!(3)), //admin
         committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(3)), //gc1
+        group_Instance4: Some(committee_membership!(3)), //admin
         committee_Instance4: Some(committee!(3)),
         protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
