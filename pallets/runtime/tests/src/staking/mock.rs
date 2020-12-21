@@ -473,7 +473,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AssetSubTrait for Test {
+impl AssetSubTrait<Balance> for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -485,6 +485,9 @@ impl AssetSubTrait for Test {
     }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
+    }
+    fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
+        0
     }
 }
 
