@@ -1765,37 +1765,15 @@ fn basic_fuzzing() {
             ];
 
             for i in 0..10 {
-                let mut token_name = [123u8 + u8::try_from(i * 4 + 0).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 0],
-                    AccountKeyring::Alice.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 1).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 1],
-                    AccountKeyring::Bob.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 2).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 2],
-                    AccountKeyring::Charlie.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 3).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 3],
-                    AccountKeyring::Dave.public(),
-                );
+                let mut create = |x: usize, key: AccountKeyring| {
+                    let tn = [b'!' + u8::try_from(i * 4 + x).unwrap()];
+                    tickers.push(Ticker::try_from(&tn[..]).unwrap());
+                    create_token(&tn, tickers[i * 4 + x], key.public());
+                };
+                create(0, AccountKeyring::Alice);
+                create(1, AccountKeyring::Bob);
+                create(2, AccountKeyring::Charlie);
+                create(3, AccountKeyring::Dave);
             }
 
             let block_number = System::block_number() + 1;
