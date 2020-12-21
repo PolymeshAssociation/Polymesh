@@ -434,6 +434,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 macro_rules! committee_config {
@@ -458,6 +459,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
+            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
         }
     };
 }
@@ -743,6 +745,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl statistics::Trait for Runtime {}
@@ -1305,6 +1308,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_group, CddServiceProviders);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
