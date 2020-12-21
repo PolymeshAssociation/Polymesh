@@ -30,25 +30,25 @@ const COMMITTEE_MEMBERS_MAX: u32 = 100;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
 const PROPOSALS_NUM: u8 = 100;
 
-fn make_proposals_and_vote<T, I>(users: Vec<User<T>>) -> DispatchResult
+fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
     T: Trait<I>,
 {
-    let origin: <T as frame_system::Trait>::Origin = origin.into();
     for i in 0..PROPOSALS_NUM {
+        let index = Module::<T, I>::proposal_count();
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![i + 1; PROPOSAL_PADDING_LEN]).into();
-        Module::<T, I>::vote_or_propose(users[0].origin.clone(), true, Box::new(proposal))?;
-        // cast max N-1 additional votes for proposal #N
-        for (j, user) in users.iter().drop(1).take(i).enumerate() {
-            Module::<T, I>::vote(
-                user.origin.clone().into(),
-                Module::<T, I>::proposals(i),
-                i as u32,
-                j % 2 == 0,
-            )?;
-        }
+        identity::CurrentDid::put(users[0].did());
+        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
+        // if users.len() > 1 {
+        //     let hash = *Module::<T, I>::proposals().last().ok_or("missing last proposal")?;
+        //     // cast max N-1 additional votes for proposal #N
+        //     for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
+        //         identity::CurrentDid::put(user.did());
+        //         Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 == 0)?;
+        //     }
+        // }
     }
     Ok(())
 }
@@ -132,13 +132,13 @@ benchmarks_instance! {
         // members.dedup_by_key(|u| u.account.clone());
         // ensure!(members_len == members.len(), "Duplicate member");
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        identity::CurrentDid::put(member[0].did());
-        make_proposals_and_vote::<T, I>(members)?;
+        make_proposals_and_vote::<T, I>(members.as_slice())?;
         let last_proposal_num = ProposalCount::<I>::get();
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![0; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
-    }: vote_or_propose(member[0].origin.clone(), true, Box::new(proposal.clone()))
+        identity::CurrentDid::put(members[0].did());
+    }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
         if m == 1 {
             // Proposal was executed.
@@ -149,7 +149,7 @@ benchmarks_instance! {
             // // The proposal was executed and execution was logged.
             // let pallet_event: <T as Trait<I>>::Event =
             //     RawEvent::Executed(
-            //         member[0].did(),
+            //         members[0].did(),
             //         hash,
             //         Ok(())
             //     ).into();
@@ -171,8 +171,7 @@ benchmarks_instance! {
             .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        identity::CurrentDid::put(member[0].did());
-        make_proposals_and_vote::<T, I>(members.clone())?;
+        make_proposals_and_vote::<T, I>(members.as_slice())?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -194,7 +193,7 @@ benchmarks_instance! {
             //         members[0].did(),
             //         first_proposal_num as u32,
             //         hash,
-            //         vec![member[0].did(), members[0].did()],
+            //         vec![members[0].did(), members[0].did()],
             //         vec![]
             //     ).into();
             // let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
@@ -217,8 +216,7 @@ benchmarks_instance! {
             .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        identity::CurrentDid::put(members[0].did());
-        make_proposals_and_vote::<T, I>(members.clone())?;
+        make_proposals_and_vote::<T, I>(members.as_slice())?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -257,8 +255,8 @@ benchmarks_instance! {
             .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        identity::CurrentDid::put(member[0].did());
-        make_proposals_and_vote::<T, I>(members.clone())?;
+        identity::CurrentDid::put(members[0].did());
+        make_proposals_and_vote::<T, I>(members.as_slice())?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
