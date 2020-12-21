@@ -518,6 +518,22 @@ fn register_ticker() {
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), true);
+
+        for bs in &[
+            [b'A', 31, b'B'].as_ref(),
+            [127, b'A'].as_ref(),
+            [b'A', 0, 0, 0, b'A'].as_ref(),
+        ] {
+            assert_noop!(
+                Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&bs[..]).unwrap()),
+                AssetError::TickerNotAscii
+            );
+        }
+
+        assert_ok!(Asset::register_ticker(
+            owner_signed,
+            Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()
+        ));
     })
 }
 
