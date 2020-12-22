@@ -24,7 +24,7 @@ fn create_token() -> (SecurityToken<u128>, Ticker) {
     let owner_did = Identity::get_identity(&AccountKeyring::Alice.public()).unwrap();
     let total_supply = 1_000_000u128;
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did,
         total_supply,
         divisible: true,
