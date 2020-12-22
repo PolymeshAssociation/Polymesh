@@ -295,6 +295,8 @@ impl polymesh_contracts::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
@@ -528,7 +530,6 @@ impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
 }
 
 impl corporate_actions::Trait for TestStorage {
