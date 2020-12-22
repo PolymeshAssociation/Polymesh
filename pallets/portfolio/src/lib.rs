@@ -41,6 +41,7 @@
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 
+#![feature(const_option)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -49,18 +50,20 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::Weight, IterableStorageDoubleMap,
+    storage::StorageValue, weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, SecondaryKey, Signatory, Ticker,
+    storage_migration_ver, AuthorizationData, AuthorizationError, IdentityId, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};
+
+storage_migration_ver!(1);
 
 type Identity<T> = identity::Module<T>;
 
@@ -86,7 +89,7 @@ pub trait Trait: CommonTrait + IdentityTrait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Session {
+    trait Store for Module<T: Trait> as Portfolio {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
@@ -113,6 +116,8 @@ decl_storage! {
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -202,6 +207,23 @@ decl_module! {
 
         /// The event logger.
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{storage_migrate_on, migrate::move_map_rename_module};
+
+            let storage_ver = StorageVersion::get();
+
+            storage_migrate_on!(storage_ver, 1, {
+                move_map_rename_module::<PortfolioName>(b"Session", b"Portfolio", b"Portfolios");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioAssetBalances");
+                move_map_rename_module::<PortfolioNumber>(b"Session", b"Portfolio", b"NextPortfolioNumber");
+                move_map_rename_module::<Option<IdentityId>>(b"Session", b"Portfolio", b"PortfolioCustodian");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioLockedAssets");
+                move_map_rename_module::<bool>(b"Session", b"Portfolio", b"PortfoliosInCustody");
+            });
+
+            0
+        }
 
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
