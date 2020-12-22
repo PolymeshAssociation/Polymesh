@@ -61,7 +61,7 @@ use frame_support::{
         Get, LockIdentifier,
     },
     weights::{PostDispatchInfo, Weight},
-    IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
+    IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
@@ -80,7 +80,7 @@ use polymesh_primitives::{
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
-    traits::{Dispatchable, One, Verify, Zero},
+    traits::{One, Verify, Zero},
     DispatchErrorWithPostInfo,
 };
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
@@ -100,12 +100,8 @@ pub trait Trait:
     type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }

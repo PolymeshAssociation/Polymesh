@@ -137,10 +137,8 @@ pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Scheduler: ScheduleAnon<
         Self::BlockNumber,
         <Self as Trait>::Proposal,
-        <Self as Trait>::SchedulerOrigin,
+        Self::SchedulerOrigin,
     >;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
 }
 
 /// The status of a bridge transaction.
