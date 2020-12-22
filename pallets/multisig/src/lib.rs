@@ -127,8 +127,6 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Scheduler of multisig proposals.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
     type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Weight information for extrinsics in the multisig pallet.

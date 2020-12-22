@@ -170,6 +170,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait {
     type CorporateAction: IdentityToCorporateAction;
 
     type IdentityFn: IdentityFnTrait<Self::AccountId>;
+
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 decl_event!(

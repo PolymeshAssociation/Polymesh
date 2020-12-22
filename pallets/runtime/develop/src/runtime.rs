@@ -475,7 +475,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -563,7 +562,6 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = ();
 }
@@ -638,7 +636,6 @@ impl pallet_sudo::Trait for Runtime {
 impl multisig::Trait for Runtime {
     type Event = Event;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
@@ -647,7 +644,6 @@ impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
 }
 
 impl portfolio::Trait for Runtime {
@@ -708,6 +704,7 @@ impl IdentityTrait for Runtime {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
