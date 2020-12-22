@@ -72,7 +72,7 @@ where
         .collect();
     Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
     make_proposals_and_vote::<T, I>(members.as_slice())?;
-    members
+    Ok(members)
 }
 
 benchmarks_instance! {
