@@ -57,6 +57,24 @@ where
     Ok(())
 }
 
+fn make_members_and_proposals<T, I>(m: u32) -> Result<Vec<User<T>>, DispatchError>
+where
+    I: Instance,
+    T: Trait<I>,
+{
+    let members: Vec<_> = (0..m)
+        .map(|i| {
+            UserBuilder::<T>::default()
+                .generate_did()
+                .seed(i)
+                .build("member")
+        })
+        .collect();
+    Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
+    make_proposals_and_vote::<T, I>(members.as_slice())?;
+    members
+}
+
 benchmarks_instance! {
     _ {}
 
@@ -108,11 +126,7 @@ benchmarks_instance! {
     vote_or_propose_new_proposal {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members: Vec<_> = (0..m)
-            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
-            .collect();
-        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        make_proposals_and_vote::<T, I>(members.as_slice())?;
+        let members = make_members_and_proposals(m)?;
         let last_proposal_num = ProposalCount::<I>::get();
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![0; PROPOSAL_PADDING_LEN]).into();
@@ -128,11 +142,7 @@ benchmarks_instance! {
     vote_or_propose_existing_proposal {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members: Vec<_> = (0..m)
-            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
-            .collect();
-        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        make_proposals_and_vote::<T, I>(members.as_slice())?;
+        let members = make_members_and_proposals(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -159,11 +169,7 @@ benchmarks_instance! {
         // reject or approve
         let a in 0 .. 1;
 
-        let members: Vec<_> = (0..m)
-            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
-            .collect();
-        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        make_proposals_and_vote::<T, I>(members.as_slice())?;
+        let members = make_members_and_proposals(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -195,12 +201,7 @@ benchmarks_instance! {
     close {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members: Vec<_> = (0..m)
-            .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
-            .collect();
-        Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-        identity::CurrentDid::put(members[0].did());
-        make_proposals_and_vote::<T, I>(members.as_slice())?;
+        let members = make_members_and_proposals(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
