@@ -403,12 +403,12 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
 
             // Migrate `AssetDocuments`.
-            use frame_support::Blake2_128Concat;
+            use frame_support::{Blake2_128Concat, Twox64Concat};
             use polymesh_primitives::{ migrate::{migrate_double_map, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
             storage_migrate_on!(storage_ver, 2, {
-                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
+                migrate_double_map::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _, _>(
                     b"Asset", b"AssetDocuments",
                     |t: Ticker, id: DocumentId, doc: DocumentOld| Some((t, id, doc.migrate(Empty)?)));
             });

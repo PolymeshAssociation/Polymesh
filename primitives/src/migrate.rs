@@ -116,21 +116,21 @@ pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
 }
 
 /// Decode, if possible, the keys of a double map,
-/// with K1 & K2 as keys, hashed with `H`, from `raw`.
-pub fn decode_double_key<H: ReversibleStorageHasher, K1: Decode, K2: Decode>(
+/// with K1 (hashed with `H1`) & K2 (hashed with `H2`) as keys from `raw`.
+pub fn decode_double_key<H1: ReversibleStorageHasher, K1: Decode, H2: ReversibleStorageHasher, K2: Decode>(
     raw: &[u8],
 ) -> Option<(K1, K2)> {
-    let mut unhashed_key = H::reverse(&raw);
+    let mut unhashed_key = H1::reverse(&raw);
     let k1 = K1::decode(&mut unhashed_key).ok()?;
-    let mut raw_k2 = H::reverse(unhashed_key);
+    let mut raw_k2 = H2::reverse(unhashed_key);
     let k2 = K2::decode(&mut raw_k2).ok()?;
     Some((k1, k2))
 }
 
-/// Encode keys of a double map `k1` & `k2` using hasher `H`.
-pub fn encode_double_key<H: StorageHasher, K1: Encode, K2: Encode>(k1: K1, k2: K2) -> Vec<u8> {
-    let k1 = k1.using_encoded(H::hash);
-    let k2 = k2.using_encoded(H::hash);
+/// Encode keys of a double map `k1` (using hasher `H1) & `k2` (using hasher `H2`).
+pub fn encode_double_key<H1: StorageHasher, K1: Encode, H2: StorageHasher, K2: Encode>(k1: K1, k2: K2) -> Vec<u8> {
+    let k1 = k1.using_encoded(H1::hash);
+    let k2 = k2.using_encoded(H2::hash);
     let k1 = k1.as_ref();
     let k2 = k2.as_ref();
     let mut key = Vec::with_capacity(k1.len() + k2.len());
@@ -144,23 +144,27 @@ pub fn encode_double_key<H: StorageHasher, K1: Encode, K2: Encode>(k1: K1, k2: K
 /// The `map` function may fail, in which entries are dropped silently.
 /// The double map is located in `module::item`.
 /// This assumes that the hashers are all the same, which is the common case.
-pub fn migrate_double_map<V1, V2, H, K1, K2, KN1, KN2, F>(module: &[u8], item: &[u8], mut map: F)
+/// `H1` and `H2` are the hashers used with `K1` and `K2` respectively.
+pub fn migrate_double_map<V1, V2, H1, K1, H2, K2, KN1, KN2, F>(module: &[u8], item: &[u8], mut map: F)
 where
     F: FnMut(K1, K2, V1) -> Option<(KN1, KN2, V2)>,
     V1: Decode,
     V2: Encode,
-    H: ReversibleStorageHasher,
+    H1: ReversibleStorageHasher,
+    H2: ReversibleStorageHasher,
     K1: Decode,
     K2: Decode,
     KN1: Encode,
     KN2: Encode,
 {
-    let old_map_iter = StorageIterator::<V1>::new(module, item).drain();
+    let old_map = StorageIterator::<V1>::new(module, item)
+        .drain()
+        .collect::<Vec<(Vec<u8>, _)>>();
 
-    for (key, value) in old_map_iter.filter_map(|(raw_key, value)| {
-        let (k1, k2) = decode_double_key::<H, _, _>(&raw_key)?;
+    for (key, value) in old_map.into_iter().filter_map(|(raw_key, value)| {
+        let (k1, k2) = decode_double_key::<H1, _, H2,  _>(&raw_key)?;
         let (kn1, kn2, value) = map(k1, k2, value)?;
-        Some((encode_double_key::<H, _, _>(kn1, kn2), value))
+        Some((encode_double_key::<H1, _, H2, _>(kn1, kn2), value))
     }) {
         put_storage_value(module, item, &key, value);
     }
