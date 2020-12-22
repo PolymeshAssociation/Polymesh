@@ -109,7 +109,6 @@ use frame_support::{
         Currency,
     },
     weights::{DispatchClass, Pays, Weight},
-    Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
@@ -126,7 +125,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
+use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -135,13 +134,13 @@ pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, <Self as Trait>::SchedulerCall, <Self as Trait>::SchedulerOrigin>;
+    type Scheduler: ScheduleAnon<
+        Self::BlockNumber,
+        <Self as Trait>::Proposal,
+        <Self as Trait>::SchedulerOrigin,
+    >;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
 }
 
 /// The status of a bridge transaction.

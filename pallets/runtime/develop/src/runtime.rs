@@ -648,7 +648,6 @@ impl bridge::Trait for Runtime {
     type Proposal = Call;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
