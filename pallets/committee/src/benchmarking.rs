@@ -126,7 +126,7 @@ benchmarks_instance! {
     vote_or_propose_new_proposal {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members = make_members_and_proposals(m)?;
+        let members = make_members_and_proposals::<T, I>(m)?;
         let last_proposal_num = ProposalCount::<I>::get();
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![0; PROPOSAL_PADDING_LEN]).into();
@@ -142,7 +142,7 @@ benchmarks_instance! {
     vote_or_propose_existing_proposal {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members = make_members_and_proposals(m)?;
+        let members = make_members_and_proposals::<T, I>(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -169,7 +169,7 @@ benchmarks_instance! {
         // reject or approve
         let a in 0 .. 1;
 
-        let members = make_members_and_proposals(m)?;
+        let members = make_members_and_proposals::<T, I>(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
@@ -201,7 +201,7 @@ benchmarks_instance! {
     close {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
-        let members = make_members_and_proposals(m)?;
+        let members = make_members_and_proposals::<T, I>(m)?;
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
