@@ -423,6 +423,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
@@ -446,6 +447,7 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type Event = Event;
             type MotionDuration = MotionDuration;
+            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;

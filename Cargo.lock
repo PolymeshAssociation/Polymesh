@@ -5692,6 +5692,7 @@ dependencies = [
  "frame-system",
  "pallet-asset",
  "pallet-balances 0.1.0",
+ "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
  "pallet-corporate-actions",

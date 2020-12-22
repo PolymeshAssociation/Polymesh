@@ -18,7 +18,6 @@
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable, StorageValue};
-use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{User, UserBuilder},
     MaybeBlock,
@@ -41,37 +40,22 @@ where
             frame_system::Call::<T>::remark(vec![i + 1; PROPOSAL_PADDING_LEN]).into();
         identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
-        // if users.len() > 1 {
-        //     let hash = *Module::<T, I>::proposals().last().ok_or("missing last proposal")?;
-        //     // cast max N-1 additional votes for proposal #N
-        //     for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
-        //         identity::CurrentDid::put(user.did());
-        //         Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 == 0)?;
-        //     }
-        // }
+        if users.len() > 1 {
+            let hash = *Module::<T, I>::proposals()
+                .last()
+                .ok_or("missing last proposal")?;
+            // cast max N-1 additional votes for proposal #N
+            for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
+                // Vote for the proposal if it's not finalised.
+                if Module::<T, I>::voting(&hash).is_some() {
+                    identity::CurrentDid::put(user.did());
+                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 == 0)?;
+                }
+            }
+        }
     }
     Ok(())
 }
-
-// fn add_votes<T, I>(users: Vec<User<T>>) -> DispatchResult
-// where
-//     I: Instance,
-//     T: Trait<I>,
-// {
-//     let proposals = Proposals::<T, I>::get();
-//     for (i, proposal_hash) in proposals.iter().enumerate() {
-//         // cast N votes for proposal #N
-//         for (j, user) in users.iter().take(i).enumerate() {
-//             Module::<T, I>::vote(
-//                 user.origin.clone().into(),
-//                 *proposal_hash,
-//                 i as u32,
-//                 j % 2 == 0,
-//             )?;
-//         }
-//     }
-//     Ok(())
-// }
 
 benchmarks_instance! {
     _ {}
@@ -122,15 +106,11 @@ benchmarks_instance! {
     }
 
     vote_or_propose_new_proposal {
-        let m in 1 .. COMMITTEE_MEMBERS_MAX;
+        let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
         let members: Vec<_> = (0..m)
             .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
             .collect();
-        // let members_len = members.len();
-        // members.sort_by_key(|u| u.account.clone());
-        // members.dedup_by_key(|u| u.account.clone());
-        // ensure!(members_len == members.len(), "Duplicate member");
         Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
         make_proposals_and_vote::<T, I>(members.as_slice())?;
         let last_proposal_num = ProposalCount::<I>::get();
@@ -140,28 +120,9 @@ benchmarks_instance! {
         identity::CurrentDid::put(members[0].did());
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
-        if m == 1 {
-            // Proposal was executed.
-            ensure!(
-                Module::<T, _>::voting(&hash).is_none(),
-                "votes are present on an executed new proposal"
-            );
-            // // The proposal was executed and execution was logged.
-            // let pallet_event: <T as Trait<I>>::Event =
-            //     RawEvent::Executed(
-            //         members[0].did(),
-            //         hash,
-            //         Ok(())
-            //     ).into();
-            // let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
-            // ensure!(frame_system::Module::<T>::events().iter().any(|e| {
-            //     e.event == system_event
-            // }), "new proposal was not executed");
-        } else {
-            // The proposal was stored.
-            ensure!(Proposals::<T, I>::get().contains(&hash), "new proposal hash not found");
-            ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "new proposal not found");
-        }
+        // The proposal was stored.
+        ensure!(Proposals::<T, I>::get().contains(&hash), "new proposal hash not found");
+        ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "new proposal not found");
     }
 
     vote_or_propose_existing_proposal {
@@ -177,29 +138,15 @@ benchmarks_instance! {
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
         let proposals = Proposals::<T, I>::get();
         ensure!(proposals.contains(&hash), "cannot find the first proposal");
-        let first_proposal_num = proposals.binary_search(&hash).unwrap();
-        identity::CurrentDid::put(members[0].did());
-    }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
+        identity::CurrentDid::put(members[1].did());
+    }: vote_or_propose(members[1].origin.clone(), true, Box::new(proposal.clone()))
     verify {
-        if m <= 3 {
+        if m <= 4 {
             // Proposal was executed.
             ensure!(
                 Module::<T, _>::voting(&hash).is_none(),
                 "votes are present on an executed existing proposal"
             );
-            // // The proposal was executed and execution was logged.
-            // let pallet_event: <T as Trait<I>>::Event =
-            //     RawEvent::FinalVotes(
-            //         members[0].did(),
-            //         first_proposal_num as u32,
-            //         hash,
-            //         vec![members[0].did(), members[0].did()],
-            //         vec![]
-            //     ).into();
-            // let system_event: <T as frame_system::Trait>::Event = pallet_event.into();
-            // ensure!(frame_system::Module::<T>::events().iter().any(|e| {
-            //     e.event == system_event
-            // }), "existing proposal was not executed");
         } else {
             // The proposal was stored.
             ensure!(Proposals::<T, I>::get().contains(&hash), "existing proposal hash not found");
@@ -220,24 +167,23 @@ benchmarks_instance! {
         let proposal: <T as Trait<I>>::Proposal =
             frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
         let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
-        // let proposals = Proposals::<T, I>::get();
-        // ensure!(proposals.contains(&hash), "cannot find the first proposal for voting");
-        let first_proposal_num = 0; // proposals.binary_search(&hash).unwrap() as u32;
-        let origin = members[0].origin.clone();
-        let did = members[0].did();
+        let first_proposal_num = 0;
+        let origin = members[1].origin.clone();
+        let did = members[1].did();
         identity::CurrentDid::put(did);
     }: _(origin, hash, first_proposal_num, a != 0)
     verify {
-        if m > 4 {
+        if m > 4 || (m == 4 && a == 0) {
             // The proposal is not finalised because there is no quorum yet.
-            let voting = Voting::<T, I>::get(&hash);
-            ensure!(voting.is_some(), "cannot get votes");
-            let votes = voting.unwrap();
-            ensure!(votes.index == first_proposal_num, "wrong first proposal index");
-            if a != 0 {
-                ensure!(votes.ayes.contains(&did), "aye vote missing");
+            if let Some(votes) = Voting::<T, I>::get(&hash) {
+                ensure!(votes.index == first_proposal_num, "wrong first proposal index");
+                if a != 0 {
+                    ensure!(votes.ayes.contains(&did), "aye vote missing");
+                } else {
+                    ensure!(votes.nays.contains(&did), "nay vote missing");
+                }
             } else {
-                ensure!(votes.nays.contains(&did), "nay vote missing");
+                return Err("cannot get votes".into());
             }
         } else {
             // The proposal is finalised and removed from storage.
@@ -248,8 +194,6 @@ benchmarks_instance! {
 
     close {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
-        // reject or approve
-        let a in 0 .. 1;
 
         let members: Vec<_> = (0..m)
             .map(|i| UserBuilder::<T>::default().generate_did().seed(i).build("member"))
