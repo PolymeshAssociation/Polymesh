@@ -114,7 +114,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
+    calendar::CheckpointId, migrate, storage_migrate_on, storage_migration_ver, AssetIdentifier,
     AuthorizationData, Document, DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId,
     ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
     Ticker,
@@ -391,6 +391,13 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
+/// Errors of migration on this pallets.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum AssetMigrationError {
+    /// Migration of document fails on the given ticker and document id.
+    AssetDocumentFail(Ticker, DocumentId),
+}
+
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -404,13 +411,19 @@ decl_module! {
 
             // Migrate `AssetDocuments`.
             use frame_support::{Blake2_128Concat, Twox64Concat};
-            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate, Empty}, document::DocumentOld};
+            use polymesh_primitives::{ migrate::{migrate_double_map_only_values, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
             storage_migrate_on!(storage_ver, 2, {
-                migrate_double_map::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _, _>(
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
                     b"Asset", b"AssetDocuments",
-                    |t: Ticker, id: DocumentId, doc: DocumentOld| Some((t, id, doc.migrate(Empty)?)));
+                    |t: Ticker, id: DocumentId, doc: DocumentOld|
+                        doc.migrate(Empty).ok_or_else(|| AssetMigrationError::AssetDocumentFail(t, id)))
+                .for_each(|doc_migrate_status| {
+                    if let Err(migrate_err) = doc_migrate_status {
+                        Self::deposit_event( RawEvent::MigrationFailure(migrate_err));
+                    }
+                })
             });
 
             1_000
@@ -1123,6 +1136,8 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        /// Migration error event.
+        MigrationFailure(migrate::Error<AssetMigrationError>),
     }
 }
 

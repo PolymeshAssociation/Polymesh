@@ -55,7 +55,7 @@ pub struct Document {
     /// Document URI
     pub uri: DocumentUri,
     /// Document hash
-    #[migrate_from(DocumentHashOld)]
+    #[migrate]
     pub content_hash: DocumentHash,
     /// The document's name.
     /// Need not be unique among a ticker's documents.
