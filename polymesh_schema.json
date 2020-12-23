@@ -1156,15 +1156,15 @@
             "price": "Balance"
         },
         "AssetMigrationError": {
-            "_enum": [
+            "_enum": { 
                 "AssetDocumentFail": "(Ticker, DocumentId)"
-            ]
+            }
         },
         "MigrationError": {
-            "_enum": [
+            "_enum": {
                 "DecodeKey": "Vec<u8>",
                 "Map": "AssetMigrationError"
-            ]
+            }
         }
     },
     "rpc": {
