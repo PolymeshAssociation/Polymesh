@@ -609,7 +609,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Root callable extrinsic, used to handle a scheduled timelocked bridge transaction.
+        /// Root callable extrinsic, used as an internal call to handle a scheduled timelocked bridge transaction.
         #[weight = (
             500_000_000,
             DispatchClass::Operational,
