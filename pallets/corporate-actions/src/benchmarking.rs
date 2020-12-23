@@ -59,7 +59,7 @@ crate fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdent
     }
 }
 
-fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
+crate fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
     (0..n)
         .map(target::<T>)
         .map(|did| (did, TAX))
