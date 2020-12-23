@@ -114,10 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, migrate, storage_migrate_on, storage_migration_ver, AssetIdentifier,
-    AuthorizationData, Document, DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId,
-    ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
-    Ticker,
+    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -1142,7 +1142,7 @@ decl_event! {
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
         /// Migration error event.
-        MigrationFailure(migrate::Error<AssetMigrationError>),
+        MigrationFailure(MigrationError<AssetMigrationError>),
     }
 }
 

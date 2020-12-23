@@ -1160,7 +1160,7 @@
                 "AssetDocumentFail": "(Ticker, DocumentId)"
             ]
         },
-        "MigrateError": {
+        "MigrationError": {
             "_enum": [
                 "DecodeKey": "Vec<u8>",
                 "Map": "AssetMigrationError"

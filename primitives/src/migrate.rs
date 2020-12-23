@@ -23,7 +23,7 @@ use sp_std::vec::Vec;
 
 /// A migration error type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum MigrateError<T: Clone + PartialEq + Eq + Encode + Decode> {
+pub enum MigrationError<T: Clone + PartialEq + Eq + Encode + Decode> {
     /// Error during decodification of raw key.
     DecodeKey(Vec<u8>),
     /// Wrapper of the Error in the map function.
@@ -200,7 +200,7 @@ pub fn migrate_double_map_only_values<'a, V1, V2, H1, K1, H2, K2, F, E>(
     module: &'a [u8],
     item: &'a [u8],
     f: F,
-) -> impl 'a + Iterator<Item = Result<(), MigrateError<E>>>
+) -> impl 'a + Iterator<Item = Result<(), MigrationError<E>>>
 where
     F: 'a + Fn(K1, K2, V1) -> Result<V2, E>,
     K1: Decode,
@@ -213,8 +213,8 @@ where
 {
     StorageIterator::<V1>::new(module, item).map(move |(raw_key, value)| {
         let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
-            .ok_or_else(|| MigrateError::DecodeKey(raw_key.clone().into()))?;
-        let new_value = f(k1, k2, value).map_err(|e| MigrateError::Map(e))?;
+            .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone().into()))?;
+        let new_value = f(k1, k2, value).map_err(|e| MigrationError::Map(e))?;
         put_storage_value(module, item, &raw_key, new_value);
 
         Ok(())
