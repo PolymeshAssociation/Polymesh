@@ -1154,6 +1154,17 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "AssetMigrationError": {
+            "_enum": [
+                "AssetDocumentFail": "(Ticker, DocumentId)"
+            ]
+        },
+        "MigrateError": {
+            "_enum": [
+                "DecodeKey": "Vec<u8>",
+                "Map": "AssetMigrationError"
+            ]
         }
     },
     "rpc": {
