@@ -528,7 +528,7 @@ decl_module! {
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
-        /// - `DeclDateInFuture` if the declaration date is not in the past
+        /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(1, 1)
             .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
