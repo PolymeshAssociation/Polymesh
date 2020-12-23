@@ -993,22 +993,21 @@ impl<T: Trait> Module<T> {
                 .is_ok(),
                 Error::<T>::FailedToChargeFee
             );
-
+            let update_proposal_status = |status| {
+                <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
+                    proposal_details.status = status
+                })
+            };
             let res = match with_call_metadata(proposal.get_call_metadata(), || {
                 proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
             }) {
                 Ok(_) => {
-                    <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
-                        proposal_details.status = ProposalStatus::ExecutionSuccessful
-                    });
+                    update_proposal_status(ProposalStatus::ExecutionSuccessful);
                     true
                 }
                 Err(e) => {
-                    let e: DispatchError = e.error;
-                    Self::deposit_event(RawEvent::ProposalExecutionFailed(e));
-                    <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
-                        proposal_details.status = ProposalStatus::ExecutionFailed
-                    });
+                    update_proposal_status(ProposalStatus::ExecutionFailed);
+                    Self::deposit_event(RawEvent::ProposalExecutionFailed(e.error));
                     false
                 }
             };
