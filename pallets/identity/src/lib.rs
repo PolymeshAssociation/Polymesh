@@ -176,7 +176,7 @@ decl_storage! {
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_128_concat)
+        pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
