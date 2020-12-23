@@ -108,7 +108,7 @@ use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
-    constants::PIP_MAX_REPORTING_SIZE,
+    constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -1340,12 +1340,12 @@ impl<T: Trait> Module<T> {
 
     /// Converts a PIP ID into a name of a PIP scheduled for execution.
     fn pip_execution_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_execute"[..], id)
+        Self::pip_schedule_name(&PIP_EXECUTION[..], id)
     }
 
     /// Converts a PIP ID into a name of a PIP scheduled for expiry.
     fn pip_expiry_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_expire"[..], id)
+        Self::pip_schedule_name(&PIP_EXPIRY[..], id)
     }
 
     /// Common method to create a unique name for the scheduler for a PIP.

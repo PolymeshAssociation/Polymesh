@@ -44,6 +44,14 @@ pub mod queue_priority {
     pub const MULTISIG_PROPOSAL_EXECUTION_PRIORITY: Priority = 101;
 }
 
+/// Prefixes for scheduled actions
+pub mod schedule_name_prefix {
+    pub const SETTLEMENT_INSTRUCTION_EXECUTION: [u8; 27] = *b"SETTLEMENT_INSTRUCTION_EXEC";
+    pub const MULTISIG_PROPOSAL_EXECUTION: [u8; 22] = *b"MULTISIG_PROPOSAL_EXEC";
+    pub const PIP_EXECUTION: [u8; 8] = *b"PIP_EXEC";
+    pub const PIP_EXPIRY: [u8; 10] = *b"PIP_EXPIRY";
+}
+
 // ERC1400 transfer status codes
 pub const ERC1400_TRANSFER_FAILURE: u8 = 0x50;
 pub const ERC1400_TRANSFER_SUCCESS: u8 = 0x51;

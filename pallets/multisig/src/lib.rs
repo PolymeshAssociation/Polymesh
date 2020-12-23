@@ -99,7 +99,10 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
+use polymesh_common_utilities::constants::{
+    queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
+    schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION,
+};
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
@@ -664,7 +667,7 @@ decl_module! {
             )
         }
 
-        /// An internal call to execute a scheduled multisig proposal.
+        /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
         #[weight = 500_000_000]
         fn execute_scheduled_proposal(
             origin,
@@ -949,7 +952,7 @@ impl<T: Trait> Module<T> {
                     // Scheduling will fail when it's already scheduled (had enough votes already).
                     // We ignore the failure here.
                     let _ = T::Scheduler::schedule_named(
-                        (*b"ms_proposal", multisig.clone(), proposal_id).encode(),
+                        (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
                         DispatchTime::At(execution_at),
                         None,
                         MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
