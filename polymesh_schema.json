@@ -1141,6 +1141,10 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "PermissionedIdentityPrefs": {
+            "intended_count": "u32",
+            "running_count": "u32"
         }
     },
     "rpc": {

@@ -279,7 +279,7 @@
 //! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new
 //!   validators is stored in the Session module's `Validators` at the end of each era.
 
-#![recursion_limit = "128"]
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(any(feature = "runtime-benchmarks"))]
@@ -335,7 +335,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         TransactionValidityError, ValidTransaction,
     },
-    DispatchError, PerThing, PerU16, Perbill, Percent, RuntimeDebug,
+    DispatchError, PerThing, PerU16, Perbill, Percent, Permill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -487,6 +487,35 @@ pub struct ValidatorPrefs {
     /// nominators.
     #[codec(compact)]
     pub commission: Perbill,
+}
+
+/// Preference of an identity regarding validation.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub struct PermissionedIdentityPrefs {
+    /// Intended no. of validator counts an identity wants to run.
+    /// It act as an hard limit on no. of validators an identity can run but it can be
+    /// amended using governance.
+    ///
+    /// It should satisfy count < MaxValidatorPerIdentity * Self::validator_count().
+    pub intended_count: u32,
+    /// Keep track of running no. of validators of an DID.
+    pub running_count: u32,
+}
+
+impl Default for PermissionedIdentityPrefs {
+    fn default() -> Self {
+        // By default only 1 validator is allowed to run by an identity.
+        Self::new(1)
+    }
+}
+
+impl PermissionedIdentityPrefs {
+    fn new(count: u32) -> Self {
+        Self {
+            intended_count: count,
+            running_count: 0,
+        }
+    }
 }
 
 // TODO: Remove before mainnet - only used for storage upgrade
@@ -1127,6 +1156,9 @@ pub trait Trait:
 
     /// Overarching type of all pallets origins.
     type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+    /// Maximum amount of validators can run by an identity. It will be MaxValidatorPerIdentity * Self::validator_count().
+    type MaxValidatorPerIdentity: Get<Permill>;
 }
 
 /// Mode of era-forcing.
@@ -1365,7 +1397,7 @@ decl_storage! {
 
         /// Entities that are allowed to run operator/validator nodes.
         pub PermissionedIdentity get(fn permissioned_identity):
-            map hasher(twox_64_concat) IdentityId => bool;
+            map hasher(twox_64_concat) IdentityId => Option<PermissionedIdentityPrefs>;
 
         // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
         /// Every validator has commission that should be in the range [0, Cap].
@@ -1408,9 +1440,9 @@ decl_storage! {
                             controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        if !<Module<T>>::permissioned_identity(&did) {
+                        if <Module<T>>::permissioned_identity(&did).is_none() {
                             // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::insert(&did, true);
+                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
                             <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
                         }
                         Ok(())
@@ -1550,6 +1582,12 @@ decl_error! {
         InvalidValidatorIdentity,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
+        /// Validator stash identity has not permissioned.
+        StashIdentityNotPermissioned,
+        /// Running validator count == itended count.
+        HitIntendedValidatorCount,
+        /// When intent to run the no. of validators is >= 2/3 of validator_count.
+        IntendedCountIsExceedingConsensusLimit
     }
 }
 
@@ -1590,6 +1628,11 @@ decl_module! {
         /// For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
         /// their reward. This used to limit the i/o cost for the nominator payout.
         const MaxNominatorRewardedPerValidator: u32 = T::MaxNominatorRewardedPerValidator::get();
+
+        /// Maximum number of validators for each permissioned identity.
+        ///
+        /// Max number of validators count = MaxValidatorPerIdentity * Self::validator_count().
+        const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
 
         type Error = Error<T>;
 
@@ -1966,12 +2009,28 @@ decl_module! {
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
 
-            ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-            // Polymesh-Note - It is used to check whether the passed commission is <= commission cap.
-            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
+            // Polymesh-Note - Make sure stash has valid permissioned identitty.
+            if let Some(id) = <Identity<T>>::get_identity(stash) {
+                let identity_pref = Self::permissioned_identity(id);
+                // Ensure stash's identity should be permissioned.
+                ensure!(identity_pref.is_some(), Error::<T>::StashIdentityNotPermissioned);
+                let id_pref = identity_pref.unwrap();
+                // Ensure identity should not run validators more than the itended count.
+                ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
+                ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+                // It is used to check whether the passed commission is <= commission cap.
+                ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
 
-            <Nominators<T>>::remove(stash);
-            <Validators<T>>::insert(stash, prefs);
+                PermissionedIdentity::mutate(&id, |pref| {
+                    if let Some(p) = pref {
+                        p.running_count += 1
+                    }
+                });
+                <Nominators<T>>::remove(stash);
+                <Validators<T>>::insert(stash, prefs);
+
+            }
+
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.
@@ -2158,14 +2217,25 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
         /// * identity Validator's IdentityId.
+        /// * intended_count No. of validators given identity intended to run.
         #[weight = 750_000_000]
-        pub fn add_permissioned_validator(origin, identity: IdentityId) {
+        pub fn add_permissioned_validator(origin, identity: IdentityId, intended_count: Option<u32>) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(!Self::permissioned_identity(&identity), Error::<T>::AlreadyExists);
+            ensure!(Self::permissioned_identity(&identity).is_none(), Error::<T>::AlreadyExists);
             // Validate the cdd status of the identity.
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
+            let pref = match intended_count {
+                Some(count) => {
+                    // Maximum allowed validator count is always less than the 2/3 of validator_count().
+                    let allowed_validator_count = T::MaxValidatorPerIdentity::get() * Self::validator_count();
+                    ensure!(count < allowed_validator_count, Error::<T>::IntendedCountIsExceedingConsensusLimit);
+                    PermissionedIdentityPrefs::new(count)
+                },
+                None => PermissionedIdentityPrefs::default()
+            };
+
             // Change identity status to be Permissioned
-            PermissionedIdentity::insert(&identity, true);
+            PermissionedIdentity::insert(&identity, pref);
             Self::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, identity));
         }
 
@@ -2179,9 +2249,9 @@ decl_module! {
         #[weight = 750_000_000]
         pub fn remove_permissioned_validator(origin, identity: IdentityId) {
             T::RequiredRemoveOrigin::ensure_origin(origin)?;
-            ensure!(Self::permissioned_identity(&identity), Error::<T>::NotExists);
+            ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
             // Change identity status to be Non-Permissioned
-            PermissionedIdentity::insert(&identity, false);
+            PermissionedIdentity::remove(&identity);
 
             Self::deposit_event(RawEvent::PermissionedIdentityRemoved(GC_DID, identity));
         }
@@ -2666,6 +2736,23 @@ decl_module! {
             ensure_root(origin)?;
             SlashingAllowedFor::put(slashing_switch);
             Self::deposit_event(RawEvent::SlashingAllowedForChanged(slashing_switch));
+        }
+
+        /// Scale the intended validator count for a given DID.
+        ///
+        /// #Arguments
+        /// * origin Required origin for adding a potential validator.
+        /// * identity Validator's IdentityId.
+        /// * additional Amount by which `intended_count` gets increased.
+        #[weight = 150_000_000]
+        pub fn scale_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) {
+            T::RequiredAddOrigin::ensure_origin(origin)?;
+            ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
+            PermissionedIdentity::mutate(&identity, |pref| {
+                if let Some(p) = pref {
+                    p.intended_count += additional
+                }
+            });
         }
     }
 }
@@ -3641,7 +3728,7 @@ impl<T: Trait> Module<T> {
     /// Is validator's `stash` account compliant?
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         <Identity<T>>::get_identity(&stash).map_or(false, |id| {
-            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id)
+            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id).is_some()
         })
     }
 
