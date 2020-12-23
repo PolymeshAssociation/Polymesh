@@ -126,7 +126,7 @@ fn issuers_can_create_and_rename_tokens() {
         let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -223,7 +223,7 @@ fn valid_transfers_pass() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -303,7 +303,7 @@ fn issuers_can_redeem_tokens() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -373,7 +373,7 @@ fn checkpoints_fuzz_test() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -452,7 +452,7 @@ fn register_ticker() {
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -479,20 +479,20 @@ fn register_ticker() {
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_err!(
-            Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&[0x01][..]).unwrap()),
+            Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&[b'A'][..]).unwrap()),
             AssetError::AssetAlreadyCreated
         );
 
         assert_err!(
             Asset::register_ticker(
                 owner_signed.clone(),
-                Ticker::try_from(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01][..])
+                Ticker::try_from(&[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..])
                     .unwrap()
             ),
             AssetError::TickerTooLong
         );
 
-        let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
+        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
@@ -518,6 +518,22 @@ fn register_ticker() {
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), true);
+
+        for bs in &[
+            [b'A', 31, b'B'].as_ref(),
+            [127, b'A'].as_ref(),
+            [b'A', 0, 0, 0, b'A'].as_ref(),
+        ] {
+            assert_noop!(
+                Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&bs[..]).unwrap()),
+                AssetError::TickerNotAscii
+            );
+        }
+
+        assert_ok!(Asset::register_ticker(
+            owner_signed,
+            Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()
+        ));
     })
 }
 
@@ -534,7 +550,7 @@ fn transfer_ticker() {
         let bob_signed = Origin::signed(AccountKeyring::Bob.public());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-        let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
+        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
@@ -645,7 +661,7 @@ fn controller_transfer() {
 
             // Expected token entry
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did,
                 total_supply: 1_000_000,
                 divisible: true,
@@ -733,7 +749,7 @@ fn transfer_primary_issuance_agent() {
         let primary_issuance_signed = Origin::signed(AccountKeyring::Bob.public());
         let primary_issuance_agent = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-        let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
+        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
         let token = SecurityToken {
             name: ticker.as_slice().into(),
             total_supply: 1_000_000,
@@ -826,7 +842,7 @@ fn transfer_token_ownership() {
         let bob_signed = Origin::signed(AccountKeyring::Bob.public());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-        let token_name = vec![0x01, 0x01];
+        let token_name = vec![b'A', b'A'];
         let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
@@ -992,7 +1008,7 @@ fn adding_removing_documents() {
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -1682,7 +1698,7 @@ fn frozen_secondary_keys_create_asset_we() {
 
     // 2. Bob can create token
     let token_1 = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: alice_id,
         total_supply: 1_000_000,
         divisible: true,
@@ -1708,7 +1724,7 @@ fn frozen_secondary_keys_create_asset_we() {
 
     // 4. Bob cannot create a token.
     let token_2 = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: alice_id,
         total_supply: 1_000_000,
         divisible: true,
@@ -1883,7 +1899,7 @@ fn can_set_primary_issuance_agent_we() {
         Some(Memo::from("Bob funding"))
     ));
     let mut token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: alice_id,
         total_supply: 1_000_000,
         divisible: true,
@@ -1941,7 +1957,7 @@ fn test_weights_for_is_valid_transfer() {
             let dave = AccountKeyring::Dave.public();
 
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did: alice_did,
                 total_supply: 1_000_000_000,
                 divisible: true,
@@ -2124,7 +2140,7 @@ fn check_functionality_of_remove_extension() {
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did: alice_did,
                 total_supply: 1_000_000_000,
                 divisible: true,
@@ -2735,7 +2751,7 @@ fn check_unique_investor_count() {
             let total_supply = 1_000_000_000;
 
             let token = SecurityToken {
-                name: vec![0x01].into(),
+                name: vec![b'A'].into(),
                 owner_did: alice_did,
                 total_supply: total_supply,
                 divisible: true,
