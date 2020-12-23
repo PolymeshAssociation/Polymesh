@@ -16,7 +16,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-use pallet_identity::{self as identity};
 use polymesh_common_utilities::{
     benchs::{User, UserBuilder},
     MaybeBlock, SystematicIssuers, GC_DID,
@@ -25,6 +24,7 @@ use polymesh_common_utilities::{
 use frame_benchmarking::benchmarks;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
+    ensure,
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
@@ -360,25 +360,30 @@ benchmarks! {
         assert!(SnapshotMeta::<T>::get().is_none());
     }
 
-    // TODO reduce fn complexity
     snapshot {
-        // let origin0 = snapshot_setup::<T>()?;
-    }: {} // _(origin0)
+        let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
+        identity::CurrentDid::put(did0);
+        T::GovernanceCommittee::bench_set_release_coordinator(did0);
+    }: _(origin0)
     verify {
-        // assert!(SnapshotMeta::<T>::get().is_some());
+        ensure!(SnapshotMeta::<T>::get().is_some(), "snapshot finished incorrectly");
     }
 
     // TODO reduce fn complexity
     enact_snapshot_results {
-        // let origin0 = snapshot_setup::<T>()?;
-        // Module::<T>::snapshot(origin0.into())?;
-        // let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        // let enact_call = enact_call::<T>();
+        let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
+        identity::CurrentDid::put(did0);
+        Module::<T>::snapshot(origin0.into())?;
+        let enact_origin = T::VotingMajorityOrigin::successful_origin();
+        let enact_call = enact_call::<T>();
     }: {
-        // enact_call.dispatch_bypass_filter(enact_origin)?;
+        enact_call.dispatch_bypass_filter(enact_origin)?;
     }
     verify {
-        // assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+        ensure!(
+            PipToSchedule::<T>::contains_key(&0),
+            "incorrect PipsToSchedule in enact_snapshot_results"
+        );
     }
 
     execute_scheduled_pip {
@@ -401,16 +406,21 @@ benchmarks! {
     }: _(origin, 0)
     verify {
         if Proposals::<T>::contains_key(&0) {
-            assert_eq!(ProposalState::Failed, Module::<T>::proposals(&0).unwrap().state);
+            ensure!(
+                ProposalState::Failed == Module::<T>::proposals(&0).unwrap().state,
+                "incorrect proposal state in execute_scheduled_pip"
+            );
         }
     }
 
     expire_scheduled_pip {
         pips_and_votes_setup::<T>(true)?;
-        identity::CurrentDid::kill();
         let origin = RawOrigin::Root;
     }: _(origin, GC_DID, 0)
     verify {
-        assert_eq!(ProposalState::Expired, Module::<T>::proposals(&0).unwrap().state);
+        ensure!(
+            ProposalState::Expired == Module::<T>::proposals(&0).unwrap().state,
+            "incorrect proposal state in expire_scheduled_pip"
+        );
     }
 }
