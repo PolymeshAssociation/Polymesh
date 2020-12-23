@@ -21,6 +21,7 @@ use polymesh_common_utilities::benchs::UserBuilder;
 
 pub type MultiSig<T> = crate::Module<T>;
 pub type Identity<T> = identity::Module<T>;
+pub type Timestamp<T> = pallet_timestamp::Module<T>;
 
 fn generate_signers<T: Trait>(signers: &mut Vec<Signatory<T::AccountId>>, n: usize) {
     signers.extend((0..n).map(|x| Signatory::Account(
@@ -88,7 +89,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_identity");
     }
@@ -100,7 +101,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_key");
     }
@@ -111,7 +112,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_proposal_as_identity");
     }
@@ -123,7 +124,7 @@ benchmarks! {
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), None, true)
+    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_proposal_as_key");
     }
@@ -190,7 +191,7 @@ benchmarks! {
             alice.origin().into(),
             multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
-            None,
+            Some(<Timestamp<T>>::get() + 1.into()),
             true
         )?;
     }: _(bob.origin(), multisig.clone(), 0)
@@ -216,7 +217,7 @@ benchmarks! {
             bob.origin().into(),
             multisig.clone(),
             Box::new(frame_system::Call::<T>::remark(vec![]).into()),
-            None,
+            Some(<Timestamp<T>>::get() + 1.into()),
             true
         )?;
     }: _(charlie.origin(), multisig.clone(), 0)
