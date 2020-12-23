@@ -872,9 +872,6 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
         Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
-
-        // #[cfg(feature = "runtime-benchmarks")]
-        // Committee_DefaultInstance: committee::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
     }
 );
 
