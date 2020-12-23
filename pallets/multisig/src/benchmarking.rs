@@ -23,15 +23,13 @@ pub type MultiSig<T> = crate::Module<T>;
 pub type Identity<T> = identity::Module<T>;
 
 fn generate_signers<T: Trait>(signers: &mut Vec<Signatory<T::AccountId>>, n: usize) {
-    for x in 0..n {
-        let signer = Signatory::Account(
-            <UserBuilder<T>>::default()
-                .seed(x as u32)
-                .build("key")
-                .account,
-        );
-        signers.push(signer);
-    }
+    signers.extend((0..n).map(|x| Signatory::Account(
+        <UserBuilder<T>>::default()
+             .seed(x as u32)
+             .build("key")
+             .account
+        )
+    );
 }
 
 fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
