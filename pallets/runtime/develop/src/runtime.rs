@@ -436,6 +436,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 macro_rules! committee_config {
@@ -460,6 +461,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
+            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
         }
     };
 }
@@ -723,6 +725,8 @@ impl polymesh_contracts::Trait for Runtime {
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for Runtime {
@@ -745,6 +749,7 @@ impl group::Trait<group::Instance2> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl statistics::Trait for Runtime {}
@@ -1298,11 +1303,15 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
+            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
+            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_group, CddServiceProviders);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

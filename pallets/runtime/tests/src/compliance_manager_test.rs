@@ -122,7 +122,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -337,7 +337,7 @@ fn should_replace_asset_compliance_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -405,7 +405,7 @@ fn should_reset_asset_compliance_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -464,7 +464,7 @@ fn pause_resume_asset_compliance_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -563,7 +563,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -705,7 +705,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -895,7 +895,7 @@ fn jurisdiction_asset_compliance_we() {
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_id.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -977,7 +977,7 @@ fn scope_asset_compliance_we() {
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(owner, vec![b'A'].into());
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
@@ -1026,7 +1026,7 @@ fn cm_test_case_9_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![Condition::from_dids(
@@ -1124,7 +1124,7 @@ fn cm_test_case_11_we() {
     let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1236,7 +1236,7 @@ fn cm_test_case_13_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1360,7 +1360,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let issuer = AccountKeyring::Bob.public();
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let token_name: AssetName = vec![0x01].into();
+    let token_name: AssetName = vec![b'A'].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
         owner_origin.clone(),
@@ -1472,7 +1472,7 @@ fn should_limit_compliance_requirements_complexity_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -1552,7 +1552,7 @@ fn check_new_return_type_of_rpc() {
 
         // 1. A token representing 1M shares
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did: token_owner_did.clone(),
             total_supply: 1_000_000,
             divisible: true,

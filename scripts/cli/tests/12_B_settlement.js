@@ -185,7 +185,7 @@ async function addGroupInstruction(
     amount: amount,
   };
 
-  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, [
+  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, null, [
     leg,
     leg2,
     leg3,
