@@ -371,9 +371,15 @@ benchmarks! {
 
     // TODO reduce fn complexity
     enact_snapshot_results {
+        // set up
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
+
+        // snapshot
         identity::CurrentDid::put(did0);
+        T::GovernanceCommittee::bench_set_release_coordinator(did0);
         Module::<T>::snapshot(origin0.into())?;
+
+        // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
         let enact_call = enact_call::<T>();
     }: {
