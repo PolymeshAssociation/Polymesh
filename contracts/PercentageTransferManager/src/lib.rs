@@ -593,10 +593,9 @@ mod percentage_transfer_manager {
                 (IdentityId::from(3), true),
             ];
             let exempt_to = exempted_identities
-                .clone()
                 .iter()
                 .map(|(id, _)| *id)
-                .collect::<Vec<IdentityId>>();
+                .collect::<Vec<_>>();
             percentage_transfer_manager.modify_exemption_list_batch(exempted_identities);
             let exempt_id = percentage_transfer_manager.get_all_exempted_identities();
             assert!(exempt_id == exempt_to);
