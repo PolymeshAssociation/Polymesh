@@ -987,7 +987,8 @@
             "status": "InstructionStatus",
             "settlement_type": "SettlementType",
             "created_at": "Option<Moment>",
-            "valid_from": "Option<Moment>"
+            "trade_date": "Option<Moment>",
+            "value_date": "Option<Moment>"
         },
         "Leg": {
             "from": "PortfolioId",
