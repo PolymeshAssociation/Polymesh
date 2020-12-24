@@ -518,23 +518,6 @@ impl PermissionedIdentityPrefs {
     }
 }
 
-// TODO: Remove before mainnet - only used for storage upgrade
-/// Commission can be set globally or by validator
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Commission {
-    /// Flag that allow every validator to have individual commission.
-    Individual,
-    /// Every validator has same commission that set globally.
-    Global(Perbill),
-}
-
-impl Default for Commission {
-    fn default() -> Self {
-        Commission::Individual
-    }
-}
-
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct UnlockChunk<Balance: HasCompact> {
@@ -1210,11 +1193,12 @@ enum Releases {
     V3_0_0,
     V4_0_0,
     V5_0_0,
+    V6_0_0,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V4_0_0
+        Releases::V5_0_0
     }
 }
 
@@ -1412,8 +1396,8 @@ decl_storage! {
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
-        /// This is set to v5.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V5_0_0): Releases;
+        /// This is set to v6.0.0 for new networks.
+        StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_0): Releases;
     }
     add_extra_genesis {
         config(stakers):
@@ -1640,20 +1624,25 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::migrate::migrate_map_keys_and_value;
-            use frame_support::storage::migration::take_storage_value;
 
-            if StorageVersion::get() == Releases::V4_0_0 {
-                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
-                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
+            if StorageVersion::get() == Releases::V5_0_0 {
+                let intended_count = T::MaxValidatorPerIdentity::get() * Self::validator_count();
+                let current_validators = <Validators<T>>::iter().map(|(k, _)| k).collect::<Vec<T::AccountId>>();
+                migrate_map_keys_and_value::<_,Option<PermissionedIdentityPrefs>,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
+                    if v {
+                        let mut running_count = 0;
+                        for v in current_validators.iter() {
+                            if let Some(v_id) = <Identity<T>>::get_identity(v) {
+                                if id == v_id { running_count += 1}
+                            }
+                        }
+                        Some((id, Some(PermissionedIdentityPrefs {intended_count, running_count })))
+                    } else {
+                        None
+                    }
                 });
 
-                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
-                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
-                    ValidatorCommissionCap::put(commision);
-                } else {
-                    ValidatorCommissionCap::put(Perbill::from_percent(100));
-                }
-                StorageVersion::put(Releases::V5_0_0);
+                StorageVersion::put(Releases::V6_0_0);
             }
             1_000
         }
