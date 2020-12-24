@@ -24,7 +24,7 @@ use sp_std::prelude::*;
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
-pub trait AssetSubTrait {
+pub trait AssetSubTrait<Balance> {
     /// Accept and process a ticker transfer
     ///
     /// # Arguments
@@ -51,6 +51,13 @@ pub trait AssetSubTrait {
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
     fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult;
+
+    /// Returns balance for a given scope id and target DID.
+    ///
+    /// # Arguments
+    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
+    /// * `target` - The `IdentityId` whose balance needs to be queried.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
 }
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct IssueAssetItem<U> {
