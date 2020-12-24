@@ -146,7 +146,7 @@ benchmarks! {
         let origin = RawOrigin::Root;
     }: _(origin, true)
     verify {
-        assert_eq!(true, PruneHistoricalPips::get());
+        ensure!(PruneHistoricalPips::get(), "set_prune_historical_pips didn't work");
     }
 
     set_min_proposal_deposit {
@@ -154,7 +154,7 @@ benchmarks! {
         let deposit = 42.into();
     }: _(origin, deposit)
     verify {
-        assert_eq!(deposit, MinimumProposalDeposit::<T>::get());
+        ensure!(deposit == MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
     }
 
     set_default_enactment_period {
@@ -162,7 +162,7 @@ benchmarks! {
         let period = 42.into();
     }: _(origin, period)
     verify {
-        assert_eq!(period, DefaultEnactmentPeriod::<T>::get());
+        ensure!(period == DefaultEnactmentPeriod::<T>::get(), "incorrect DefaultEnactmentPeriod");
     }
 
     set_pending_pip_expiry {
@@ -170,7 +170,7 @@ benchmarks! {
         let maybe_block = MaybeBlock::Some(42.into());
     }: _(origin, maybe_block)
     verify {
-        assert_eq!(maybe_block, PendingPipExpiry::<T>::get());
+        ensure!(maybe_block == PendingPipExpiry::<T>::get(), "incorrect PendingPipExpiry");
     }
 
     set_max_pip_skip_count {
@@ -178,7 +178,7 @@ benchmarks! {
         let count = 42.try_into().unwrap();
     }: _(origin, count)
     verify {
-        assert_eq!(count, MaxPipSkipCount::get());
+        ensure!(count == MaxPipSkipCount::get(), "incorrect MaxPipSkipCount");
     }
 
     set_active_pip_limit {
@@ -186,7 +186,7 @@ benchmarks! {
         let pip_limit = 42;
     }: _(origin, pip_limit)
     verify {
-        assert_eq!(pip_limit, ActivePipLimit::get());
+        ensure!(pip_limit == ActivePipLimit::get(), "incorrect ActivePipLimit");
     }
 
     propose_from_community {
@@ -197,9 +197,9 @@ benchmarks! {
     }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
-        assert_eq!(0, meta.id);
-        assert_eq!(Some(url), meta.url);
-        assert_eq!(Some(description), meta.description);
+        ensure!(0 == meta.id, "propose_from_community: incorrect meta.id");
+        ensure!(Some(url) == meta.url, "propose_from_community: incorrect meta.url");
+        ensure!(Some(description) == meta.description, "propose_from_community: incorrect meta.description");
     }
 
     // `propose` from a committee origin.
@@ -216,9 +216,9 @@ benchmarks! {
     }
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
-        assert_eq!(0, meta.id);
-        assert_eq!(Some(url), meta.url);
-        assert_eq!(Some(description), meta.description);
+        ensure!(0 == meta.id, "propose_from_committee: incorrect meta.id");
+        ensure!(Some(url) == meta.url, "propose_from_committee: incorrect meta.url");
+        ensure!(Some(description) == meta.description, "propose_from_committee: incorrect meta.description");
     }
 
     vote {
@@ -247,7 +247,7 @@ benchmarks! {
         Module::<T>::vote(origin.clone().into(), 0, false, voter_deposit)?;
     }: _(origin, 0, true, voter_deposit)
     verify {
-        assert_eq!(voter_deposit, Deposits::<T>::get(0, &account).amount);
+        ensure!(voter_deposit == Deposits::<T>::get(0, &account).amount, "incorrect voter deposit");
     }
 
     approve_committee_proposal {
@@ -264,7 +264,7 @@ benchmarks! {
         call.dispatch_bypass_filter(origin)?;
     }
     verify {
-        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+        ensure!(PipToSchedule::<T>::contains_key(&0), "approved committee proposal is not in the schedule");
     }
 
     reject_proposal {
@@ -280,14 +280,14 @@ benchmarks! {
             Some(url),
             Some(description)
         )?;
-        assert_eq!(deposit, Deposits::<T>::get(&0, &account).amount);
+        ensure!(deposit == Deposits::<T>::get(&0, &account).amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::reject_proposal(0);
     }: {
         call.dispatch_bypass_filter(vmo_origin)?;
     }
     verify {
-        assert_eq!(false, Deposits::<T>::contains_key(&0, &account));
+        ensure!(!Deposits::<T>::contains_key(&0, &account), "deposit of the rejected proposal is present");
     }
 
     prune_proposal {
@@ -311,8 +311,8 @@ benchmarks! {
         call.dispatch_bypass_filter(vmo_origin)?;
     }
     verify {
-        assert_eq!(false, Proposals::<T>::contains_key(&0));
-        assert_eq!(false, ProposalMetadata::<T>::contains_key(&0));
+        ensure!(!Proposals::<T>::contains_key(&0), "pruned proposal is present");
+        ensure!(!ProposalMetadata::<T>::contains_key(&0), "pruned proposal metadata is present");
     }
 
     reschedule_execution {
@@ -336,7 +336,7 @@ benchmarks! {
         let future_block = frame_system::Module::<T>::block_number() + 100.into();
     }: _(origin, 0, Some(future_block))
     verify {
-        assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
+        ensure!(PipToSchedule::<T>::contains_key(&0), "rescheduled proposal is missing in the schedule");
     }
 
     clear_snapshot {
@@ -354,10 +354,10 @@ benchmarks! {
         )?;
         T::GovernanceCommittee::bench_set_release_coordinator(did);
         Module::<T>::snapshot(origin.clone().into())?;
-        assert!(SnapshotMeta::<T>::get().is_some());
+        ensure!(SnapshotMeta::<T>::get().is_some(), "missing a snapshot before clear_snapshot");
     }: _(origin)
     verify {
-        assert!(SnapshotMeta::<T>::get().is_none());
+        ensure!(SnapshotMeta::<T>::get().is_none(), "snapshot was not cleared by clear_snapshot");
     }
 
     snapshot {
