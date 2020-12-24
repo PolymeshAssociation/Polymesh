@@ -11,51 +11,51 @@ pub use storage::{
 pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
-// #[cfg(test)]
-// mod asset_test;
-// #[cfg(test)]
-// mod balances_test;
-// #[cfg(test)]
-// mod bridge;
-// #[cfg(test)]
-// mod committee_test;
-// #[cfg(test)]
-// mod compliance_manager_test;
-// #[cfg(test)]
-// mod confidential_test;
-// #[cfg(test)]
-// mod contract_test;
-// #[cfg(test)]
-// mod corporate_actions_test;
-// #[cfg(test)]
-// mod dividend_test;
-// #[cfg(test)]
-// mod fee_details;
-// #[cfg(test)]
-// mod group_test;
-// #[cfg(test)]
-// mod identity_test;
-// #[cfg(test)]
-// mod multisig;
-// #[cfg(test)]
-// mod pips_test;
-// #[cfg(test)]
-// mod portfolio;
-// #[cfg(test)]
-// mod protocol_fee;
-// #[cfg(test)]
-// mod settlement_test;
+#[cfg(test)]
+mod asset_test;
+#[cfg(test)]
+mod balances_test;
+#[cfg(test)]
+mod bridge;
+#[cfg(test)]
+mod committee_test;
+#[cfg(test)]
+mod compliance_manager_test;
+#[cfg(test)]
+mod confidential_test;
+#[cfg(test)]
+mod contract_test;
+#[cfg(test)]
+mod corporate_actions_test;
+#[cfg(test)]
+mod dividend_test;
+#[cfg(test)]
+mod fee_details;
+#[cfg(test)]
+mod group_test;
+#[cfg(test)]
+mod identity_test;
+#[cfg(test)]
+mod multisig;
+#[cfg(test)]
+mod pips_test;
+#[cfg(test)]
+mod portfolio;
+#[cfg(test)]
+mod protocol_fee;
+#[cfg(test)]
+mod settlement_test;
 #[cfg(test)]
 mod staking;
-// #[cfg(test)]
-// mod statistics_test;
-// #[cfg(test)]
-// mod sto_test;
-// #[cfg(test)]
-// mod transaction_payment_test;
-// #[cfg(test)]
-// mod treasury_test;
-// #[cfg(test)]
-// mod utility_test;
-// #[cfg(test)]
-// mod voting_test;
+#[cfg(test)]
+mod statistics_test;
+#[cfg(test)]
+mod sto_test;
+#[cfg(test)]
+mod transaction_payment_test;
+#[cfg(test)]
+mod treasury_test;
+#[cfg(test)]
+mod utility_test;
+#[cfg(test)]
+mod voting_test;
