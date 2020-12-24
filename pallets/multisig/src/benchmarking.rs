@@ -24,13 +24,14 @@ pub type Identity<T> = identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Module<T>;
 
 fn generate_signers<T: Trait>(signers: &mut Vec<Signatory<T::AccountId>>, n: usize) {
-    signers.extend((0..n).map(|x| Signatory::Account(
-        <UserBuilder<T>>::default()
-             .seed(x as u32)
-             .build("key")
-             .account
+    signers.extend((0..n).map(|x| {
+        Signatory::Account(
+            <UserBuilder<T>>::default()
+                .seed(x as u32)
+                .build("key")
+                .account,
         )
-    );
+    }));
 }
 
 fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
@@ -83,27 +84,76 @@ benchmarks! {
         ensure!(<MultiSigToIdentity<T>>::contains_key(multisig), "create_multisig");
     }
 
-    create_or_approve_proposal_as_identity {
+    create_or_approve_proposal_as_identity_create {
         let alice = <UserBuilder<T>>::default().generate_did().build("alice");
         let mut signers = vec![Signatory::from(alice.did())];
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
+    }: create_or_approve_proposal_as_identity(alice.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_identity");
     }
 
-    create_or_approve_proposal_as_key {
+    create_or_approve_proposal_as_key_create {
         let alice = <UserBuilder<T>>::default().generate_did().build("alice");
         let bob = <UserBuilder<T>>::default().build("bob");
         let mut signers = vec![Signatory::Account(bob.account())];
         generate_signers::<T>(&mut signers, 1);
         let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
         let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    }: _(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
+    }: create_or_approve_proposal_as_key(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
     verify {
         ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig.clone()), "create_or_approve_proposal_as_key");
+    }
+
+    create_or_approve_proposal_as_identity_approve {
+        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
+        let bob = <UserBuilder<T>>::default().generate_did().build("bob");
+        let signers = vec![
+            Signatory::from(alice.did()),
+            Signatory::from(bob.did()),
+        ];
+        let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
+        let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
+        <MultiSig<T>>::create_proposal_as_identity(
+            alice.origin().into(),
+            multisig.clone(),
+            Box::new(frame_system::Call::<T>::remark(vec![]).into()),
+            None,
+            true
+        )?;
+    }: create_or_approve_proposal_as_identity(bob.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
+    verify {
+        ensure!(
+            <MultiSig<T>>::votes((multisig.clone(), Signatory::from(bob.did()), proposal_id)),
+            "create_or_approve_proposal_as_identity_approve"
+        );
+    }
+
+    create_or_approve_proposal_as_key_approve {
+        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
+        let bob = <UserBuilder<T>>::default().build("bob",);
+        let charlie = <UserBuilder<T>>::default().build("charlie",);
+        let signers = vec![
+            Signatory::Account(bob.account()),
+            Signatory::Account(charlie.account()),
+        ];
+        let multisig = generate_multisig::<T>(alice.account(), alice.origin(), signers)?;
+        let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
+        <MultiSig<T>>::create_proposal_as_key(
+            bob.origin().into(),
+            multisig.clone(),
+            Box::new(frame_system::Call::<T>::remark(vec![]).into()),
+            None,
+            true
+        )?;
+    }: create_or_approve_proposal_as_key(charlie.origin(), multisig.clone(), Box::new(frame_system::Call::<T>::remark(vec![]).into()), Some(<Timestamp<T>>::get() + 1.into()), true)
+    verify {
+        ensure!(
+            <MultiSig<T>>::votes((multisig.clone(), Signatory::Account(charlie.account()), proposal_id)),
+            "create_or_approve_proposal_as_key_approve"
+        );
     }
 
     create_proposal_as_identity {
