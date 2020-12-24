@@ -63,10 +63,15 @@ where
     T: Trait<I>,
 {
     let members: Vec<_> = (0..m)
-        .map(|i| user::<T>("member", i))
+        .map(|i| {
+            UserBuilder::<T>::default()
+                .generate_did()
+                .seed(i)
+                .build("member")
+        })
         .collect();
     Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-    make_proposals_and_vote::<T, I>(&members)?;
+    make_proposals_and_vote::<T, I>(members.as_slice())?;
     Ok(members)
 }
 
@@ -86,9 +91,13 @@ benchmarks_instance! {
     }
 
     set_release_coordinator {
-        let dids = (0..COMMITTEE_MEMBERS_NUM)
-            .map(|i| user::<T>("member", i).did())
-            .collect::<Vec<_>>();
+        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_NUM)
+            .map(|i| UserBuilder::<T>::default()
+                 .generate_did()
+                 .seed(i as u32)
+                 .build("member")
+                 .did()
+            ).collect();
         let coordinator = dids[COMMITTEE_MEMBERS_NUM / 2].clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
