@@ -71,7 +71,7 @@ where
         })
         .collect();
     Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
-    make_proposals_and_vote::<T, I>(members.as_slice())?;
+    make_proposals_and_vote::<T, I>(&members)?;
     Ok(members)
 }
 
@@ -98,7 +98,7 @@ benchmarks_instance! {
                  .build("member")
                  .did()
             ).collect();
-        let coordinator = dids[COMMITTEE_MEMBERS_NUM / 2].clone();
+        let coordinator = dids.last().unwrap().clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_release_coordinator(coordinator);
