@@ -1433,6 +1433,11 @@ decl_storage! {
                 );
                 let _ = match status {
                     StakerStatus::Validator => {
+                        if <Module<T>>::permissioned_identity(&did).is_none() {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
+                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
+                        }
                         let mut prefs = ValidatorPrefs::default();
                         // Setting the cap value here.
                         prefs.commission = config.validator_commission_cap;
@@ -1440,11 +1445,6 @@ decl_storage! {
                             controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        if <Module<T>>::permissioned_identity(&did).is_none() {
-                            // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
-                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
-                        }
                         Ok(())
                     },
                     StakerStatus::Nominator(votes) => {
@@ -1586,7 +1586,7 @@ decl_error! {
         StashIdentityNotPermissioned,
         /// Running validator count == itended count.
         HitIntendedValidatorCount,
-        /// When intent to run the no. of validators is >= 2/3 of validator_count.
+        /// When intend to run the no. of validators is >= 2/3 of validator_count.
         IntendedCountIsExceedingConsensusLimit
     }
 }
@@ -2082,6 +2082,8 @@ decl_module! {
                         suppressed: false,
                     };
 
+                    // Polymesh-note: Decrement the running count by 1.
+                    Self::release_running_validator(&stash);
                     <Validators<T>>::remove(stash);
                     <Nominators<T>>::insert(stash, &nominations);
                     Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
@@ -2938,8 +2940,21 @@ impl<T: Trait> Module<T> {
 
     /// Chill a stash account.
     fn chill_stash(stash: &T::AccountId) {
+        // Polymesh-note: Decrement the running count by 1.
+        Self::release_running_validator(stash);
         <Validators<T>>::remove(stash);
         <Nominators<T>>::remove(stash);
+    }
+
+    /// Decrease the running count of validators by 1 for the stash identity.
+    fn release_running_validator(stash: &T::AccountId) {
+        if let Some(id) = <Identity<T>>::get_identity(stash) {
+            PermissionedIdentity::mutate(&id, |pref| {
+                if let Some(p) = pref {
+                    p.running_count -= 1
+                }
+            });
+        }
     }
 
     /// Actually make a payment to a staker. This uses the currency's reward function

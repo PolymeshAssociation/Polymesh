@@ -39,19 +39,13 @@ macro_rules! assert_session_era {
 
 macro_rules! assert_present_identity {
     ($acc_id:expr) => {
-        assert_eq!(
-            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
-            true
-        );
+        assert!(Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()).is_some());
     };
 }
 
 macro_rules! assert_absent_identity {
     ($acc_id:expr) => {
-        assert_eq!(
-            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
-            false
-        );
+        assert!(Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()).is_none());
     };
 }
 
@@ -59,8 +53,21 @@ macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
         assert_ok!(Staking::add_permissioned_validator(
             root(),
-            Identity::get_identity($acc_id).unwrap()
+            Identity::get_identity($acc_id).unwrap(),
+            None
         ));
+    };
+}
+
+macro_rules! assert_permissioned_identity_prefs {
+    ($id:expr, $i_count:expr, $r_count:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity($id).unwrap(),
+            PermissionedIdentityPrefs {
+                intended_count: $i_count,
+                running_count: $r_count
+            }
+        );
     };
 }
 
@@ -70,7 +77,7 @@ use mock::*;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
-    assert_noop, assert_ok,
+    assert_err, assert_noop, assert_ok,
     storage::{IterableStorageMap, StorageDoubleMap, StorageValue},
     traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
@@ -5422,14 +5429,14 @@ fn voting_for_pip_overlays_with_staking() {
 #[test]
 fn test_with_multiple_validators_from_entity() {
     ExtBuilder::default()
-        .validator_count(5)
+        .validator_count(12)
         .minimum_validator_count(5)
         .build()
         .execute_with(|| {
             start_era(1);
 
             // add new validator
-            bond_validator(50, 51, 500000);
+            bond_validator_with_intended_count(50, 51, 500000, Some(3));
 
             // Add other stash and controller to the same did.
             // 60 stash and 61 controller.
@@ -5443,7 +5450,7 @@ fn test_with_multiple_validators_from_entity() {
                 RewardDestination::Controller,
             ));
             let entity_id = Identity::get_identity(&60).unwrap();
-            if !Staking::permissioned_identity(entity_id) {
+            if Staking::permissioned_identity(entity_id).is_none() {
                 assert_add_permissioned_validator!(&60);
             }
             assert_ok!(Staking::validate(
@@ -5685,4 +5692,71 @@ fn payout_to_any_account_works() {
             // Payment is successful
             assert!(Balances::free_balance(42) > 0);
         })
+}
+
+#[test]
+fn test_multiple_validators_from_an_entity() {
+    ExtBuilder::default()
+        .validator_count(12)
+        .minimum_validator_count(5)
+        .build()
+        .execute_with(|| {
+            start_era(1);
+
+            // Add new validator
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+            assert_err!(
+                Staking::add_permissioned_validator(
+                    frame_system::RawOrigin::Root.into(),
+                    entity_id,
+                    Some(6)
+                ),
+                Error::<Test>::IntendedCountIsExceedingConsensusLimit
+            );
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            // 60 stash and 61 controller.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Add other stash and controller to the same did.
+            // 70 stash and 71 controller.
+            add_secondary_key(50, 70);
+            add_secondary_key(50, 71);
+
+            bond(70, 71, 500000);
+            assert_err!(
+                Staking::validate(Origin::signed(71), ValidatorPrefs::default()),
+                Error::<Test>::HitIntendedValidatorCount
+            );
+
+            // Scale the validator count
+            assert_ok!(Staking::scale_permissioned_validator_intended_count(
+                root(),
+                entity_id,
+                1
+            ));
+
+            assert_ok!(Staking::validate(
+                Origin::signed(71),
+                ValidatorPrefs::default()
+            ));
+
+            assert_permissioned_identity_prefs!(entity_id, 3, 3);
+
+            // Making a validator chill status.
+            assert_ok!(Staking::chill(Origin::signed(61)));
+
+            assert_permissioned_identity_prefs!(entity_id, 3, 2);
+        });
 }
