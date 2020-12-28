@@ -17,6 +17,7 @@ const {
 // TODO This is based on my directory structure.
 //} = require("../../../../cryptography/mercat/wasm/pkg/mercat_wasm");
 
+const {assert} = require("chai");
 
 async function main() {
   const api = await reqImports.createApi();
@@ -65,7 +66,8 @@ async function main() {
 
   // Charlie creates his mediator Mercat Account 
   console.log("-----------> Creating Charlie's account.");
-  const charliePublicKey = await createMercatMediatorAccount();
+  const charliePublicKey = (await createMercatMediatorAccount()).public_key;
+  const charlieAccount = (await createMercatMediatorAccount()).secret_account;
 
   // Validate Charlie's Mercat Account 
   console.log("-----------> Submitting Charlie's account.");
@@ -99,7 +101,7 @@ async function main() {
   
   console.log("-----------> Initializing confidential transaction.");
   const bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
-  const aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
+  let aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
   const initTransactionProof = await createTransaction(
     100,
     aliceMercatInfo,
@@ -121,10 +123,21 @@ async function main() {
   console.log("-----------> Submitting finalize confidential transaction proof.");
   await affirmConfidentialInstruction(api, instructionCounter, {FinalizedTransfer: finalizeTransactionProof}, bob, bob_did);
 
+  const alicePublicAccount = new PubAccount(aliceMercatInfo.account_id, aliceMercatInfo.public_key);
 
-  // TODO: call justify_transaction similar to the way I called create and finalized tranasctions.
-  // TODO: similarly affirm the justified_tx proof.
-  // TODO: assert that the plain balances are correct after decrypting them.
+  const justifiedTransactionProof = justify_transaction(finalizeTransactionProof, charlieAccount, alicePublicAccount, aliceEncryptedBalance, bobPublicAccount, "01");
+  
+  console.log("-----------> Submitting justify confidential transaction proof.");
+  await affirmConfidentialInstruction(api, instructionCounter, {JustifiedTransfer: justifiedTransactionProof}, charlie, charlie_did);
+
+  await displayBalance(api, alice_did, aliceMercatInfo, "Alice balance after giving tokens to Bob");
+  await displayBalance(api, bob_did, bobMercatInfo, "Bob balance after getting tokens from Alice");
+
+  aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
+  const bobEncryptedBalance = await getEncryptedBalance(api, bob_did, bobMercatInfo.account_id);
+
+  assert.equal(decryptBalances(aliceEncryptedBalance, aliceMercatInfo), 900);
+  assert.equal(decryptBalances(bobEncryptedBalance, bobMercatInfo), 100);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -219,7 +232,7 @@ async function validateMercatAccount(api, signer, proof) {
 async function createMercatMediatorAccount() {
   const charlieMercatInfo = create_mediator_account();
   
-  return charlieMercatInfo.public_key;
+  return charlieMercatInfo;
 }
 
 async function createConfidentialAsset(api, ticker, signer) {
