@@ -529,6 +529,11 @@ decl_module! {
                 TickerRegistrationStatus::Available => true,
             };
 
+            // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
+            if available {
+                Self::ensure_ticker_ascii(&ticker)?;
+            }
+
             let token_did = Identity::<T>::get_token_did(&ticker)?;
             // Ensure there's no pre-existing entry for the DID.
             // This should never happen, but let's be defensive here.
@@ -1157,6 +1162,8 @@ decl_error! {
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,
+        /// The ticker has non-ascii-encoded parts.
+        TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
         /// An invalid total supply.
@@ -1470,6 +1477,19 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
+    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
+        let bytes = ticker.as_slice();
+        // Find first byte not printable ASCII.
+        let good = bytes
+            .iter()
+            .position(|b| !matches!(b, 32..=126))
+            // Everything after must be a NULL byte.
+            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
+        ensure!(good, Error::<T>::TickerNotAscii);
+        Ok(())
+    }
+
     /// Before registering a ticker, do some checks, and return the expiry moment.
     fn ticker_registration_checks(
         ticker: &Ticker,
@@ -1477,6 +1497,8 @@ impl<T: Trait> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
+        Self::ensure_ticker_ascii(&ticker)?;
+
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
             Error::<T>::AssetAlreadyCreated
