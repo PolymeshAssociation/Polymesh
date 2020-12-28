@@ -1097,7 +1097,7 @@
         "CAKind": {
             "_enum": [
                 "PredictableBenefit",
-                "UnpredictableBenfit",
+                "UnpredictableBenefit",
                 "IssuerNotice",
                 "Reorganization",
                 "Other"

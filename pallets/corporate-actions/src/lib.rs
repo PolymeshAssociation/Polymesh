@@ -511,6 +511,7 @@ decl_module! {
         /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
+        /// - `decl_date` of CA bring initialized.
         /// - `record_date`, if any, to calculate the impact of this CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
         /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
@@ -527,6 +528,7 @@ decl_module! {
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
+        /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(1, 1)
             .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
