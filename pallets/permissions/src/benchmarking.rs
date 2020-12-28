@@ -19,9 +19,9 @@ benchmarks! {
         let p in 1..MAX_PALLET_NAME;
         let d in 1..MAX_DISPATCHABLE_NAME;
 
-        let pallet_name :PalletName = make_name(p).into();
+        let pallet_name: PalletName = make_name(p).into();
         let pallet_name_exp = pallet_name.clone();
-        let dispatchable_name :DispatchableName = make_name(p).into();
+        let dispatchable_name: DispatchableName = make_name(p).into();
         let dispatchable_name_exp = dispatchable_name.clone();
 
     }: {
