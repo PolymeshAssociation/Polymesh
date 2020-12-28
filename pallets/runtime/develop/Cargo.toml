@@ -30,7 +30,6 @@ pallet-permissions = { path = "../../permissions", default-features = false  }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
-pallet-sto = { path = "../../sto", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
@@ -117,7 +116,6 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",

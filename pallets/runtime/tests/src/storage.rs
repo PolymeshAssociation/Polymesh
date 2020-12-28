@@ -32,7 +32,6 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
-use pallet_sto as sto;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
@@ -132,7 +131,6 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         settlement<T>,
-        sto<T>,
         pallet_utility,
         portfolio<T>,
         confidential,
@@ -341,10 +339,6 @@ impl settlement::Trait for TestStorage {
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = ();
-}
-
-impl sto::Trait for TestStorage {
-    type Event = Event;
 }
 
 impl ChargeTxFee for TestStorage {

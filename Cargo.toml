@@ -41,7 +41,6 @@ members = [
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
     "pallets/statistics",
-    "pallets/sto",
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",

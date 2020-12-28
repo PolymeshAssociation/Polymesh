@@ -50,8 +50,6 @@ mod staking;
 #[cfg(test)]
 mod statistics_test;
 #[cfg(test)]
-mod sto_test;
-#[cfg(test)]
 mod transaction_payment_test;
 #[cfg(test)]
 mod treasury_test;

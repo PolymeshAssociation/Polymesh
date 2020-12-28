@@ -23,7 +23,6 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
-use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
@@ -570,10 +569,6 @@ impl settlement::Trait for Runtime {
     type WeightInfo = ();
 }
 
-impl sto::Trait for Runtime {
-    type Event = Event;
-}
-
 parameter_types! {
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 }
@@ -857,7 +852,6 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
-        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
