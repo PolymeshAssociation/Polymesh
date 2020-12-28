@@ -19,32 +19,46 @@ use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable, StorageValue};
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{user, User},
     MaybeBlock,
 };
 use sp_std::prelude::*;
 
-const COMMITTEE_MEMBERS_NUM: usize = 10;
+const COMMITTEE_MEMBERS_NUM: u32 = 10;
 const COMMITTEE_MEMBERS_MAX: u32 = 100;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
 const PROPOSALS_NUM: u8 = 100;
+
+fn make_proposal<T, I>(b: u8) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
+where
+    I: Instance,
+    T: Trait<I>,
+{
+    let proposal: <T as Trait<I>>::Proposal =
+        frame_system::Call::<T>::remark(vec![b; PROPOSAL_PADDING_LEN]).into();
+    let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+    (proposal, hash)
+}
 
 fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
     T: Trait<I>,
 {
+    ensure!(
+        users.len() > 0,
+        "make_proposals_and_vote requires non-empty users"
+    );
     for i in 0..PROPOSALS_NUM {
         let index = Module::<T, I>::proposal_count();
-        let proposal: <T as Trait<I>>::Proposal =
-            frame_system::Call::<T>::remark(vec![i + 1; PROPOSAL_PADDING_LEN]).into();
+        let proposal = make_proposal::<T, I>(i + 1).0;
         identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
         if users.len() > 1 {
             let hash = *Module::<T, I>::proposals()
                 .last()
                 .ok_or("missing last proposal")?;
-            // cast max N-1 additional votes for proposal #N
+            // cast min(user.len(), N) - 1 additional votes for proposal #N
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
                 if Module::<T, I>::voting(&hash).is_some() {
@@ -62,14 +76,7 @@ where
     I: Instance,
     T: Trait<I>,
 {
-    let members: Vec<_> = (0..m)
-        .map(|i| {
-            UserBuilder::<T>::default()
-                .generate_did()
-                .seed(i)
-                .build("member")
-        })
-        .collect();
+    let members: Vec<_> = (0..m).map(|i| user::<T>("member", i)).collect();
     Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
     make_proposals_and_vote::<T, I>(&members)?;
     Ok(members)
@@ -91,13 +98,7 @@ benchmarks_instance! {
     }
 
     set_release_coordinator {
-        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_NUM)
-            .map(|i| UserBuilder::<T>::default()
-                 .generate_did()
-                 .seed(i as u32)
-                 .build("member")
-                 .did()
-            ).collect();
+        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_NUM).map(|i| user::<T>("member", i).did()).collect();
         let coordinator = dids.last().unwrap().clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
@@ -128,9 +129,7 @@ benchmarks_instance! {
 
         let members = make_members_and_proposals::<T, I>(m)?;
         let last_proposal_num = ProposalCount::<I>::get();
-        let proposal: <T as Trait<I>>::Proposal =
-            frame_system::Call::<T>::remark(vec![0; PROPOSAL_PADDING_LEN]).into();
-        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+        let (proposal, hash) = make_proposal::<T, I>(0);
         identity::CurrentDid::put(members[0].did());
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
@@ -143,9 +142,7 @@ benchmarks_instance! {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
         let members = make_members_and_proposals::<T, I>(m)?;
-        let proposal: <T as Trait<I>>::Proposal =
-            frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
-        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+        let (proposal, hash) = make_proposal::<T, I>(1);
         let proposals = Proposals::<T, I>::get();
         ensure!(proposals.contains(&hash), "cannot find the first proposal");
         identity::CurrentDid::put(members[1].did());
@@ -170,9 +167,7 @@ benchmarks_instance! {
         let a in 0 .. 1;
 
         let members = make_members_and_proposals::<T, I>(m)?;
-        let proposal: <T as Trait<I>>::Proposal =
-            frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
-        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+        let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
         let origin = members[1].origin.clone();
         let did = members[1].did();
@@ -202,9 +197,7 @@ benchmarks_instance! {
         let m in 2 .. COMMITTEE_MEMBERS_MAX;
 
         let members = make_members_and_proposals::<T, I>(m)?;
-        let proposal: <T as Trait<I>>::Proposal =
-            frame_system::Call::<T>::remark(vec![1; PROPOSAL_PADDING_LEN]).into();
-        let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+        let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
         let origin = members[0].origin.clone();
         let did = members[0].did();

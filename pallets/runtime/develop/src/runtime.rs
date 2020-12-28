@@ -410,6 +410,7 @@ impl pallet_staking::Trait for Runtime {
 }
 
 parameter_types! {
+    // pallet_committee::Module::<_,_>::close requires MotionDuration > 0.
     pub const MotionDuration: BlockNumber = 1;
 }
 
