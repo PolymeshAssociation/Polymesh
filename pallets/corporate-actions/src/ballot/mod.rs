@@ -86,6 +86,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
     weights::Weight,
 };
 use pallet_asset::checkpoint;
@@ -364,7 +365,7 @@ decl_module! {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
-        #[weight = <T as Trait>::BallotWeightInfo::vote(votes.len() as u32, 1)]
+        #[weight = <T as Trait>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get())]
         pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote<T::Balance>>) {
             let did = <Identity<T>>::ensure_perms(origin)?;
 

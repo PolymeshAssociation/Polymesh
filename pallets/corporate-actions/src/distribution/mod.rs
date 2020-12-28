@@ -71,6 +71,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
     weights::Weight,
 };
 use pallet_asset::{self as asset, checkpoint};
@@ -266,7 +267,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Trait>::DistWeightInfo::claim(1, 1)]
+        #[weight = <T as Trait>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn claim(origin, ca_id: CAId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::transfer_benefit(did.for_event(), did, ca_id)?;
@@ -294,7 +295,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Trait>::DistWeightInfo::push_benefit(1, 1)]
+        #[weight = <T as Trait>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
             // N.B. we allow the asset owner to call this as well, not just the CAA.
             let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
