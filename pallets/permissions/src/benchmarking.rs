@@ -28,8 +28,8 @@ benchmarks! {
         StoreCallMetadata::<T>::set_call_metadata(pallet_name, dispatchable_name);
     }
     verify {
-        assert_eq!( CurrentPalletName::get(), pallet_name_exp);
-        assert_eq!( CurrentDispatchableName::get(), dispatchable_name_exp);
+        assert_eq!( StoreCallMetadata::<T>::current_pallet_name(), pallet_name_exp);
+        assert_eq!( StoreCallMetadata::<T>::current_dispatchable_name(), dispatchable_name_exp);
     }
 
     clear_call_metadata {
@@ -40,6 +40,7 @@ benchmarks! {
         StoreCallMetadata::<T>::clear_call_metadata();
     }
     verify {
-        assert_eq!(CurrentPalletName::exists(), false);
-    }
+        assert_eq!( StoreCallMetadata::<T>::current_pallet_name(), PalletName::default());
+        assert_eq!( StoreCallMetadata::<T>::current_dispatchable_name(), DispatchableName::default());
+     }
 }

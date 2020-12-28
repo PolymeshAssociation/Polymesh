@@ -25,7 +25,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{CallMetadata, GetCallMetadata},
 };
@@ -38,6 +38,39 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 use sp_std::{fmt, marker::PhantomData, result::Result};
+
+#[cfg(feature = "std")]
+use std::{cell::RefCell, thread_local};
+
+#[cfg(feature = "std")]
+thread_local! {
+    static CURRENT_PALLET_NAME: RefCell<PalletName> = RefCell::new(PalletName::default());
+    static CURRENT_DISPATCHABLE_NAME: RefCell<DispatchableName> = RefCell::new(DispatchableName::default());
+}
+
+/// It sets the TLS value and prints an error in logs if it fails.
+/// If the key has been destroyed (which may happen if this is called in a destructor), this function will return an AccessError.
+macro_rules! tls_set {
+    ($tls:ident, $value:expr) => {
+        if let Err(err) = $tls.try_with(|c| *c.borrow_mut() = $value) {
+            debug::error!("TLS set of '{}' has failed: {:?}", stringify!($tls), err);
+        }
+    };
+}
+
+/// It gets the TLS value and prints an error in logs if it fails.
+/// If the key has been destroyed (which may happen if this is called in a destructor), this function will return an AccessError.
+macro_rules! tls_get {
+    ($tls:ident) => {{
+        match $tls.try_with(|c| c.borrow().clone()) {
+            Ok(v) => Some(v),
+            Err(err) => {
+                debug::error!("TLS get of '{}' has failed: {:?}", stringify!($tls), err);
+                None
+            }
+        }
+    }};
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Permissions {
@@ -70,14 +103,11 @@ impl<T: Trait> Module<T> {
     pub fn ensure_call_permissions(
         who: &T::AccountId,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
-        if let Some(data) = T::Checker::check_account_call_permissions(
-            who,
-            &Self::current_pallet_name(),
-            &Self::current_dispatchable_name(),
-        ) {
-            return Ok(data);
-        }
-        Err(Error::<T>::UnauthorizedCaller.into())
+        let pallet = StoreCallMetadata::<T>::current_pallet_name();
+        let dispatchable = StoreCallMetadata::<T>::current_dispatchable_name();
+
+        T::Checker::check_account_call_permissions(who, &pallet, &dispatchable)
+            .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
     }
 }
 
@@ -102,8 +132,32 @@ impl<T: Trait> StoreCallMetadata<T> {
     pub fn new() -> Self {
         Self(Default::default())
     }
+}
 
+#[cfg(feature = "std")]
+impl<T: Trait> StoreCallMetadata<T> {
     /// Stores call metadata in runtime storage.
+    pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
+        tls_set!(CURRENT_PALLET_NAME, pallet_name);
+        tls_set!(CURRENT_DISPATCHABLE_NAME, dispatchable_name);
+    }
+
+    /// Erases call metadata from runtime storage.
+    fn clear_call_metadata() {
+        Self::set_call_metadata(PalletName::default(), DispatchableName::default());
+    }
+
+    fn current_pallet_name() -> PalletName {
+        tls_get!(CURRENT_PALLET_NAME).unwrap_or_default()
+    }
+
+    fn current_dispatchable_name() -> DispatchableName {
+        tls_get!(CURRENT_DISPATCHABLE_NAME).unwrap_or_default()
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl<T: Trait> StoreCallMetadata<T> {
     pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
         <CurrentPalletName>::put(pallet_name);
         <CurrentDispatchableName>::put(dispatchable_name);
@@ -113,6 +167,14 @@ impl<T: Trait> StoreCallMetadata<T> {
     fn clear_call_metadata() {
         <CurrentPalletName>::kill();
         <CurrentDispatchableName>::kill();
+    }
+
+    fn current_pallet_name() -> PalletName {
+        <CurrentPalletName>::get()
+    }
+
+    fn current_dispatchable_name() -> DispatchableName {
+        <CurrentDispatchableName>::get()
     }
 }
 
@@ -185,6 +247,7 @@ pub fn with_call_metadata<Succ, Err>(
 
 /// Replaces the current call metadata with the given ones and returns the old, replaced call
 /// metadata.
+#[cfg(not(feature = "std"))]
 pub fn swap_call_metadata(
     pallet_name: PalletName,
     dispatchable_name: DispatchableName,
@@ -193,5 +256,20 @@ pub fn swap_call_metadata(
     let old_dispatchable_name = <CurrentDispatchableName>::get();
     <CurrentPalletName>::put(pallet_name);
     <CurrentDispatchableName>::put(dispatchable_name);
+
+    (old_pallet_name, old_dispatchable_name)
+}
+
+#[cfg(feature = "std")]
+pub fn swap_call_metadata(
+    pallet_name: PalletName,
+    dispatchable_name: DispatchableName,
+) -> (PalletName, DispatchableName) {
+    let old_pallet_name = tls_get!(CURRENT_PALLET_NAME).unwrap_or_default();
+    let old_dispatchable_name = tls_get!(CURRENT_DISPATCHABLE_NAME).unwrap_or_default();
+
+    tls_set!(CURRENT_PALLET_NAME, pallet_name);
+    tls_set!(CURRENT_DISPATCHABLE_NAME, dispatchable_name);
+
     (old_pallet_name, old_dispatchable_name)
 }
