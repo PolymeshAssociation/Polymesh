@@ -103,9 +103,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{
-        AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
-    },
+    asset::{AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -185,6 +183,9 @@ pub trait Trait:
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<usize>;
 
+    /// Maximum gas used for smart extension execution.
+    type AllowedGasLimit: Get<u64>;
+
     type WeightInfo: WeightInfo;
 }
 
@@ -259,7 +260,7 @@ pub mod weight_for {
         weight_from_cm: Weight,
     ) -> Weight {
         8 * 10_000_000 // Weight used for encoding a param in `verify_restriction()` call.
-            .saturating_add(GAS_LIMIT.saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
+            .saturating_add((T::AllowedGasLimit::get()).saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
             .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
     }
 }
@@ -396,6 +397,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         type Error = Error<T>;
+
+        const AllowedGasLimit: u64 = T::AllowedGasLimit::get();
 
         /// initialize the default event for this module
         fn deposit_event() = default;
@@ -2013,8 +2016,12 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let (res, _gas_spent) =
-            Self::call_extension(extension_caller, dest, GAS_LIMIT, encoded_data);
+        let (res, _gas_spent) = Self::call_extension(
+            extension_caller,
+            dest,
+            T::AllowedGasLimit::get(),
+            encoded_data,
+        );
         if let Ok(is_allowed) = &res {
             if is_allowed.is_success() {
                 if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {

@@ -41,13 +41,10 @@ const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 /// Create a ticker and register it.
-pub fn make_ticker<T: Trait>(owner: T::Origin, ticker_: Option<Ticker>) -> Ticker {
-    let ticker = match ticker_ {
-        None => Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap(),
-        Some(t) => t,
-    };
+pub fn make_ticker<T: Trait>(owner: T::Origin, optional_ticker: Option<Ticker>) -> Ticker {
+    let ticker = optional_ticker
+        .unwrap_or_else(|| Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap());
     Module::<T>::register_ticker(owner, ticker).unwrap();
-
     ticker
 }
 
@@ -62,9 +59,9 @@ pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
 pub fn make_base_asset<T: Trait>(
     owner: &User<T>,
     divisible: bool,
-    ticker_: Option<Ticker>,
+    optional_ticker: Option<Ticker>,
 ) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into(), ticker_);
+    let ticker = make_ticker::<T>(owner.origin().into(), optional_ticker);
     let name: AssetName = ticker.as_slice().into();
     let total_supply: T::Balance = (1_000_000 * POLY).into();
 

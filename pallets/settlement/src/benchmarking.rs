@@ -267,6 +267,7 @@ fn emulate_add_instruction<T: Trait>(
             populate_legs_for_instruction::<T>(i, &mut legs);
         }
     }
+    <pallet_timestamp::Now<T>>::set(100000000.into());
     Ok((
         legs,
         venue_id,

@@ -956,9 +956,7 @@ impl<T: Trait> Module<T> {
             instruction_details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
-        #[allow(unused_variables)]
         if let Some(valid_from) = instruction_details.valid_from {
-            #[cfg(not(feature = "runtime-benchmarks"))]
             ensure!(
                 <pallet_timestamp::Module<T>>::get() >= valid_from,
                 Error::<T>::InstructionWaitingValidity

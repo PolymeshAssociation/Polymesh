@@ -657,6 +657,7 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 1024;
     pub const FundingRoundNameMaxLength: usize = 1024;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for Runtime {
@@ -667,6 +668,7 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
