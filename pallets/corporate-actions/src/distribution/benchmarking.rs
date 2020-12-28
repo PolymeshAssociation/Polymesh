@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::benchmarking::{currency, set_ca_targets, setup_ca, did_whts, SEED};
+use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};
 use crate::{CAKind, CorporateActions};
 use frame_benchmarking::benchmarks;
 use pallet_compliance_manager::Module as ComplianceManager;
