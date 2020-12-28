@@ -26,7 +26,7 @@ use pallet_asset::{
 use pallet_compliance_manager::benchmarking::make_issuers;
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
-use pallet_portfolio::{PortfolioAssetBalances, Portfolios};
+use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
     benchs::{User, UserBuilder},
     constants::currency::POLY,
@@ -35,8 +35,8 @@ use polymesh_common_utilities::{
 use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
 use polymesh_primitives::{
     CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, PortfolioId,
-    PortfolioName, Scope, SmartExtension, SmartExtensionType, TargetIdentity, Ticker,
-    TrustedIssuer,
+    PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, TargetIdentity,
+    Ticker, TrustedIssuer,
 };
 use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
@@ -55,6 +55,21 @@ const MAX_COMPLIANCE_RESTRICTION: u32 = 45;
 const MAX_TRUSTED_ISSUER: u32 = 5;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+
+#[derive(Encode, Decode, Clone, Copy)]
+pub struct UserData<T: Trait> {
+    pub account: T::AccountId,
+    pub did: IdentityId,
+}
+
+impl<T: Trait> From<User<T>> for UserData<T> {
+    fn from(user: User<T>) -> Self {
+        Self {
+            account: user.account(),
+            did: user.did(),
+        }
+    }
+}
 
 fn set_block_number<T: Trait>(new_block_no: u64) {
     system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
@@ -125,18 +140,18 @@ fn fund_portfolio<T: Trait>(portfolio: &PortfolioId, ticker: &Ticker, amount: T:
 }
 
 fn setup_leg_and_portfolio<T: Trait>(
-    to_did: Option<IdentityId>,
-    from_did: Option<IdentityId>,
+    to_user: Option<UserData<T>>,
+    from_user: Option<UserData<T>>,
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
-    let variance = if index == 0 { 1 } else { index };
+    let variance = index + 1;
     let ticker = Ticker::try_from(vec![b'A'; variance as usize].as_slice()).unwrap();
-    let portfolio_from = generate_portfolio::<T>("", variance, 100, from_did);
+    let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
-    let portfolio_to = generate_portfolio::<T>("to_did", variance, 500, to_did);
+    let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
@@ -149,35 +164,32 @@ fn setup_leg_and_portfolio<T: Trait>(
 
 fn generate_portfolio<T: Trait>(
     portfolio_to: &'static str,
-    variable: u32,
-    salt: u32,
-    did: Option<IdentityId>,
+    pseudo_random_no: u32,
+    user: Option<UserData<T>>,
 ) -> PortfolioId {
-    let pseudo_random_no = variable + salt;
-    let portfolio_no = (pseudo_random_no as u64).into();
-    let portfolio_name =
-        PortfolioName::try_from(vec![b'P'; pseudo_random_no as usize].as_slice()).unwrap();
-    match did {
+    let u = match user {
         None => {
             let user = UserBuilder::<T>::default()
                 .generate_did()
                 .seed(pseudo_random_no)
                 .build(portfolio_to);
-            Portfolios::insert(user.did(), portfolio_no, portfolio_name);
-            PortfolioId::user_portfolio(user.did(), portfolio_no)
+            UserData::from(user)
         }
-        Some(id) => {
-            Portfolios::insert(id, portfolio_no, portfolio_name);
-            PortfolioId::user_portfolio(id, portfolio_no)
-        }
-    }
+        Some(u) => u,
+    };
+    let portfolio_no = (Portfolio::<T>::next_portfolio_number(u.did)).0 + 1u64;
+    let portfolio_name =
+        PortfolioName::try_from(vec![b'P'; portfolio_no as usize].as_slice()).unwrap();
+    Portfolio::<T>::create_portfolio(RawOrigin::Signed(u.account.clone()).into(), portfolio_name)
+        .unwrap();
+    PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
 fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Balance>>) {
     let ticker = Ticker::try_from(vec![b'A'; index as usize].as_slice()).unwrap();
     legs.push(Leg {
-        from: generate_portfolio::<T>("from_did", index, 100, None),
-        to: generate_portfolio::<T>("to_did", index, 500, None),
+        from: generate_portfolio::<T>("from_did", index + 500, None),
+        to: generate_portfolio::<T>("to_did", index + 800, None),
         asset: ticker,
         amount: 100.into(),
     });
@@ -240,13 +252,9 @@ fn emulate_add_instruction<T: Trait>(
     let mut sender_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
-    let User {
-        origin,
-        did,
-        account,
-        ..
-    } = UserBuilder::<T>::default().generate_did().build("creator");
-    let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
+    let user = UserBuilder::<T>::default().generate_did().build("creator");
+    let user_data = UserData::from(user);
+    let venue_id = create_venue_::<T>(user_data.did, vec![user_data.account.clone()]);
 
     // Create legs vector.
     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
@@ -255,7 +263,7 @@ fn emulate_add_instruction<T: Trait>(
         for n in 0..l {
             setup_leg_and_portfolio::<T>(
                 None,
-                Some(did.unwrap()),
+                Some(user_data.clone()),
                 n,
                 &mut legs,
                 &mut sender_portfolios,
@@ -271,17 +279,17 @@ fn emulate_add_instruction<T: Trait>(
     Ok((
         legs,
         venue_id,
-        origin,
-        did.unwrap(),
+        RawOrigin::Signed(user_data.account.clone()),
+        user_data.did,
         sender_portfolios,
         receiver_portfolios,
-        account,
+        user_data.account,
     ))
 }
 
 fn setup_leg_and_portfolio_with_ticker<T: Trait>(
-    to_did: Option<IdentityId>,
-    from_did: Option<IdentityId>,
+    to_user: Option<UserData<T>>,
+    from_user: Option<UserData<T>>,
     from_ticker: Ticker,
     to_ticker: Ticker,
     index: u32,
@@ -290,14 +298,14 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
     let mut emulate_portfolios =
-        |sender: Option<IdentityId>,
-         receiver: Option<IdentityId>,
+        |sender: Option<UserData<T>>,
+         receiver: Option<UserData<T>>,
          portfolios: &mut Vec<PortfolioId>,
          ticker: &Ticker,
          default_portfolio: &mut Vec<PortfolioId>| {
             let transacted_amount = 500 * POLY;
-            let sender_portfolio = generate_portfolio::<T>("", index, 500, sender);
-            let receiver_portfolio = generate_portfolio::<T>("", index, 500, receiver);
+            let sender_portfolio = generate_portfolio::<T>("", index + 500, sender);
+            let receiver_portfolio = generate_portfolio::<T>("", index + 800, receiver);
             let _ = fund_portfolio::<T>(&sender_portfolio, ticker, transacted_amount.into());
             portfolios.push(sender_portfolio);
             default_portfolio.push(receiver_portfolio);
@@ -309,15 +317,15 @@ fn setup_leg_and_portfolio_with_ticker<T: Trait>(
             })
         };
     emulate_portfolios(
-        from_did,
-        to_did,
+        from_user.clone(),
+        to_user.clone(),
         sender_portfolios,
         &from_ticker,
         receiver_portfolios,
     );
     emulate_portfolios(
-        to_did,
-        from_did,
+        to_user,
+        from_user,
         receiver_portfolios,
         &to_ticker,
         sender_portfolios,
@@ -456,8 +464,8 @@ fn setup_affirm_instruction<T: Trait>(
     l: u32,
 ) -> (
     Vec<PortfolioId>,
-    User<T>,
-    User<T>,
+    UserData<T>,
+    UserData<T>,
     Ticker,
     Ticker,
     Vec<Leg<T::Balance>>,
@@ -484,10 +492,12 @@ fn setup_affirm_instruction<T: Trait>(
         true,
         Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()),
     );
+    let from_data = UserData::from(from);
+    let to_data = UserData::from(to);
     for n in 0..l / 2 {
         setup_leg_and_portfolio_with_ticker::<T>(
-            Some(to.did()),
-            Some(from.did()),
+            Some(to_data.clone()),
+            Some(from_data.clone()),
             from_ticker,
             to_ticker,
             n,
@@ -497,7 +507,7 @@ fn setup_affirm_instruction<T: Trait>(
         );
     }
     Module::<T>::add_and_affirm_instruction(
-        (from.origin.clone()).into(),
+        (RawOrigin::Signed(from_data.account.clone())).into(),
         venue_id,
         settlement_type,
         None,
@@ -505,7 +515,14 @@ fn setup_affirm_instruction<T: Trait>(
         portfolios_from,
     )
     .expect("Unable to add and affirm the instruction");
-    (portfolios_to, from, to, from_ticker, to_ticker, legs)
+    (
+        portfolios_to,
+        from_data,
+        to_data,
+        from_ticker,
+        to_ticker,
+        legs,
+    )
 }
 
 fn add_smart_extension_to_ticker<T: Trait>(
@@ -825,7 +842,7 @@ benchmarks! {
         let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
         let (portfolios_to, _, to, _, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-    }: _(to.origin, instruction_id, portfolios_to.clone())
+    }: _(RawOrigin::Signed(to.account), instruction_id, portfolios_to.clone())
     verify {
         for p in portfolios_to.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
@@ -898,8 +915,10 @@ benchmarks! {
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
         let origin = RawOrigin::Root;
+        let from_origin = RawOrigin::Signed(from.account.clone());
+        let to_origin = RawOrigin::Signed(to.account.clone());
         // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to.origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
+        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
 
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
@@ -907,12 +926,12 @@ benchmarks! {
 
         // Need to provide the Investor uniqueness claim for both sender and receiver,
         // for both assets also add the compliance rules as per the `MAX_COMPLIANCE_RESTRICTION`.
-        compliance_setup::<T>(c, t, from_ticker, from.origin.clone(), from.did(), to.did(), trusted_issuer.clone(), t_issuer.origin.clone());
-        compliance_setup::<T>(c, t, to_ticker, to.origin.clone(), from.did(), to.did(), trusted_issuer, t_issuer.origin);
-        let code_hash = emulate_blueprint_in_storage::<T>(0, from.origin.clone(), "ptm")?;
+        compliance_setup::<T>(c, t, from_ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone(), t_issuer.origin.clone());
+        compliance_setup::<T>(c, t, to_ticker, to_origin.clone(), from.did, to.did, trusted_issuer, t_issuer.origin);
+        let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm")?;
         for i in 0 .. s {
-            add_smart_extension_to_ticker::<T>(code_hash, from.origin.clone(), from.account().clone(), from_ticker);
-            add_smart_extension_to_ticker::<T>(code_hash, to.origin.clone(), to.account().clone(), to_ticker);
+            add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
+            add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
         }
     }: _(origin, instruction_id)
     verify {

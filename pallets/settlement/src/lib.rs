@@ -105,6 +105,10 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
+    /// Max compliance restriction allowed for an asset.
+    type MaxComplianceRestriction: Get<u32>;
+    /// Max trusted issuer allowed for a compliance restriction.
+    type MaxTrustedIssuer: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -764,7 +768,7 @@ decl_module! {
         }
 
         /// An internal call to execute a scheduled settlement instruction.
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxComplianceRestriction::get(), T::MaxTrustedIssuer::get())]
         fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResult {
             ensure_root(origin)?;
             Self::execute_instruction(instruction_id)?;
