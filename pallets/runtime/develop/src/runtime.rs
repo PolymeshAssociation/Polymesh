@@ -39,11 +39,10 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    dividend, exemption,
+    exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
-    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
-    RocksDbWeight,
+    merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
+    ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
 };
 
 use frame_support::{
@@ -683,15 +682,6 @@ impl compliance_manager::Trait for Runtime {
     type MaxConditionComplexity = MaxConditionComplexity;
 }
 
-impl voting::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
-impl sto_capped::Trait for Runtime {
-    type Event = Event;
-}
-
 impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
@@ -730,10 +720,6 @@ impl pallet_corporate_actions::Trait for Runtime {
 impl exemption::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-}
-
-impl dividend::Trait for Runtime {
-    type Event = Event;
 }
 
 /// CddProviders instance of group
@@ -849,12 +835,9 @@ construct_runtime!(
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
-        Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
-        Voting: voting::{Module, Call, Storage, Event<T>},
-        StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         Sto: sto::{Module, Call, Storage, Event<T>},
