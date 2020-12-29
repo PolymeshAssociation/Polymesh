@@ -40,6 +40,7 @@ use polymesh_primitives::{
 };
 use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
+use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
@@ -375,10 +376,10 @@ pub fn create_condition<T: Trait>(
     ticker: Ticker,
     token_owner: RawOrigin<T::AccountId>,
 ) -> Vec<Condition> {
-    let condition_type = get_condition_type::<T>(&c_count, Scope::Ticker(ticker));
+    let condition_type = get_condition_type::<T>(&c_count);
     let trusted_issuers = make_issuers::<T>(t_count);
+    let t_issuer = <pallet_compliance_manager::Module<T>>::trusted_claim_issuer(ticker);
     trusted_issuers.clone().into_iter().for_each(|issuer| {
-        let t_issuer = <pallet_compliance_manager::Module<T>>::trusted_claim_issuer(ticker);
         if !t_issuer.contains(&issuer) {
             add_trusted_issuer::<T>(token_owner.clone().into(), ticker, issuer);
         }
@@ -386,7 +387,8 @@ pub fn create_condition<T: Trait>(
     vec![Condition::new(condition_type, trusted_issuers)]
 }
 
-pub fn get_condition_type<T: Trait>(condition_count: &u32, scope: Scope) -> ConditionType {
+pub fn get_condition_type<T: Trait>(condition_count: &u32) -> ConditionType {
+    let scope = Scope::Custom(vec![1; (*condition_count).try_into().unwrap()]);
     let target_identity = UserBuilder::<T>::default()
         .generate_did()
         .build("TargetIdentity")
