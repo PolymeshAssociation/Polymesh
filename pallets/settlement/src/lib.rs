@@ -218,7 +218,9 @@ pub struct Instruction<Moment, BlockNumber> {
     /// Date at which this instruction was created
     pub created_at: Option<Moment>,
     /// Date from which this instruction is valid
-    pub valid_from: Option<Moment>,
+    pub trade_date: Option<Moment>,
+    /// Date after which the instruction should be settled (not enforced)
+    pub value_date: Option<Moment>,
 }
 
 /// Details of a leg including the leg id in the instruction
@@ -343,12 +345,13 @@ decl_event!(
         /// An existing venue has been updated (did, venue_id, details, type)
         VenueUpdated(IdentityId, u64, VenueDetails, VenueType),
         /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, valid_from, legs)
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
             IdentityId,
             u64,
             u64,
             SettlementType<BlockNumber>,
+            Option<Moment>,
             Option<Moment>,
             Vec<Leg<Balance>>,
         ),
@@ -408,8 +411,8 @@ decl_error! {
         FailedToLockTokens,
         /// Instruction failed to execute.
         InstructionFailed,
-        /// Instruction validity has not started yet.
-        InstructionWaitingValidity,
+        /// Instruction has invalid dates
+        InstructionDatesInvalid,
         /// Instruction's target settle block reached.
         InstructionSettleBlockPassed,
         /// Offchain signature is invalid.
@@ -552,7 +555,8 @@ decl_module! {
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
         ///    in the next block after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         ///
         /// # Weight
@@ -562,11 +566,12 @@ decl_module! {
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
             Ok(())
         }
 
@@ -576,7 +581,8 @@ decl_module! {
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
         ///    in the next block after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
         #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)]
@@ -584,14 +590,15 @@ decl_module! {
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>,
             portfolios: Vec<PortfolioId>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             with_transaction(|| {
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
                 Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
             })
         }
@@ -796,7 +803,8 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         venue_id: u64,
         settlement_type: SettlementType<T::BlockNumber>,
-        valid_from: Option<T::Moment>,
+        trade_date: Option<T::Moment>,
+        value_date: Option<T::Moment>,
         legs: Vec<Leg<T::Balance>>,
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
@@ -847,7 +855,8 @@ impl<T: Trait> Module<T> {
             status: InstructionStatus::Pending,
             settlement_type,
             created_at: Some(<pallet_timestamp::Module<T>>::get()),
-            valid_from,
+            trade_date,
+            value_date,
         };
 
         // write data to storage
@@ -884,7 +893,8 @@ impl<T: Trait> Module<T> {
             venue_id,
             instruction_counter,
             settlement_type,
-            valid_from,
+            trade_date,
+            value_date,
             legs,
         ));
         Ok(instruction_counter)
@@ -960,11 +970,13 @@ impl<T: Trait> Module<T> {
             instruction_details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
-        if let Some(valid_from) = instruction_details.valid_from {
-            ensure!(
-                <pallet_timestamp::Module<T>>::get() >= valid_from,
-                Error::<T>::InstructionWaitingValidity
-            );
+        if let Some(trade_date) = instruction_details.trade_date {
+            if let Some(value_date) = instruction_details.value_date {
+                ensure!(
+                    value_date >= trade_date,
+                    Error::<T>::InstructionDatesInvalid
+                );
+            }
         }
         if let SettlementType::SettleOnBlock(block_number) = instruction_details.settlement_type {
             ensure!(

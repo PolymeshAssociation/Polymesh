@@ -44,7 +44,7 @@ fn raise_unhappy_path_ext() {
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
     assert_ok!(Asset::create_asset(
         origin,
-        vec![0x01].into(),
+        vec![b'A'].into(),
         ticker,
         supply,
         true,
@@ -74,8 +74,8 @@ fn raise_happy_path() {
     let bob_portfolio = PortfolioId::default_portfolio(bob_did);
 
     // Register tokens
-    let offering_ticker = Ticker::try_from(&[0x01][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[0x02][..]).unwrap();
+    let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
+    let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
     create_asset(alice_signed.clone(), offering_ticker, 1_000_000);
     create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
 
@@ -204,8 +204,8 @@ fn raise_unhappy_path() {
     let _bob = AccountKeyring::Bob.public();
     let bob_portfolio = PortfolioId::default_portfolio(bob_did);
 
-    let offering_ticker = Ticker::try_from(&[0x03][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[0x04][..]).unwrap();
+    let offering_ticker = Ticker::try_from(&[b'C'][..]).unwrap();
+    let raise_ticker = Ticker::try_from(&[b'D'][..]).unwrap();
 
     // Provide scope claim to both the parties of the transaction.
     let eve = AccountKeyring::Eve.public();
