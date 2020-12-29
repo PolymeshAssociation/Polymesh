@@ -253,10 +253,9 @@ decl_module! {
 
             // Check that the portfolio exists and the secondary key has access to it
             Self::ensure_user_portfolio_validity(primary_did, num)?;
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), portfolio_id)?;
-            Self::ensure_portfolio_custody(portfolio_id, primary_did)?;
+            Self::ensure_portfolio_custody_and_permission(portfolio_id, primary_did, secondary_key.as_ref())?;
 
-            <Portfolios>::remove(&primary_did, &num);
+            Portfolios::remove(&primary_did, &num);
             Self::deposit_event(RawEvent::PortfolioDeleted(primary_did, num));
             Ok(())
         }
@@ -289,10 +288,8 @@ decl_module! {
             // Ensure the source and destination DID are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
 
-            // Ensure the secondary key has access to the sender portfolio.
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
-            // Ensure the sender is the custodian of the `from` portfolio.
-            Self::ensure_portfolio_custody(from, primary_did)?;
+            // Ensure the sender is the custodian & secondary key has access to the portfolio.
+            Self::ensure_portfolio_custody_and_permission(from, primary_did, secondary_key.as_ref())?;
 
             // Ensure the receiving portfolio exists.
             Self::ensure_portfolio_validity(&to)?;
