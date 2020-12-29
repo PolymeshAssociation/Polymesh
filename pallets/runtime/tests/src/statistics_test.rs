@@ -16,13 +16,13 @@ type Statistic = statistics::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 #[test]
-fn investor_count_per_asset() {
+fn investor_count() {
     ExtBuilder::default()
         .build()
-        .execute_with(|| investor_count_per_asset_with_ext);
+        .execute_with(|| investor_count_with_ext);
 }
 
-fn investor_count_per_asset_with_ext() {
+fn investor_count_with_ext() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -69,13 +69,13 @@ fn investor_count_per_asset_with_ext() {
 
     // Alice sends some tokens to Bob. Token has only one investor.
     unsafe_transfer(alice_did, bob_did, 500);
-    assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
+    assert_eq!(Statistic::investor_count(&ticker), 1);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
     unsafe_transfer(alice_did, charlie_did, 5000);
-    assert_eq!(Statistic::investor_count_per_asset(&ticker), 2);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
     unsafe_transfer(bob_did, charlie_did, 500);
-    assert_eq!(Statistic::investor_count_per_asset(&ticker), 1);
+    assert_eq!(Statistic::investor_count(&ticker), 1);
 }

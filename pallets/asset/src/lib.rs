@@ -1601,7 +1601,7 @@ impl<T: Trait> Module<T> {
             let mut is_valid = false;
             let mut is_invalid = false;
             let mut force_valid = false;
-            let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
+            let current_holder_count = <statistics::Module<T>>::investor_count(ticker);
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
                 .filter(|tm| {

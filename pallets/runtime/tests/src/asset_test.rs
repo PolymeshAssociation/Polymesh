@@ -167,7 +167,7 @@ fn issuers_can_create_and_rename_tokens() {
         ));
 
         // Check the update investor count for the newly created asset
-        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
+        assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
@@ -2778,7 +2778,7 @@ fn check_unique_investor_count() {
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice_did), total_supply); // It should be equal to total supply.
                                                                              // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 1);
+            assert_eq!(Statistics::investor_count(&ticker), 1);
             assert!(!ScopeIdOf::contains_key(&ticker, alice_did));
 
             // 1. Transfer some funds to bob_1_did.
@@ -2835,7 +2835,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1_did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1_did), 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
 
             // validate the storage changes for Alice.
             assert_eq!(
@@ -2847,7 +2847,7 @@ fn check_unique_investor_count() {
                 total_supply - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, &alice_did), total_supply - 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
 
             // Provide scope claim to bob_2_did
             provide_scope_claim(bob_2_did, ticker, bob_uid, cdd_provider);
@@ -2864,7 +2864,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2_did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2_did), 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
         });
 }
 

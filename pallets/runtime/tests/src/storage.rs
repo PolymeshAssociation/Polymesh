@@ -142,6 +142,7 @@ impl_outer_event! {
         corporate_ballots<T>,
         capital_distributions<T>,
         checkpoint<T>,
+        statistics,
     }
 }
 
@@ -508,7 +509,10 @@ impl pallet_contracts::Trait for TestStorage {
     type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
-impl statistics::Trait for TestStorage {}
+impl statistics::Trait for TestStorage {
+    type Event = Event;
+    type Asset = Asset;
+}
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;

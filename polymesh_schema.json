@@ -700,6 +700,7 @@
         },
         "AuthorizationNonce": "u64",
         "Counter": "u64",
+        "Percentage": "Permill",
         "Commission": {
             "_enum": {
                 "Individual": "",

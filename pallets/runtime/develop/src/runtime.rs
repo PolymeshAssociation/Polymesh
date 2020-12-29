@@ -750,7 +750,10 @@ impl group::Trait<group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl statistics::Trait for Runtime {}
+impl statistics::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+}
 
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
@@ -859,7 +862,7 @@ construct_runtime!(
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage},
+        Statistic: statistics::{Module, Call, Storage, Event},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
