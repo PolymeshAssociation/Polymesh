@@ -18,9 +18,8 @@ benchmarks! {
 
     set_call_metadata {
         let pallet_name: PalletName = make_name(MAX_PALLET_NAME).into();
-        let pallet_name: PalletName = make_name(p).into();
         let pallet_name_exp = pallet_name.clone();
-        let dispatchable_name: DispatchableName = make_name(p).into();
+        let dispatchable_name: DispatchableName = make_name(MAX_DISPATCHABLE_NAME).into();
         let dispatchable_name_exp = dispatchable_name.clone();
 
     }: {
