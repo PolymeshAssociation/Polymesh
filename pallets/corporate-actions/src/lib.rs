@@ -844,7 +844,7 @@ impl<T: Trait> Module<T> {
     /// Ensure number of identities in `TargetIdentities` are limited.
     fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
         ensure!(
-            targets.identities.len().try_into().unwrap_or(u32::MAX) <= T::MaxTargetIds::get(),
+            targets.identities.len() <= T::MaxTargetIds::get() as usize,
             Error::<T>::TooManyTargetIds
         );
         Ok(())
@@ -853,7 +853,7 @@ impl<T: Trait> Module<T> {
     /// Ensure number of per-DID withholding tax overrides are limited.
     fn ensure_did_whts_limited(len: usize) -> DispatchResult {
         ensure!(
-            len.try_into().unwrap_or(u32::MAX) <= T::MaxDidWhts::get(),
+            len <= T::MaxDidWhts::get() as usize,
             Error::<T>::TooManyDidTaxes
         );
         Ok(())
