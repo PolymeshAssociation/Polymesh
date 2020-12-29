@@ -77,7 +77,7 @@ use mock::*;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
+    assert_noop, assert_ok,
     storage::{IterableStorageMap, StorageDoubleMap, StorageValue},
     traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
