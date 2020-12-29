@@ -277,30 +277,35 @@ decl_module! {
             from: PortfolioId,
             to: PortfolioId,
             items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
-        ) -> DispatchResult {
+        ) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            // Check that the source and destination portfolios are in fact different.
+            // Ensure the source and destination portfolios are in fact different.
             ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
-            // Check that the source and destination did are in fact same.
+            // Ensure the source and destination DID are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
 
-            // Ensures that the secondary key has access to the sender portfolio.
+            // Ensure the secondary key has access to the sender portfolio.
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
-            // Check that the sender is the custodian of the `from` portfolio
+            // Ensure the sender is the custodian of the `from` portfolio.
             Self::ensure_portfolio_custody(from, primary_did)?;
 
-            // Check that the receiving portfolio exists.
+            // Ensure the receiving portfolio exists.
             Self::ensure_portfolio_validity(&to)?;
-            // Ensures that the secondary key has access to the receiver's portfolio.
+            // Ensure that the secondary key has access to the receiver's portfolio.
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
 
-            for item in items {
+            // Ensure there are sufficient funds for all moves.
+            for item in &items {
                 Self::ensure_sufficient_balance(&from, &item.ticker, &item.amount)?;
+            }
+
+            // Commit changes.
+            for item in items {
                 Self::unchecked_transfer_portfolio_balance(&from, &to, &item.ticker, item.amount);
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                     primary_did,
@@ -310,7 +315,6 @@ decl_module! {
                     item.amount
                 ));
             }
-            Ok(())
         }
 
         /// Renames a non-default portfolio.
