@@ -20,7 +20,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, ScopeId, Ticker};
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -39,25 +39,6 @@ pub enum TransferManager {
     PercentageTransferManager(Percentage),
 }
 
-// impl TransferManager {
-//     fn get_type(&self) -> TransferManagerType {
-//         match self {
-//             Self::CountTransferManager(_) => TransferManagerType::CTM,
-//             Self::PercentageTransferManager(_) => TransferManagerType::PTM,
-//         }
-//     }
-// }
-
-// /// Transfer managers types, used for maintaining uniqueness
-// #[derive(Eq, PartialEq, Encode, Decode)]
-// #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-// enum TransferManagerType {
-//     /// Represents a Count Transfer Manager
-//     CountTransferManager,
-//     /// Represents a Percentage Transfer Manager
-//     PercentageTransferManager,
-// }
-
 /// The main trait for statistics module
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
@@ -72,11 +53,11 @@ decl_storage! {
         pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
         /// Number of current investors in an asset.
         pub InvestorCountPerAsset get(fn investor_count): map hasher(blake2_128_concat) Ticker => Counter;
-        /// Identities exempt from transfer managers.
-        pub ExemptIdentities get(fn identity_exempt):
+        /// Entities exempt from transfer managers.
+        pub ExemptIdentities get(fn entity_exempt):
             double_map
                 hasher(blake2_128_concat) (Ticker, TransferManager),
-                hasher(blake2_128_concat) IdentityId
+                hasher(blake2_128_concat) ScopeId
             =>
                 bool;
     }
@@ -134,46 +115,50 @@ decl_module! {
             Self::deposit_event(Event::TransferManagerRemoved(did, ticker, transfer_manager));
         }
 
-        /// Exempt identities from a transfer manager
+        /// Exempt entities from a transfer manager
         ///
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `ticker` ticker for which the exemption list is being modified.
         /// * `transfer_manager` Transfer manager for which the exemption list is being modified.
-        /// * `identities` Transfer manager for which the exemption list is being modified.
+        /// * `exempted_entities` ScopeIds for which the exemption list is being modified.
         ///
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
+        /// * `ExemptionsNotAllowed` if `transfer_manager` does not support exemptions.
         ///
         #[weight = 500_000_000]
-        pub fn add_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_identities: Vec<IdentityId>) {
+        pub fn add_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
-            for identity in &exempted_identities {
-                ExemptIdentities::insert(&ticker_tm, identity, true);
+            //Self::ensure_exemption_allowed(transfer_manager.clone())?;
+            for entity in &exempted_entities {
+                ExemptIdentities::insert(&ticker_tm, entity, true);
             }
-            Self::deposit_event(Event::ExemptionsAdded(did, ticker, transfer_manager, exempted_identities));
+            Self::deposit_event(Event::ExemptionsAdded(did, ticker, transfer_manager, exempted_entities));
         }
 
-        /// remove identities from exemption list of a transfer manager
+        /// remove entities from exemption list of a transfer manager
         ///
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `ticker` ticker for which the exemption list is being modified.
         /// * `transfer_manager` Transfer manager for which the exemption list is being modified.
-        /// * `identities` Transfer manager for which the exemption list is being modified.
+        /// * `scope_ids` ScopeIds for which the exemption list is being modified.
         ///
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
+        /// * `ExemptionsNotAllowed` if `transfer_manager` does not support exemptions.
         ///
         #[weight = 500_000_000]
-        pub fn remove_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, identities: Vec<IdentityId>) {
+        pub fn remove_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
-            for identity in &identities {
-                ExemptIdentities::remove(&ticker_tm, identity);
+            //Self::ensure_exemption_allowed(transfer_manager.clone())?;
+            for entity in &entities {
+                ExemptIdentities::remove(&ticker_tm, entity);
             }
-            Self::deposit_event(Event::ExemptionsRemoved(did, ticker, transfer_manager, identities));
+            Self::deposit_event(Event::ExemptionsRemoved(did, ticker, transfer_manager, entities));
         }
     }
 }
@@ -212,6 +197,72 @@ impl<T: Trait> Module<T> {
             }
         }
     }
+
+    /// Verify transfer restrictions on a token
+    pub fn verify_tm_restrictions(
+        ticker: &Ticker,
+        receiver: ScopeId,
+        value: T::Balance,
+        sender_balance: T::Balance,
+        receiver_balance: T::Balance,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        let transfer_managers = Self::transfer_managers(ticker);
+        for tm in transfer_managers {
+            match tm {
+                TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
+                    ticker, receiver, value, sender_balance, receiver_balance, max_count
+                )?,
+                TransferManager::PercentageTransferManager(max_percentage) => Self::ensure_ptm(
+                    ticker, receiver, value, receiver_balance, total_supply, max_percentage
+                )?
+            }
+        }
+        Ok(())
+    }
+
+    fn ensure_ctm(
+        ticker: &Ticker,
+        receiver: ScopeId,
+        value: T::Balance,
+        sender_balance: T::Balance,
+        receiver_balance: T::Balance,
+        max_count: Counter,
+    )  -> DispatchResult {
+        let current_count = Self::investor_count(ticker);
+        ensure!(
+            current_count < max_count ||
+                sender_balance == value ||
+                receiver_balance >= 0u32.into() ||
+                Self::entity_exempt((ticker.clone(), TransferManager::CountTransferManager(max_count)), receiver),
+            Error::<T>::InvalidTransfer
+        );
+        Ok(())
+    }
+
+    fn ensure_ptm(
+        ticker: &Ticker,
+        receiver: ScopeId,
+        value: T::Balance,
+        receiver_balance: T::Balance,
+        total_supply: T::Balance,
+        max_percentage: Percentage,
+    )  -> DispatchResult {
+        let new_percentage = Permill::from_rational_approximation(receiver_balance + value, total_supply);
+        ensure!(
+            new_percentage <= max_percentage ||
+                Self::entity_exempt((ticker.clone(), TransferManager::PercentageTransferManager(max_percentage)), receiver),
+            Error::<T>::InvalidTransfer
+        );
+        Ok(())
+    }
+
+    fn ensure_exemption_allowed(transfer_manager: TransferManager) -> DispatchResult {
+        match transfer_manager {
+            TransferManager::CountTransferManager(_) => Err(Error::<T>::ExemptionsNotAllowed.into()),
+            TransferManager::PercentageTransferManager(_) => Ok(())
+        }
+    }
 }
 
 decl_event!(
@@ -220,10 +271,10 @@ decl_event!(
         TransferManagerAdded(IdentityId, Ticker, TransferManager),
         /// An existing transfer manager was removed.
         TransferManagerRemoved(IdentityId, Ticker, TransferManager),
-        /// Identities were added to the exemption list.
-        ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<IdentityId>),
-        /// Identities were removed from the exemption list.
-        ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<IdentityId>),
+        /// ScopeIds were added to the exemption list.
+        ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
+        /// ScopeIds were removed from the exemption list.
+        ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
     }
 );
 
@@ -234,5 +285,9 @@ decl_error! {
         DuplicateTransferManager,
         /// Transfer manager is not enabled
         TransferManagerMissing,
+        /// Selected transfer manager does not allow exemptions
+        ExemptionsNotAllowed,
+        /// Transfer not allowed
+        InvalidTransfer
     }
 }
