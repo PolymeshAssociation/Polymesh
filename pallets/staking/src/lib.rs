@@ -492,13 +492,14 @@ pub struct ValidatorPrefs {
 /// Preference of an identity regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct PermissionedIdentityPrefs {
-    /// Intended no. of validator counts an identity wants to run.
-    /// It act as an hard limit on no. of validators an identity can run but it can be
-    /// amended using governance.
+    /// Intended number of validators an identity wants to run.
     ///
-    /// It should satisfy count < MaxValidatorPerIdentity * Self::validator_count().
+    /// Act as a hard limit on the number of validators an identity can run.
+    /// However, it can be amended using governance.
+    ///
+    /// The count satisfies `count < MaxValidatorPerIdentity * Self::validator_count()`.
     pub intended_count: u32,
-    /// Keep track of running no. of validators of an DID.
+    /// Keeps track of the running number of validators of a DID.
     pub running_count: u32,
 }
 
@@ -1140,7 +1141,8 @@ pub trait Trait:
     /// Overarching type of all pallets origins.
     type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
-    /// Maximum amount of validators can run by an identity. It will be MaxValidatorPerIdentity * Self::validator_count().
+    /// Maximum amount of validators that can run by an identity.
+    /// It will be MaxValidatorPerIdentity * Self::validator_count().
     type MaxValidatorPerIdentity: Get<Permill>;
 }
 
@@ -1566,11 +1568,11 @@ decl_error! {
         InvalidValidatorIdentity,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
-        /// Validator stash identity has not permissioned.
+        /// Validator stash identity was not permissioned.
         StashIdentityNotPermissioned,
-        /// Running validator count == itended count.
+        /// Running validator count hit the intended count.
         HitIntendedValidatorCount,
-        /// When intend to run the no. of validators is >= 2/3 of validator_count.
+        /// When the intended number of validators to run is >= 2/3 of `validator_count`.
         IntendedCountIsExceedingConsensusLimit
     }
 }
@@ -1615,7 +1617,7 @@ decl_module! {
 
         /// Maximum number of validators for each permissioned identity.
         ///
-        /// Max number of validators count = MaxValidatorPerIdentity * Self::validator_count().
+        /// Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
         const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
 
         type Error = Error<T>;
@@ -1626,16 +1628,15 @@ decl_module! {
             use polymesh_primitives::migrate::migrate_map_keys_and_value;
 
             if StorageVersion::get() == Releases::V5_0_0 {
-                let intended_count = T::MaxValidatorPerIdentity::get() * Self::validator_count();
+                let intended_count = Self::get_allowed_validator_count();
                 let current_validators = <Validators<T>>::iter().map(|(k, _)| k).collect::<Vec<T::AccountId>>();
                 migrate_map_keys_and_value::<_,Option<PermissionedIdentityPrefs>,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
                     if v {
-                        let mut running_count = 0;
-                        for v in current_validators.iter() {
-                            if let Some(v_id) = <Identity<T>>::get_identity(v) {
-                                if id == v_id { running_count += 1}
-                            }
-                        }
+                        let running_count = current_validators
+                            .iter()
+                            .filter_map(<Identity<T>>::get_identity)
+                            .filter(|v_id| id == *v_id)
+                            .count() as u32;
                         Some((id, Some(PermissionedIdentityPrefs {intended_count, running_count })))
                     } else {
                         None
@@ -1998,16 +1999,15 @@ decl_module! {
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
 
-            // Polymesh-Note - Make sure stash has valid permissioned identitty.
+            // Polymesh-Note - Make sure stash has valid permissioned identity.
             if let Some(id) = <Identity<T>>::get_identity(stash) {
-                let identity_pref = Self::permissioned_identity(id);
-                // Ensure stash's identity should be permissioned.
-                ensure!(identity_pref.is_some(), Error::<T>::StashIdentityNotPermissioned);
-                let id_pref = identity_pref.unwrap();
-                // Ensure identity should not run validators more than the itended count.
+                // Ensure stash's identity is be permissioned.
+                let id_pref = Self::permissioned_identity(id)
+                    .ok_or_else(|| Error::<T>::StashIdentityNotPermissioned)?;
+                // Ensure identity doesn't run more validators than the intended count.
                 ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                 ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-                // It is used to check whether the passed commission is <= commission cap.
+                // Ensures that the passed commission is within the cap.
                 ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
 
                 PermissionedIdentity::mutate(&id, |pref| {
@@ -2208,7 +2208,7 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
         /// * identity Validator's IdentityId.
-        /// * intended_count No. of validators given identity intended to run.
+        /// * intended_count No. of validators given identity intends to run.
         #[weight = 750_000_000]
         pub fn add_permissioned_validator(origin, identity: IdentityId, intended_count: Option<u32>) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
@@ -2217,9 +2217,8 @@ decl_module! {
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
             let pref = match intended_count {
                 Some(count) => {
-                    // Maximum allowed validator count is always less than the 2/3 of validator_count().
-                    let allowed_validator_count = T::MaxValidatorPerIdentity::get() * Self::validator_count();
-                    ensure!(count < allowed_validator_count, Error::<T>::IntendedCountIsExceedingConsensusLimit);
+                    // Maximum allowed validator count is always less than the 2/3 of `validator_count()`.
+                    ensure!(count < Self::get_allowed_validator_count(), Error::<T>::IntendedCountIsExceedingConsensusLimit);
                     PermissionedIdentityPrefs::new(count)
                 },
                 None => PermissionedIdentityPrefs::default()
@@ -2731,24 +2730,28 @@ decl_module! {
 
         /// Scale the intended validator count for a given DID.
         ///
-        /// #Arguments
-        /// * origin Required origin for adding a potential validator.
-        /// * identity Validator's IdentityId.
-        /// * additional Amount by which `intended_count` gets increased.
+        /// # Arguments
+        /// * origin which must be the required origin for adding a potential validator.
+        /// * identity to add as a validator.
+        /// * additional amount by which `intended_count` gets increased.
         #[weight = 150_000_000]
         pub fn scale_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
-            PermissionedIdentity::mutate(&identity, |pref| {
-                if let Some(p) = pref {
-                    p.intended_count += additional
-                }
-            });
+            PermissionedIdentity::try_mutate(&identity, |pref| {
+                pref.as_mut()
+                    .ok_or_else(|| Error::<T>::NotExists)
+                    .map(|p| p.intended_count += additional)
+            })
         }
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the allowed validator count.
+    fn get_allowed_validator_count() -> u32 {
+        T::MaxValidatorPerIdentity::get() * Self::validator_count()
+    }
+
     /// Returns the `T::Origin` for given target AccountId.
     fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
         <T as frame_system::Trait>::Origin::from(Some(target).into())

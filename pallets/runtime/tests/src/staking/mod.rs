@@ -5683,9 +5683,9 @@ fn payout_to_any_account_works() {
 
             mock::start_era(1);
             Staking::reward_by_ids(vec![(11, 1)]);
-            // Compute total payout now for whole duration as other parameter won't change
+            // Compute total payout now for whole duration as other parameters won't change
             let total_payout_0 = current_total_payout_for_duration(3 * 1000);
-            assert!(total_payout_0 > 100); // Test is meaningful if reward something
+            assert!(total_payout_0 > 100); // Test is meaningful if something is rewarded.
             mock::start_era(2);
             assert_ok!(Staking::payout_stakers(Origin::signed(1337), 11, 1));
 
@@ -5706,7 +5706,7 @@ fn test_multiple_validators_from_an_entity() {
             // Add new validator
             bond(50, 51, 500000);
             let entity_id = Identity::get_identity(&50).unwrap();
-            assert_err!(
+            assert_noop!(
                 Staking::add_permissioned_validator(
                     frame_system::RawOrigin::Root.into(),
                     entity_id,
@@ -5735,7 +5735,7 @@ fn test_multiple_validators_from_an_entity() {
             add_secondary_key(50, 71);
 
             bond(70, 71, 500000);
-            assert_err!(
+            assert_noop!(
                 Staking::validate(Origin::signed(71), ValidatorPrefs::default()),
                 Error::<Test>::HitIntendedValidatorCount
             );
