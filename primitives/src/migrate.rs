@@ -23,7 +23,7 @@ use sp_std::vec::Vec;
 
 /// A migration error type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum MigrationError<T: Clone + PartialEq + Eq + Encode + Decode> {
+pub enum MigrationError<T: Encode + Decode> {
     /// Error during decodification of raw key.
     DecodeKey(Vec<u8>),
     /// Wrapper of the Error in the map function.
@@ -209,7 +209,7 @@ where
     H2: ReversibleStorageHasher,
     V1: 'a + Decode,
     V2: Encode,
-    E: Clone + Eq + Encode + Decode,
+    E: Encode + Decode,
 {
     StorageIterator::<V1>::new(module, item).map(move |(raw_key, value)| {
         let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
