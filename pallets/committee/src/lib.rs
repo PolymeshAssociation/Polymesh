@@ -293,14 +293,13 @@ decl_module! {
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let did = Self::ensure_is_member(origin)?;
-            let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+            let voting = Self::ensure_proposal(&proposal, index)?;
 
             // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
             let now = system::Module::<T>::block_number();
             Self::ensure_not_expired(&proposal, voting.expiry, now)?;
 
             ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
             ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
 
             let mut no_votes = voting.nays.len() as MemberCount;
@@ -368,8 +367,7 @@ decl_module! {
             let did = Self::ensure_is_member(origin)?;
 
             // 2a. Ensure a prior proposal exists and that their indices match.
-            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+            let mut voting = Self::ensure_proposal(&proposal, index)?;
 
             // 2b. Ensure proposal hasn't expired. If it has, prune the proposal and bail.
             Self::ensure_not_expired(&proposal, voting.expiry, system::Module::<T>::block_number())?;
@@ -401,6 +399,13 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// Ensure proposal with `hash` exists and has index `idx`.
+    fn ensure_proposal(hash: &T::Hash, idx: ProposalIndex) -> Result<PolymeshVotes<IdentityId, T::BlockNumber>, DispatchError> {
+        let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
+        ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
+        Ok(voting)
+    }
+
     /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
     fn ensure_is_member(
         origin: <T as frame_system::Trait>::Origin,

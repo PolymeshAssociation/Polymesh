@@ -231,7 +231,7 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_perms(origin)?;
             Self::ensure_name_unique(&primary_did, &name)?;
             let num = Self::get_next_portfolio_number(&primary_did);
-            <Portfolios>::insert(&primary_did, &num, name.clone());
+            Portfolios::insert(&primary_did, &num, name.clone());
             Self::deposit_event(RawEvent::PortfolioCreated(primary_did, num, name));
             Ok(())
         }
