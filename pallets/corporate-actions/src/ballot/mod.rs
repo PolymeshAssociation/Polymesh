@@ -74,6 +74,9 @@
 //! - `change_rcv(origin, ca_id, rcv)` changes the support for RCV to `rcv` in the ballot for CA with `ca_id`.
 //! - `remove_ballot(origin, ca_id)` removes the ballot for CA with `ca_id`.
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use crate as ca;
 use ca::{CAId, CAKind, CorporateAction, Trait};
 use codec::{Decode, Encode};
@@ -83,6 +86,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    weights::Weight,
 };
 use pallet_asset::checkpoint;
 use pallet_identity as identity;
@@ -151,6 +155,14 @@ pub struct BallotMeta {
     pub motions: Vec<Motion>,
 }
 
+impl BallotMeta {
+    fn saturating_num_choices(&self) -> u32 {
+        self.motions
+            .iter()
+            .fold(0, |a, m| a.saturating_add(m.choices.len() as u32))
+    }
+}
+
 /// Timestamp range details about vote start / end.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
@@ -214,6 +226,16 @@ pub struct BallotVote<Balance> {
     ///
     /// Note that `Some(0)` does *not* point into motion A's first choice.
     pub fallback: Option<u16>,
+}
+
+/// Weight abstraction for the corporate actions module.
+pub trait WeightInfo {
+    fn attach_ballot(num_choices: u32) -> Weight;
+    fn vote(votes: u32, target_ids: u32) -> Weight;
+    fn change_end() -> Weight;
+    fn change_meta(num_choices: u32) -> Weight;
+    fn change_rcv() -> Weight;
+    fn remove_ballot() -> Weight;
 }
 
 decl_storage! {
@@ -298,7 +320,7 @@ decl_module! {
         /// - `AlreadyExists` if there's a ballot already.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[weight = 900_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
         pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
             // Ensure origin is CAA, that `ca_id` exists, that its a notice, and the date invariant.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
@@ -342,7 +364,7 @@ decl_module! {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
-        #[weight = 950_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::vote(votes.len() as u32, 1)]
         pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote<T::Balance>>) {
             let did = <Identity<T>>::ensure_perms(origin)?;
 
@@ -444,7 +466,7 @@ decl_module! {
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `StartAfterEnd` if `start > end`.
-        #[weight = 950_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::change_end()]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
             // Ensure origin is CAA, ballot exists, and start is in the future.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
@@ -472,7 +494,7 @@ decl_module! {
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
-        #[weight = 950_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
         pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
             // Ensure origin is CAA, a ballot exists, start is in the future.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
@@ -498,7 +520,7 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = 950_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::change_rcv()]
         pub fn change_rcv(origin, ca_id: CAId, rcv: bool) {
             // Ensure origin is CAA, a ballot exists, start is in the future.
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?;
@@ -519,7 +541,7 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = 950_000_000]
+        #[weight = <T as Trait>::BallotWeightInfo::remove_ballot()]
         pub fn remove_ballot(origin, ca_id: CAId) {
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
@@ -612,8 +634,6 @@ impl<T: Trait> Module<T> {
         Metas::remove(ca_id);
         MotionNumChoices::remove(ca_id);
         RCV::remove(ca_id);
-        <Results<T>>::remove(ca_id);
-        <Votes<T>>::remove_prefix(ca_id);
 
         // Emit event.
         Self::deposit_event(Event::<T>::Removed(caa, ca_id));

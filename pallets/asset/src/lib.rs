@@ -411,13 +411,13 @@ decl_module! {
             storage_migrate_on!(storage_ver, 1, {
                 let mut id_map = BTreeMap::<_, u32>::new();
                 migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Asset", b"AssetDocuments",
+                    b"Asset", b"AssetDocuments",
                     |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
                         let count = id_map.entry(ticker).or_default();
                         let id = DocumentId(mem::replace(count, *count + 1));
                         Some((ticker, id, doc.migrate(name)?))
                     }
-                    );
+                );
                 for (ticker, id) in id_map {
                     AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
                 }
@@ -528,6 +528,11 @@ decl_module! {
                 TickerRegistrationStatus::RegisteredByDid => false,
                 TickerRegistrationStatus::Available => true,
             };
+
+            // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
+            if available {
+                Self::ensure_ticker_ascii(&ticker)?;
+            }
 
             let token_did = Identity::<T>::get_token_did(&ticker)?;
             // Ensure there's no pre-existing entry for the DID.
@@ -1157,6 +1162,8 @@ decl_error! {
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,
+        /// The ticker has non-ascii-encoded parts.
+        TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
         /// An invalid total supply.
@@ -1470,6 +1477,19 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
+    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
+        let bytes = ticker.as_slice();
+        // Find first byte not printable ASCII.
+        let good = bytes
+            .iter()
+            .position(|b| !matches!(b, 32..=126))
+            // Everything after must be a NULL byte.
+            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
+        ensure!(good, Error::<T>::TickerNotAscii);
+        Ok(())
+    }
+
     /// Before registering a ticker, do some checks, and return the expiry moment.
     fn ticker_registration_checks(
         ticker: &Ticker,
@@ -1477,6 +1497,8 @@ impl<T: Trait> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
+        Self::ensure_ticker_ascii(&ticker)?;
+
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
             Error::<T>::AssetAlreadyCreated
