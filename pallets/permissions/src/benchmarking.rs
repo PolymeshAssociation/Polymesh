@@ -3,6 +3,7 @@ use crate::*;
 use polymesh_primitives::{DispatchableName, PalletName};
 
 use frame_benchmarking::benchmarks;
+use frame_support::ensure;
 use sp_std::{iter, prelude::*};
 
 const MAX_PALLET_NAME: u32 = 512;
@@ -16,20 +17,17 @@ benchmarks! {
     _ {}
 
     set_call_metadata {
-        let p in 1..MAX_PALLET_NAME;
-        let d in 1..MAX_DISPATCHABLE_NAME;
-
-        let pallet_name :PalletName = make_name(p).into();
+        let pallet_name: PalletName = make_name(MAX_PALLET_NAME).into();
         let pallet_name_exp = pallet_name.clone();
-        let dispatchable_name :DispatchableName = make_name(p).into();
+        let dispatchable_name: DispatchableName = make_name(MAX_DISPATCHABLE_NAME).into();
         let dispatchable_name_exp = dispatchable_name.clone();
 
     }: {
         StoreCallMetadata::<T>::set_call_metadata(pallet_name, dispatchable_name);
     }
     verify {
-        assert_eq!( CurrentPalletName::get(), pallet_name_exp);
-        assert_eq!( CurrentDispatchableName::get(), dispatchable_name_exp);
+        ensure!(CurrentPalletName::get() == pallet_name_exp, "Unexpected pallet name");
+        ensure!(CurrentDispatchableName::get() == dispatchable_name_exp, "Unexpected dispatchable name");
     }
 
     clear_call_metadata {
@@ -40,6 +38,7 @@ benchmarks! {
         StoreCallMetadata::<T>::clear_call_metadata();
     }
     verify {
-        assert_eq!(CurrentPalletName::exists(), false);
+        ensure!(CurrentPalletName::exists() == false, "Pallet name should not be exist");
+        ensure!(CurrentDispatchableName::exists() == false, "Dispatchable name should not be exist");
     }
 }
