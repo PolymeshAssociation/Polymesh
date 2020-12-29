@@ -577,6 +577,7 @@ impl corporate_actions::Trait for TestStorage {
 impl exemption::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
+    type WeightInfo = polymesh_weights::exemption::WeightInfo;
 }
 
 impl voting::Trait for TestStorage {
