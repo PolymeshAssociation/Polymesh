@@ -39,7 +39,7 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    exemption,
+    empty_slot, exemption,
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
     ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
@@ -722,6 +722,8 @@ impl exemption::Trait for Runtime {
     type Asset = Asset;
 }
 
+impl<I> empty_slot::Trait<I> for Runtime {}
+
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
@@ -835,9 +837,12 @@ construct_runtime!(
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
+        EmptyDividend: empty_slot::<Instance1>::{Module, Call, Storage},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
+        EmptyVoting: empty_slot::<Instance2>::{Module, Call, Storage},
+        EmptyStoCapped: empty_slot::<Instance3>::{Module, Call, Storage},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         Sto: sto::{Module, Call, Storage, Event<T>},
