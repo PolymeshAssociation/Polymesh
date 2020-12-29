@@ -907,8 +907,8 @@ benchmarks! {
 
         let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
         let s in 0 .. T::MaxNumberOfTMExtensionForAsset::get() as u32;
-        let c in 1 .. MAX_COMPLIANCE_RESTRICTION; // At least 1 compliance restriction needed.
-        let t in 1 .. MAX_TRUSTED_ISSUER; // At least 1 trusted issuer needed.
+        let c in 1 .. T::MaxComplianceRestriction::get() as u32; // At least 1 compliance restriction needed.
+        let t in 1 .. T::MaxTrustedIssuer::get() as u32; // At least 1 trusted issuer needed.
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
