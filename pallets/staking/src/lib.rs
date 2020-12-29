@@ -470,7 +470,7 @@ pub enum RewardDestination<AccountId> {
     Stash,
     /// Pay into the controller account.
     Controller,
-    /// Pay into a specified account.
+    /// Pay into the specified account.
     Account(AccountId),
 }
 
@@ -2735,11 +2735,11 @@ decl_module! {
         /// * identity to add as a validator.
         /// * additional amount by which `intended_count` gets increased.
         #[weight = 150_000_000]
-        pub fn scale_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) {
+        pub fn scale_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) -> DispatchResult {
             T::RequiredAddOrigin::ensure_origin(origin)?;
             PermissionedIdentity::try_mutate(&identity, |pref| {
                 pref.as_mut()
-                    .ok_or_else(|| Error::<T>::NotExists)
+                    .ok_or_else(|| Error::<T>::NotExists.into())
                     .map(|p| p.intended_count += additional)
             })
         }
