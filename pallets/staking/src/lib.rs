@@ -511,7 +511,7 @@ impl Default for PermissionedIdentityPrefs {
 }
 
 impl PermissionedIdentityPrefs {
-    fn new(count: u32) -> Self {
+    pub fn new(count: u32) -> Self {
         Self {
             intended_count: count,
             running_count: 0,
