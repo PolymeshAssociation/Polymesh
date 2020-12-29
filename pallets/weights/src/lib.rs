@@ -17,6 +17,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod exemption;
 pub mod frame_system;
 pub mod pallet_asset;
 pub mod pallet_balances;

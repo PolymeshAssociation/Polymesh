@@ -730,6 +730,7 @@ impl pallet_corporate_actions::Trait for Runtime {
 impl exemption::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::exemption::WeightInfo;
 }
 
 impl dividend::Trait for Runtime {
@@ -1310,6 +1311,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
+            add_benchmark!(params, batches, exemption, Exemption);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

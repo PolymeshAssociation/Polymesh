@@ -15,21 +15,28 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::Weight,
 };
 use frame_system::ensure_signed;
+use sp_std::prelude::*;
+
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
     exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
-use sp_std::prelude::*;
+
+pub trait WeightInfo {
+    fn modify_exemption_list() -> Weight;
+}
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type WeightInfo: WeightInfo;
 }
 
 // This module's storage items.
@@ -61,8 +68,8 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        #[weight = 400_000_000]
-        fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::modify_exemption_list()]
+        fn modify_exemption_list(origin, ticker: Ticker, tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let sender = Signatory::Account(sender);
@@ -74,12 +81,12 @@ decl_module! {
             );
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
-            let ticker_asset_holder_did = (ticker, _tm, asset_holder_did);
+            let ticker_asset_holder_did = (ticker, tm, asset_holder_did);
             let is_exempted = Self::exemption_list(&ticker_asset_holder_did);
             ensure!(is_exempted != exempted, Error::<T>::NoChange);
 
             <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
-            Self::deposit_event(Event::ExemptionListModified(did, ticker, _tm, asset_holder_did, exempted));
+            Self::deposit_event(Event::ExemptionListModified(did, ticker, tm, asset_holder_did, exempted));
 
             Ok(())
         }

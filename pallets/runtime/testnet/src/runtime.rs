@@ -740,6 +740,7 @@ impl pallet_corporate_actions::Trait for Runtime {
 impl exemption::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::exemption::WeightInfo;
 }
 
 impl dividend::Trait for Runtime {
