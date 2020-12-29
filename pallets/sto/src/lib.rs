@@ -24,6 +24,7 @@
 #![recursion_limit = "256"]
 
 use codec::{Decode, Encode};
+use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
@@ -197,14 +198,12 @@ decl_module! {
             venue_id: u64,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
-        ) -> DispatchResult {
+        ) {
             let (did, secondary_key) = Self::ensure_perms_pia(origin, &offering_asset)?;
 
-            let venue = VenueInfo::get(venue_id).ok_or(Error::<T>::InvalidVenue)?;
-            ensure!(
-                venue.creator == did && venue.venue_type == VenueType::Sto,
-                Error::<T>::InvalidVenue
-            );
+            VenueInfo::get(venue_id)
+                .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
+                .ok_or(Error::<T>::InvalidVenue)?;
 
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(raising_portfolio, did, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(offering_portfolio, did, secondary_key.as_ref())?;
@@ -226,32 +225,23 @@ decl_module! {
 
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, &offering_amount)?;
 
-            let fundraiser_id = Self::fundraiser_count(offering_asset);
             let fundraiser = Fundraiser {
-                    creator: did,
-                    offering_portfolio,
-                    offering_asset,
-                    raising_portfolio,
-                    raising_asset,
-                    tiers: tiers.into_iter().map(Into::into).collect(),
-                    venue_id,
-                    start,
-                    end,
-                    frozen: false,
+                creator: did,
+                offering_portfolio,
+                offering_asset,
+                raising_portfolio,
+                raising_asset,
+                tiers: tiers.into_iter().map(Into::into).collect(),
+                venue_id,
+                start,
+                end,
+                frozen: false,
             };
 
-            FundraiserCount::insert(offering_asset, fundraiser_id + 1);
-            <Fundraisers<T>>::insert(
-                offering_asset,
-                fundraiser_id,
-                fundraiser.clone()
-            );
+            let id = FundraiserCount::mutate(offering_asset, |id| mem::replace(id, *id + 1));
+            <Fundraisers<T>>::insert(offering_asset, id, fundraiser.clone());
 
-            Self::deposit_event(
-                RawEvent::FundraiserCreated(did, fundraiser_id, fundraiser)
-            );
-
-            Ok(())
+            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser));
         }
 
         /// Invest in a fundraiser.
