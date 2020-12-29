@@ -63,7 +63,7 @@ fn assert_mem_len(len: u32) {
 }
 
 fn assert_mem(who: IdentityId, is: bool) {
-    assert_eq!(Committee::is_member(&who), is);
+    assert_eq!(Committee::ensure_did_is_member(&who).is_ok(), is);
 }
 
 fn abdicate_membership(who: IdentityId, signer: &Origin, n: u32) {
@@ -162,7 +162,7 @@ fn preventing_motions_from_non_members_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
         vote(&alice_signer, true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 }
 
@@ -188,7 +188,7 @@ fn preventing_voting_from_non_members_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
         vote(&bob_signer, true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 }
 
@@ -466,7 +466,7 @@ fn release_coordinator_we() {
 
     assert_err!(
         Committee::set_release_coordinator(gc_vmo(), charlie_id),
-        committee::Error::<TestStorage, committee::Instance1>::MemberNotFound
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 
     assert_ok!(Committee::set_release_coordinator(gc_vmo(), bob_id));
@@ -555,7 +555,7 @@ fn enact_we() {
     assert_ok!(vote(&alice_signer, true));
     assert_err!(
         vote(&Origin::signed(dave), true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember,
     );
     assert_ok!(vote(&Origin::signed(bob), true));
     check_scheduled(0);
