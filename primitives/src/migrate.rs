@@ -23,7 +23,7 @@ use sp_std::vec::Vec;
 
 /// A migration error type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum MigrationError<T: Encode + Decode> {
+pub enum MigrationError<T> {
     /// Error during decodification of raw key.
     DecodeKey(Vec<u8>),
     /// Wrapper of the Error in the map function.
