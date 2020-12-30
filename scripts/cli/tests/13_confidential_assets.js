@@ -66,8 +66,9 @@ async function main() {
 
   // Charlie creates his mediator Mercat Account 
   console.log("-----------> Creating Charlie's account.");
-  const charliePublicKey = (await createMercatMediatorAccount()).public_key;
-  const charlieAccount = (await createMercatMediatorAccount()).secret_account;
+  const charlieMercatAccount = await createMercatMediatorAccount();
+  const charliePublicKey = charlieMercatAccount.public_key;
+  const charlieAccount = charlieMercatAccount.secret_account;
 
   // Validate Charlie's Mercat Account 
   console.log("-----------> Submitting Charlie's account.");
@@ -100,7 +101,7 @@ async function main() {
   );
   
   console.log("-----------> Initializing confidential transaction.");
-  const bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
+  let bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
   let aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
   const initTransactionProof = await createTransaction(
     100,
@@ -121,10 +122,12 @@ async function main() {
   );
 
   console.log("-----------> Submitting finalize confidential transaction proof.");
+  bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
   await affirmConfidentialInstruction(api, instructionCounter, {FinalizedTransfer: finalizeTransactionProof}, bob, bob_did);
 
   const alicePublicAccount = new PubAccount(aliceMercatInfo.account_id, aliceMercatInfo.public_key);
 
+  console.log("-----------> Justifying confidential transaction.");
   const justifiedTransactionProof = justify_transaction(finalizeTransactionProof, charlieAccount, alicePublicAccount, aliceEncryptedBalance, bobPublicAccount, "01");
   
   console.log("-----------> Submitting justify confidential transaction proof.");
