@@ -38,8 +38,8 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Document, DocumentId,
-    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId, InvestorUid, PortfolioId,
+    Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;

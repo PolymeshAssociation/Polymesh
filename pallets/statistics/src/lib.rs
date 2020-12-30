@@ -57,7 +57,7 @@ decl_storage! {
         /// Number of current investors in an asset.
         pub InvestorCountPerAsset get(fn investor_count): map hasher(blake2_128_concat) Ticker => Counter;
         /// Entities exempt from transfer managers. Exemptions are checked for receivers of a transfer, not senders.
-        pub ExemptIdentities get(fn entity_exempt):
+        pub ExemptEntities get(fn entity_exempt):
             double_map
                 hasher(blake2_128_concat) (Ticker, TransferManager),
                 hasher(blake2_128_concat) ScopeId
@@ -83,6 +83,7 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `DuplicateTransferManager` if `new_transfer_manager` is already enabled for the ticker.
+        /// * `TransferManagersLimitReached` if the `ticker` already has max TMs attached
         ///
         #[weight = 500_000_000]
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
@@ -131,11 +132,11 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
         #[weight = 500_000_000]
-        pub fn add_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
+        pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
             for entity in &exempted_entities {
-                ExemptIdentities::insert(&ticker_tm, entity, true);
+                ExemptEntities::insert(&ticker_tm, entity, true);
             }
             Self::deposit_event(Event::ExemptionsAdded(did, ticker, transfer_manager, exempted_entities));
         }
@@ -152,11 +153,11 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
         #[weight = 500_000_000]
-        pub fn remove_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
+        pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
             for entity in &entities {
-                ExemptIdentities::remove(&ticker_tm, entity);
+                ExemptEntities::remove(&ticker_tm, entity);
             }
             Self::deposit_event(Event::ExemptionsRemoved(did, ticker, transfer_manager, entities));
         }
