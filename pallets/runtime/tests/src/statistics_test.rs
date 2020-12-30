@@ -121,15 +121,15 @@ fn investor_count_with_ext() {
 
     // Alice sends some tokens to Bob. Token has only one investor.
     unsafe_transfer(alice_did, bob_did, 500);
-    assert_eq!(Statistic::investor_count(&ticker), 1);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
     unsafe_transfer(alice_did, charlie_did, 5000);
-    assert_eq!(Statistic::investor_count(&ticker), 2);
+    assert_eq!(Statistic::investor_count(&ticker), 3);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
     unsafe_transfer(bob_did, charlie_did, 500);
-    assert_eq!(Statistic::investor_count(&ticker), 1);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
 }
 
 #[test]
@@ -272,8 +272,7 @@ fn should_verify_tms() {
             create_token(token_name, ticker, AccountKeyring::Alice.public());
             assert_eq!(Statistic::investor_count(&ticker), 1);
             // No TM attached, transfer should be valid
-            do_valid_transfer!(ticker, alice_did, bob_did, 10);
-            do_valid_transfer!(ticker, alice_did, bob_did, 10);
+            do_valid_transfer!(ticker, alice_did, bob_did, 1);
             assert_eq!(Statistic::investor_count(&ticker), 2);
 
             // assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);

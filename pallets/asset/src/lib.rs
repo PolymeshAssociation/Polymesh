@@ -1781,16 +1781,25 @@ impl<T: Trait> Module<T> {
         let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
-        // Update the investor count of an asset.
-        // Note - Not passing the scope_id based balance because at the time of mint PIA may not
-        // have the scope claim even it exists that doesn't matter as we are not respecting the compliance
-        // restriction for the mint.
-        <statistics::Module<T>>::update_transfer_stats(
-            &ticker,
-            None,
-            Some(value),
-            value,
-        );
+        if <ScopeIdOf>::contains_key(ticker, &to_did) {
+            let scope_id = Self::scope_id_of(ticker, &to_did);
+            Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+            // Using the aggregate balance to update the unique investor count.
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(Self::aggregate_balance_of(ticker, &scope_id)),
+                value,
+            );
+        } else {
+            // Since the PIA does not have a scope claim yet, we assume this is their only identity
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(value),
+                value,
+            );
+        }
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
