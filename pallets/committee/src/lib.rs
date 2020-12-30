@@ -304,7 +304,7 @@ decl_module! {
 
             let mut no_votes = voting.nays.len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
-            let seats = Self::members().len() as MemberCount;
+            let seats = Self::seats();
             let abstentions = seats - (yes_votes + no_votes);
             no_votes += abstentions;
 
@@ -386,9 +386,8 @@ decl_module! {
             <Voting<T, I>>::insert(&proposal, voting);
 
             // 4. Emit event.
-            let members = Self::members().len() as MemberCount;
             Self::deposit_event(RawEvent::Voted(
-                did, index, proposal, approve, ayes, nays, members,
+                did, index, proposal, approve, ayes, nays, Self::seats(),
             ));
 
             // 5. Check whether majority has been reached and if so, execute proposal.
@@ -420,8 +419,15 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
     pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
-        ensure!(Self::members().binary_search(who).is_ok(), Error::<T, I>::NotAMember);
+        ensure!(
+            Self::members().binary_search(who).is_ok(),
+            Error::<T, I>::NotAMember
+        );
         Ok(())
+    }
+
+    fn seats() -> MemberCount {
+        Self::members().len() as _
     }
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
@@ -464,11 +470,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 return;
             }
 
-            let seats = Self::members().len() as MemberCount;
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let no_votes = voting.nays.len() as MemberCount;
+            let ayes = voting.ayes.len() as MemberCount;
+            let nays = voting.nays.len() as MemberCount;
             let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
+            Self::check_threshold_finalize(proposal, did, voting, ayes, nays, Self::seats());
         }
     }
 
@@ -591,7 +596,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // 3. Execute if committee is single member, and otherwise record the vote.
-        let seats = Self::members().len() as MemberCount;
+        let seats = Self::seats();
         if seats < 2 {
             Self::execute(did, proposal, proposal_hash, 1, seats);
         } else {
