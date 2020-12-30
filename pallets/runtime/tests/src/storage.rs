@@ -45,7 +45,7 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
+    Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory, Ticker,
 };
 use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -741,6 +741,17 @@ pub fn make_account(
     make_account_with_uid(id, uid)
 }
 
+pub fn make_account_with_scope(
+    id: AccountId,
+    ticker: Ticker,
+    cdd_provider: AccountId,
+) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId, ScopeId), &'static str> {
+    let uid = InvestorUid::from(format!("{}", id).as_str());
+    let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
+    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);
+    Ok((origin, did, scope_id))
+}
+
 pub fn make_account_with_uid(
     id: AccountId,
     uid: InvestorUid,
@@ -892,7 +903,7 @@ pub fn provide_scope_claim(
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
-) {
+) -> ScopeId {
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
@@ -917,6 +928,8 @@ pub fn provide_scope_claim(
         proof,
         None
     ));
+
+    scope_id
 }
 
 pub fn provide_scope_claim_to_multiple_parties(

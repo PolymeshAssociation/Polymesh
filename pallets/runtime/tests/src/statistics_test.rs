@@ -1,16 +1,19 @@
 use super::{
-    storage::{make_account, register_keyring_account, TestStorage},
+    storage::{make_account, make_account_with_scope, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics::{self as statistics, TransferManager};
+use polymesh_common_utilities::{
+    asset::AssetType,
+    constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
+};
 use polymesh_primitives::{PortfolioId, Ticker};
+use sp_core::sr25519::Public;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
-use sp_core::sr25519::Public;
-use polymesh_common_utilities::asset::AssetType;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
@@ -35,6 +38,33 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
         vec![],
         vec![]
     ));
+}
+
+macro_rules! do_valid_transfer {
+    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        assert_ok!(
+            Asset::base_transfer(
+                PortfolioId::default_portfolio($from),
+                PortfolioId::default_portfolio($to),
+                &$ticker,
+                $amount
+            )
+        );
+    };
+}
+
+macro_rules! ensure_invalid_transfer {
+    ($ticker:expr, $from:expr, $to:expr, $amount:expr, $error:expr) => {
+        assert_err!(
+            Asset::base_transfer(
+                PortfolioId::default_portfolio($from),
+                PortfolioId::default_portfolio($to),
+                &$ticker,
+                $amount
+            ),
+            error
+        );
+    };
 }
 
 #[test]
@@ -105,7 +135,8 @@ fn investor_count_with_ext() {
 #[test]
 fn should_add_tm() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, _token_owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (token_owner_signed, _token_owner_did) =
+            make_account(AccountKeyring::Alice.public()).unwrap();
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
@@ -153,7 +184,8 @@ fn should_add_tm() {
 #[test]
 fn should_remove_tm() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, _token_owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (token_owner_signed, _token_owner_did) =
+            make_account(AccountKeyring::Alice.public()).unwrap();
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
@@ -186,14 +218,20 @@ fn should_remove_tm() {
 #[test]
 fn should_add_remove_exempted_entities() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, token_owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let (token_owner_signed, token_owner_did) =
+            make_account(AccountKeyring::Alice.public()).unwrap();
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         create_token(token_name, ticker, AccountKeyring::Alice.public());
 
         let tm = TransferManager::CountTransferManager(1000000);
-        let assert_exemption = |boolean| assert_eq!(Statistic::entity_exempt((ticker, tm.clone()), token_owner_did), boolean);
+        let assert_exemption = |boolean| {
+            assert_eq!(
+                Statistic::entity_exempt((ticker, tm.clone()), token_owner_did),
+                boolean
+            )
+        };
         assert_exemption(false);
         assert_ok!(Statistic::add_exempted_entities(
             token_owner_signed.clone(),
@@ -210,4 +248,36 @@ fn should_add_remove_exempted_entities() {
         ));
         assert_exemption(false);
     });
+}
+
+#[test]
+fn should_verify_tms() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| {
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let setup_account = |keyring: AccountKeyring| {
+                make_account_with_scope(
+                    keyring.public(),
+                    ticker,
+                    AccountKeyring::Eve.public()
+                ).unwrap()
+            };
+            let (alice_signed, alice_did, alice_scope) = setup_account(AccountKeyring::Alice);
+            let (bob_signed, bob_did, bob_scope) = setup_account(AccountKeyring::Bob);
+            let (char_signed, char_did, char_scope) = setup_account(AccountKeyring::Charlie);
+            let (dave_signed, dave_did, dave_scope) = setup_account(AccountKeyring::Dave);
+            create_token(token_name, ticker, AccountKeyring::Alice.public());
+            assert_eq!(Statistic::investor_count(&ticker), 1);
+            // No TM attached, transfer should be valid
+            do_valid_transfer!(ticker, alice_did, bob_did, 10);
+            do_valid_transfer!(ticker, alice_did, bob_did, 10);
+            assert_eq!(Statistic::investor_count(&ticker), 2);
+
+            // assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
+
+            // assert_valid_transfer!(ticker, token_owner_did, token_rec_did, 10);
+        });
 }

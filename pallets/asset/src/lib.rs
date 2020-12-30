@@ -1788,7 +1788,7 @@ impl<T: Trait> Module<T> {
         <statistics::Module<T>>::update_transfer_stats(
             &ticker,
             None,
-            Some(updated_to_balance),
+            Some(value),
             value,
         );
 
