@@ -509,7 +509,7 @@ decl_module! {
         /// Leave an identity as a secondary identity.
         #[weight = <T as Trait>::WeightInfo::leave_identity_as_identity()]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let sender_did = Self::ensure_perms(origin);
+            let sender_did = Self::ensure_perms(origin)?;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
