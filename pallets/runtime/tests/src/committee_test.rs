@@ -38,10 +38,11 @@ fn motions_basic_environment_works() {
 }
 
 fn motions_basic_environment_works_we() {
-    let committee = [AccountKeyring::Alice, AccountKeyring::Bob]
+    let mut committee = [AccountKeyring::Alice, AccountKeyring::Bob]
         .iter()
         .map(|key| get_identity_id(*key).unwrap())
         .collect::<Vec<_>>();
+    committee.sort();
 
     System::set_block_number(1);
     assert_eq!(Committee::members(), committee);

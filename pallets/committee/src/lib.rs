@@ -420,7 +420,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
     pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
-        ensure!(Self::members().contains(who), Error::<T, I>::NotAMember);
+        ensure!(Self::members().binary_search(who).is_ok(), Error::<T, I>::NotAMember);
         Ok(())
     }
 
