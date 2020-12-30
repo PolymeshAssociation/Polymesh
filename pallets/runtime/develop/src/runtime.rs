@@ -39,7 +39,7 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    dividend, exemption,
+    dividend,
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
     BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
@@ -728,12 +728,6 @@ impl pallet_corporate_actions::Trait for Runtime {
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
-impl exemption::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::exemption::WeightInfo;
-}
-
 impl dividend::Trait for Runtime {
     type Event = Event;
 }
@@ -857,8 +851,7 @@ construct_runtime!(
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        Exemption: exemption::{Module, Call, Storage, Event},
-        Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
@@ -1312,7 +1305,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
-            add_benchmark!(params, batches, exemption, Exemption);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
