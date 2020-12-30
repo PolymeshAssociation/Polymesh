@@ -480,7 +480,7 @@ impl<T: Trait> Module<T> {
 
             // Transfer remainder (`gain`) to DID.
             let to = PortfolioId::default_portfolio(holder);
-            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain).map_err(|e| e.error)
+            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain)
         })?;
 
         // Note that DID was paid.

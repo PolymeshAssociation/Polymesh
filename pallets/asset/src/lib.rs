@@ -92,7 +92,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, Get, UnixTime},
     weights::Weight,
@@ -247,20 +247,6 @@ pub enum RestrictionResult {
 impl Default for RestrictionResult {
     fn default() -> Self {
         RestrictionResult::Invalid
-    }
-}
-
-pub mod weight_for {
-    use super::*;
-
-    /// Weight for `_is_valid_transfer()` transfer.
-    pub fn weight_for_is_valid_transfer<T: Trait>(
-        no_of_tms: u32,
-        weight_from_cm: Weight,
-    ) -> Weight {
-        8 * 10_000_000 // Weight used for encoding a param in `verify_restriction()` call.
-            .saturating_add(GAS_LIMIT.saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
-            .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
     }
 }
 
@@ -1263,7 +1249,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
     }
 
@@ -1558,13 +1544,12 @@ impl<T: Trait> Module<T> {
 
     pub fn _is_valid_transfer(
         ticker: &Ticker,
-        extension_caller: T::AccountId,
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         value: T::Balance,
-    ) -> StdResult<(u8, Weight), DispatchError> {
+    ) -> StdResult<u8, DispatchError> {
         if Self::frozen(ticker) {
-            return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
+            return Ok(ERC1400_TRANSFERS_HALTED);
         }
 
         if !Identity::<T>::verify_iu_claims_for_transfer(
@@ -1572,7 +1557,7 @@ impl<T: Trait> Module<T> {
             to_portfolio.did,
             from_portfolio.did,
         ) {
-            return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
+            return Ok(SCOPE_CLAIM_MISSING);
         }
 
         if Portfolio::<T>::ensure_portfolio_transfer_validity(
@@ -1583,56 +1568,42 @@ impl<T: Trait> Module<T> {
         )
         .is_err()
         {
-            return Ok((PORTFOLIO_FAILURE, T::DbWeight::get().reads(4)));
+            return Ok(PORTFOLIO_FAILURE);
         }
 
-        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
-        let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+        let token = <Tokens<T>>::get(ticker);
+        if <statistics::Module<T>>::verify_tm_restrictions(
+            ticker,
+            from_scope_id,
+            value,
+            Self::aggregate_balance_of(ticker, &from_scope_id),
+            Self::aggregate_balance_of(ticker, &to_scope_id),
+            token.total_supply,
+        )
+        .is_err()
+        {
+            return Ok(TRANSFER_MANAGER_FAILURE);
+        }
+
+        let status_code = T::ComplianceManager::verify_restriction(
             ticker,
             Some(from_portfolio.did),
             Some(to_portfolio.did),
             value,
-            primary_issuance_agent,
-        )?;
-        Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
-            (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
-        } else {
-            let mut result = true;
-            let mut is_valid = false;
-            let mut is_invalid = false;
-            let mut force_valid = false;
-            let current_holder_count = <statistics::Module<T>>::investor_count(ticker);
-            let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
-                .into_iter()
-                .filter(|tm| {
-                    !Self::extension_details((ticker, tm)).is_archive
-                        && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
-                })
-                .collect::<Vec<T::AccountId>>();
-            let tm_count = u32::try_from(tms.len()).unwrap_or_default();
-            if !tms.is_empty() {
-                for tm in tms.into_iter() {
-                    let result = Self::verify_restriction(
-                        ticker,
-                        extension_caller.clone(),
-                        Some(from_portfolio.did),
-                        Some(to_portfolio.did),
-                        value,
-                        current_holder_count,
-                        tm,
-                    );
-                    match result {
-                        RestrictionResult::Valid => is_valid = true,
-                        RestrictionResult::Invalid => is_invalid = true,
-                        RestrictionResult::ForceValid => force_valid = true,
-                    }
-                }
-                //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
-                result = force_valid || !is_invalid && is_valid;
-            }
-            // Compute the result for transfer
-            Self::compute_transfer_result(result, tm_count, weight_for_transfer)
-        })
+            token.primary_issuance_agent,
+        )
+        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
+
+        if status_code != ERC1400_TRANSFER_SUCCESS {
+            return Ok(COMPLIANCE_MANAGER_FAILURE);
+        }
+
+        // SE are currently disabled
+        // Self::compute_transfer_result_using_se()
+
+        Ok(ERC1400_TRANSFER_SUCCESS)
     }
 
     // Transfers tokens from one identity to another
@@ -2060,7 +2031,7 @@ impl<T: Trait> Module<T> {
     /// RPC: Function allows external users to know wether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
-        sender: T::AccountId,
+        _sender: T::AccountId,
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -2128,8 +2099,7 @@ impl<T: Trait> Module<T> {
 
         // Compliance manager & Smart Extension check
         Ok(
-            Self::_is_valid_transfer(&ticker, sender, from_portfolio, to_portfolio, value)
-                .map(|(status, _)| status)
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
@@ -2140,20 +2110,15 @@ impl<T: Trait> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
         // The custodian permissions must be checked before this function is called.
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
         // Validate the transfer
-        let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
-            &ticker,
-            <Identity<T>>::did_records(from_portfolio.did).primary_key,
-            from_portfolio,
-            to_portfolio,
-            value,
-        )?;
+        let is_transfer_success =
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)?;
 
         ensure!(
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,
@@ -2162,7 +2127,7 @@ impl<T: Trait> Module<T> {
 
         Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value)?;
 
-        Ok(Some(weight_for_transfer).into())
+        Ok(())
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
@@ -2212,18 +2177,50 @@ impl<T: Trait> Module<T> {
     }
 
     /// Compute the result of the transfer
-    pub fn compute_transfer_result(
-        final_result: bool,
-        tm_count: u32,
-        cm_result: Weight,
-    ) -> (u8, Weight) {
-        let weight_for_valid_transfer =
-            weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
-        let transfer_status = match final_result {
-            true => ERC1400_TRANSFER_SUCCESS,
-            false => SMART_EXTENSION_FAILURE,
-        };
-        (transfer_status, weight_for_valid_transfer)
+    pub fn compute_transfer_result_using_se(
+        ticker: &Ticker,
+        extension_caller: T::AccountId,
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        value: T::Balance,
+    ) -> u8 {
+        let mut result = true;
+        let mut is_valid = false;
+        let mut is_invalid = false;
+        let mut force_valid = false;
+        let current_holder_count = <statistics::Module<T>>::investor_count(ticker);
+        let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
+            .into_iter()
+            .filter(|tm| {
+                !Self::extension_details((ticker, tm)).is_archive
+                    && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
+            })
+            .collect::<Vec<T::AccountId>>();
+        if !tms.is_empty() {
+            for tm in tms.into_iter() {
+                let result = Self::verify_restriction(
+                    ticker,
+                    extension_caller.clone(),
+                    Some(from_portfolio.did),
+                    Some(to_portfolio.did),
+                    value,
+                    current_holder_count,
+                    tm,
+                );
+                match result {
+                    RestrictionResult::Valid => is_valid = true,
+                    RestrictionResult::Invalid => is_invalid = true,
+                    RestrictionResult::ForceValid => force_valid = true,
+                }
+            }
+            //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
+            result = force_valid || !is_invalid && is_valid;
+        }
+        if result {
+            ERC1400_TRANSFER_SUCCESS
+        } else {
+            SMART_EXTENSION_FAILURE
+        }
     }
 
     /// Ensure the extrinsic is signed and have valid extension id.

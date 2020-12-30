@@ -759,9 +759,13 @@ impl group::Trait<group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
 impl statistics::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
 }
 
 impl pallet_utility::Trait for Runtime {

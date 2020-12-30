@@ -29,7 +29,6 @@ use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     asset::{AssetType, FundingRoundName},
-    compliance_manager::Trait,
     constants::*,
     protocol_fee::ProtocolOp,
     traits::balances::Memo,
@@ -39,7 +38,7 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
+    AssetIdentifier, AuthorizationData, Document, DocumentId,
     IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
@@ -63,18 +62,6 @@ type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-
-macro_rules! assert_add_claim {
-    ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(Identity::add_claim($signer, $target, $claim, None,));
-    };
-}
-
-macro_rules! assert_revoke_claim {
-    ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(Identity::revoke_claim($signer, $target, $claim,));
-    };
-}
 
 fn setup_se_template<T>(
     creator: AccountId,
@@ -1936,198 +1923,6 @@ fn can_set_primary_issuance_agent_we() {
     ));
     token.primary_issuance_agent = None;
     assert_eq!(Asset::token_details(ticker), token);
-}
-
-#[test]
-fn test_weights_for_is_valid_transfer() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
-        .set_max_tms_allowed(4)
-        .build()
-        .execute_with(|| {
-            let alice = AccountKeyring::Alice.public();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
-
-            let bob = AccountKeyring::Bob.public();
-            let (_, bob_did) = make_account_without_cdd(bob).unwrap();
-
-            let eve = AccountKeyring::Eve.public();
-            let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
-
-            let dave = AccountKeyring::Dave.public();
-
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did: alice_did,
-                total_supply: 1_000_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-
-            assert_ok!(Asset::create_asset(
-                Origin::signed(alice),
-                token.name.clone(),
-                ticker,
-                token.total_supply,
-                true,
-                token.asset_type.clone(),
-                vec![],
-                None,
-            ));
-
-            // Provide scope claim to sender and receiver.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
-            // Get token Id.
-            let ticker_id = Identity::get_token_did(&ticker).unwrap();
-
-            // Adding different compliance requirements
-            let is_present = ConditionType::IsPresent(Claim::Accredited(ticker_id.into()));
-            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice_signed.clone(),
-                ticker,
-                vec![
-                    cond(is_present.clone()),
-                    cond(ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into()))),
-                ],
-                vec![
-                    cond(is_present),
-                    cond(ConditionType::IsAnyOf(vec![
-                        Claim::BuyLockup(ticker_id.into()),
-                        Claim::KnowYourCustomer(ticker_id.into())
-                    ])),
-                ]
-            ));
-
-            // Providing claim to sender and receiver
-            // For Alice
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::Accredited(alice_did.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::BuyLockup(ticker_id.into())
-            );
-            // For Bob
-            assert_add_claim!(
-                eve_signed.clone(),
-                bob_did,
-                Claim::Accredited(ticker_id.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                bob_did,
-                Claim::KnowYourCustomer(ticker_id.into())
-            );
-
-            let extension_id_1 = setup_se_template::<TestStorage>(alice, alice_did, true);
-
-            // Add Tms
-            assert_ok!(Asset::add_extension(
-                alice_signed.clone(),
-                ticker,
-                SmartExtension {
-                    extension_type: SmartExtensionType::TransferManager,
-                    extension_name: b"ABC".into(),
-                    extension_id: extension_id_1,
-                    is_archive: false
-                }
-            ));
-
-            let extension_id_2 = setup_se_template::<TestStorage>(alice, alice_did, false);
-
-            assert_ok!(Asset::add_extension(
-                alice_signed.clone(),
-                ticker,
-                SmartExtension {
-                    extension_type: SmartExtensionType::TransferManager,
-                    extension_name: b"ABC".into(),
-                    extension_id: extension_id_2,
-                    is_archive: false
-                }
-            ));
-
-            let is_valid_transfer_result = || {
-                Asset::_is_valid_transfer(
-                    &ticker,
-                    alice,
-                    PortfolioId::default_portfolio(alice_did),
-                    PortfolioId::default_portfolio(bob_did),
-                    100,
-                )
-                .unwrap()
-                .1
-            };
-
-            let verify_restriction_weight = || {
-                ComplianceManager::verify_restriction(
-                    &ticker,
-                    Some(alice_did),
-                    Some(bob_did),
-                    100,
-                    Some(alice_did),
-                )
-                .unwrap()
-                .1
-            };
-
-            // call is_valid_transfer()
-            // Only sender rules are processed.
-            assert_eq!(is_valid_transfer_result(), verify_restriction_weight());
-
-            assert_revoke_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::BuyLockup(ticker_id.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::Accredited(ticker_id.into())
-            );
-
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
-
-            // Adding different claim rules
-            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice_signed.clone(),
-                ticker,
-                vec![cond(ConditionType::IsPresent(Claim::Exempted(
-                    ticker_id.into()
-                )))],
-                vec![cond(ConditionType::IsPresent(Claim::Blocked(
-                    ticker_id.into()
-                )))],
-            ));
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
-
-            // pause transfer rules
-            assert_ok!(ComplianceManager::pause_asset_compliance(
-                alice_signed,
-                ticker
-            ));
-
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight);
-        });
 }
 
 #[test]

@@ -509,9 +509,13 @@ impl pallet_contracts::Trait for TestStorage {
     type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
 impl statistics::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
 }
 
 parameter_types! {
