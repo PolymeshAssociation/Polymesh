@@ -745,7 +745,14 @@ pub fn make_account_with_scope(
     id: AccountId,
     ticker: Ticker,
     cdd_provider: AccountId,
-) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId, ScopeId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Trait>::Origin,
+        IdentityId,
+        ScopeId,
+    ),
+    &'static str,
+> {
     let uid = InvestorUid::from(format!("{}", id).as_str());
     let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
     let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);

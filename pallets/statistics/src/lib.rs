@@ -56,7 +56,9 @@ decl_storage! {
         pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
         /// Number of current investors in an asset.
         pub InvestorCountPerAsset get(fn investor_count): map hasher(blake2_128_concat) Ticker => Counter;
-        /// Entities exempt from transfer managers. Exemptions are checked for receivers of a transfer, not senders.
+        /// Entities exempt from transfer managers. Exemptions requirements are based on TMS.
+        /// TMs may require just the sender, just the receiver, both or either to be exempted.
+        /// CTM requires sender to be exempted while PTM requires receiver to be exempted.
         pub ExemptEntities get(fn entity_exempt):
             double_map
                 hasher(blake2_128_concat) (Ticker, TransferManager),
@@ -202,6 +204,7 @@ impl<T: Trait> Module<T> {
     /// Verify transfer restrictions for a transfer
     pub fn verify_tm_restrictions(
         ticker: &Ticker,
+        sender: ScopeId,
         receiver: ScopeId,
         value: T::Balance,
         sender_balance: T::Balance,
@@ -213,7 +216,7 @@ impl<T: Trait> Module<T> {
             match tm {
                 TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
                     ticker,
-                    receiver,
+                    sender,
                     value,
                     sender_balance,
                     receiver_balance,
@@ -234,7 +237,7 @@ impl<T: Trait> Module<T> {
 
     fn ensure_ctm(
         ticker: &Ticker,
-        receiver: ScopeId,
+        sender: ScopeId,
         value: T::Balance,
         sender_balance: T::Balance,
         receiver_balance: T::Balance,
@@ -244,13 +247,13 @@ impl<T: Trait> Module<T> {
         ensure!(
             current_count < max_count
                 || sender_balance == value
-                || receiver_balance >= 0u32.into()
+                || receiver_balance > 0u32.into()
                 || Self::entity_exempt(
                     (
                         ticker.clone(),
                         TransferManager::CountTransferManager(max_count)
                     ),
-                    receiver
+                    sender
                 ),
             Error::<T>::InvalidTransfer
         );

@@ -1577,6 +1577,7 @@ impl<T: Trait> Module<T> {
         if <statistics::Module<T>>::verify_tm_restrictions(
             ticker,
             from_scope_id,
+            to_scope_id,
             value,
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
@@ -1793,12 +1794,7 @@ impl<T: Trait> Module<T> {
             );
         } else {
             // Since the PIA does not have a scope claim yet, we assume this is their only identity
-            <statistics::Module<T>>::update_transfer_stats(
-                &ticker,
-                None,
-                Some(value),
-                value,
-            );
+            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(value), value);
         }
 
         let round = Self::funding_round(ticker);
