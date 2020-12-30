@@ -39,36 +39,6 @@ use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
 
-/// Runtime upgrade definitions.
-#[allow(missing_docs)]
-pub mod runtime_upgrade {
-    use codec::Decode;
-    use polymesh_primitives::{
-        migrate::{Empty, Migrate},
-        IdentityId,
-    };
-    use sp_std::vec::Vec;
-
-    /// Old type definition kept here for upgrade purposes.
-    #[derive(Decode)]
-    pub enum LinkedKeyInfo {
-        Unique(IdentityId),
-        Group(Vec<IdentityId>),
-    }
-
-    impl Migrate for LinkedKeyInfo {
-        type Into = IdentityId;
-        type Context = Empty;
-
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            match self {
-                LinkedKeyInfo::Unique(did) => Some(did),
-                LinkedKeyInfo::Group(_) => None,
-            }
-        }
-    }
-}
-
 pub type AuthorizationNonce = u64;
 
 /// It represents an authorization that any account could sign to allow operations related with a
