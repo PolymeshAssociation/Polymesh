@@ -18,6 +18,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Get,
 };
 use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
 use polymesh_primitives::{IdentityId, ScopeId, Ticker};
@@ -45,6 +46,8 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    /// Maximum transfer managers that can be enabled for an Asset
+    type MaxTransferManagersPerAsset: Get<u32>;
 }
 
 decl_storage! {
@@ -53,7 +56,7 @@ decl_storage! {
         pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
         /// Number of current investors in an asset.
         pub InvestorCountPerAsset get(fn investor_count): map hasher(blake2_128_concat) Ticker => Counter;
-        /// Entities exempt from transfer managers.
+        /// Entities exempt from transfer managers. Exemptions are checked for receivers of a transfer, not senders.
         pub ExemptIdentities get(fn entity_exempt):
             double_map
                 hasher(blake2_128_concat) (Ticker, TransferManager),
@@ -85,6 +88,7 @@ decl_module! {
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
+                ensure!((transfer_managers.len() as u32) < T::MaxTransferManagersPerAsset::get(), Error::<T>::TransferManagersLimitReached);
                 ensure!(!transfer_managers.contains(&new_transfer_manager), Error::<T>::DuplicateTransferManager);
                 transfer_managers.push(new_transfer_manager.clone());
                 Ok(()) as DispatchResult
@@ -125,13 +129,11 @@ decl_module! {
         ///
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
-        /// * `ExemptionsNotAllowed` if `transfer_manager` does not support exemptions.
         ///
         #[weight = 500_000_000]
         pub fn add_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
-            //Self::ensure_exemption_allowed(transfer_manager.clone())?;
             for entity in &exempted_entities {
                 ExemptIdentities::insert(&ticker_tm, entity, true);
             }
@@ -148,13 +150,11 @@ decl_module! {
         ///
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
-        /// * `ExemptionsNotAllowed` if `transfer_manager` does not support exemptions.
         ///
         #[weight = 500_000_000]
         pub fn remove_exempted_identities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
-            //Self::ensure_exemption_allowed(transfer_manager.clone())?;
             for entity in &entities {
                 ExemptIdentities::remove(&ticker_tm, entity);
             }
@@ -198,7 +198,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Verify transfer restrictions on a token
+    /// Verify transfer restrictions for a transfer
     pub fn verify_tm_restrictions(
         ticker: &Ticker,
         receiver: ScopeId,
@@ -211,11 +211,21 @@ impl<T: Trait> Module<T> {
         for tm in transfer_managers {
             match tm {
                 TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
-                    ticker, receiver, value, sender_balance, receiver_balance, max_count
+                    ticker,
+                    receiver,
+                    value,
+                    sender_balance,
+                    receiver_balance,
+                    max_count,
                 )?,
                 TransferManager::PercentageTransferManager(max_percentage) => Self::ensure_ptm(
-                    ticker, receiver, value, receiver_balance, total_supply, max_percentage
-                )?
+                    ticker,
+                    receiver,
+                    value,
+                    receiver_balance,
+                    total_supply,
+                    max_percentage,
+                )?,
             }
         }
         Ok(())
@@ -228,13 +238,19 @@ impl<T: Trait> Module<T> {
         sender_balance: T::Balance,
         receiver_balance: T::Balance,
         max_count: Counter,
-    )  -> DispatchResult {
+    ) -> DispatchResult {
         let current_count = Self::investor_count(ticker);
         ensure!(
-            current_count < max_count ||
-                sender_balance == value ||
-                receiver_balance >= 0u32.into() ||
-                Self::entity_exempt((ticker.clone(), TransferManager::CountTransferManager(max_count)), receiver),
+            current_count < max_count
+                || sender_balance == value
+                || receiver_balance >= 0u32.into()
+                || Self::entity_exempt(
+                    (
+                        ticker.clone(),
+                        TransferManager::CountTransferManager(max_count)
+                    ),
+                    receiver
+                ),
             Error::<T>::InvalidTransfer
         );
         Ok(())
@@ -247,21 +263,21 @@ impl<T: Trait> Module<T> {
         receiver_balance: T::Balance,
         total_supply: T::Balance,
         max_percentage: Percentage,
-    )  -> DispatchResult {
-        let new_percentage = Permill::from_rational_approximation(receiver_balance + value, total_supply);
+    ) -> DispatchResult {
+        let new_percentage =
+            Permill::from_rational_approximation(receiver_balance + value, total_supply);
         ensure!(
-            new_percentage <= max_percentage ||
-                Self::entity_exempt((ticker.clone(), TransferManager::PercentageTransferManager(max_percentage)), receiver),
+            new_percentage <= max_percentage
+                || Self::entity_exempt(
+                    (
+                        ticker.clone(),
+                        TransferManager::PercentageTransferManager(max_percentage)
+                    ),
+                    receiver
+                ),
             Error::<T>::InvalidTransfer
         );
         Ok(())
-    }
-
-    fn ensure_exemption_allowed(transfer_manager: TransferManager) -> DispatchResult {
-        match transfer_manager {
-            TransferManager::CountTransferManager(_) => Err(Error::<T>::ExemptionsNotAllowed.into()),
-            TransferManager::PercentageTransferManager(_) => Ok(())
-        }
     }
 }
 
@@ -285,9 +301,9 @@ decl_error! {
         DuplicateTransferManager,
         /// Transfer manager is not enabled
         TransferManagerMissing,
-        /// Selected transfer manager does not allow exemptions
-        ExemptionsNotAllowed,
         /// Transfer not allowed
-        InvalidTransfer
+        InvalidTransfer,
+        /// The limit of transfer managers allowed for an asset has been reached
+        TransferManagersLimitReached
     }
 }
