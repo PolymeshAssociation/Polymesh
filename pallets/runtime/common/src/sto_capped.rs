@@ -53,7 +53,7 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
+    asset::AssetFnTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};

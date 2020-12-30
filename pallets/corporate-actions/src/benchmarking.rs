@@ -20,8 +20,8 @@ use core::convert::TryFrom;
 use core::iter;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use pallet_asset::benchmarking::{make_asset, make_document};
-use polymesh_common_utilities::benchs::{user, User, UserBuilder};
+use pallet_asset::benchmarking::make_document;
+use polymesh_common_utilities::benchs::{make_asset, user, User, UserBuilder};
 
 const TAX: Tax = Tax::one();
 crate const SEED: u32 = 0;
@@ -40,7 +40,7 @@ fn setup<T: Trait>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000.into());
 
     let owner = user("owner", SEED);
-    let ticker = make_asset::<T>(&owner);
+    let ticker = make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(&owner);
     (owner, ticker)
 }
 

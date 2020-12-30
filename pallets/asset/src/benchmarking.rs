@@ -17,7 +17,7 @@
 use crate::*;
 
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{self, User, UserBuilder},
     traits::asset::AssetName,
 };
 use polymesh_contracts::ExtensionInfo;
@@ -39,40 +39,16 @@ const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
-/// Create a ticker and register it.
 fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap();
-    Module::<T>::register_ticker(owner, ticker).unwrap();
-
-    ticker
+    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin>(owner)
 }
 
-pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, true)
+fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(owner)
 }
 
 fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, false)
-}
-
-fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into());
-    let name: AssetName = ticker.as_slice().into();
-    let total_supply: T::Balance = 1_000_000.into();
-
-    Module::<T>::create_asset(
-        owner.origin().into(),
-        name,
-        ticker,
-        total_supply,
-        divisible,
-        AssetType::default(),
-        vec![],
-        None,
-    )
-    .expect("Asset cannot be created");
-
-    ticker
+    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(owner)
 }
 
 pub fn make_document() -> Document {

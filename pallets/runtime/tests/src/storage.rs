@@ -552,6 +552,7 @@ impl asset::Trait for TestStorage {
     type UnixTime = Timestamp;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AssetFn = Asset;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 

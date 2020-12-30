@@ -103,13 +103,10 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{
-        AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
-    },
+    asset::{AssetFnTrait, AssetName, AssetSubTrait, AssetType, FundingRoundName, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
-    identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
@@ -154,9 +151,7 @@ pub trait WeightInfo {
 
 /// The module's configuration trait.
 pub trait Trait:
-    frame_system::Trait
-    + BalancesTrait
-    + IdentityTrait
+    BalancesTrait
     + pallet_session::Trait
     + statistics::Trait
     + polymesh_contracts::Trait
@@ -184,6 +179,8 @@ pub trait Trait:
 
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<usize>;
+
+    type AssetFn: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
     type WeightInfo: WeightInfo;
 }
@@ -1217,7 +1214,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
+impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     fn _mint_from_sto(
         ticker: &Ticker,
         caller: T::AccountId,
@@ -1295,6 +1292,11 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
             identifiers,
             funding_round,
         )
+    }
+
+    #[inline]
+    fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+        Self::register_ticker(origin, ticker)
     }
 }
 

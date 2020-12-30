@@ -16,15 +16,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::exemption::*;
 
-use polymesh_common_utilities::{
-    benchs::user,
-    traits::asset::{AssetName, AssetType, Trait as AssetTrait},
-};
-use polymesh_primitives::{ticker::TICKER_LEN, Ticker};
+use polymesh_common_utilities::benchs::{make_asset, user};
 
 use frame_benchmarking::benchmarks;
 use frame_support::ensure;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 benchmarks! {
     _ {}
@@ -33,27 +29,12 @@ benchmarks! {
         let owner = user::<T>("owner", 0);
         let holder = user::<T>("holder", 0).did();
 
+        let ticker = make_asset::<T::Asset, T, T::Balance, T::AccountId, T::Origin>(&owner);
+        let holder_exp = holder.clone();
         let tm = 1u16;
-
-        // Create the asset.
-        let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap();
-        let name: AssetName = ticker.as_slice().into();
-        let total_supply: T::Balance = 1_000_000.into();
-
-
-        T::Asset::create_asset(
-            owner.origin().into(),
-            name,
-            ticker.clone(),
-            total_supply,
-            true,
-            AssetType::default(),
-            vec![],
-            None).expect("Asset cannot be created");
-
-    }: _(owner.origin(), ticker, tm, holder.clone(), true)
+    }: _(owner.origin(), ticker, tm, holder, true)
     verify {
-        let exemption_idx = (ticker, tm, holder);
+        let exemption_idx = (ticker, tm, holder_exp);
         ensure!(
             Module::<T>::exemption_list(&exemption_idx) == true,
             "Exemption list was not updated");

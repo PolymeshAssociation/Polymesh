@@ -88,7 +88,7 @@ use frame_support::{
 use pallet_identity as identity;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait,
+    asset::AssetFnTrait,
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -115,7 +115,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
     /// Weight details of all extrinsics
     type WeightInfo: WeightInfo;

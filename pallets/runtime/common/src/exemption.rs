@@ -22,8 +22,8 @@ use sp_std::prelude::*;
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
-    exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
+    asset::AssetFnTrait, balances::Trait as BalancesTrait, exemption::Trait as ExemptionTrait,
+    Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
 
@@ -32,10 +32,10 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
+pub trait Trait: BalancesTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
 }
 

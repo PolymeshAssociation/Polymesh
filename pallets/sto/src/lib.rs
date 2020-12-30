@@ -37,7 +37,7 @@ use pallet_settlement::{
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
-    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
+    traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
     with_transaction, CommonTrait,
 };
 

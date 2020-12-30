@@ -47,7 +47,7 @@
 use pallet_asset::checkpoint;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait,
+    asset::AssetFnTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -66,7 +66,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 /// The module's configuration trait.
 pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
 }
 
 /// A wrapper for a motion title.
