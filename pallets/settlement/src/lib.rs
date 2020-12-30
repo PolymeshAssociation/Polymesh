@@ -1393,7 +1393,9 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            Self::deposit_event(RawEvent::SchedulingFailed(Error::<T>::FailedToSchedule.into()));
+            Self::deposit_event(RawEvent::SchedulingFailed(
+                Error::<T>::FailedToSchedule.into(),
+            ));
         }
         Ok(())
     }

@@ -1956,14 +1956,16 @@ impl<T: Trait> Module<T> {
     ) -> RestrictionResult {
         // 4 byte selector of verify_transfer - 0xD9386E41
         let selector = hex!("D9386E41");
-        let balance = |did| T::Balance::encode(&match did {
-            None => 0.into(),
-            Some(did) => {
-                let scope_id = Self::scope_id_of(ticker, &did);
-                // Using aggregate balance instead of individual identity balance.
-                Self::aggregate_balance_of(ticker, &scope_id)
-            }
-        });
+        let balance = |did| {
+            T::Balance::encode(&match did {
+                None => 0.into(),
+                Some(did) => {
+                    let scope_id = Self::scope_id_of(ticker, &did);
+                    // Using aggregate balance instead of individual identity balance.
+                    Self::aggregate_balance_of(ticker, &scope_id)
+                }
+            })
+        };
         let balance_to = balance(to_did);
         let balance_from = balance(from_did);
         let encoded_to = Option::<IdentityId>::encode(&to_did);
@@ -2039,7 +2041,8 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        Ok(if !Self::check_granularity(&ticker, value) { // Granularity check
+        Ok(if !Self::check_granularity(&ticker, value) {
+            // Granularity check
             INVALID_GRANULARITY
         } else if from_portfolio.did == to_portfolio.did {
             INVALID_RECEIVER_DID
@@ -2120,18 +2123,27 @@ impl<T: Trait> Module<T> {
 
     /// Ensure asset `ticker` doesn't exist yet.
     fn ensure_asset_fresh(ticker: &Ticker) -> DispatchResult {
-        ensure!(!<Tokens<T>>::contains_key(ticker), Error::<T>::AssetAlreadyCreated);
+        ensure!(
+            !<Tokens<T>>::contains_key(ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
         Ok(())
     }
 
     /// Ensure `supply <= MAX_SUPPLY`.
     fn ensure_within_max_supply(supply: T::Balance) -> DispatchResult {
-        ensure!(supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
+        ensure!(
+            supply <= MAX_SUPPLY.into(),
+            Error::<T>::TotalSupplyAboveLimit
+        );
         Ok(())
     }
 
     /// Ensure ticker length is within limit per `config`.
-    fn ensure_ticker_length<U>(ticker: &Ticker, config: &TickerRegistrationConfig<U>) -> DispatchResult {
+    fn ensure_ticker_length<U>(
+        ticker: &Ticker,
+        config: &TickerRegistrationConfig<U>,
+    ) -> DispatchResult {
         ensure!(
             ticker.len() <= usize::try_from(config.max_ticker_length).unwrap_or_default(),
             Error::<T>::TickerTooLong

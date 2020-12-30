@@ -400,7 +400,10 @@ decl_module! {
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Ensure proposal with `hash` exists and has index `idx`.
-    fn ensure_proposal(hash: &T::Hash, idx: ProposalIndex) -> Result<PolymeshVotes<IdentityId, T::BlockNumber>, DispatchError> {
+    fn ensure_proposal(
+        hash: &T::Hash,
+        idx: ProposalIndex,
+    ) -> Result<PolymeshVotes<IdentityId, T::BlockNumber>, DispatchError> {
         let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
         ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
         Ok(voting)
