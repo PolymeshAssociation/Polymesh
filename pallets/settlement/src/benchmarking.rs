@@ -52,8 +52,6 @@ use sp_runtime::MultiSignature;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
-const MAX_COMPLIANCE_RESTRICTION: u32 = 45;
-const MAX_TRUSTED_ISSUER: u32 = 5;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
@@ -513,6 +511,7 @@ fn setup_affirm_instruction<T: Trait>(
         venue_id,
         settlement_type,
         None,
+        None,
         legs.clone(),
         portfolios_from,
     )
@@ -813,7 +812,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add and affirm instruction.
-        Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
+        Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
     }: _(origin, instruction_id, portfolios.clone())
     verify {
@@ -829,7 +828,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id: u64 = 1;
     }: reject_instruction(origin, instruction_id, portfolios.clone())
     verify {
@@ -857,7 +856,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
         let ticker = Ticker::try_from(vec![b'A'; 1 as usize].as_slice()).unwrap();
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
@@ -881,7 +880,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true)?;
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, legs.clone())?;
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
         let mut receipt_details = Vec::with_capacity(r as usize);
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
