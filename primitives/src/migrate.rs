@@ -21,6 +21,15 @@ use frame_support::storage::unhashed::kill_prefix;
 use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
 use sp_std::vec::Vec;
 
+/// A migration error type.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum MigrationError<T> {
+    /// Error during decodification of raw key.
+    DecodeKey(Vec<u8>),
+    /// Wrapper of the Error in the map function.
+    Map(T),
+}
+
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
 pub trait Migrate: Decode {
     /// The new type to migrate into.
@@ -116,21 +125,29 @@ pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
 }
 
 /// Decode, if possible, the keys of a double map,
-/// with K1 & K2 as keys, hashed with `H`, from `raw`.
-pub fn decode_double_key<H: ReversibleStorageHasher, K1: Decode, K2: Decode>(
+/// with K1 (hashed with `H1`) & K2 (hashed with `H2`) as keys from `raw`.
+pub fn decode_double_key<
+    H1: ReversibleStorageHasher,
+    K1: Decode,
+    H2: ReversibleStorageHasher,
+    K2: Decode,
+>(
     raw: &[u8],
 ) -> Option<(K1, K2)> {
-    let mut unhashed_key = H::reverse(&raw);
+    let mut unhashed_key = H1::reverse(&raw);
     let k1 = K1::decode(&mut unhashed_key).ok()?;
-    let mut raw_k2 = H::reverse(unhashed_key);
+    let mut raw_k2 = H2::reverse(unhashed_key);
     let k2 = K2::decode(&mut raw_k2).ok()?;
     Some((k1, k2))
 }
 
-/// Encode keys of a double map `k1` & `k2` using hasher `H`.
-pub fn encode_double_key<H: StorageHasher, K1: Encode, K2: Encode>(k1: K1, k2: K2) -> Vec<u8> {
-    let k1 = k1.using_encoded(H::hash);
-    let k2 = k2.using_encoded(H::hash);
+/// Encode keys of a double map `k1` (using hasher `H1) & `k2` (using hasher `H2`).
+pub fn encode_double_key<H1: StorageHasher, K1: Encode, H2: StorageHasher, K2: Encode>(
+    k1: K1,
+    k2: K2,
+) -> Vec<u8> {
+    let k1 = k1.using_encoded(H1::hash);
+    let k2 = k2.using_encoded(H2::hash);
     let k1 = k1.as_ref();
     let k2 = k2.as_ref();
     let mut key = Vec::with_capacity(k1.len() + k2.len());
@@ -143,13 +160,17 @@ pub fn encode_double_key<H: StorageHasher, K1: Encode, K2: Encode>(k1: K1, k2: K
 /// keys and values of type `KN1, KN2` + `V2` via `map`.
 /// The `map` function may fail, in which entries are dropped silently.
 /// The double map is located in `module::item`.
-/// This assumes that the hashers are all the same, which is the common case.
-pub fn migrate_double_map<V1, V2, H, K1, K2, KN1, KN2, F>(module: &[u8], item: &[u8], mut map: F)
-where
+/// `H1` and `H2` are the hashers used with `K1` and `K2` respectively.
+pub fn migrate_double_map<V1, V2, H1, K1, H2, K2, KN1, KN2, F>(
+    module: &[u8],
+    item: &[u8],
+    mut map: F,
+) where
     F: FnMut(K1, K2, V1) -> Option<(KN1, KN2, V2)>,
     V1: Decode,
     V2: Encode,
-    H: ReversibleStorageHasher,
+    H1: ReversibleStorageHasher,
+    H2: ReversibleStorageHasher,
     K1: Decode,
     K2: Decode,
     KN1: Encode,
@@ -160,12 +181,44 @@ where
         .collect::<Vec<(Vec<u8>, _)>>();
 
     for (key, value) in old_map.into_iter().filter_map(|(raw_key, value)| {
-        let (k1, k2) = decode_double_key::<H, _, _>(&raw_key)?;
+        let (k1, k2) = decode_double_key::<H1, _, H2, _>(&raw_key)?;
         let (kn1, kn2, value) = map(k1, k2, value)?;
-        Some((encode_double_key::<H, _, _>(kn1, kn2), value))
+        Some((encode_double_key::<H1, _, H2, _>(kn1, kn2), value))
     }) {
         put_storage_value(module, item, &key, value);
     }
+}
+
+/// Migrate the values of a double map indexed by keys `K1` and `K2`.
+/// The `map` function transform previous value `V1` into a `V2`.
+/// The double map is located in `module::item`.
+/// `H1` and `H2` are the hashers used with `K1` and `K2` respectively.
+///
+/// It is an optimization to avoid `collect` and it also allows the caller to manage errors during
+/// the migration.
+pub fn migrate_double_map_only_values<'a, V1, V2, H1, K1, H2, K2, F, E>(
+    module: &'a [u8],
+    item: &'a [u8],
+    f: F,
+) -> impl 'a + Iterator<Item = Result<(), MigrationError<E>>>
+where
+    F: 'a + Fn(K1, K2, V1) -> Result<V2, E>,
+    K1: Decode,
+    K2: Decode,
+    H1: ReversibleStorageHasher,
+    H2: ReversibleStorageHasher,
+    V1: 'a + Decode,
+    V2: Encode,
+    E: Encode + Decode,
+{
+    StorageIterator::<V1>::new(module, item).map(move |(raw_key, value)| {
+        let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
+            .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone().into()))?;
+        let new_value = f(k1, k2, value).map_err(|e| MigrationError::Map(e))?;
+        put_storage_value(module, item, &raw_key, new_value);
+
+        Ok(())
+    })
 }
 
 /// Kill a storage item from a module
