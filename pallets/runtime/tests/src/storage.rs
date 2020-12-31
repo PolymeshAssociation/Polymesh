@@ -555,6 +555,8 @@ impl asset::Trait for TestStorage {
 
 parameter_types! {
     pub const BlockRangeForTimelock: BlockNumber = 1000;
+    pub const MaxTargetIds: u32 = 10;
+    pub const MaxDidWhts: u32 = 10;
 }
 
 impl bridge::Trait for TestStorage {
@@ -567,6 +569,8 @@ impl bridge::Trait for TestStorage {
 
 impl corporate_actions::Trait for TestStorage {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;

@@ -702,6 +702,8 @@ impl IdentityTrait for Runtime {
 
 parameter_types! {
     pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
+    pub const MaxTargetIds: u32 = 1000;
+    pub const MaxDidWhts: u32 = 1000;
 }
 
 impl polymesh_contracts::Trait for Runtime {
@@ -712,6 +714,8 @@ impl polymesh_contracts::Trait for Runtime {
 
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
