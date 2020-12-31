@@ -125,6 +125,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+type Statistics<T> = pallet_statistics::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 
 pub trait WeightInfo {
@@ -732,7 +733,7 @@ decl_module! {
 
             // Update statistic info.
             // Using the aggregate balance to update the unique investor count.
-            <pallet_statistics::Module<T>>::update_transfer_stats(
+            Statistics::<T>::update_transfer_stats(
                 &ticker,
                 Some(Self::aggregate_balance_of(ticker, &scope_id)),
                 None,
@@ -1574,7 +1575,7 @@ impl<T: Trait> Module<T> {
         let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
         let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
         let token = <Tokens<T>>::get(ticker);
-        if <pallet_statistics::Module<T>>::verify_tm_restrictions(
+        if Statistics::<T>::verify_tm_restrictions(
             ticker,
             from_scope_id,
             to_scope_id,
@@ -1679,7 +1680,7 @@ impl<T: Trait> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        <pallet_statistics::Module<T>>::update_transfer_stats(
+        Statistics::<T>::update_transfer_stats(
             ticker,
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
@@ -1786,7 +1787,7 @@ impl<T: Trait> Module<T> {
             let scope_id = Self::scope_id_of(ticker, &to_did);
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
             // Using the aggregate balance to update the unique investor count.
-            <pallet_statistics::Module<T>>::update_transfer_stats(
+            Statistics::<T>::update_transfer_stats(
                 &ticker,
                 None,
                 Some(Self::aggregate_balance_of(ticker, &scope_id)),
@@ -1794,12 +1795,7 @@ impl<T: Trait> Module<T> {
             );
         } else {
             // Since the PIA does not have a scope claim yet, we assume this is their only identity
-            <pallet_statistics::Module<T>>::update_transfer_stats(
-                &ticker,
-                None,
-                Some(value),
-                value,
-            );
+            Statistics::<T>::update_transfer_stats(&ticker, None, Some(value), value);
         }
 
         let round = Self::funding_round(ticker);
@@ -2197,7 +2193,7 @@ impl<T: Trait> Module<T> {
         let mut is_valid = false;
         let mut is_invalid = false;
         let mut force_valid = false;
-        let current_holder_count = <pallet_statistics::Module<T>>::investor_count(ticker);
+        let current_holder_count = Statistics::<T>::investor_count(ticker);
         let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
             .into_iter()
             .filter(|tm| {
