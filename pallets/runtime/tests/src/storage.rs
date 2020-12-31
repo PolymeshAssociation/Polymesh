@@ -47,7 +47,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory, Ticker,
 };
-use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, exemption};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -126,8 +126,6 @@ impl_outer_event! {
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
-        voting<T>,
-        dividend<T>,
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
@@ -566,6 +564,8 @@ impl asset::Trait for TestStorage {
 
 parameter_types! {
     pub const BlockRangeForTimelock: BlockNumber = 1000;
+    pub const MaxTargetIds: u32 = 10;
+    pub const MaxDidWhts: u32 = 10;
 }
 
 impl bridge::Trait for TestStorage {
@@ -578,17 +578,14 @@ impl bridge::Trait for TestStorage {
 
 impl corporate_actions::Trait for TestStorage {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-}
-
-impl voting::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
 }
@@ -658,10 +655,6 @@ impl pallet_session::Trait for TestStorage {
     type Keys = MockSessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type WeightInfo = ();
-}
-
-impl dividend::Trait for TestStorage {
-    type Event = Event;
 }
 
 impl pips::Trait for TestStorage {

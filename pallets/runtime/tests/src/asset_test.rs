@@ -1028,14 +1028,14 @@ fn adding_removing_documents() {
             Document {
                 name: b"A".into(),
                 uri: b"www.a.com".into(),
-                content_hash: b"0x1".into(),
+                content_hash: [1u8; 64][..].try_into().unwrap(),
                 doc_type: Some(b"foo".into()),
                 filing_date: Some(42),
             },
             Document {
                 name: b"B".into(),
                 uri: b"www.b.com".into(),
-                content_hash: b"0x2".into(),
+                content_hash: [2u8; 64][..].try_into().unwrap(),
                 doc_type: None,
                 filing_date: None,
             },
