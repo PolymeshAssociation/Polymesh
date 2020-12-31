@@ -10,7 +10,19 @@
         "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
-        "DocumentHash": "Text",
+        "DocumentHash": {
+            "_enum": {
+                "None": "",
+                "H512": "[u8; 64]",
+                "H384": "[u8; 48]",
+                "H320": "[u8; 40]",
+                "H256": "[u8; 32]",
+                "H224": "[u8; 28]",
+                "H192": "[u8; 24]",
+                "H160": "[u8; 20]",
+                "H128": "[u8; 16]"
+            }
+        },
         "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
@@ -1113,6 +1125,17 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "AssetMigrationError": {
+            "_enum": { 
+                "AssetDocumentFail": "(Ticker, DocumentId)"
+            }
+        },
+        "MigrationError": {
+            "_enum": {
+                "DecodeKey": "Vec<u8>",
+                "Map": "AssetMigrationError"
+            }
         }
     },
     "rpc": {

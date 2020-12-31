@@ -26,10 +26,10 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
-pub use codec::{Compact, Decode, Encode};
-pub use sp_runtime::{
+use codec::{Decode, Encode};
+use sp_runtime::{
     generic,
-    traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
+    traits::{BlakeTwo256, IdentifyAccount, Verify},
     MultiSignature,
 };
 
@@ -214,8 +214,13 @@ pub use smart_extension::{
     SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
 
+/// Document hash
+pub mod document_hash;
+pub use document_hash::{DocumentHash, DocumentHashOld};
+
+/// Document types
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
+pub use document::{Document, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
