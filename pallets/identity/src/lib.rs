@@ -251,36 +251,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::{put_storage_value, StorageIterator};
-            use polymesh_primitives::{
-                identity::{IdentityWithRolesOld, IdentityWithRoles},
-                migrate::{migrate_map, Empty},
-            };
-            use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
-
             let storage_ver = StorageVersion::get();
-
-            storage_migrate_on!(storage_ver, 1, {
-                migrate_map::<LinkedKeyInfo, _>(
-                    b"identity",
-                    b"KeyToIdentityIds",
-                    |_| Empty
-                    );
-                // Migrate secondary key permissions to the new type
-                migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
-                    b"identity",
-                    b"DidRecords",
-                    |_| Empty
-                    );
-                // Remove roles from Identities
-                StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
-                    .drain()
-                    .map(|(key, old)|  (key, DidRecord {
-                        primary_key: old.primary_key,
-                        secondary_keys: old.secondary_keys,
-                    }))
-                .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
-            });
 
             storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
 
