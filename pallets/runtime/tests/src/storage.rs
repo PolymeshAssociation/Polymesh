@@ -47,7 +47,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, exemption};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -126,8 +126,6 @@ impl_outer_event! {
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
-        voting<T>,
-        dividend<T>,
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
@@ -583,11 +581,6 @@ impl exemption::Trait for TestStorage {
     type Asset = asset::Module<TestStorage>;
 }
 
-impl voting::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-}
-
 impl treasury::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
@@ -653,10 +646,6 @@ impl pallet_session::Trait for TestStorage {
     type Keys = MockSessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type WeightInfo = ();
-}
-
-impl dividend::Trait for TestStorage {
-    type Event = Event;
 }
 
 impl pips::Trait for TestStorage {
