@@ -518,9 +518,7 @@ decl_module! {
 
             // Check total supply here to avoid any later failure
             Self::ensure_create_asset_parameters(&ticker, total_supply)?;
-            if !divisible {
-                ensure!(Self::is_unit_multiple(total_supply), Error::<T>::InvalidTotalSupply);
-            }
+            ensure!(divisible || Self::is_unit_multiple(total_supply), Error::<T>::InvalidTotalSupply);
 
             // Ensure its registered by DID or at least expired, thus available.
             let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -674,7 +672,7 @@ decl_module! {
                 sender,
                 primary_did,
                 ..
-            } = Self::ensure_pia_with_custody(origin, ticker)?;
+            } = Self::ensure_pia_or_owner_with_custody(origin, ticker)?;
 
             Self::_mint(&ticker, sender, primary_did, value, Some(ProtocolOp::AssetIssue))
         }
@@ -693,7 +691,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) {
             // Ensure origin is PIA with custody and permissions for default portfolio.
-            let pia = Self::ensure_pia_with_custody(origin, ticker)?.primary_did;
+            let pia = Self::ensure_pia_or_owner_with_custody(origin, ticker)?.primary_did;
 
             Self::ensure_granular(&ticker, value)?;
 
@@ -1317,7 +1315,7 @@ impl<T: Trait> Module<T> {
         T::MaxNumberOfTMExtensionForAsset::get()
     }
 
-    fn ensure_pia_with_custody(
+    fn ensure_pia_or_owner_with_custody(
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
