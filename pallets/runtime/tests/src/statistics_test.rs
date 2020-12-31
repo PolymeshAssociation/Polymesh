@@ -2,12 +2,12 @@ use super::{
     storage::{make_account, make_account_with_scope, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics::{self as statistics, TransferManager};
 use polymesh_common_utilities::asset::AssetType;
-use polymesh_primitives::{PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_arithmetic::Permill;
 use sp_core::sr25519::Public;
 use sp_std::convert::TryFrom;
@@ -40,31 +40,25 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
 }
 
 #[track_caller]
-fn do_valid_transfer(ticker: &ticker, from: IdentityId, to: IdentityId, amount: u128) {
+fn do_valid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amount: u128) {
     assert_ok!(Asset::base_transfer(
         PortfolioId::default_portfolio(from),
         PortfolioId::default_portfolio(to),
-        ticker,
+        &ticker,
         amount
     ));
 }
 
 #[track_caller]
-fn ensure_invalid_transfer(
-    ticker: &ticker,
-    from: IdentityId,
-    to: IdentityId,
-    amount: u128,
-    error: Error,
-) {
+fn ensure_invalid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amount: u128) {
     assert_noop!(
         Asset::base_transfer(
             PortfolioId::default_portfolio(from),
             PortfolioId::default_portfolio(to),
-            ticker,
+            &ticker,
             amount
         ),
-        error
+        AssetError::InvalidTransfer
     );
 }
 
@@ -153,7 +147,7 @@ fn should_add_tm() {
 
         assert_noop!(add_tm(tms[0].clone()), Error::DuplicateTransferManager);
 
-        for tm in &tms[1..3u64] {
+        for tm in &tms[1..3] {
             assert_ok!(add_tm(tm.clone()));
         }
 
@@ -258,11 +252,13 @@ fn should_verify_tms() {
             do_valid_transfer(ticker, alice_did, bob_did, 10);
             assert_eq!(Statistic::investor_count(&ticker), 2);
             let add_tm = |tm| Statistic::add_transfer_manager(alice_signed.clone(), ticker, tm);
-            let add_ctm = |limit| add_tm(TransferManager::CountTransferManager(limit));
+            let add_ctm = |limit| {
+                add_tm(TransferManager::CountTransferManager(limit)).expect("Failed to add CTM")
+            };
             // Count TM attached with max investors limit reached already
             add_ctm(2);
             // Transfer that increases the investor count beyond the limit should fail
-            ensure_invalid_transfer(ticker, bob_did, char_did, 5, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, bob_did, char_did, 5);
             // Transfer that keeps the investor count the same should succeed
             do_valid_transfer(ticker, bob_did, alice_did, 1);
 
@@ -281,7 +277,7 @@ fn should_verify_tms() {
                 vec![alice_scope, dave_scope],
             );
             // Transfer should fail when receiver is exempted but not sender for CTM
-            ensure_invalid_transfer(ticker, bob_did, dave_did, 5, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, bob_did, dave_did, 5);
             // Transfer should succeed since sender is exempted
             do_valid_transfer(ticker, alice_did, char_did, 5);
 
@@ -299,17 +295,11 @@ fn should_verify_tms() {
             // Add ptm with max ownership limit of 50%
             assert_ok!(add_tm(ptm25.clone()));
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer(
-                ticker,
-                alice_did,
-                dave_did,
-                250_001,
-                AssetError::InvalidTransfer,
-            );
+            ensure_invalid_transfer(ticker, alice_did, dave_did, 250_001);
             // Transfer should succeed when under limit
             do_valid_transfer(ticker, alice_did, dave_did, 250_000);
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, alice_did, dave_did, 1);
 
             // Add charlie to exemption list
             add_exemption(ptm25, vec![char_scope]);
@@ -321,15 +311,9 @@ fn should_verify_tms() {
                 Permill::from_rational_approximation(3u32, 10u32)
             )));
             // Transfer should fail when dave is breaching the default limit
-            ensure_invalid_transfer(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, alice_did, dave_did, 1);
             // Transfer should fail when charlie is breaching the advanced limit
-            ensure_invalid_transfer(
-                ticker,
-                alice_did,
-                char_did,
-                50_000,
-                AssetError::InvalidTransfer,
-            );
+            ensure_invalid_transfer(ticker, alice_did, char_did, 50_000);
             // Transfer should succeed when charlie under advanced limit
             do_valid_transfer(ticker, alice_did, char_did, 25_000);
         });
