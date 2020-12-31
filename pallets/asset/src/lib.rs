@@ -101,7 +101,7 @@ use frame_system::ensure_root;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_statistics::{self as statistics, Counter};
+use pallet_statistics::Counter;
 use polymesh_common_utilities::{
     asset::{
         AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
@@ -158,7 +158,7 @@ pub trait Trait:
     + BalancesTrait
     + IdentityTrait
     + pallet_session::Trait
-    + statistics::Trait
+    + pallet_statistics::Trait
     + polymesh_contracts::Trait
     + pallet_portfolio::Trait
 {
@@ -732,7 +732,7 @@ decl_module! {
 
             // Update statistic info.
             // Using the aggregate balance to update the unique investor count.
-            <statistics::Module<T>>::update_transfer_stats(
+            <pallet_statistics::Module<T>>::update_transfer_stats(
                 &ticker,
                 Some(Self::aggregate_balance_of(ticker, &scope_id)),
                 None,
@@ -1574,7 +1574,7 @@ impl<T: Trait> Module<T> {
         let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
         let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
         let token = <Tokens<T>>::get(ticker);
-        if <statistics::Module<T>>::verify_tm_restrictions(
+        if <pallet_statistics::Module<T>>::verify_tm_restrictions(
             ticker,
             from_scope_id,
             to_scope_id,
@@ -1679,7 +1679,7 @@ impl<T: Trait> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        <statistics::Module<T>>::update_transfer_stats(
+        <pallet_statistics::Module<T>>::update_transfer_stats(
             ticker,
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
@@ -1786,7 +1786,7 @@ impl<T: Trait> Module<T> {
             let scope_id = Self::scope_id_of(ticker, &to_did);
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
             // Using the aggregate balance to update the unique investor count.
-            <statistics::Module<T>>::update_transfer_stats(
+            <pallet_statistics::Module<T>>::update_transfer_stats(
                 &ticker,
                 None,
                 Some(Self::aggregate_balance_of(ticker, &scope_id)),
@@ -1794,7 +1794,12 @@ impl<T: Trait> Module<T> {
             );
         } else {
             // Since the PIA does not have a scope claim yet, we assume this is their only identity
-            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(value), value);
+            <pallet_statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(value),
+                value,
+            );
         }
 
         let round = Self::funding_round(ticker);
@@ -2036,7 +2041,6 @@ impl<T: Trait> Module<T> {
     /// RPC: Function allows external users to know wether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
-        _sender: T::AccountId,
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -2181,7 +2185,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Compute the result of the transfer
+    /// Compute the result of the transfer. It is currently not used but might be at a later date.
     pub fn compute_transfer_result_using_se(
         ticker: &Ticker,
         extension_caller: T::AccountId,
@@ -2193,7 +2197,7 @@ impl<T: Trait> Module<T> {
         let mut is_valid = false;
         let mut is_invalid = false;
         let mut force_valid = false;
-        let current_holder_count = <statistics::Module<T>>::investor_count(ticker);
+        let current_holder_count = <pallet_statistics::Module<T>>::investor_count(ticker);
         let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
             .into_iter()
             .filter(|tm| {

@@ -1773,9 +1773,8 @@ fn test_can_transfer_rpc() {
             // Provide scope claim for sender and receiver.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
-            let unsafe_can_transfer_result = |sender_account, from_did, to_did, amount| {
+            let unsafe_can_transfer_result = |from_did, to_did, amount| {
                 Asset::unsafe_can_transfer(
-                    sender_account,
                     None,
                     PortfolioId::default_portfolio(from_did),
                     None,
@@ -1788,18 +1787,13 @@ fn test_can_transfer_rpc() {
 
             // case 1: When passed invalid granularity
             assert_eq!(
-                unsafe_can_transfer_result(AccountKeyring::Alice.public(), alice_did, bob_did, 100),
+                unsafe_can_transfer_result(alice_did, bob_did, 100),
                 INVALID_GRANULARITY
             );
 
             // Case 2: when from_did balance is 0
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Bob.public(),
-                    bob_did,
-                    alice_did,
-                    100 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(bob_did, alice_did, 100 * currency::ONE_UNIT),
                 ERC1400_INSUFFICIENT_BALANCE
             );
 
@@ -1836,12 +1830,7 @@ fn test_can_transfer_rpc() {
             // 6.1: pause the transfer
             assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Alice.public(),
-                    alice_did,
-                    bob_did,
-                    20 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(alice_did, bob_did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFERS_HALTED
             );
             assert_ok!(Asset::unfreeze(alice_signed.clone(), ticker));
@@ -1856,12 +1845,7 @@ fn test_can_transfer_rpc() {
             ));
 
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Bob.public(),
-                    alice_did,
-                    bob_did,
-                    20 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(alice_did, bob_did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFER_SUCCESS
             );
         })

@@ -22,7 +22,6 @@ use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCou
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
-use pallet_statistics as statistics;
 use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
@@ -753,10 +752,11 @@ impl group::Trait<group::Instance2> for Runtime {
 parameter_types! {
     pub const MaxTransferManagersPerAsset: u32 = 3;
 }
-impl statistics::Trait for Runtime {
+impl pallet_statistics::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
 }
 
 impl pallet_utility::Trait for Runtime {
@@ -866,7 +866,7 @@ construct_runtime!(
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage, Event},
+        Statistic: pallet_statistics::{Module, Call, Storage, Event},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
@@ -1215,7 +1215,7 @@ impl_runtime_apis! {
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
-            sender: AccountId,
+            _sender: AccountId,
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
             to_custodian: Option<IdentityId>,
@@ -1223,7 +1223,7 @@ impl_runtime_apis! {
             ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+            Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
@@ -1317,6 +1317,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
+            add_benchmark!(params, batches, pallet_statistics, Statistic);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

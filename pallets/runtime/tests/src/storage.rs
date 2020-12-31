@@ -516,6 +516,7 @@ impl statistics::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
     type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
 }
 
 parameter_types! {

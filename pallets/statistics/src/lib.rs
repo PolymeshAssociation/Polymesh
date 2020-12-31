@@ -14,11 +14,13 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get,
+    traits::Get, weights::Weight,
 };
 use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
 use polymesh_primitives::{IdentityId, ScopeId, Ticker};
@@ -48,6 +50,16 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
     /// Maximum transfer managers that can be enabled for an Asset
     type MaxTransferManagersPerAsset: Get<u32>;
+    /// Weights for extrinsics
+    type WeightInfo: WeightInfo;
+}
+
+/// Weight info for extrinsics
+pub trait WeightInfo {
+    fn add_transfer_manager() -> Weight;
+    fn remove_transfer_manager() -> Weight;
+    fn add_exempted_entities(i: u32) -> Weight;
+    fn remove_exempted_entities(i: u32) -> Weight;
 }
 
 decl_storage! {
@@ -87,7 +99,7 @@ decl_module! {
         /// * `DuplicateTransferManager` if `new_transfer_manager` is already enabled for the ticker.
         /// * `TransferManagersLimitReached` if the `ticker` already has max TMs attached
         ///
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_transfer_manager()]
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
@@ -110,7 +122,7 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `TransferManagerMissing` if `asset_compliance` contains multiple entries with the same `requirement_id`.
         ///
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_transfer_manager()]
         pub fn remove_transfer_manager(origin, ticker: Ticker, transfer_manager: TransferManager) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
@@ -133,7 +145,7 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_exempted_entities(exempted_entities.len() as u32)]
         pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
@@ -154,7 +166,7 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_exempted_entities(entities.len() as u32)]
         pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             let ticker_tm = (ticker.clone(), transfer_manager.clone());
