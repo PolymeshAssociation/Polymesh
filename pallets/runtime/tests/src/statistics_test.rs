@@ -138,7 +138,7 @@ fn should_add_tm() {
         create_token(token_name, ticker, AccountKeyring::Alice.public());
 
         let tms = (0..3u64)
-            .map(|i| TransferManager::CountTransferManager(i))
+            .map(TransferManager::CountTransferManager)
             .collect::<Vec<_>>();
 
         let add_tm = |tm| Statistic::add_transfer_manager(token_owner_signed.clone(), ticker, tm);
