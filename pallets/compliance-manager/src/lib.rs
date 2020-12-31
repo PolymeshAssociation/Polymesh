@@ -163,17 +163,10 @@ pub struct ComplianceRequirementResult {
 
 impl From<ComplianceRequirement> for ComplianceRequirementResult {
     fn from(requirement: ComplianceRequirement) -> Self {
+        let from_conds = |conds: Vec<_>| conds.into_iter().map(ConditionResult::from).collect();
         Self {
-            sender_conditions: requirement
-                .sender_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
-            receiver_conditions: requirement
-                .receiver_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
+            sender_conditions: from_conds(requirement.sender_conditions),
+            receiver_conditions: from_conds(requirement.receiver_conditions),
             id: requirement.id,
             result: true,
         }
