@@ -71,7 +71,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns, const_option)]
+#![feature(or_patterns, const_option, bool_to_option)]
 
 pub mod types;
 pub use types::{
@@ -198,27 +198,29 @@ decl_storage! {
         build(|config: &GenesisConfig<T>| {
             use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
 
-            SYSTEMATIC_ISSUERS.iter()
-                .for_each(|s| <Module<T>>::register_systematic_id(*s));
+            SYSTEMATIC_ISSUERS
+                .iter()
+                .copied()
+                .for_each(<Module<T>>::register_systematic_id);
 
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
-                .inspect(|iss| debug::info!( "Add Systematic CDD Claims to {}", iss))
+                .inspect(|iss| debug::info!("Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
-            <Module<T>>::add_systematic_cdd_claims( &id_with_cdd, SystematicIssuers::CDDProvider);
+            <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for &(ref primary_account_id, issuer, did, investor_uid, expiry) in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new( did.clone(), investor_uid));
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did.clone(), investor_uid));
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
-                <Module<T>>::base_add_claim( did, cdd_claim, issuer, expiry);
+                <Module<T>>::base_add_claim(did, cdd_claim, issuer, expiry);
             }
 
             for &(ref secondary_account_id, did) in &config.secondary_keys {
@@ -234,7 +236,7 @@ decl_storage! {
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_secondary_keys(iter::once(sk.clone()));
                 });
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, [sk.into()].to_vec()));
+                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
             }
         });
     }
@@ -269,7 +271,7 @@ decl_module! {
             origin,
             uid: InvestorUid,
             secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
-        ) -> DispatchResult {
+        ) {
             let sender = ensure_signed(origin)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
@@ -277,8 +279,6 @@ decl_module! {
             let did = Self::get_identity(&sender).ok_or_else(|| "DID Self-register failed")?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
             Self::base_add_claim(did, cdd_claim, did, None);
-
-            Ok(())
         }
 
         /// Register `target_account` with a new Identity.
@@ -342,17 +342,17 @@ decl_module! {
             cdd: IdentityId,
             disable_from: T::Moment,
             expiry: Option<T::Moment>,
-        ) -> DispatchResult {
+        ) {
             ensure_root(origin)?;
 
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(
                 T::CddServiceProviders::get_valid_members_at(now).contains(&cdd),
-                Error::<T>::UnAuthorizedCddProvider);
+                Error::<T>::UnAuthorizedCddProvider
+            );
 
             T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
             Self::deposit_event(RawEvent::CddClaimsInvalidated(cdd, disable_from));
-            Ok(())
         }
 
         /// Removes specified secondary keys of a DID if present.
@@ -363,7 +363,7 @@ decl_module! {
         /// # Weight
         /// `950_000_000 + 60_000 * signers_to_remove.len()`
         #[weight = <T as Trait>::WeightInfo::remove_secondary_keys(signers_to_remove.len() as u32)]
-        pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
+        pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) {
             let PermissionedCallOriginData {
                 sender,
                 primary_did: did,
@@ -372,45 +372,36 @@ decl_module! {
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // Remove links and get all authorization IDs per signer.
-            let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
-                // Unlink each of the given secondary keys from `did`.
-                if let Signatory::Account(key) = &signer {
-                    // Unlink multisig signers.
-                    if T::MultiSig::is_multisig(key) {
-                        if !T::Balances::total_balance(key).is_zero() {
-                            return None;
+            signers_to_remove
+                .iter()
+                .flat_map(|signer| {
+                    use either::Either::{Left, Right};
+
+                    // Unlink each of the given secondary keys from `did`.
+                    if let Signatory::Account(key) = &signer {
+                        // Unlink multisig signers.
+                        if T::MultiSig::is_multisig(key) {
+                            if !T::Balances::total_balance(key).is_zero() {
+                                return Left(iter::empty());
+                            }
+                            // Unlink multisig signers from the identity.
+                            Self::unlink_multisig_signers_from_did(
+                                T::MultiSig::get_key_signers(key),
+                                did
+                            );
                         }
-                        // Unlink multisig signers from the identity.
-                        Self::unlink_multisig_signers_from_did(
-                            T::MultiSig::get_key_signers(key),
-                            did
-                        );
+                        // Unlink the secondary account key.
+                        Self::unlink_account_key_from_did(key, did);
                     }
-                    // Unlink the secondary account key.
-                    Self::unlink_account_key_from_did(key, did);
-                }
 
-                // It returns the list of `auth_id` from `did`.
-                let auth_ids = <Authorizations<T>>::iter_prefix_values(signer)
-                    .filter_map(|authorization| {
-                        if authorization.authorized_by == did {
-                            Some(authorization.auth_id)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                Some((signer, auth_ids))
-            })
-            .collect::<Vec<_>>();
-
-            // Remove authorizations
-            signer_and_auth_id_list.into_iter().for_each(|(signer, auth_ids)| {
-                auth_ids.into_iter().for_each(|auth_id| {
-                    Self::unsafe_remove_auth(signer, auth_id, &did, true);
-                });
-            });
+                    // Compute list of `auth_id` from `did`.
+                    Right(
+                        <Authorizations<T>>::iter_prefix_values(signer)
+                            .filter_map(move |auth| (auth.authorized_by == did).then_some((signer, auth.auth_id)))
+                    )
+                })
+                // Remove authorizations.
+                .for_each(|(signer, auth_id)| Self::unsafe_remove_auth(signer, auth_id, &did, true));
 
             // Update secondary keys at Identity.
             <DidRecords<T>>::mutate(did, |record| {
@@ -418,7 +409,6 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
-            Ok(())
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
