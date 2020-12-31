@@ -148,7 +148,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::add_exempted_entities(exempted_entities.len() as u32)]
         pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
-            let ticker_tm = (ticker.clone(), transfer_manager.clone());
+            let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &exempted_entities {
                 ExemptEntities::insert(&ticker_tm, entity, true);
             }
@@ -169,7 +169,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::remove_exempted_entities(entities.len() as u32)]
         pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
-            let ticker_tm = (ticker.clone(), transfer_manager.clone());
+            let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &entities {
                 ExemptEntities::remove(&ticker_tm, entity);
             }
@@ -261,10 +261,7 @@ impl<T: Trait> Module<T> {
                 || sender_balance == value
                 || receiver_balance > 0u32.into()
                 || Self::entity_exempt(
-                    (
-                        ticker.clone(),
-                        TransferManager::CountTransferManager(max_count)
-                    ),
+                    (*ticker, TransferManager::CountTransferManager(max_count)),
                     sender
                 ),
             Error::<T>::InvalidTransfer
@@ -286,7 +283,7 @@ impl<T: Trait> Module<T> {
             new_percentage <= max_percentage
                 || Self::entity_exempt(
                     (
-                        ticker.clone(),
+                        *ticker,
                         TransferManager::PercentageTransferManager(max_percentage)
                     ),
                     receiver
@@ -303,9 +300,9 @@ decl_event!(
         TransferManagerAdded(IdentityId, Ticker, TransferManager),
         /// An existing transfer manager was removed.
         TransferManagerRemoved(IdentityId, Ticker, TransferManager),
-        /// ScopeIds were added to the exemption list.
+        /// `ScopeId`s were added to the exemption list.
         ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-        /// ScopeIds were removed from the exemption list.
+        /// `ScopeId`s were removed from the exemption list.
         ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
     }
 );

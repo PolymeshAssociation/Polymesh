@@ -39,29 +39,33 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
     ));
 }
 
-macro_rules! do_valid_transfer {
-    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
-        assert_ok!(Asset::base_transfer(
-            PortfolioId::default_portfolio($from),
-            PortfolioId::default_portfolio($to),
-            &$ticker,
-            $amount
-        ));
-    };
+#[track_caller]
+fn do_valid_transfer(ticker: &ticker, from: IdentityId, to: IdentityId, amount: u128) {
+    assert_ok!(Asset::base_transfer(
+        PortfolioId::default_portfolio(from),
+        PortfolioId::default_portfolio(to),
+        ticker,
+        amount
+    ));
 }
 
-macro_rules! ensure_invalid_transfer {
-    ($ticker:expr, $from:expr, $to:expr, $amount:expr, $error:expr) => {
-        assert_err!(
-            Asset::base_transfer(
-                PortfolioId::default_portfolio($from),
-                PortfolioId::default_portfolio($to),
-                &$ticker,
-                $amount
-            ),
-            $error
-        );
-    };
+#[track_caller]
+fn ensure_invalid_transfer(
+    ticker: &ticker,
+    from: IdentityId,
+    to: IdentityId,
+    amount: u128,
+    error: Error,
+) {
+    assert_noop!(
+        Asset::base_transfer(
+            PortfolioId::default_portfolio(from),
+            PortfolioId::default_portfolio(to),
+            ticker,
+            amount
+        ),
+        error
+    );
 }
 
 #[test]
@@ -139,40 +143,24 @@ fn should_add_tm() {
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         create_token(token_name, ticker, AccountKeyring::Alice.public());
 
-        let mut tms = Vec::new();
+        let tms = (0..3u64)
+            .map(|i| TransferManager::CountTransferManager(i))
+            .collect::<Vec<_>>();
 
-        for i in 0..3u64 {
-            tms.push(TransferManager::CountTransferManager(i));
-        }
-
-        assert_ok!(Statistic::add_transfer_manager(
-            token_owner_signed.clone(),
-            ticker,
-            tms[0].clone()
-        ));
+        let add_tm = |tm| Statistic::add_transfer_manager(token_owner_signed.clone(), ticker, tm);
+        assert_ok!(add_tm(tms[0].clone()));
         assert_eq!(Statistic::transfer_managers(ticker), [tms[0].clone()]);
 
-        assert_noop!(
-            Statistic::add_transfer_manager(token_owner_signed.clone(), ticker, tms[0].clone()),
-            Error::DuplicateTransferManager
-        );
+        assert_noop!(add_tm(tms[0].clone()), Error::DuplicateTransferManager);
 
-        for i in 1..3u64 {
-            assert_ok!(Statistic::add_transfer_manager(
-                token_owner_signed.clone(),
-                ticker,
-                tms[i as usize].clone()
-            ));
+        for tm in &tms[1..3u64] {
+            assert_ok!(add_tm(tm.clone()));
         }
 
         assert_eq!(Statistic::transfer_managers(ticker), tms);
 
         assert_noop!(
-            Statistic::add_transfer_manager(
-                token_owner_signed.clone(),
-                ticker,
-                TransferManager::CountTransferManager(1000000)
-            ),
+            add_tm(TransferManager::CountTransferManager(1000000)),
             Error::TransferManagersLimitReached
         );
     });
@@ -267,21 +255,16 @@ fn should_verify_tms() {
             assert_eq!(Statistic::investor_count(&ticker), 1);
 
             // No TM attached, transfer should be valid
-            do_valid_transfer!(ticker, alice_did, bob_did, 10);
+            do_valid_transfer(ticker, alice_did, bob_did, 10);
             assert_eq!(Statistic::investor_count(&ticker), 2);
-            let add_ctm = |limit| {
-                assert_ok!(Statistic::add_transfer_manager(
-                    alice_signed.clone(),
-                    ticker,
-                    TransferManager::CountTransferManager(limit)
-                ));
-            };
+            let add_tm = |tm| Statistic::add_transfer_manager(alice_signed.clone(), ticker, tm);
+            let add_ctm = |limit| add_tm(TransferManager::CountTransferManager(limit));
             // Count TM attached with max investors limit reached already
             add_ctm(2);
             // Transfer that increases the investor count beyond the limit should fail
-            ensure_invalid_transfer!(ticker, bob_did, char_did, 5, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, bob_did, char_did, 5, AssetError::InvalidTransfer);
             // Transfer that keeps the investor count the same should succeed
-            do_valid_transfer!(ticker, bob_did, alice_did, 1);
+            do_valid_transfer(ticker, bob_did, alice_did, 1);
 
             let add_exemption = |tm, scopes| {
                 assert_ok!(Statistic::add_exempted_entities(
@@ -298,9 +281,9 @@ fn should_verify_tms() {
                 vec![alice_scope, dave_scope],
             );
             // Transfer should fail when receiver is exempted but not sender for CTM
-            ensure_invalid_transfer!(ticker, bob_did, dave_did, 5, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, bob_did, dave_did, 5, AssetError::InvalidTransfer);
             // Transfer should succeed since sender is exempted
-            do_valid_transfer!(ticker, alice_did, char_did, 5);
+            do_valid_transfer(ticker, alice_did, char_did, 5);
 
             // Bump CTM to 10
             assert_ok!(Statistic::remove_transfer_manager(
@@ -314,48 +297,40 @@ fn should_verify_tms() {
                 Permill::from_rational_approximation(1u32, 4u32),
             );
             // Add ptm with max ownership limit of 50%
-            assert_ok!(Statistic::add_transfer_manager(
-                alice_signed.clone(),
-                ticker,
-                ptm25.clone()
-            ));
+            assert_ok!(add_tm(ptm25.clone()));
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer!(
+            ensure_invalid_transfer(
                 ticker,
                 alice_did,
                 dave_did,
                 250_001,
-                AssetError::InvalidTransfer
+                AssetError::InvalidTransfer,
             );
             // Transfer should succeed when under limit
-            do_valid_transfer!(ticker, alice_did, dave_did, 250_000);
+            do_valid_transfer(ticker, alice_did, dave_did, 250_000);
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer!(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
 
             // Add charlie to exemption list
             add_exemption(ptm25, vec![char_scope]);
             // Transfer should succeed since receiver is exempted
-            do_valid_transfer!(ticker, alice_did, char_did, 250_001);
+            do_valid_transfer(ticker, alice_did, char_did, 250_001);
 
             // Advanced scenario where charlie is limited at 30% but others at 25%
-            assert_ok!(Statistic::add_transfer_manager(
-                alice_signed.clone(),
-                ticker,
-                TransferManager::PercentageTransferManager(Permill::from_rational_approximation(
-                    3u32, 10u32
-                ))
-            ));
+            assert_ok!(add_tm(TransferManager::PercentageTransferManager(
+                Permill::from_rational_approximation(3u32, 10u32)
+            )));
             // Transfer should fail when dave is breaching the default limit
-            ensure_invalid_transfer!(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
+            ensure_invalid_transfer(ticker, alice_did, dave_did, 1, AssetError::InvalidTransfer);
             // Transfer should fail when charlie is breaching the advanced limit
-            ensure_invalid_transfer!(
+            ensure_invalid_transfer(
                 ticker,
                 alice_did,
                 char_did,
                 50_000,
-                AssetError::InvalidTransfer
+                AssetError::InvalidTransfer,
             );
             // Transfer should succeed when charlie under advanced limit
-            do_valid_transfer!(ticker, alice_did, char_did, 25_000);
+            do_valid_transfer(ticker, alice_did, char_did, 25_000);
         });
 }

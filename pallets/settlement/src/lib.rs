@@ -1173,7 +1173,7 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            // TODO: Fix this
+            // TODO: Fix this. The weight needs to be benchmarked and updated. Using a placeholder right now.
             weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(500_000_000)
         };
 

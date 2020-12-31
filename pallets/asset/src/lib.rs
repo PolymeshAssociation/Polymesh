@@ -1782,7 +1782,7 @@ impl<T: Trait> Module<T> {
         let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
-        if <ScopeIdOf>::contains_key(ticker, &to_did) {
+        if ScopeIdOf::contains_key(ticker, &to_did) {
             let scope_id = Self::scope_id_of(ticker, &to_did);
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
             // Using the aggregate balance to update the unique investor count.
