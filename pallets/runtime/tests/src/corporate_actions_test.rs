@@ -1,6 +1,7 @@
 use super::{
     storage::{
-        provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, TestStorage, User,
+        provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, MaxDidWhts,
+        MaxTargetIds, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -373,6 +374,26 @@ fn not_holder_works() {
 }
 
 #[test]
+fn set_default_targets_limited() {
+    test(|ticker, [owner, ..]| {
+        let mut ids = TargetIdentities {
+            treatment: Exclude,
+            identities: (0..=MaxTargetIds::get() as u128)
+                .map(IdentityId::from)
+                .collect(),
+        };
+
+        let set = |ids| CA::set_default_targets(owner.origin(), ticker, ids);
+        let ca = |ids| basic_ca(owner, ticker, Some(ids), None, None);
+        assert_noop!(set(ids.clone()), Error::TooManyTargetIds);
+        assert_noop!(ca(ids.clone()), Error::TooManyTargetIds);
+        ids.identities.pop();
+        assert_ok!(set(ids.clone()));
+        assert_ok!(ca(ids));
+    });
+}
+
+#[test]
 fn set_default_targets_works() {
     test(|ticker, [owner, foo, bar]| {
         transfer(&ticker, owner, foo);
@@ -403,6 +424,34 @@ fn set_default_withholding_tax_works() {
         assert_eq!(CA::default_withholding_tax(ticker), P0);
         assert_ok!(CA::set_default_withholding_tax(owner.origin(), ticker, P50));
         assert_eq!(CA::default_withholding_tax(ticker), P50);
+    });
+}
+
+#[test]
+fn set_did_withholding_tax_limited() {
+    test(|ticker, [owner, ..]| {
+        let tax = Tax::one();
+        let max = MaxDidWhts::get() as u128;
+        let ids = (0..max).map(IdentityId::from);
+        let next = IdentityId::from(max);
+        let last = IdentityId::from(max - 1);
+
+        // Test in CA creation.
+        let mut whts = ids.clone().map(|did| (did, tax)).collect::<Vec<_>>();
+        let ca = |whts| basic_ca(owner, ticker, None, None, Some(whts));
+        assert_ok!(ca(whts.clone()));
+        whts.push((next, tax)); // Intentionally using `next` to test pre-dedup failure.
+        assert_noop!(ca(whts), Error::TooManyDidTaxes);
+
+        // Test in asset level defaults.
+        let set = |did, tax| CA::set_did_withholding_tax(owner.origin(), ticker, did, tax);
+        for did in ids {
+            assert_ok!(set(did, Some(tax)));
+        }
+        assert_noop!(set(next, Some(tax)), Error::TooManyDidTaxes);
+        assert_ok!(set(last, Some(Tax::zero())));
+        assert_ok!(set(last, None));
+        assert_ok!(set(next, Some(tax)));
     });
 }
 
