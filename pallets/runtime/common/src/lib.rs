@@ -18,7 +18,6 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
-pub mod exemption;
 pub mod impls;
 
 pub use cdd_check::CddChecker;
