@@ -2226,13 +2226,17 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         pallet_name: &PalletName,
         function_name: &DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
+        //ALICE_KEY calls ALICE_DID a key of BOB_DID
+        //who = ALICE_KEY
         if <KeyToIdentityIds<T>>::contains_key(who) {
             let primary_did = <KeyToIdentityIds<T>>::get(who);
+            //primary_did = ALICE_DID
             if !<DidRecords<T>>::contains_key(&primary_did) {
                 // The DID record is missing.
                 return None;
             }
             let did_record = <DidRecords<T>>::get(&primary_did);
+            //did_record = ALICE_DID
             if who != &did_record.primary_key {
                 // `who` can be a secondary key.
                 //
@@ -2244,6 +2248,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                 }
                 let maybe_current_did_signer =
                     Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
+                //maybe_current_did_signer = BOB_DID
                 return did_record
                     .secondary_keys
                     .into_iter()

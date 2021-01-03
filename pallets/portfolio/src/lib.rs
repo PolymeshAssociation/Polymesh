@@ -436,7 +436,7 @@ impl<T: Trait> Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio: PortfolioId,
     ) -> DispatchResult {
-        // Default portfolio are always allowed. Custom portfolios must be permissioned.
+        // If `sk` is None, caller is primary key and has full permissions.
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(

@@ -118,7 +118,7 @@ pub trait Trait<Balance, Account, Origin> {
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     /// Get the PIA of a token.
-    fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     /// Transfer an asset from one portfolio to another.
     fn base_transfer(
         from_portfolio: PortfolioId,

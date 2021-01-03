@@ -547,7 +547,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
@@ -580,7 +580,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         let slot = &mut None;
         conditions.iter().all(|condition| {
@@ -593,7 +593,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         condition: &Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
         slot: &mut Option<Vec<TrustedIssuer>>,
     ) -> bool {
         let context = Self::fetch_context(did, ticker, slot, &condition, primary_issuance_agent);
@@ -607,7 +607,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut [ConditionResult],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         conditions.iter_mut().fold(true, |result, condition| {
             let cond = &condition.condition;
@@ -732,7 +732,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);

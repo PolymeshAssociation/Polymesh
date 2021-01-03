@@ -449,7 +449,7 @@ decl_module! {
                 .ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(
-                <Asset<T>>::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)? == did ||fundraiser.creator == did,
+                <Asset<T>>::primary_issuance_agent(&offering_asset) == did || fundraiser.creator == did,
                 Error::<T>::Unauthorized
             );
 
