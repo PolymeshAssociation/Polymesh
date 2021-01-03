@@ -853,7 +853,7 @@ construct_runtime!(
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>} = 37,
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
-        Statistic: statistics::{Module, Call, Storage} = 39,
+        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: utility::{Module, Call, Storage, Event} = 41,
         Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
@@ -1304,7 +1304,8 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
-            add_benchmark!(params, batches, pallet_statistics, Statistic);
+            add_benchmark!(params, batches, pallet_statistics, Statistics);
+            add_benchmark!(params, batches, pallet_permissions, Permissions);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

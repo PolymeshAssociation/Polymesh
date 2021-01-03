@@ -843,7 +843,7 @@ construct_runtime!(
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>} = 37,
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
-        Statistic: statistics::{Module, Call, Storage} = 39,
+        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: utility::{Module, Call, Storage, Event} = 41,
         Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
