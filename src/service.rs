@@ -557,7 +557,7 @@ pub fn general_chain_ops(
 }
 
 type LightStorage = sc_client_db::light::LightStorage<Block>;
-type LightBackend = sc_light::backend::Backend<LightStorage, polymesh_primitives::BlakeTwo256>;
+type LightBackend = sc_light::backend::Backend<LightStorage, BlakeTwo256>;
 type LightClient<R, E> = sc_service::TLightClient<Block, R, E>;
 type LightStateBackend = sc_client_api::StateBackendFor<LightBackend, Block>;
 type LightPool<R, E> =
