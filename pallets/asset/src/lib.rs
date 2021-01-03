@@ -114,10 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
-    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
-    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -291,7 +291,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
@@ -352,7 +352,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -391,6 +391,13 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
+/// Errors of migration on this pallets.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum AssetMigrationError {
+    /// Migration of document fails on the given ticker and document id.
+    AssetDocumentFail(Ticker, DocumentId),
+}
+
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -403,26 +410,21 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
 
             // Migrate `AssetDocuments`.
-            use frame_support::Blake2_128Concat;
-            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
-            use sp_std::collections::btree_map::BTreeMap;
+            use frame_support::{Blake2_128Concat, Twox64Concat};
+            use polymesh_primitives::{ migrate::{migrate_double_map_only_values, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
-            storage_migrate_on!(storage_ver, 1, {
-                let mut id_map = BTreeMap::<_, u32>::new();
-                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Asset", b"AssetDocuments",
-                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                        let count = id_map.entry(ticker).or_default();
-                        let id = DocumentId(mem::replace(count, *count + 1));
-                        Some((ticker, id, doc.migrate(name)?))
+            storage_migrate_on!(storage_ver, 2, {
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
+                    b"Asset", b"AssetDocuments",
+                    |t: Ticker, id: DocumentId, doc: DocumentOld|
+                        doc.migrate(Empty).ok_or_else(|| AssetMigrationError::AssetDocumentFail(t, id)))
+                .for_each(|doc_migrate_status| {
+                    if let Err(migrate_err) = doc_migrate_status {
+                        Self::deposit_event( RawEvent::MigrationFailure(migrate_err));
                     }
-                    );
-                for (ticker, id) in id_map {
-                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
-                }
+                })
             });
-
 
             1_000
         }
@@ -511,11 +513,16 @@ decl_module! {
             ensure!( funding_round.as_ref().map_or(0, |name| name.len()) <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
 
             let PermissionedCallOriginData {
+                sender,
                 primary_did: did,
-                secondary_key,
-                ..
+                secondary_key
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            // Check total supply here to avoid any later failure
             Self::ensure_create_asset_parameters(&ticker, total_supply)?;
+            if !divisible {
+                ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
+            }
 
             // Ensure its registered by DID or at least expired, thus available.
             let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -524,8 +531,9 @@ decl_module! {
                 TickerRegistrationStatus::Available => true,
             };
 
-            if !divisible {
-                ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
+            // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
+            if available {
+                Self::ensure_ticker_ascii(&ticker)?;
             }
 
             let token_did = Identity::<T>::get_token_did(&ticker)?;
@@ -568,7 +576,7 @@ decl_module! {
 
             let token = SecurityToken {
                 name,
-                total_supply,
+                total_supply: Zero::zero(),
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
@@ -578,9 +586,7 @@ decl_module! {
             // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
             // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
             // those data points will get added in to the system whenever asset issuer/ primary issuance agent
-            // have InvestorUniqueness claim.
-            <BalanceOf<T>>::insert(ticker, did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
+            // have InvestorUniqueness claim. This also applies when issuing assets.
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
@@ -601,27 +607,12 @@ decl_module! {
             // Add funding round name.
             <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
-            // Update the investor count of an asset.
-            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);
-
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
-            <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
-            Self::deposit_event(RawEvent::Transfer(
-                did,
-                ticker,
-                PortfolioId::default(),
-                user_default_portfolio,
-                total_supply
-            ));
-            Self::deposit_event(RawEvent::Issued(
-                did,
-                ticker,
-                did,
-                total_supply,
-                Self::funding_round(ticker),
-                total_supply,
-                Some(did),
-            ));
+
+            // Mint total supply to PIA
+            if total_supply > Zero::zero() {
+                Self::_mint(&ticker, sender, did, total_supply, None)?;
+            }
             Ok(())
         }
 
@@ -1150,6 +1141,8 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        /// Migration error event.
+        MigrationFailure(MigrationError<AssetMigrationError>),
     }
 }
 
@@ -1173,6 +1166,8 @@ decl_error! {
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,
+        /// The ticker has non-ascii-encoded parts.
+        TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
         /// An invalid total supply.
@@ -1307,7 +1302,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     }
 }
 
-impl<T: Trait> AssetSubTrait for Module<T> {
+impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1339,6 +1334,11 @@ impl<T: Trait> AssetSubTrait for Module<T> {
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
         <ScopeIdOf>::insert(ticker, target_did, of);
         Ok(())
+    }
+
+    /// Returns balance for a given scope id and target DID.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> T::Balance {
+        Self::balance_of_at_scope(scope_id, target)
     }
 }
 
@@ -1481,6 +1481,19 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
+    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
+        let bytes = ticker.as_slice();
+        // Find first byte not printable ASCII.
+        let good = bytes
+            .iter()
+            .position(|b| !matches!(b, 32..=126))
+            // Everything after must be a NULL byte.
+            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
+        ensure!(good, Error::<T>::TickerNotAscii);
+        Ok(())
+    }
+
     /// Before registering a ticker, do some checks, and return the expiry moment.
     fn ticker_registration_checks(
         ticker: &Ticker,
@@ -1488,6 +1501,8 @@ impl<T: Trait> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
+        Self::ensure_ticker_ascii(&ticker)?;
+
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
             Error::<T>::AssetAlreadyCreated
@@ -1556,7 +1571,11 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
-        if !Identity::<T>::verify_iu_claim(*ticker, to_portfolio.did) {
+        if !Identity::<T>::verify_iu_claims_for_transfer(
+            *ticker,
+            to_portfolio.did,
+            from_portfolio.did,
+        ) {
             return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
         }
 
@@ -2066,7 +2085,11 @@ impl<T: Trait> Module<T> {
             return Ok(INVALID_SENDER_DID);
         }
 
-        if !Identity::<T>::verify_iu_claim(*ticker, to_portfolio.did) {
+        if !Identity::<T>::verify_iu_claims_for_transfer(
+            *ticker,
+            to_portfolio.did,
+            from_portfolio.did,
+        ) {
             return Ok(SCOPE_CLAIM_MISSING);
         }
 

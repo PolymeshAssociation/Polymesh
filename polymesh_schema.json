@@ -10,7 +10,19 @@
         "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
-        "DocumentHash": "Text",
+        "DocumentHash": {
+            "_enum": {
+                "None": "",
+                "H512": "[u8; 64]",
+                "H384": "[u8; 48]",
+                "H320": "[u8; 40]",
+                "H256": "[u8; 32]",
+                "H224": "[u8; 28]",
+                "H192": "[u8; 24]",
+                "H160": "[u8; 20]",
+                "H128": "[u8; 16]"
+            }
+        },
         "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
@@ -459,35 +471,12 @@
             "condition": "Condition",
             "result": "bool"
         },
-        "STO": {
-            "beneficiary_did": "IdentityId",
-            "cap": "Balance",
-            "sold": "Balance",
-            "rate": "u64",
-            "start_date": "Moment",
-            "end_date": "Moment",
-            "active": "bool"
-        },
-        "Investment": {
-            "investor_did": "IdentityId",
-            "amount_paid": "Balance",
-            "assets_purchased": "Balance",
-            "last_purchase_date": "Moment"
-        },
         "SimpleTokenRecord": {
             "ticker": "Ticker",
             "total_supply": "Balance",
             "owner_did": "IdentityId"
         },
         "FeeOf": "Balance",
-        "Dividend": {
-            "amount": "Balance",
-            "active": "bool",
-            "matures_at": "Option<Moment>",
-            "expires_at": "Option<Moment>",
-            "payout_currency": "Option<Ticker>",
-            "checkpoint_id": "u64"
-        },
         "TargetIdAuthorization": {
             "target_id": "IdentityId",
             "nonce": "u64",
@@ -520,12 +509,6 @@
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
             "choices": "Vec<ChoiceTitle>"
-        },
-        "Ballot": {
-            "checkpoint_id": "u64",
-            "voting_start": "Moment",
-            "voting_end": "Moment",
-            "motions": "Vec<Motion>"
         },
         "BallotTitle": "Text",
         "BallotMeta": {
@@ -987,7 +970,8 @@
             "status": "InstructionStatus",
             "settlement_type": "SettlementType",
             "created_at": "Option<Moment>",
-            "valid_from": "Option<Moment>"
+            "trade_date": "Option<Moment>",
+            "value_date": "Option<Moment>"
         },
         "Leg": {
             "from": "PortfolioId",
@@ -1036,11 +1020,22 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserTier": {
+            "total": "Balance",
+            "price": "Balance",
+            "remaining": "Balance"
+        },
         "Fundraiser": {
-            "raise_token": "Ticker",
-            "remaining_amount": "Balance",
-            "price_per_token": "Balance",
-            "venue_id": "u64"
+            "creator": "IdentityId",
+            "offering_portfolio": "PortfolioId",
+            "offering_asset": "Ticker",
+            "raising_portfolio": "PortfolioId",
+            "raising_asset": "Ticker",
+            "tiers": "Vec<FundraiserTier>",
+            "venue_id": "u64",
+            "start": "Moment",
+            "end": "Option<Moment>",
+            "frozen": "bool"
         },
         "VenueType": {
             "_enum": [
@@ -1073,7 +1068,7 @@
         "CAKind": {
             "_enum": [
                 "PredictableBenefit",
-                "UnpredictableBenfit",
+                "UnpredictableBenefit",
                 "IssuerNotice",
                 "Reorganization",
                 "Other"
@@ -1130,6 +1125,17 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "AssetMigrationError": {
+            "_enum": { 
+                "AssetDocumentFail": "(Ticker, DocumentId)"
+            }
+        },
+        "MigrationError": {
+            "_enum": {
+                "DecodeKey": "Vec<u8>",
+                "Map": "AssetMigrationError"
+            }
         }
     },
     "rpc": {

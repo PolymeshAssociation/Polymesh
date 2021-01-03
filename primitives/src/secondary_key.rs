@@ -13,18 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    self as polymesh_primitives, DispatchableName, IdentityId, PalletName, PortfolioId,
-    SubsetRestriction, Ticker,
-};
+use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     iter,
-    prelude::Vec,
 };
 
 /// Asset permissions.
@@ -207,13 +202,12 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId: Encode + Decode> {
     /// The account or identity that is the signatory of this key.
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
-    #[migrate_from(Vec<runtime_upgrade::Permission>)]
     pub permissions: Permissions,
 }
 
@@ -322,37 +316,6 @@ where
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.signer.cmp(&other.signer)
-    }
-}
-
-/// Runtime upgrade definitions.
-#[allow(missing_docs)]
-pub mod runtime_upgrade {
-    use crate::migrate::{Empty, Migrate};
-    use codec::Decode;
-    use sp_std::vec::Vec;
-
-    /// Old permission type for runtime upgrade purposes.
-    #[derive(Decode, PartialEq)]
-    pub enum Permission {
-        Full,
-        Admin,
-        Operator,
-        SpendFunds,
-        Custom(u8),
-    }
-
-    impl Migrate for Vec<Permission> {
-        type Into = super::Permissions;
-        type Context = Empty;
-
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            Some(if self.contains(&Permission::Full) {
-                super::Permissions::default()
-            } else {
-                super::Permissions::empty()
-            })
-        }
     }
 }
 

@@ -14,7 +14,15 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 mod user;
+use crate::traits::identity::Trait;
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;
 pub use user_builder::{uid_from_name_and_idx, UserBuilder};
+
+pub fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default()
+        .generate_did()
+        .seed(u)
+        .build(prefix)
+}

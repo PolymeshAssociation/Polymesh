@@ -193,6 +193,7 @@ fn basic_settlement() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
@@ -260,6 +261,7 @@ fn create_and_affirm_instruction() {
                     alice_signed.clone(),
                     venue_counter,
                     SettlementType::SettleOnAffirmation,
+                    None,
                     None,
                     vec![Leg {
                         from: PortfolioId::default_portfolio(alice_did),
@@ -340,6 +342,7 @@ fn overdraft_failure() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
@@ -409,6 +412,7 @@ fn token_swap() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 legs.clone()
             ));
 
@@ -443,7 +447,8 @@ fn token_swap() {
                 status: InstructionStatus::Pending,
                 settlement_type: SettlementType::SettleOnAffirmation,
                 created_at: Some(Timestamp::get()),
-                valid_from: None,
+                trade_date: None,
+                value_date: None,
             };
             assert_eq!(
                 Settlement::instruction_details(instruction_counter),
@@ -724,6 +729,7 @@ fn claiming_receipt() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 legs.clone()
             ));
 
@@ -758,7 +764,8 @@ fn claiming_receipt() {
                 status: InstructionStatus::Pending,
                 settlement_type: SettlementType::SettleOnAffirmation,
                 created_at: Some(Timestamp::get()),
-                valid_from: None,
+                trade_date: None,
+                value_date: None,
             };
             assert_eq!(
                 Settlement::instruction_details(instruction_counter),
@@ -1161,6 +1168,7 @@ fn settle_on_block() {
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number),
                 None,
+                None,
                 legs.clone()
             ));
             assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
@@ -1196,7 +1204,8 @@ fn settle_on_block() {
                 status: InstructionStatus::Pending,
                 settlement_type: SettlementType::SettleOnBlock(block_number),
                 created_at: Some(Timestamp::get()),
-                valid_from: None,
+                trade_date: None,
+                value_date: None,
             };
             assert_eq!(
                 Settlement::instruction_details(instruction_counter),
@@ -1425,6 +1434,7 @@ fn failed_execution() {
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number),
                 None,
+                None,
                 legs.clone()
             ));
             assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
@@ -1460,7 +1470,8 @@ fn failed_execution() {
                 status: InstructionStatus::Pending,
                 settlement_type: SettlementType::SettleOnBlock(block_number),
                 created_at: Some(Timestamp::get()),
-                valid_from: None,
+                trade_date: None,
+                value_date: None,
             };
             assert_eq!(
                 Settlement::instruction_details(instruction_counter),
@@ -1659,6 +1670,7 @@ fn venue_filtering() {
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number),
                 None,
+                None,
                 legs.clone()
             ));
             assert_ok!(Settlement::set_venue_filtering(
@@ -1671,6 +1683,7 @@ fn venue_filtering() {
                     alice_signed.clone(),
                     venue_counter,
                     SettlementType::SettleOnBlock(block_number),
+                    None,
                     None,
                     legs.clone()
                 ),
@@ -1685,6 +1698,7 @@ fn venue_filtering() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number + 1),
+                None,
                 None,
                 legs.clone(),
                 default_portfolio_vec(alice_did)
@@ -1751,37 +1765,15 @@ fn basic_fuzzing() {
             ];
 
             for i in 0..10 {
-                let mut token_name = [123u8 + u8::try_from(i * 4 + 0).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 0],
-                    AccountKeyring::Alice.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 1).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 1],
-                    AccountKeyring::Bob.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 2).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 2],
-                    AccountKeyring::Charlie.public(),
-                );
-
-                token_name = [123u8 + u8::try_from(i * 4 + 3).unwrap()];
-                tickers.push(Ticker::try_from(&token_name[..]).unwrap());
-                create_token(
-                    &token_name[..],
-                    tickers[i * 4 + 3],
-                    AccountKeyring::Dave.public(),
-                );
+                let mut create = |x: usize, key: AccountKeyring| {
+                    let tn = [b'!' + u8::try_from(i * 4 + x).unwrap()];
+                    tickers.push(Ticker::try_from(&tn[..]).unwrap());
+                    create_token(&tn, tickers[i * 4 + x], key.public());
+                };
+                create(0, AccountKeyring::Alice);
+                create(1, AccountKeyring::Bob);
+                create(2, AccountKeyring::Charlie);
+                create(3, AccountKeyring::Dave);
             }
 
             let block_number = System::block_number() + 1;
@@ -1862,6 +1854,7 @@ fn basic_fuzzing() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number),
+                None,
                 None,
                 legs
             ));
@@ -2025,6 +2018,7 @@ fn claim_multiple_receipts_during_authorization() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
+                None,
                 None,
                 legs.clone()
             ));
@@ -2234,12 +2228,14 @@ fn overload_settle_on_block() {
                     venue_counter,
                     SettlementType::SettleOnBlock(block_number),
                     None,
+                    None,
                     legs.clone()
                 ));
                 assert_ok!(Settlement::add_instruction(
                     alice_signed.clone(),
                     venue_counter,
                     SettlementType::SettleOnBlock(block_number + 1),
+                    None,
                     None,
                     legs.clone()
                 ));
@@ -2483,6 +2479,7 @@ fn test_weights_for_settlement_transaction() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 legs.clone(),
             )
             .get_dispatch_info()
@@ -2492,6 +2489,7 @@ fn test_weights_for_settlement_transaction() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
+                None,
                 None,
                 legs.clone()
             ));
@@ -2572,6 +2570,7 @@ fn cross_portfolio_settlement() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
+                None,
                 None,
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice_did),
@@ -2705,6 +2704,7 @@ fn multiple_portfolio_settlement() {
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
+                None,
                 None,
                 vec![
                     Leg {
@@ -2924,6 +2924,7 @@ fn multiple_custodian_settlement() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 vec![
                     Leg {
                         from: PortfolioId::user_portfolio(alice_did, alice_num),
@@ -3130,6 +3131,7 @@ fn reject_instruction() {
                     alice_signed.clone(),
                     venue_counter,
                     SettlementType::SettleOnAffirmation,
+                    None,
                     None,
                     vec![Leg {
                         from: PortfolioId::default_portfolio(alice_did),

@@ -93,6 +93,9 @@
 #![feature(bool_to_option)]
 #![feature(crate_visibility_modifier)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 pub mod ballot;
 pub mod distribution;
 
@@ -102,6 +105,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
     weights::Weight,
 };
 use frame_system::ensure_root;
@@ -305,16 +309,17 @@ pub struct CAId {
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
     fn set_max_details_length() -> Weight;
-
     fn reset_caa() -> Weight;
-    fn set_default_targets(num_targets: u32) -> Weight;
+    fn set_default_targets(i: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
-    fn set_did_withholding_tax() -> Weight;
-
-    fn initiate_corporate_action() -> Weight;
-    fn link_ca_doc(num_docs: u32) -> Weight;
-    fn remove_ca() -> Weight;
-    fn change_record_date() -> Weight;
+    fn set_did_withholding_tax(existing_overrides: u32) -> Weight;
+    fn initiate_corporate_action_use_defaults(whts: u32, target_ids: u32) -> Weight;
+    fn initiate_corporate_action_provided(whts: u32, target_ids: u32) -> Weight;
+    fn link_ca_doc(docs: u32) -> Weight;
+    fn remove_ca_with_ballot() -> Weight;
+    fn remove_ca_with_dist() -> Weight;
+    fn change_record_date_with_ballot() -> Weight;
+    fn change_record_date_with_dist() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -325,8 +330,20 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
         + From<distribution::Event<Self>>
         + Into<<Self as frame_system::Trait>::Event>;
 
+    /// Max number of DID specified in `TargetIdentities`.
+    type MaxTargetIds: Get<u32>;
+
+    /// Max number of per-DID withholding tax overrides.
+    type MaxDidWhts: Get<u32>;
+
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
+
+    /// Weight information for extrinsics in the corporate ballot pallet.
+    type BallotWeightInfo: ballot::WeightInfo;
+
+    /// Weight information for extrinsics in the capital distribution pallet.
+    type DistWeightInfo: distribution::WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -439,9 +456,12 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
+
+            Self::ensure_target_ids_limited(&targets)?;
 
             // Dedup + sort any DIDs in `targets` for `O(log n)` containment check later.
             let new = targets.dedup();
@@ -479,19 +499,24 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
-        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
+        /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
+        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DidWithholdingTax::mutate(ticker, |whts| {
+            DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
                 match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
                     (Some(tax), Ok(idx)) => whts[idx] = (taxed_did, tax),
-                    (Some(tax), Err(idx)) => whts.insert(idx, (taxed_did, tax)),
+                    (Some(tax), Err(idx)) => {
+                        Self::ensure_did_whts_limited(whts.len() + 1)?;
+                        whts.insert(idx, (taxed_did, tax))
+                    }
                     (None, Ok(idx)) => drop(whts.remove(idx)),
                     (None, Err(_)) => {}
                 }
-            });
+                Ok(())
+            })?;
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
         }
 
@@ -501,6 +526,7 @@ decl_module! {
         /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
+        /// - `decl_date` of CA bring initialized.
         /// - `record_date`, if any, to calculate the impact of this CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
         /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
@@ -516,9 +542,17 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
+        /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
+        /// - `TooManyTargetIds` if `targets.unwrap().identities.len() > T::MaxTargetIds::get()`.
+        /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(1, 1)
+            .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+            ))
+        ]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
@@ -546,13 +580,20 @@ decl_module! {
             let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
             let id = CAId { ticker, local_id };
 
-            // Ensure there are no duplicates in withholding tax overrides.
+            // Ensure there are no duplicates in withholding tax overrides
+            // and that we're within the limit.
             let mut withholding_tax = withholding_tax;
             if let Some(wt) = &mut withholding_tax {
                 let before = wt.len();
+                Self::ensure_did_whts_limited(before)?;
                 wt.sort_unstable_by_key(|&(did, _)| did);
                 wt.dedup_by_key(|&mut (did, _)| did);
                 ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
+            }
+
+            // Ensure target ids are limited in number if provided.
+            if let Some(ref targets) = targets {
+                Self::ensure_target_ids_limited(targets)?;
             }
 
             // Declaration date must be <= now.
@@ -635,7 +676,8 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
-        #[weight = <T as Trait>::WeightInfo::remove_ca()]
+        #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
+            .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -674,7 +716,8 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::change_record_date()]
+        #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
+            .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -757,6 +800,10 @@ decl_error! {
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,
+        /// Too many withholding tax overrides were specified.
+        TooManyDidTaxes,
+        /// Too many identities in `TargetIdentities` were specified.
+        TooManyTargetIds,
         /// On CA creation, a checkpoint ID was provided which doesn't exist.
         NoSuchCheckpointId,
         /// A CA with the given `CAId` did not exist.
@@ -794,6 +841,24 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure number of identities in `TargetIdentities` are limited.
+    fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
+        ensure!(
+            targets.identities.len() <= T::MaxTargetIds::get() as usize,
+            Error::<T>::TooManyTargetIds
+        );
+        Ok(())
+    }
+
+    /// Ensure number of per-DID withholding tax overrides are limited.
+    fn ensure_did_whts_limited(len: usize) -> DispatchResult {
+        ensure!(
+            len <= T::MaxDidWhts::get() as usize,
+            Error::<T>::TooManyDidTaxes
+        );
+        Ok(())
+    }
+
     // Ensure that `record_date <= start`.
     crate fn ensure_record_date_before_start(
         ca: &CorporateAction,

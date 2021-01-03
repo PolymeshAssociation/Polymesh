@@ -3,7 +3,7 @@ use super::ext_builder::{
     TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+use confidential_identity::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{Currency, Imbalance, OnInitialize, OnUnbalanced},
@@ -47,7 +47,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, exemption};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -105,6 +105,7 @@ impl_outer_dispatch! {
         pallet_scheduler::Scheduler,
         pallet_settlement::Settlement,
         checkpoint::Checkpoint,
+        pallet_portfolio::Portfolio,
     }
 }
 
@@ -125,8 +126,6 @@ impl_outer_event! {
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
-        voting<T>,
-        dividend<T>,
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
@@ -141,6 +140,38 @@ impl_outer_event! {
         corporate_ballots<T>,
         capital_distributions<T>,
         checkpoint<T>,
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct User {
+    pub ring: AccountKeyring,
+    pub did: IdentityId,
+}
+
+impl User {
+    pub fn new(ring: AccountKeyring) -> Self {
+        let did = register_keyring_account(ring).unwrap();
+        Self { ring, did }
+    }
+
+    pub fn existing(ring: AccountKeyring) -> Self {
+        let did = get_identity_id(ring).unwrap();
+        User { ring, did }
+    }
+
+    pub fn balance(self, balance: u128) -> Self {
+        use frame_support::traits::Currency as _;
+        Balances::make_free_balance_be(&self.acc(), balance);
+        self
+    }
+
+    pub fn acc(&self) -> Public {
+        self.ring.public()
+    }
+
+    pub fn origin(&self) -> Origin {
+        Origin::signed(self.acc())
     }
 }
 
@@ -376,6 +407,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -388,6 +420,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl group::Trait<group::Instance2> for TestStorage {
@@ -399,6 +432,7 @@ impl group::Trait<group::Instance2> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
@@ -524,6 +558,8 @@ impl asset::Trait for TestStorage {
 
 parameter_types! {
     pub const BlockRangeForTimelock: BlockNumber = 1000;
+    pub const MaxTargetIds: u32 = 10;
+    pub const MaxDidWhts: u32 = 10;
 }
 
 impl bridge::Trait for TestStorage {
@@ -534,15 +570,14 @@ impl bridge::Trait for TestStorage {
 
 impl corporate_actions::Trait for TestStorage {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 impl exemption::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-}
-
-impl voting::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
 }
@@ -612,10 +647,6 @@ impl pallet_session::Trait for TestStorage {
     type Keys = MockSessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type WeightInfo = ();
-}
-
-impl dividend::Trait for TestStorage {
-    type Event = Event;
 }
 
 impl pips::Trait for TestStorage {
@@ -886,4 +917,59 @@ pub fn provide_scope_claim_to_multiple_parties(
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+#[macro_export]
+macro_rules! assert_last_event {
+    ($event:pat) => {
+        assert_last_event!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(matches!(
+            &*System::events(),
+            [.., EventRecord {
+                event: $event,
+                ..
+            }]
+            if $cond
+        ));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_exists {
+    ($event:pat) => {
+        assert_event_exists!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_doesnt_exist {
+    ($event:pat) => {
+        assert_event_doesnt_exist!($event, true);
+    };
+    ($event:pat, $cond:expr) => {
+        assert!(System::events().iter().all(|e| {
+            !matches!(
+                e,
+                EventRecord {
+                    event: $event,
+                    ..
+                }
+                if $cond
+            )
+        }));
+    };
 }
