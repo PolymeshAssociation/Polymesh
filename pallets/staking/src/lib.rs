@@ -1200,7 +1200,7 @@ enum Releases {
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V5_0_0
+        Releases::V6_0_0
     }
 }
 
@@ -2009,15 +2009,9 @@ decl_module! {
                 ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
                 // Ensures that the passed commission is within the cap.
                 ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
-
-                PermissionedIdentity::mutate(&id, |pref| {
-                    if let Some(p) = pref {
-                        p.running_count += 1
-                    }
-                });
+                PermissionedIdentity::insert(id, PermissionedIdentityPrefs {intended_count: id_pref.intended_count, running_count: id_pref.running_count + 1});
                 <Nominators<T>>::remove(stash);
                 <Validators<T>>::insert(stash, prefs);
-
             }
 
         }
