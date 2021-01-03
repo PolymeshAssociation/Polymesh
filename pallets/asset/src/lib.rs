@@ -672,7 +672,7 @@ decl_module! {
                 sender,
                 primary_did,
                 ..
-            } = Self::ensure_pia_with_custody(origin, ticker)?;
+            } = Self::ensure_pia_with_custody_and_permissions(origin, ticker)?;
 
             Self::_mint(&ticker, sender, primary_did, value, Some(ProtocolOp::AssetIssue))
         }
@@ -691,7 +691,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) {
             // Ensure origin is PIA with custody and permissions for default portfolio.
-            let pia = Self::ensure_pia_with_custody(origin, ticker)?.primary_did;
+            let pia = Self::ensure_pia_with_custody_and_permissions(origin, ticker)?.primary_did;
 
             Self::ensure_granular(&ticker, value)?;
 
@@ -1213,8 +1213,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     /// Returns the PIA if it's assigned or else the owner of the token
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
-        token_details
-            .primary_issuance_agent
+        token_details.primary_issuance_agent
     }
 
     /// Returns the PIA of the token
@@ -1314,7 +1313,7 @@ impl<T: Trait> Module<T> {
         T::MaxNumberOfTMExtensionForAsset::get()
     }
 
-    fn ensure_pia_with_custody(
+    fn ensure_pia_with_custody_and_permissions(
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
@@ -1329,6 +1328,8 @@ impl<T: Trait> Module<T> {
 
         // Ensure that the caller has relevant portfolio permissions
         let portfolio = PortfolioId::default_portfolio(data.primary_did);
+
+        // Check that the PIA has not assigned custody of their default portfolio, and that caller is permissioned
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
         Ok(data)
     }
@@ -1722,11 +1723,8 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `did` is either the token owner, or the assigned PIA
     /// Returns the PIA
-    pub fn ensure_pia(
-        ticker: &Ticker,
-        did: IdentityId,
-    ) -> Result<IdentityId, DispatchError> {
-        let pia = Self::token_details(&ticker).primary_issuance_agent;        
+    pub fn ensure_pia(ticker: &Ticker, did: IdentityId) -> Result<IdentityId, DispatchError> {
+        let pia = Self::token_details(&ticker).primary_issuance_agent;
         if did == pia {
             return Ok(pia);
         }

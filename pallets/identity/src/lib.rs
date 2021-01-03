@@ -2226,47 +2226,65 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         pallet_name: &PalletName,
         function_name: &DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
-        //ALICE_KEY calls ALICE_DID a key of BOB_DID
-        //who = ALICE_KEY
+        // `who` is the original origin of the call (including forwarded calls from an identity acting as a key)
+        // context::current_identity is the target did against which the calling key must have permissions
+        // if `who`'s identity does not match context::current_identity we have a forwarded call, in this case the
+        // key for which we check permissions is `who`'s identity rather than `who`
         if <KeyToIdentityIds<T>>::contains_key(who) {
-            let primary_did = <KeyToIdentityIds<T>>::get(who);
-            //primary_did = ALICE_DID
-            if !<DidRecords<T>>::contains_key(&primary_did) {
+            let key_did = <KeyToIdentityIds<T>>::get(who);
+            if !<DidRecords<T>>::contains_key(&key_did) {
                 // The DID record is missing.
                 return None;
             }
-            let did_record = <DidRecords<T>>::get(&primary_did);
-            //did_record = ALICE_DID
-            if who != &did_record.primary_key {
-                // `who` can be a secondary key.
-                //
-                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
-                // extrinsics.
-                if Self::is_did_frozen(&primary_did) {
-                    // `primary_did` has its secondary keys frozen.
-                    return None;
+
+            if let Some(target_did) = Context::current_identity::<Self>() {
+                let target_did_record = <DidRecords<T>>::get(&target_did);
+
+                if target_did == key_did {
+                    // In this case, we check the permissions of `who` in `target_did` as it is a direct call
+                    if who != &target_did_record.primary_key {
+                        // `who` can be a secondary key.
+                        //
+                        // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
+                        // extrinsics.
+                        if Self::is_did_frozen(&target_did) {
+                            // `target_did` has its secondary keys frozen.
+                            return None;
+                        }
+                        return target_did_record
+                            .secondary_keys
+                            .into_iter()
+                            .find(|sk| sk.signer == Signatory::Account(who.clone()))
+                            .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+                            .map(|sk| AccountCallPermissionsData {
+                                primary_did: target_did,
+                                secondary_key: Some(sk),
+                            });
+                    }
+                } else {
+                    // In this case, we check the permissions of `who` in `target_did` as it is a direct call
+                    // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
+                    // extrinsics.
+                    if Self::is_did_frozen(&target_did) {
+                        // `target_did` has its secondary keys frozen.
+                        return None;
+                    }
+                    return target_did_record
+                        .secondary_keys
+                        .into_iter()
+                        .find(|sk| sk.signer.clone() == Signatory::Identity(key_did))
+                        .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+                        .map(|sk| AccountCallPermissionsData {
+                            primary_did: target_did,
+                            secondary_key: Some(sk),
+                        });
                 }
-                let maybe_current_did_signer =
-                    Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
-                //maybe_current_did_signer = BOB_DID
-                return did_record
-                    .secondary_keys
-                    .into_iter()
-                    .find(|sk| {
-                        sk.signer == Signatory::Account(who.clone())
-                            || Some(sk.signer.clone()) == maybe_current_did_signer
-                    })
-                    .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
-                    .map(|sk| AccountCallPermissionsData {
-                        primary_did,
-                        secondary_key: Some(sk),
-                    });
+                // `who` is the primary key.
+                return Some(AccountCallPermissionsData {
+                    primary_did: target_did,
+                    secondary_key: None,
+                });
             }
-            // `who` is the primary key.
-            return Some(AccountCallPermissionsData {
-                primary_did,
-                secondary_key: None,
-            });
         }
         // `who` doesn't have an identity.
         None
