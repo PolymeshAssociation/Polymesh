@@ -2002,14 +2002,16 @@ decl_module! {
             // Polymesh-Note - Make sure stash has valid permissioned identity.
             if let Some(id) = <Identity<T>>::get_identity(stash) {
                 // Ensure stash's identity is be permissioned.
-                let id_pref = Self::permissioned_identity(id)
+                let mut id_pref = Self::permissioned_identity(id)
                     .ok_or_else(|| Error::<T>::StashIdentityNotPermissioned)?;
                 // Ensure identity doesn't run more validators than the intended count.
                 ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                 ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
                 // Ensures that the passed commission is within the cap.
                 ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
-                PermissionedIdentity::insert(id, PermissionedIdentityPrefs {intended_count: id_pref.intended_count, running_count: id_pref.running_count + 1});
+                // Updates the running count.
+                id_pref.running_count += 1;
+                PermissionedIdentity::insert(id, id_pref);
                 <Nominators<T>>::remove(stash);
                 <Validators<T>>::insert(stash, prefs);
             }
@@ -2211,7 +2213,7 @@ decl_module! {
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
             let pref = match intended_count {
                 Some(count) => {
-                    // Maximum allowed validator count is always less than the 2/3 of `validator_count()`.
+                    // Maximum allowed validator count is always less than the `MaxValidatorPerIdentity of validator_count()`.
                     ensure!(count < Self::get_allowed_validator_count(), Error::<T>::IntendedCountIsExceedingConsensusLimit);
                     PermissionedIdentityPrefs::new(count)
                 },
@@ -2722,14 +2724,14 @@ decl_module! {
             Self::deposit_event(RawEvent::SlashingAllowedForChanged(slashing_switch));
         }
 
-        /// Scale the intended validator count for a given DID.
+        /// Increase the intended validator count for a given DID.
         ///
         /// # Arguments
         /// * origin which must be the required origin for adding a potential validator.
         /// * identity to add as a validator.
         /// * additional amount by which `intended_count` gets increased.
         #[weight = 150_000_000]
-        pub fn scale_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) -> DispatchResult {
+        pub fn increase_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) -> DispatchResult {
             T::RequiredAddOrigin::ensure_origin(origin)?;
             PermissionedIdentity::try_mutate(&identity, |pref| {
                 pref.as_mut()

@@ -5740,8 +5740,8 @@ fn test_multiple_validators_from_an_entity() {
                 Error::<Test>::HitIntendedValidatorCount
             );
 
-            // Scale the validator count
-            assert_ok!(Staking::scale_permissioned_validator_intended_count(
+            // Increase the validator count
+            assert_ok!(Staking::increase_permissioned_validator_intended_count(
                 root(),
                 entity_id,
                 1
