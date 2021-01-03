@@ -537,7 +537,7 @@ decl_event!(
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
         /// Execution of a PIP has been scheduled at specific block.
-        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
+        ExecutionScheduled(IdentityId, PipId, BlockNumber),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -1263,7 +1263,7 @@ impl<T: Trait> Module<T> {
             call,
         ) {
             Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
-            Ok(_) => RawEvent::ExecutionScheduled(did, id, Zero::zero(), at),
+            Ok(_) => RawEvent::ExecutionScheduled(did, id, at),
         };
         Self::deposit_event(event);
     }
