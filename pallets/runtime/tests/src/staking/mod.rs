@@ -4706,21 +4706,24 @@ fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward(
     });
 }
 
+fn root() -> Origin {
+    Origin::from(frame_system::RawOrigin::Root)
+}
+
 #[test]
 fn set_history_depth_works() {
     ExtBuilder::default().build_and_execute(|| {
-        let root = Origin::from(frame_system::RawOrigin::Root);
         mock::start_era(10);
-        Staking::set_history_depth(root.clone(), 20, 0).unwrap();
+        Staking::set_history_depth(root(), 20, 0).unwrap();
         assert_ne!(mock::Staking::eras_total_stake(10 - 4), 0u128);
         assert_ne!(mock::Staking::eras_total_stake(10 - 5), 0);
-        Staking::set_history_depth(root.clone(), 4, 0).unwrap();
+        Staking::set_history_depth(root(), 4, 0).unwrap();
         assert_ne!(mock::Staking::eras_total_stake(10 - 4), 0);
         assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
-        Staking::set_history_depth(root.clone(), 3, 0).unwrap();
+        Staking::set_history_depth(root(), 3, 0).unwrap();
         assert_eq!(mock::Staking::eras_total_stake(10 - 4), 0);
         assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
-        Staking::set_history_depth(root, 8, 0).unwrap();
+        Staking::set_history_depth(root(), 8, 0).unwrap();
         assert_eq!(mock::Staking::eras_total_stake(10 - 4), 0);
         assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
     });
@@ -5386,19 +5389,17 @@ fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
         });
 }
 
+type Pips = pallet_pips::Module<Test>;
+type PError = pallet_pips::Error<Test>;
+
 #[test]
 fn voting_for_pip_overlays_with_staking() {
-    type Pips = pallet_pips::Module<Test>;
-    type Error = pallet_pips::Error<Test>;
     use crate::staking::mock::Call;
 
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        assert_ok!(Pips::set_min_proposal_deposit(
-            Origin::from(frame_system::RawOrigin::Root),
-            0
-        ));
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Initialize with 100 POLYX.
         let alice_acc = 500;
@@ -5422,7 +5423,75 @@ fn voting_for_pip_overlays_with_staking() {
         // OK, because we're still overlaying, but also increasing it by 10.
         assert_ok!(alice_proposal(50));
         // Error, because we don't have 101 tokens to bond.
-        assert_noop!(alice_proposal(1), Error::InsufficientDeposit);
+        assert_noop!(alice_proposal(1), PError::InsufficientDeposit);
+    });
+}
+
+#[test]
+fn slashing_leaves_pips_untouched() {
+    use crate::staking::mock::Call;
+
+    ExtBuilder::default().build_and_execute(|| {
+        let acc = 11;
+        let propose = |deposit| {
+            let signer = Origin::signed(acc);
+            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_active_pip_limit(0)));
+            Pips::propose(signer, proposal, deposit, None, None)
+        };
+        let slash = |amount| {
+            let exposure = Exposure {
+                total: amount,
+                own: amount,
+                others: vec![],
+            };
+            let details = OffenceDetails {
+                offender: (acc, exposure),
+                reporters: vec![],
+            };
+            on_offence_now(&[details], &[Perbill::from_percent(100)]);
+        };
+        let balance_is = |bal| {
+            assert_eq!(Balances::free_balance(acc), bal);
+        };
+        let vote_is = |bal| {
+            Pips::proposals(0).unwrap();
+            assert_eq!(Pips::proposal_vote(0, acc).unwrap().1, bal);
+        };
+        let vote = |bal| Pips::vote(Origin::signed(acc), 0, true, bal);
+
+        // Ensure we start with 1000 balance.
+        balance_is(1000);
+
+        // Raise min deposit to 1000.
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 1000));
+
+        assert_ok!(propose(1000));
+
+        // Fall below minimum deposit; still have 1000 as vote, and proposal exists.
+        slash(700);
+        balance_is(300);
+        vote_is(1000);
+        assert_ok!(vote(1000));
+
+        // Lower account balance to 1; ditto.
+        start_era(12);
+        slash(299);
+        balance_is(1);
+        vote_is(1000);
+
+        // Cannot propose anything; still locked 1000 into PIPs.
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_noop!(propose(2), PError::InsufficientDeposit);
+
+        // Lower vote to 1; locked decreases to 1.
+        assert_ok!(vote(1));
+        vote_is(1);
+
+        // Slash again, we'll have 0 in balance now, but 1 still locked.
+        slash(1);
+        vote_is(1);
+        assert_ok!(vote(1));
     });
 }
 
