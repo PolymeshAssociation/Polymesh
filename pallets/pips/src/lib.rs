@@ -958,7 +958,7 @@ decl_module! {
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
             // 3. Update enactment period & reschedule it.
-            let _ = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            <PipToSchedule<T>>::insert(id, new_until);
 
             // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
             // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
