@@ -18,11 +18,8 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
-pub mod dividend;
 pub mod exemption;
 pub mod impls;
-pub mod sto_capped;
-pub mod voting;
 
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};

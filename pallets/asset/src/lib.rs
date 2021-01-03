@@ -114,10 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
-    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
-    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -291,7 +291,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
@@ -352,7 +352,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -391,6 +391,13 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
+/// Errors of migration on this pallets.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum AssetMigrationError {
+    /// Migration of document fails on the given ticker and document id.
+    AssetDocumentFail(Ticker, DocumentId),
+}
+
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -403,26 +410,21 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
 
             // Migrate `AssetDocuments`.
-            use frame_support::Blake2_128Concat;
-            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
-            use sp_std::collections::btree_map::BTreeMap;
+            use frame_support::{Blake2_128Concat, Twox64Concat};
+            use polymesh_primitives::{ migrate::{migrate_double_map_only_values, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
-            storage_migrate_on!(storage_ver, 1, {
-                let mut id_map = BTreeMap::<_, u32>::new();
-                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
-                b"Asset", b"AssetDocuments",
-                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                        let count = id_map.entry(ticker).or_default();
-                        let id = DocumentId(mem::replace(count, *count + 1));
-                        Some((ticker, id, doc.migrate(name)?))
+            storage_migrate_on!(storage_ver, 2, {
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
+                    b"Asset", b"AssetDocuments",
+                    |t: Ticker, id: DocumentId, doc: DocumentOld|
+                        doc.migrate(Empty).ok_or_else(|| AssetMigrationError::AssetDocumentFail(t, id)))
+                .for_each(|doc_migrate_status| {
+                    if let Err(migrate_err) = doc_migrate_status {
+                        Self::deposit_event( RawEvent::MigrationFailure(migrate_err));
                     }
-                    );
-                for (ticker, id) in id_map {
-                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
-                }
+                })
             });
-
 
             1_000
         }
@@ -528,6 +530,11 @@ decl_module! {
                 TickerRegistrationStatus::RegisteredByDid => false,
                 TickerRegistrationStatus::Available => true,
             };
+
+            // If `ticker` isn't registered, it will be, so ensure it is fully ascii.
+            if available {
+                Self::ensure_ticker_ascii(&ticker)?;
+            }
 
             let token_did = Identity::<T>::get_token_did(&ticker)?;
             // Ensure there's no pre-existing entry for the DID.
@@ -1134,6 +1141,8 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        /// Migration error event.
+        MigrationFailure(MigrationError<AssetMigrationError>),
     }
 }
 
@@ -1157,6 +1166,8 @@ decl_error! {
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,
+        /// The ticker has non-ascii-encoded parts.
+        TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
         /// An invalid total supply.
@@ -1470,6 +1481,19 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
+    fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
+        let bytes = ticker.as_slice();
+        // Find first byte not printable ASCII.
+        let good = bytes
+            .iter()
+            .position(|b| !matches!(b, 32..=126))
+            // Everything after must be a NULL byte.
+            .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
+        ensure!(good, Error::<T>::TickerNotAscii);
+        Ok(())
+    }
+
     /// Before registering a ticker, do some checks, and return the expiry moment.
     fn ticker_registration_checks(
         ticker: &Ticker,
@@ -1477,6 +1501,8 @@ impl<T: Trait> Module<T> {
         no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
+        Self::ensure_ticker_ascii(&ticker)?;
+
         ensure!(
             !<Tokens<T>>::contains_key(&ticker),
             Error::<T>::AssetAlreadyCreated

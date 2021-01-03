@@ -220,8 +220,8 @@ fn gc_mem(n: u8) -> Identity {
 fn polymath_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        IdentityId::from(n as u128),
-        IdentityId::from(3 + n as u128),
+        IdentityId::from(1 as u128),
+        IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
     )
@@ -611,7 +611,6 @@ fn alcyone_testnet_genesis(
         // Service providers
         cdd_provider(1),
         cdd_provider(2),
-        cdd_provider(3),
         // Governance committee members
         polymath_mem(1),
         polymath_mem(2),
@@ -668,15 +667,17 @@ fn alcyone_testnet_genesis(
                 ..Default::default()
             },
         }),
-        group_Instance1: Some(committee_membership!(4, 5, 6)),
-        committee_Instance1: Some(committee!(6, (2, 3))),
-        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, sp3
+        // Governing council
+        group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+        committee_Instance1: Some(committee!(3, (2, 3))),
+        // CDD providers
+        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
         // Technical Committee:
-        group_Instance3: Some(committee_membership!(4)),
-        committee_Instance3: Some(committee!(4)),
+        group_Instance3: Some(committee_membership!(3)), //admin
+        committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(5)),
-        committee_Instance4: Some(committee!(5)),
+        group_Instance4: Some(committee_membership!(3)), //admin
+        committee_Instance4: Some(committee!(3)),
         protocol_fee: Some(protocol_fee!()),
         settlement: Some(Default::default()),
         multisig: Some(MULTISIG),
@@ -687,17 +688,14 @@ fn alcyone_testnet_genesis(
 fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
     alcyone_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("operator_1", true),
-            get_authority_keys_from_seed("operator_2", true),
-            get_authority_keys_from_seed("operator_3", true),
-            get_authority_keys_from_seed("operator_4", true),
-            get_authority_keys_from_seed("operator_5", true),
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+            get_authority_keys_from_seed("Charlie", false),
         ],
-        seeded_acc_id("polymath_1"),
+        seeded_acc_id("Alice"),
         vec![
             seeded_acc_id("cdd_provider_1"),
             seeded_acc_id("cdd_provider_2"),
-            seeded_acc_id("cdd_provider_3"),
             seeded_acc_id("polymath_1"),
             seeded_acc_id("polymath_2"),
             seeded_acc_id("polymath_3"),
@@ -713,10 +711,13 @@ fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
 
 pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
     // provide boot nodes
-    let boot_nodes = vec![];
+    let boot_nodes = vec![
+        "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
+        "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+    ];
     AlcyoneChainSpec::from_genesis(
-        "Polymesh Alcyone Testnet",
-        "alcyone",
+        "Polymesh Buffron Testnet",
+        "buffron",
         ChainType::Live,
         alcyone_live_testnet_genesis,
         boot_nodes,
@@ -724,7 +725,7 @@ pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
             TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                 .expect("Alcyone live telemetry url is valid; qed"),
         ),
-        Some(&*"/polymath/alcyone/1"),
+        Some(&*"/polymath/buffron/1"),
         Some(polymath_props()),
         Default::default(),
     )
