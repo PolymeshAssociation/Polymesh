@@ -4692,6 +4692,7 @@ dependencies = [
 name = "pallet-statistics"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "lazy_static",
@@ -5704,6 +5705,7 @@ dependencies = [
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-settlement",
+ "pallet-statistics",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "pallet-utility",

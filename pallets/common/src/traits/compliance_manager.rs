@@ -24,7 +24,7 @@ pub trait Trait<Balance> {
         to_id: Option<IdentityId>,
         _value: Balance,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> Result<(u8, Weight), DispatchError>;
+    ) -> Result<u8, DispatchError>;
 }
 
 pub trait WeightInfo {

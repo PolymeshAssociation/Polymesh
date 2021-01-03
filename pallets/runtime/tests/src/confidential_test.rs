@@ -256,12 +256,10 @@ fn scope_claims_we() {
     assert_ne!(
         Asset::_is_valid_transfer(
             &st2_id,
-            AccountKeyring::Alice.public(),
             PortfolioId::default_portfolio(alice_id),
             PortfolioId::default_portfolio(inv_did_1),
             10
-        )
-        .map(|(a, _)| a),
+        ),
         Ok(ERC1400_TRANSFER_SUCCESS)
     );
 }

@@ -1115,7 +1115,6 @@ impl<T: Trait> Module<T> {
             result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
             weight_for::weight_for_execute_instruction_if_pending_affirm::<T>()
         } else {
-            let mut transaction_weight = 0;
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
             let venue_id = Self::instruction_details(instruction_id).venue_id;
@@ -1136,15 +1135,14 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         status == LegStatus::ExecutionPending
                     }) {
-                        let result = <Asset<T>>::base_transfer(
+                        if <Asset<T>>::base_transfer(
                             leg_details.from,
                             leg_details.to,
                             &leg_details.asset,
                             leg_details.amount,
-                        );
-                        if let Ok(post_info) = result {
-                            transaction_weight += post_info.actual_weight.unwrap_or_default();
-                        } else {
+                        )
+                        .is_err()
+                        {
                             return Err(leg_id);
                         }
                     }
@@ -1172,7 +1170,8 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(transaction_weight)
+            // TODO: Fix this. The weight needs to be benchmarked and updated. Using a placeholder right now.
+            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(500_000_000)
         };
 
         // Clean up instruction details to reduce chain bloat
