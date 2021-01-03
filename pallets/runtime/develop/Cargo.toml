@@ -202,5 +202,6 @@ runtime-benchmarks = [
     "pallet-utility/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-group/runtime-benchmarks",
+    "pallet-permissions/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]
