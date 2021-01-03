@@ -683,6 +683,13 @@
         },
         "AuthorizationNonce": "u64",
         "Counter": "u64",
+        "Percentage": "Permill",
+        "TransferManager": {
+            "_enum": {
+                "CountTransferManager": "Counter",
+                "PercentageTransferManager": "Percentage"
+            }
+        },
         "Commission": {
             "_enum": {
                 "Individual": "",

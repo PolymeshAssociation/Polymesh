@@ -34,7 +34,6 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
-use pallet_statistics as statistics;
 use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
@@ -743,7 +742,15 @@ impl group::Trait<group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl statistics::Trait for Runtime {}
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
+impl pallet_statistics::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+}
 
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
@@ -829,7 +836,7 @@ construct_runtime!(
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>} = 37,
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
-        Statistic: statistics::{Module, Call, Storage} = 39,
+        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: utility::{Module, Call, Storage, Event} = 41,
         Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
@@ -1179,7 +1186,7 @@ impl_runtime_apis! {
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
-            sender: AccountId,
+            _sender: AccountId,
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
             to_custodian: Option<IdentityId>,
@@ -1187,7 +1194,7 @@ impl_runtime_apis! {
             ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+            Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
