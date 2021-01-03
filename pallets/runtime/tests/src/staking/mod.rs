@@ -5741,10 +5741,10 @@ fn test_multiple_validators_from_an_entity() {
             );
 
             // Increase the validator count
-            assert_ok!(Staking::increase_permissioned_validator_intended_count(
+            assert_ok!(Staking::update_permissioned_validator_intended_count(
                 root(),
                 entity_id,
-                1
+                3
             ));
 
             assert_ok!(Staking::validate(

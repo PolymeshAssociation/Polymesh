@@ -2724,19 +2724,20 @@ decl_module! {
             Self::deposit_event(RawEvent::SlashingAllowedForChanged(slashing_switch));
         }
 
-        /// Increase the intended validator count for a given DID.
+        /// Update the intended validator count for a given DID.
         ///
         /// # Arguments
         /// * origin which must be the required origin for adding a potential validator.
         /// * identity to add as a validator.
-        /// * additional amount by which `intended_count` gets increased.
+        /// * new_intended_count New value of intended count.
         #[weight = 150_000_000]
-        pub fn increase_permissioned_validator_intended_count(origin, identity: IdentityId, additional: u32) -> DispatchResult {
+        pub fn update_permissioned_validator_intended_count(origin, identity: IdentityId, new_intended_count: u32) -> DispatchResult {
             T::RequiredAddOrigin::ensure_origin(origin)?;
+            ensure!(Self::get_allowed_validator_count() > new_intended_count, Error::<T>::IntendedCountIsExceedingConsensusLimit);
             PermissionedIdentity::try_mutate(&identity, |pref| {
                 pref.as_mut()
                     .ok_or_else(|| Error::<T>::NotExists.into())
-                    .map(|p| p.intended_count += additional)
+                    .map(|p| p.intended_count = new_intended_count)
             })
         }
     }
