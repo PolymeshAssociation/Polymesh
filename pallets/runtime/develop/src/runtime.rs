@@ -38,7 +38,6 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    exemption,
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
     ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
@@ -720,11 +719,6 @@ impl pallet_corporate_actions::Trait for Runtime {
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
-impl exemption::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
@@ -849,7 +843,6 @@ construct_runtime!(
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 30,
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
-        Exemption: exemption::{Module, Call, Storage, Event} = 35,
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>} = 37,
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
