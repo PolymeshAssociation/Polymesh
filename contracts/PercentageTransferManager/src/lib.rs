@@ -251,6 +251,16 @@ mod percentage_transfer_manager {
             self.is_exempted(&of)
         }
 
+        /// Return all exempted identities.
+        #[ink(message)]
+        pub fn get_all_exempted_identities(&self) -> Vec<IdentityId> {
+            self.exemption_list
+                .iter()
+                .filter(|(_, status)| **status)
+                .map(|(id, _)| *id)
+                .collect()
+        }
+
         fn is_exempted(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
         }
@@ -582,8 +592,13 @@ mod percentage_transfer_manager {
                 (IdentityId::from(2), true),
                 (IdentityId::from(3), true),
             ];
-            percentage_transfer_manager.modify_exemption_list_batch(exempted_identities.clone());
-
+            let exempt_to = exempted_identities
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>();
+            percentage_transfer_manager.modify_exemption_list_batch(exempted_identities);
+            let exempt_id = percentage_transfer_manager.get_all_exempted_identities();
+            assert!(exempt_id == exempt_to);
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(1)));
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(2)));
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(3)));
