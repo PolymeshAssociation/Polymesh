@@ -47,7 +47,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{cdd_check::CddChecker, exemption};
+use polymesh_runtime_common::cdd_check::CddChecker;
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -120,7 +120,6 @@ impl_outer_event! {
         pallet_contracts<T>,
         pallet_session,
         compliance_manager,
-        exemption,
         group Instance1<T>,
         group Instance2<T>,
         group DefaultInstance<T>,
@@ -574,11 +573,6 @@ impl corporate_actions::Trait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
-}
-
-impl exemption::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
 }
 
 impl treasury::Trait for TestStorage {
