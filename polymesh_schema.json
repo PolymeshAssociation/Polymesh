@@ -690,12 +690,6 @@
                 "PercentageTransferManager": "Percentage"
             }
         },
-        "Commission": {
-            "_enum": {
-                "Individual": "",
-                "Global": "u32"
-            }
-        },
         "RestrictionResult": {
             "_enum": [
                 "Valid",
@@ -1143,6 +1137,10 @@
                 "DecodeKey": "Vec<u8>",
                 "Map": "AssetMigrationError"
             }
+        },
+        "PermissionedIdentityPrefs": {
+            "intended_count": "u32",
+            "running_count": "u32"
         }
     },
     "rpc": {
