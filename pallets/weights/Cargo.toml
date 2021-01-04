@@ -26,6 +26,7 @@ pallet-balances = { path = "../balances", default-features = false  }
 pallet-treasury = { path = "../treasury", default-features = false  }
 pallet-im-online = { path = "../im-online", default-features = false  }
 pallet-group = { path = "../group", default-features = false  }
+pallet-statistics = { path = "../statistics", default-features = false  }
 
 [features]
 default = ["std"]
