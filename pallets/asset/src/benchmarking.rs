@@ -220,7 +220,7 @@ benchmarks! {
             total_supply: total_supply.clone(),
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: owner.did(),
+            primary_issuance_agent: None,
         };
 
     }: _(owner.origin(), token.name.clone(), ticker, total_supply, token.divisible, token.asset_type.clone(), identifiers.clone(), Some(fundr))
