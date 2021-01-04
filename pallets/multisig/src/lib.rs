@@ -87,13 +87,13 @@ use codec::{Decode, Encode, Error as CodecError};
 use core::convert::{From, TryInto};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get, GetCallMetadata,
     },
-    weights::{GetDispatchInfo, PostDispatchInfo, Weight},
+    weights::{GetDispatchInfo, Weight},
     StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -299,16 +299,12 @@ decl_module! {
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
             auto_close: bool
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let sender_signer = Signatory::from(sender_did);
-            let info = PostDispatchInfo {
-                actual_weight: Some(<T as Trait>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)),
-                pays_fee: Default::default(),
-            };
             Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
-            Ok(info)
+            Ok(())
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
