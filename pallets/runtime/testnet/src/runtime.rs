@@ -574,7 +574,7 @@ impl settlement::Trait for Runtime {
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for Runtime {
@@ -667,6 +667,7 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 128;
     pub const FundingRoundNameMaxLength: usize = 128;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for Runtime {
@@ -677,6 +678,7 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
