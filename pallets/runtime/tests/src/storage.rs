@@ -326,6 +326,9 @@ impl polymesh_contracts::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 parameter_types! {
@@ -336,9 +339,8 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for TestStorage {
@@ -474,6 +476,7 @@ impl IdentityTrait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -548,6 +551,7 @@ parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: usize = 128;
     pub const FundingRoundNameMaxLength: usize = 128;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for TestStorage {
@@ -558,6 +562,7 @@ impl asset::Trait for TestStorage {
     type UnixTime = Timestamp;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
@@ -571,8 +576,6 @@ impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl corporate_actions::Trait for TestStorage {
@@ -661,7 +664,6 @@ impl pips::Trait for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 

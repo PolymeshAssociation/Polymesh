@@ -75,7 +75,7 @@ use sp_runtime::{
         BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, OpaqueKeys, SaturatedConversion,
         Saturating, StaticLookup, Verify,
     },
-    ApplyExtrinsicResult, MultiSignature, Perbill,
+    ApplyExtrinsicResult, MultiSignature, Perbill, Permill,
 };
 
 use sp_std::prelude::*;
@@ -371,6 +371,7 @@ parameter_types! {
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
 }
@@ -403,6 +404,7 @@ impl pallet_staking::Trait for Runtime {
     type RequiredCommissionOrigin = EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
+    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -474,7 +476,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -562,9 +563,8 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for Runtime {
@@ -637,14 +637,15 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -656,6 +657,7 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 1024;
     pub const FundingRoundNameMaxLength: usize = 1024;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for Runtime {
@@ -666,11 +668,12 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 parameter_types! {
-    pub const MaxConditionComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 150;
 }
 
 impl compliance_manager::Trait for Runtime {
@@ -696,6 +699,7 @@ impl IdentityTrait for Runtime {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -1282,6 +1286,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
             add_benchmark!(params, batches, pallet_pips, Pips);
+            add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
