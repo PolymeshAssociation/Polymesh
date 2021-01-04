@@ -24,7 +24,6 @@ use polymesh_common_utilities::{
 };
 use sp_std::prelude::*;
 
-const COMMITTEE_MEMBERS_NUM: u32 = 10;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
 const PROPOSALS_NUM: u8 = 100;
 
@@ -130,7 +129,7 @@ benchmarks_instance! {
     }
 
     set_release_coordinator {
-        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_NUM).map(|i| user::<T>("member", i).did()).collect();
+        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_MAX).map(|i| user::<T>("member", i).did()).collect();
         let coordinator = dids.last().unwrap().clone();
         Members::<I>::put(dids);
         let origin = T::CommitteeOrigin::successful_origin();
