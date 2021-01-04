@@ -29,7 +29,6 @@ use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     asset::{AssetType, FundingRoundName},
-    compliance_manager::Trait,
     constants::*,
     protocol_fee::ProtocolOp,
     traits::balances::Memo,
@@ -39,8 +38,8 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentId,
-    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId, InvestorUid, PortfolioId,
+    Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -63,18 +62,6 @@ type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-
-macro_rules! assert_add_claim {
-    ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(Identity::add_claim($signer, $target, $claim, None,));
-    };
-}
-
-macro_rules! assert_revoke_claim {
-    ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(Identity::revoke_claim($signer, $target, $claim,));
-    };
-}
 
 fn setup_se_template<T>(
     creator: AccountId,
@@ -167,7 +154,7 @@ fn issuers_can_create_and_rename_tokens() {
         ));
 
         // Check the update investor count for the newly created asset
-        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
+        assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
@@ -1786,9 +1773,8 @@ fn test_can_transfer_rpc() {
             // Provide scope claim for sender and receiver.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
-            let unsafe_can_transfer_result = |sender_account, from_did, to_did, amount| {
+            let unsafe_can_transfer_result = |from_did, to_did, amount| {
                 Asset::unsafe_can_transfer(
-                    sender_account,
                     None,
                     PortfolioId::default_portfolio(from_did),
                     None,
@@ -1801,18 +1787,13 @@ fn test_can_transfer_rpc() {
 
             // case 1: When passed invalid granularity
             assert_eq!(
-                unsafe_can_transfer_result(AccountKeyring::Alice.public(), alice_did, bob_did, 100),
+                unsafe_can_transfer_result(alice_did, bob_did, 100),
                 INVALID_GRANULARITY
             );
 
             // Case 2: when from_did balance is 0
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Bob.public(),
-                    bob_did,
-                    alice_did,
-                    100 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(bob_did, alice_did, 100 * currency::ONE_UNIT),
                 ERC1400_INSUFFICIENT_BALANCE
             );
 
@@ -1849,12 +1830,7 @@ fn test_can_transfer_rpc() {
             // 6.1: pause the transfer
             assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Alice.public(),
-                    alice_did,
-                    bob_did,
-                    20 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(alice_did, bob_did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFERS_HALTED
             );
             assert_ok!(Asset::unfreeze(alice_signed.clone(), ticker));
@@ -1869,12 +1845,7 @@ fn test_can_transfer_rpc() {
             ));
 
             assert_eq!(
-                unsafe_can_transfer_result(
-                    AccountKeyring::Bob.public(),
-                    alice_did,
-                    bob_did,
-                    20 * currency::ONE_UNIT
-                ),
+                unsafe_can_transfer_result(alice_did, bob_did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFER_SUCCESS
             );
         })
@@ -1936,198 +1907,6 @@ fn can_set_primary_issuance_agent_we() {
     ));
     token.primary_issuance_agent = None;
     assert_eq!(Asset::token_details(ticker), token);
-}
-
-#[test]
-fn test_weights_for_is_valid_transfer() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
-        .set_max_tms_allowed(4)
-        .build()
-        .execute_with(|| {
-            let alice = AccountKeyring::Alice.public();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
-
-            let bob = AccountKeyring::Bob.public();
-            let (_, bob_did) = make_account_without_cdd(bob).unwrap();
-
-            let eve = AccountKeyring::Eve.public();
-            let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
-
-            let dave = AccountKeyring::Dave.public();
-
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did: alice_did,
-                total_supply: 1_000_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-
-            assert_ok!(Asset::create_asset(
-                Origin::signed(alice),
-                token.name.clone(),
-                ticker,
-                token.total_supply,
-                true,
-                token.asset_type.clone(),
-                vec![],
-                None,
-            ));
-
-            // Provide scope claim to sender and receiver.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
-            // Get token Id.
-            let ticker_id = Identity::get_token_did(&ticker).unwrap();
-
-            // Adding different compliance requirements
-            let is_present = ConditionType::IsPresent(Claim::Accredited(ticker_id.into()));
-            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice_signed.clone(),
-                ticker,
-                vec![
-                    cond(is_present.clone()),
-                    cond(ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into()))),
-                ],
-                vec![
-                    cond(is_present),
-                    cond(ConditionType::IsAnyOf(vec![
-                        Claim::BuyLockup(ticker_id.into()),
-                        Claim::KnowYourCustomer(ticker_id.into())
-                    ])),
-                ]
-            ));
-
-            // Providing claim to sender and receiver
-            // For Alice
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::Accredited(alice_did.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::BuyLockup(ticker_id.into())
-            );
-            // For Bob
-            assert_add_claim!(
-                eve_signed.clone(),
-                bob_did,
-                Claim::Accredited(ticker_id.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                bob_did,
-                Claim::KnowYourCustomer(ticker_id.into())
-            );
-
-            let extension_id_1 = setup_se_template::<TestStorage>(alice, alice_did, true);
-
-            // Add Tms
-            assert_ok!(Asset::add_extension(
-                alice_signed.clone(),
-                ticker,
-                SmartExtension {
-                    extension_type: SmartExtensionType::TransferManager,
-                    extension_name: b"ABC".into(),
-                    extension_id: extension_id_1,
-                    is_archive: false
-                }
-            ));
-
-            let extension_id_2 = setup_se_template::<TestStorage>(alice, alice_did, false);
-
-            assert_ok!(Asset::add_extension(
-                alice_signed.clone(),
-                ticker,
-                SmartExtension {
-                    extension_type: SmartExtensionType::TransferManager,
-                    extension_name: b"ABC".into(),
-                    extension_id: extension_id_2,
-                    is_archive: false
-                }
-            ));
-
-            let is_valid_transfer_result = || {
-                Asset::_is_valid_transfer(
-                    &ticker,
-                    alice,
-                    PortfolioId::default_portfolio(alice_did),
-                    PortfolioId::default_portfolio(bob_did),
-                    100,
-                )
-                .unwrap()
-                .1
-            };
-
-            let verify_restriction_weight = || {
-                ComplianceManager::verify_restriction(
-                    &ticker,
-                    Some(alice_did),
-                    Some(bob_did),
-                    100,
-                    Some(alice_did),
-                )
-                .unwrap()
-                .1
-            };
-
-            // call is_valid_transfer()
-            // Only sender rules are processed.
-            assert_eq!(is_valid_transfer_result(), verify_restriction_weight());
-
-            assert_revoke_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::BuyLockup(ticker_id.into())
-            );
-            assert_add_claim!(
-                eve_signed.clone(),
-                alice_did,
-                Claim::Accredited(ticker_id.into())
-            );
-
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
-
-            // Adding different claim rules
-            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice_signed.clone(),
-                ticker,
-                vec![cond(ConditionType::IsPresent(Claim::Exempted(
-                    ticker_id.into()
-                )))],
-                vec![cond(ConditionType::IsPresent(Claim::Blocked(
-                    ticker_id.into()
-                )))],
-            ));
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
-
-            // pause transfer rules
-            assert_ok!(ComplianceManager::pause_asset_compliance(
-                alice_signed,
-                ticker
-            ));
-
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            let computed_weight =
-                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert_eq!(result, computed_weight);
-        });
 }
 
 #[test]
@@ -2778,7 +2557,7 @@ fn check_unique_investor_count() {
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice_did), total_supply); // It should be equal to total supply.
                                                                              // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 1);
+            assert_eq!(Statistics::investor_count(&ticker), 1);
             assert!(!ScopeIdOf::contains_key(&ticker, alice_did));
 
             // 1. Transfer some funds to bob_1_did.
@@ -2835,7 +2614,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1_did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1_did), 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
 
             // validate the storage changes for Alice.
             assert_eq!(
@@ -2847,7 +2626,7 @@ fn check_unique_investor_count() {
                 total_supply - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, &alice_did), total_supply - 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
 
             // Provide scope claim to bob_2_did
             provide_scope_claim(bob_2_did, ticker, bob_uid, cdd_provider);
@@ -2864,7 +2643,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2_did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2_did), 1000);
-            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+            assert_eq!(Statistics::investor_count(&ticker), 2);
         });
 }
 
