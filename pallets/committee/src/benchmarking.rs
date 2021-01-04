@@ -25,7 +25,6 @@ use polymesh_common_utilities::{
 use sp_std::prelude::*;
 
 const COMMITTEE_MEMBERS_NUM: u32 = 10;
-const COMMITTEE_MEMBERS_MAX: u32 = 100;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
 const PROPOSALS_NUM: u8 = 100;
 
@@ -71,12 +70,14 @@ where
     Ok(())
 }
 
-fn make_members_and_proposals<T, I>(m: u32) -> Result<Vec<User<T>>, DispatchError>
+fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
     T: Trait<I>,
 {
-    let members: Vec<_> = (0..m).map(|i| user::<T>("member", i)).collect();
+    let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
+        .map(|i| user::<T>("member", i))
+        .collect();
     Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
     make_proposals_and_vote::<T, I>(&members)?;
     Ok(members)
@@ -125,9 +126,7 @@ benchmarks_instance! {
     }
 
     vote_or_propose_new_proposal {
-        let m in 2 .. COMMITTEE_MEMBERS_MAX;
-
-        let members = make_members_and_proposals::<T, I>(m)?;
+        let members = make_members_and_proposals::<T, I>()?;
         let last_proposal_num = ProposalCount::<I>::get();
         let (proposal, hash) = make_proposal::<T, I>(0);
         identity::CurrentDid::put(members[0].did());
@@ -139,16 +138,14 @@ benchmarks_instance! {
     }
 
     vote_or_propose_existing_proposal {
-        let m in 2 .. COMMITTEE_MEMBERS_MAX;
-
-        let members = make_members_and_proposals::<T, I>(m)?;
+        let members = make_members_and_proposals::<T, I>()?;
         let (proposal, hash) = make_proposal::<T, I>(1);
         let proposals = Proposals::<T, I>::get();
         ensure!(proposals.contains(&hash), "cannot find the first proposal");
         identity::CurrentDid::put(members[1].did());
     }: vote_or_propose(members[1].origin.clone(), true, Box::new(proposal.clone()))
     verify {
-        if m <= 4 {
+        if COMMITTEE_MEMBERS_MAX <= 4 {
             // Proposal was executed.
             ensure!(
                 Module::<T, _>::voting(&hash).is_none(),
@@ -162,11 +159,10 @@ benchmarks_instance! {
     }
 
     vote {
-        let m in 2 .. COMMITTEE_MEMBERS_MAX;
         // reject or approve
         let a in 0 .. 1;
 
-        let members = make_members_and_proposals::<T, I>(m)?;
+        let members = make_members_and_proposals::<T, I>()?;
         let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
         let origin = members[1].origin.clone();
@@ -174,7 +170,7 @@ benchmarks_instance! {
         identity::CurrentDid::put(did);
     }: _(origin, hash, first_proposal_num, a != 0)
     verify {
-        if m > 4 || (m == 4 && a == 0) {
+        if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && a == 0) {
             // The proposal is not finalised because there is no quorum yet.
             if let Some(votes) = Voting::<T, I>::get(&hash) {
                 ensure!(votes.index == first_proposal_num, "wrong first proposal index");
@@ -194,9 +190,7 @@ benchmarks_instance! {
     }
 
     close {
-        let m in 2 .. COMMITTEE_MEMBERS_MAX;
-
-        let members = make_members_and_proposals::<T, I>(m)?;
+        let members = make_members_and_proposals::<T, I>()?;
         let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
         let origin = members[0].origin.clone();

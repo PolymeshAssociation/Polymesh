@@ -81,14 +81,18 @@ use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
 use sp_std::{prelude::*, vec};
 
+/// The maximum number of members in a committee defined for the sake of weight computation.
+// TODO: ensure this bound when adding members.
+pub const COMMITTEE_MEMBERS_MAX: u32 = 1_000;
+
 pub trait WeightInfo {
     fn set_vote_threshold() -> Weight;
     fn set_release_coordinator() -> Weight;
     fn set_expires_after() -> Weight;
-    fn vote_or_propose_new_proposal(m: u32) -> Weight;
-    fn vote_or_propose_existing_proposal(m: u32) -> Weight;
-    fn vote(m: u32, a: u32) -> Weight;
-    fn close(m: u32) -> Weight;
+    fn vote_or_propose_new_proposal() -> Weight;
+    fn vote_or_propose_existing_proposal() -> Weight;
+    fn vote(a: u32) -> Weight;
+    fn close() -> Weight;
 }
 
 /// Simple index type for proposal counting.
@@ -312,7 +316,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = <T as Trait<I>>::WeightInfo::close(Module::<T, I>::members().len() as u32)]
+        #[weight = <T as Trait<I>>::WeightInfo::close()]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let did = Self::ensure_is_member(origin)?;
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
@@ -353,9 +357,8 @@ decl_module! {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal(
-            Module::<T, I>::members().len() as u32
-        ) + call.get_dispatch_info().weight]
+        #[weight = <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() +
+          call.get_dispatch_info().weight]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
@@ -377,10 +380,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = <T as Trait<I>>::WeightInfo::vote(
-            Module::<T, I>::members().len() as u32,
-            *approve as u32
-        )]
+        #[weight = <T as Trait<I>>::WeightInfo::vote(*approve as u32)]
         pub fn vote(
             origin,
             proposal: T::Hash,
