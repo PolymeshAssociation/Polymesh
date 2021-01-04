@@ -34,7 +34,6 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
-use pallet_statistics as statistics;
 use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
@@ -51,11 +50,9 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
-    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
-    RocksDbWeight,
+    merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
+    ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
 };
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -76,7 +73,7 @@ use sp_runtime::{
         BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, OpaqueKeys, SaturatedConversion,
         Saturating, StaticLookup, Verify,
     },
-    ApplyExtrinsicResult, MultiSignature, Perbill,
+    ApplyExtrinsicResult, MultiSignature, Perbill, Permill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -371,6 +368,7 @@ parameter_types! {
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
 }
@@ -403,6 +401,7 @@ impl pallet_staking::Trait for Runtime {
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
+    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type WeightInfo = ();
 }
 
@@ -474,7 +473,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -575,9 +573,8 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for Runtime {
@@ -650,14 +647,15 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -669,6 +667,7 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 128;
     pub const FundingRoundNameMaxLength: usize = 128;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for Runtime {
@@ -679,6 +678,7 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
@@ -691,15 +691,6 @@ impl compliance_manager::Trait for Runtime {
     type Asset = Asset;
     type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
-}
-
-impl voting::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
-impl sto_capped::Trait for Runtime {
-    type Event = Event;
 }
 
 impl IdentityTrait for Runtime {
@@ -718,10 +709,13 @@ impl IdentityTrait for Runtime {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
     pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    pub const MaxTargetIds: u32 = 1000;
+    pub const MaxDidWhts: u32 = 1000;
 }
 
 impl polymesh_contracts::Trait for Runtime {
@@ -732,18 +726,11 @@ impl polymesh_contracts::Trait for Runtime {
 
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
-}
-
-impl exemption::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
-impl dividend::Trait for Runtime {
-    type Event = Event;
 }
 
 /// CddProviders instance of group
@@ -759,7 +746,15 @@ impl group::Trait<group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl statistics::Trait for Runtime {}
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
+impl pallet_statistics::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+}
 
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
@@ -794,71 +789,67 @@ construct_runtime!(
         NodeBlock = polymesh_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
         // Must be before session.
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
+        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
 
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
-        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
-        TransactionPayment: pallet_transaction_payment::{Module, Storage},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
+        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+        TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
 
         // Consensus frame_support.
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Offences: pallet_offences::{Module, Call, Storage, Event},
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent},
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 6,
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 7,
+        Offences: pallet_offences::{Module, Call, Storage, Event} = 8,
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 9,
+        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 10,
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 11,
+        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 12,
+        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 13,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 14,
 
-        Historical: pallet_session_historical::{Module},
+        Historical: pallet_session_historical::{Module} = 15,
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 16,
 
-        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>},
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 17,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 18,
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 19,
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Event<T>},
-        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+        Treasury: treasury::{Module, Call, Event<T>} = 20,
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 21,
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 22,
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 23,
 
-        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 24,
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 25,
 
-        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 26,
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 27,
 
         //Polymesh
-        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
-        Dividend: dividend::{Module, Call, Storage, Event<T>},
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
-        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
-        ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
-        Voting: voting::{Module, Call, Storage, Event<T>},
-        StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        Exemption: exemption::{Module, Call, Storage, Event},
-        Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
-        Sto: sto::{Module, Call, Storage, Event<T>},
-        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage},
-        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
-        Utility: utility::{Module, Call, Storage, Event},
-        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
-        Permissions: pallet_permissions::{Module},
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config},
-        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
-        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
-        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
+        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 28,
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 30,
+        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
+        ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
+        Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
+        Sto: sto::{Module, Call, Storage, Event<T>} = 37,
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        Utility: utility::{Module, Call, Storage, Event} = 41,
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
+        Permissions: pallet_permissions::{Module} = 44,
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
     }
 );
 
@@ -1199,7 +1190,7 @@ impl_runtime_apis! {
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
-            sender: AccountId,
+            _sender: AccountId,
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
             to_custodian: Option<IdentityId>,
@@ -1207,7 +1198,7 @@ impl_runtime_apis! {
             ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+            Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }

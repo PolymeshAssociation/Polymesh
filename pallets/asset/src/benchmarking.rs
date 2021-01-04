@@ -18,6 +18,7 @@ use crate::*;
 
 use polymesh_common_utilities::{
     benchs::{User, UserBuilder},
+    constants::currency::POLY,
     traits::asset::AssetName,
 };
 use polymesh_contracts::ExtensionInfo;
@@ -40,25 +41,29 @@ const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 /// Create a ticker and register it.
-fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap();
+pub fn make_ticker<T: Trait>(owner: T::Origin, optional_ticker: Option<Ticker>) -> Ticker {
+    let ticker = optional_ticker
+        .unwrap_or_else(|| Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap());
     Module::<T>::register_ticker(owner, ticker).unwrap();
-
     ticker
 }
 
 pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, true)
+    make_base_asset::<T>(owner, true, None)
 }
 
-fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, false)
+pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    make_base_asset::<T>(owner, false, None)
 }
 
-fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into());
+pub fn make_base_asset<T: Trait>(
+    owner: &User<T>,
+    divisible: bool,
+    optional_ticker: Option<Ticker>,
+) -> Ticker {
+    let ticker = make_ticker::<T>(owner.origin().into(), optional_ticker);
     let name: AssetName = ticker.as_slice().into();
-    let total_supply: T::Balance = 1_000_000.into();
+    let total_supply: T::Balance = (1_000_000 * POLY).into();
 
     Module::<T>::create_asset(
         owner.origin().into(),
@@ -78,7 +83,7 @@ fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool) -> Ticker {
 pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
-        content_hash: [b'7'; 64].into(), // Hash output 512bits.
+        content_hash: b"572cdd8d8f1754dd0c4a75d99b569845"[..].try_into().unwrap(), // MD5 output is 128bits.
         name: [b'n'; MAX_DOC_NAME].into(),
         doc_type: Some([b't'; MAX_DOC_TYPE].into()),
         filing_date: None,
@@ -147,7 +152,7 @@ benchmarks! {
     accept_ticker_transfer {
         let owner = UserBuilder::<T>::default().generate_did().build("owner");
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
-        let ticker = make_ticker::<T>(owner.origin().into());
+        let ticker = make_ticker::<T>(owner.origin().into(), None);
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker.clone());
         let new_owner_auth_id = identity::Module::<T>::add_auth( owner.did(), Signatory::from(new_owner.did()), AuthorizationData::TransferTicker(ticker), None);

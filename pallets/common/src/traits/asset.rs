@@ -14,14 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::*;
 
-pub const GAS_LIMIT: u64 = 1_000_000_000;
+pub const GAS_LIMIT: u64 = 13_000_000_000;
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait<Balance> {
@@ -125,7 +125,7 @@ pub trait Trait<Balance, Account, Origin> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
-    ) -> DispatchResultWithPostInfo;
+    ) -> DispatchResult;
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,

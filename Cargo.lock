@@ -4413,6 +4413,7 @@ dependencies = [
 name = "pallet-multisig"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -4605,13 +4606,19 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
+ "hex-literal 0.2.1",
  "pallet-asset",
  "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
+ "pallet-contracts",
  "pallet-identity",
  "pallet-portfolio",
+ "pallet-statistics",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "serde",
@@ -4691,6 +4698,7 @@ dependencies = [
 name = "pallet-statistics"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "lazy_static",
@@ -5698,10 +5706,12 @@ dependencies = [
  "pallet-group",
  "pallet-identity",
  "pallet-im-online",
+ "pallet-multisig",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-settlement",
+ "pallet-statistics",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "pallet-utility",

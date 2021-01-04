@@ -57,7 +57,7 @@ use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId, Perbill,
+    KeyTypeId, Perbill, Permill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -324,7 +324,6 @@ impl pallet_pips::Trait for Test {
     type Event = MetaEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -385,6 +384,7 @@ impl IdentityTrait for Test {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -598,6 +598,7 @@ parameter_types! {
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
 }
 
 thread_local! {
@@ -656,6 +657,7 @@ impl Trait for Test {
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
+    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type WeightInfo = ();
 }
 
@@ -1141,27 +1143,43 @@ fn assert_ledger_consistent(ctrl: AccountId) {
 }
 
 pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
-    assert_ok!(Staking::bond(
-        Origin::signed(stash),
-        ctrl,
-        val,
-        RewardDestination::Controller,
-    ));
+    bond_validator_with_intended_count(stash, ctrl, val, None)
+}
+
+pub fn bond_validator_with_intended_count(
+    stash: AccountId,
+    ctrl: AccountId,
+    val: Balance,
+    i_count: Option<u32>,
+) {
+    bond(stash, ctrl, val);
     let entity_id = Identity::get_identity(&stash).unwrap();
-    if !Staking::permissioned_identity(entity_id) {
+    if Staking::permissioned_identity(entity_id).is_none() {
         assert_ok!(Staking::add_permissioned_validator(
             frame_system::RawOrigin::Root.into(),
-            entity_id
+            entity_id,
+            i_count
         ));
     }
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
     ));
+}
+
+pub fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
+    let _ = Balances::make_free_balance_be(&stash, val);
+    let _ = Balances::make_free_balance_be(&ctrl, val);
+    provide_did_to_user(stash);
+    add_secondary_key(stash, ctrl);
+    if Staking::bonded(&stash).is_none() {
+        assert_ok!(Staking::bond(
+            Origin::signed(stash),
+            ctrl,
+            val,
+            RewardDestination::Controller,
+        ));
+    }
 }
 
 pub(crate) fn bond_nominator(
