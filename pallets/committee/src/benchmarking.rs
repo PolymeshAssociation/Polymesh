@@ -17,7 +17,11 @@
 
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
-use frame_support::{dispatch::DispatchResult, traits::UnfilteredDispatchable, StorageValue};
+use frame_support::{
+    dispatch::DispatchResult,
+    traits::{ChangeMembers, UnfilteredDispatchable},
+    StorageValue,
+};
 use polymesh_common_utilities::{
     benchs::{user, User},
     MaybeBlock,
@@ -78,7 +82,9 @@ where
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
         .map(|i| user::<T>("member", i))
         .collect();
-    Members::<I>::put(members.iter().map(|m| m.did()).collect::<Vec<_>>());
+    let mut dids: Vec<_> = members.iter().map(|m| m.did()).collect();
+    dids.sort();
+    Module::<T, I>::change_members_sorted(&dids, &[], &dids);
     make_proposals_and_vote::<T, I>(&members)?;
     Ok(members)
 }
@@ -132,9 +138,12 @@ benchmarks_instance! {
     }
 
     set_release_coordinator {
-        let dids: Vec<_> = (0..COMMITTEE_MEMBERS_MAX).map(|i| user::<T>("member", i).did()).collect();
+        let mut dids: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
+            .map(|i| user::<T>("member", i).did())
+            .collect();
+        dids.sort();
         let coordinator = dids.last().unwrap().clone();
-        Members::<I>::put(dids);
+        Module::<T, I>::change_members_sorted(&dids, &[], &dids);
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_release_coordinator(coordinator);
     }: {
