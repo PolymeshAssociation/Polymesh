@@ -28,11 +28,13 @@ impl pallet_committee::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn vote(a: u32) -> Weight {
-        (798_596_000 as Weight)
-            .saturating_add((181_478_000 as Weight).saturating_mul(a as Weight))
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+    fn vote_aye() -> Weight {
+        // FIXME
+        1_000_000_000
+    }
+    fn vote_nay() -> Weight {
+        // FIXME
+        1_000_000_000
     }
     fn close() -> Weight {
         (1_219_315_000 as Weight)

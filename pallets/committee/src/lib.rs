@@ -91,7 +91,8 @@ pub trait WeightInfo {
     fn set_expires_after() -> Weight;
     fn vote_or_propose_new_proposal() -> Weight;
     fn vote_or_propose_existing_proposal() -> Weight;
-    fn vote(a: u32) -> Weight;
+    fn vote_aye() -> Weight;
+    fn vote_nay() -> Weight;
     fn close() -> Weight;
 }
 
@@ -380,7 +381,11 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = <T as Trait<I>>::WeightInfo::vote(*approve as u32)]
+        #[weight = if *approve {
+            <T as Trait<I>>::WeightInfo::vote_aye()
+        } else {
+            <T as Trait<I>>::WeightInfo::vote_nay()
+        }]
         pub fn vote(
             origin,
             proposal: T::Hash,

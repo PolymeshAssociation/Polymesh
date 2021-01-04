@@ -83,6 +83,37 @@ where
     Ok(members)
 }
 
+fn vote_verify<T, I>(
+    hash: <T as frame_system::Trait>::Hash,
+    ptoposal_num: u32,
+    vote: bool,
+) -> DispatchResult
+where
+    I: Instance,
+    T: Trait<I>,
+{
+    if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
+        // The proposal is not finalised because there is no quorum yet.
+        if let Some(votes) = Voting::<T, I>::get(&hash) {
+            ensure!(votes.index == proposal_num, "wrong proposal_num");
+            if vote {
+                ensure!(votes.ayes.contains(&did), "aye vote missing");
+            } else {
+                ensure!(votes.nays.contains(&did), "nay vote missing");
+            }
+        } else {
+            return Err("cannot get votes".into());
+        }
+    } else {
+        // The proposal is finalised and removed from storage.
+        // TODO: pattern-match an event emitted during proposal finalisation.
+        ensure!(
+            !Voting::<T, I>::contains_key(&hash),
+            "executed proposal is not removed"
+        );
+    }
+}
+
 benchmarks_instance! {
     _ {}
 
@@ -158,35 +189,28 @@ benchmarks_instance! {
         }
     }
 
-    vote {
-        // reject or approve
-        let a in 0 .. 1;
-
+    vote_aye {
         let members = make_members_and_proposals::<T, I>()?;
         let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
         let origin = members[1].origin.clone();
         let did = members[1].did();
         identity::CurrentDid::put(did);
-    }: _(origin, hash, first_proposal_num, a != 0)
+    }: _(origin, hash, first_proposal_num, true)
     verify {
-        if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && a == 0) {
-            // The proposal is not finalised because there is no quorum yet.
-            if let Some(votes) = Voting::<T, I>::get(&hash) {
-                ensure!(votes.index == first_proposal_num, "wrong first proposal index");
-                if a != 0 {
-                    ensure!(votes.ayes.contains(&did), "aye vote missing");
-                } else {
-                    ensure!(votes.nays.contains(&did), "nay vote missing");
-                }
-            } else {
-                return Err("cannot get votes".into());
-            }
-        } else {
-            // The proposal is finalised and removed from storage.
-            // TODO: pattern-match an event emitted during proposal finalisation.
-            ensure!(!Voting::<T, I>::contains_key(&hash), "executed proposal is not removed");
-        }
+        vote_verify::<T, I>(hash, first_proposal_num, true)
+    }
+
+    vote_nay {
+        let members = make_members_and_proposals::<T, I>()?;
+        let hash = make_proposal::<T, I>(1).1;
+        let first_proposal_num = 0;
+        let origin = members[1].origin.clone();
+        let did = members[1].did();
+        identity::CurrentDid::put(did);
+    }: _(origin, hash, first_proposal_num, false)
+    verify {
+        vote_verify::<T, I>(hash, first_proposal_num, false)
     }
 
     close {
