@@ -71,10 +71,7 @@ use polymesh_common_utilities::{
         queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
         schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
-    traits::{
-        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
-        CommonTrait,
-    },
+    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -82,7 +79,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{Dispatchable, One, Verify, Zero};
+use sp_runtime::traits::{One, Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
