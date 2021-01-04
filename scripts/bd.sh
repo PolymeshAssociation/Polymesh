@@ -7,4 +7,4 @@ if [[ -z "${pallet}" ]]; then
 fi
 
 cargo build --release --features=runtime-benchmarks && \
-./target/release/polymesh benchmark -p=${pallet} -e=* -s 200 -r 10 --execution Wasm --wasm-execution Compiled --output
+./target/release/polymesh benchmark -p=${pallet} -e=*

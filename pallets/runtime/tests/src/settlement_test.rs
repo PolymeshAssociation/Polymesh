@@ -18,7 +18,7 @@ use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
     ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
 };
-use polymesh_common_utilities::asset::AssetType;
+use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
 use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
     Signatory, Ticker,
@@ -2493,16 +2493,15 @@ fn test_weights_for_settlement_transaction() {
                 instruction_counter,
                 default_portfolio_vec(bob_did),
             ));
-            assert_instruction_execution!(assert_eq, Asset::balance_of(ticker, bob_did), 100);
-            let (transfer_result, _weight_for_is_valid_transfer) = Asset::_is_valid_transfer(
-                &ticker,
-                alice,
-                PortfolioId::default_portfolio(alice_did),
-                PortfolioId::default_portfolio(bob_did),
-                100,
-            )
-            .unwrap();
-            assert_eq!(transfer_result, 81);
+            assert_ok!(
+                Asset::_is_valid_transfer(
+                    &ticker,
+                    PortfolioId::default_portfolio(alice_did),
+                    PortfolioId::default_portfolio(bob_did),
+                    100,
+                ),
+                ERC1400_TRANSFER_SUCCESS
+            );
         });
 }
 
