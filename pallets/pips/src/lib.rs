@@ -1045,7 +1045,7 @@ decl_module! {
                 // Default after-first-push capacity is 4, we bump this slightly.
                 // Rationale: GC are humans sitting together and reaching conensus.
                 // This is time consuming, so considering 20 PIPs in total might take few hours.
-                let speculative_capacity = queue.len().max(10);
+                let speculative_capacity = queue.len().min(results.len()).min(10);
                 let mut to_reject = Vec::with_capacity(speculative_capacity);
                 let mut to_approve = Vec::with_capacity(speculative_capacity);
 
