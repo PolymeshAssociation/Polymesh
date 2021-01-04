@@ -402,10 +402,10 @@ benchmarks! {
     remove_primary_issuance_agent {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
-    }: _(owner.origin, ticker.clone())
+    }: _(owner.origin(), ticker.clone())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.primary_issuance_agent, None);
+        assert_eq!( token.primary_issuance_agent, owner.did());
     }
 
 
@@ -454,6 +454,6 @@ benchmarks! {
     }: _(primary_issuance_agent.origin(), auth_id)
     verify {
         let token = Module::<T>::token_details(&ticker);
-        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did)
+        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did());
     }
 }
