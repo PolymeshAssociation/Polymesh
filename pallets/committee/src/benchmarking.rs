@@ -25,7 +25,7 @@ use polymesh_common_utilities::{
 use sp_std::prelude::*;
 
 const PROPOSAL_PADDING_LEN: usize = 10_000;
-const PROPOSALS_NUM: u8 = 100;
+const PROPOSALS_NUM: u32 = COMMITTEE_MEMBERS_MAX;
 
 fn make_proposal<T, I>(b: u8) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
 where
@@ -49,7 +49,7 @@ where
     );
     for i in 0..PROPOSALS_NUM {
         let index = Module::<T, I>::proposal_count();
-        let proposal = make_proposal::<T, I>(i + 1).0;
+        let proposal = make_proposal::<T, I>(i as u8 + 1).0;
         identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
         if users.len() > 1 {
@@ -194,14 +194,17 @@ benchmarks_instance! {
 
     vote_aye {
         let members = make_members_and_proposals::<T, I>()?;
-        let hash = make_proposal::<T, I>(1).1;
-        let first_proposal_num = 0;
+        let quorum_less_1 = COMMITTEE_MEMBERS_MAX / 2;
+        let hash = make_proposal::<T, I>(quorum_less_1 as u8).1;
+        ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
+        let proposal_num = quorum_less_1 - 1;
         let origin = members[1].origin.clone();
         let did = members[1].did();
         identity::CurrentDid::put(did);
-    }: vote(origin, hash, first_proposal_num, true)
+    }: vote(origin, hash, proposal_num, true)
     verify {
-        vote_verify::<T, I>(&did, hash, first_proposal_num, true)
+        ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
+        vote_verify::<T, I>(&did, hash, proposal_num, true)?;
     }
 
     vote_nay {
@@ -213,7 +216,7 @@ benchmarks_instance! {
         identity::CurrentDid::put(did);
     }: vote(origin, hash, first_proposal_num, false)
     verify {
-        vote_verify::<T, I>(&did, hash, first_proposal_num, false)
+        vote_verify::<T, I>(&did, hash, first_proposal_num, false)?;
     }
 
     close {
