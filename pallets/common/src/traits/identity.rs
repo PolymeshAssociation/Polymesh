@@ -32,8 +32,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker, DispatchableName, PalletName
+    secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
+    IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};

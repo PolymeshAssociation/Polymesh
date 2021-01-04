@@ -1389,13 +1389,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            None,
-            Some(issuer_id),
-            amount,
-            issuer_id
-        ),
+        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount, issuer_id),
         ERC1400_TRANSFER_FAILURE
     );
 

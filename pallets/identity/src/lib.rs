@@ -545,8 +545,8 @@ decl_module! {
 
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = RawOrigin::Signed(sender).into();            
-            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {                
+            let new_origin = RawOrigin::Signed(sender).into();
+            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
                 proposal.dispatch(new_origin)
             }) {
                 Ok(post_info) => post_info.actual_weight,
