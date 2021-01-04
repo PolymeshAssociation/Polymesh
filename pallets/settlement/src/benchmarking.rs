@@ -492,6 +492,7 @@ fn setup_affirm_instruction<T: Trait>(
     )
 }
 
+#[allow(dead_code)]
 fn add_smart_extension_to_ticker<T: Trait>(
     code_hash: <T::Hashing as Hash>::Output,
     origin: RawOrigin<T::AccountId>,
