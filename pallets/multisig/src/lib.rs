@@ -204,6 +204,7 @@ pub trait WeightInfo {
     fn change_all_signers_and_sigs_required() -> Weight;
     fn make_multisig_signer() -> Weight;
     fn make_multisig_primary() -> Weight;
+    fn execute_scheduled_proposal() -> Weight;
 }
 
 decl_storage! {
@@ -664,12 +665,13 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_proposal().saturating_add(*proposal_weight)]
         fn execute_scheduled_proposal(
             origin,
             multisig: T::AccountId,
             proposal_id: u64,
             multisig_did: IdentityId,
+            proposal_weight: Weight
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::execute_proposal(multisig, proposal_id, multisig_did)
@@ -937,24 +939,27 @@ impl<T: Trait> Module<T> {
                     );
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
-                    let execution_at = system::Module::<T>::block_number() + One::one();
-                    let call = Call::<T>::execute_scheduled_proposal(
-                        multisig.clone(),
-                        proposal_id,
-                        multisig_did,
-                    )
-                    .into();
+                    if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
+                        let execution_at = system::Module::<T>::block_number() + One::one();
+                        let call = Call::<T>::execute_scheduled_proposal(
+                            multisig.clone(),
+                            proposal_id,
+                            multisig_did,
+                            proposal.get_dispatch_info().weight,
+                        )
+                        .into();
 
-                    // Scheduling will fail when it's already scheduled (had enough votes already).
-                    // We ignore the failure here.
-                    let _ = T::Scheduler::schedule_named(
-                        (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
-                        DispatchTime::At(execution_at),
-                        None,
-                        MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
-                        RawOrigin::Root.into(),
-                        call,
-                    );
+                        // Scheduling will fail when it's already scheduled (had enough votes already).
+                        // We ignore the failure here.
+                        let _ = T::Scheduler::schedule_named(
+                            (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
+                            DispatchTime::At(execution_at),
+                            None,
+                            MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
+                            RawOrigin::Root.into(),
+                            call,
+                        );
+                    }
                 }
             }
         }

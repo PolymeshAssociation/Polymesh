@@ -109,4 +109,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+    fn execute_scheduled_proposal() -> Weight {
+        (54_698_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
 }
