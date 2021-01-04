@@ -1038,11 +1038,11 @@ impl<T: Trait> Module<T> {
 
         Self::consume_auth(auth.authorized_by, signer.clone(), auth_id)?;
 
-        Self::unsafe_join_identity(auth.authorized_by, permissions.into(), signer)
+        Self::base_join_identity(auth.authorized_by, permissions.into(), signer)
     }
 
     /// Joins an identity as signer
-    pub fn unsafe_join_identity(
+    pub fn base_join_identity(
         target_did: IdentityId,
         permissions: Permissions,
         signer: Signatory<T::AccountId>,
@@ -1071,6 +1071,15 @@ impl<T: Trait> Module<T> {
             Signatory::Identity(_) => charge_fee()?,
         }
 
+        Self::unsafe_join_identity(target_did, permissions, signer)
+    }
+
+    /// Joins an identity as signer
+    pub fn unsafe_join_identity(
+        target_did: IdentityId,
+        permissions: Permissions,
+        signer: Signatory<T::AccountId>,
+    ) -> DispatchResult {
         // Link the secondary key.
         let sk = SecondaryKey::new(signer, permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {
