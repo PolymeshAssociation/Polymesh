@@ -27,7 +27,7 @@
 //! meet and review PIPs, and reject, approve, or skip the proposal (via `enact_snapshot_results`).
 //! Any approved PIPs from this snapshot will then be scheduled,
 //! in order of signal value, to be executed automatically on the blockchain.
-//! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
+//! However, using `reschedule_execution`, a special Release Coordinator (RC), a member of the GC,
 //! can reschedule approved PIPs at will, except for a PIP to replace the RC.
 //! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
 //!
@@ -532,7 +532,7 @@ decl_event!(
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
         /// Execution of a PIP has been scheduled at specific block.
-        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
+        ExecutionScheduled(IdentityId, PipId, BlockNumber),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -952,16 +952,14 @@ decl_module! {
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period & reschule it.
-            let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            // 3. Update enactment period & reschedule it.
+            <PipToSchedule<T>>::insert(id, new_until);
 
             // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
             // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
             Self::unschedule_pip(id);
             Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
 
-            // 4. Emit event.
-            Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
             Ok(())
         }
 
@@ -1260,7 +1258,7 @@ impl<T: Trait> Module<T> {
             call,
         ) {
             Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
-            Ok(_) => RawEvent::ExecutionScheduled(did, id, Zero::zero(), at),
+            Ok(_) => RawEvent::ExecutionScheduled(did, id, at),
         };
         Self::deposit_event(event);
     }
