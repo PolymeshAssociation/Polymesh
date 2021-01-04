@@ -2940,7 +2940,9 @@ impl<T: Trait> Module<T> {
         if let Some(id) = <Identity<T>>::get_identity(stash) {
             PermissionedIdentity::mutate(&id, |pref| {
                 if let Some(p) = pref {
-                    p.running_count -= 1
+                    if p.running_count > 0 {
+                        p.running_count -= 1
+                    }
                 }
             });
         }
