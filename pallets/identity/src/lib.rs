@@ -174,7 +174,7 @@ decl_storage! {
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_128_concat)
+        pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
@@ -511,7 +511,7 @@ decl_module! {
         }
 
         /// Creates a call on behalf of another DID.
-        #[weight = <T as Trait>::WeightInfo::forwarded_call() + proposal.get_dispatch_info().weight]
+        #[weight = <T as Trait>::WeightInfo::forwarded_call().saturating_add(proposal.get_dispatch_info().weight)]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;

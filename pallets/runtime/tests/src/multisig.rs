@@ -2,7 +2,7 @@ use super::{
     storage::{get_last_auth_id, register_keyring_account, Call, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, traits::OnInitialize};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -17,6 +17,14 @@ type MultiSig = multisig::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Error = multisig::Error<TestStorage>;
+type System = frame_system::Module<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
+
+pub fn next_block() {
+    let block_number = System::block_number() + 1;
+    System::set_block_number(block_number);
+    let _ = Scheduler::on_initialize(block_number);
+}
 
 #[test]
 fn create_multisig() {
@@ -192,7 +200,7 @@ fn change_multisig_sigs_required() {
             musig_address.clone(),
             0
         ));
-
+        next_block();
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
     });
 }
@@ -238,6 +246,7 @@ fn create_or_approve_change_multisig_sigs_required() {
             None,
             false
         ));
+        next_block();
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
         assert_ok!(MultiSig::create_or_approve_proposal_as_identity(
             alice.clone(),
@@ -246,6 +255,7 @@ fn create_or_approve_change_multisig_sigs_required() {
             None,
             false
         ));
+        next_block();
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
     });
 }
@@ -315,6 +325,8 @@ fn remove_multisig_signer() {
             false
         ));
 
+        next_block();
+
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
         assert_eq!(
@@ -342,6 +354,8 @@ fn remove_multisig_signer() {
             None,
             false
         ));
+
+        next_block();
 
         // Alice not removed since that would've broken the multi sig.
         assert_eq!(
@@ -398,6 +412,8 @@ fn add_multisig_signer() {
             false
         ));
 
+        next_block();
+
         let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
             charlie_signer,
         )));
@@ -409,6 +425,8 @@ fn add_multisig_signer() {
             None,
             false
         ));
+
+        next_block();
 
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
@@ -522,6 +540,9 @@ fn should_change_all_signers_and_sigs_required() {
             false
         ));
 
+        next_block();
+        next_block();
+
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
             false
@@ -535,11 +556,13 @@ fn should_change_all_signers_and_sigs_required() {
         let charlie_auth_id = get_last_auth_id(&Signatory::from(charlie_did));
         let dave_auth_id = get_last_auth_id(&Signatory::from(dave_did));
 
+        Context::set_current_identity::<Identity>(Some(charlie_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
             charlie_auth_id
         ));
 
+        Context::set_current_identity::<Identity>(Some(dave_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             dave,
             dave_auth_id
@@ -861,6 +884,7 @@ fn check_for_approval_closure() {
             None,
             false
         ));
+        next_block();
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
         let bob_auth_id = get_last_auth_id(&bob_signer);
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
@@ -871,6 +895,7 @@ fn check_for_approval_closure() {
             musig_address.clone(),
             proposal_id
         ));
+        next_block();
         let after_extra_approval_auth_id = get_last_auth_id(&bob_signer);
         let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
         // To validate that no new auth is created
@@ -997,6 +1022,7 @@ fn reject_proposals() {
         );
 
         let proposal_details2 = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id2));
+        next_block();
         assert_eq!(proposal_details2.approvals, 1);
         assert_eq!(proposal_details2.rejections, 3);
         assert_eq!(proposal_details2.status, multisig::ProposalStatus::Rejected);

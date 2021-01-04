@@ -324,7 +324,6 @@ impl pallet_pips::Trait for Test {
     type Event = MetaEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -385,6 +384,7 @@ impl IdentityTrait for Test {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
