@@ -175,12 +175,15 @@ fn generate_portfolio<T: Trait>(
         }
         Some(u) => u,
     };
-    let portfolio_no = (Portfolio::<T>::next_portfolio_number(u.did)).0 + 1u64;
+    let portfolio_no = (Portfolio::<T>::next_portfolio_number(u.did)).0;
     let portfolio_name =
         PortfolioName::try_from(vec![b'P'; portfolio_no as usize].as_slice()).unwrap();
-    Portfolio::<T>::create_portfolio(RawOrigin::Signed(u.account.clone()).into(), portfolio_name)
-        .expect("Failed to generate portfolio");
-    PortfolioId::user_portfolio(u.did, Portfolio::<T>::next_portfolio_number(u.did))
+    Portfolio::<T>::create_portfolio(
+        RawOrigin::Signed(u.account.clone()).into(),
+        portfolio_name.clone(),
+    )
+    .expect("Failed to generate portfolio");
+    PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
 fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Balance>>) {
@@ -377,7 +380,7 @@ fn add_trusted_issuer<T: Trait>(
 
 pub fn get_conditions<T: Trait>(complexity: u32, trusted_issuer: TrustedIssuer) -> Vec<Condition> {
     let mut conditions = Vec::with_capacity(complexity as usize);
-    for i in 0..complexity {
+    for i in 0..complexity / 2 {
         let scope = Scope::Custom(vec![1; i.try_into().unwrap()]);
         conditions.push(Claim::Jurisdiction(CountryCode::AF, scope));
     }
@@ -868,11 +871,10 @@ benchmarks! {
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         let s in 0 .. T::MaxNumberOfTMExtensionForAsset::get() as u32;
         let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
-
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
-        let first_leg = legs.into_iter().nth(0).unwrap();
+        let first_leg = legs.into_iter().nth(0).unwrap_or_default();
         let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
@@ -881,7 +883,6 @@ benchmarks! {
         let to_origin = RawOrigin::Signed(to.account.clone());
         // Do another affirmations that lead to scheduling an instruction.
         Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
-
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());

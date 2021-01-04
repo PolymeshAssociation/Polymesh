@@ -131,16 +131,14 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(r as Weight)))
             .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(r as Weight)))
     }
-    fn execute_scheduled_instruction(l: u32, s: u32, c: u32, t: u32) -> Weight {
+    fn execute_scheduled_instruction(l: u32, s: u32, c: u32) -> Weight {
         (0 as Weight)
             .saturating_add((72_103_794_000 as Weight).saturating_mul(l as Weight))
             .saturating_add((100_534_682_000 as Weight).saturating_mul(s as Weight))
             .saturating_add((574_040_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add((6_251_013_000 as Weight).saturating_mul(t as Weight))
             .saturating_add(DbWeight::get().reads((19 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().reads((21 as Weight).saturating_mul(s as Weight)))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(c as Weight)))
-            .saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(t as Weight)))
             .saturating_add(DbWeight::get().writes((8 as Weight).saturating_mul(l as Weight)))
     }
 }

@@ -332,8 +332,6 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub MaxLegsInInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
-    pub const MaxComplianceRestriction: u32 = 40;
-    pub const MaxTrustedIssuer: u32 = 5;
 }
 
 impl settlement::Trait for TestStorage {
@@ -342,8 +340,6 @@ impl settlement::Trait for TestStorage {
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
-    type MaxComplianceRestriction = MaxComplianceRestriction;
-    type MaxTrustedIssuer = MaxTrustedIssuer;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 

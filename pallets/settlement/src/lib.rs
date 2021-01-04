@@ -105,10 +105,6 @@ pub trait Trait:
     type SchedulerCall: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + From<Call<Self>>;
-    /// Max compliance restriction allowed for an asset.
-    type MaxComplianceRestriction: Get<u32>;
-    /// Max trusted issuer allowed for a compliance restriction.
-    type MaxTrustedIssuer: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -321,7 +317,7 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn execute_scheduled_instruction(l: u32, s: u32, c: u32, t: u32) -> Weight;
+    fn execute_scheduled_instruction(l: u32, s: u32, c: u32) -> Weight;
     fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
@@ -775,7 +771,7 @@ decl_module! {
         }
 
         /// An internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxComplianceRestriction::get(), T::MaxTrustedIssuer::get())]
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())]
         fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResult {
             ensure_root(origin)?;
             Self::execute_instruction(instruction_id)?;
