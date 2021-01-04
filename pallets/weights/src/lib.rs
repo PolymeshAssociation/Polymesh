@@ -19,19 +19,23 @@
 
 pub mod frame_system;
 pub mod pallet_asset;
+pub mod pallet_babe;
 pub mod pallet_balances;
 pub mod pallet_capital_distribution;
 pub mod pallet_compliance_manager;
 pub mod pallet_confidential;
 pub mod pallet_corporate_actions;
 pub mod pallet_corporate_ballot;
+pub mod pallet_grandpa;
 pub mod pallet_group;
 pub mod pallet_identity;
 pub mod pallet_im_online;
+pub mod pallet_indices;
 pub mod pallet_multisig;
 pub mod pallet_pips;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;
+pub mod pallet_scheduler;
 pub mod pallet_settlement;
 pub mod pallet_statistics;
 pub mod pallet_timestamp;
