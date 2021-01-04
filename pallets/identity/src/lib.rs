@@ -2237,7 +2237,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                 return None;
             }
 
-            if let Some(target_did) = Context::current_identity::<Self>() {
+            if let Some(target_did) = Context::current_identity_or::<Self>(who).ok() {
                 let target_did_record = <DidRecords<T>>::get(&target_did);
 
                 if target_did == key_did {
