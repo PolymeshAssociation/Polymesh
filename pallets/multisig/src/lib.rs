@@ -749,7 +749,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
-        ensure!(<Identity<T>>::is_primary_key(did, sender), Error::<T>::NotPrimaryKey);
+        ensure!(
+            <Identity<T>>::is_primary_key(did, sender),
+            Error::<T>::NotPrimaryKey
+        );
         Ok(())
     }
 
