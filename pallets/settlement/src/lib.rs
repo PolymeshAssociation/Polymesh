@@ -59,16 +59,19 @@ use frame_support::{
     ensure, storage,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
-        Get, LockIdentifier,
+        Get,
     },
     weights::{PostDispatchInfo, Weight},
-    IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
+    IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::queue_priority::*,
+    constants::{
+        queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+        schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
+    },
     traits::{
         asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
         CommonTrait,
@@ -81,7 +84,7 @@ use polymesh_primitives::{
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
-    traits::{Dispatchable, One, Verify, Zero},
+    traits::{One, Verify, Zero},
     DispatchErrorWithPostInfo,
 };
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
@@ -89,8 +92,6 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
-
-const SETTLEMENT_ID: LockIdentifier = *b"settlemt";
 
 pub trait Trait:
     frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
@@ -101,12 +102,8 @@ pub trait Trait:
     type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -736,7 +733,7 @@ decl_module! {
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
             if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
-                let _ = T::Scheduler::cancel_named((SETTLEMENT_ID, instruction_id).encode());
+                let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
             }
         }
 
@@ -883,7 +880,7 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
         }
 
-        /// An internal call to execute a scheduled settlement instruction.
+        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = 500_000_000]
         fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -1109,7 +1106,6 @@ impl<T: Trait> Module<T> {
             result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
             weight_for::weight_for_execute_instruction_if_pending_affirm::<T>()
         } else {
-            let mut transaction_weight = 0;
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
             let venue_id = Self::instruction_details(instruction_id).venue_id;
@@ -1130,15 +1126,14 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         status == LegStatus::ExecutionPending
                     }) {
-                        let result = <Asset<T>>::base_transfer(
+                        if <Asset<T>>::base_transfer(
                             leg_details.from,
                             leg_details.to,
                             &leg_details.asset,
                             leg_details.amount,
-                        );
-                        if let Ok(post_info) = result {
-                            transaction_weight += post_info.actual_weight.unwrap_or_default();
-                        } else {
+                        )
+                        .is_err()
+                        {
                             return Err(leg_id);
                         }
                     }
@@ -1166,7 +1161,8 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(transaction_weight)
+            // TODO: Fix this. The weight needs to be benchmarked and updated. Using a placeholder right now.
+            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(500_000_000)
         };
 
         // Clean up instruction details to reduce chain bloat
@@ -1386,7 +1382,7 @@ impl<T: Trait> Module<T> {
     fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
         let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
         if let Err(_) = T::Scheduler::schedule_named(
-            (SETTLEMENT_ID, instruction_id).encode(),
+            (SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode(),
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,

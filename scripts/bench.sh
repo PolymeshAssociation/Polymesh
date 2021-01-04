@@ -2,7 +2,7 @@
 
 pallet=$1
 
-if [[ -z "${pallet}"]]; then
+if [[ -z "${pallet}" ]]; then
     pallet="*"
 fi
 

@@ -40,6 +40,16 @@ pub mod queue_priority {
 
     /// Queue priority for the settlement instruction execution.
     pub const SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY: Priority = 100;
+    /// Queue priority for multisig action execution.
+    pub const MULTISIG_PROPOSAL_EXECUTION_PRIORITY: Priority = 101;
+}
+
+/// Prefixes for scheduled actions
+pub mod schedule_name_prefix {
+    pub const SETTLEMENT_INSTRUCTION_EXECUTION: [u8; 27] = *b"SETTLEMENT_INSTRUCTION_EXEC";
+    pub const MULTISIG_PROPOSAL_EXECUTION: [u8; 22] = *b"MULTISIG_PROPOSAL_EXEC";
+    pub const PIP_EXECUTION: [u8; 8] = *b"PIP_EXEC";
+    pub const PIP_EXPIRY: [u8; 10] = *b"PIP_EXPIRY";
 }
 
 // ERC1400 transfer status codes
@@ -66,6 +76,7 @@ pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa8;
 pub const PORTFOLIO_FAILURE: u8 = 0xa9;
 pub const CUSTODIAN_ERROR: u8 = 0xaa;
 pub const SCOPE_CLAIM_MISSING: u8 = 0xab;
+pub const TRANSFER_MANAGER_FAILURE: u8 = 0xac;
 
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;

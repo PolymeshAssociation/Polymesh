@@ -109,7 +109,6 @@ use frame_support::{
         Currency,
     },
     weights::{DispatchClass, Pays, Weight},
-    Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
@@ -126,7 +125,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
+use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -135,13 +134,11 @@ pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type Scheduler: ScheduleAnon<
+        Self::BlockNumber,
+        <Self as Trait>::Proposal,
+        Self::SchedulerOrigin,
+    >;
 }
 
 /// The status of a bridge transaction.
@@ -580,7 +577,7 @@ decl_module! {
             }
         }
 
-        /// An internal call to handle a scheduled timelocked bridge transaction.
+        /// Root callable extrinsic, used as an internal call to handle a scheduled timelocked bridge transaction.
         #[weight = (
             500_000_000,
             DispatchClass::Operational,
@@ -862,7 +859,7 @@ impl<T: Trait> Module<T> {
     fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
-        if let Err(e) = T::Scheduler::schedule(
+        if let Err(e) = <T as Trait>::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,
             LOWEST_PRIORITY,
