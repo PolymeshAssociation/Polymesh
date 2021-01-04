@@ -502,11 +502,7 @@ decl_module! {
         /// # Weight
         /// `200_000_000 + 5_000_000 * signers.len()`
         #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
-        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) -> 
-      
-      
-      
-      ult {
+        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             let venue = Venue::new(did, details, venue_type);
             // NB: Venue counter starts with 1.
@@ -529,7 +525,7 @@ decl_module! {
         /// # Weight
         /// `200_000_000
         #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
-        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) -> DispatchResult {
+        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             // Check if a venue exists and the sender is the creator of the venue
             let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
