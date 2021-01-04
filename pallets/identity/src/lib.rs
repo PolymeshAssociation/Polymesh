@@ -554,7 +554,14 @@ decl_module! {
             // 1.3. Check that target_did has a CDD.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            // 1.4 charge fee
+            // 1.4 Check that the forwarded call is not recursive
+            let metadata = proposal.get_call_metadata();
+            ensure!(
+                !((metadata.pallet_name == "identity") && (metadata.function_name == "forwarded_call")),
+                Error::<T>::RecursionNotAllowed
+            );
+
+            // 1.5 charge fee
             let _ = T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
                 proposal.get_dispatch_info())
@@ -567,7 +574,7 @@ decl_module! {
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = RawOrigin::Signed(sender).into();
 
-            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
+            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {                
                 proposal.dispatch(new_origin)
             }) {
                 Ok(post_info) => post_info.actual_weight,
@@ -1026,7 +1033,9 @@ decl_error! {
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
         /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId
+        TargetHasNonZeroBalanceAtScopeId,
+        /// Do not allow forwarded call to be called recursively
+        RecursionNotAllowed
     }
 }
 
@@ -2229,7 +2238,8 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         // `who` is the original origin of the call (including forwarded calls from an identity acting as a key)
         // context::current_identity is the target did against which the calling key must have permissions
         // if `who`'s identity does not match context::current_identity we have a forwarded call, in this case the
-        // key for which we check permissions is `who`'s identity rather than `who`
+        // key for which we check permissions is `who`'s identity rather than `who`. This assumes that recursive forwarded calls
+        // are not allowed (which are prevented in `forwarded_call`)
         if <KeyToIdentityIds<T>>::contains_key(who) {
             let key_did = <KeyToIdentityIds<T>>::get(who);
             if !<DidRecords<T>>::contains_key(&key_did) {

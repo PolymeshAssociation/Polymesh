@@ -58,6 +58,7 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The caller is not authorized to call the current extrinsic.
         UnauthorizedCaller,
+        RecursionNotAllowed,
     }
 }
 
@@ -169,7 +170,7 @@ pub fn with_call_metadata<Succ, Err>(
     metadata: CallMetadata,
     tx: impl FnOnce() -> Result<Succ, Err>,
 ) -> Result<Succ, Err> {
-    // Set the dispatchable call metadata and save the current call metadata.
+    // Set the dispatchable call metadata and save the current call metadata.    
     let (pallet_name, function_name) = swap_call_metadata(
         metadata.pallet_name.as_bytes().into(),
         metadata.function_name.as_bytes().into(),

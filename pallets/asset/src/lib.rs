@@ -894,11 +894,8 @@ decl_module! {
             Self::deposit_event(RawEvent::ExtensionUnArchived(did, ticker, extension_id));
         }
 
-        /// Sets the primary issuance agent to None. The caller must be the asset issuer. The asset
-        /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`. If the issuer
-        /// removes their primary issuance agent then it will be immovable until either they transfer
-        /// the primary issuance agent to an actual DID, or they add a claim to allow that DID to move the
-        /// asset.
+        /// Sets the primary issuance agent back to the ticker owner. The caller must be the asset issuer. The asset
+        /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.

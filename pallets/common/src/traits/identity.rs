@@ -256,6 +256,9 @@ decl_event!(
 
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),
+
+        /// Forwarded Call - (calling DID, target DID)
+        ForwardedCall(IdentityId),
     }
 );
 
