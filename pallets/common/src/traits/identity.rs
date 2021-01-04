@@ -33,7 +33,7 @@ use frame_support::{
 };
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker,
+    Permissions, Signatory, Ticker, DispatchableName, PalletName
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -230,8 +230,8 @@ decl_event!(
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),
 
-        /// Forwarded Call - (calling DID, target DID)
-        ForwardedCall(IdentityId),
+        /// Forwarded Call - (calling DID, target DID, pallet name, function name)
+        ForwardedCall(IdentityId, IdentityId, PalletName, DispatchableName),
     }
 );
 

@@ -528,7 +528,7 @@ decl_module! {
             // 1.4 Check that the forwarded call is not recursive
             let metadata = proposal.get_call_metadata();
             ensure!(
-                !((metadata.pallet_name == "identity") && (metadata.function_name == "forwarded_call")),
+                !((metadata.pallet_name == "Identity") && (metadata.function_name == "forwarded_call")),
                 Error::<T>::RecursionNotAllowed
             );
 
@@ -541,10 +541,11 @@ decl_module! {
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
 
+            Self::deposit_event(RawEvent::ForwardedCall(current_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
+
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = RawOrigin::Signed(sender).into();
-
+            let new_origin = RawOrigin::Signed(sender).into();            
             let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {                
                 proposal.dispatch(new_origin)
             }) {
