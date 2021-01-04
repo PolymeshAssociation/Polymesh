@@ -811,7 +811,7 @@ fn transfer_primary_issuance_agent() {
             auth_id
         ));
         let mut new_token = token.clone();
-        new_token.primary_issuance_agent = primary_issuance_agent;
+        new_token.primary_issuance_agent = Some(primary_issuance_agent);
         assert_eq!(Asset::token_details(&ticker), new_token);
     })
 }
@@ -1905,7 +1905,7 @@ fn can_set_primary_issuance_agent_we() {
         Origin::signed(alice),
         ticker
     ));
-    token.primary_issuance_agent = alice_id;
+    token.primary_issuance_agent = None;
     assert_eq!(Asset::token_details(ticker), token);
 }
 

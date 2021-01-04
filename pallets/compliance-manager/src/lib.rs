@@ -646,7 +646,7 @@ impl<T: Trait> Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
     ) -> AssetComplianceResult {
-        let primary_issuance_agent = T::Asset::primary_issuance_agent(ticker);
+        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);

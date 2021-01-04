@@ -212,7 +212,7 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-    pub primary_issuance_agent: IdentityId,
+    pub primary_issuance_agent: Option<IdentityId>,
 }
 
 /// struct to store the ticker registration details.
@@ -568,7 +568,7 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                primary_issuance_agent: did,
+                primary_issuance_agent: None,
             };
             <Tokens<T>>::insert(&ticker, token);
             // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
@@ -886,7 +886,7 @@ decl_module! {
             Self::deposit_event(RawEvent::ExtensionUnArchived(did, ticker, extension_id));
         }
 
-        /// Sets the primary issuance agent back to the ticker owner. The caller must be the asset issuer. The asset
+        /// Sets the primary issuance agent back to None. The caller must be the asset issuer. The asset
         /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`.
         ///
         /// # Arguments
@@ -898,8 +898,8 @@ decl_module! {
             ticker: Ticker,
         ) {
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
-            let old_pia = <Tokens<T>>::mutate(&ticker, |t| mem::replace(&mut t.primary_issuance_agent, did.clone()));
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did.clone(), ticker, old_pia, did));
+            let old_pia = <Tokens<T>>::mutate(&ticker, |t| mem::replace(&mut t.primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_pia, None));
         }
 
         /// Remove the given smart extension id from the list of extension under a given ticker.
@@ -1027,9 +1027,8 @@ decl_event! {
         /// caller DID, ticker, from portfolio, to portfolio, value
         Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
         /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
-        /// primary issuance agent
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance, IdentityId),
+        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
+        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
@@ -1083,7 +1082,7 @@ decl_event! {
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, IdentityId, IdentityId),
+        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset
@@ -1204,12 +1203,9 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     /// Returns the PIA if it's assigned or else the owner of the token
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
-        token_details.primary_issuance_agent
-    }
-
-    /// Returns the PIA of the token
-    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId {
-        Self::token_details(ticker).primary_issuance_agent
+        token_details
+            .primary_issuance_agent
+            .unwrap_or(token_details.owner_did)
     }
 
     fn base_transfer(
@@ -1320,7 +1316,7 @@ impl<T: Trait> Module<T> {
         // Ensure that the caller has relevant portfolio permissions
         let portfolio = PortfolioId::default_portfolio(data.primary_did);
 
-        // Check that the PIA has not assigned custody of their default portfolio, and that caller is permissioned
+        // Ensure the PIA has not assigned custody of their default portfolio, and that caller is permissioned
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
         Ok(data)
     }
@@ -1576,7 +1572,7 @@ impl<T: Trait> Module<T> {
             Some(from_portfolio.did),
             Some(to_portfolio.did),
             value,
-            token.primary_issuance_agent,
+            Self::primary_issuance_agent_or_owner(&ticker),
         )
         .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
 
@@ -1698,12 +1694,11 @@ impl<T: Trait> Module<T> {
         <BalanceOfAtScope<T>>::insert(scope_id, did, updated_balance);
     }
 
-    /// Ensure that `did` is either the token owner, or the assigned PIA
-    /// Returns the PIA
-    pub fn ensure_pia(ticker: &Ticker, did: IdentityId) -> Result<IdentityId, DispatchError> {
-        let pia = Self::token_details(&ticker).primary_issuance_agent;
+    /// Ensure that `did` is the assigned PIA, or the token owner if no PIA is assigned
+    pub fn ensure_pia(ticker: &Ticker, did: IdentityId) -> DispatchResult {
+        let pia = Self::primary_issuance_agent_or_owner(&ticker);
         if did == pia {
-            return Ok(pia);
+            return Ok(());
         }
         return Err(Error::<T>::Unauthorized.into());
     }
@@ -1752,7 +1747,6 @@ impl<T: Trait> Module<T> {
         token.total_supply = updated_total_supply;
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
-        let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
         if ScopeIdOf::contains_key(ticker, &to_did) {
@@ -1790,8 +1784,7 @@ impl<T: Trait> Module<T> {
             to_did,
             value,
             round,
-            issued_in_this_round,
-            primary_issuance_agent,
+            issued_in_this_round
         ));
 
         Ok(())
@@ -1857,7 +1850,7 @@ impl<T: Trait> Module<T> {
 
         Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
 
-        let pia = to_did;
+        let pia = Some(to_did);
         let old_pia = <Tokens<T>>::mutate(&ticker, |token| {
             mem::replace(&mut token.primary_issuance_agent, pia)
         });
@@ -1876,9 +1869,9 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
         investor_portfolio_id: PortfolioId,
     ) -> DispatchResult {
+        let pia = Identity::<T>::ensure_perms(origin)?;
         // Ensure that `origin` is the PIA or the token owner.
-        let owner = Identity::<T>::ensure_perms(origin)?;
-        let pia = Self::ensure_pia(&ticker, owner)?;
+        Self::ensure_pia(&ticker, pia)?;
 
         // transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(
