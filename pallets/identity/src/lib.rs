@@ -1059,6 +1059,13 @@ impl<T: Trait> Module<T> {
                 );
                 // Charge the protocol fee after all checks.
                 charge_fee()?;
+                // Check that the new Identity has a valid CDD claim.
+                ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+                // Update current did of the transaction to the newly joined did.
+                // This comes handy when someone uses a batch transaction to leave their identity, join another identity,
+                // and then do something as the new identity.
+                T::CddHandler::set_current_identity(&target_did);
+
                 Self::link_account_key_to_did(key, target_did);
             }
             Signatory::Identity(_) => charge_fee()?,
