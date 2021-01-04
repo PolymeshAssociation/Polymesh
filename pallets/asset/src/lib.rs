@@ -103,9 +103,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::Counter;
 use polymesh_common_utilities::{
-    asset::{
-        AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
-    },
+    asset::{AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -185,6 +183,9 @@ pub trait Trait:
 
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<usize>;
+
+    /// Maximum gas used for smart extension execution.
+    type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
 }
@@ -390,6 +391,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         type Error = Error<T>;
+
+        const AllowedGasLimit: u64 = T::AllowedGasLimit::get();
 
         /// initialize the default event for this module
         fn deposit_event() = default;
@@ -1934,7 +1937,7 @@ impl<T: Trait> Module<T> {
         dest: T::AccountId,
     ) -> RestrictionResult {
         // 4 byte selector of verify_transfer - 0xD9386E41
-        let selector = hex!("D9386E41");
+        let selector = hex!("D1140AC9");
         let balance = |did| {
             T::Balance::encode(&match did {
                 None => 0.into(),
@@ -1980,9 +1983,13 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let (res, _gas_spent) =
-            Self::call_extension(extension_caller, dest, GAS_LIMIT, encoded_data);
-        if let Ok(is_allowed) = res {
+        let (res, _gas_spent) = Self::call_extension(
+            extension_caller,
+            dest,
+            T::AllowedGasLimit::get(),
+            encoded_data,
+        );
+        if let Ok(is_allowed) = &res {
             if is_allowed.is_success() {
                 if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                     return allowed;

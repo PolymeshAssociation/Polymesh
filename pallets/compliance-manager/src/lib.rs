@@ -117,7 +117,7 @@ pub trait Trait:
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
-    /// Weight details of all extrinsics
+    /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
@@ -684,7 +684,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
-    fn verify_compliance_complexity(
+    pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
         add: usize,
@@ -697,7 +697,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
     /// is within the maximum condition complexity allowed.
-    fn base_verify_compliance_complexity(
+    pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         default_issuer_count: usize,
     ) -> DispatchResult {

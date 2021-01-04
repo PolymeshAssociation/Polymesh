@@ -55,13 +55,13 @@ use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure, storage,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get,
     },
-    weights::{PostDispatchInfo, Weight},
+    weights::Weight,
     IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
@@ -72,10 +72,7 @@ use polymesh_common_utilities::{
         queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
         schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
-    traits::{
-        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
-        CommonTrait,
-    },
+    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -83,10 +80,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::{
-    traits::{One, Verify, Zero},
-    DispatchErrorWithPostInfo,
-};
+use sp_runtime::traits::{One, Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -94,7 +88,12 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
+    frame_system::Trait
+    + CommonTrait
+    + IdentityTrait
+    + pallet_timestamp::Trait
+    + asset::Trait
+    + pallet_compliance_manager::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -307,15 +306,17 @@ pub trait WeightInfo {
     fn update_venue(d: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
-    fn affirm_instruction() -> Weight;
+    fn affirm_instruction(l: u32) -> Weight;
     fn withdraw_affirmation(u: u32) -> Weight;
-    fn reject_instruction() -> Weight;
-    fn affirm_with_receipts() -> Weight;
+    fn reject_instruction(l: u32) -> Weight;
+    fn affirm_with_receipts(r: u32) -> Weight;
     fn claim_receipt() -> Weight;
     fn unclaim_receipt() -> Weight;
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
+    fn execute_scheduled_instruction(l: u32, s: u32, c: u32) -> Weight;
+    fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -323,118 +324,6 @@ pub trait WeightInfo {
     fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
-}
-
-impl WeightInfo for () {
-    fn create_venue(_d: u32, _u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn update_venue(_d: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn affirm_instruction() -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn reject_instruction() -> Weight {
-        1_000_000_000
-    }
-    fn affirm_with_receipts() -> Weight {
-        1_000_000_000
-    }
-    fn claim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn unclaim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering() -> Weight {
-        1_000_000_000
-    }
-    fn allow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn disallow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering_disallow() -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-}
-
-pub mod weight_for {
-    use super::*;
-
-    pub fn weight_for_execute_instruction_if_no_pending_affirm<T: Trait>(
-        weight_for_custodian_transfer: Weight,
-    ) -> Weight {
-        T::DbWeight::get()
-            .reads(4) // Weight for read
-            .saturating_add(150_000_000) // General weight
-            .saturating_add(weight_for_custodian_transfer) // Weight for custodian transfer
-    }
-
-    pub fn weight_for_execute_instruction_if_pending_affirm<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 1) // For read and write
-            .saturating_add(900_000_000) // Mocking unchecked_release_locks() function weight.
-    }
-
-    pub fn weight_for_affirmation_with_receipts<T: Trait>(no_of_receipts: u32) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(6, 3) // weight for read and write
-            .saturating_add((no_of_receipts * 80_000_000).into()) // Weight for receipts.
-            .saturating_add(
-                T::DbWeight::get()
-                    .reads_writes(3, 1)
-                    .saturating_mul(no_of_receipts.into()),
-            ) // weight for read and write related to receipts.
-    }
-
-    pub fn weight_for_affirmation_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(5, 3) // weight for read and writes
-            .saturating_add(600_000_000)
-    }
-
-    pub fn weight_for_reject_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(3, 2) // weight for read and writes
-            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction_affirmation()`
-    }
-
-    pub fn weight_for_transfer<T: Trait>() -> Weight {
-        GAS_LIMIT
-            .saturating_mul(
-                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
-            )
-            .saturating_add(70_000_000) // Weight for compliance manager
-            .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
-            .saturating_add(150_000_000)
-    }
-
-    pub fn weight_for_instruction_creation<T: Trait>(no_of_legs: usize) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 5)
-            .saturating_add(u64::try_from(no_of_legs * 50_000_000).unwrap_or_default())
-    }
 }
 
 decl_event!(
@@ -612,9 +501,13 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 5_000_000 * signers.len()`
-        #[weight = 200_000_000 + 5_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
-        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
-            let did = Identity::<T>::ensure_perms(origin)?;
+        #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
+        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) -> 
+      
+      
+      
+      ult {
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             let venue = Venue::new(did, details, venue_type);
             // NB: Venue counter starts with 1.
             let venue_counter = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
@@ -635,9 +528,9 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000
-        #[weight = 200_000_000]
-        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) {
-            let did = Identity::<T>::ensure_perms(origin)?;
+        #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
+        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) -> DispatchResult {
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             // Check if a venue exists and the sender is the creator of the venue
             let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
             ensure!(venue.creator == did, Error::<T>::Unauthorized);
@@ -663,7 +556,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())]
+        #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)]
         pub fn add_instruction(
             origin,
             venue_id: u64,
@@ -686,10 +579,7 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())
-            + weight_for::weight_for_affirmation_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>()
-        ]
+        #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: u64,
@@ -712,9 +602,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to affirm.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction
-        #[weight = weight_for::weight_for_affirmation_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-        ]
+        #[weight = <T as Trait>::WeightInfo::affirm_instruction(portfolios.len() as u32)]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter())
         }
@@ -724,7 +612,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-        #[weight = 25_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(portfolios.len() as u32)]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -742,9 +630,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
         /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
-        #[weight = weight_for::weight_for_reject_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-        ]
+        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(portfolios.len() as u32)]
         pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -783,9 +669,7 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with
-        #[weight = weight_for::weight_for_affirmation_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-            ]
+        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(receipt_details.len() as u32)]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
         }
@@ -798,7 +682,7 @@ decl_module! {
         /// * `receipt_uid` - Receipt ID generated by the signer.
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
-        #[weight = 10_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let (primary_did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
@@ -814,7 +698,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Target instruction id for the receipt.
         /// * `leg_id` - Target leg id for the receipt
-        #[weight = 5_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) -> DispatchResult {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
@@ -837,7 +721,7 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token in question.
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
-        #[weight = 200_000_000]
+        #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             if enabled {
@@ -855,7 +739,7 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 500_000 * venues.len()`
-        #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
@@ -871,7 +755,7 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 500_000 * venues.len()`
-        #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
@@ -881,10 +765,11 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = 500_000_000]
-        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResultWithPostInfo {
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())]
+        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResult {
             ensure_root(origin)?;
-            Self::execute_instruction(instruction_id).1
+            Self::execute_instruction(instruction_id)?;
+            Ok(())
         }
     }
 }
@@ -1090,12 +975,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_instruction(instruction_id: u64) -> (u32, DispatchResultWithPostInfo) {
+    fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
-        let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
+        if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
@@ -1104,7 +989,6 @@ impl<T: Trait> Module<T> {
                 instruction_id,
             ));
             result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-            weight_for::weight_for_execute_instruction_if_pending_affirm::<T>()
         } else {
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
@@ -1161,8 +1045,6 @@ impl<T: Trait> Module<T> {
                     }
                 }
             }
-            // TODO: Fix this. The weight needs to be benchmarked and updated. Using a placeholder right now.
-            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(500_000_000)
         };
 
         // Clean up instruction details to reduce chain bloat
@@ -1173,16 +1055,7 @@ impl<T: Trait> Module<T> {
         AffirmsReceived::remove_prefix(instruction_id);
         Self::prune_user_affirmations(&legs, instruction_id);
 
-        let post_info = PostDispatchInfo {
-            actual_weight: Some(weight_for_execution.saturating_add(T::DbWeight::get().writes(5))),
-            pays_fee: Default::default(),
-        };
-        (
-            instructions_processed,
-            result
-                .map(|_| post_info)
-                .map_err(|error| DispatchErrorWithPostInfo { post_info, error }),
-        )
+        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
     }
 
     fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
@@ -1615,9 +1488,7 @@ impl<T: Trait> Module<T> {
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
-            Self::execute_instruction(instruction_id)
-                .1
-                .map_err(|e| e.error)?;
+            Self::execute_instruction(instruction_id)?;
         }
         Ok(())
     }
