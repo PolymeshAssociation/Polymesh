@@ -83,8 +83,9 @@ where
 }
 
 fn vote_verify<T, I>(
+    did: &IdentityId,
     hash: <T as frame_system::Trait>::Hash,
-    ptoposal_num: u32,
+    proposal_num: u32,
     vote: bool,
 ) -> DispatchResult
 where
@@ -96,9 +97,9 @@ where
         if let Some(votes) = Voting::<T, I>::get(&hash) {
             ensure!(votes.index == proposal_num, "wrong proposal_num");
             if vote {
-                ensure!(votes.ayes.contains(&did), "aye vote missing");
+                ensure!(votes.ayes.contains(did), "aye vote missing");
             } else {
-                ensure!(votes.nays.contains(&did), "nay vote missing");
+                ensure!(votes.nays.contains(did), "nay vote missing");
             }
         } else {
             return Err("cannot get votes".into());
@@ -111,6 +112,7 @@ where
             "executed proposal is not removed"
         );
     }
+    Ok(())
 }
 
 benchmarks_instance! {
@@ -173,7 +175,9 @@ benchmarks_instance! {
         let proposals = Proposals::<T, I>::get();
         ensure!(proposals.contains(&hash), "cannot find the first proposal");
         identity::CurrentDid::put(members[1].did());
-    }: vote_or_propose(members[1].origin.clone(), true, Box::new(proposal.clone()))
+        let member1 = members[1].origin.clone();
+        let boxed_proposal = Box::new(proposal.clone());
+    }: vote_or_propose(member1, true, boxed_proposal)
     verify {
         if COMMITTEE_MEMBERS_MAX <= 4 {
             // Proposal was executed.
@@ -195,9 +199,9 @@ benchmarks_instance! {
         let origin = members[1].origin.clone();
         let did = members[1].did();
         identity::CurrentDid::put(did);
-    }: _(origin, hash, first_proposal_num, true)
+    }: vote(origin, hash, first_proposal_num, true)
     verify {
-        vote_verify::<T, I>(hash, first_proposal_num, true)
+        vote_verify::<T, I>(&did, hash, first_proposal_num, true)
     }
 
     vote_nay {
@@ -207,9 +211,9 @@ benchmarks_instance! {
         let origin = members[1].origin.clone();
         let did = members[1].did();
         identity::CurrentDid::put(did);
-    }: _(origin, hash, first_proposal_num, false)
+    }: vote(origin, hash, first_proposal_num, false)
     verify {
-        vote_verify::<T, I>(hash, first_proposal_num, false)
+        vote_verify::<T, I>(&did, hash, first_proposal_num, false)
     }
 
     close {
