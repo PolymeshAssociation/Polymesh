@@ -4613,6 +4613,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-identity",
  "pallet-portfolio",
+ "pallet-statistics",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",

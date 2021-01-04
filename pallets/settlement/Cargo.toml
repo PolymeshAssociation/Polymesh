@@ -14,6 +14,7 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
 polymesh-contracts = { path = "../contracts", default-features = false }
+pallet-statistics = { path = "../statistics", default-features = false }
 
 
 serde = { version = "1.0.104", default-features = false }
@@ -53,6 +54,7 @@ std = [
     "pallet-asset/std",
     "pallet-identity/std",
     "pallet-timestamp/std",
+    "pallet-statistics/std",
     "polymesh-common-utilities/std",
     "pallet-compliance-manager/std",
     "polymesh-primitives/std",

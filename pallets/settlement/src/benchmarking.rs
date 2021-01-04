@@ -20,8 +20,8 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_asset::{
-    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, SecurityToken,
-    Tokens,
+    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf,
+    SecurityToken, Tokens,
 };
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
@@ -31,7 +31,8 @@ use polymesh_common_utilities::{
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
-use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
+//use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
+use pallet_statistics::TransferManager;
 use polymesh_primitives::{
     CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, PortfolioId,
     PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker,
@@ -363,6 +364,7 @@ fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
     let current_balance = <pallet_asset::Module<T>>::balance_of(ticker, did);
     <AggregateBalance<T>>::insert(ticker, &did, current_balance);
     <BalanceOfAtScope<T>>::insert(did, did, current_balance);
+    <ScopeIdOf>::insert(ticker, did, did);
 }
 
 fn add_trusted_issuer<T: Trait>(
@@ -553,6 +555,27 @@ fn create_receipt_details<T: Trait>(
         signature,
         metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice()),
     }
+}
+
+fn add_transfer_manager<T: Trait>(
+    ticker: Ticker,
+    origin: RawOrigin<T::AccountId>,
+    tm_no: u32,
+    exempted_entity: IdentityId,
+) {
+    let tm = TransferManager::CountTransferManager(tm_no.into());
+    // Add Transfer manager
+    <pallet_statistics::Module<T>>::add_transfer_manager(origin.clone().into(), ticker, tm.clone())
+        .expect("failed to add transfer manager");
+    frame_support::debug::info!("Scope Id that get exempted {:?}", exempted_entity);
+    // Exempt the user.
+    <pallet_statistics::Module<T>>::add_exempted_entities(
+        origin.into(),
+        ticker,
+        tm,
+        vec![exempted_entity],
+    )
+    .expect("failed to add exempted entities");
 }
 
 benchmarks! {
@@ -869,7 +892,7 @@ benchmarks! {
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        let s in 0 .. T::MaxNumberOfTMExtensionForAsset::get() as u32;
+        let s in 0 .. T::MaxTransferManagersPerAsset::get() as u32;
         let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
@@ -891,10 +914,16 @@ benchmarks! {
         // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
         compliance_setup::<T>(c, from_ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
         compliance_setup::<T>(c, to_ticker, to_origin.clone(), from.did, to.did, trusted_issuer);
-        let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm")?;
+        // -------- Commented the smart extension integration ----------------
+        // let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm")?;
+        // for i in 0 .. s {
+        //     add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
+        //     add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
+        // }
+
         for i in 0 .. s {
-            add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
-            add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
+            add_transfer_manager::<T>(from_ticker, from_origin.clone(), i, from.did);
+            add_transfer_manager::<T>(to_ticker, to_origin.clone(), i, to.did);
         }
     }: _(origin, instruction_id)
     verify {
