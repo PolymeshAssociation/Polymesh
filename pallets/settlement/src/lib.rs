@@ -58,17 +58,23 @@ use frame_support::{
     ensure, storage,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
-        Get, LockIdentifier,
+        Get,
     },
     weights::Weight,
-    IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
+    IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::queue_priority::*,
-    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
+    constants::{
+        queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+        schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
+    },
+    traits::{
+        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
+        CommonTrait,
+    },
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -82,8 +88,6 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
-
-const SETTLEMENT_ID: LockIdentifier = *b"settlemt";
 
 pub trait Trait:
     frame_system::Trait
@@ -99,12 +103,8 @@ pub trait Trait:
     type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -623,7 +623,7 @@ decl_module! {
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
             if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
-                let _ = T::Scheduler::cancel_named((SETTLEMENT_ID, instruction_id).encode());
+                let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
             }
             Ok(())
         }
@@ -770,7 +770,7 @@ decl_module! {
             Ok(())
         }
 
-        /// An internal call to execute a scheduled settlement instruction.
+        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())]
         fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -1263,7 +1263,7 @@ impl<T: Trait> Module<T> {
     fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) -> DispatchResult {
         let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
         match T::Scheduler::schedule_named(
-            (SETTLEMENT_ID, instruction_id).encode(),
+            (SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode(),
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,

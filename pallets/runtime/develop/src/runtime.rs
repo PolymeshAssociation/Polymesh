@@ -476,7 +476,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -564,7 +563,6 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
@@ -639,14 +637,15 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -700,6 +699,7 @@ impl IdentityTrait for Runtime {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -1286,6 +1286,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
             add_benchmark!(params, batches, pallet_pips, Pips);
+            add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);

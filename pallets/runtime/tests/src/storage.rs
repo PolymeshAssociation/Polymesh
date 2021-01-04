@@ -326,6 +326,9 @@ impl polymesh_contracts::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 parameter_types! {
@@ -336,7 +339,6 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
@@ -474,6 +476,7 @@ impl IdentityTrait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -573,8 +576,6 @@ impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl corporate_actions::Trait for TestStorage {
@@ -663,7 +664,6 @@ impl pips::Trait for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
