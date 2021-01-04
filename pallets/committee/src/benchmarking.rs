@@ -24,16 +24,17 @@ use polymesh_common_utilities::{
 };
 use sp_std::prelude::*;
 
-const PROPOSAL_PADDING_LEN: usize = 10_000;
+const PROPOSAL_PADDING_WORDS: usize = 1_000;
 const PROPOSALS_NUM: u32 = COMMITTEE_MEMBERS_MAX;
 
-fn make_proposal<T, I>(b: u8) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
+fn make_proposal<T, I>(n: u32) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
 where
     I: Instance,
     T: Trait<I>,
 {
-    let proposal: <T as Trait<I>>::Proposal =
-        frame_system::Call::<T>::remark(vec![b; PROPOSAL_PADDING_LEN]).into();
+    let bytes: [u8; 4] = n.to_be_bytes();
+    let padding = bytes.repeat(PROPOSAL_PADDING_WORDS);
+    let proposal: <T as Trait<I>>::Proposal = frame_system::Call::<T>::remark(padding).into();
     let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
     (proposal, hash)
 }
@@ -49,7 +50,7 @@ where
     );
     for i in 0..PROPOSALS_NUM {
         let index = Module::<T, I>::proposal_count();
-        let proposal = make_proposal::<T, I>(i as u8 + 1).0;
+        let proposal = make_proposal::<T, I>(i + 1).0;
         identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
         if users.len() > 1 {
@@ -195,7 +196,7 @@ benchmarks_instance! {
     vote_aye {
         let members = make_members_and_proposals::<T, I>()?;
         let quorum_less_1 = COMMITTEE_MEMBERS_MAX / 2;
-        let hash = make_proposal::<T, I>(quorum_less_1 as u8).1;
+        let hash = make_proposal::<T, I>(quorum_less_1).1;
         ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
         let proposal_num = quorum_less_1 - 1;
         let origin = members[1].origin.clone();

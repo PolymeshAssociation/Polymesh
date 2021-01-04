@@ -445,7 +445,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
     pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
         ensure!(
-            Self::members().binary_search(who).is_ok(),
+            Self::members().contains(who),
             Error::<T, I>::NotAMember
         );
         Ok(())
@@ -721,7 +721,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+iii
+lllliimpl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
