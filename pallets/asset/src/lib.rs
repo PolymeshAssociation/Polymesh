@@ -1784,7 +1784,7 @@ impl<T: Trait> Module<T> {
             to_did,
             value,
             round,
-            issued_in_this_round
+            issued_in_this_round,
         ));
 
         Ok(())

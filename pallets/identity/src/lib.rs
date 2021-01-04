@@ -2273,9 +2273,8 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                         secondary_key: Some(sk),
                     });
             }
-
         }
-        
+
         // `who` doesn't have an identity.
         None
     }

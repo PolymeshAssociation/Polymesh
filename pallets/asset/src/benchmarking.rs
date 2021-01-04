@@ -410,7 +410,7 @@ benchmarks! {
     }: _(owner.origin(), ticker.clone())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.primary_issuance_agent, owner.did());
+        assert_eq!( token.primary_issuance_agent, None);
     }
 
 
@@ -459,6 +459,6 @@ benchmarks! {
     }: _(primary_issuance_agent.origin(), auth_id)
     verify {
         let token = Module::<T>::token_details(&ticker);
-        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did());
+        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did);
     }
 }
