@@ -54,7 +54,7 @@ fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
 pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
-        content_hash: [b'7'; 64].into(), // Hash output 512bits.
+        content_hash: b"572cdd8d8f1754dd0c4a75d99b569845"[..].try_into().unwrap(), // MD5 output is 128bits.
         name: [b'n'; MAX_DOC_NAME].into(),
         doc_type: Some([b't'; MAX_DOC_TYPE].into()),
         filing_date: None,

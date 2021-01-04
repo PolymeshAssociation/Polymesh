@@ -25,7 +25,7 @@ use polymesh_common_utilities::benchs::{make_asset, user, User, UserBuilder};
 
 const TAX: Tax = Tax::one();
 crate const SEED: u32 = 0;
-const MAX_TARGET_IDENTITIES: u32 = 1000;
+const MAX_TARGET_IDENTITIES: u32 = 500;
 const MAX_DID_WHT_IDS: u32 = 1000;
 const DETAILS_LEN: u32 = 1000;
 const MAX_DOCS: u32 = 1000;
@@ -59,7 +59,7 @@ crate fn target_ids<T: Trait>(n: u32, treatment: TargetTreatment) -> TargetIdent
     }
 }
 
-fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
+crate fn did_whts<T: Trait>(n: u32) -> Vec<(IdentityId, Tax)> {
     (0..n)
         .map(target::<T>)
         .map(|did| (did, TAX))
@@ -230,7 +230,7 @@ benchmarks! {
     }
 
     set_did_withholding_tax {
-        let i in 0..MAX_DID_WHT_IDS;
+        let i in 0..(MAX_DID_WHT_IDS - 1);
 
         let (owner, ticker) = setup::<T>();
         let mut whts = init_did_whts::<T>(ticker, i);
