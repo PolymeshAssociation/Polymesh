@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
 };
@@ -125,7 +125,7 @@ pub trait Trait<Balance, Account, Origin> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
-    ) -> DispatchResultWithPostInfo;
+    ) -> DispatchResult;
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,

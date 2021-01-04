@@ -174,7 +174,7 @@ decl_storage! {
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_128_concat)
+        pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
@@ -251,36 +251,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::{put_storage_value, StorageIterator};
-            use polymesh_primitives::{
-                identity::{IdentityWithRolesOld, IdentityWithRoles},
-                migrate::{migrate_map, Empty},
-            };
-            use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
-
             let storage_ver = StorageVersion::get();
-
-            storage_migrate_on!(storage_ver, 1, {
-                migrate_map::<LinkedKeyInfo, _>(
-                    b"identity",
-                    b"KeyToIdentityIds",
-                    |_| Empty
-                    );
-                // Migrate secondary key permissions to the new type
-                migrate_map::<IdentityWithRolesOld<T::AccountId>, _>(
-                    b"identity",
-                    b"DidRecords",
-                    |_| Empty
-                    );
-                // Remove roles from Identities
-                StorageIterator::<IdentityWithRoles<T::AccountId>>::new(b"identity", b"DidRecords")
-                    .drain()
-                    .map(|(key, old)|  (key, DidRecord {
-                        primary_key: old.primary_key,
-                        secondary_keys: old.secondary_keys,
-                    }))
-                .for_each(|(key, new)| put_storage_value(b"identity", b"DidRecords", &key, new));
-            });
 
             storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
 
@@ -540,7 +511,7 @@ decl_module! {
         }
 
         /// Creates a call on behalf of another DID.
-        #[weight = <T as Trait>::WeightInfo::forwarded_call() + proposal.get_dispatch_info().weight]
+        #[weight = <T as Trait>::WeightInfo::forwarded_call().saturating_add(proposal.get_dispatch_info().weight)]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;

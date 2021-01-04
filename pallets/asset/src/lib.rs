@@ -92,7 +92,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, Get, UnixTime},
     weights::Weight,
@@ -101,7 +101,7 @@ use frame_system::ensure_root;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_statistics::{self as statistics, Counter};
+use pallet_statistics::Counter;
 use polymesh_common_utilities::{
     asset::{
         AssetName, AssetSubTrait, AssetType, FundingRoundName, Trait as AssetTrait, GAS_LIMIT,
@@ -114,10 +114,10 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AssetIdentifier,
-    AuthorizationData, Document, DocumentId, DocumentName, IdentityId, MetaVersion as ExtVersion,
-    PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -125,6 +125,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+type Statistics<T> = pallet_statistics::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 
 pub trait WeightInfo {
@@ -158,7 +159,7 @@ pub trait Trait:
     + BalancesTrait
     + IdentityTrait
     + pallet_session::Trait
-    + statistics::Trait
+    + pallet_statistics::Trait
     + polymesh_contracts::Trait
     + pallet_portfolio::Trait
 {
@@ -250,20 +251,6 @@ impl Default for RestrictionResult {
     }
 }
 
-pub mod weight_for {
-    use super::*;
-
-    /// Weight for `_is_valid_transfer()` transfer.
-    pub fn weight_for_is_valid_transfer<T: Trait>(
-        no_of_tms: u32,
-        weight_from_cm: Weight,
-    ) -> Weight {
-        8 * 10_000_000 // Weight used for encoding a param in `verify_restriction()` call.
-            .saturating_add(GAS_LIMIT.saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
-            .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
-    }
-}
-
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -291,7 +278,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
@@ -352,7 +339,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -391,6 +378,13 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
+/// Errors of migration on this pallets.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub enum AssetMigrationError {
+    /// Migration of document fails on the given ticker and document id.
+    AssetDocumentFail(Ticker, DocumentId),
+}
+
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -403,26 +397,21 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
 
             // Migrate `AssetDocuments`.
-            use frame_support::Blake2_128Concat;
-            use polymesh_primitives::{ migrate::{migrate_double_map, Migrate}, document::DocumentOld};
-            use sp_std::collections::btree_map::BTreeMap;
+            use frame_support::{Blake2_128Concat, Twox64Concat};
+            use polymesh_primitives::{ migrate::{migrate_double_map_only_values, Migrate, Empty}, document::DocumentOld};
 
             let storage_ver = StorageVersion::get();
-            storage_migrate_on!(storage_ver, 1, {
-                let mut id_map = BTreeMap::<_, u32>::new();
-                migrate_double_map::<_, _, Blake2_128Concat, _, _, _, _, _>(
+            storage_migrate_on!(storage_ver, 2, {
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
                     b"Asset", b"AssetDocuments",
-                    |ticker: Ticker, name: DocumentName, doc: DocumentOld| {
-                        let count = id_map.entry(ticker).or_default();
-                        let id = DocumentId(mem::replace(count, *count + 1));
-                        Some((ticker, id, doc.migrate(name)?))
+                    |t: Ticker, id: DocumentId, doc: DocumentOld|
+                        doc.migrate(Empty).ok_or_else(|| AssetMigrationError::AssetDocumentFail(t, id)))
+                .for_each(|doc_migrate_status| {
+                    if let Err(migrate_err) = doc_migrate_status {
+                        Self::deposit_event( RawEvent::MigrationFailure(migrate_err));
                     }
-                );
-                for (ticker, id) in id_map {
-                    AssetDocumentsIdSequence::insert(ticker, DocumentId(id));
-                }
+                })
             });
-
 
             1_000
         }
@@ -746,7 +735,7 @@ decl_module! {
 
             // Update statistic info.
             // Using the aggregate balance to update the unique investor count.
-            <statistics::Module<T>>::update_transfer_stats(
+            Statistics::<T>::update_transfer_stats(
                 &ticker,
                 Some(Self::aggregate_balance_of(ticker, &scope_id)),
                 None,
@@ -1139,6 +1128,8 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        /// Migration error event.
+        MigrationFailure(MigrationError<AssetMigrationError>),
     }
 }
 
@@ -1263,7 +1254,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
     }
 
@@ -1558,13 +1549,12 @@ impl<T: Trait> Module<T> {
 
     pub fn _is_valid_transfer(
         ticker: &Ticker,
-        extension_caller: T::AccountId,
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         value: T::Balance,
-    ) -> StdResult<(u8, Weight), DispatchError> {
+    ) -> StdResult<u8, DispatchError> {
         if Self::frozen(ticker) {
-            return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
+            return Ok(ERC1400_TRANSFERS_HALTED);
         }
 
         if !Identity::<T>::verify_iu_claims_for_transfer(
@@ -1572,7 +1562,7 @@ impl<T: Trait> Module<T> {
             to_portfolio.did,
             from_portfolio.did,
         ) {
-            return Ok((SCOPE_CLAIM_MISSING, T::DbWeight::get().reads(2)));
+            return Ok(SCOPE_CLAIM_MISSING);
         }
 
         if Portfolio::<T>::ensure_portfolio_transfer_validity(
@@ -1583,56 +1573,43 @@ impl<T: Trait> Module<T> {
         )
         .is_err()
         {
-            return Ok((PORTFOLIO_FAILURE, T::DbWeight::get().reads(4)));
+            return Ok(PORTFOLIO_FAILURE);
         }
 
-        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
-        let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+        let token = <Tokens<T>>::get(ticker);
+        if Statistics::<T>::verify_tm_restrictions(
+            ticker,
+            from_scope_id,
+            to_scope_id,
+            value,
+            Self::aggregate_balance_of(ticker, &from_scope_id),
+            Self::aggregate_balance_of(ticker, &to_scope_id),
+            token.total_supply,
+        )
+        .is_err()
+        {
+            return Ok(TRANSFER_MANAGER_FAILURE);
+        }
+
+        let status_code = T::ComplianceManager::verify_restriction(
             ticker,
             Some(from_portfolio.did),
             Some(to_portfolio.did),
             value,
-            primary_issuance_agent,
-        )?;
-        Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
-            (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
-        } else {
-            let mut result = true;
-            let mut is_valid = false;
-            let mut is_invalid = false;
-            let mut force_valid = false;
-            let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
-            let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
-                .into_iter()
-                .filter(|tm| {
-                    !Self::extension_details((ticker, tm)).is_archive
-                        && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
-                })
-                .collect::<Vec<T::AccountId>>();
-            let tm_count = u32::try_from(tms.len()).unwrap_or_default();
-            if !tms.is_empty() {
-                for tm in tms.into_iter() {
-                    let result = Self::verify_restriction(
-                        ticker,
-                        extension_caller.clone(),
-                        Some(from_portfolio.did),
-                        Some(to_portfolio.did),
-                        value,
-                        current_holder_count,
-                        tm,
-                    );
-                    match result {
-                        RestrictionResult::Valid => is_valid = true,
-                        RestrictionResult::Invalid => is_invalid = true,
-                        RestrictionResult::ForceValid => force_valid = true,
-                    }
-                }
-                //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
-                result = force_valid || !is_invalid && is_valid;
-            }
-            // Compute the result for transfer
-            Self::compute_transfer_result(result, tm_count, weight_for_transfer)
-        })
+            token.primary_issuance_agent,
+        )
+        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
+
+        if status_code != ERC1400_TRANSFER_SUCCESS {
+            return Ok(COMPLIANCE_MANAGER_FAILURE);
+        }
+
+        // SE are currently disabled
+        // Self::compute_transfer_result_using_se()
+
+        Ok(ERC1400_TRANSFER_SUCCESS)
     }
 
     // Transfers tokens from one identity to another
@@ -1707,7 +1684,7 @@ impl<T: Trait> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        <statistics::Module<T>>::update_transfer_stats(
+        Statistics::<T>::update_transfer_stats(
             ticker,
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
@@ -1810,16 +1787,20 @@ impl<T: Trait> Module<T> {
         let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
-        // Update the investor count of an asset.
-        // Note - Not passing the scope_id based balance because at the time of mint PIA may not
-        // have the scope claim even it exists that doesn't matter as we are not respecting the compliance
-        // restriction for the mint.
-        <statistics::Module<T>>::update_transfer_stats(
-            &ticker,
-            None,
-            Some(updated_to_balance),
-            value,
-        );
+        if ScopeIdOf::contains_key(ticker, &to_did) {
+            let scope_id = Self::scope_id_of(ticker, &to_did);
+            Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+            // Using the aggregate balance to update the unique investor count.
+            Statistics::<T>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(Self::aggregate_balance_of(ticker, &scope_id)),
+                value,
+            );
+        } else {
+            // Since the PIA does not have a scope claim yet, we assume this is their only identity
+            Statistics::<T>::update_transfer_stats(&ticker, None, Some(value), value);
+        }
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -2060,7 +2041,6 @@ impl<T: Trait> Module<T> {
     /// RPC: Function allows external users to know wether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
-        sender: T::AccountId,
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -2128,8 +2108,7 @@ impl<T: Trait> Module<T> {
 
         // Compliance manager & Smart Extension check
         Ok(
-            Self::_is_valid_transfer(&ticker, sender, from_portfolio, to_portfolio, value)
-                .map(|(status, _)| status)
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
@@ -2140,20 +2119,15 @@ impl<T: Trait> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
         // The custodian permissions must be checked before this function is called.
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
         // Validate the transfer
-        let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
-            &ticker,
-            <Identity<T>>::did_records(from_portfolio.did).primary_key,
-            from_portfolio,
-            to_portfolio,
-            value,
-        )?;
+        let is_transfer_success =
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)?;
 
         ensure!(
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,
@@ -2162,7 +2136,7 @@ impl<T: Trait> Module<T> {
 
         Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value)?;
 
-        Ok(Some(weight_for_transfer).into())
+        Ok(())
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
@@ -2211,19 +2185,51 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Compute the result of the transfer
-    pub fn compute_transfer_result(
-        final_result: bool,
-        tm_count: u32,
-        cm_result: Weight,
-    ) -> (u8, Weight) {
-        let weight_for_valid_transfer =
-            weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
-        let transfer_status = match final_result {
-            true => ERC1400_TRANSFER_SUCCESS,
-            false => SMART_EXTENSION_FAILURE,
-        };
-        (transfer_status, weight_for_valid_transfer)
+    /// Compute the result of the transfer. It is currently not used but might be at a later date.
+    pub fn compute_transfer_result_using_se(
+        ticker: &Ticker,
+        extension_caller: T::AccountId,
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        value: T::Balance,
+    ) -> u8 {
+        let mut result = true;
+        let mut is_valid = false;
+        let mut is_invalid = false;
+        let mut force_valid = false;
+        let current_holder_count = Statistics::<T>::investor_count(ticker);
+        let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
+            .into_iter()
+            .filter(|tm| {
+                !Self::extension_details((ticker, tm)).is_archive
+                    && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
+            })
+            .collect::<Vec<T::AccountId>>();
+        if !tms.is_empty() {
+            for tm in tms.into_iter() {
+                let result = Self::verify_restriction(
+                    ticker,
+                    extension_caller.clone(),
+                    Some(from_portfolio.did),
+                    Some(to_portfolio.did),
+                    value,
+                    current_holder_count,
+                    tm,
+                );
+                match result {
+                    RestrictionResult::Valid => is_valid = true,
+                    RestrictionResult::Invalid => is_invalid = true,
+                    RestrictionResult::ForceValid => force_valid = true,
+                }
+            }
+            //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
+            result = force_valid || !is_invalid && is_valid;
+        }
+        if result {
+            ERC1400_TRANSFER_SUCCESS
+        } else {
+            SMART_EXTENSION_FAILURE
+        }
     }
 
     /// Ensure the extrinsic is signed and have valid extension id.

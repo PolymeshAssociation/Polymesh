@@ -740,24 +740,15 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> Result<(u8, Weight), DispatchError> {
+    ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
         if asset_compliance.paused {
-            return Ok((
-                ERC1400_TRANSFER_SUCCESS,
-                weight_for::weight_for_reading_asset_compliance::<T>(),
-            ));
+            return Ok(ERC1400_TRANSFER_SUCCESS);
         }
-
-        let mut requirement_count: usize = 0;
-        let verify_weight = |count| {
-            weight_for::weight_for_verify_restriction::<T>(u64::try_from(count).unwrap_or(0))
-        };
 
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                requirement_count += requirement.sender_conditions.len();
                 if !Self::are_all_conditions_satisfied(
                     ticker,
                     from_did,
@@ -770,7 +761,6 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                requirement_count += requirement.receiver_conditions.len();
                 if Self::are_all_conditions_satisfied(
                     ticker,
                     to_did,
@@ -778,10 +768,10 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
-                    return Ok((ERC1400_TRANSFER_SUCCESS, verify_weight(requirement_count)));
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
             }
         }
-        Ok((ERC1400_TRANSFER_FAILURE, verify_weight(requirement_count)))
+        Ok(ERC1400_TRANSFER_FAILURE)
     }
 }

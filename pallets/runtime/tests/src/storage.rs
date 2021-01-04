@@ -45,9 +45,9 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
+    Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory, Ticker,
 };
-use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::cdd_check::CddChecker;
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -120,14 +120,11 @@ impl_outer_event! {
         pallet_contracts<T>,
         pallet_session,
         compliance_manager,
-        exemption,
         group Instance1<T>,
         group Instance2<T>,
         group DefaultInstance<T>,
         committee Instance1<T>,
         committee DefaultInstance<T>,
-        voting<T>,
-        dividend<T>,
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
@@ -142,6 +139,7 @@ impl_outer_event! {
         corporate_ballots<T>,
         capital_distributions<T>,
         checkpoint<T>,
+        statistics,
     }
 }
 
@@ -328,6 +326,9 @@ impl polymesh_contracts::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 parameter_types! {
@@ -338,7 +339,6 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
     type WeightInfo = ();
 }
@@ -478,6 +478,7 @@ impl IdentityTrait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -510,7 +511,15 @@ impl pallet_contracts::Trait for TestStorage {
     type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
-impl statistics::Trait for TestStorage {}
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
+impl statistics::Trait for TestStorage {
+    type Event = Event;
+    type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+}
 
 parameter_types! {
     pub const MaxConditionComplexity: u32 = 50;
@@ -559,31 +568,23 @@ impl asset::Trait for TestStorage {
 
 parameter_types! {
     pub const BlockRangeForTimelock: BlockNumber = 1000;
+    pub const MaxTargetIds: u32 = 10;
+    pub const MaxDidWhts: u32 = 10;
 }
 
 impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl corporate_actions::Trait for TestStorage {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
     type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
     type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
-}
-
-impl exemption::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-}
-
-impl voting::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
 }
 
 impl treasury::Trait for TestStorage {
@@ -653,10 +654,6 @@ impl pallet_session::Trait for TestStorage {
     type WeightInfo = ();
 }
 
-impl dividend::Trait for TestStorage {
-    type Event = Event;
-}
-
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
@@ -667,7 +664,6 @@ impl pips::Trait for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
 }
 
@@ -733,6 +729,24 @@ pub fn make_account(
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let uid = InvestorUid::from(format!("{}", id).as_str());
     make_account_with_uid(id, uid)
+}
+
+pub fn make_account_with_scope(
+    id: AccountId,
+    ticker: Ticker,
+    cdd_provider: AccountId,
+) -> Result<
+    (
+        <TestStorage as frame_system::Trait>::Origin,
+        IdentityId,
+        ScopeId,
+    ),
+    &'static str,
+> {
+    let uid = InvestorUid::from(format!("{}", id).as_str());
+    let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
+    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);
+    Ok((origin, did, scope_id))
 }
 
 pub fn make_account_with_uid(
@@ -886,7 +900,7 @@ pub fn provide_scope_claim(
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
-) {
+) -> ScopeId {
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
@@ -911,6 +925,8 @@ pub fn provide_scope_claim(
         proof,
         None
     ));
+
+    scope_id
 }
 
 pub fn provide_scope_claim_to_multiple_parties(

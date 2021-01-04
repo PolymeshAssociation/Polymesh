@@ -27,7 +27,7 @@
 //! meet and review PIPs, and reject, approve, or skip the proposal (via `enact_snapshot_results`).
 //! Any approved PIPs from this snapshot will then be scheduled,
 //! in order of signal value, to be executed automatically on the blockchain.
-//! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
+//! However, using `reschedule_execution`, a special Release Coordinator (RC), a member of the GC,
 //! can reschedule approved PIPs at will, except for a PIP to replace the RC.
 //! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
 //!
@@ -102,13 +102,13 @@ use frame_support::{
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
     weights::Weight,
-    Parameter, StorageValue,
+    StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity as identity;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
-    constants::PIP_MAX_REPORTING_SIZE,
+    constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -415,13 +415,8 @@ pub trait Trait:
     /// different.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
 
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
-
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
 }
 
 // This module's storage items.
@@ -537,7 +532,7 @@ decl_event!(
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
         /// Execution of a PIP has been scheduled at specific block.
-        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
+        ExecutionScheduled(IdentityId, PipId, BlockNumber),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -957,16 +952,14 @@ decl_module! {
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period & reschule it.
-            let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            // 3. Update enactment period & reschedule it.
+            <PipToSchedule<T>>::insert(id, new_until);
 
             // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
             // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
             Self::unschedule_pip(id);
             Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
 
-            // 4. Emit event.
-            Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
             Ok(())
         }
 
@@ -1265,7 +1258,7 @@ impl<T: Trait> Module<T> {
             call,
         ) {
             Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
-            Ok(_) => RawEvent::ExecutionScheduled(did, id, Zero::zero(), at),
+            Ok(_) => RawEvent::ExecutionScheduled(did, id, at),
         };
         Self::deposit_event(event);
     }
@@ -1345,12 +1338,12 @@ impl<T: Trait> Module<T> {
 
     /// Converts a PIP ID into a name of a PIP scheduled for execution.
     fn pip_execution_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_execute"[..], id)
+        Self::pip_schedule_name(&PIP_EXECUTION[..], id)
     }
 
     /// Converts a PIP ID into a name of a PIP scheduled for expiry.
     fn pip_expiry_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_expire"[..], id)
+        Self::pip_schedule_name(&PIP_EXPIRY[..], id)
     }
 
     /// Common method to create a unique name for the scheduler for a PIP.

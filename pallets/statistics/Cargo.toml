@@ -30,6 +30,9 @@ pallet-session = { git = "https://github.com/paritytech/substrate", default-feat
 # Only in STD
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
+# Only in Benchmarks
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0", optional = true }
+
 [dev-dependencies]
 lazy_static = "1.4.0"
 
@@ -54,4 +57,7 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
 ]
