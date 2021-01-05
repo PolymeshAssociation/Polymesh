@@ -1626,6 +1626,12 @@ decl_module! {
         /// Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
         const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
 
+        /// Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
+        const MaxInflatedTotalIssuance: BalanceOf<T> = T::MaxInflatedTotalIssuance::get();
+
+        /// Total year rewards that gets paid during fixed reward schedule.
+        const NonInflatedTotalYearlyReward: BalanceOf<T> = T::NonInflatedTotalYearlyReward::get();
+
         type Error = Error<T>;
 
         fn deposit_event() = default;
