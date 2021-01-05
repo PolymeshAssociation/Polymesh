@@ -1172,6 +1172,7 @@ fn cdd_register_did_test_we() {
 
     let alice_auth_id = get_last_auth_id(&alice_si.signer);
 
+    TestStorage::set_current_identity(&alice_id);
     assert_ok!(Identity::accept_authorization(
         Origin::signed(alice),
         alice_auth_id
