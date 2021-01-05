@@ -196,6 +196,7 @@ runtime-benchmarks = [
     "pallet-portfolio/runtime-benchmarks",
     "pallet-protocol-fee/runtime-benchmarks",
     "pallet-settlement/runtime-benchmarks",
+    "pallet-sto/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
     "pallet-statistics/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",

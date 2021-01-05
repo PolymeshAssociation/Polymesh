@@ -4722,10 +4722,12 @@ dependencies = [
 name = "pallet-sto"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
  "pallet-identity",
  "pallet-permissions",
  "pallet-portfolio",

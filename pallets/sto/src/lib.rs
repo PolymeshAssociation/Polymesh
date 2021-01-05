@@ -23,6 +23,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
