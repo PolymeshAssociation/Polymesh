@@ -69,11 +69,7 @@ pub fn merge_active_and_inactive<Block>(
     active: Vec<IdentityId>,
     inactive: Vec<InactiveMember<Moment>>,
 ) -> Vec<Member> {
-    let active_members = active.into_iter().map(Member::from).collect::<Vec<_>>();
-    let inactive_members = inactive.into_iter().map(Member::from).collect::<Vec<_>>();
-
-    active_members
-        .into_iter()
-        .chain(inactive_members.into_iter())
-        .collect::<Vec<_>>()
+    active.into_iter().map(Member::from)
+        .chain(inactive.into_iter().map(Member::from))
+        .collect()
 }
