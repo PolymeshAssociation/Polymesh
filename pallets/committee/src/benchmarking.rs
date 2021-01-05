@@ -29,7 +29,7 @@ use polymesh_common_utilities::{
 use sp_std::prelude::*;
 
 const PROPOSAL_PADDING_WORDS: usize = 1_000;
-const PROPOSALS_NUM: u32 = COMMITTEE_MEMBERS_MAX;
+const PROPOSALS_NUM: u32 = COMMITTEE_MEMBERS_MAX / 2;
 
 fn make_proposal<T, I>(n: u32) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
 where

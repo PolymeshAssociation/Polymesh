@@ -83,7 +83,7 @@ use sp_std::{prelude::*, vec};
 
 /// The maximum number of members in a committee defined for the sake of weight computation.
 // TODO: ensure this bound when adding members.
-pub const COMMITTEE_MEMBERS_MAX: u32 = 1_000;
+pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
 
 pub trait WeightInfo {
     fn set_vote_threshold() -> Weight;
