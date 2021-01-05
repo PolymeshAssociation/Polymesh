@@ -1144,6 +1144,12 @@ pub trait Trait:
     /// Maximum amount of validators that can run by an identity.
     /// It will be MaxValidatorPerIdentity * Self::validator_count().
     type MaxValidatorPerIdentity: Get<Permill>;
+
+    /// Maximum amount of total issuance after which fixed rewards kicks in.
+    type MaxInflatedTotalIssuance: Get<BalanceOf<Self>>;
+
+    /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+    type NonInflatedTotalYearlyReward: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -3323,6 +3329,8 @@ impl<T: Trait> Module<T> {
                 T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
+                T::MaxInflatedTotalIssuance::get(),
+                T::NonInflatedTotalYearlyReward::get(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
 
