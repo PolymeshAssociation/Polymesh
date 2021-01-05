@@ -194,8 +194,8 @@ decl_module! {
             meta_info: TemplateMetadata<BalanceOf<T>>,
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
-        ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
 
             // Save metadata related to the SE template
             // Generate the code_hash here as well because there is no way
@@ -216,7 +216,6 @@ decl_module! {
                 // Charge the protocol fee
                 T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
-            Ok(())
         }
 
         // Simply forwards to the `call` function in the Contract module.
@@ -402,7 +401,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<(IdentityId, TemplateDetails<BalanceOf<T>>), DispatchError> {
         // Ensure the transaction is signed and ensure `origin` has the required permission to
         // execute the dispatchable.
-        let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        let did = Identity::<T>::ensure_perms(origin)?;
         // Validate whether the template exists or not for a given code_hash.
         ensure!(
             <TemplateInfo<T>>::contains_key(code_hash),

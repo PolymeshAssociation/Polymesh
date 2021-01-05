@@ -257,20 +257,20 @@ decl_module! {
         /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
         #[weight = <T as Trait<I>>::WeightInfo::abdicate_membership()]
-        pub fn abdicate_membership(origin) -> DispatchResult {
+        pub fn abdicate_membership(origin) {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_primary_key(&remove_id, &who),
-                Error::<T,I>::OnlyPrimaryKeyAllowed);
+            ensure!(
+                <Identity<T>>::is_primary_key(&remove_id, &who),
+                Error::<T,I>::OnlyPrimaryKeyAllowed
+            );
 
             let mut members = Self::get_members();
-            ensure!(members.contains(&remove_id),
-                Error::<T,I>::NoSuchMember);
-            ensure!( members.len() > 1,
-                Error::<T,I>::LastMemberCannotQuit);
+            ensure!(members.len() > 1, Error::<T,I>::LastMemberCannotQuit);
+            ensure!(members.binary_search(&remove_id).is_ok(), Error::<T,I>::NoSuchMember);
 
-            members.retain( |id| *id != remove_id);
+            members.retain(|id| *id != remove_id);
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
@@ -278,8 +278,6 @@ decl_module! {
                 &[remove_id],
                 &members[..],
             );
-
-            Ok(())
         }
     }
 }
