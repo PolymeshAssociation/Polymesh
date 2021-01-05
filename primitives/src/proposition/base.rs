@@ -26,8 +26,8 @@ impl<C> Proposition<C> for TargetIdentityProposition<'_> {
 
 /// It checks the existential of a claim.
 ///
-/// # `CustomerDueDiligence` wildcard search
-/// The `CustomerDueDiligence` claim supports wildcard search if you use the default `CddId` (a zero filled data).
+/// # `CustomerDueDiligence` default search
+/// The `CustomerDueDiligence` claim supports default search if you use the default `CddId` (a zero filled data).
 /// For instance:
 ///     - The `exists(Claim::CustomerDueDiligence(CddId::default()))` matches with any CDD claim.
 ///     - The `exists(Claim::CustomerDueDiligence(a_valid_cdd_id))` matches only for the given
@@ -43,8 +43,8 @@ pub struct ExistentialProposition<'a> {
 impl<C: Iterator<Item = Claim>> Proposition<C> for ExistentialProposition<'_> {
     fn evaluate(&self, mut context: Context<C>) -> bool {
         match &self.claim {
-            // The wildcard search only double-checks if any CDD claim is in the context.
-            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_wildcard() => context
+            // The default search only double-checks if any CDD claim is in the context.
+            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_default_cdd() => context
                 .claims
                 .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..))),
             // In regular claim evaluation, the data of the claim has to match too.

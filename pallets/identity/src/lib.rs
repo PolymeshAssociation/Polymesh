@@ -88,6 +88,7 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
+use enum_iterator::IntoEnumIterator;
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -931,7 +932,7 @@ decl_module! {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
-            Self::base_add_cdd_claim(target, Claim::make_cdd_wildcard(), GC_DID, expiry)
+            Self::base_add_cdd_claim(target, Claim::default_cdd_id(), GC_DID, expiry)
         }
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
@@ -1002,7 +1003,9 @@ decl_error! {
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
         /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId
+        TargetHasNonZeroBalanceAtScopeId,
+        /// CDDId gets invalidated when `new cdd_id != existing cdd_id`.
+        CDDIdNotUniqueForIdentity
     }
 }
 
@@ -1387,6 +1390,17 @@ impl<T: Trait> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> Option<IdentityId> {
+        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id)
+            .into_iter()
+            .map(|id_claim| id_claim.claim_issuer)
+            .next()
+    }
+
+    pub fn base_fetch_valid_cdd_claims(
+        claim_for: IdentityId,
+        leeway: T::Moment,
+        filter_cdd_id: Option<CddId>,
+    ) -> Vec<IdentityClaim> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1422,8 +1436,7 @@ impl<T: Trait> Module<T> {
                     &inactive_not_expired_cdds,
                 )
             })
-            .map(|id_claim| id_claim.claim_issuer)
-            .next()
+            .collect::<_>()
     }
 
     /// A CDD claims is considered valid if:
@@ -1684,8 +1697,40 @@ impl<T: Trait> Module<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
+        // Ensure cdd_id uniqueness for a given target DID.
+        Self::ensure_cdd_id_uniqueness(&claim, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
+        Ok(())
+    }
+
+    /// Enforce CDD_ID uniqueness for a given target DID.
+    ///
+    /// # Errors
+    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id
+    /// doesn't matches with the existing cdd claim's cdd_id.
+    fn ensure_cdd_id_uniqueness(claim: &Claim, target: IdentityId) -> DispatchResult {
+        if let Claim::CustomerDueDiligence(cdd_id) = claim {
+            let systematic_ids = SystematicIssuers::into_enum_iter()
+                .map(|si| si.as_id())
+                .collect::<Vec<IdentityId>>();
+            ensure!(
+                !Self::base_fetch_valid_cdd_claims(target, 0.into(), None)
+                    .iter()
+                    .any(|id_claim| {
+                        if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
+                            // Allowing default cdd_id.
+                            if !c_id.is_default_cdd()
+                                && !systematic_ids.contains(&id_claim.claim_issuer)
+                            {
+                                return c_id != *cdd_id;
+                            }
+                        }
+                        false
+                    }),
+                Error::<T>::CDDIdNotUniqueForIdentity
+            );
+        }
         Ok(())
     }
 

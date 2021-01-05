@@ -4,8 +4,8 @@ use crate::{
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
-        Checkpoint, TestStorage,
+        provide_scope_claim_to_multiple_parties, register_keyring_account,
+        register_keyring_account_without_cdd, root, AccountId, Checkpoint, TestStorage,
     },
 };
 use chrono::prelude::Utc;
@@ -206,7 +206,7 @@ fn valid_transfers_pass() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -218,7 +218,7 @@ fn valid_transfers_pass() {
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
             // Provide scope claim to sender and receiver of the transaction.
@@ -284,7 +284,7 @@ fn issuers_can_redeem_tokens() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
             let bob_signed = Origin::signed(AccountKeyring::Bob.public());
             let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
@@ -644,7 +644,7 @@ fn controller_transfer() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -656,7 +656,7 @@ fn controller_transfer() {
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
             // Provide scope claim to sender and receiver of the transaction.
@@ -1745,9 +1745,9 @@ fn test_can_transfer_rpc() {
         .build()
         .execute_with(|| {
             let alice_signed = Origin::signed(AccountKeyring::Alice.public());
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
-            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+            let bob_did = register_keyring_account_without_cdd(AccountKeyring::Bob).unwrap();
 
             let eve = AccountKeyring::Eve.public();
 

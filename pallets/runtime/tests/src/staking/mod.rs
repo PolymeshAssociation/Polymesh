@@ -5027,9 +5027,11 @@ fn add_nominator_with_invalid_expiry() {
         .nominate(true)
         .build()
         .execute_with(|| {
+            let now = Utc::now();
             let account_alice = 500;
-            let (_alice_signed, alice_did) =
-                make_account_with_balance(account_alice, 1_000_000).unwrap();
+            let (_alice_signed, _alice_did) =
+                make_account_with_balance(account_alice, 1_000_000, Some(now.timestamp() as u64))
+                    .unwrap();
             let account_alice_controller = account_alice + 1;
             let controller_signed = Origin::signed(account_alice_controller);
 
@@ -5037,15 +5039,6 @@ fn add_nominator_with_invalid_expiry() {
             let account_bob = 600;
             let (_bob_signed, bob_did) = make_account_with_uid(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
-
-            let now = Utc::now();
-
-            add_nominator_claim_with_expiry(
-                bob_did,
-                alice_did,
-                account_bob,
-                now.timestamp() as u64,
-            );
 
             // bond
             assert_ok!(Staking::bond(
@@ -5070,29 +5063,13 @@ fn add_valid_nominator_with_multiple_claims() {
         .build()
         .execute_with(|| {
             let account_alice = 500;
-            let (_alice_signed, alice_did) =
-                make_account_with_balance(account_alice, 1_000_000).unwrap();
+            let (_alice_signed, _alice_did) =
+                make_account_with_balance(account_alice, 1_000_000, None).unwrap();
 
             let account_alice_controller = account_alice + 1;
             let controller_signed = Origin::signed(account_alice_controller);
 
-            let claim_issuer_1 = 600;
-            let (_claim_issuer_1_signed, claim_issuer_1_did) =
-                make_account_with_uid(claim_issuer_1).unwrap();
-            add_trusted_cdd_provider(claim_issuer_1_did);
-
             let now = Utc::now();
-
-            add_nominator_claim(claim_issuer_1_did, alice_did, claim_issuer_1);
-
-            // add one more claim issuer
-            let claim_issuer_2 = 700;
-            let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account_with_uid(claim_issuer_2).unwrap();
-            add_trusted_cdd_provider(claim_issuer_2_did);
-
-            // add claim by claim issuer
-            add_nominator_claim(claim_issuer_2_did, alice_did, claim_issuer_2.clone());
 
             // bond
             assert_ok!(Staking::bond(
@@ -5116,9 +5093,14 @@ fn validate_nominators_with_valid_cdd() {
         .nominate(true)
         .build()
         .execute_with(|| {
+            let mut now = Utc::now();
             let account_alice = 500;
-            let (_alice_signed, alice_did) =
-                make_account_with_balance(account_alice, 1_000_000).unwrap();
+            let (_alice_signed, _alice_did) = make_account_with_balance(
+                account_alice,
+                1_000_000,
+                Some(now.timestamp() as u64 + 500u64),
+            )
+            .unwrap();
 
             let account_alice_controller = 500 + account_alice;
             let controller_signed_alice = Origin::signed(account_alice_controller);
@@ -5129,40 +5111,15 @@ fn validate_nominators_with_valid_cdd() {
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
-            let (_eve_signed, eve_did) = make_account_with_balance(account_eve, 1_000_000).unwrap();
+            let (_eve_signed, _eve_did) = make_account_with_balance(
+                account_eve,
+                1_000_000,
+                Some(now.timestamp() as u64 + 7000u64),
+            )
+            .unwrap();
 
             let account_eve_controller = account_eve + 1;
             let controller_signed_eve = Origin::signed(account_eve_controller);
-
-            let claim_issuer_2 = 800;
-            let (_claim_issuer_2_signed, claim_issuer_2_did) =
-                make_account_with_uid(claim_issuer_2).unwrap();
-            add_trusted_cdd_provider(claim_issuer_2_did);
-
-            let mut now = Utc::now();
-
-            add_nominator_claim_with_expiry(
-                claim_issuer_1_did,
-                alice_did,
-                claim_issuer_1.clone(),
-                now.timestamp() as u64 + 500u64,
-            );
-            println!(
-                "Expiry at the time of providing claim for Alice: {:?}",
-                now.timestamp() as u64 + 500u64
-            );
-
-            // add claim by claim issuer
-            add_nominator_claim_with_expiry(
-                claim_issuer_2_did,
-                eve_did,
-                claim_issuer_2.clone(),
-                now.timestamp() as u64 + 7000u64,
-            );
-            println!(
-                "Expiry at the time of providing claim for Eve: {:?}",
-                now.timestamp() as u64 + 7000u64
-            );
 
             // bond
             assert_ok!(Staking::bond(
@@ -5403,7 +5360,7 @@ fn voting_for_pip_overlays_with_staking() {
 
         // Initialize with 100 POLYX.
         let alice_acc = 500;
-        let (alice_signer, _) = make_account_with_balance(alice_acc, 100).unwrap();
+        let (alice_signer, _) = make_account_with_balance(alice_acc, 100, None).unwrap();
 
         let alice_proposal = |deposit: u128| {
             let signer = Origin::signed(alice_acc);

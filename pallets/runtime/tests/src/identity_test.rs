@@ -109,7 +109,7 @@ fn gc_add_remove_cdd_claim() {
                 issuance_date: 0,
                 last_update_date: 0,
                 expiry: Some(100),
-                claim: Claim::make_cdd_wildcard(),
+                claim: Claim::default_cdd_id(),
             })
         );
 
@@ -1108,7 +1108,7 @@ fn cdd_register_did_test_we() {
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         alice_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
 
@@ -1126,7 +1126,7 @@ fn cdd_register_did_test_we() {
     assert_ok!(Identity::add_claim(
         cdd2,
         bob_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
@@ -1148,7 +1148,7 @@ fn cdd_register_did_test_we() {
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         charlie_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
 
@@ -1300,7 +1300,7 @@ fn invalidate_cdd_claims_we() {
     assert_ok!(Identity::add_claim(
         Origin::signed(cdd),
         alice_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
 
@@ -1378,7 +1378,7 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     assert_ok!(Identity::add_claim(
         alice,
         charlie_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
     let charlie_cdd_claim =
@@ -1451,7 +1451,7 @@ fn gc_with_systematic_cdd_claims_we() {
     assert_ok!(Identity::add_claim(
         alice,
         ferdie_id,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         None
     ));
     let ferdie_cdd_claim =
@@ -1536,7 +1536,7 @@ fn add_permission_with_secondary_key() {
             assert_ok!(Identity::add_claim(
                 Origin::signed(cdd_1_acc),
                 alice_did,
-                Claim::make_cdd_wildcard(),
+                Claim::default_cdd_id(),
                 None
             ));
 

@@ -13,6 +13,7 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 # Others
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+enum-iterator = "0.6.0"
 
 # Cryptography
 confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0" }

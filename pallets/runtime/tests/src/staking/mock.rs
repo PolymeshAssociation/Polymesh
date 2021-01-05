@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Test utilities
+use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
@@ -44,7 +45,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Moment, Permissions,
     PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
@@ -1032,7 +1033,7 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
     );
     let did = Identity::get_identity(&account).expect("DID not find in the storage");
     assert!(
-        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        Identity::add_claim(cdd.clone(), did, Claim::default_cdd_id(), None).is_ok(),
         "Error CDD Claim cannot be added to DID"
     );
     true
@@ -1583,21 +1584,38 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000)
+    make_account_with_balance(id, 1_000_000, None)
 }
 
 /// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
     balance: <Test as CommonTrait>::Balance,
+    expiry: Option<Moment>,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
-
-    let uid = InvestorUid::from(format!("{}", id).as_str());
-    Identity::register_did(signed_id.clone(), uid, vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&id).unwrap();
-
+    let uid = create_investor_uid(id);
+    // If we have CDD providers, first of them executes the registration.
+    let cdd_providers = Group::get_members();
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
+            let did = Identity::get_identity(&id).unwrap();
+            let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
+            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, expiry)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
+    };
     Ok((signed_id, did))
 }
 
@@ -1613,25 +1631,37 @@ pub fn add_nominator_claim_with_expiry(
     expiry: u64,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         identity_id,
-        Claim::make_cdd_wildcard(),
+        Claim::CustomerDueDiligence(cdd_id),
         Some(expiry.into()),
     ));
 }
 
+pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
+    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
+    (cdd_id, uid)
+}
+
+pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
+    InvestorUid::from(format!("{}", acc).as_str())
+}
+
 pub fn add_nominator_claim(
     _claim_issuer: IdentityId,
-    idendity_id: IdentityId,
+    identity_id: IdentityId,
     claim_issuer_account_id: AccountId,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
     let now = Utc::now();
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
-        idendity_id,
-        Claim::make_cdd_wildcard(),
+        identity_id,
+        Claim::CustomerDueDiligence(cdd_id),
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -1663,7 +1693,7 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
     assert_ok!(Identity::add_claim(
         Origin::signed(1005),
         did,
-        Claim::make_cdd_wildcard(),
+        Claim::default_cdd_id(),
         Some(expiry.into())
     ));
 }
