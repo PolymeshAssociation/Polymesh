@@ -18,6 +18,7 @@ use crate::*;
 
 use polymesh_common_utilities::{
     benchs::{self, User, UserBuilder},
+    constants::currency::POLY,
     traits::asset::AssetName,
 };
 use polymesh_contracts::ExtensionInfo;
@@ -242,20 +243,20 @@ benchmarks! {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
 
-    }: _(owner.origin, ticker.clone(), 1_000_000.into())
+    }: _(owner.origin, ticker.clone(), (1_000_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, 2_000_000.into());
+        assert_eq!( token.total_supply, (2_000_000 * POLY).into());
     }
 
 
     redeem {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
-    }: _(owner.origin, ticker.clone(), 600_000.into())
+    }: _(owner.origin, ticker.clone(), (600_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, 400_000.into());
+        assert_eq!( token.total_supply, (400_000 * POLY).into());
     }
 
     make_divisible {

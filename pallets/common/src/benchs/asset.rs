@@ -1,5 +1,6 @@
 use crate::{
     benchs::User,
+    constants::currency::POLY,
     traits::{
         asset::{AssetFnTrait, AssetName, AssetType},
         identity::Trait as IdentityTrait,
@@ -69,7 +70,7 @@ where
 {
     let ticker = make_ticker::<Asset, _, _, _, _>(owner.origin().into(), name);
     let name: AssetName = ticker.as_slice().into();
-    let total_supply: Balance = 1_000_000u128.into();
+    let total_supply: Balance = (1_000_000 * POLY).into();
 
     Asset::create_asset(
         owner.origin().into(),
