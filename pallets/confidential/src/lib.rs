@@ -75,9 +75,9 @@ pub struct ProverTickerKey {
 decl_storage! {
     trait Store for Module<T: Trait> as Confidential {
         /// Number of investor per asset.
-        pub RangeProofs get(fn range_proof): double_map hasher(identity) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
+        pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
-        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(identity) IdentityId => bool;
+        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
     }
 }
 
