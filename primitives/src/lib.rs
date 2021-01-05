@@ -178,7 +178,7 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
-pub use jurisdiction::{CountryCode, JurisdictionName};
+pub use jurisdiction::CountryCode;
 
 /// Utilities for storage migration.
 pub mod migrate;
