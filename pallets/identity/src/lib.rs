@@ -526,7 +526,7 @@ decl_module! {
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
 
-            Self::deposit_event(RawEvent::ForwardedCall(current_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
+            Self::deposit_event(RawEvent::ForwardedCall(primary_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
 
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
