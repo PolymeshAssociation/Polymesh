@@ -177,6 +177,18 @@ fn generate_multisig_and_create_proposal<T: Trait>(
     ))
 }
 
+macro_rules! ensure_proposal_created {
+    ($proposal_id:ident, $multisig:ident) => {
+        assert!($proposal_id < <MultiSig<T>>::ms_tx_done($multisig));
+    };
+}
+
+macro_rules! ensure_vote_cast {
+    ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
+        assert!(<MultiSig<T>>::votes(($multisig, $signatory, $proposal_id)));
+    };
+}
+
 const MAX_SIGNERS: u32 = 256;
 
 benchmarks! {
@@ -193,71 +205,58 @@ benchmarks! {
 
     create_or_approve_proposal_as_identity {
         let (alice, multisig, signers, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
-    }: create_or_approve_proposal_as_identity(alice.origin(), ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337.into()), true)
     verify {
-        ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig), "create_or_approve_proposal_as_identity");
+        ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_or_approve_proposal_as_key {
         let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
-    }: create_or_approve_proposal_as_key(signer_origin, ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(signer_origin, ephemeral_multisig, proposal, Some(1337.into()), true)
     verify {
-        ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig), "create_or_approve_proposal_as_key");
+        ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_identity {
         let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
     }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337.into()), true)
     verify {
-        ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig), "create_proposal_as_identity");
+        ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_key {
         let (_, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
     }: _(signer_origin, ephemeral_multisig, proposal, Some(1337.into()), true)
     verify {
-        ensure!(proposal_id < <MultiSig<T>>::ms_tx_done(multisig), "create_proposal_as_key");
+        ensure_proposal_created!(proposal_id, multisig);
     }
 
     approve_as_identity {
         let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true)?;
     }: _(alice.origin(), ephemeral_multisig, proposal_id)
     verify {
-        ensure!(
-            <MultiSig<T>>::votes((multisig, Signatory::from(alice.did()), proposal_id)),
-            "approve_as_identity"
-        );
+        ensure_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
     }
 
     approve_as_key {
         let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false)?;
     }: _(signer_origin, ephemeral_multisig, proposal_id)
     verify {
-        ensure!(
-            <MultiSig<T>>::votes((multisig, signers.last().unwrap(), proposal_id)),
-            "approve_as_key"
-        );
+        ensure_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     reject_as_identity {
         let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true)?;
     }: _(alice.origin(), ephemeral_multisig, proposal_id)
     verify {
-        ensure!(
-            <MultiSig<T>>::votes((multisig.clone(), Signatory::from(alice.did()), proposal_id)),
-            "reject_as_identity"
-        );
+        ensure_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
     }
-
 
     reject_as_key {
         let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false)?;
     }: _(signer_origin, ephemeral_multisig, proposal_id)
     verify {
-        ensure!(
-            <MultiSig<T>>::votes((multisig.clone(), signers.last().unwrap(), proposal_id)),
-            "reject_as_key"
-        );
+        ensure_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     accept_multisig_signer_as_identity {
