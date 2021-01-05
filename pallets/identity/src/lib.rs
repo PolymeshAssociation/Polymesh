@@ -528,7 +528,7 @@ decl_module! {
             // 1.4 Check that the forwarded call is not recursive
             let metadata = proposal.get_call_metadata();
             ensure!(
-                !((metadata.pallet_name == "Identity") && (metadata.function_name == "forwarded_call")),
+                !(metadata.pallet_name == "Identity" && metadata.function_name == "forwarded_call"),
                 Error::<T>::RecursionNotAllowed
             );
 
