@@ -208,8 +208,9 @@ benchmarks_instance! {
         let hash = make_proposal::<T, I>(quorum_less_1).1;
         ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
         let proposal_num = quorum_less_1 - 1;
-        let origin = members[1].origin.clone();
-        let did = members[1].did();
+        let member = &members[quorum_less_1 as usize];
+        let origin = member.origin.clone();
+        let did = member.did();
         identity::CurrentDid::put(did);
     }: vote(origin, hash, proposal_num, true)
     verify {
@@ -221,8 +222,9 @@ benchmarks_instance! {
         let members = make_members_and_proposals::<T, I>()?;
         let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
-        let origin = members[1].origin.clone();
-        let did = members[1].did();
+        let member = &members[1];
+        let origin = member.origin.clone();
+        let did = member.did();
         identity::CurrentDid::put(did);
     }: vote(origin, hash, first_proposal_num, false)
     verify {
@@ -233,8 +235,9 @@ benchmarks_instance! {
         let members = make_members_and_proposals::<T, I>()?;
         let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
-        let origin = members[0].origin.clone();
-        let did = members[0].did();
+        let member = &members[0];
+        let origin = member.origin.clone();
+        let did = member.did();
         identity::CurrentDid::put(did);
     }: _(origin, hash, first_proposal_num)
     verify {
