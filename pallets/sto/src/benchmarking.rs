@@ -15,7 +15,7 @@ pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
-fn create_asset<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker, supply: u128) {
+fn create_asset<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker, supply: u128) -> DispatchResult {
     <Asset<T>>::create_asset(
         origin.into(),
         vec![b'A'].into(),
@@ -25,16 +25,12 @@ fn create_asset<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker, suppl
         AssetType::default(),
         vec![],
         None,
-    );
+    )
 }
 
-fn add_compliance<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker) {
+fn add_compliance<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker) -> DispatchResult {
     //TODO: replace with worst case rules
-    <ComplianceManager<T>>::add_compliance_requirement(origin.into(), ticker, vec![], vec![]);
-}
-
-fn next_block<T: Trait>() -> T::Moment {
-    <Timestamp<T>>::get() + 1.into()
+    <ComplianceManager<T>>::add_compliance_requirement(origin.into(), ticker, vec![], vec![])
 }
 
 fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
@@ -61,11 +57,11 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker);
-        add_compliance::<T>(alice.origin(), raise_ticker);
+        add_compliance::<T>(alice.origin(), offering_ticker)?;
+        add_compliance::<T>(alice.origin(), raise_ticker)?;
 
         let venue_id = <Settlement<T>>::venue_counter();
         <Settlement<T>>::create_venue(
@@ -101,8 +97,8 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());
@@ -156,11 +152,11 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker);
-        add_compliance::<T>(alice.origin(), raise_ticker);
+        add_compliance::<T>(alice.origin(), offering_ticker)?;
+        add_compliance::<T>(alice.origin(), raise_ticker)?;
 
         let venue_id = <Settlement<T>>::venue_counter();
         <Settlement<T>>::create_venue(
@@ -192,11 +188,11 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker);
-        add_compliance::<T>(alice.origin(), raise_ticker);
+        add_compliance::<T>(alice.origin(), offering_ticker)?;
+        add_compliance::<T>(alice.origin(), raise_ticker)?;
 
         let venue_id = <Settlement<T>>::venue_counter();
         <Settlement<T>>::create_venue(
@@ -228,11 +224,11 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker);
-        add_compliance::<T>(alice.origin(), raise_ticker);
+        add_compliance::<T>(alice.origin(), offering_ticker)?;
+        add_compliance::<T>(alice.origin(), raise_ticker)?;
 
         let venue_id = <Settlement<T>>::venue_counter();
         <Settlement<T>>::create_venue(
@@ -264,11 +260,11 @@ benchmarks! {
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000);
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000);
+        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker);
-        add_compliance::<T>(alice.origin(), raise_ticker);
+        add_compliance::<T>(alice.origin(), offering_ticker)?;
+        add_compliance::<T>(alice.origin(), raise_ticker)?;
 
         let venue_id = <Settlement<T>>::venue_counter();
         <Settlement<T>>::create_venue(
