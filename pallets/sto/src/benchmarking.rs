@@ -15,7 +15,11 @@ pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
-fn create_asset<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker, supply: u128) -> DispatchResult {
+fn create_asset<T: Trait>(
+    origin: RawOrigin<T::AccountId>,
+    ticker: Ticker,
+    supply: u128,
+) -> DispatchResult {
     <Asset<T>>::create_asset(
         origin.into(),
         vec![b'A'].into(),
