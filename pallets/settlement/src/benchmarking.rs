@@ -390,7 +390,7 @@ pub fn get_conditions<T: Trait>(complexity: u32, trusted_issuer: TrustedIssuer) 
     vec![Condition::new(condition_type, vec![trusted_issuer])]
 }
 
-fn compliance_setup<T: Trait>(
+pub fn compliance_setup<T: Trait>(
     max_complexity: u32,
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,

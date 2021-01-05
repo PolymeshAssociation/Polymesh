@@ -29,6 +29,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Get,
 };
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -44,6 +45,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait,
 };
 
+use frame_support::weights::Weight;
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
 use sp_runtime::DispatchError;
@@ -115,9 +117,20 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     }
 }
 
+pub trait WeightInfo {
+    fn create_fundraiser(i: u32) -> Weight;
+    fn invest(c: u32) -> Weight;
+    fn freeze_fundraiser() -> Weight;
+    fn unfreeze_fundraiser() -> Weight;
+    fn modify_fundraiser_window() -> Weight;
+    fn stop() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    /// Weight information for extrinsic of the sto pallet.
+    type WeightInfo: WeightInfo;
 }
 
 decl_event!(
@@ -189,7 +202,7 @@ decl_module! {
         ///
         /// # Weight
         /// `800_000_000` placeholder
-        #[weight = 800_000_000]
+        #[weight = <T as Trait>::WeightInfo::create_fundraiser(tiers.len() as u32)]
         pub fn create_fundraiser(
             origin,
             offering_portfolio: PortfolioId,
@@ -269,7 +282,7 @@ decl_module! {
         ///
         /// # Weight
         /// `2_000_000_000` placeholder
-        #[weight = 2_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::invest(T::MaxConditionComplexity::get())]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
@@ -403,7 +416,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::freeze_fundraiser()]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, true)
         }
@@ -415,7 +428,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::unfreeze_fundraiser()]
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, false)
         }
@@ -429,7 +442,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             Self::ensure_perms_pia(origin, &offering_asset)?;
 
@@ -460,7 +473,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let did = Self::ensure_perms(origin, &offering_asset)?;
 
