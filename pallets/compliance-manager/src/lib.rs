@@ -117,7 +117,7 @@ pub trait Trait:
     /// Asset module
     type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
-    /// Weight details of all extrinsics
+    /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
@@ -163,17 +163,10 @@ pub struct ComplianceRequirementResult {
 
 impl From<ComplianceRequirement> for ComplianceRequirementResult {
     fn from(requirement: ComplianceRequirement) -> Self {
+        let from_conds = |conds: Vec<_>| conds.into_iter().map(ConditionResult::from).collect();
         Self {
-            sender_conditions: requirement
-                .sender_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
-            receiver_conditions: requirement
-                .receiver_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
+            sender_conditions: from_conds(requirement.sender_conditions),
+            receiver_conditions: from_conds(requirement.receiver_conditions),
             id: requirement.id,
             result: true,
         }
@@ -691,7 +684,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
-    fn verify_compliance_complexity(
+    pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
         add: usize,
@@ -704,7 +697,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
     /// is within the maximum condition complexity allowed.
-    fn base_verify_compliance_complexity(
+    pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         default_issuer_count: usize,
     ) -> DispatchResult {

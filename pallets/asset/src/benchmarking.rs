@@ -39,16 +39,18 @@ const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
-fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin>(owner)
+pub fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
+    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
 }
 
 fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(owner)
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
 }
 
-fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(owner)
+pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(
+        owner, None,
+    )
 }
 
 pub fn make_document() -> Document {

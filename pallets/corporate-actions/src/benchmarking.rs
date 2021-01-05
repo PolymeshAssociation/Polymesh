@@ -40,7 +40,8 @@ fn setup<T: Trait>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000.into());
 
     let owner = user("owner", SEED);
-    let ticker = make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin>(&owner);
+    let ticker =
+        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(&owner, None);
     (owner, ticker)
 }
 
