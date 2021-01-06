@@ -793,6 +793,9 @@ construct_runtime!(
         // Must be before session.
         Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
 
+        // Initialise identity earlier as other configs depend on it
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 30,
+
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
@@ -834,7 +837,6 @@ construct_runtime!(
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 28,
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 30,
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
