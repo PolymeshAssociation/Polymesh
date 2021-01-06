@@ -29,9 +29,9 @@ use polymesh_common_utilities::{
 use sp_std::prelude::*;
 
 const PROPOSAL_PADDING_WORDS: usize = 1_000;
-// The number of the proposal that has 1/2 aye votes after make_proposals_and_vote. One more aye
-// vote leads to acceptance of that proposal.
-const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 2;
+// The number of the proposal that has ceil(1/2)-1 aye votes after make_proposals_and_vote. One more
+// aye vote leads to acceptance of that proposal.
+const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 3;
 
 fn make_proposal<T, I>(n: u32) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
 where
