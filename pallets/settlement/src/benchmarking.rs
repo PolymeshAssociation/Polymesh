@@ -125,7 +125,7 @@ fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchErro
         owner_did,
         divisible: true,
         asset_type: AssetType::EquityCommon,
-        primary_issuance_agent: Some(owner_did),
+        primary_issuance_agent: None,
     };
     <Tokens<T>>::insert(ticker, token);
     <BalanceOf<T>>::insert(ticker, owner_did, total_supply);

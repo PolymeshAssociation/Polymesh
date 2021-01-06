@@ -118,7 +118,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -183,7 +183,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: token.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: Some(token.owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
@@ -743,7 +743,7 @@ fn transfer_primary_issuance_agent() {
             owner_did,
             divisible: true,
             asset_type: Default::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
         };
 
         assert_ok!(Asset::create_asset(
@@ -951,7 +951,7 @@ fn update_identifiers() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -1690,7 +1690,7 @@ fn frozen_secondary_keys_create_asset_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_agent: Some(alice_id),
+        primary_issuance_agent: None,
         ..Default::default()
     };
     let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
@@ -1924,7 +1924,7 @@ fn check_functionality_of_remove_extension() {
                 total_supply: 1_000_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
+                primary_issuance_agent: None,
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -2535,7 +2535,7 @@ fn check_unique_investor_count() {
                 total_supply: total_supply,
                 divisible: true,
                 asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
+                primary_issuance_agent: None,
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
