@@ -1696,11 +1696,11 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `did` is the assigned PIA, or the token owner if no PIA is assigned
     pub fn ensure_pia(ticker: &Ticker, did: IdentityId) -> DispatchResult {
-        let pia = Self::primary_issuance_agent_or_owner(&ticker);
-        if did == pia {
-            return Ok(());
-        }
-        return Err(Error::<T>::Unauthorized.into());
+        ensure!(
+            Self::primary_issuance_agent_or_owner(ticker) == did,
+            Error::<T>::Unauthorized
+        );
+        Ok(())
     }
 
     pub fn _mint(
