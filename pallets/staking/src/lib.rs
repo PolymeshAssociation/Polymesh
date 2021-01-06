@@ -2746,7 +2746,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Returns the allowed validator count.
     fn get_allowed_validator_count() -> u32 {
-        T::MaxValidatorPerIdentity::get().mul_ceil(Self::validator_count())
+        sp_std::cmp::max(1, T::MaxValidatorPerIdentity::get() * Self::validator_count())
     }
 
     /// Returns the `T::Origin` for given target AccountId.
