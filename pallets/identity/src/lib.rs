@@ -1660,7 +1660,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
         // Ensure cdd_id uniqueness for a given target DID.
-        Self::ensure_cdd_id_uniqueness(&claim, target)?;
+        Self::ensure_cdd_id_uniqueness(&claim, issuer, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
@@ -1671,22 +1671,21 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id
     /// doesn't match the existing cdd claim's cdd_id.
-    fn ensure_cdd_id_uniqueness(claim: &Claim, target: IdentityId) -> DispatchResult {
+    fn ensure_cdd_id_uniqueness(
+        claim: &Claim,
+        issuer: IdentityId,
+        target: IdentityId,
+    ) -> DispatchResult {
         if let Claim::CustomerDueDiligence(cdd_id) = claim {
             ensure!(
-                !Self::base_fetch_valid_cdd_claims(target, 0.into(), None).any(|id_claim| {
-                    if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
-                        // Allowing default cdd_id.
-                        if !c_id.is_default_cdd()
-                            && !SYSTEMATIC_ISSUERS
-                                .iter()
-                                .any(|si| si.as_id() == id_claim.claim_issuer)
-                        {
-                            return c_id != *cdd_id;
+                (cdd_id.is_default_cdd()
+                    && SYSTEMATIC_ISSUERS.iter().any(|si| si.as_id() == issuer))
+                    || Self::base_fetch_valid_cdd_claims(target, 0.into(), None).all(|id_claim| {
+                        if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
+                            return c_id.is_default_cdd() || c_id == *cdd_id;
                         }
-                    }
-                    false
-                }),
+                        true
+                    }),
                 Error::<T>::CDDIdNotUniqueForIdentity
             );
         }
