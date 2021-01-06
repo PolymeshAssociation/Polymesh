@@ -1146,10 +1146,10 @@ pub trait Trait:
     type MaxValidatorPerIdentity: Get<Permill>;
 
     /// Maximum amount of total issuance after which fixed rewards kicks in.
-    type MaxInflatedTotalIssuance: Get<BalanceOf<Self>>;
+    type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
 
     /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
-    type NonInflatedTotalYearlyReward: Get<BalanceOf<Self>>;
+    type FixedYearlyReward: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -1627,10 +1627,10 @@ decl_module! {
         const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
 
         /// Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
-        const MaxInflatedTotalIssuance: BalanceOf<T> = T::MaxInflatedTotalIssuance::get();
+        const MaxVariableInflationTotalIssuance: BalanceOf<T> = T::MaxVariableInflationTotalIssuance::get();
 
         /// Total year rewards that gets paid during fixed reward schedule.
-        const NonInflatedTotalYearlyReward: BalanceOf<T> = T::NonInflatedTotalYearlyReward::get();
+        const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
 
         type Error = Error<T>;
 
@@ -3335,8 +3335,8 @@ impl<T: Trait> Module<T> {
                 T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
-                T::MaxInflatedTotalIssuance::get(),
-                T::NonInflatedTotalYearlyReward::get(),
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
 

@@ -602,8 +602,8 @@ parameter_types! {
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
-    pub const MaxInflatedTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub NonInflatedTotalYearlyReward: Balance = Perbill::from_percent(5) * MaxInflatedTotalIssuance::get();
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 thread_local! {
@@ -663,8 +663,8 @@ impl Trait for Test {
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
-    type MaxInflatedTotalIssuance = MaxInflatedTotalIssuance;
-    type NonInflatedTotalYearlyReward = NonInflatedTotalYearlyReward;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
     type WeightInfo = ();
 }
 
@@ -1261,8 +1261,8 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
         Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance(),
         duration,
-        MaxInflatedTotalIssuance::get(),
-        NonInflatedTotalYearlyReward::get(),
+        MaxVariableInflationTotalIssuance::get(),
+        FixedYearlyReward::get(),
     )
     .0
 }

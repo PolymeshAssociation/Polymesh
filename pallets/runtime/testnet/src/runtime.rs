@@ -371,8 +371,8 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
-    pub const MaxInflatedTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub NonInflatedTotalYearlyReward: Balance = Perbill::from_percent(5) * MaxInflatedTotalIssuance::get();
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 impl pallet_staking::Trait for Runtime {
@@ -404,8 +404,8 @@ impl pallet_staking::Trait for Runtime {
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
-    type MaxInflatedTotalIssuance = MaxInflatedTotalIssuance;
-    type NonInflatedTotalYearlyReward = NonInflatedTotalYearlyReward;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
     type WeightInfo = ();
 }
 

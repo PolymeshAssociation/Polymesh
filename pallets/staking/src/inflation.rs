@@ -62,7 +62,7 @@ mod test {
     use sp_runtime::{curve::PiecewiseLinear, Perbill};
 
     pallet_staking_reward_curve::build! {
-        const I_NPOS: PiecewiseLinear<'static> = curve!(
+        const I_NPOS: PiecewiseLinear<'_> = curve!(
             min_inflation: 0_025_000,
             max_inflation: 0_100_000,
             ideal_stake: 0_500_000,
@@ -78,8 +78,8 @@ mod test {
         const DAY: u64 = 24 * 60 * 60 * 1000;
         const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
         const HOUR: u64 = 60 * 60 * 1000;
-        const MAX_INFLATED_TOTAL_ISSUANCE: u64 = 1_000_000_000;
-        const NON_INFLATED_TOTAL_YEARLY_REWARD: u64 = 1_000_000;
+        const MAX_VARIABLE_INFLATION_TOTAL_ISSUANCE: u64 = 1_000_000_000;
+        const FIXED_YEARLY_REWARD: u64 = 1_000_000;
 
         let assert_payout = |t_staked, era_duration, expected_payout| {
             assert_eq!(
@@ -88,8 +88,8 @@ mod test {
                     t_staked,
                     100_000u64,
                     era_duration,
-                    MAX_INFLATED_TOTAL_ISSUANCE,
-                    NON_INFLATED_TOTAL_YEARLY_REWARD
+                    MAX_VARIABLE_INFLATION_TOTAL_ISSUANCE,
+                    FIXED_YEARLY_REWARD
                 )
                 .0,
                 expected_payout
@@ -104,8 +104,8 @@ mod test {
                 0,
                 100_000u64,
                 YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
+                MAX_VARIABLE_INFLATION_TOTAL_ISSUANCE,
+                FIXED_YEARLY_REWARD
             )
             .1,
             9_993
@@ -134,7 +134,7 @@ mod test {
                 5_000_000_000_000_000_000_000_000_000u128,
                 HOUR,
                 7_000_000_000_000_000_000_000_000_000u128,
-                NON_INFLATED_TOTAL_YEARLY_REWARD.into()
+                FIXED_YEARLY_REWARD.into()
             )
             .0,
             57_038_500_000_000_000_000_000
