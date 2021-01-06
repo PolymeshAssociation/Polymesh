@@ -7,6 +7,7 @@ use frame_system::RawOrigin;
 use pallet_settlement::{benchmarking::compliance_setup, VenueDetails};
 use polymesh_common_utilities::{asset::AssetType, benchs::UserBuilder};
 use polymesh_primitives::TrustedIssuer;
+use polymesh_common_utilities::benchs::User;
 
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
@@ -49,6 +50,41 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     tiers
 }
 
+fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
+    let alice = <UserBuilder<T>>::default().generate_did().build("alice");
+    let alice_portfolio = PortfolioId::default_portfolio(alice.did());
+
+    let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
+    let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
+    create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
+    create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
+
+    add_compliance::<T>(alice.origin(), offering_ticker)?;
+    add_compliance::<T>(alice.origin(), raise_ticker)?;
+
+    let venue_id = <Settlement<T>>::venue_counter();
+    <Settlement<T>>::create_venue(
+        alice.origin().into(),
+        VenueDetails::default(),
+        vec![alice.account()],
+        VenueType::Sto
+    )?;
+
+    <Sto<T>>::create_fundraiser(
+        alice.origin().into(),
+        alice_portfolio,
+        offering_ticker,
+        alice_portfolio,
+        raise_ticker,
+        generate_tiers::<T>(1),
+        venue_id,
+        None,
+        None
+    )?;
+
+    Ok((alice, offering_ticker))
+}
+
 benchmarks! {
     _ {}
 
@@ -74,7 +110,6 @@ benchmarks! {
             vec![alice.account()],
             VenueType::Sto
         )?;
-
     }: _(
             alice.origin(),
             alice_portfolio,
@@ -151,144 +186,28 @@ benchmarks! {
     }
 
     freeze_fundraiser {
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
-
-        add_compliance::<T>(alice.origin(), offering_ticker)?;
-        add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
-
-        <Sto<T>>::create_fundraiser(
-            alice.origin().into(),
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            generate_tiers::<T>(1),
-            venue_id,
-            None,
-            None
-        )?;
+        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
     }: _(alice.origin(), offering_ticker, 0)
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
-
-        add_compliance::<T>(alice.origin(), offering_ticker)?;
-        add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
-
-        <Sto<T>>::create_fundraiser(
-            alice.origin().into(),
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            generate_tiers::<T>(1),
-            venue_id,
-            None,
-            None
-        )?;
+        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
     }: _(alice.origin(), offering_ticker, 0)
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
-
-        add_compliance::<T>(alice.origin(), offering_ticker)?;
-        add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
-
-        <Sto<T>>::create_fundraiser(
-            alice.origin().into(),
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            generate_tiers::<T>(1),
-            venue_id,
-            None,
-            None
-        )?;
+        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
     }: _(alice.origin(), offering_ticker,0 , 100.into(), Some(101.into()))
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
     }
 
     stop {
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
-
-        add_compliance::<T>(alice.origin(), offering_ticker)?;
-        add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
-
-        <Sto<T>>::create_fundraiser(
-            alice.origin().into(),
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            generate_tiers::<T>(1),
-            venue_id,
-            None,
-            None
-        )?;
+        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
     }: _(alice.origin(), offering_ticker, 0)
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
