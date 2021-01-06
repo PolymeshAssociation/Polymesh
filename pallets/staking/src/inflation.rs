@@ -43,7 +43,7 @@ where
     // Milliseconds per year for the Julian year (365.25 days).
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
     let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
-    // Check whether the fixed rewards kicks in?.
+    // Have fixed rewards kicked in?
     if total_tokens >= max_inflated_issuance {
         let payout = portion * non_inflated_yearly_reward;
         // payout is always maximum.
@@ -75,8 +75,26 @@ mod test {
     #[test]
     fn npos_curve_is_sensible() {
         const YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
+        const DAY: u64 = 24 * 60 * 60 * 1000;
+        const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
+        const HOUR: u64 = 60 * 60 * 1000;
         const MAX_INFLATED_TOTAL_ISSUANCE: u64 = 1_000_000_000;
         const NON_INFLATED_TOTAL_YEARLY_REWARD: u64 = 1_000_000;
+
+        let assert_payout = |t_staked, era_duration, expected_payout| {
+            assert_eq!(
+                super::compute_total_payout(
+                    &I_NPOS,
+                    t_staked,
+                    100_000u64,
+                    era_duration,
+                    MAX_INFLATED_TOTAL_ISSUANCE,
+                    NON_INFLATED_TOTAL_YEARLY_REWARD
+                )
+                .0,
+                expected_payout
+            );
+        };
 
         // check maximum inflation.
         // not 10_000 due to rounding error.
@@ -93,193 +111,22 @@ mod test {
             9_993
         );
 
-        //super::I_NPOS.calculate_for_fraction_times_denominator(25, 100)
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                0,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            2_498
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                5_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            3_248
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                25_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            6_246
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                40_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            8_494
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                50_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            9_993
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                60_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            4_379
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                75_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            2_733
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                95_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            2_513
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                100_000,
-                100_000u64,
-                YEAR,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            2_505
-        );
+        assert_payout(0, YEAR, 2_498);
+        assert_payout(5_000, YEAR, 3_248);
+        assert_payout(25_000, YEAR, 6_246);
+        assert_payout(40_000, YEAR, 8_494);
+        assert_payout(50_000, YEAR, 9_993);
+        assert_payout(60_000, YEAR, 4_379);
+        assert_payout(75_000, YEAR, 2_733);
+        assert_payout(95_000, YEAR, 2_513);
+        assert_payout(100_000, YEAR, 2_505);
+        assert_payout(25_000, DAY, 17);
+        assert_payout(50_000, DAY, 27);
+        assert_payout(75_000, DAY, 7);
+        assert_payout(25_000, SIX_HOURS, 4);
+        assert_payout(50_000, SIX_HOURS, 7);
+        assert_payout(75_000, SIX_HOURS, 2);
 
-        const DAY: u64 = 24 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                25_000,
-                100_000u64,
-                DAY,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            17
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                50_000,
-                100_000u64,
-                DAY,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            27
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                75_000,
-                100_000u64,
-                DAY,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            7
-        );
-
-        const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                25_000,
-                100_000u64,
-                SIX_HOURS,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            4
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                50_000,
-                100_000u64,
-                SIX_HOURS,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            7
-        );
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                75_000,
-                100_000u64,
-                SIX_HOURS,
-                MAX_INFLATED_TOTAL_ISSUANCE,
-                NON_INFLATED_TOTAL_YEARLY_REWARD
-            )
-            .0,
-            2
-        );
-
-        const HOUR: u64 = 60 * 60 * 1000;
         assert_eq!(
             super::compute_total_payout(
                 &I_NPOS,
