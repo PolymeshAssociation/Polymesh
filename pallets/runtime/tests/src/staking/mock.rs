@@ -33,15 +33,18 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-use polymesh_common_utilities::traits::{
-    asset::AssetSubTrait,
-    balances::{AccountData, CheckCdd},
-    group::{GroupTrait, InactiveMember},
-    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
-    multisig::MultiSigSubTrait,
-    portfolio::PortfolioSubTrait,
-    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait, PermissionChecker,
+use polymesh_common_utilities::{
+    constants::currency::POLY,
+    traits::{
+        asset::AssetSubTrait,
+        balances::{AccountData, CheckCdd},
+        group::{GroupTrait, InactiveMember},
+        identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+        multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        CommonTrait, PermissionChecker,
+    },
 };
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
@@ -599,6 +602,8 @@ parameter_types! {
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 thread_local! {
@@ -658,6 +663,8 @@ impl Trait for Test {
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
     type WeightInfo = ();
 }
 
@@ -1254,6 +1261,8 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
         Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance(),
         duration,
+        MaxVariableInflationTotalIssuance::get(),
+        FixedYearlyReward::get(),
     )
     .0
 }
