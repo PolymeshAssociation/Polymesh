@@ -130,13 +130,12 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
         #[weight = <T as Trait>::WeightInfo::change_coefficient()]
-        pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
+        pub fn change_coefficient(origin, coefficient: PosRatio) {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
-            <Coefficient>::put(&coefficient);
+            Coefficient::put(&coefficient);
             Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
-            Ok(())
         }
 
         /// Changes the a base fee for the root origin.
@@ -144,17 +143,13 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
         #[weight = <T as Trait>::WeightInfo::change_base_fee()]
-        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
-            DispatchResult
-        {
+        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
             <BaseFees<T>>::insert(op, &base_fee);
             Self::deposit_event(RawEvent::FeeSet(id, base_fee));
-            Ok(())
         }
-
     }
 }
 
@@ -178,11 +173,7 @@ impl<T: Trait> Module<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        if let Some(payer) = T::CddHandler::get_payer_from_context() {
-            let imbalance = Self::withdraw_fee(payer, fee)?;
-            T::OnProtocolFeePayment::on_unbalanced(imbalance);
-        }
-        Ok(())
+        Self::withdraw_from_payer(fee)
     }
 
     /// Used to charge the instantiation fee of the smart extension.
@@ -216,11 +207,7 @@ impl<T: Trait> Module<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        if let Some(payer) = T::CddHandler::get_payer_from_context() {
-            let imbalance = Self::withdraw_fee(payer, fee)?;
-            T::OnProtocolFeePayment::on_unbalanced(imbalance);
-        }
-        Ok(())
+        Self::withdraw_from_payer(fee)
     }
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
@@ -235,6 +222,14 @@ impl<T: Trait> Module<T> {
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
         Self::deposit_event(RawEvent::FeeCharged(account, fee));
         Ok(ret)
+    }
+
+    fn withdraw_from_payer(fee: BalanceOf<T>) -> DispatchResult {
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
+        Ok(())
     }
 }
 

@@ -29,7 +29,7 @@ pub struct Context<C> {
     /// the receiver DID on a receiver's condition evaluation.
     pub id: IdentityId,
     /// Identity of the primary_issuance_agent of the token
-    pub primary_issuance_agent: Option<IdentityId>,
+    pub primary_issuance_agent: IdentityId,
 }
 
 // Proposition Trait
@@ -121,7 +121,7 @@ pub fn run<C: Iterator<Item = Claim>>(condition: &Condition, context: Context<C>
         ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(claims) => not::<_, C>(any(claims)).evaluate(context),
         ConditionType::IsIdentity(id) => {
-            equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
+            equals(id, &context.primary_issuance_agent.clone()).evaluate(context)
         }
     }
 }
