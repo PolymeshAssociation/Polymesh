@@ -510,7 +510,14 @@ decl_module! {
             // 1.3. Check that target_did has a CDD.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            // 1.4 charge fee
+            // 1.4 Check that the forwarded call is not recursive
+            let metadata = proposal.get_call_metadata();
+            ensure!(
+                !(metadata.pallet_name == "Identity" && metadata.function_name == "forwarded_call"),
+                Error::<T>::RecursionNotAllowed
+            );
+
+            // 1.5 charge fee
             let _ = T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
                 proposal.get_dispatch_info())
@@ -519,10 +526,11 @@ decl_module! {
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
 
+            Self::deposit_event(RawEvent::ForwardedCall(primary_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
+
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = RawOrigin::Signed(sender).into();
-
             let actual_weight = with_call_metadata(proposal.get_call_metadata(), || proposal.dispatch(new_origin))
                 .unwrap_or_else(|e| e.post_info)
                 .actual_weight;
@@ -964,7 +972,9 @@ decl_error! {
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
         /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId
+        TargetHasNonZeroBalanceAtScopeId,
+        /// Do not allow forwarded call to be called recursively
+        RecursionNotAllowed
     }
 }
 
@@ -2161,41 +2171,60 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         pallet_name: &PalletName,
         function_name: &DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
-        if <KeyToIdentityIds<T>>::contains_key(who) {
-            let primary_did = <KeyToIdentityIds<T>>::get(who);
-            if !<DidRecords<T>>::contains_key(&primary_did) {
-                // The DID record is missing.
-                return None;
+        // `who` is the original origin (signer) of the original extrinsic
+        // context::current_identity is the target did against which the calling key must have permissions
+        // if `who`'s identity does not match context::current_identity we have a forwarded call. In this case the
+        // key for which we check permissions is `who`'s identity rather than `who`. This assumes that recursive forwarded calls
+        // are not allowed (which are prevented in `forwarded_call`)
+
+        if !<KeyToIdentityIds<T>>::contains_key(who) {
+            // Caller has no Identity
+            return None;
+        }
+
+        let key_did = <KeyToIdentityIds<T>>::get(who);
+
+        if !<DidRecords<T>>::contains_key(&key_did) {
+            // The DID record is missing.
+            return None;
+        }
+
+        if let Some(target_did) = Context::current_identity_or::<Self>(who).ok() {
+            let target_did_record = <DidRecords<T>>::get(&target_did);
+
+            // NB: Doing this check here since `get_sk_data` moves `target_did_record`
+            let is_direct_call = target_did == key_did;
+            if is_direct_call && who == &target_did_record.primary_key {
+                // It is a direct call and `who` is the primary key.
+                return Some(AccountCallPermissionsData {
+                    primary_did: target_did,
+                    secondary_key: None,
+                });
             }
-            let did_record = <DidRecords<T>>::get(&primary_did);
-            if who != &did_record.primary_key {
-                // `who` can be a secondary key.
-                //
-                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
-                // extrinsics.
-                if Self::is_did_frozen(&primary_did) {
-                    // `primary_did` has its secondary keys frozen.
+
+            let get_sk_data = |who_sk| {
+                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call extrinsics.
+                if Self::is_did_frozen(&target_did) {
+                    // `target_did` has its secondary keys frozen.
                     return None;
                 }
-                let maybe_current_did_signer =
-                    Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
-                return did_record
+                target_did_record
                     .secondary_keys
                     .into_iter()
-                    .find(|sk| {
-                        sk.signer == Signatory::Account(who.clone())
-                            || Some(sk.signer.clone()) == maybe_current_did_signer
-                    })
+                    .find(|sk| sk.signer == who_sk)
                     .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
                     .map(|sk| AccountCallPermissionsData {
-                        primary_did,
+                        primary_did: target_did,
                         secondary_key: Some(sk),
-                    });
-            }
-            // `who` is the primary key.
-            return Some(AccountCallPermissionsData {
-                primary_did,
-                secondary_key: None,
+                    })
+            };
+
+            return get_sk_data(if is_direct_call {
+                // Check the permissions of `who`'s key in `target_did` as it is a direct call.
+                Signatory::Account(who.clone())
+            } else {
+                // Check the permissions of `who`'s Identity in `target_did` as it is a forwarded call.
+                Signatory::Identity(key_did)
             });
         }
         // `who` doesn't have an identity.
