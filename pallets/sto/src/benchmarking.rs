@@ -5,9 +5,9 @@ use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use pallet_settlement::{benchmarking::compliance_setup, VenueDetails};
+use polymesh_common_utilities::benchs::User;
 use polymesh_common_utilities::{asset::AssetType, benchs::UserBuilder};
 use polymesh_primitives::TrustedIssuer;
-use polymesh_common_utilities::benchs::User;
 
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
@@ -67,7 +67,7 @@ fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
         alice.origin().into(),
         VenueDetails::default(),
         vec![alice.account()],
-        VenueType::Sto
+        VenueType::Sto,
     )?;
 
     <Sto<T>>::create_fundraiser(
@@ -79,7 +79,7 @@ fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
         generate_tiers::<T>(1),
         venue_id,
         None,
-        None
+        None,
     )?;
 
     Ok((alice, offering_ticker))
