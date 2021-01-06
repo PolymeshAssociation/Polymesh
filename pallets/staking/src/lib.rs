@@ -1642,14 +1642,14 @@ decl_module! {
             if StorageVersion::get() == Releases::V5_0_0 {
                 let intended_count = Self::get_allowed_validator_count();
                 let current_validators = <Validators<T>>::iter().map(|(k, _)| k).collect::<Vec<T::AccountId>>();
-                migrate_map_keys_and_value::<_,Option<PermissionedIdentityPrefs>,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
+                migrate_map_keys_and_value::<_,PermissionedIdentityPrefs,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
                     if v {
                         let running_count = current_validators
                             .iter()
                             .filter_map(<Identity<T>>::get_identity)
                             .filter(|v_id| id == *v_id)
                             .count() as u32;
-                        Some((id, Some(PermissionedIdentityPrefs {intended_count, running_count })))
+                        Some((id, PermissionedIdentityPrefs {intended_count, running_count }))
                     } else {
                         None
                     }
