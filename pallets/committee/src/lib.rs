@@ -85,13 +85,13 @@ use sp_std::{prelude::*, vec};
 /// is not defined as a trait parameter but rather as a plain constant because this value has to be
 /// the same for all instances.
 // TODO: ensure this bound when adding members.
-pub const COMMITTEE_MEMBERS_MAX: u32 = 5;
+pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
 
 /// The maximum number of concurrently active proposals defined for the sake of weight computation.
 /// This is not defined as a trait parameter but rather as a plain constant because this value has
 /// to be the same for all instances.
 // TODO: ensure this bound when adding proposals.
-pub const PROPOSALS_MAX: u32 = 5;
+pub const PROPOSALS_MAX: u32 = 500;
 
 pub trait WeightInfo {
     fn set_vote_threshold() -> Weight;

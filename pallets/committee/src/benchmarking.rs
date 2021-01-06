@@ -106,11 +106,8 @@ where
         // The proposal is not finalised because there is no quorum yet.
         if let Some(votes) = Voting::<T, I>::get(&hash) {
             ensure!(votes.index == proposal_num, "wrong proposal_num");
-            if vote {
-                ensure!(votes.ayes.contains(did), "aye vote missing");
-            } else {
-                ensure!(votes.nays.contains(did), "nay vote missing");
-            }
+            ensure!(vote == votes.ayes.contains(did), "aye vote missing");
+            ensure!(vote != votes.nays.contains(did), "nay vote missing");
         } else {
             return Err("cannot get votes".into());
         }
