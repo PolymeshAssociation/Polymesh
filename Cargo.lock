@@ -1329,26 +1329,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
-name = "enum-iterator"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c79a6321a1197d7730510c7e3f6cb80432dfefecb32426de8cea0aa19b4bb8d7"
-dependencies = [
- "enum-iterator-derive",
-]
-
-[[package]]
-name = "enum-iterator-derive"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e94aa31f7c0dc764f57896dc615ddd76fc13b0d5dca7eb6cc5e018a5a09ec06"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4374,7 +4354,6 @@ name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
  "confidential_identity",
- "enum-iterator",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5354,7 +5333,6 @@ dependencies = [
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
- "enum-iterator",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
