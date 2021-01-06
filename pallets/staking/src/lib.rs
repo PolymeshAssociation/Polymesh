@@ -1144,6 +1144,12 @@ pub trait Trait:
     /// Maximum amount of validators that can run by an identity.
     /// It will be MaxValidatorPerIdentity * Self::validator_count().
     type MaxValidatorPerIdentity: Get<Permill>;
+
+    /// Maximum amount of total issuance after which fixed rewards kicks in.
+    type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
+
+    /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+    type FixedYearlyReward: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -1619,6 +1625,12 @@ decl_module! {
         ///
         /// Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
         const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
+
+        /// Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
+        const MaxVariableInflationTotalIssuance: BalanceOf<T> = T::MaxVariableInflationTotalIssuance::get();
+
+        /// Total year rewards that gets paid during fixed reward schedule.
+        const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
 
         type Error = Error<T>;
 
@@ -2746,7 +2758,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Returns the allowed validator count.
     fn get_allowed_validator_count() -> u32 {
-        T::MaxValidatorPerIdentity::get() * Self::validator_count()
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
     }
 
     /// Returns the `T::Origin` for given target AccountId.
@@ -3323,6 +3335,8 @@ impl<T: Trait> Module<T> {
                 T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
 
