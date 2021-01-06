@@ -490,7 +490,7 @@ fn remove_secondary_keys_test_with_externalities() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave_key = AccountKeyring::Dave.public();
 
     let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
@@ -519,6 +519,7 @@ fn remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
     // Try removing bob using charlie
+    TestStorage::set_current_identity(&charlie_did);
     assert_ok!(Identity::remove_secondary_keys(
         charlie.clone(),
         vec![Signatory::Account(bob_key)]
@@ -530,6 +531,7 @@ fn remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
     // Try remove bob using alice
+    TestStorage::set_current_identity(&alice_did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.clone(),
         vec![Signatory::Account(bob_key)]
@@ -634,6 +636,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Charlie leaves
+    TestStorage::set_current_identity(&charlie_did);
     assert_ok!(Identity::leave_identity_as_identity(charlie, alice_did));
 
     // Check DidRecord.

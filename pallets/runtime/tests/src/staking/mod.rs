@@ -72,8 +72,6 @@ macro_rules! assert_permissioned_identity_prefs {
 }
 
 mod mock;
-use mock::*;
-
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
@@ -82,6 +80,7 @@ use frame_support::{
     traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
 };
+use mock::*;
 use pallet_balances::Error as BalancesError;
 use pallet_staking::*;
 use sp_npos_elections::ElectionScore;

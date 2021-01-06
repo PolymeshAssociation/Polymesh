@@ -51,10 +51,10 @@ pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
     pub sender: AccountId,
     /// The primary identity associated with the call.
     pub primary_did: IdentityId,
-    /// The secondary identity associated with the call, if the caller is a secondary identity of
-    /// `primary_did`. This field can be used when checking asset and portfolio permissions. It is
-    /// `Some(did)` iff the current identity (the identity that the call is made from) is a
-    /// secondary identity `did` of `primary_did`.
+    /// The secondary account or identity associated with the call, if the caller is a secondary identity
+    /// of `primary_did`. None if the caller is the primary key of `primary_did`. This field can be used when
+    /// checking asset and portfolio permissions. It is`Some(did)` if the current identity (the identity that
+    /// the call is made from) is a secondary identity `did` of `primary_did`. Otherwise it will be `Some(key)`.
     pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 

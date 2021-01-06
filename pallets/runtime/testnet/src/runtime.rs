@@ -371,6 +371,8 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 impl pallet_staking::Trait for Runtime {
@@ -402,6 +404,8 @@ impl pallet_staking::Trait for Runtime {
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
     type WeightInfo = ();
 }
 
@@ -798,43 +802,45 @@ construct_runtime!(
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
         TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
 
-        // Consensus frame_support.
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 6,
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 7,
-        Offences: pallet_offences::{Module, Call, Storage, Event} = 8,
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 9,
-        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 10,
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 11,
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 12,
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 13,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 14,
+        // Initialise identity earlier as other configs depend on it
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
 
-        Historical: pallet_session_historical::{Module} = 15,
+        // Consensus frame_support.
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
+        Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
+        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 11,
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
+        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
+
+        Historical: pallet_session_historical::{Module} = 16,
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 16,
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
 
-        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 17,
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 18,
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 19,
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Event<T>} = 20,
-        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 21,
-        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 22,
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 23,
+        Treasury: treasury::{Module, Call, Event<T>} = 21,
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
 
-        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 24,
-        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 25,
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
 
-        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 26,
-        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 27,
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
-        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 28,
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 30,
+        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
