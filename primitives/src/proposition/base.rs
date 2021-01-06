@@ -292,7 +292,7 @@ mod tests {
             &ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent).into(),
             Context {
                 id: identity1,
-                primary_issuance_agent: Some(identity1),
+                primary_issuance_agent: identity1,
                 claims: vec![].into_iter(),
             }
         ));
@@ -300,7 +300,7 @@ mod tests {
             &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             Context {
                 id: identity1,
-                primary_issuance_agent: Some(identity2),
+                primary_issuance_agent: identity2,
                 claims: vec![].into_iter(),
             }
         ));
