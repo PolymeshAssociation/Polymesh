@@ -37,7 +37,7 @@
 //! - changing the members of the committee,
 //! - allowing the members to propose a dispatchable,
 //! - allowing the members to vote on a proposal,
-//! - automatically dispatching a proposal if it meets a vote threshold.
+//! - automatically dispatching a proposal if the number of aye votes is greater than the threshold.
 //!
 //! ## Interface
 //!
@@ -81,9 +81,17 @@ use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
 use sp_std::{prelude::*, vec};
 
-/// The maximum number of members in a committee defined for the sake of weight computation.
+/// The maximum number of members in a committee defined for the sake of weight computation.  This
+/// is not defined as a trait parameter but rather as a plain constant because this value has to be
+/// the same for all instances.
 // TODO: ensure this bound when adding members.
-pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
+pub const COMMITTEE_MEMBERS_MAX: u32 = 5;
+
+/// The maximum number of concurrently active proposals defined for the sake of weight computation.
+/// This is not defined as a trait parameter but rather as a plain constant because this value has
+/// to be the same for all instances.
+// TODO: ensure this bound when adding proposals.
+pub const PROPOSALS_MAX: u32 = 5;
 
 pub trait WeightInfo {
     fn set_vote_threshold() -> Weight;
@@ -458,7 +466,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
     fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
-        votes * d >= n * total
+        votes * d > n * total
     }
 
     /// Removes the `id`'s vote from `proposal` if it exists.

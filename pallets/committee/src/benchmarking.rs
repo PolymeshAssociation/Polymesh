@@ -29,7 +29,9 @@ use polymesh_common_utilities::{
 use sp_std::prelude::*;
 
 const PROPOSAL_PADDING_WORDS: usize = 1_000;
-const PROPOSALS_NUM: u32 = COMMITTEE_MEMBERS_MAX / 2;
+// The number of the proposal that has 1/2 aye votes after make_proposals_and_vote. One more aye
+// vote leads to acceptance of that proposal.
+const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 2;
 
 fn make_proposal<T, I>(n: u32) -> (<T as Trait<I>>::Proposal, <T as frame_system::Trait>::Hash)
 where
@@ -52,9 +54,9 @@ where
         users.len() > 0,
         "make_proposals_and_vote requires non-empty users"
     );
-    for i in 0..PROPOSALS_NUM {
+    for i in 0..PROPOSALS_MAX {
         let index = Module::<T, I>::proposal_count();
-        let proposal = make_proposal::<T, I>(i + 1).0;
+        let proposal = make_proposal::<T, I>(i).0;
         identity::CurrentDid::put(users[0].did());
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
         if users.len() > 1 {
@@ -62,11 +64,12 @@ where
                 .last()
                 .ok_or("missing last proposal")?;
             // cast min(user.len(), N) - 1 additional votes for proposal #N
+            // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
                 if Module::<T, I>::voting(&hash).is_some() {
                     identity::CurrentDid::put(user.did());
-                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 == 0)?;
+                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)?;
                 }
             }
         }
@@ -170,7 +173,7 @@ benchmarks_instance! {
     vote_or_propose_new_proposal {
         let members = make_members_and_proposals::<T, I>()?;
         let last_proposal_num = ProposalCount::<I>::get();
-        let (proposal, hash) = make_proposal::<T, I>(0);
+        let (proposal, hash) = make_proposal::<T, I>(PROPOSALS_MAX);
         identity::CurrentDid::put(members[0].did());
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
@@ -181,7 +184,7 @@ benchmarks_instance! {
 
     vote_or_propose_existing_proposal {
         let members = make_members_and_proposals::<T, I>()?;
-        let (proposal, hash) = make_proposal::<T, I>(1);
+        let (proposal, hash) = make_proposal::<T, I>(0);
         let proposals = Proposals::<T, I>::get();
         ensure!(proposals.contains(&hash), "cannot find the first proposal");
         identity::CurrentDid::put(members[1].did());
@@ -204,24 +207,21 @@ benchmarks_instance! {
 
     vote_aye {
         let members = make_members_and_proposals::<T, I>()?;
-        let quorum_less_1 = COMMITTEE_MEMBERS_MAX / 2;
-        let hash = make_proposal::<T, I>(quorum_less_1).1;
+        let hash = make_proposal::<T, I>(PROPOSAL_ALMOST_APPROVED).1;
         ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
-        let proposal_num = quorum_less_1 - 1;
-        let member = &members[quorum_less_1 as usize];
+        let member = &members[PROPOSAL_ALMOST_APPROVED as usize + 1];
         let origin = member.origin.clone();
         let did = member.did();
         identity::CurrentDid::put(did);
-    }: vote(origin, hash, proposal_num, true)
+    }: vote(origin, hash, PROPOSAL_ALMOST_APPROVED, true)
     verify {
-        ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
-        vote_verify::<T, I>(&did, hash, proposal_num, true)?;
+        ensure!(!Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
     }
 
     vote_nay {
         let members = make_members_and_proposals::<T, I>()?;
-        let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
+        let hash = make_proposal::<T, I>(first_proposal_num).1;
         let member = &members[1];
         let origin = member.origin.clone();
         let did = member.did();
@@ -233,8 +233,8 @@ benchmarks_instance! {
 
     close {
         let members = make_members_and_proposals::<T, I>()?;
-        let hash = make_proposal::<T, I>(1).1;
         let first_proposal_num = 0;
+        let hash = make_proposal::<T, I>(first_proposal_num).1;
         let member = &members[0];
         let origin = member.origin.clone();
         let did = member.did();
