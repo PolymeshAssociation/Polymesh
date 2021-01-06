@@ -974,6 +974,8 @@ decl_error! {
         TargetHasNonZeroBalanceAtScopeId,
         /// CDDId should be unique & same within all cdd claims possessed by a DID.
         CDDIdNotUniqueForIdentity,
+        /// Non systematic CDD providers can not create default cdd_id claims.
+        InvalidCDDId,
         /// Do not allow forwarded call to be called recursively
         RecursionNotAllowed
     }
@@ -1670,34 +1672,39 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
         // Ensure cdd_id uniqueness for a given target DID.
-        Self::ensure_cdd_id_uniqueness(&claim, issuer, target)?;
+        Self::ensure_cdd_id_validness(&claim, issuer, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
     }
 
-    /// Enforce CDD_ID uniqueness for a given target DID.
+    /// Enforce CDD_ID uniqueness for a given target DID and make sure only Systematic CDD providers can use default CDDId.
     ///
     /// # Errors
-    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id
-    /// doesn't match the existing cdd claim's cdd_id.
-    fn ensure_cdd_id_uniqueness(
+    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id doesn't match the existing cdd claim's cdd_id.
+    /// - `InvalidCDDId` is returned when a non Systematic CDD provider adds the default cdd_id claim.
+    fn ensure_cdd_id_validness(
         claim: &Claim,
         issuer: IdentityId,
         target: IdentityId,
     ) -> DispatchResult {
         if let Claim::CustomerDueDiligence(cdd_id) = claim {
-            ensure!(
-                (cdd_id.is_default_cdd()
-                    && SYSTEMATIC_ISSUERS.iter().any(|si| si.as_id() == issuer))
-                    || Self::base_fetch_valid_cdd_claims(target, 0.into(), None).all(|id_claim| {
+            if cdd_id.is_default_cdd() {
+                ensure!(
+                    SYSTEMATIC_ISSUERS.iter().any(|si| si.as_id() == issuer),
+                    Error::<T>::InvalidCDDId
+                );
+            } else {
+                ensure!(
+                    !Self::base_fetch_valid_cdd_claims(target, 0.into(), None).any(|id_claim| {
                         if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
-                            return c_id.is_default_cdd() || c_id == *cdd_id;
+                            return !c_id.is_default_cdd() && c_id != *cdd_id;
                         }
                         true
                     }),
-                Error::<T>::CDDIdNotUniqueForIdentity
-            );
+                    Error::<T>::CDDIdNotUniqueForIdentity
+                );
+            }
         }
         Ok(())
     }
