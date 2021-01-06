@@ -2193,7 +2193,8 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             let target_did_record = <DidRecords<T>>::get(&target_did);
 
             // NB: Doing this check here since `get_sk_data` moves `target_did_record`
-            if target_did == key_did && who == &target_did_record.primary_key {
+            let is_direct_call = target_did == key_did;
+            if is_direct_call && who == &target_did_record.primary_key {
                 // It is a direct call and `who` is the primary key.
                 return Some(AccountCallPermissionsData {
                     primary_did: target_did,
@@ -2218,7 +2219,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                     })
             };
 
-            return get_sk_data(if target_did == key_did {
+            return get_sk_data(if is_direct_call {
                 // Check the permissions of `who`'s key in `target_did` as it is a direct call.
                 Signatory::Account(who.clone())
             } else {
