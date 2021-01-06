@@ -7,9 +7,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::OnInitialize, StorageMap,
-};
+use frame_support::{assert_noop, assert_ok, traits::OnInitialize, StorageMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -17,9 +15,8 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    self as settlement, weight_for, AffirmationStatus, Call as SettlementCall, Instruction,
-    InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueType,
+    self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
+    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
 use polymesh_primitives::{
@@ -2475,16 +2472,6 @@ fn test_weights_for_settlement_transaction() {
                 amount: 100u128,
             }];
 
-            let weight_to_add_instruction = SettlementCall::<TestStorage>::add_instruction(
-                venue_counter,
-                SettlementType::SettleOnAffirmation,
-                None,
-                None,
-                legs.clone(),
-            )
-            .get_dispatch_info()
-            .weight;
-
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -2494,29 +2481,12 @@ fn test_weights_for_settlement_transaction() {
                 legs.clone()
             ));
 
-            assert_eq!(
-                weight_to_add_instruction,
-                weight_for::weight_for_instruction_creation::<TestStorage>(legs.len())
-            );
-
-            // Authorize instruction by Alice first and check for weight.
-            let weight_for_affirm_instruction_1 =
-                SettlementCall::<TestStorage>::affirm_instruction(
-                    instruction_counter,
-                    default_portfolio_vec(alice_did),
-                )
-                .get_dispatch_info()
-                .weight;
             let result_affirm_instruction_1 = Settlement::affirm_instruction(
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did),
             );
             assert_ok!(result_affirm_instruction_1);
-            assert_eq!(
-                weight_for::weight_for_affirmation_instruction::<TestStorage>(),
-                weight_for_affirm_instruction_1 - weight_for::weight_for_transfer::<TestStorage>()
-            );
             set_current_block_number(100);
             assert_ok!(Settlement::affirm_instruction(
                 bob_signed.clone(),

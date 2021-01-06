@@ -41,7 +41,7 @@ macro_rules! load_module {
 }
 
 // Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L37
-fn compile_module<T: Trait>(code: &[u8]) -> (Vec<u8>, <T::Hashing as Hash>::Output) {
+pub fn compile_module<T: Trait>(code: &[u8]) -> (Vec<u8>, <T::Hashing as Hash>::Output) {
     let code = sp_std::str::from_utf8(code).expect("Invalid utf8 in wat file.");
     let binary = wat::parse_str(code).expect("Failed to compile wat file.");
     let hash = T::Hashing::hash(&binary);
@@ -112,10 +112,10 @@ fn expanded_contract<T: Trait>(target_bytes: u32) -> (Vec<u8>, <T::Hashing as Ha
     contract_with_call_body::<T>(FuncBody::new(Vec::new(), instructions))
 }
 
-fn emulate_blueprint_in_storage<T: Trait>(
+pub fn emulate_blueprint_in_storage<T: Trait>(
     instantiation_fee: u32,
     origin: RawOrigin<T::AccountId>,
-    expanded: bool,
+    expanded: &'static str,
 ) -> Result<<T::Hashing as Hash>::Output, DispatchError> {
     let url = Some(MetaUrl::from(
         vec![b'U'; MAX_URL_LENGTH as usize].as_slice(),
@@ -128,9 +128,14 @@ fn emulate_blueprint_in_storage<T: Trait>(
         description,
         version: 5000,
     };
-    let (wasm_blob, code_hash) = match expanded {
-        true => expanded_contract::<T>(BaseContracts::<T>::current_schedule().max_code_size),
-        false => load_module!("dummy"),
+    let (wasm_blob, code_hash) = if expanded == "" {
+        expanded_contract::<T>(BaseContracts::<T>::current_schedule().max_code_size)
+    } else {
+        if expanded == "dummy" {
+            load_module!("dummy")
+        } else {
+            load_module!("ptm")
+        }
     };
     Module::<T>::put_code(
         origin.into(),
@@ -174,7 +179,7 @@ benchmarks! {
         let data = vec![0u8; 128];
         let max_fee = 100;
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(max_fee, creator.origin, false)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(max_fee, creator.origin, "dummy")?;
         let deployer = UserBuilder::<T>::default().generate_did().build("deployer");
     }: _(deployer.origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
     verify {
@@ -186,7 +191,7 @@ benchmarks! {
     // No catalyst.
     freeze_instantiation {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "dummy")?;
     }: _(creator.origin, code_hash)
     verify {
         ensure!(Module::<T>::get_template_details(code_hash).is_instantiation_frozen(), "Contracts_freeze_instantiation: Failed to freeze instantiation");
@@ -195,7 +200,7 @@ benchmarks! {
     // No catalyst.
     unfreeze_instantiation {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "dummy")?;
         Module::<T>::freeze_instantiation(creator.origin.clone().into(), code_hash)?;
     }: _(creator.origin, code_hash)
     verify {
@@ -205,7 +210,7 @@ benchmarks! {
     // No catalyst.
     transfer_template_ownership {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), false)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "dummy")?;
         let new_owner = UserBuilder::<T>::default().generate_did().build("newOwner");
     }: _(creator.origin, code_hash, new_owner.did())
     verify {
@@ -215,7 +220,7 @@ benchmarks! {
     // No catalyst.
     change_template_fees {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "")?;
     }: _(creator.origin, code_hash, Some(500.into()), Some(650.into()))
     verify {
         ensure!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
@@ -227,7 +232,7 @@ benchmarks! {
         let u in 1 .. MAX_URL_LENGTH;
         let url = Some(MetaUrl::from(vec![b'U'; u as usize].as_slice()));
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
-        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), true)?;
+        let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "")?;
     }: _(creator.origin, code_hash, url.clone())
     verify {
         ensure!(Module::<T>::get_metadata_of(code_hash).url == url, "Contracts_change_template_meta_url: Failed to change the url of template");
