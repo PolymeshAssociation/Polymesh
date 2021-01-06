@@ -2194,7 +2194,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
 
             // NB: Doing this check here since `get_sk_data` moves `target_did_record`
             if target_did == key_did && who == &target_did_record.primary_key {
-                // it is a direct call and `who` is the primary key.
+                // It is a direct call and `who` is the primary key.
                 return Some(AccountCallPermissionsData {
                     primary_did: target_did,
                     secondary_key: None,
@@ -2202,7 +2202,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             }
 
             let get_sk_data = |who_sk| {
-                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call extrinsics
+                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call extrinsics.
                 if Self::is_did_frozen(&target_did) {
                     // `target_did` has its secondary keys frozen.
                     return None;
@@ -2218,13 +2218,13 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                     })
             };
 
-            if target_did == key_did {
-                // In this case, we check the permissions of `who`'s key in `target_did` as it is a direct call
-                return get_sk_data(Signatory::Account(who.clone()));
+            return get_sk_data(if target_did == key_did {
+                // Check the permissions of `who`'s key in `target_did` as it is a direct call.
+                Signatory::Account(who.clone())
             } else {
-                // In this case, we check the permissions of `who`'s Identity in `target_did` as it is a forwarded call
-                return get_sk_data(Signatory::Identity(key_did));
-            }
+                // Check the permissions of `who`'s Identity in `target_did` as it is a forwarded call.
+                Signatory::Identity(key_did)
+            });
         }
         // `who` doesn't have an identity.
         None
