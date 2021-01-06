@@ -349,4 +349,12 @@ benchmarks! {
     verify {
         assert!(<Identity<T>>::did_records(alice.did()).primary_key == multisig);
     }
+
+    execute_scheduled_proposal {
+        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(1, 1, false)?;
+        let ephemeral_proposal_id = proposal_id.clone();
+    }: _(RawOrigin::Root, ephemeral_multisig, ephemeral_proposal_id, alice.did(), 0)
+    verify {
+        assert!(<ProposalDetail<T>>::get((&multisig, proposal_id)).status == ProposalStatus::ExecutionSuccessful);
+    }
 }

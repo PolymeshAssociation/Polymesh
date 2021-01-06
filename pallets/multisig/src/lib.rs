@@ -82,7 +82,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode, Error as CodecError};
-use core::convert::{From, TryInto};
+use core::convert::From;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -102,10 +102,8 @@ use polymesh_common_utilities::constants::{
     schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION,
 };
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait,
-    multisig::MultiSigSubTrait,
-    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    Context,
+    identity::Trait as IdentityTrait, multisig::MultiSigSubTrait,
+    transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PalletPermissions, Permissions, Signatory,
@@ -941,14 +939,6 @@ impl<T: Trait> Module<T> {
         T::CddHandler::set_current_identity(&multisig_did);
 
         if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
-            ensure!(
-                T::ChargeTxFeeTarget::charge_fee(
-                    proposal.encode().len().try_into().unwrap_or_default(),
-                    proposal.get_dispatch_info(),
-                )
-                .is_ok(),
-                Error::<T>::FailedToChargeFee
-            );
             let update_proposal_status = |status| {
                 <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
                     proposal_details.status = status
