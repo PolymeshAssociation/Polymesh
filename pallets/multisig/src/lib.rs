@@ -57,11 +57,9 @@
 //! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
-//! - `change_all_signers_and_sigs_required` - Replaces all existing signers of the given multisig
-//! and changes the number of required signatures.
-//! `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
+//! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
 //! the creator of the multisig.
-//! `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
+//! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
 //! is the creator of the multisig.
 //!
 //! ### Other Public Functions
@@ -201,7 +199,6 @@ pub trait WeightInfo {
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn change_all_signers_and_sigs_required() -> Weight;
     fn make_multisig_signer() -> Weight;
     fn make_multisig_primary() -> Weight;
     fn execute_scheduled_proposal() -> Weight;
@@ -564,62 +561,6 @@ decl_module! {
             );
             ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
             Self::unsafe_change_sigs_required(sender, sigs_required);
-            Ok(())
-        }
-
-        /// Replaces all existing signers of the given multisig and changes the number of required
-        /// signatures.
-        ///
-        /// NOTE: Once this function get executed no other function of the multisig is allowed to
-        /// execute until unless enough potential signers accept the authorization whose count is
-        /// greater than or equal to the number of required signatures.
-        ///
-        /// # Arguments
-        /// * signers - Vector of signers for a given multisig.
-        /// * sigs_required - Number of signature required for a given multisig.
-        ///
-        /// # Weight
-        /// `900_000_000 + 3_000_000 * signers.len()`
-        #[weight = <T as Trait>::WeightInfo::change_all_signers_and_sigs_required()]
-        pub fn change_all_signers_and_sigs_required(
-            origin,
-            signers: Vec<Signatory<T::AccountId>>,
-            sigs_required: u64
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
-            // The creator is always the authorising agent for multisig issued authorisations
-            let authorising_did = <MultiSigToIdentity<T>>::get(&sender);
-            ensure!(!signers.is_empty(), Error::<T>::NoSigners);
-            ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
-                Error::<T>::RequiredSignaturesOutOfBounds
-            );
-            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
-
-            // Collect the list of all signers present for the given multisig
-            let current_signers = <MultiSigSigners<T>>::iter_prefix_values(&sender).collect::<Vec<Signatory<T::AccountId>>>();
-            // Collect all those signers who need to be removed. It means those signers that are not exist in the signers vector
-            // but present in the current_signers vector
-            let old_signers = current_signers.clone().into_iter().filter(|x| !signers.contains(x)).collect::<Vec<Signatory<T::AccountId>>>();
-            // Collect all those signers who need to be added. It means those signers that are not exist in the current_signers vector
-            // but present in the signers vector
-            let new_signers = signers.into_iter().filter(|x| !current_signers.contains(x)).collect::<Vec<Signatory<T::AccountId>>>();
-            // Removing the signers from the valid multi-signers list first
-            old_signers.iter()
-                .for_each(|signer| {
-                    Self::unsafe_signer_removal(sender.clone(), signer.clone());
-                });
-
-            // Add the new signers for the given multi-sig
-            new_signers.into_iter()
-                .for_each(|signer| {
-                    Self::unsafe_add_auth_for_signers(authorising_did, signer, sender.clone())
-                });
-            // Change the no. of signers for a multisig
-            <NumberOfSigners<T>>::mutate(&sender, |x| *x -= u64::try_from(old_signers.len()).unwrap_or_default());
-            // Change the required signature count
-            Self::unsafe_change_sigs_required(sender, sigs_required);
-
             Ok(())
         }
 
