@@ -201,7 +201,7 @@ benchmarks! {
 
     modify_fundraiser_window {
         let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker,0 , 100.into(), Some(101.into()))
+    }: _(alice.origin(), offering_ticker, 0, 100.into(), Some(101.into()))
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
     }
