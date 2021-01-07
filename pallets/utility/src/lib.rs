@@ -64,7 +64,8 @@ use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
-    balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
+    balances::{CheckCdd, Trait as BalancesTrait},
+    identity::{AuthorizationNonce, Trait as IdentityTrait},
     with_transaction,
 };
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
@@ -73,7 +74,7 @@ use sp_std::prelude::*;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait {
+pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -185,20 +186,14 @@ decl_module! {
         /// event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root(origin.clone()).is_ok();
-            if !is_root {
-                let sender = ensure_signed(origin.clone())?;
-                CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            }
+            let is_root = ensure_root_or_signed::<T>(origin.clone()).is_ok();
             for (index, call) in calls.into_iter().enumerate() {
                 // Dispatch the call in a modified metadata context.
                 let result = with_call_metadata(call.get_call_metadata(), || {
-                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                    dispatch_call::<T>(origin.clone(), is_root, call).map_err(|e| {
                         Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
-                        Err(e)
-                    } else {
-                        Ok(())
-                    }
+                        e
+                    })
                 });
                 if result.is_err() {
                     // Abort the batch.
@@ -229,7 +224,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = Self::is_root_with_permissions(origin.clone())?;
+            let is_root = ensure_root_or_signed::<T>(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
                     if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
@@ -267,7 +262,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = Self::is_root_with_permissions(origin.clone())?;
+            let is_root = ensure_root_or_signed::<T>(origin.clone())?;
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
@@ -345,19 +340,10 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
-    /// Returns a boolean value designating whether `origin` is root. If the origin is not root then
-    /// the function succeeds only if `origin` is signed and has permissions to call the current
-    /// extrinsic.
-    fn is_root_with_permissions(origin: T::Origin) -> Result<bool, DispatchError> {
-        let is_root = match origin.into() {
-            Ok(RawOrigin::Root) => true,
-            Ok(RawOrigin::Signed(sender)) => {
-                CallPermissions::<T>::ensure_call_permissions(&sender)?;
-                false
-            }
-            _ => false,
-        };
-        Ok(is_root)
+fn ensure_root_or_signed<T: Trait>(origin: T::Origin) -> Result<bool, DispatchError> {
+    let is_root = ensure_root(origin.clone()).is_ok();
+    if !is_root {
+        ensure_signed(origin)?;
     }
+    Ok(is_root)
 }

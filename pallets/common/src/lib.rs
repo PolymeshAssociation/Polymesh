@@ -14,15 +14,15 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
 pub mod constants;
 
 pub mod traits;
 pub use traits::{
-    asset, balances, compliance_manager, exemption, governance_group, group, identity, multisig,
-    pip, portfolio, transaction_payment, CommonTrait,
+    asset, balances, compliance_manager, governance_group, group, identity, multisig, pip,
+    portfolio, transaction_payment, CommonTrait,
 };
-
 pub mod context;
 pub use context::Context;
 
@@ -31,6 +31,9 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchs;
 
 use core::ops::Add;
 use frame_support::codec::{Decode, Encode};

@@ -25,12 +25,13 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 
-macro_rules! assert_tx_approvals {
+macro_rules! assert_tx_approvals_and_next_block {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
         assert_eq!(
             MultiSig::proposal_detail(&($address, $proposal_id)).approvals,
             $num_approvals
         );
+        next_block();
     }};
 }
 
@@ -115,12 +116,12 @@ fn can_issue_to_identity_we() {
         bridge_tx.clone(),
     )));
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
-    assert_tx_approvals!(controller, 1, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 1, 0);
 
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 1);
-    assert_tx_approvals!(controller, 1, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 1, 0);
     let alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
 
     assert_eq!(
@@ -128,8 +129,8 @@ fn can_issue_to_identity_we() {
         Some(0)
     );
     assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 2);
-    assert_tx_approvals!(controller, 1, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 2);
+    assert_tx_approvals_and_next_block!(controller, 1, 0);
 
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     let new_alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
@@ -303,13 +304,13 @@ fn do_freeze_and_unfreeze_bridge() {
         bridge_tx.clone(),
     )));
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
     // First propose the transaction using the bridge API.
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     // Freeze the bridge with the transaction still in flight.
     assert_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
-    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
     let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(
@@ -318,7 +319,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // Approve the transaction bypassing the bridge API. The transaction will be handled but scheduled for later
     assert_ok!(MultiSig::approve_as_key(charlie, controller, 0));
-    assert_tx_approvals!(controller, 0, 2);
+    assert_tx_approvals_and_next_block!(controller, 0, 2);
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(alices_balance(), starting_alices_balance);
@@ -429,9 +430,9 @@ fn do_timelock_txs() {
     let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
@@ -528,9 +529,9 @@ fn do_rate_limit() {
     let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
@@ -636,9 +637,9 @@ fn do_exempted() {
     let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
@@ -745,9 +746,9 @@ fn do_force_mint() {
     let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
-    assert_tx_approvals!(controller, 0, 0);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
-    assert_tx_approvals!(controller, 0, 1);
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(

@@ -12,10 +12,16 @@ pallet-identity = { path = "../identity", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
+polymesh-contracts = { path = "../contracts", default-features = false }
+pallet-statistics = { path = "../statistics", default-features = false }
+
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+hex-literal = "0.2.1"
+hex = { version = "0.4.2", optional = true }
 
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
@@ -27,6 +33,7 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 # Only in STD
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
@@ -37,14 +44,19 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
+    "hex/std",
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-contracts/std",
+    "polymesh-contracts/std",
     "pallet-balances/std",
     "pallet-asset/std",
     "pallet-identity/std",
     "pallet-timestamp/std",
+    "pallet-statistics/std",
     "polymesh-common-utilities/std",
+    "pallet-compliance-manager/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
