@@ -104,13 +104,10 @@ where
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
-        if let Some(votes) = Voting::<T, I>::get(&hash) {
-            ensure!(votes.index == proposal_num, "wrong proposal_num");
-            ensure!(vote == votes.ayes.contains(did), "aye vote missing");
-            ensure!(vote != votes.nays.contains(did), "nay vote missing");
-        } else {
-            return Err("cannot get votes".into());
-        }
+        let votes = Voting::<T, I>::get(&hash).ok_or("cannot get votes")?;
+        ensure!(votes.index == proposal_num, "wrong proposal_num");
+        ensure!(vote == votes.ayes.contains(did), "aye vote missing");
+        ensure!(vote != votes.nays.contains(did), "nay vote missing");
     } else {
         // The proposal is finalised and removed from storage.
         // TODO: pattern-match an event emitted during proposal finalisation.
