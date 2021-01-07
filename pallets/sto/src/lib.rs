@@ -57,7 +57,8 @@ type Portfolio<T> = portfolio::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 /// Status of a Fundraiser.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
@@ -74,7 +75,8 @@ impl Default for FundraiserStatus {
 }
 
 /// Details about the Fundraiser.
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Fundraiser<Balance, Moment> {
     /// The primary issuance agent that created the `Fundraiser`.
     pub creator: IdentityId,
@@ -103,7 +105,7 @@ pub struct Fundraiser<Balance, Moment> {
 }
 
 /// Single tier of a tiered pricing model.
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
     /// Total amount available.
     pub total: Balance,
@@ -113,7 +115,8 @@ pub struct PriceTier<Balance> {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct FundraiserTier<Balance> {
     /// Total amount available.
     pub total: Balance,
@@ -135,7 +138,7 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
 
 /// Wrapper type for Fundraiser name
 #[derive(
-    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode, Encode, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct FundraiserName(Vec<u8>);
 
