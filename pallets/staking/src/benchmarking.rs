@@ -54,14 +54,28 @@ pub fn create_validator_with_nominators<T: Trait>(
     upper_bound: u32,
     dead: bool,
 ) -> Result<T::AccountId, &'static str> {
+    create_validator_with_nominators_with_balance::<T>(n, upper_bound, 100.into(), dead)
+}
+
+// This function generates one validator being nominated by n nominators, and returns the validator
+// stash account. It also starts an era and creates pending payouts.
+// The balance is added to controller and stash accounts.
+pub fn create_validator_with_nominators_with_balance<T: Trait>(
+    n: u32,
+    upper_bound: u32,
+    balance: BalanceOf<T>,
+    dead: bool,
+) -> Result<T::AccountId, &'static str> {
     let mut points_total = 0;
     let mut points_individual = Vec::new();
 
-    let (v_stash, v_controller) = create_stash_controller::<T>(0, 100)?;
+    let (v_stash, v_controller) = create_stash_controller_with_balance::<T>(0, balance)?;
+    let v_controller_origin = RawOrigin::Signed(v_controller.clone());
+
     let validator_prefs = ValidatorPrefs {
-        commission: Perbill::from_percent(50),
+        commission: Perbill::from_percent(10),
     };
-    Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
+    Staking::<T>::validate(v_controller_origin.into(), validator_prefs)?;
     let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(v_stash.clone());
 
     points_total += 10;

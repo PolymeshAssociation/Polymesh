@@ -36,6 +36,7 @@ pub mod pallet_pips;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;
 pub mod pallet_scheduler;
+pub mod pallet_session;
 pub mod pallet_settlement;
 pub mod pallet_statistics;
 pub mod pallet_timestamp;

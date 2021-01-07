@@ -1993,7 +1993,7 @@ decl_module! {
         /// - Write: Nominators, Validators
         /// # </weight>
         #[weight = 17 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(2, 2)]
-        pub fn validate(origin, prefs: ValidatorPrefs) {
+        pub fn validate(origin, prefs: ValidatorPrefs) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -2015,7 +2015,7 @@ decl_module! {
                 <Nominators<T>>::remove(stash);
                 <Validators<T>>::insert(stash, prefs);
             }
-
+            Ok(())
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.

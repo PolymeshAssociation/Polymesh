@@ -27,10 +27,17 @@ use sp_std::prelude::*;
 use sp_std::vec;
 
 use frame_benchmarking::benchmarks;
-use frame_support::{storage::StorageMap, traits::OnInitialize};
+use frame_support::{
+    storage::StorageMap,
+    traits::{Currency, OnInitialize},
+};
 use frame_system::RawOrigin;
 use pallet_session::{Module as Session, *};
-use pallet_staking::{benchmarking::create_validator_with_nominators, MAX_NOMINATIONS};
+use pallet_staking::{
+    benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
+};
+
+use polymesh_common_utilities::constants::currency::POLY;
 
 pub struct Module<T: Trait>(pallet_session::Module<T>);
 pub trait Trait:
@@ -44,32 +51,61 @@ impl<T: Trait> OnInitialize<T::BlockNumber> for Module<T> {
     }
 }
 
+struct ValidatorInfo<T: Trait> {
+    controller: T::AccountId,
+    keys: T::Keys,
+    proof: Vec<u8>,
+}
+
+impl<T: Trait> ValidatorInfo<T> {
+    pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
+    where
+        <<T as pallet_staking::Trait>::Currency as Currency<
+            <T as frame_system::Trait>::AccountId,
+        >>::Balance: From<u128>,
+    {
+        let balance = (6_000_000 * POLY).into();
+        let stash = create_validator_with_nominators_with_balance::<T>(
+            nominators,
+            MAX_NOMINATIONS as u32,
+            balance,
+            false,
+        )?;
+        let controller = pallet_staking::Module::<T>::bonded(&stash).ok_or("not stash")?;
+        let keys = T::Keys::default();
+        let proof: Vec<u8> = vec![0, 1, 2, 3];
+
+        // Whitelist controller account from further DB operations.
+        let controller_key = frame_system::Account::<T>::hashed_key_for(&controller);
+        frame_benchmarking::benchmarking::add_to_whitelist(controller_key.into());
+
+        Ok(Self {
+            controller,
+            keys,
+            proof,
+        })
+    }
+}
+
 benchmarks! {
-    _ {	}
+    where_clause {
+        where <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance: From<u128>
+   }
+
+    _ {}
 
     set_keys {
         let n = MAX_NOMINATIONS as u32;
-        let v_stash = create_validator_with_nominators::<T>(
-            n,
-            MAX_NOMINATIONS as u32,
-            false)?;
-        let v_controller = pallet_staking::Module::<T>::bonded(&v_stash).ok_or("not stash")?;
-        let keys = T::Keys::default();
-        let proof: Vec<u8> = vec![0,1,2,3];
-        // Whitelist controller account from further DB operations.
-        let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
-        frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-    }: _(RawOrigin::Signed(v_controller), keys, proof)
+        let validator = ValidatorInfo::<T>::build(n)?;
+
+    }: _(RawOrigin::Signed(validator.controller), validator.keys, validator.proof)
 
     purge_keys {
         let n = MAX_NOMINATIONS as u32;
-        let v_stash = create_validator_with_nominators::<T>(n, MAX_NOMINATIONS as u32, false)?;
-        let v_controller = pallet_staking::Module::<T>::bonded(&v_stash).ok_or("not stash")?;
-        let keys = T::Keys::default();
-        let proof: Vec<u8> = vec![0,1,2,3];
-        Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
-        // Whitelist controller account from further DB operations.
-        let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
-        frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-    }: _(RawOrigin::Signed(v_controller))
+        let validator = ValidatorInfo::<T>::build(n)?;
+        let controller = RawOrigin::Signed(validator.controller.clone());
+
+        Session::<T>::set_keys(controller.clone().into(), validator.keys, validator.proof)?;
+
+    }: _(controller)
 }
