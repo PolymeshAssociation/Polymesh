@@ -18,11 +18,7 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
-pub mod dividend;
-pub mod exemption;
 pub mod impls;
-pub mod sto_capped;
-pub mod voting;
 
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
@@ -73,11 +69,9 @@ pub fn merge_active_and_inactive<Block>(
     active: Vec<IdentityId>,
     inactive: Vec<InactiveMember<Moment>>,
 ) -> Vec<Member> {
-    let active_members = active.into_iter().map(Member::from).collect::<Vec<_>>();
-    let inactive_members = inactive.into_iter().map(Member::from).collect::<Vec<_>>();
-
-    active_members
+    active
         .into_iter()
-        .chain(inactive_members.into_iter())
-        .collect::<Vec<_>>()
+        .map(Member::from)
+        .chain(inactive.into_iter().map(Member::from))
+        .collect()
 }

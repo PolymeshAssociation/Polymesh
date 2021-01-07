@@ -10,7 +10,19 @@
         "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
-        "DocumentHash": "Text",
+        "DocumentHash": {
+            "_enum": {
+                "None": "",
+                "H512": "[u8; 64]",
+                "H384": "[u8; 48]",
+                "H320": "[u8; 40]",
+                "H256": "[u8; 32]",
+                "H224": "[u8; 28]",
+                "H192": "[u8; 24]",
+                "H160": "[u8; 20]",
+                "H128": "[u8; 16]"
+            }
+        },
         "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
@@ -459,35 +471,12 @@
             "condition": "Condition",
             "result": "bool"
         },
-        "STO": {
-            "beneficiary_did": "IdentityId",
-            "cap": "Balance",
-            "sold": "Balance",
-            "rate": "u64",
-            "start_date": "Moment",
-            "end_date": "Moment",
-            "active": "bool"
-        },
-        "Investment": {
-            "investor_did": "IdentityId",
-            "amount_paid": "Balance",
-            "assets_purchased": "Balance",
-            "last_purchase_date": "Moment"
-        },
         "SimpleTokenRecord": {
             "ticker": "Ticker",
             "total_supply": "Balance",
             "owner_did": "IdentityId"
         },
         "FeeOf": "Balance",
-        "Dividend": {
-            "amount": "Balance",
-            "active": "bool",
-            "matures_at": "Option<Moment>",
-            "expires_at": "Option<Moment>",
-            "payout_currency": "Option<Ticker>",
-            "checkpoint_id": "u64"
-        },
         "TargetIdAuthorization": {
             "target_id": "IdentityId",
             "nonce": "u64",
@@ -520,12 +509,6 @@
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
             "choices": "Vec<ChoiceTitle>"
-        },
-        "Ballot": {
-            "checkpoint_id": "u64",
-            "voting_start": "Moment",
-            "voting_end": "Moment",
-            "motions": "Vec<Motion>"
         },
         "BallotTitle": "Text",
         "BallotMeta": {
@@ -700,10 +683,11 @@
         },
         "AuthorizationNonce": "u64",
         "Counter": "u64",
-        "Commission": {
+        "Percentage": "Permill",
+        "TransferManager": {
             "_enum": {
-                "Individual": "",
-                "Global": "u32"
+                "CountTransferManager": "Counter",
+                "PercentageTransferManager": "Percentage"
             }
         },
         "RestrictionResult": {
@@ -1037,6 +1021,14 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserName": "Text",
+        "FundraiserStatus": {
+            "_enum": [
+                "Live",
+                "Frozen",
+                "Closed"
+            ]
+        },
         "FundraiserTier": {
             "total": "Balance",
             "price": "Balance",
@@ -1052,7 +1044,8 @@
             "venue_id": "u64",
             "start": "Moment",
             "end": "Option<Moment>",
-            "frozen": "bool"
+            "status": "FundraiserStatus",
+            "minimum_investment": "Balance"
         },
         "VenueType": {
             "_enum": [
@@ -1142,6 +1135,21 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "AssetMigrationError": {
+            "_enum": {
+                "AssetDocumentFail": "(Ticker, DocumentId)"
+            }
+        },
+        "MigrationError": {
+            "_enum": {
+                "DecodeKey": "Vec<u8>",
+                "Map": "AssetMigrationError"
+            }
+        },
+        "PermissionedIdentityPrefs": {
+            "intended_count": "u32",
+            "running_count": "u32"
         }
     },
     "rpc": {
@@ -1349,7 +1357,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVoting"
+                "type": "HistoricalVotingByAddress"
             },
             "votingHistoryById": {
                 "description": "Retrieve historical voting of `id` identity",
@@ -1365,7 +1373,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVotingByAddress"
+                "type": "HistoricalVotingById"
             }
         },
         "protocolFee": {
@@ -1445,30 +1453,6 @@
                     }
                 ],
                 "type": "CanTransferResult"
-            }
-        },
-        "portfolio": {
-            "getPortfolios": {
-                "description": "Gets all user-defined portfolio names of an identity",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfoliosResult"
-            },
-            "getPortfolioAssets": {
-                "description": "Gets the balances of all assets in a given portfolio",
-                "params": [
-                    {
-                        "name": "portfolio_id",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfolioAssetsResult"
             }
         }
     }

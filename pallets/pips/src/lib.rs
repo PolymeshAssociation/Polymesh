@@ -27,7 +27,7 @@
 //! meet and review PIPs, and reject, approve, or skip the proposal (via `enact_snapshot_results`).
 //! Any approved PIPs from this snapshot will then be scheduled,
 //! in order of signal value, to be executed automatically on the blockchain.
-//! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
+//! However, using `reschedule_execution`, a special Release Coordinator (RC), a member of the GC,
 //! can reschedule approved PIPs at will, except for a PIP to replace the RC.
 //! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
 //!
@@ -102,13 +102,13 @@ use frame_support::{
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
     weights::Weight,
-    Parameter, StorageValue,
+    StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
-    constants::PIP_MAX_REPORTING_SIZE,
+    constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -415,13 +415,8 @@ pub trait Trait:
     /// different.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
 
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
-
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
 }
 
 // This module's storage items.
@@ -537,7 +532,7 @@ decl_event!(
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
         /// Execution of a PIP has been scheduled at specific block.
-        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
+        ExecutionScheduled(IdentityId, PipId, BlockNumber),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -716,7 +711,7 @@ decl_module! {
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
-        ) -> DispatchResult {
+        ) {
             // 1. Infer the proposer from `origin`.
             let proposer = Self::ensure_infer_proposer(origin)?;
 
@@ -802,7 +797,6 @@ decl_module! {
                 expiry,
                 proposal_data,
             ));
-            Ok(())
         }
 
         /// Vote either in favor (`aye_or_nay` == true) or against a PIP with `id`.
@@ -826,8 +820,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::vote()]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
-            let pip = Self::proposals(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
 
             // Proposal must be from the community.
             let proposer = match pip.proposer {
@@ -925,7 +918,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::prune_proposal()]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
             Self::prune_data(GC_DID, id, proposal.state, true);
         }
@@ -940,13 +933,12 @@ decl_module! {
         /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = <T as Trait>::WeightInfo::reschedule_execution()]
-        pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) {
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             // 1. Only release coordinator
             ensure!(
-                Some(current_did) == T::GovernanceCommittee::release_coordinator(),
+                Some(did) == T::GovernanceCommittee::release_coordinator(),
                 Error::<T>::RescheduleNotByReleaseCoordinator
             );
 
@@ -957,17 +949,13 @@ decl_module! {
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period & reschule it.
-            let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            // 3. Update enactment period & reschedule it.
+            <PipToSchedule<T>>::insert(id, new_until);
 
             // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
             // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
             Self::unschedule_pip(id);
             Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
-
-            // 4. Emit event.
-            Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
-            Ok(())
         }
 
         /// Clears the snapshot and emits the event `SnapshotCleared`.
@@ -975,10 +963,9 @@ decl_module! {
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
         #[weight = <T as Trait>::WeightInfo::clear_snapshot()]
-        pub fn clear_snapshot(origin) -> DispatchResult {
+        pub fn clear_snapshot(origin) {
             // 1. Check that a GC member is executing this.
-            let actor = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&actor)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             if let Some(meta) = <SnapshotMeta<T>>::get() {
@@ -989,8 +976,6 @@ decl_module! {
                 // 3. Emit event.
                 Self::deposit_event(RawEvent::SnapshotCleared(did, meta.id));
             }
-
-            Ok(())
         }
 
         /// Takes a new snapshot of the current list of active && pending PIPs.
@@ -999,10 +984,13 @@ decl_module! {
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
         #[weight = <T as Trait>::WeightInfo::snapshot()]
-        pub fn snapshot(origin) -> DispatchResult {
+        pub fn snapshot(origin) {
             // Ensure a GC member is executing this.
-            let made_by = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&made_by)?;
+            let PermissionedCallOriginData {
+                sender: made_by,
+                primary_did: did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             // Commit the new snapshot.
@@ -1014,7 +1002,6 @@ decl_module! {
 
             // Emit event.
             Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
-            Ok(())
         }
 
         /// Enacts `results` for the PIPs in the snapshot queue.
@@ -1265,7 +1252,7 @@ impl<T: Trait> Module<T> {
             call,
         ) {
             Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
-            Ok(_) => RawEvent::ExecutionScheduled(did, id, Zero::zero(), at),
+            Ok(_) => RawEvent::ExecutionScheduled(did, id, at),
         };
         Self::deposit_event(event);
     }
@@ -1291,8 +1278,7 @@ impl<T: Trait> Module<T> {
     /// Execute the PIP given by `id`.
     /// Panics if the PIP doesn't exist or isn't scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
-        let proposal =
-            Self::proposals(id).ok_or_else(|| Error::<T>::ScheduledProposalDoesntExist)?;
+        let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         ensure!(
             proposal.state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
@@ -1326,7 +1312,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
@@ -1345,12 +1331,12 @@ impl<T: Trait> Module<T> {
 
     /// Converts a PIP ID into a name of a PIP scheduled for execution.
     fn pip_execution_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_execute"[..], id)
+        Self::pip_schedule_name(&PIP_EXECUTION[..], id)
     }
 
     /// Converts a PIP ID into a name of a PIP scheduled for expiry.
     fn pip_expiry_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&b"pip_expire"[..], id)
+        Self::pip_schedule_name(&PIP_EXPIRY[..], id)
     }
 
     /// Common method to create a unique name for the scheduler for a PIP.
@@ -1472,10 +1458,10 @@ impl<T: Trait> Module<T> {
         };
         *count = count
             .checked_add(1)
-            .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+            .ok_or(Error::<T>::NumberOfVotesExceeded)?;
         *stake = stake
             .checked_add(&deposit)
-            .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
+            .ok_or(Error::<T>::StakeAmountOfVotesExceeded)?;
 
         // Commit all changes.
         <ProposalResult<T>>::insert(id, stats);
