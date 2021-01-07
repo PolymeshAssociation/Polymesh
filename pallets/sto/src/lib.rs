@@ -59,8 +59,6 @@ type Asset<T> = asset::Module<T>;
 /// Status of a Fundraiser.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, PartialOrd, Ord)]
 pub enum FundraiserStatus {
-    /// Fundraiser does not exist.
-    Unknown,
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
     /// Fundraiser has been frozen, New investments can not be made right now.
@@ -71,7 +69,7 @@ pub enum FundraiserStatus {
 
 impl Default for FundraiserStatus {
     fn default() -> Self {
-        Self::Unknown
+        Self::Closed
     }
 }
 
