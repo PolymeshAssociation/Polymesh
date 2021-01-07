@@ -57,11 +57,9 @@
 //! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
-//! - `change_all_signers_and_sigs_required` - Replaces all existing signers of the given multisig
-//! and changes the number of required signatures.
-//! `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
+//! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
 //! the creator of the multisig.
-//! `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
+//! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
 //! is the creator of the multisig.
 //!
 //! ### Other Public Functions
@@ -84,16 +82,16 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode, Error as CodecError};
-use core::convert::{From, TryInto};
+use core::convert::From;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get, GetCallMetadata,
     },
-    weights::{GetDispatchInfo, PostDispatchInfo, Weight},
+    weights::{GetDispatchInfo, Weight},
     StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -104,10 +102,8 @@ use polymesh_common_utilities::constants::{
     schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION,
 };
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait,
-    multisig::MultiSigSubTrait,
-    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    Context,
+    identity::Trait as IdentityTrait, multisig::MultiSigSubTrait,
+    transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PalletPermissions, Permissions, Signatory,
@@ -200,9 +196,9 @@ pub trait WeightInfo {
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn change_all_signers_and_sigs_required() -> Weight;
     fn make_multisig_signer() -> Weight;
     fn make_multisig_primary() -> Weight;
+    fn execute_scheduled_proposal() -> Weight;
 }
 
 decl_storage! {
@@ -296,14 +292,11 @@ decl_module! {
             proposal: Box<T::Proposal>,
             expiry: Option<T::Moment>,
             auto_close: bool
-        ) -> DispatchResultWithPostInfo {
-            let signer = Self::ensure_signed_did(origin)?;
-            let info = PostDispatchInfo {
-                actual_weight: Some(<T as Trait>::WeightInfo::create_or_approve_proposal_as_identity().saturating_add(proposal.get_dispatch_info().weight)),
-                pays_fee: Default::default(),
-            };
-            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
-            Ok(info)
+        ) {
+            let sender = ensure_signed(origin)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender_signer = Signatory::from(sender_did);
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -532,56 +525,6 @@ decl_module! {
             Self::unsafe_change_sigs_required(sender, sigs_required);
         }
 
-        /// Replaces all existing signers of the given multisig and changes the number of required
-        /// signatures.
-        ///
-        /// NOTE: Once this function get executed no other function of the multisig is allowed to
-        /// execute until unless enough potential signers accept the authorization whose count is
-        /// greater than or equal to the number of required signatures.
-        ///
-        /// # Arguments
-        /// * signers - Vector of signers for a given multisig.
-        /// * sigs_required - Number of signature required for a given multisig.
-        ///
-        /// # Weight
-        /// `900_000_000 + 3_000_000 * signers.len()`
-        #[weight = <T as Trait>::WeightInfo::change_all_signers_and_sigs_required()]
-        pub fn change_all_signers_and_sigs_required(
-            origin,
-            signers: Vec<Signatory<T::AccountId>>,
-            sigs_required: u64
-        ) {
-            let sender = ensure_signed(origin)?;
-            Self::ensure_ms(&sender)?;
-            // The creator is always the authorising agent for multisig issued authorisations
-            let authorising_did = <MultiSigToIdentity<T>>::get(&sender);
-            Self::ensure_sigs_in_bounds(&signers, sigs_required)?;
-            ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
-
-            // Collect the list of all signers present for the given multisig
-            let current_signers = <MultiSigSigners<T>>::iter_prefix_values(&sender).collect::<Vec<_>>();
-
-            // Removing the signers from the valid multi-signers list first.
-            let old_sigs = current_signers
-                .iter()
-                .filter(|x| !signers.contains(x))
-                .inspect(|signer| Self::unsafe_signer_removal(sender.clone(), (*signer).clone()))
-                .count();
-
-            // Add the new signers for the given multi-sig.
-            signers
-                .into_iter()
-                .filter(|x| !current_signers.contains(x))
-                .for_each(|signer| {
-                    Self::unsafe_add_auth_for_signers(authorising_did, signer, sender.clone())
-                });
-
-            // Change the no. of signers for a multisig
-            <NumberOfSigners<T>>::mutate(&sender, |x| *x -= u64::try_from(old_sigs).unwrap_or_default());
-            // Change the required signature count
-            Self::unsafe_change_sigs_required(sender, sigs_required);
-        }
-
         /// Adds a multisig as a signer of current did if the current did is the creator of the
         /// multisig.
         ///
@@ -624,12 +567,13 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
-        #[weight = 500_000_000]
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_proposal().saturating_add(*proposal_weight)]
         fn execute_scheduled_proposal(
             origin,
             multisig: T::AccountId,
             proposal_id: u64,
             multisig_did: IdentityId,
+            proposal_weight: Weight
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::execute_proposal(multisig, proposal_id, multisig_did)
@@ -945,24 +889,27 @@ impl<T: Trait> Module<T> {
                     );
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
-                    let execution_at = system::Module::<T>::block_number() + One::one();
-                    let call = Call::<T>::execute_scheduled_proposal(
-                        multisig.clone(),
-                        proposal_id,
-                        multisig_did,
-                    )
-                    .into();
+                    if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
+                        let execution_at = system::Module::<T>::block_number() + One::one();
+                        let call = Call::<T>::execute_scheduled_proposal(
+                            multisig.clone(),
+                            proposal_id,
+                            multisig_did,
+                            proposal.get_dispatch_info().weight,
+                        )
+                        .into();
 
-                    // Scheduling will fail when it's already scheduled (had enough votes already).
-                    // We ignore the failure here.
-                    let _ = T::Scheduler::schedule_named(
-                        (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
-                        DispatchTime::At(execution_at),
-                        None,
-                        MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
-                        RawOrigin::Root.into(),
-                        call,
-                    );
+                        // Scheduling will fail when it's already scheduled (had enough votes already).
+                        // We ignore the failure here.
+                        let _ = T::Scheduler::schedule_named(
+                            (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
+                            DispatchTime::At(execution_at),
+                            None,
+                            MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
+                            RawOrigin::Root.into(),
+                            call,
+                        );
+                    }
                 }
             }
         }
@@ -992,14 +939,6 @@ impl<T: Trait> Module<T> {
         T::CddHandler::set_current_identity(&multisig_did);
 
         if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
-            ensure!(
-                T::ChargeTxFeeTarget::charge_fee(
-                    proposal.encode().len().try_into().unwrap_or_default(),
-                    proposal.get_dispatch_info(),
-                )
-                .is_ok(),
-                Error::<T>::FailedToChargeFee
-            );
             let update_proposal_status = |status| {
                 <ProposalDetail<T>>::mutate((&multisig, proposal_id), |proposal_details| {
                     proposal_details.status = status

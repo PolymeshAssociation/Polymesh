@@ -1128,7 +1128,7 @@
             "price": "Balance"
         },
         "AssetMigrationError": {
-            "_enum": { 
+            "_enum": {
                 "AssetDocumentFail": "(Ticker, DocumentId)"
             }
         },
