@@ -32,42 +32,12 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker,
+    secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
+    IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
-
-/// Runtime upgrade definitions.
-#[allow(missing_docs)]
-pub mod runtime_upgrade {
-    use codec::Decode;
-    use polymesh_primitives::{
-        migrate::{Empty, Migrate},
-        IdentityId,
-    };
-    use sp_std::vec::Vec;
-
-    /// Old type definition kept here for upgrade purposes.
-    #[derive(Decode)]
-    pub enum LinkedKeyInfo {
-        Unique(IdentityId),
-        Group(Vec<IdentityId>),
-    }
-
-    impl Migrate for LinkedKeyInfo {
-        type Into = IdentityId;
-        type Context = Empty;
-
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            match self {
-                LinkedKeyInfo::Unique(did) => Some(did),
-                LinkedKeyInfo::Group(_) => None,
-            }
-        }
-    }
-}
 
 pub type AuthorizationNonce = u64;
 
@@ -170,6 +140,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait {
     type CorporateAction: IdentityToCorporateAction;
 
     type IdentityFn: IdentityFnTrait<Self::AccountId>;
+
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 }
 
 decl_event!(
@@ -256,6 +229,9 @@ decl_event!(
 
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),
+
+        /// Forwarded Call - (calling DID, target DID, pallet name, function name)
+        ForwardedCall(IdentityId, IdentityId, PalletName, DispatchableName),
     }
 );
 

@@ -349,7 +349,7 @@ impl ExtBuilder {
         .unwrap();
 
         // Committee
-        let gc_ids = self
+        let mut gc_ids = self
             .governance_committee_members
             .iter()
             .map(|key| {
@@ -361,6 +361,7 @@ impl ExtBuilder {
             })
             .cloned()
             .collect::<Vec<_>>();
+        gc_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance1> {
             active_members_limit: u32::MAX,
