@@ -3995,18 +3995,21 @@ where
             T::AccountId,
             pallet_session::historical::IdentificationTuple<T>,
         >],
-        slash_fraction: &[Perbill],
+        raw_slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
             return Err(());
         }
 
-        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
-        if Self::slashing_allowed_for() == SlashingSwitch::None {
-            // Return `0` weight because no need to run through when Slashing is off.
-            return Ok(Zero::zero());
-        }
+        // Polymesh-note: When slashing is off or allowed for none, set slash fraction to zero
+        let long_living_slash_fraction;
+        let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
+            long_living_slash_fraction = vec![Perbill::from_parts(0); raw_slash_fraction.len()];
+            long_living_slash_fraction.as_slice()
+        } else {
+            raw_slash_fraction
+        };
 
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;
