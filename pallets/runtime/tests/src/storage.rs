@@ -52,7 +52,6 @@ use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
-    u32_trait::{_1, _2},
     H256,
 };
 use sp_runtime::{
@@ -442,7 +441,7 @@ parameter_types! {
 }
 
 /// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;

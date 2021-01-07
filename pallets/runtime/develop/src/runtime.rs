@@ -60,7 +60,7 @@ use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
-    u32_trait::{_1, _2, _4},
+    u32_trait::{_1, _4},
     OpaqueMetadata,
 };
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -418,7 +418,7 @@ parameter_types! {
 }
 
 /// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {

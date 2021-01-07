@@ -59,6 +59,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use core::marker::PhantomData;
 use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
@@ -77,7 +78,6 @@ use polymesh_common_utilities::{
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
-use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
 use sp_std::{prelude::*, vec};
 
@@ -134,10 +134,9 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 /// Origin for the committee module.
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub enum RawOrigin<AccountId, I> {
-    /// It has been condoned by M of N members of this committee.
-    Members(MemberCount, MemberCount),
-    /// Dummy to manage the fact we have instancing.
-    _Phantom(sp_std::marker::PhantomData<(AccountId, I)>),
+    /// It has been condoned by M of N members of this committee
+    /// with `M` and `N` set dynamically in `set_vote_threshold`.
+    Condoned(PhantomData<(AccountId, I)>),
 }
 
 /// Origin for the committee module.
@@ -178,7 +177,7 @@ decl_storage! {
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
     }
     add_extra_genesis {
-        config(phantom): sp_std::marker::PhantomData<(T, I)>;
+        config(phantom): PhantomData<(T, I)>;
     }
 }
 
@@ -556,18 +555,18 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         proposal: T::Hash,
         current_did: IdentityId,
     ) {
-        if approved {
-            let event = RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats);
-            Self::deposit_event(event);
+        let event = if approved {
+            RawEvent::Approved
+        } else {
+            RawEvent::Rejected
+        };
+        Self::deposit_event(event(current_did, proposal, yes_votes, no_votes, seats));
 
+        if approved {
             // execute motion, assuming it exists.
             if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                Self::execute(current_did, p, proposal, yes_votes, seats);
+                Self::execute(current_did, p, proposal);
             }
-        } else {
-            // rejected
-            let event = RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats);
-            Self::deposit_event(event);
         }
 
         // Clear remaining proposal data.
@@ -598,14 +597,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(
-        did: IdentityId,
-        proposal: <T as Trait<I>>::Proposal,
-        hash: T::Hash,
-        ayes: MemberCount,
-        seats: MemberCount,
-    ) {
-        let origin = RawOrigin::Members(ayes, seats).into();
+    fn execute(did: IdentityId, proposal: <T as Trait<I>>::Proposal, hash: T::Hash) {
+        let origin = RawOrigin::Condoned(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
     }
@@ -629,9 +622,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // 3. Execute if committee is single member, and otherwise record the vote.
-        let seats = Self::seats();
-        if seats < 2 {
-            Self::execute(did, proposal, proposal_hash, 1, seats);
+        if Self::seats() < 2 {
+            Self::execute(did, proposal, proposal_hash);
         } else {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::append(proposal_hash);
@@ -745,52 +737,18 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
+pub struct EnsureThresholdMet<AccountId, I = DefaultInstance>(PhantomData<(AccountId, I)>);
+impl<O, AccountId, I> EnsureOrigin<O> for EnsureThresholdMet<AccountId, I>
+where
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
 {
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
+        o.into().map(|RawOrigin::Condoned(PhantomData)| ())
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn successful_origin() -> O {
-        O::from(RawOrigin::Members(1u32, 0u32))
-    }
-}
-
-pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> O {
-        O::from(RawOrigin::Members(0u32, 0u32))
+        O::from(RawOrigin::Condoned(PhantomData))
     }
 }
