@@ -5,7 +5,9 @@ use super::{
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
-use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
+use pallet_sto::{
+    self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
+};
 use polymesh_common_utilities::asset::AssetType;
 use polymesh_primitives::{PortfolioId, Ticker};
 
@@ -111,6 +113,7 @@ fn raise_happy_path() {
 
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
+    let fundraiser_name = FundraiserName::from(vec![1]);
     assert_ok!(STO::create_fundraiser(
         alice_signed.clone(),
         alice_portfolio,
@@ -124,6 +127,8 @@ fn raise_happy_path() {
         venue_counter,
         None,
         None,
+        2,
+        fundraiser_name.clone()
     ));
 
     let check_fundraiser = |remaining| {
@@ -143,7 +148,8 @@ fn raise_happy_path() {
                 venue_id: venue_counter,
                 start: Timestamp::get(),
                 end: None,
-                frozen: false
+                status: FundraiserStatus::Live,
+                minimum_investment: 2
             })
         );
     };
@@ -163,6 +169,24 @@ fn raise_happy_path() {
         alice_init_raise
     );
     assert_eq!(Asset::balance_of(&raise_ticker, bob_did), bob_init_raise);
+    assert_eq!(
+        STO::fundraiser_name(offering_ticker, fundraiser_id),
+        fundraiser_name
+    );
+    // Investment fails if the minimum investment amount is not met
+    assert_noop!(
+        STO::invest(
+            bob_signed.clone(),
+            bob_portfolio,
+            bob_portfolio,
+            offering_ticker,
+            fundraiser_id,
+            1,
+            Some(2u128),
+            None
+        ),
+        Error::InvestmentAmountTooLow
+    );
     // Bob invests in Alice's fundraiser
     assert_ok!(STO::invest(
         bob_signed.clone(),
@@ -224,6 +248,8 @@ fn raise_unhappy_path() {
                 venue,
                 None,
                 None,
+                0,
+                FundraiserName::default()
             ),
             error
         );
@@ -318,6 +344,8 @@ fn raise_unhappy_path() {
             correct_venue,
             Some(1),
             Some(0),
+            0,
+            FundraiserName::default()
         ),
         Error::InvalidOfferingWindow
     );
