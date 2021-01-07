@@ -41,6 +41,7 @@ use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
     with_transaction, CommonTrait,
 };
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
@@ -74,39 +75,41 @@ impl Default for FundraiserStatus {
     }
 }
 
-/// Details about the Fundraiser
+/// Details about the Fundraiser.
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance, Moment> {
-    /// The primary issuance agent that created the `Fundraiser`
+    /// The primary issuance agent that created the `Fundraiser`.
     pub creator: IdentityId,
-    /// Portfolio containing the asset being offered
+    /// Portfolio containing the asset being offered.
     pub offering_portfolio: PortfolioId,
-    /// Asset being offered
+    /// Asset being offered.
     pub offering_asset: Ticker,
-    /// Portfolio receiving funds raised
+    /// Portfolio receiving funds raised.
     pub raising_portfolio: PortfolioId,
-    /// Asset to receive payment in
+    /// Asset to receive payment in.
     pub raising_asset: Ticker,
     /// Tiers of the fundraiser.
     /// Each tier has a set amount of tokens available at a fixed price.
     /// The sum of the tiers is the total amount available in this fundraiser.
     pub tiers: Vec<FundraiserTier<Balance>>,
-    /// Id of the venue to use for this fundraise
+    /// Id of the venue to use for this fundraise.
     pub venue_id: u64,
-    /// Start of the fundraiser
+    /// Start time of the fundraiser.
     pub start: Moment,
-    /// End of the fundraiser
+    /// End time of the fundraiser.
     pub end: Option<Moment>,
-    /// Fundraiser status
+    /// Fundraiser status.
     pub status: FundraiserStatus,
+    /// Minimum raising amount per invest transaction.
+    pub minimum_investment: Balance,
 }
 
-/// Single tier of a tiered pricing model
+/// Single tier of a tiered pricing model.
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
-    /// Total amount available
+    /// Total amount available.
     pub total: Balance,
-    /// Price per unit
+    /// Price per unit.
     pub price: Balance,
 }
 
@@ -114,9 +117,9 @@ pub struct PriceTier<Balance> {
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
-    /// Total amount available
+    /// Total amount available.
     pub total: Balance,
-    /// Price per unit
+    /// Price per unit.
     pub price: Balance,
     /// Total amount remaining for sale, set to `total` and decremented until `0`.
     pub remaining: Balance,
@@ -132,6 +135,12 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     }
 }
 
+/// Wrapper type for Fundraiser name
+#[derive(
+    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct FundraiserName(Vec<u8>);
+
 pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -143,10 +152,10 @@ decl_event!(
         Balance = <T as CommonTrait>::Balance,
         Moment = <T as TimestampTrait>::Moment,
     {
-        /// A new fundraiser has been created
-        /// (primary issuance agent, fundraiser id, fundraiser details)
-        FundraiserCreated(IdentityId, u64, Fundraiser<Balance, Moment>),
-        /// An investor invested in the fundraiser
+        /// A new fundraiser has been created.
+        /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
+        FundraiserCreated(IdentityId, u64, FundraiserName, Fundraiser<Balance, Moment>),
+        /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
         /// An fundraiser has been frozen.
@@ -164,37 +173,43 @@ decl_event!(
 decl_error! {
     /// Errors for the Settlement module.
     pub enum Error for Module<T: Trait> {
-        /// Sender does not have required permissions
+        /// Sender does not have required permissions.
         Unauthorized,
-        /// An arithmetic operation overflowed
+        /// An arithmetic operation overflowed.
         Overflow,
-        /// Not enough tokens left for sale
+        /// Not enough tokens left for sale.
         InsufficientTokensRemaining,
-        /// Fundraiser not found
+        /// Fundraiser not found.
         FundraiserNotFound,
-        /// Fundraiser is either frozen or stopped
+        /// Fundraiser is either frozen or stopped.
         FundraiserNotLive,
-        /// Fundraiser has been closed/stopped already
+        /// Fundraiser has been closed/stopped already.
         FundraiserClosed,
         /// Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
-        /// Using an invalid venue
+        /// An invalid venue provided.
         InvalidVenue,
-        /// An individual price tier was invalid or a set of price tiers was invalid
+        /// An individual price tier was invalid or a set of price tiers was invalid.
         InvalidPriceTiers,
         /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
         InvalidOfferingWindow,
-        /// Price of an investment exceeded the max price
+        /// Price of the investment exceeded the max price.
         MaxPriceExceeded,
+        /// Investment amount is lower than minimum investment amount.
+        InvestmentAmountTooLow
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
-        /// All fundraisers that are currently running. (ticker, fundraiser_id) -> Fundraiser
+        /// All fundraisers that are currently running.
+        /// (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
-        /// Total fundraisers created for a token
+        /// Total fundraisers created for a token.
         FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
+        /// Name for the Fundraiser. It is only used offchain.
+        /// (ticker, fundraiser_id) -> Fundraiser name
+        FundraiserNames: double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
     }
 }
 
@@ -228,6 +243,8 @@ decl_module! {
             venue_id: u64,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
+            minimum_investment: T::Balance,
+            fundraiser_name: FundraiserName
         ) {
             let (did, secondary_key) = Self::ensure_perms_pia(origin, &offering_asset)?;
 
@@ -266,12 +283,14 @@ decl_module! {
                 start,
                 end,
                 status: FundraiserStatus::Live,
+                minimum_investment
             };
 
             let id = FundraiserCount::mutate(offering_asset, |id| mem::replace(id, *id + 1));
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser.clone());
+            FundraiserNames::insert(offering_asset, id, fundraiser_name.clone());
 
-            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser));
+            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser_name, fundraiser));
         }
 
         /// Invest in a fundraiser.
@@ -307,7 +326,10 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(funding_portfolio, did, secondary_key.as_ref())?;
 
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
+
             ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
+            ensure!(investment_amount >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
+
             let now = Timestamp::<T>::get();
             ensure!(
                 fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
