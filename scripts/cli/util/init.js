@@ -278,9 +278,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
       }
     }
 
-    let nonceObj = { nonce: nonces.get(secondary_accounts[i].address) };
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, secondary_accounts[i], nonceObj);
+    await sendTx(secondary_accounts[i], transaction);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
@@ -296,13 +295,11 @@ async function issueTokenPerDid(api, accounts, ticker) {
 
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  let nonceObj = { nonce: nonces.get(accounts[0].address) };
   const transaction = api.tx.asset.createAsset(
     ticker, ticker, 1000000, true, 0, [], "abc"
   );
-  await sendTransaction(transaction, accounts[0], nonceObj);
-
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  await sendTx(accounts[0], transaction);
+  
 }
 
 // Returns the asset did
