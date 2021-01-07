@@ -557,7 +557,10 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+        )]
         pub fn add_instruction(
             origin,
             venue_id: u64,
@@ -580,7 +583,10 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+        )]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: u64,
