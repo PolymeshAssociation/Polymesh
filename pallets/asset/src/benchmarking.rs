@@ -246,7 +246,7 @@ benchmarks! {
     }: _(owner.origin, ticker.clone(), (1_000_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, (2_000_000 * POLY).into());
+        assert_eq!(token.total_supply, (2_000_000 * POLY).into());
     }
 
 
