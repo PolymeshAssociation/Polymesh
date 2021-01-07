@@ -1021,6 +1021,14 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserName": "Text",
+        "FundraiserStatus": {
+            "_enum": [
+                "Live",
+                "Frozen",
+                "Closed"
+            ]
+        },
         "FundraiserTier": {
             "total": "Balance",
             "price": "Balance",
@@ -1036,7 +1044,8 @@
             "venue_id": "u64",
             "start": "Moment",
             "end": "Option<Moment>",
-            "frozen": "bool"
+            "status": "FundraiserStatus",
+            "minimum_investment": "Balance"
         },
         "VenueType": {
             "_enum": [
