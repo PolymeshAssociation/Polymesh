@@ -1144,6 +1144,12 @@ pub trait Trait:
     /// Maximum amount of validators that can run by an identity.
     /// It will be MaxValidatorPerIdentity * Self::validator_count().
     type MaxValidatorPerIdentity: Get<Permill>;
+
+    /// Maximum amount of total issuance after which fixed rewards kicks in.
+    type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
+
+    /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+    type FixedYearlyReward: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -1620,6 +1626,12 @@ decl_module! {
         /// Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
         const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
 
+        /// Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
+        const MaxVariableInflationTotalIssuance: BalanceOf<T> = T::MaxVariableInflationTotalIssuance::get();
+
+        /// Total year rewards that gets paid during fixed reward schedule.
+        const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
+
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -1630,14 +1642,14 @@ decl_module! {
             if StorageVersion::get() == Releases::V5_0_0 {
                 let intended_count = Self::get_allowed_validator_count();
                 let current_validators = <Validators<T>>::iter().map(|(k, _)| k).collect::<Vec<T::AccountId>>();
-                migrate_map_keys_and_value::<_,Option<PermissionedIdentityPrefs>,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
+                migrate_map_keys_and_value::<_,PermissionedIdentityPrefs,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
                     if v {
                         let running_count = current_validators
                             .iter()
                             .filter_map(<Identity<T>>::get_identity)
                             .filter(|v_id| id == *v_id)
                             .count() as u32;
-                        Some((id, Some(PermissionedIdentityPrefs {intended_count, running_count })))
+                        Some((id, PermissionedIdentityPrefs {intended_count, running_count }))
                     } else {
                         None
                     }
@@ -2746,7 +2758,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Returns the allowed validator count.
     fn get_allowed_validator_count() -> u32 {
-        T::MaxValidatorPerIdentity::get() * Self::validator_count()
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
     }
 
     /// Returns the `T::Origin` for given target AccountId.
@@ -3323,6 +3335,8 @@ impl<T: Trait> Module<T> {
                 T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
 
@@ -3981,18 +3995,21 @@ where
             T::AccountId,
             pallet_session::historical::IdentificationTuple<T>,
         >],
-        slash_fraction: &[Perbill],
+        raw_slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
             return Err(());
         }
 
-        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
-        if Self::slashing_allowed_for() == SlashingSwitch::None {
-            // Return `0` weight because no need to run through when Slashing is off.
-            return Ok(Zero::zero());
-        }
+        // Polymesh-note: When slashing is off or allowed for none, set slash fraction to zero
+        let long_living_slash_fraction;
+        let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
+            long_living_slash_fraction = vec![Perbill::from_parts(0); raw_slash_fraction.len()];
+            long_living_slash_fraction.as_slice()
+        } else {
+            raw_slash_fraction
+        };
 
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;

@@ -114,7 +114,7 @@ use polymesh_common_utilities::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
-    Context, SystematicIssuers, GC_DID,
+    Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
     secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
@@ -196,7 +196,6 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
 
             SYSTEMATIC_ISSUERS
                 .iter()
@@ -510,7 +509,14 @@ decl_module! {
             // 1.3. Check that target_did has a CDD.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
-            // 1.4 charge fee
+            // 1.4 Check that the forwarded call is not recursive
+            let metadata = proposal.get_call_metadata();
+            ensure!(
+                !(metadata.pallet_name == "Identity" && metadata.function_name == "forwarded_call"),
+                Error::<T>::RecursionNotAllowed
+            );
+
+            // 1.5 charge fee
             let _ = T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
                 proposal.get_dispatch_info())
@@ -519,10 +525,11 @@ decl_module! {
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
 
+            Self::deposit_event(RawEvent::ForwardedCall(primary_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
+
             // Also set current_did roles when acting as a secondary key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = RawOrigin::Signed(sender).into();
-
             let actual_weight = with_call_metadata(proposal.get_call_metadata(), || proposal.dispatch(new_origin))
                 .unwrap_or_else(|e| e.post_info)
                 .actual_weight;
@@ -893,7 +900,7 @@ decl_module! {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
-            Self::base_add_cdd_claim(target, Claim::make_cdd_wildcard(), GC_DID, expiry)
+            Self::base_add_cdd_claim(target, Claim::default_cdd_id(), GC_DID, expiry)
         }
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
@@ -964,7 +971,13 @@ decl_error! {
         /// Try to add a claim variant using un-designated extrinsic.
         ClaimVariantNotAllowed,
         /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
-        TargetHasNonZeroBalanceAtScopeId
+        TargetHasNonZeroBalanceAtScopeId,
+        /// CDDId should be unique & same within all cdd claims possessed by a DID.
+        CDDIdNotUniqueForIdentity,
+        /// Non systematic CDD providers can not create default cdd_id claims.
+        InvalidCDDId,
+        /// Do not allow forwarded call to be called recursively
+        RecursionNotAllowed
     }
 }
 
@@ -1365,6 +1378,16 @@ impl<T: Trait> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> Option<IdentityId> {
+        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id)
+            .map(|id_claim| id_claim.claim_issuer)
+            .next()
+    }
+
+    pub fn base_fetch_valid_cdd_claims(
+        claim_for: IdentityId,
+        leeway: T::Moment,
+        filter_cdd_id: Option<CddId>,
+    ) -> impl Iterator<Item = IdentityClaim> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1383,8 +1406,8 @@ impl<T: Trait> Module<T> {
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
             .collect::<Vec<_>>();
 
-        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .find(|id_claim| {
+        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence).filter(
+            move |id_claim| {
                 if let Some(cdd_id) = &filter_cdd_id {
                     if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
                         if claim_cdd_id != cdd_id {
@@ -1399,8 +1422,8 @@ impl<T: Trait> Module<T> {
                     &active_cdds,
                     &inactive_not_expired_cdds,
                 )
-            })
-            .map(|id_claim| id_claim.claim_issuer)
+            },
+        )
     }
 
     /// A CDD claims is considered valid if:
@@ -1648,8 +1671,41 @@ impl<T: Trait> Module<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
+        // Ensure cdd_id uniqueness for a given target DID.
+        Self::ensure_cdd_id_validness(&claim, issuer, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
+        Ok(())
+    }
+
+    /// Enforce CDD_ID uniqueness for a given target DID and make sure only Systematic CDD providers can use default CDDId.
+    ///
+    /// # Errors
+    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id doesn't match the existing cdd claim's cdd_id.
+    /// - `InvalidCDDId` is returned when a non Systematic CDD provider adds the default cdd_id claim.
+    fn ensure_cdd_id_validness(
+        claim: &Claim,
+        issuer: IdentityId,
+        target: IdentityId,
+    ) -> DispatchResult {
+        if let Claim::CustomerDueDiligence(cdd_id) = claim {
+            if cdd_id.is_default_cdd() {
+                ensure!(
+                    SYSTEMATIC_ISSUERS.iter().any(|si| si.as_id() == issuer),
+                    Error::<T>::InvalidCDDId
+                );
+            } else {
+                ensure!(
+                    !Self::base_fetch_valid_cdd_claims(target, 0.into(), None).any(|id_claim| {
+                        if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
+                            return !c_id.is_default_cdd() && c_id != *cdd_id;
+                        }
+                        true
+                    }),
+                    Error::<T>::CDDIdNotUniqueForIdentity
+                );
+            }
+        }
         Ok(())
     }
 
@@ -2161,41 +2217,60 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         pallet_name: &PalletName,
         function_name: &DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
-        if <KeyToIdentityIds<T>>::contains_key(who) {
-            let primary_did = <KeyToIdentityIds<T>>::get(who);
-            if !<DidRecords<T>>::contains_key(&primary_did) {
-                // The DID record is missing.
-                return None;
+        // `who` is the original origin (signer) of the original extrinsic
+        // context::current_identity is the target did against which the calling key must have permissions
+        // if `who`'s identity does not match context::current_identity we have a forwarded call. In this case the
+        // key for which we check permissions is `who`'s identity rather than `who`. This assumes that recursive forwarded calls
+        // are not allowed (which are prevented in `forwarded_call`)
+
+        if !<KeyToIdentityIds<T>>::contains_key(who) {
+            // Caller has no Identity
+            return None;
+        }
+
+        let key_did = <KeyToIdentityIds<T>>::get(who);
+
+        if !<DidRecords<T>>::contains_key(&key_did) {
+            // The DID record is missing.
+            return None;
+        }
+
+        if let Some(target_did) = Context::current_identity_or::<Self>(who).ok() {
+            let target_did_record = <DidRecords<T>>::get(&target_did);
+
+            // NB: Doing this check here since `get_sk_data` moves `target_did_record`
+            let is_direct_call = target_did == key_did;
+            if is_direct_call && who == &target_did_record.primary_key {
+                // It is a direct call and `who` is the primary key.
+                return Some(AccountCallPermissionsData {
+                    primary_did: target_did,
+                    secondary_key: None,
+                });
             }
-            let did_record = <DidRecords<T>>::get(&primary_did);
-            if who != &did_record.primary_key {
-                // `who` can be a secondary key.
-                //
-                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
-                // extrinsics.
-                if Self::is_did_frozen(&primary_did) {
-                    // `primary_did` has its secondary keys frozen.
+
+            let get_sk_data = |who_sk| {
+                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call extrinsics.
+                if Self::is_did_frozen(&target_did) {
+                    // `target_did` has its secondary keys frozen.
                     return None;
                 }
-                let maybe_current_did_signer =
-                    Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
-                return did_record
+                target_did_record
                     .secondary_keys
                     .into_iter()
-                    .find(|sk| {
-                        sk.signer == Signatory::Account(who.clone())
-                            || Some(sk.signer.clone()) == maybe_current_did_signer
-                    })
+                    .find(|sk| sk.signer == who_sk)
                     .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
                     .map(|sk| AccountCallPermissionsData {
-                        primary_did,
+                        primary_did: target_did,
                         secondary_key: Some(sk),
-                    });
-            }
-            // `who` is the primary key.
-            return Some(AccountCallPermissionsData {
-                primary_did,
-                secondary_key: None,
+                    })
+            };
+
+            return get_sk_data(if is_direct_call {
+                // Check the permissions of `who`'s key in `target_did` as it is a direct call.
+                Signatory::Account(who.clone())
+            } else {
+                // Check the permissions of `who`'s Identity in `target_did` as it is a forwarded call.
+                Signatory::Identity(key_did)
             });
         }
         // `who` doesn't have an identity.

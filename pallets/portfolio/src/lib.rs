@@ -35,8 +35,6 @@
 //! - `default_portfolio_balance`: Returns the ticker balance of the identity's default portfolio.
 //! - `user_portfolio_balance`: Returns the ticker balance of an identity's user portfolio.
 //! - `set_default_portfolio_balance`: Sets the ticker balance of the identity's default portfolio.
-//! - `rpc_get_portfolios`: An RPC function that lists all user-defined portfolio number-name pairs.
-//! - `rpc_get_portfolio_assets`: Ensures that there is no portfolio with the desired name yet.
 //! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
@@ -372,18 +370,6 @@ impl<T: Trait> Module<T> {
         NextPortfolioNumber::mutate(did, |num| mem::replace(num, PortfolioNumber(num.0 + 1)))
     }
 
-    /// An RPC function that lists all user-defined portfolio number-name pairs.
-    pub fn rpc_get_portfolios(did: IdentityId) -> Vec<(PortfolioNumber, PortfolioName)> {
-        Portfolios::iter_prefix(&did).collect()
-    }
-
-    /// An RPC function that lists all token-balance pairs of a portfolio.
-    pub fn rpc_get_portfolio_assets(
-        portfolio_id: PortfolioId,
-    ) -> Vec<(Ticker, <T as CommonTrait>::Balance)> {
-        <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect()
-    }
-
     /// Ensures that there is no portfolio with the desired `name` yet.
     fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
         let name_uniq = Portfolios::iter_prefix(&did).all(|n| &n.1 != name);
@@ -432,7 +418,7 @@ impl<T: Trait> Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio: PortfolioId,
     ) -> DispatchResult {
-        // Default portfolio are always allowed. Custom portfolios must be permissioned.
+        // If `sk` is None, caller is primary key and has full permissions.
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(

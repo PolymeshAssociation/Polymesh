@@ -41,6 +41,7 @@ use polymesh_common_utilities::{
     traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
     with_transaction, CommonTrait,
 };
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
@@ -55,49 +56,71 @@ type Timestamp<T> = timestamp::Module<T>;
 type Portfolio<T> = portfolio::Module<T>;
 type Asset<T> = asset::Module<T>;
 
-/// Details about the Fundraiser
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+/// Status of a Fundraiser.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum FundraiserStatus {
+    /// Fundraiser is open for investments if start_time <= current_time < end_time.
+    Live,
+    /// Fundraiser has been frozen, New investments can not be made right now.
+    Frozen,
+    /// Fundraiser has been stopped.
+    Closed,
+}
+
+impl Default for FundraiserStatus {
+    fn default() -> Self {
+        Self::Closed
+    }
+}
+
+/// Details about the Fundraiser.
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Fundraiser<Balance, Moment> {
-    /// The primary issuance agent that created the `Fundraiser`
+    /// The primary issuance agent that created the `Fundraiser`.
     pub creator: IdentityId,
-    /// Portfolio containing the asset being offered
+    /// Portfolio containing the asset being offered.
     pub offering_portfolio: PortfolioId,
-    /// Asset being offered
+    /// Asset being offered.
     pub offering_asset: Ticker,
-    /// Portfolio receiving funds raised
+    /// Portfolio receiving funds raised.
     pub raising_portfolio: PortfolioId,
-    /// Asset to receive payment in
+    /// Asset to receive payment in.
     pub raising_asset: Ticker,
     /// Tiers of the fundraiser.
     /// Each tier has a set amount of tokens available at a fixed price.
     /// The sum of the tiers is the total amount available in this fundraiser.
     pub tiers: Vec<FundraiserTier<Balance>>,
-    /// Id of the venue to use for this fundraise
+    /// Id of the venue to use for this fundraise.
     pub venue_id: u64,
-    /// Start of the fundraiser
+    /// Start time of the fundraiser.
     pub start: Moment,
-    /// End of the fundraiser
+    /// End time of the fundraiser.
     pub end: Option<Moment>,
-    /// Fundraiser is frozen
-    pub frozen: bool,
+    /// Fundraiser status.
+    pub status: FundraiserStatus,
+    /// Minimum raising amount per invest transaction.
+    pub minimum_investment: Balance,
 }
 
-/// Single tier of a tiered pricing model
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+/// Single tier of a tiered pricing model.
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
-    /// Total amount available
+    /// Total amount available.
     pub total: Balance,
-    /// Price per unit
+    /// Price per unit.
     pub price: Balance,
 }
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct FundraiserTier<Balance> {
-    /// Total amount available
+    /// Total amount available.
     pub total: Balance,
-    /// Price per unit
+    /// Price per unit.
     pub price: Balance,
     /// Total amount remaining for sale, set to `total` and decremented until `0`.
     pub remaining: Balance,
@@ -107,11 +130,17 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     fn into(self) -> FundraiserTier<Balance> {
         FundraiserTier {
             total: self.total.clone(),
-            price: self.price.clone(),
-            remaining: self.total.clone(),
+            price: self.price,
+            remaining: self.total,
         }
     }
 }
+
+/// Wrapper type for Fundraiser name
+#[derive(
+    Decode, Encode, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct FundraiserName(Vec<u8>);
 
 pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
     /// The overarching event type.
@@ -124,47 +153,64 @@ decl_event!(
         Balance = <T as CommonTrait>::Balance,
         Moment = <T as TimestampTrait>::Moment,
     {
-        /// A new fundraiser has been created
-        /// (primary issuance agent, fundraiser id, fundraiser details)
-        FundraiserCreated(IdentityId, u64, Fundraiser<Balance, Moment>),
-        /// An investor invested in the fundraiser
-        /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
-        FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
+        /// A new fundraiser has been created.
+        /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
+        FundraiserCreated(IdentityId, u64, FundraiserName, Fundraiser<Balance, Moment>),
+        /// An investor invested in the fundraiser.
+        /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
+        Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
+        /// An fundraiser has been frozen.
+        /// (primary issuance agent, fundraiser id)
+        FundraiserFrozen(IdentityId, u64),
+        /// An fundraiser has been unfrozen.
+        /// (primary issuance agent, fundraiser id)
+        FundraiserUnfrozen(IdentityId, u64),
+        /// An fundraiser has been stopped.
+        /// (primary issuance agent, fundraiser id)
+        FundraiserClosed(IdentityId, u64),
     }
 );
 
 decl_error! {
     /// Errors for the Settlement module.
     pub enum Error for Module<T: Trait> {
-        /// Sender does not have required permissions
+        /// Sender does not have required permissions.
         Unauthorized,
-        /// An arithmetic operation overflowed
+        /// An arithmetic operation overflowed.
         Overflow,
-        /// Not enough tokens left for sale
+        /// Not enough tokens left for sale.
         InsufficientTokensRemaining,
-        /// Fundraiser not found
+        /// Fundraiser not found.
         FundraiserNotFound,
-        /// Fundraiser is frozen
-        FundraiserFrozen,
+        /// Fundraiser is either frozen or stopped.
+        FundraiserNotLive,
+        /// Fundraiser has been closed/stopped already.
+        FundraiserClosed,
         /// Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
-        /// Using an invalid venue
+        /// An invalid venue provided.
         InvalidVenue,
-        /// An individual price tier was invalid or a set of price tiers was invalid
+        /// An individual price tier was invalid or a set of price tiers was invalid.
         InvalidPriceTiers,
         /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
         InvalidOfferingWindow,
-        /// Price of an investment exceeded the max price
+        /// Price of the investment exceeded the max price.
         MaxPriceExceeded,
+        /// Investment amount is lower than minimum investment amount.
+        InvestmentAmountTooLow
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
-        /// All fundraisers that are currently running. (ticker, fundraiser_id) -> Fundraiser
+        /// All fundraisers that are currently running.
+        /// (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
-        /// Total fundraisers created for a token
+        /// Total fundraisers created for a token.
         FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
+        /// Name for the Fundraiser. It is only used offchain.
+        /// (ticker, fundraiser_id) -> Fundraiser name
+        FundraiserNames get(fn fundraiser_name): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
     }
 }
 
@@ -198,6 +244,8 @@ decl_module! {
             venue_id: u64,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
+            minimum_investment: T::Balance,
+            fundraiser_name: FundraiserName
         ) {
             let (did, secondary_key) = Self::ensure_perms_pia(origin, &offering_asset)?;
 
@@ -235,13 +283,15 @@ decl_module! {
                 venue_id,
                 start,
                 end,
-                frozen: false,
+                status: FundraiserStatus::Live,
+                minimum_investment
             };
 
             let id = FundraiserCount::mutate(offering_asset, |id| mem::replace(id, *id + 1));
             <Fundraisers<T>>::insert(offering_asset, id, fundraiser.clone());
+            FundraiserNames::insert(offering_asset, id, fundraiser_name.clone());
 
-            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser));
+            Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser_name, fundraiser));
         }
 
         /// Invest in a fundraiser.
@@ -266,7 +316,7 @@ decl_module! {
             investment_amount: T::Balance,
             max_price: Option<T::Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
-        ) -> DispatchResult {
+        ) {
             let PermissionedCallOriginData {
                 primary_did: did,
                 secondary_key,
@@ -276,8 +326,11 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(investment_portfolio, did, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(funding_portfolio, did, secondary_key.as_ref())?;
 
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(!fundraiser.frozen, Error::<T>::FundraiserFrozen);
+            let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
+
+            ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
+            ensure!(investment_amount >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
+
             let now = Timestamp::<T>::get();
             ensure!(
                 fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
@@ -357,7 +410,7 @@ decl_module! {
                     legs
                 )?;
 
-                let portfolios= vec![fundraiser.offering_portfolio, fundraiser.raising_portfolio].into_iter().collect::<BTreeSet<_>>();
+                let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
@@ -367,20 +420,17 @@ decl_module! {
                         instruction_id,
                         vec![receipt],
                         portfolios,
-                    )?,
-                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios)?,
-                };
+                    ),
+                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios),
+                }
+            })?;
 
-                <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
-                    if let Some(fundraiser) = fundraiser {
-                        for (id, amount) in purchases {
-                            fundraiser.tiers[id].remaining -= amount;
-                        }
-                    }
-                });
+            for (id, amount) in purchases {
+                fundraiser.tiers[id].remaining -= amount;
+            }
 
-                Ok(())
-            })
+            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, investment_amount, cost));
+            <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         }
 
         /// Freeze a fundraiser.
@@ -422,6 +472,7 @@ decl_module! {
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
+                ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
                     ensure!(Timestamp::<T>::get() < end, Error::<T>::FundraiserExpired);
                 }
@@ -442,16 +493,18 @@ decl_module! {
         /// # Weight
         /// `1_000` placeholder
         #[weight = 1_000]
-        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            let did = Self::ensure_perms(origin, &offering_asset)?;
+        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
+            let did = Self::ensure_perms(origin, &offering_asset)?.0;
 
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
+            let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(
-                <Asset<T>>::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)? == did ||fundraiser.creator == did,
+                <Asset<T>>::primary_issuance_agent_or_owner(&offering_asset) == did || fundraiser.creator == did,
                 Error::<T>::Unauthorized
             );
+
+            ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
 
             let remaining_amount: T::Balance = fundraiser.tiers
                 .iter()
@@ -459,8 +512,8 @@ decl_module! {
                 .fold(0.into(), |remaining, x| remaining + x);
 
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
-            <Fundraisers<T>>::remove(offering_asset, fundraiser_id);
-            Ok(())
+            fundraiser.status = FundraiserStatus::Closed;
+            <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         }
     }
 }
@@ -472,35 +525,26 @@ impl<T: Trait> Module<T> {
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
-        Self::ensure_perms_pia(origin, &offering_asset)?;
+        let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
+        let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
+            .ok_or(Error::<T>::FundraiserNotFound)?;
         ensure!(
-            <Fundraisers<T>>::contains_key(offering_asset, fundraiser_id),
-            Error::<T>::FundraiserNotFound
+            fundraiser.status != FundraiserStatus::Closed,
+            Error::<T>::FundraiserClosed
         );
-        <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
-            if let Some(fundraiser) = fundraiser {
-                fundraiser.frozen = frozen
-            }
-        });
+        if frozen {
+            fundraiser.status = FundraiserStatus::Frozen;
+            Self::deposit_event(RawEvent::FundraiserFrozen(did, fundraiser_id));
+        } else {
+            fundraiser.status = FundraiserStatus::Live;
+            Self::deposit_event(RawEvent::FundraiserUnfrozen(did, fundraiser_id));
+        }
+        <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         Ok(())
     }
 
     /// Ensure that `origin` is permissioned, returning its DID.
     fn ensure_perms(
-        origin: <T as frame_system::Trait>::Origin,
-        asset: &Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        let PermissionedCallOriginData {
-            primary_did,
-            secondary_key,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
-        Ok(primary_did)
-    }
-
-    /// Ensure that `origin` is permissioned and the PIA, returning its DID.
-    fn ensure_perms_pia(
         origin: <T as frame_system::Trait>::Origin,
         asset: &Ticker,
     ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
@@ -509,11 +553,20 @@ impl<T: Trait> Module<T> {
             secondary_key,
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
+        Ok((primary_did, secondary_key))
+    }
+
+    /// Ensure that `origin` is permissioned and the PIA, returning its DID.
+    fn ensure_perms_pia(
+        origin: <T as frame_system::Trait>::Origin,
+        asset: &Ticker,
+    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
+        let (primary_did, secondary_key) = Self::ensure_perms(origin, asset)?;
         ensure!(
             <Asset<T>>::primary_issuance_agent_or_owner(asset) == primary_did,
             Error::<T>::Unauthorized
         );
-        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
         Ok((primary_did, secondary_key))
     }
 }

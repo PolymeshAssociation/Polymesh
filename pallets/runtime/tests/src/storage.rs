@@ -744,7 +744,7 @@ pub fn make_account_with_scope(
     ),
     &'static str,
 > {
-    let uid = InvestorUid::from(format!("{}", id).as_str());
+    let uid = create_investor_uid(id);
     let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
     let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);
     Ok((origin, did, scope_id))
@@ -776,7 +776,8 @@ pub fn make_account_with_balance(
 
             // Add CDD Claim
             let did = Identity::get_identity(&id).unwrap();
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
+            let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
+            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
                 .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
@@ -809,7 +810,7 @@ pub fn register_keyring_account_with_balance(
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
-    let uid = InvestorUid::from(format!("{}", acc).as_str());
+    let uid = create_investor_uid(acc_pub.clone());
     make_account_with_balance(acc_pub, uid, balance).map(|(_, id)| id)
 }
 
@@ -896,15 +897,30 @@ pub fn user_portfolio_vec(did: IdentityId, num: PortfolioNumber) -> Vec<Portfoli
     vec![PortfolioId::user_portfolio(did, num)]
 }
 
+pub fn create_cdd_id(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+) -> (CddId, InvestorZKProofData) {
+    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
+    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
+    (
+        compute_cdd_id(&cdd_claim).compress().to_bytes().into(),
+        proof,
+    )
+}
+
+pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
+    InvestorUid::from(format!("{}", acc).as_str())
+}
+
 pub fn provide_scope_claim(
     claim_to: IdentityId,
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
 ) -> ScopeId {
-    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
-    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
-    let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+    let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
     let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
@@ -935,14 +951,20 @@ pub fn provide_scope_claim_to_multiple_parties(
     ticker: Ticker,
     cdd_provider: AccountId,
 ) {
-    parties.iter().enumerate().for_each(|(index, id)| {
-        let uid = InvestorUid::from(format!("uid_{}", index).as_bytes());
+    parties.iter().enumerate().for_each(|(_, id)| {
+        let uid = create_investor_uid(Identity::did_records(id).primary_key);
         provide_scope_claim(*id, ticker, uid, cdd_provider);
     });
 }
 
 pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
+}
+
+pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
+    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
+    (cdd_id, uid)
 }
 
 #[macro_export]

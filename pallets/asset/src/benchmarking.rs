@@ -197,7 +197,7 @@ benchmarks! {
             total_supply: total_supply.clone(),
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner.did()),
+            primary_issuance_agent: None,
         };
 
     }: _(owner.origin(), token.name.clone(), ticker, total_supply, token.divisible, token.asset_type.clone(), identifiers.clone(), Some(fundr))
@@ -249,7 +249,7 @@ benchmarks! {
     }: _(owner.origin, ticker.clone(), (1_000_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, (2_000_000 * POLY).into());
+        assert_eq!(token.total_supply, (2_000_000 * POLY).into());
     }
 
 
@@ -259,7 +259,7 @@ benchmarks! {
     }: _(owner.origin, ticker.clone(), (600_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, (400_000 * POLY).into());
+        assert_eq!(token.total_supply, (400_000 * POLY).into());
     }
 
     make_divisible {
@@ -384,7 +384,7 @@ benchmarks! {
     remove_primary_issuance_agent {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
-    }: _(owner.origin, ticker.clone())
+    }: _(owner.origin(), ticker.clone())
     verify {
         let token = Module::<T>::token_details(ticker);
         assert_eq!( token.primary_issuance_agent, None);
@@ -436,6 +436,6 @@ benchmarks! {
     }: _(primary_issuance_agent.origin(), auth_id)
     verify {
         let token = Module::<T>::token_details(&ticker);
-        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did)
+        assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did);
     }
 }

@@ -37,13 +37,11 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module,
-    dispatch::DispatchResult,
-    ensure,
+    decl_error, decl_event, decl_module, ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
     weights::Weight,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     constants::TREASURY_MODULE_ID, traits::balances::Trait as BalancesTrait, Context, GC_DID,
@@ -53,7 +51,6 @@ use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::prelude::*;
 
 pub type ProposalIndex = u32;
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 type Identity<T> = identity::Module<T>;
 type BalanceOf<T> =
@@ -115,8 +112,7 @@ decl_module! {
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
         #[weight = <T as Trait>::WeightInfo::disbursement( beneficiaries.len() as u32)]
-        pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult
-        {
+        pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) {
             ensure_root(origin)?;
 
             // Ensure treasury has enough balance.
@@ -125,32 +121,30 @@ decl_module! {
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance
             );
-            beneficiaries.into_iter().for_each( |b| {
-                Self::unsafe_disbursement(b.id, b.amount);
-            });
-            Ok(())
+            beneficiaries.into_iter().for_each(|b| Self::unsafe_disbursement(b.id, b.amount));
         }
 
         /// It transfers the specific `amount` from `origin` account into treasury.
         ///
         /// Only accounts which are associated to an identity can make a donation to treasury.
         #[weight = <T as Trait>::WeightInfo::reimbursement()]
-        pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        pub fn reimbursement(origin, amount: BalanceOf<T>) {
+            let identity::PermissionedCallOriginData {
+                sender,
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             // Not checking the cdd for the treasury account as it is assumed
             // that treasury account posses a valid CDD check during the genesis phase
-            let _ = T::Currency::transfer(
+            T::Currency::transfer(
                 &sender,
                 &Self::account_id(),
                 amount,
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            Self::deposit_event(RawEvent::TreasuryReimbursement(did, amount));
-            Ok(())
+            Self::deposit_event(RawEvent::TreasuryReimbursement(primary_did, amount));
         }
     }
 }
@@ -171,7 +165,7 @@ impl<T: Trait> Module<T> {
             WithdrawReason::Transfer.into(),
             ExistenceRequirement::AllowDeath,
         );
-        let primary_key = <identity::Module<T>>::did_records(target).primary_key;
+        let primary_key = Identity::<T>::did_records(target).primary_key;
         let _ = T::Currency::deposit_into_existing(&primary_key, amount);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
         Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
