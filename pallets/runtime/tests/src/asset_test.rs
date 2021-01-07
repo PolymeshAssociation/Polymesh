@@ -4,8 +4,8 @@ use crate::{
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
-        Checkpoint, TestStorage,
+        provide_scope_claim_to_multiple_parties, register_keyring_account,
+        register_keyring_account_without_cdd, root, AccountId, Checkpoint, TestStorage,
     },
 };
 use chrono::prelude::Utc;
@@ -118,7 +118,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -183,7 +183,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: token.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: Some(token.owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
@@ -206,7 +206,7 @@ fn valid_transfers_pass() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -218,7 +218,7 @@ fn valid_transfers_pass() {
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
             // Provide scope claim to sender and receiver of the transaction.
@@ -284,7 +284,7 @@ fn issuers_can_redeem_tokens() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
             let bob_signed = Origin::signed(AccountKeyring::Bob.public());
             let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
@@ -644,7 +644,7 @@ fn controller_transfer() {
             Timestamp::set_timestamp(now.timestamp() as u64);
 
             let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -656,7 +656,7 @@ fn controller_transfer() {
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
             // Provide scope claim to sender and receiver of the transaction.
@@ -743,7 +743,7 @@ fn transfer_primary_issuance_agent() {
             owner_did,
             divisible: true,
             asset_type: Default::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
         };
 
         assert_ok!(Asset::create_asset(
@@ -951,7 +951,7 @@ fn update_identifiers() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -1690,7 +1690,7 @@ fn frozen_secondary_keys_create_asset_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_agent: Some(alice_id),
+        primary_issuance_agent: None,
         ..Default::default()
     };
     let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
@@ -1745,9 +1745,9 @@ fn test_can_transfer_rpc() {
         .build()
         .execute_with(|| {
             let alice_signed = Origin::signed(AccountKeyring::Alice.public());
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
-            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+            let bob_did = register_keyring_account_without_cdd(AccountKeyring::Bob).unwrap();
 
             let eve = AccountKeyring::Eve.public();
 
@@ -1924,7 +1924,7 @@ fn check_functionality_of_remove_extension() {
                 total_supply: 1_000_000_000,
                 divisible: true,
                 asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
+                primary_issuance_agent: None,
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -2535,7 +2535,7 @@ fn check_unique_investor_count() {
                 total_supply: total_supply,
                 divisible: true,
                 asset_type: AssetType::default(),
-                primary_issuance_agent: Some(alice_did),
+                primary_issuance_agent: None,
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
