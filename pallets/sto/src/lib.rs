@@ -129,8 +129,8 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     fn into(self) -> FundraiserTier<Balance> {
         FundraiserTier {
             total: self.total.clone(),
-            price: self.price.clone(),
-            remaining: self.total.clone(),
+            price: self.price,
+            remaining: self.total,
         }
     }
 }
