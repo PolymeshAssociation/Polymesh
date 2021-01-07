@@ -61,7 +61,7 @@ type Asset<T> = asset::Module<T>;
 pub enum FundraiserStatus {
     /// Fundraiser does not exist.
     Unknown,
-    /// Fundraiser is open for investments if start_time < current_time < end_time.
+    /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
     /// Fundraiser has been frozen, New investments can not be made right now.
     Frozen,
