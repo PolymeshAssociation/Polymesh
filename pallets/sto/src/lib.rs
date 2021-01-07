@@ -209,7 +209,7 @@ decl_storage! {
         FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
         /// Name for the Fundraiser. It is only used offchain.
         /// (ticker, fundraiser_id) -> Fundraiser name
-        FundraiserNames: double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
+        FundraiserNames get(fn fundraiser_name): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
     }
 }
 
