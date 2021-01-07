@@ -71,6 +71,7 @@ impl<T: Trait> From<User<T>> for UserData<T> {
 
 fn make_asset<T: Trait, N: AsRef<[u8]>>(owner: &User<T>, name: Option<N>) -> Ticker {
     benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, N>(owner, name)
+        .expect("Asset cannot be created")
 }
 
 fn set_block_number<T: Trait>(new_block_no: u64) {

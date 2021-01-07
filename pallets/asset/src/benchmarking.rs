@@ -42,16 +42,19 @@ const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
 pub fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
     benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
+        .expect("Ticker cannot be created")
 }
 
 fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
     benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
+        .expect("Asset cannot be created")
 }
 
 pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
     benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(
         owner, None,
     )
+    .expect("Indivisible asset cannot be created")
 }
 
 pub fn make_document() -> Document {

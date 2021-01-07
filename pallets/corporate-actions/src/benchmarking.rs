@@ -41,7 +41,8 @@ fn setup<T: Trait>() -> (User<T>, Ticker) {
 
     let owner = user("owner", SEED);
     let ticker =
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(&owner, None);
+        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(&owner, None)
+            .expect("Asset cannot be created");
     (owner, ticker)
 }
 
