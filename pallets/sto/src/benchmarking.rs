@@ -44,7 +44,7 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     for i in 0..n {
         tiers.push(PriceTier {
             total: 1.into(),
-            price: ((i + 1) as u128).into(),
+            price: (i as u128 + 1).into(),
         })
     }
     tiers
