@@ -960,6 +960,12 @@ pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
 }
 
+pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
+    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
+    (cdd_id, uid)
+}
+
 #[macro_export]
 macro_rules! assert_last_event {
     ($event:pat) => {

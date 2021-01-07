@@ -2,8 +2,9 @@ use super::{
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, get_identity_id, get_last_auth_id, register_keyring_account,
-        register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
+        add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
+        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
+        TestStorage,
     },
     ExtBuilder,
 };
@@ -55,6 +56,17 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
         let cdd_id = SystematicIssuers::CDDProvider.as_id();
         Identity::fetch_claim(target, claim_type, cdd_id, None)
     })
+}
+
+macro_rules! assert_add_cdd_claim {
+    ($signer:expr, $target:expr) => {
+        assert_ok!(Identity::add_claim(
+            $signer,
+            $target,
+            Claim::CustomerDueDiligence(create_cdd_id_and_investor_uid($target).0),
+            None
+        ));
+    };
 }
 
 // Tests
@@ -1108,12 +1120,7 @@ fn cdd_register_did_test_we() {
     // CDD 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(cdd1.clone(), alice, vec![]));
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    assert_ok!(Identity::add_claim(
-        cdd1.clone(),
-        alice_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(cdd1.clone(), alice_id);
 
     // Check that Alice's ID is attested by CDD 1.
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
@@ -1126,12 +1133,8 @@ fn cdd_register_did_test_we() {
     // CDD 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
-    assert_ok!(Identity::add_claim(
-        cdd2,
-        bob_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(cdd2, bob_id);
+
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 
     // Register with secondary_keys
@@ -1148,12 +1151,7 @@ fn cdd_register_did_test_we() {
         secondary_keys
     ));
     let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
-    assert_ok!(Identity::add_claim(
-        cdd1.clone(),
-        charlie_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(cdd1.clone(), charlie_id);
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
     assert_eq!(Identity::has_valid_cdd(charlie_id), true);
@@ -1301,12 +1299,7 @@ fn invalidate_cdd_claims_we() {
         vec![]
     ));
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    assert_ok!(Identity::add_claim(
-        Origin::signed(cdd),
-        alice_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(Origin::signed(cdd), alice_id);
 
     // Check that Alice's ID is attested by CDD 1.
     let cdd_1_id = Identity::get_identity(&cdd).unwrap();
@@ -1379,12 +1372,8 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     ));
     let charlie_id =
         get_identity_id(AccountKeyring::Charlie).expect("Charlie should have an Identity Id");
-    assert_ok!(Identity::add_claim(
-        alice,
-        charlie_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(alice, charlie_id);
+
     let charlie_cdd_claim =
         Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
 
@@ -1452,12 +1441,8 @@ fn gc_with_systematic_cdd_claims_we() {
     ));
     let ferdie_id =
         get_identity_id(AccountKeyring::Ferdie).expect("Ferdie should have an Identity Id");
-    assert_ok!(Identity::add_claim(
-        alice,
-        ferdie_id,
-        Claim::default_cdd_id(),
-        None
-    ));
+    assert_add_cdd_claim!(alice, ferdie_id);
+
     let ferdie_cdd_claim =
         Identity::fetch_cdd(ferdie_id, 0).expect("Ferdie should have a CDD claim by Alice");
 
@@ -1537,12 +1522,7 @@ fn add_permission_with_secondary_key() {
                 vec![sig_1.clone().into(), sig_2.clone().into()]
             ));
             let alice_did = Identity::get_identity(&alice_acc).unwrap();
-            assert_ok!(Identity::add_claim(
-                Origin::signed(cdd_1_acc),
-                alice_did,
-                Claim::default_cdd_id(),
-                None
-            ));
+            assert_add_cdd_claim!(Origin::signed(cdd_1_acc), alice_did);
 
             let bob_auth_id = get_last_auth_id(&Signatory::Account(bob_acc));
             let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie_acc));

@@ -1032,8 +1032,9 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
         "Error in registering the DID"
     );
     let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert!(
-        Identity::add_claim(cdd.clone(), did, Claim::default_cdd_id(), None).is_ok(),
+        Identity::add_claim(cdd.clone(), did, Claim::CustomerDueDiligence(cdd_id), None).is_ok(),
         "Error CDD Claim cannot be added to DID"
     );
     true
@@ -1690,10 +1691,11 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         vec![]
     ));
     let did = Identity::get_identity(&stash).unwrap();
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert_ok!(Identity::add_claim(
         Origin::signed(1005),
         did,
-        Claim::default_cdd_id(),
+        Claim::CustomerDueDiligence(cdd_id),
         Some(expiry.into())
     ));
 }
