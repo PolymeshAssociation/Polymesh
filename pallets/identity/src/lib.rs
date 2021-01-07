@@ -114,7 +114,7 @@ use polymesh_common_utilities::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
-    Context, SystematicIssuers, GC_DID,
+    Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
     secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
@@ -196,7 +196,6 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
 
             SYSTEMATIC_ISSUERS
                 .iter()
@@ -901,7 +900,7 @@ decl_module! {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
-            Self::base_add_cdd_claim(target, Claim::make_cdd_wildcard(), GC_DID, expiry)
+            Self::base_add_cdd_claim(target, Claim::default_cdd_id(), GC_DID, expiry)
         }
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
@@ -973,6 +972,10 @@ decl_error! {
         ClaimVariantNotAllowed,
         /// Try to delete the IU claim even when the user has non zero balance at given scopeId.
         TargetHasNonZeroBalanceAtScopeId,
+        /// CDDId should be unique & same within all cdd claims possessed by a DID.
+        CDDIdNotUniqueForIdentity,
+        /// Non systematic CDD providers can not create default cdd_id claims.
+        InvalidCDDId,
         /// Do not allow forwarded call to be called recursively
         RecursionNotAllowed
     }
@@ -1375,6 +1378,16 @@ impl<T: Trait> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> Option<IdentityId> {
+        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id)
+            .map(|id_claim| id_claim.claim_issuer)
+            .next()
+    }
+
+    pub fn base_fetch_valid_cdd_claims(
+        claim_for: IdentityId,
+        leeway: T::Moment,
+        filter_cdd_id: Option<CddId>,
+    ) -> impl Iterator<Item = IdentityClaim> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1393,8 +1406,8 @@ impl<T: Trait> Module<T> {
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
             .collect::<Vec<_>>();
 
-        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .find(|id_claim| {
+        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence).filter(
+            move |id_claim| {
                 if let Some(cdd_id) = &filter_cdd_id {
                     if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
                         if claim_cdd_id != cdd_id {
@@ -1409,8 +1422,8 @@ impl<T: Trait> Module<T> {
                     &active_cdds,
                     &inactive_not_expired_cdds,
                 )
-            })
-            .map(|id_claim| id_claim.claim_issuer)
+            },
+        )
     }
 
     /// A CDD claims is considered valid if:
@@ -1658,8 +1671,41 @@ impl<T: Trait> Module<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         Self::ensure_authorized_cdd_provider(issuer)?;
+        // Ensure cdd_id uniqueness for a given target DID.
+        Self::ensure_cdd_id_validness(&claim, issuer, target)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
+        Ok(())
+    }
+
+    /// Enforce CDD_ID uniqueness for a given target DID and make sure only Systematic CDD providers can use default CDDId.
+    ///
+    /// # Errors
+    /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id doesn't match the existing cdd claim's cdd_id.
+    /// - `InvalidCDDId` is returned when a non Systematic CDD provider adds the default cdd_id claim.
+    fn ensure_cdd_id_validness(
+        claim: &Claim,
+        issuer: IdentityId,
+        target: IdentityId,
+    ) -> DispatchResult {
+        if let Claim::CustomerDueDiligence(cdd_id) = claim {
+            if cdd_id.is_default_cdd() {
+                ensure!(
+                    SYSTEMATIC_ISSUERS.iter().any(|si| si.as_id() == issuer),
+                    Error::<T>::InvalidCDDId
+                );
+            } else {
+                ensure!(
+                    !Self::base_fetch_valid_cdd_claims(target, 0.into(), None).any(|id_claim| {
+                        if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
+                            return !c_id.is_default_cdd() && c_id != *cdd_id;
+                        }
+                        true
+                    }),
+                    Error::<T>::CDDIdNotUniqueForIdentity
+                );
+            }
+        }
         Ok(())
     }
 
