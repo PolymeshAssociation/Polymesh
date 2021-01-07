@@ -1249,20 +1249,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
-        #[inline]
-        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
-            Ok(Portfolio::rpc_get_portfolios(did))
-        }
-
-        #[inline]
-        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
-            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
-        {
-            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
-        }
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(

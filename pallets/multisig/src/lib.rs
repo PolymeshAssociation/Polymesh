@@ -59,7 +59,7 @@
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
 //! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
 //! the creator of the multisig.
-//! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current did
+//! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current DID
 //! is the creator of the multisig.
 //!
 //! ### Other Public Functions
@@ -293,10 +293,8 @@ decl_module! {
             expiry: Option<T::Moment>,
             auto_close: bool
         ) {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let sender_signer = Signatory::from(sender_did);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
+            let signer = Self::ensure_signed_did(origin)?;
+            Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -547,7 +545,7 @@ decl_module! {
             )
         }
 
-        /// Adds a multisig as the primary key of the current did if the current did is the creator
+        /// Adds a multisig as the primary key of the current did if the current DID is the creator
         /// of the multisig.
         ///
         /// # Arguments
