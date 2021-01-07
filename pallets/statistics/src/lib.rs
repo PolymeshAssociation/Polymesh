@@ -223,9 +223,9 @@ impl<T: Trait> Module<T> {
         receiver_balance: T::Balance,
         total_supply: T::Balance,
     ) -> DispatchResult {
-        let transfer_managers = Self::transfer_managers(ticker);
-        for tm in transfer_managers {
-            match tm {
+        Self::transfer_managers(ticker)
+            .into_iter()
+            .try_for_each(|tm| match tm {
                 TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
                     ticker,
                     sender,
@@ -233,7 +233,7 @@ impl<T: Trait> Module<T> {
                     sender_balance,
                     receiver_balance,
                     max_count,
-                )?,
+                ),
                 TransferManager::PercentageTransferManager(max_percentage) => Self::ensure_ptm(
                     ticker,
                     receiver,
@@ -241,10 +241,8 @@ impl<T: Trait> Module<T> {
                     receiver_balance,
                     total_supply,
                     max_percentage,
-                )?,
-            }
-        }
-        Ok(())
+                ),
+            })
     }
 
     fn ensure_ctm(

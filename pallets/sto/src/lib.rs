@@ -357,7 +357,7 @@ decl_module! {
                     legs
                 )?;
 
-                let portfolios= vec![fundraiser.offering_portfolio, fundraiser.raising_portfolio].into_iter().collect::<BTreeSet<_>>();
+                let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
@@ -442,14 +442,14 @@ decl_module! {
         /// # Weight
         /// `1_000` placeholder
         #[weight = 1_000]
-        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
+        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
             let did = Self::ensure_perms(origin, &offering_asset)?;
 
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(
-                <Asset<T>>::primary_issuance_agent(&offering_asset).ok_or(Error::<T>::Unauthorized)? == did ||fundraiser.creator == did,
+                <Asset<T>>::primary_issuance_agent_or_owner(&offering_asset) == did || fundraiser.creator == did,
                 Error::<T>::Unauthorized
             );
 
@@ -460,7 +460,6 @@ decl_module! {
 
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
             <Fundraisers<T>>::remove(offering_asset, fundraiser_id);
-            Ok(())
         }
     }
 }
