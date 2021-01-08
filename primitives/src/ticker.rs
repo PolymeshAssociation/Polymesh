@@ -77,7 +77,7 @@ impl Ticker {
         const fn to_ascii_uppercase(b: u8) -> u8 {
             b & !((b.is_ascii_lowercase() as u8) << 5)
         }
-        Ticker([to_ascii_uppercase(b); TICKER_LEN])
+        Self([to_ascii_uppercase(b); TICKER_LEN])
     }
     /// Computes the effective length of the ticker, that is, the length of the minimal prefix after
     /// which only zeros appear.
