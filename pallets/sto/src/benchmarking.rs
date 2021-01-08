@@ -126,7 +126,7 @@ benchmarks! {
 
         let (alice, alice_portfolio) = user::<T>("alice");
 
-         create_assets_and_compliance::<T>(&alice, &[OFFERING_TICKER, RAISE_TICKER], 1_000_000, 0)?;
+        create_assets_and_compliance::<T>(&alice, &[OFFERING_TICKER, RAISE_TICKER], 1_000_000, 0)?;
 
         let venue_id = create_venue(&alice)?;
         let tiers = generate_tiers::<T>(i);
