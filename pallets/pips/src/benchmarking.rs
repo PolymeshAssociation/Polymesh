@@ -121,7 +121,7 @@ fn pips_and_votes_setup<T: Trait>(
     Ok((origin, did))
 }
 
-fn enact_call<T: Trait>() -> Call<T> {
+fn enact_call<T: Trait>(num_skips: u32, num_rejects: u32, num_approves: u32) -> Call<T> {
     Call::<T>::enact_snapshot_results(
         Module::<T>::snapshot_queue()
             .iter()
@@ -137,6 +137,17 @@ fn enact_call<T: Trait>() -> Call<T> {
             .rev()
             .collect(),
     )
+}
+
+fn propose_verify<T: Trait>() -> DispatchResult {
+    let meta = Module::<T>::proposal_metadata(0).unwrap();
+    ensure!(0 == meta.id, "incorrect meta.id");
+    ensure!(Some(url) == meta.url, "incorrect meta.url");
+    ensure!(
+        Some(description) == meta.description,
+        "incorrect meta.description"
+    );
+    Ok(())
 }
 
 benchmarks! {
@@ -196,10 +207,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
     }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
     verify {
-        let meta = Module::<T>::proposal_metadata(0).unwrap();
-        ensure!(0 == meta.id, "propose_from_community: incorrect meta.id");
-        ensure!(Some(url) == meta.url, "propose_from_community: incorrect meta.url");
-        ensure!(Some(description) == meta.description, "propose_from_community: incorrect meta.description");
+        propose_verify::<T>();
     }
 
     // `propose` from a committee origin.
@@ -215,10 +223,7 @@ benchmarks! {
         call.dispatch_bypass_filter(origin)?;
     }
     verify {
-        let meta = Module::<T>::proposal_metadata(0).unwrap();
-        ensure!(0 == meta.id, "propose_from_committee: incorrect meta.id");
-        ensure!(Some(url) == meta.url, "propose_from_committee: incorrect meta.url");
-        ensure!(Some(description) == meta.description, "propose_from_committee: incorrect meta.description");
+        propose_verify::<T>();
     }
 
     vote {
@@ -371,7 +376,13 @@ benchmarks! {
 
     // TODO reduce fn complexity
     enact_snapshot_results {
-        // set up
+        // The number of Skip results.
+        let s in 0..PROPOSALS_NUM;
+        // The number of Reject results.
+        let r in 0..PROPOSALS_NUM;
+        // The number of Approve results.
+        let a in 0..PROPOSALS_NUM;
+
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
         // snapshot
@@ -381,7 +392,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>();
+        let enact_call = enact_call::<T>(s, r, a);
     }: {
         enact_call.dispatch_bypass_filter(enact_origin)?;
     }
@@ -403,7 +414,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>();
+        let enact_call = enact_call::<T>(0, 0, PROPOSALS_NUM);
         enact_call.dispatch_bypass_filter(enact_origin)?;
 
         // execute
