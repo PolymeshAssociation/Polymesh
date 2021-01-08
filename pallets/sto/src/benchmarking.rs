@@ -33,9 +33,23 @@ fn create_asset<T: Trait>(
     )
 }
 
-fn add_compliance<T: Trait>(origin: RawOrigin<T::AccountId>, ticker: Ticker) -> DispatchResult {
-    //TODO: replace with worst case rules
+fn add_empty_compliance<T: Trait>(
+    origin: RawOrigin<T::AccountId>,
+    ticker: Ticker,
+) -> DispatchResult {
     <ComplianceManager<T>>::add_compliance_requirement(origin.into(), ticker, vec![], vec![])
+}
+
+fn create_asset_and_compliance<T: Trait>(
+    origin: RawOrigin<T::AccountId>,
+    tickers: &[Ticker],
+    supply: u128,
+) -> DispatchResult {
+    for ticker in tickers {
+        create_asset::<T>(origin.clone(), ticker.clone(), supply.clone())?;
+        add_empty_compliance::<T>(origin.clone(), ticker.clone())?;
+    }
+    Ok(())
 }
 
 fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
@@ -50,25 +64,25 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     tiers
 }
 
+fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
+    let venue_id = <Settlement<T>>::venue_counter();
+    <Settlement<T>>::create_venue(
+        user.origin().into(),
+        VenueDetails::default(),
+        vec![user.account()],
+        VenueType::Sto,
+    )?;
+    Ok(venue_id)
+}
+
 fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
-    let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-    let alice_portfolio = PortfolioId::default_portfolio(alice.did());
+    let (alice, alice_portfolio) = user::<T>("alice");
 
     let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
     let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-    create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-    create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
+    create_asset_and_compliance::<T>(alice.origin(), &[offering_ticker, raise_ticker], 1_000_000)?;
 
-    add_compliance::<T>(alice.origin(), offering_ticker)?;
-    add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-    let venue_id = <Settlement<T>>::venue_counter();
-    <Settlement<T>>::create_venue(
-        alice.origin().into(),
-        VenueDetails::default(),
-        vec![alice.account()],
-        VenueType::Sto,
-    )?;
+    let venue_id = create_venue(&alice)?;
 
     <Sto<T>>::create_fundraiser(
         alice.origin().into(),
@@ -79,10 +93,16 @@ fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
         generate_tiers::<T>(1),
         venue_id,
         None,
-        None,
+        Some(101.into()),
     )?;
 
     Ok((alice, offering_ticker))
+}
+
+fn user<T: Trait>(name: &'static str) -> (User<T>, PortfolioId) {
+    let user = <UserBuilder<T>>::default().generate_did().build(name);
+    let portfolio = PortfolioId::default_portfolio(user.did());
+    (user, portfolio)
 }
 
 benchmarks! {
@@ -92,31 +112,21 @@ benchmarks! {
         // Number of tiers
         let i in 1 .. MAX_TIERS as u32;
 
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
+        let (alice, alice_portfolio) = user::<T>("alice");
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
+        create_asset_and_compliance::<T>(alice.origin(), &[offering_ticker, raise_ticker], 1_000_000)?;
 
-        add_compliance::<T>(alice.origin(), offering_ticker)?;
-        add_compliance::<T>(alice.origin(), raise_ticker)?;
-
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
+        let venue_id = create_venue(&alice)?;
+        let tiers = generate_tiers::<T>(i);
     }: _(
             alice.origin(),
             alice_portfolio,
             offering_ticker,
             alice_portfolio,
             raise_ticker,
-            generate_tiers::<T>(i),
+            tiers,
             venue_id,
             None,
             None
@@ -129,10 +139,8 @@ benchmarks! {
         // Rule complexity
         let c in 1 .. T::MaxConditionComplexity::get() as u32;
 
-        let alice = <UserBuilder<T>>::default().generate_did().build("alice");
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-        let bob = <UserBuilder<T>>::default().generate_did().build("bob");
-        let bob_portfolio = PortfolioId::default_portfolio(bob.did());
+        let (alice, alice_portfolio) = user::<T>("alice");
+        let (bob, bob_portfolio) = user::<T>("bob");
 
         let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
@@ -145,13 +153,7 @@ benchmarks! {
         compliance_setup::<T>(c, offering_ticker, alice.origin(), alice.did(), bob.did(), trusted_issuer.clone());
         compliance_setup::<T>(c, raise_ticker, alice.origin(), bob.did(), alice.did(), trusted_issuer);
 
-        let venue_id = <Settlement<T>>::venue_counter();
-        <Settlement<T>>::create_venue(
-            alice.origin().into(),
-            VenueDetails::default(),
-            vec![alice.account()],
-            VenueType::Sto
-        )?;
+        let venue_id = create_venue(&alice)?;
 
         <Asset<T>>::unsafe_transfer(
             alice_portfolio,
