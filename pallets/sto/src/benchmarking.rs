@@ -1,6 +1,5 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-use core::convert::TryFrom;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
@@ -8,6 +7,9 @@ use pallet_settlement::{benchmarking::compliance_setup, VenueDetails};
 use polymesh_common_utilities::benchs::User;
 use polymesh_common_utilities::{asset::AssetType, benchs::UserBuilder};
 use polymesh_primitives::TrustedIssuer;
+
+const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
+const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
 
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
@@ -33,21 +35,26 @@ fn create_asset<T: Trait>(
     )
 }
 
-fn add_empty_compliance<T: Trait>(
-    origin: RawOrigin<T::AccountId>,
-    ticker: Ticker,
-) -> DispatchResult {
-    <ComplianceManager<T>>::add_compliance_requirement(origin.into(), ticker, vec![], vec![])
-}
-
-fn create_asset_and_compliance<T: Trait>(
-    origin: RawOrigin<T::AccountId>,
+fn create_assets_and_compliance<T: Trait>(
+    user: &User<T>,
     tickers: &[Ticker],
     supply: u128,
+    complexity: u32,
 ) -> DispatchResult {
+    let t_issuer = UserBuilder::<T>::default()
+        .generate_did()
+        .build("TrustedClaimIssuer");
+    let trusted_issuer = TrustedIssuer::from(t_issuer.did());
     for ticker in tickers {
-        create_asset::<T>(origin.clone(), ticker.clone(), supply.clone())?;
-        add_empty_compliance::<T>(origin.clone(), ticker.clone())?;
+        create_asset::<T>(user.origin(), ticker.clone(), supply.clone())?;
+        compliance_setup::<T>(
+            complexity,
+            ticker.clone(),
+            user.origin(),
+            user.did(),
+            user.did(),
+            trusted_issuer.clone(),
+        );
     }
     Ok(())
 }
@@ -75,28 +82,33 @@ fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
     Ok(venue_id)
 }
 
-fn setup_fundraiser<T: Trait>() -> Result<(User<T>, Ticker), DispatchError> {
+fn setup_fundraiser<T: Trait>(complexity: u32, tiers: u32) -> Result<User<T>, DispatchError> {
     let (alice, alice_portfolio) = user::<T>("alice");
 
-    let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-    create_asset_and_compliance::<T>(alice.origin(), &[offering_ticker, raise_ticker], 1_000_000)?;
+    create_assets_and_compliance::<T>(
+        &alice,
+        &[OFFERING_TICKER, RAISE_TICKER],
+        1_000_000,
+        complexity,
+    )?;
 
     let venue_id = create_venue(&alice)?;
 
     <Sto<T>>::create_fundraiser(
         alice.origin().into(),
         alice_portfolio,
-        offering_ticker,
+        OFFERING_TICKER,
         alice_portfolio,
-        raise_ticker,
-        generate_tiers::<T>(1),
+        RAISE_TICKER,
+        generate_tiers::<T>(tiers),
         venue_id,
         None,
         Some(101.into()),
+        0.into(),
+        vec![].into(),
     )?;
 
-    Ok((alice, offering_ticker))
+    Ok(alice)
 }
 
 fn user<T: Trait>(name: &'static str) -> (User<T>, PortfolioId) {
@@ -114,104 +126,80 @@ benchmarks! {
 
         let (alice, alice_portfolio) = user::<T>("alice");
 
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset_and_compliance::<T>(alice.origin(), &[offering_ticker, raise_ticker], 1_000_000)?;
+         create_assets_and_compliance::<T>(&alice, &[OFFERING_TICKER, RAISE_TICKER], 1_000_000, 0)?;
 
         let venue_id = create_venue(&alice)?;
         let tiers = generate_tiers::<T>(i);
     }: _(
             alice.origin(),
             alice_portfolio,
-            offering_ticker,
+            OFFERING_TICKER,
             alice_portfolio,
-            raise_ticker,
+            RAISE_TICKER,
             tiers,
             venue_id,
             None,
-            None
+            None,
+            0.into(),
+            vec![].into()
         )
     verify {
-        ensure!(FundraiserCount::get(offering_ticker) > 0, "create_fundraiser");
+        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "create_fundraiser");
     }
 
     invest {
         // Rule complexity
         let c in 1 .. T::MaxConditionComplexity::get() as u32;
 
-        let (alice, alice_portfolio) = user::<T>("alice");
+        let  alice = setup_fundraiser::<T>(c, MAX_TIERS as u32)?;
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
         let (bob, bob_portfolio) = user::<T>("bob");
-
-        let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-        create_asset::<T>(alice.origin(), offering_ticker, 1_000_000)?;
-        create_asset::<T>(alice.origin(), raise_ticker, 1_000_000)?;
-
-        let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
-        let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-
-        compliance_setup::<T>(c, offering_ticker, alice.origin(), alice.did(), bob.did(), trusted_issuer.clone());
-        compliance_setup::<T>(c, raise_ticker, alice.origin(), bob.did(), alice.did(), trusted_issuer);
-
-        let venue_id = create_venue(&alice)?;
 
         <Asset<T>>::unsafe_transfer(
             alice_portfolio,
             bob_portfolio,
-            &raise_ticker,
+            &RAISE_TICKER,
             1_000_000.into()
-        )?;
-
-        <Sto<T>>::create_fundraiser(
-            alice.origin().into(),
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            generate_tiers::<T>(MAX_TIERS as u32),
-            venue_id,
-            None,
-            None
         )?;
     }: _(
             bob.origin(),
             bob_portfolio,
             bob_portfolio,
-            offering_ticker,
+            OFFERING_TICKER,
             0,
             (MAX_TIERS as u128).into(),
             Some(100.into()),
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&offering_ticker, bob.did()) > 0.into(), "invest");
+        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.did()) > 0.into(), "invest");
     }
 
     freeze_fundraiser {
-        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker, 0)
+        let alice = setup_fundraiser::<T>(0, 1)?;
+    }: _(alice.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(offering_ticker) > 0, "freeze_fundraiser");
+        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
-        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker, 0)
+        let alice = setup_fundraiser::<T>(0, 1)?;
+    }: _(alice.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(offering_ticker) > 0, "unfreeze_fundraiser");
+        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
-        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker, 0, 100.into(), Some(101.into()))
+        let alice = setup_fundraiser::<T>(0, 1)?;
+    }: _(alice.origin(), OFFERING_TICKER, 0, 100.into(), Some(101.into()))
     verify {
-        ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
+        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "modify_fundraiser_window");
     }
 
     stop {
-        let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker, 0)
+        let alice = setup_fundraiser::<T>(0, 1)?;
+    }: _(alice.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
+        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "modify_fundraiser_window");
     }
 }
