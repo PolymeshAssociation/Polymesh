@@ -447,6 +447,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
     type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
@@ -456,6 +457,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
     type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;

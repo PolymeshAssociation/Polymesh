@@ -121,6 +121,9 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
+    /// Required origin for changing the voting threshold.
+    type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -262,16 +265,15 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
-        /// majority use (1, 2) which represents the in-equation ">= 1/2"
+        /// Change the vote threshold the determines the winning proposal.
+        /// For e.g., for a simple majority use (1, 2) which represents the in-equation ">= 1/2".
         ///
         /// # Arguments
-        /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
         #[weight = <T as Trait<I>>::WeightInfo::set_vote_threshold()]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::VoteThresholdOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));

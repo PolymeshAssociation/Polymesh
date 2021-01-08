@@ -425,6 +425,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
     type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
@@ -449,6 +450,7 @@ macro_rules! committee_config {
             type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<committee::$instance>;
+            type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
             type MotionDuration = MotionDuration;
             type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
