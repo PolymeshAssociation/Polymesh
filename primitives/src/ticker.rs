@@ -73,7 +73,7 @@ impl Decode for Ticker {
 impl Ticker {
     /// Create ticker by repeating `b` for `TICKER_LEN`
     pub const fn repeating(b: u8) -> Ticker {
-        // replace with u8::to_ascii_uppercase when it's const
+        // TODO: replace with u8::to_ascii_uppercase when it's const
         const fn to_ascii_uppercase(b: u8) -> u8 {
             b & !((b.is_ascii_lowercase() as u8) << 5)
         }
