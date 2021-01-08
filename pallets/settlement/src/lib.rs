@@ -424,7 +424,9 @@ decl_error! {
         /// The current instruction affirmation status does not support the requested action.
         UnexpectedAffirmationStatus,
         /// Scheduling of an instruction fails.
-        FailedToSchedule
+        FailedToSchedule,
+        ///
+        IncorrectLegCountSubmitted
     }
 }
 
@@ -598,9 +600,10 @@ decl_module! {
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
+                let legs_count = legs.len() as u64;
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter())
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
         }
 
@@ -608,10 +611,11 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to affirm.
-        /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction
-        #[weight = <T as Trait>::WeightInfo::affirm_instruction(portfolios.len() as u32)]
-        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter())
+        /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
+        /// * `legs` - List of legs needs to affirmed.
+        #[weight = <T as Trait>::WeightInfo::affirm_instruction(*legs_count as u32)]
+        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) -> DispatchResult {
+            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter(), legs_count)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -619,13 +623,13 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(portfolios.len() as u32)]
-        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) {
+        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*legs_count as u32)]
+        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, legs_count, secondary_key.as_ref())?;
             if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
@@ -637,8 +641,8 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
         /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
-        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(portfolios.len() as u32)]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) {
+        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*legs_count as u32)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             ensure!(!portfolios.is_empty(), Error::<T>::NoPortfolioProvided);
 
@@ -655,7 +659,7 @@ decl_module! {
                     _ => return Err(Error::<T>::NoPendingAffirm.into())
                 };
             }
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios, secondary_key.as_ref())?;
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios, legs_count, secondary_key.as_ref())?;
 
             // Updates storage to mark the instruction as rejected.
             for portfolio in portfolios_set {
@@ -904,10 +908,27 @@ impl<T: Trait> Module<T> {
         Ok(instruction_counter)
     }
 
+    fn get_valid_legs(
+        instruction_id: u64,
+        legs_count: u64,
+        portfolios: &BTreeSet<PortfolioId>,
+    ) -> Result<Vec<(u64, Leg<T::Balance>)>, DispatchError> {
+        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
+            .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
+            .collect::<Vec<(u64, Leg<T::Balance>)>>();
+        // Ensure given legs count is matches with the total number of legs given portfolios have.
+        ensure!(
+            legs.len() as u64 == legs_count,
+            Error::<T>::IncorrectLegCountSubmitted
+        );
+        Ok(legs)
+    }
+
     fn unsafe_withdraw_instruction_affirmation(
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
+        legs_count: u64,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         // checks custodianship of portfolios and affirmation status
@@ -918,11 +939,9 @@ impl<T: Trait> Module<T> {
             secondary_key,
             &[AffirmationStatus::Affirmed],
         )?;
-        // Unlock tokens that were previously locked during the affirmation
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
-        for (leg_id, leg_details) in
-            legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
-        {
+        // Unlock tokens that were previously locked during the affirmation.
+        let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
+        for (leg_id, leg_details) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
@@ -930,7 +949,7 @@ impl<T: Trait> Module<T> {
                     Self::deposit_event(RawEvent::ReceiptUnclaimed(
                         did,
                         instruction_id,
-                        leg_id,
+                        *leg_id,
                         receipt_uid,
                         signer,
                     ));
@@ -1086,6 +1105,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
+        legs_count: u64,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
@@ -1098,10 +1118,8 @@ impl<T: Trait> Module<T> {
         )?;
 
         with_transaction(|| {
-            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
-            for (leg_id, leg_details) in
-                legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
-            {
+            let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
+            for (leg_id, leg_details) in legs.iter() {
                 if let Err(_) = Self::lock_via_leg(&leg_details) {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                     return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
@@ -1396,13 +1414,20 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
+        legs_count: u64,
     ) -> DispatchResult {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set, secondary_key.as_ref())
+        Self::unsafe_affirm_instruction(
+            did,
+            instruction_id,
+            portfolios_set,
+            legs_count,
+            secondary_key.as_ref(),
+        )
     }
 
     // It affirms the instruction and may schedule the instruction
@@ -1428,8 +1453,9 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
+        legs_count: u64,
     ) -> DispatchResult {
-        Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
+        Self::base_affirm_instruction(origin, instruction_id, portfolios, legs_count)?;
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
@@ -1445,9 +1471,15 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
+        legs_count: u64,
     ) -> DispatchResult {
         with_transaction(|| {
-            Self::base_affirm_instruction(origin, instruction_id, portfolios.into_iter())?;
+            Self::base_affirm_instruction(
+                origin,
+                instruction_id,
+                portfolios.into_iter(),
+                legs_count,
+            )?;
             Self::execute_settle_on_affirmation_instruction(
                 instruction_id,
                 Self::instruction_affirms_pending(instruction_id),
