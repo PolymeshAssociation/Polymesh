@@ -477,7 +477,7 @@ fn token_swap() {
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did),
-                2
+                1
             ));
 
             assert_eq!(
@@ -534,7 +534,7 @@ fn token_swap() {
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did),
-                2
+                1
             ));
 
             assert_eq!(
@@ -586,7 +586,7 @@ fn token_swap() {
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did),
-                2
+                1
             ));
 
             assert_eq!(
@@ -643,7 +643,7 @@ fn token_swap() {
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did),
-                2
+                1
             ));
 
             assert_instruction_execution!(
