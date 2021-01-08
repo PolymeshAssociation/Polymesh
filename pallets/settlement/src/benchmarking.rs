@@ -568,7 +568,6 @@ fn add_transfer_manager<T: Trait>(
     // Add Transfer manager
     <pallet_statistics::Module<T>>::add_transfer_manager(origin.clone().into(), ticker, tm.clone())
         .expect("failed to add transfer manager");
-    frame_support::debug::info!("Scope Id that get exempted {:?}", exempted_entity);
     // Exempt the user.
     <pallet_statistics::Module<T>>::add_exempted_entities(
         origin.into(),

@@ -190,7 +190,7 @@ parameter_types! {
 }
 
 impl pallet_babe::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -220,7 +220,7 @@ impl pallet_indices::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type Deposit = IndexDeposit;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
 }
 
 parameter_types! {
@@ -341,7 +341,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -613,7 +613,7 @@ impl pallet_im_online::Trait for Runtime {
 }
 
 impl pallet_grandpa::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
     type Event = Event;
     type Call = Call;
 
@@ -784,7 +784,7 @@ impl pallet_scheduler::Trait for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
 construct_runtime!(
@@ -1234,20 +1234,6 @@ impl_runtime_apis! {
             merge_active_and_inactive::<Block>(
                 CommitteeMembership::active_members(),
                 CommitteeMembership::inactive_members())
-        }
-    }
-
-    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
-        #[inline]
-        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
-            Ok(Portfolio::rpc_get_portfolios(did))
-        }
-
-        #[inline]
-        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
-            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
-        {
-            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
         }
     }
 }

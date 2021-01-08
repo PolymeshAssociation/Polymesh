@@ -30,7 +30,7 @@ serde = { version = "1.0.104", default-features = false }
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 no_std = []
 std = [
     "frame-benchmarking/std",

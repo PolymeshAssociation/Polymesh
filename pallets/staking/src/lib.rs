@@ -2005,7 +2005,7 @@ decl_module! {
         /// - Write: Nominators, Validators
         /// # </weight>
         #[weight = 17 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(2, 2)]
-        pub fn validate(origin, prefs: ValidatorPrefs) {
+        pub fn validate(origin, prefs: ValidatorPrefs) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -2027,7 +2027,7 @@ decl_module! {
                 <Nominators<T>>::remove(stash);
                 <Validators<T>>::insert(stash, prefs);
             }
-
+            Ok(())
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.
@@ -3995,18 +3995,21 @@ where
             T::AccountId,
             pallet_session::historical::IdentificationTuple<T>,
         >],
-        slash_fraction: &[Perbill],
+        raw_slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
             return Err(());
         }
 
-        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
-        if Self::slashing_allowed_for() == SlashingSwitch::None {
-            // Return `0` weight because no need to run through when Slashing is off.
-            return Ok(Zero::zero());
-        }
+        // Polymesh-note: When slashing is off or allowed for none, set slash fraction to zero
+        let long_living_slash_fraction;
+        let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
+            long_living_slash_fraction = vec![Perbill::from_parts(0); raw_slash_fraction.len()];
+            long_living_slash_fraction.as_slice()
+        } else {
+            raw_slash_fraction
+        };
 
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;

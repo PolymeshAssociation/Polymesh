@@ -391,7 +391,7 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "InvestorZKProofData": "[u8;64]",
+        "InvestorZKProofData": "Signature",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -1021,6 +1021,14 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserName": "Text",
+        "FundraiserStatus": {
+            "_enum": [
+                "Live",
+                "Frozen",
+                "Closed"
+            ]
+        },
         "FundraiserTier": {
             "total": "Balance",
             "price": "Balance",
@@ -1036,7 +1044,8 @@
             "venue_id": "u64",
             "start": "Moment",
             "end": "Option<Moment>",
-            "frozen": "bool"
+            "status": "FundraiserStatus",
+            "minimum_investment": "Balance"
         },
         "VenueType": {
             "_enum": [
@@ -1128,7 +1137,7 @@
             "price": "Balance"
         },
         "AssetMigrationError": {
-            "_enum": { 
+            "_enum": {
                 "AssetDocumentFail": "(Ticker, DocumentId)"
             }
         },
@@ -1348,7 +1357,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVoting"
+                "type": "HistoricalVotingByAddress"
             },
             "votingHistoryById": {
                 "description": "Retrieve historical voting of `id` identity",
@@ -1364,7 +1373,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVotingByAddress"
+                "type": "HistoricalVotingById"
             }
         },
         "protocolFee": {
@@ -1444,30 +1453,6 @@
                     }
                 ],
                 "type": "CanTransferResult"
-            }
-        },
-        "portfolio": {
-            "getPortfolios": {
-                "description": "Gets all user-defined portfolio names of an identity",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfoliosResult"
-            },
-            "getPortfolioAssets": {
-                "description": "Gets the balances of all assets in a given portfolio",
-                "params": [
-                    {
-                        "name": "portfolio_id",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfolioAssetsResult"
             }
         }
     }
