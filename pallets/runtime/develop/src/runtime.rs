@@ -193,7 +193,7 @@ parameter_types! {
 }
 
 impl pallet_babe::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -223,7 +223,7 @@ impl pallet_indices::Trait for Runtime {
     type Currency = Balances;
     type Deposit = IndexDeposit;
     type Event = Event;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
 }
 
 parameter_types! {
@@ -344,7 +344,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -603,7 +603,7 @@ impl pallet_im_online::Trait for Runtime {
 }
 
 impl pallet_grandpa::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
     type Event = Event;
     type Call = Call;
 
@@ -794,7 +794,7 @@ impl pallet_scheduler::Trait for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
 construct_runtime!(
@@ -1253,8 +1253,10 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
             use frame_system_benchmarking::Module as SystemBench;
+            use crate::benchmarks::pallet_session::Module as SessionBench;
 
             impl frame_system_benchmarking::Trait for Runtime {}
+            impl crate::benchmarks::pallet_session::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1296,6 +1298,11 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
             add_benchmark!(params, batches, pallet_statistics, Statistics);
             add_benchmark!(params, batches, pallet_permissions, Permissions);
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_indices, Indices);
+            add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
