@@ -151,7 +151,7 @@ benchmarks! {
         // Rule complexity
         let c in 1 .. T::MaxConditionComplexity::get() as u32;
 
-        let  alice = setup_fundraiser::<T>(c, MAX_TIERS as u32)?;
+        let alice = setup_fundraiser::<T>(c, MAX_TIERS as u32)?;
         let alice_portfolio = PortfolioId::default_portfolio(alice.did());
         let (bob, bob_portfolio) = user::<T>("bob");
 
