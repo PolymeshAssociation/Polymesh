@@ -58,7 +58,7 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     for i in 0..n {
         tiers.push(PriceTier {
             total: 1.into(),
-            price: ((i + 1) as u128).into(),
+            price: (i as u128 + 1).into(),
         })
     }
     tiers
@@ -203,7 +203,7 @@ benchmarks! {
 
     modify_fundraiser_window {
         let (alice, offering_ticker) = setup_fundraiser::<T>()?;
-    }: _(alice.origin(), offering_ticker,0 , 100.into(), Some(101.into()))
+    }: _(alice.origin(), offering_ticker, 0, 100.into(), Some(101.into()))
     verify {
         ensure!(FundraiserCount::get(offering_ticker) > 0, "modify_fundraiser_window");
     }
