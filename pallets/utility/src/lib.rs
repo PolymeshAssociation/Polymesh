@@ -190,12 +190,10 @@ decl_module! {
             for (index, call) in calls.into_iter().enumerate() {
                 // Dispatch the call in a modified metadata context.
                 let result = with_call_metadata(call.get_call_metadata(), || {
-                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                    dispatch_call::<T>(origin.clone(), is_root, call).map_err(|e| {
                         Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
-                        Err(e)
-                    } else {
-                        Ok(())
-                    }
+                        e
+                    })
                 });
                 if result.is_err() {
                     // Abort the batch.
