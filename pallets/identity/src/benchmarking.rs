@@ -84,12 +84,12 @@ fn generate_secondary_keys<T: Trait>(
 
 #[cfg(feature = "running-ci")]
 mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 100;
+    pub const MAX_SECONDARY_KEYS: u32 = 2;
 }
 
 #[cfg(not(feature = "running-ci"))]
 mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 2;
+    pub const MAX_SECONDARY_KEYS: u32 = 100;
 }
 
 use limits::*;
