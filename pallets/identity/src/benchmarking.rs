@@ -82,12 +82,24 @@ fn generate_secondary_keys<T: Trait>(
     secondary_keys
 }
 
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const MAX_SECONDARY_KEYS: u32 = 100;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const MAX_SECONDARY_KEYS: u32 = 2;
+}
+
+use limits::*;
+
 benchmarks! {
     _ {}
 
     register_did {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let caller = UserBuilder::<T>::default().build("caller");
@@ -97,7 +109,7 @@ benchmarks! {
 
     cdd_register_did {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let target: T::AccountId = account("target", SEED, SEED);
@@ -120,7 +132,7 @@ benchmarks! {
 
     remove_secondary_keys {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let target = UserBuilder::<T>::default().generate_did().build("target");
 
@@ -155,7 +167,14 @@ benchmarks! {
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
-    change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
+    change_cdd_requirement_for_mk_rotation {
+        ensure!( Module::<T>::cdd_auth_for_primary_key_rotation() == false,
+            "CDD auth for primary key rotation is enable");
+    }: _(RawOrigin::Root, true)
+    verify {
+        ensure!( Module::<T>::cdd_auth_for_primary_key_rotation() == true,
+                 "CDD auth for primary key rotation did not change");
+    }
 
     join_identity_as_key {
         let target = UserBuilder::<T>::default().generate_did().build("target");
@@ -186,9 +205,20 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
+        let auth_id =  Module::<T>::add_auth(
+            target.did(),
+            Signatory::Account(key.account()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            None,
+        );
+        Module::<T>::join_identity_as_key(key.origin().into(), auth_id)
+            .expect("Key cannot be joined to identity");
 
-    }: _(key.origin)
+    }: _(key.origin())
+    verify {
+        ensure!( KeyToIdentityIds::<T>::contains_key(key.account) == false,
+            "Key was not removed from its identity");
+    }
 
     leave_identity_as_identity {
         let target = UserBuilder::<T>::default().generate_did().build("target");

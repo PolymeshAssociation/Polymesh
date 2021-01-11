@@ -213,4 +213,5 @@ runtime-benchmarks = [
 running-ci = [
     "pallet-statistics/running-ci",
     "pallet-pips/running-ci",
+    "pallet-identity/running-ci",
 ]
