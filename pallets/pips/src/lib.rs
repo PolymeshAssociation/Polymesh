@@ -1232,6 +1232,8 @@ impl<T: Trait> Module<T> {
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
             let period = Self::default_enactment_period();
+            // The enactment period is at least 1 block. This is de to the fact that it's only
+            // possible to schedule calls for future blocks.
             let corrected_period = if period > Zero::zero() {
                 period
             } else {
@@ -1325,6 +1327,7 @@ impl<T: Trait> Module<T> {
     /// Decrement active proposal count if `state` signifies it is active.
     fn decrement_count_if_active(state: ProposalState) {
         if Self::is_active(state) {
+            // The performance impact of a saturating sub is negligible and caution is good.
             ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
     }
