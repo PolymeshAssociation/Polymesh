@@ -78,7 +78,7 @@ use polymesh_common_utilities::{
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
-use sp_runtime::traits::{Hash, Zero};
+use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
 /// The maximum number of members in a committee defined for the sake of weight computation.  This
@@ -101,7 +101,6 @@ pub trait WeightInfo {
     fn vote_or_propose_existing_proposal() -> Weight;
     fn vote_aye() -> Weight;
     fn vote_nay() -> Weight;
-    fn close() -> Weight;
 }
 
 /// Simple index type for proposal counting.
@@ -213,9 +212,6 @@ decl_event!(
         /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
         /// Parameters: caller DID, proposal hash, result of proposal dispatch.
         Executed(IdentityId, Hash, DispatchResult),
-        /// A proposal was closed after its duration was up.
-        /// Parameters: caller DID, proposal hash, yay vote count, nay vote count.
-        Closed(IdentityId, Hash, MemberCount, MemberCount),
         /// Release coordinator has been updated.
         /// Parameters: caller DID, DID of the release coordinator.
         ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
@@ -245,10 +241,6 @@ decl_error! {
         MismatchedVotingIndex,
         /// Proportion must be a rational number.
         InvalidProportion,
-        /// The close call is made too early, before the end of the voting.
-        CloseBeforeVoteEnd,
-        /// When `MotionDuration` is set to 0.
-        NotAllowed,
         /// First vote on a proposal creates it, so it must be an approval.
         /// All proposals are motions to execute something as "GC majority".
         /// To reject e.g., a PIP, a motion to reject should be *approved*.
@@ -306,46 +298,6 @@ decl_module! {
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
         }
 
-        /// May be called by a committee member after the voting duration has ended in order to
-        /// finish voting and close the proposal.
-        ///
-        /// Abstentions are counted as rejections.
-        ///
-        /// # Arguments
-        /// * `proposal` - A hash of the proposal to be closed.
-        /// * `index` - The proposal index.
-        ///
-        /// # Complexity
-        /// - the weight of `proposal` preimage.
-        /// - up to three events deposited.
-        /// - one read, two removals, one mutation. (plus three static reads.)
-        /// - computation and i/o `O(P + L + M)` where:
-        ///   - `M` is number of members,
-        ///   - `P` is number of active proposals,
-        ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = <T as Trait<I>>::WeightInfo::close()]
-        fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let did = Self::ensure_is_member(origin)?;
-            let voting = Self::ensure_proposal(&proposal, index)?;
-
-            // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
-            let now = system::Module::<T>::block_number();
-            Self::ensure_not_expired(&proposal, voting.expiry, now)?;
-
-            ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
-            ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
-
-            let mut no_votes = voting.nays.len() as MemberCount;
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let seats = Self::seats();
-            let abstentions = seats - (yes_votes + no_votes);
-            no_votes += abstentions;
-
-            Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
-
-            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
-        }
-
         /// Proposes to the committee that `call` should be executed in its name.
         /// Alternatively, if the hash of `call` has already been recorded, i.e., already proposed,
         /// then this call counts as a vote, i.e., as if `vote_by_hash` was called.
@@ -396,7 +348,7 @@ decl_module! {
             proposal: T::Hash,
             index: ProposalIndex,
             approve: bool,
-        ) -> DispatchResult {
+        ) {
             // 1. Ensure `origin` is a committee member.
             let did = Self::ensure_is_member(origin)?;
 
@@ -404,7 +356,7 @@ decl_module! {
             let mut voting = Self::ensure_proposal(&proposal, index)?;
 
             // 2b. Ensure proposal hasn't expired. If it has, prune the proposal and bail.
-            Self::ensure_not_expired(&proposal, voting.expiry, system::Module::<T>::block_number())?;
+            Self::ensure_not_expired(&proposal, voting.expiry)?;
 
             // 3. Vote on aye / nay and remove from the other.
             let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
@@ -425,8 +377,7 @@ decl_module! {
             ));
 
             // 5. Check whether majority has been reached and if so, execute proposal.
-            Self::check_proposal_threshold(proposal);
-            Ok(())
+            Self::execute_if_passed(proposal);
         }
     }
 }
@@ -493,42 +444,27 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// Accepts or rejects the proposal if its threshold is satisfied.
-    fn check_proposal_threshold(proposal: T::Hash) {
-        if let Some(voting) = Self::voting(&proposal) {
+    fn execute_if_passed(proposal: T::Hash) {
+        let voting = match Self::voting(&proposal) {
             // Make sure we don't have an expired proposal at this point.
-            if let Err(_) = Self::ensure_not_expired(
-                &proposal,
-                voting.expiry,
-                system::Module::<T>::block_number(),
-            ) {
-                return;
-            }
+            Some(v) if Self::ensure_not_expired(&proposal, v.expiry).is_ok() => v,
+            _ => return,
+        };
+        let ayes = voting.ayes.len() as MemberCount;
+        let nays = voting.nays.len() as MemberCount;
 
-            let ayes = voting.ayes.len() as MemberCount;
-            let nays = voting.nays.len() as MemberCount;
-            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::check_threshold_finalize(proposal, did, voting, ayes, nays, Self::seats());
-        }
-    }
-
-    fn check_threshold_finalize(
-        proposal: T::Hash,
-        did: IdentityId,
-        voting: PolymeshVotes<IdentityId, T::BlockNumber>,
-        yes_votes: MemberCount,
-        no_votes: MemberCount,
-        seats: MemberCount,
-    ) {
         let threshold = <VoteThreshold<I>>::get();
+        let seats = Self::seats();
         let satisfied =
             |main, other| main >= other && Self::is_threshold_satisfied(main, seats, threshold);
-        let approved = satisfied(yes_votes, no_votes);
-        let rejected = satisfied(no_votes, yes_votes);
-
+        let approved = satisfied(ayes, nays);
+        let rejected = satisfied(nays, ayes);
         if !approved && !rejected {
             return;
         }
-        Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
+
+        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::finalize_proposal(approved, seats, ayes, nays, proposal, did);
         let event = RawEvent::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
         Self::deposit_event(event);
     }
@@ -587,10 +523,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     fn ensure_not_expired(
         proposal: &T::Hash,
         expiry: MaybeBlock<T::BlockNumber>,
-        now: T::BlockNumber,
     ) -> Result<(), Error<T, I>> {
         match expiry {
-            MaybeBlock::Some(e) if e <= now => {
+            MaybeBlock::Some(e) if e <= system::Module::<T>::block_number() => {
                 Self::clear_proposal(proposal);
                 <ProposalOf<T, I>>::remove(proposal);
                 Err(Error::<T, I>::ProposalExpired)
@@ -703,7 +638,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                     .iter()
                     .any(|id| Self::remove_vote_from(*id, *proposal))
             })
-            .for_each(Self::check_proposal_threshold);
+            .for_each(Self::execute_if_passed);
 
         // Double check if any `outgoing` is the Release coordinator.
         if let Some(curr_rc) = Self::release_coordinator() {
