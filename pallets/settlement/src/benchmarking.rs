@@ -830,7 +830,7 @@ benchmarks! {
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         let (portfolios_to, _, to, _, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-    }: _(RawOrigin::Signed(to.account), instruction_id, portfolios_to.clone(), l.into())
+    }: _(RawOrigin::Signed(to.account), instruction_id, portfolios_to.clone(), (l / 2).into())
     verify {
         for p in portfolios_to.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
@@ -897,7 +897,7 @@ benchmarks! {
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
-        let legs_count = legs.len().try_into().unwrap();
+        let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
         let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
@@ -906,7 +906,7 @@ benchmarks! {
         let from_origin = RawOrigin::Signed(from.account.clone());
         let to_origin = RawOrigin::Signed(to.account.clone());
         // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, legs_count).expect("Settlement: Failed to affirm instruction");
+        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());
