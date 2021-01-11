@@ -33,12 +33,27 @@ use sp_std::{
     prelude::*,
 };
 
-const DESCRIPTION_LEN: usize = 1_000;
-const URL_LEN: usize = 500;
-const PROPOSAL_PADDING_LEN: usize = 10_000;
-const VOTERS_A_NUM: usize = 200;
-const VOTERS_B_NUM: usize = 200;
-const PROPOSALS_NUM: usize = 100;
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const DESCRIPTION_LEN: usize = 10;
+    pub const URL_LEN: usize = 50;
+    pub const PROPOSAL_PADDING_LEN: usize = 100;
+    pub const VOTERS_A_NUM: usize = 200;
+    pub const VOTERS_B_NUM: usize = 200;
+    pub const PROPOSALS_NUM: usize = 100;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const DESCRIPTION_LEN: usize = 1_000;
+    pub const URL_LEN: usize = 500;
+    pub const PROPOSAL_PADDING_LEN: usize = 10_000;
+    pub const VOTERS_A_NUM: usize = 200;
+    pub const VOTERS_B_NUM: usize = 200;
+    pub const PROPOSALS_NUM: usize = 100;
+}
+
+use limits::*;
 
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {

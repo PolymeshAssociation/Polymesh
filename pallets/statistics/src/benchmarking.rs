@@ -34,11 +34,21 @@ fn init_ticker<T: Trait>() -> (User<T>, Ticker) {
 
 fn init_ctm<T: Trait>() -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
-    let tms = (0..T::MaxTransferManagersPerAsset::get())
+    let tms = (1..T::MaxTransferManagersPerAsset::get())
         .map(|x| TransferManager::CountTransferManager(x.into()))
         .collect::<Vec<_>>();
     ActiveTransferManagers::insert(ticker, tms.clone());
     (owner, ticker, tms)
+}
+
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const MAX_EXEMPTED_IDENTITIES: u32 = 10;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const MAX_EXEMPTED_IDENTITIES: u32 = 1000;
 }
 
 benchmarks! {
@@ -63,7 +73,7 @@ benchmarks! {
 
     add_exempted_entities {
         // Length of the vector of Exempted identities being added.
-        let i in 0 .. 1000;
+        let i in 0 .. limits::MAX_EXEMPTED_IDENTITIES;
 
         let (owner, ticker) = init_ticker::<T>();
         let scope_ids = (0..i as u128).map(IdentityId::from).collect::<Vec<_>>();
@@ -76,7 +86,7 @@ benchmarks! {
 
     remove_exempted_entities {
         // Length of the vector of Exempted identities being removed.
-        let i in 0 .. 1000;
+        let i in 0 .. limits::MAX_EXEMPTED_IDENTITIES;
 
         let (owner, ticker) = init_ticker::<T>();
         let tm = TransferManager::CountTransferManager(420);
