@@ -215,7 +215,7 @@ fn basic_settlement() {
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did),
-                1
+                0
             ));
 
             // Advances the block no. to execute the instruction.
@@ -303,7 +303,7 @@ fn create_and_affirm_instruction() {
                 bob_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(bob_did),
-                1
+                0
             ));
 
             // Advances the block no.
@@ -1811,6 +1811,7 @@ fn basic_fuzzing() {
             let mut legs = Vec::with_capacity(100);
             let mut receipts = Vec::with_capacity(100);
             let mut receipt_legs = HashMap::with_capacity(100);
+            let mut legs_count: HashMap<IdentityId, u64> = HashMap::with_capacity(100);
             for i in 0..10 {
                 for j in 0..4 {
                     let mut final_i = 100_000;
@@ -1849,6 +1850,12 @@ fn basic_fuzzing() {
                                 asset: tickers[i * 4 + j],
                                 amount: 1,
                             });
+                            if !legs_count.contains_key(&dids[j]) {
+                                legs_count.insert(dids[j], 1);
+                            } else {
+                                let old_count = *legs_count.get(&dids[j]).unwrap();
+                                legs_count.insert(dids[j], old_count + 1);
+                            }
                             if legs.len() >= 100 {
                                 break;
                             }
@@ -1863,7 +1870,6 @@ fn basic_fuzzing() {
                     break;
                 }
             }
-            let legs_count = legs.len() as u64;
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1881,13 +1887,13 @@ fn basic_fuzzing() {
                             signer.clone(),
                             instruction_counter,
                             default_portfolio_vec(dids[i]),
-                            legs_count
+                            *legs_count.get(&dids[i]).unwrap_or(&0)
                         ));
                         assert_ok!(Settlement::withdraw_affirmation(
                             signer.clone(),
                             instruction_counter,
                             default_portfolio_vec(dids[i]),
-                            legs_count
+                            *legs_count.get(&dids[i]).unwrap_or(&0)
                         ));
                     }
                 }
@@ -1895,7 +1901,7 @@ fn basic_fuzzing() {
                     signer.clone(),
                     instruction_counter,
                     default_portfolio_vec(dids[i]),
-                    legs_count
+                    *legs_count.get(&dids[i]).unwrap_or(&0)
                 ));
             }
 
@@ -1952,7 +1958,7 @@ fn basic_fuzzing() {
                     signers[i].clone(),
                     instruction_counter,
                     default_portfolio_vec(dids[i]),
-                    legs_count
+                    *legs_count.get(&dids[i]).unwrap_or(&0)
                 ));
             }
 
