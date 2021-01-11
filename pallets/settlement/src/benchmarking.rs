@@ -795,7 +795,7 @@ benchmarks! {
 
     reject_instruction {
         // At least one portfolio needed
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add and affirm instruction.
@@ -811,7 +811,7 @@ benchmarks! {
 
     reject_instruction_with_no_pre_affirmations {
         // At least one portfolio needed
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction

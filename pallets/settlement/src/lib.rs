@@ -425,7 +425,7 @@ decl_error! {
         UnexpectedAffirmationStatus,
         /// Scheduling of an instruction fails.
         FailedToSchedule,
-        ///
+        /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
         IncorrectLegCountSubmitted
     }
 }
@@ -916,7 +916,7 @@ impl<T: Trait> Module<T> {
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
             .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
             .collect::<Vec<(u64, Leg<T::Balance>)>>();
-        // Ensure given legs count is matches with the total number of legs given portfolios have.
+        // Ensure given legs count is matches with the total number of legs given portfolio have.
         ensure!(
             legs.len() as u64 == legs_count,
             Error::<T>::IncorrectLegCountSubmitted
