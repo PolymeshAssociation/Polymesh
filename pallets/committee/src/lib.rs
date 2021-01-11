@@ -56,6 +56,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
@@ -63,7 +66,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
-    weights::{DispatchClass::Operational, GetDispatchInfo, Pays},
+    weights::{GetDispatchInfo, Weight},
 };
 use frame_system::{self as system};
 use pallet_identity as identity;
@@ -78,6 +81,29 @@ use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
 use sp_std::{prelude::*, vec};
 
+/// The maximum number of members in a committee defined for the sake of weight computation.  This
+/// is not defined as a trait parameter but rather as a plain constant because this value has to be
+/// the same for all instances.
+// TODO: ensure this bound when adding members.
+pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
+
+/// The maximum number of concurrently active proposals defined for the sake of weight computation.
+/// This is not defined as a trait parameter but rather as a plain constant because this value has
+/// to be the same for all instances.
+// TODO: ensure this bound when adding proposals.
+pub const PROPOSALS_MAX: u32 = 500;
+
+pub trait WeightInfo {
+    fn set_vote_threshold() -> Weight;
+    fn set_release_coordinator() -> Weight;
+    fn set_expires_after() -> Weight;
+    fn vote_or_propose_new_proposal() -> Weight;
+    fn vote_or_propose_existing_proposal() -> Weight;
+    fn vote_aye() -> Weight;
+    fn vote_nay() -> Weight;
+    fn close() -> Weight;
+}
+
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
 
@@ -87,7 +113,10 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
 
     /// The outer call dispatch type.
-    type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin> + GetDispatchInfo;
+    type Proposal: Parameter
+        + Dispatchable<Origin = <Self as Trait<I>>::Origin>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
@@ -97,6 +126,9 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
+
+    /// Weight computation.
+    type WeightInfo: WeightInfo;
 }
 
 /// Origin for the committee module.
@@ -238,7 +270,7 @@ decl_module! {
         /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = (100_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_vote_threshold()]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
@@ -254,7 +286,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotAMember`, If the new coordinator `id` is not part of the committee.
-        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_release_coordinator()]
         pub fn set_release_coordinator(origin, id: IdentityId) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::ensure_did_is_member(&id)?;
@@ -266,14 +298,14 @@ decl_module! {
         ///
         /// # Arguments
         /// * `expiry` - The new expiry time.
-        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_expires_after()]
         pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
         }
 
-        /// May be called by any signed account after the voting duration has ended in order to
+        /// May be called by a committee member after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
         /// Abstentions are counted as rejections.
@@ -290,7 +322,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::close()]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let did = Self::ensure_is_member(origin)?;
             let voting = Self::ensure_proposal(&proposal, index)?;
@@ -330,11 +362,8 @@ decl_module! {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[weight = (
-            500_000_000 + call.get_dispatch_info().weight,
-            call.get_dispatch_info().class,
-            Pays::Yes
-        )]
+        #[weight = <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() +
+          call.get_dispatch_info().weight]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
@@ -356,7 +385,11 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[weight = (500_000_000, Operational, Pays::Yes)]
+        #[weight = if *approve {
+            <T as Trait<I>>::WeightInfo::vote_aye()
+        } else {
+            <T as Trait<I>>::WeightInfo::vote_nay()
+        }]
         pub fn vote(
             origin,
             proposal: T::Hash,
