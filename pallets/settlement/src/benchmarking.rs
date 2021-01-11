@@ -842,8 +842,11 @@ benchmarks! {
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        let s in 0 .. T::MaxTransferManagersPerAsset::get() as u32;
-        let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
+        //let s in 0 .. T::MaxTransferManagersPerAsset::get() as u32;
+        //let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
+        let s = T::MaxTransferManagersPerAsset::get() as u32;
+        let c = T::MaxConditionComplexity::get() as u32;
+
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, tickers, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
