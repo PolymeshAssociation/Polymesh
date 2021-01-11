@@ -4645,6 +4645,7 @@ dependencies = [
  "pallet-babe",
  "pallet-identity",
  "pallet-session",
+ "pallet-staking-reward-curve",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
