@@ -350,14 +350,31 @@ fn add_trusted_issuer<T: Trait>(
     .expect("Default trusted claim issuer cannot be added");
 }
 
-pub fn get_conditions<T: Trait>(complexity: u32, trusted_issuer: TrustedIssuer) -> Vec<Condition> {
-    let mut conditions = Vec::with_capacity(complexity as usize);
-    for i in 0..complexity / 2 {
-        let scope = Scope::Custom(vec![1; i.try_into().unwrap()]);
-        conditions.push(Claim::Jurisdiction(CountryCode::AF, scope));
+pub fn setup_conditions<T: Trait>(
+    count: u32,
+    trusted_issuer: TrustedIssuer,
+    dids: Vec<IdentityId>,
+    ticker: Ticker
+) -> Vec<Condition> {
+    let mut conditions = Vec::with_capacity(count as usize);
+    for i in 0..count {
+        let scope = Scope::Custom((ticker.encode(), vec![1; i.try_into().unwrap()]).encode());
+        let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+        for did in &dids {
+            identity::Module::<T>::base_add_claim(
+                did.clone(),
+                claim.clone(),
+                trusted_issuer.issuer,
+                None,
+            );
+        }
+        let condition = Condition::new(
+            ConditionType::IsPresent(claim),
+            vec![trusted_issuer.clone()],
+        );
+        conditions.push(condition);
     }
-    let condition_type = ConditionType::IsNoneOf(conditions);
-    vec![Condition::new(condition_type, vec![trusted_issuer])]
+    conditions
 }
 
 fn compliance_setup<T: Trait>(
@@ -374,12 +391,13 @@ fn compliance_setup<T: Trait>(
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
-    let cond = get_conditions::<T>(max_complexity, trusted_issuer);
+    let conditions =
+        setup_conditions::<T>(max_complexity / 2, trusted_issuer, vec![from_did, to_did], ticker);
     pallet_compliance_manager::Module::<T>::add_compliance_requirement(
         origin.clone().into(),
         ticker,
-        cond.clone(),
-        cond,
+        conditions.clone(),
+        conditions,
     )
     .expect("Failed to add the asset compliance");
 }
