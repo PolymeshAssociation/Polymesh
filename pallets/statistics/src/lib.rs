@@ -208,7 +208,7 @@ impl<T: Trait> Module<T> {
 
             // Only updates extrinsics if counter has been changed.
             if new_counter != counter {
-                <InvestorCountPerAsset>::insert(ticker, new_counter)
+                InvestorCountPerAsset::insert(ticker, new_counter)
             }
         }
     }
@@ -289,6 +289,11 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidTransfer
         );
         Ok(())
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn set_investor_count(ticker: &Ticker, count: Counter) {
+        InvestorCountPerAsset::insert(ticker, count);
     }
 }
 
