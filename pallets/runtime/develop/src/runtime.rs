@@ -413,7 +413,8 @@ impl pallet_staking::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MotionDuration: BlockNumber = 0;
+    // pallet_committee::Module::<_,_>::close requires MotionDuration > 0.
+    pub const MotionDuration: BlockNumber = 1;
 }
 
 /// Voting majority origin for `Instance`.
@@ -426,6 +427,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
@@ -449,6 +451,7 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type Event = Event;
             type MotionDuration = MotionDuration;
+            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
@@ -1293,6 +1296,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
+            add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
