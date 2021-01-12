@@ -1,0 +1,66 @@
+[package]
+name = "polymesh-weights"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+# substrate pallets
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+
+# our pallets
+pallet-corporate-actions = { path = "../pallets/corporate-actions", default-features = false }
+pallet-identity = { path = "../pallets/identity", default-features = false }
+pallet-pips = { path = "../pallets/pips", default-features = false }
+pallet-multisig = { path = "../pallets/multisig", default-features = false  }
+pallet-portfolio = { path = "../pallets/portfolio", default-features = false }
+pallet-protocol-fee = { path = "../pallets/protocol-fee", default-features = false }
+pallet-settlement = { path = "../pallets/settlement", default-features = false }
+pallet-compliance-manager = { path = "../pallets/compliance-manager", default-features = false }
+polymesh-contracts = { path = "../pallets/contracts", default-features = false }
+pallet-utility = { path = "../pallets/utility", default-features = false }
+pallet-asset = { path = "../pallets/asset", default-features = false }
+pallet-confidential = { path = "../pallets/confidential", default-features = false }
+pallet-balances = { path = "../pallets/balances", default-features = false }
+pallet-treasury = { path = "../pallets/treasury", default-features = false }
+pallet-im-online = { path = "../pallets/im-online", default-features = false }
+pallet-group = { path = "../pallets/group", default-features = false }
+pallet-committee = { path = "../pallets/committee", default-features = false }
+pallet-statistics = { path = "../pallets/statistics", default-features = false  }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-babe/std",
+    "pallet-indices/std",
+    "pallet-grandpa/std",
+    "pallet-scheduler/std",
+    "pallet-session/std",
+    "pallet-corporate-actions/std",
+    "pallet-identity/std",
+    "pallet-pips/std",
+    "pallet-multisig/std",
+    "pallet-portfolio/std",
+    "pallet-protocol-fee/std",
+    "pallet-settlement/std",
+    "pallet-timestamp/std",
+    "polymesh-contracts/std",
+    "pallet-compliance-manager/std",
+    "pallet-utility/std",
+    "pallet-asset/std",
+    "pallet-confidential/std",
+    "pallet-balances/std",
+    "pallet-treasury/std",
+    "pallet-im-online/std",
+    "pallet-group/std",
+]
