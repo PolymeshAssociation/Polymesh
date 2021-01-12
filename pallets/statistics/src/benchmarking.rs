@@ -32,9 +32,11 @@ fn init_ticker<T: Trait>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
-fn init_ctm<T: Trait>() -> (User<T>, Ticker, Vec<TransferManager>) {
+fn init_ctm<T: Trait>(
+    max_transfer_manager_per_asset: u32,
+) -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
-    let tms = (1..T::MaxTransferManagersPerAsset::get())
+    let tms = (0..max_transfer_manager_per_asset)
         .map(|x| TransferManager::CountTransferManager(x.into()))
         .collect::<Vec<_>>();
     ActiveTransferManagers::insert(ticker, tms.clone());
@@ -55,7 +57,9 @@ benchmarks! {
     _ {}
 
     add_transfer_manager {
-        let (owner, ticker, mut tms) = init_ctm::<T>();
+        let max_tm = T::MaxTransferManagersPerAsset::get().saturating_sub(1);
+        let (owner, ticker, mut tms) = init_ctm::<T>(max_tm);
+
         let last_tm = TransferManager::CountTransferManager(420);
         tms.push(last_tm.clone());
     }: _(owner.origin, ticker, last_tm)
@@ -64,8 +68,8 @@ benchmarks! {
     }
 
     remove_transfer_manager {
-        let (owner, ticker, mut tms) = init_ctm::<T>();
-        let last_tm = tms.pop().unwrap();
+        let (owner, ticker, mut tms) = init_ctm::<T>(T::MaxTransferManagersPerAsset::get());
+        let last_tm = tms.pop().expect("MaxTransferManagersPerAsset should be greater than zero");
     }: _(owner.origin, ticker, last_tm)
     verify {
         assert!(Module::<T>::transfer_managers(ticker) == tms);
