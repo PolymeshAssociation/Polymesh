@@ -102,7 +102,7 @@ impl Default for FundingRoundName {
     }
 }
 
-pub trait Trait<Balance, Account, Origin> {
+pub trait AssetFnTrait<Balance, Account, Origin> {
     fn total_supply(ticker: &Ticker) -> Balance;
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     fn _mint_from_sto(
@@ -140,4 +140,6 @@ pub trait Trait<Balance, Account, Origin> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult;
+
+    fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
 }

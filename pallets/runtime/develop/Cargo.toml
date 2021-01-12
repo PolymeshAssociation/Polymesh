@@ -208,5 +208,6 @@ runtime-benchmarks = [
     "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
+    "polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

@@ -450,6 +450,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = VMO<committee::Instance1>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -458,6 +459,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 impl IdentityTrait for TestStorage {
@@ -562,6 +564,7 @@ impl asset::Trait for TestStorage {
     type UnixTime = Timestamp;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }

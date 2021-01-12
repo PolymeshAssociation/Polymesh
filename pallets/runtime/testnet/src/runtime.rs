@@ -423,6 +423,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -447,6 +448,7 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type Event = Event;
             type MotionDuration = MotionDuration;
+            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
@@ -682,6 +684,7 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
