@@ -4399,6 +4399,7 @@ name = "pallet-indices"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -4644,6 +4645,7 @@ dependencies = [
  "pallet-babe",
  "pallet-identity",
  "pallet-session",
+ "pallet-staking-reward-curve",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4750,12 +4752,12 @@ dependencies = [
 [[package]]
 name = "pallet-sudo"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -5444,6 +5446,7 @@ dependencies = [
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
@@ -5701,18 +5704,23 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-asset",
+ "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
  "pallet-corporate-actions",
+ "pallet-grandpa",
  "pallet-group",
  "pallet-identity",
  "pallet-im-online",
+ "pallet-indices",
  "pallet-multisig",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
+ "pallet-scheduler",
+ "pallet-session",
  "pallet-settlement",
  "pallet-statistics",
  "pallet-timestamp",
