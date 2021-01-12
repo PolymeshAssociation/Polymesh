@@ -220,8 +220,10 @@ benchmarks! {
 
     }: _(key.origin())
     verify {
-        ensure!( KeyToIdentityIds::<T>::contains_key(key.account) == false,
-            "Key was not removed from its identity");
+        ensure!(
+            KeyToIdentityIds::<T>::contains_key(key.account) == false,
+            "Key was not removed from its identity"
+        );
     }
 
     leave_identity_as_identity {
