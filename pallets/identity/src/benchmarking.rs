@@ -207,7 +207,7 @@ benchmarks! {
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
-            Signatory::Account(key.account()),
+            signatory, 
             AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
