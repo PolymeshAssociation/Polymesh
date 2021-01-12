@@ -17,7 +17,7 @@
 use crate::*;
 
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{self, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::AssetName,
 };
@@ -40,44 +40,21 @@ const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
-/// Create a ticker and register it.
-pub fn make_ticker<T: Trait>(owner: T::Origin, optional_ticker: Option<Ticker>) -> Ticker {
-    let ticker = optional_ticker
-        .unwrap_or_else(|| Ticker::try_from(vec![b'A'; TICKER_LEN as usize].as_slice()).unwrap());
-    Module::<T>::register_ticker(owner, ticker).unwrap();
-    ticker
+pub fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
+    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
+        .expect("Ticker cannot be created")
 }
 
-pub fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, true, None)
+fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
+        .expect("Asset cannot be created")
 }
 
 pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    make_base_asset::<T>(owner, false, None)
-}
-
-pub fn make_base_asset<T: Trait>(
-    owner: &User<T>,
-    divisible: bool,
-    optional_ticker: Option<Ticker>,
-) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into(), optional_ticker);
-    let name: AssetName = ticker.as_slice().into();
-    let total_supply: T::Balance = (1_000_000 * POLY).into();
-
-    Module::<T>::create_asset(
-        owner.origin().into(),
-        name,
-        ticker,
-        total_supply,
-        divisible,
-        AssetType::default(),
-        vec![],
-        None,
+    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(
+        owner, None,
     )
-    .expect("Asset cannot be created");
-
-    ticker
+    .expect("Indivisible asset cannot be created")
 }
 
 pub fn make_document() -> Document {
@@ -152,7 +129,7 @@ benchmarks! {
     accept_ticker_transfer {
         let owner = UserBuilder::<T>::default().generate_did().build("owner");
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
-        let ticker = make_ticker::<T>(owner.origin().into(), None);
+        let ticker = make_ticker::<T>(owner.origin().into());
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker.clone());
         let new_owner_auth_id = identity::Module::<T>::add_auth( owner.did(), Signatory::from(new_owner.did()), AuthorizationData::TransferTicker(ticker), None);
@@ -269,20 +246,20 @@ benchmarks! {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
 
-    }: _(owner.origin, ticker.clone(), 1_000_000.into())
+    }: _(owner.origin, ticker.clone(), (1_000_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, 2_000_000.into());
+        assert_eq!(token.total_supply, (2_000_000 * POLY).into());
     }
 
 
     redeem {
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
-    }: _(owner.origin, ticker.clone(), 600_000.into())
+    }: _(owner.origin, ticker.clone(), (600_000 * POLY).into())
     verify {
         let token = Module::<T>::token_details(ticker);
-        assert_eq!( token.total_supply, 400_000.into());
+        assert_eq!(token.total_supply, (400_000 * POLY).into());
     }
 
     make_divisible {

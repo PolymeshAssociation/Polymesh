@@ -22,6 +22,9 @@ pub use user::{PublicKey, SecretKey, User};
 mod user_builder;
 pub use user_builder::{uid_from_name_and_idx, UserBuilder};
 
+mod asset;
+pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+
 pub fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()

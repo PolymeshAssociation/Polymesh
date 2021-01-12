@@ -20,14 +20,13 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_asset::{
-    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf,
-    SecurityToken, Tokens,
+    AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf, SecurityToken, Tokens,
 };
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{generate_ticker, User, UserBuilder},
+    benchs::{self, generate_ticker, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
@@ -68,6 +67,11 @@ impl<T: Trait> From<User<T>> for UserData<T> {
             did: user.did(),
         }
     }
+}
+
+fn make_asset<T: Trait, N: AsRef<[u8]>>(owner: &User<T>, name: Option<N>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, N>(owner, name)
+        .expect("Asset cannot be created")
 }
 
 fn set_block_number<T: Trait>(new_block_no: u64) {
@@ -354,7 +358,7 @@ pub fn setup_conditions<T: Trait>(
     count: u32,
     trusted_issuer: TrustedIssuer,
     dids: Vec<IdentityId>,
-    ticker: Ticker
+    ticker: Ticker,
 ) -> Vec<Condition> {
     let mut conditions = Vec::with_capacity(count as usize);
     for i in 0..count {
@@ -391,8 +395,12 @@ fn compliance_setup<T: Trait>(
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
-    let conditions =
-        setup_conditions::<T>(max_complexity / 2, trusted_issuer, vec![from_did, to_did], ticker);
+    let conditions = setup_conditions::<T>(
+        max_complexity / 2,
+        trusted_issuer,
+        vec![from_did, to_did],
+        ticker,
+    );
     pallet_compliance_manager::Module::<T>::add_compliance_requirement(
         origin.clone().into(),
         ticker,
