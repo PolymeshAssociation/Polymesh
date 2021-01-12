@@ -36,9 +36,9 @@ use sp_std::{
 const DESCRIPTION_LEN: usize = 1_000;
 const URL_LEN: usize = 500;
 const PROPOSAL_PADDING_LEN: usize = 10_000;
-const VOTERS_A_NUM: usize = 200;
-const VOTERS_B_NUM: usize = 200;
-const PROPOSALS_NUM: usize = 100;
+const VOTERS_A_NUM: usize = 10; // 200;
+const VOTERS_B_NUM: usize = 10; // 200;
+const PROPOSALS_NUM: usize = 5; // 100;
 
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
@@ -139,7 +139,7 @@ fn enact_call<T: Trait>(num_skips: u32, num_rejects: u32, num_approves: u32) -> 
     )
 }
 
-fn propose_verify<T: Trait>() -> DispatchResult {
+fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchResult {
     let meta = Module::<T>::proposal_metadata(0).unwrap();
     ensure!(0 == meta.id, "incorrect meta.id");
     ensure!(Some(url) == meta.url, "incorrect meta.url");
@@ -205,9 +205,11 @@ benchmarks! {
             UserBuilder::<T>::default().generate_did().build("proposer");
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
-    }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
+        let some_url = Some(url.clone());
+        let some_desc = Some(description.clone());
+    }: propose(origin, proposal, 42.into(), some_url, some_desc)
     verify {
-        propose_verify::<T>();
+        propose_verify::<T>(url, description);
     }
 
     // `propose` from a committee origin.
@@ -218,12 +220,14 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        let call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+        let some_url = Some(url.clone());
+        let some_desc = Some(description.clone());
+        let call = Call::<T>::propose(proposal, 0.into(), some_url, some_desc);
     }: {
         call.dispatch_bypass_filter(origin)?;
     }
     verify {
-        propose_verify::<T>();
+        propose_verify::<T>(url, description);
     }
 
     vote {
@@ -377,11 +381,11 @@ benchmarks! {
     // TODO reduce fn complexity
     enact_snapshot_results {
         // The number of Skip results.
-        let s in 0..PROPOSALS_NUM;
+        let s in 0..PROPOSALS_NUM as u32;
         // The number of Reject results.
-        let r in 0..PROPOSALS_NUM;
+        let r in 0..PROPOSALS_NUM as u32;
         // The number of Approve results.
-        let a in 0..PROPOSALS_NUM;
+        let a in 0..PROPOSALS_NUM as u32;
 
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
@@ -414,7 +418,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>(0, 0, PROPOSALS_NUM);
+        let enact_call = enact_call::<T>(0, 0, PROPOSALS_NUM as u32);
         enact_call.dispatch_bypass_filter(enact_origin)?;
 
         // execute
