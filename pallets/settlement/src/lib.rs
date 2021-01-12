@@ -426,7 +426,7 @@ decl_error! {
         /// Scheduling of an instruction fails.
         FailedToSchedule,
         /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
-        IncorrectLegCountSubmitted
+        LegCountTooSmall
     }
 }
 
@@ -919,7 +919,7 @@ impl<T: Trait> Module<T> {
         // Ensure given legs count is matches with the total number of legs given portfolio have.
         ensure!(
             legs.len() as u64 <= legs_count,
-            Error::<T>::IncorrectLegCountSubmitted
+            Error::<T>::LegCountTooSmall
         );
         Ok(legs)
     }
@@ -1117,8 +1117,8 @@ impl<T: Trait> Module<T> {
             &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
         )?;
 
+        let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
         with_transaction(|| {
-            let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
             for (leg_id, leg_details) in legs.iter() {
                 if let Err(_) = Self::lock_via_leg(&leg_details) {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
