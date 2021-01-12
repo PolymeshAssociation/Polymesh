@@ -38,9 +38,9 @@ mod limits {
     pub const DESCRIPTION_LEN: usize = 10;
     pub const URL_LEN: usize = 50;
     pub const PROPOSAL_PADDING_LEN: usize = 100;
-    pub const VOTERS_A_NUM: usize = 200;
-    pub const VOTERS_B_NUM: usize = 200;
-    pub const PROPOSALS_NUM: usize = 100;
+    pub const VOTERS_A_NUM: usize = 10;
+    pub const VOTERS_B_NUM: usize = 10;
+    pub const PROPOSALS_NUM: usize = 5;
 }
 
 #[cfg(not(feature = "running-ci"))]
