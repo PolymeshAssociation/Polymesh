@@ -211,3 +211,8 @@ runtime-benchmarks = [
     "polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]
+running-ci = [
+    "pallet-statistics/running-ci",
+    "pallet-pips/running-ci",
+    "pallet-identity/running-ci",
+]
