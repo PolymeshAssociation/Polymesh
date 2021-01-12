@@ -918,7 +918,7 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<(u64, Leg<T::Balance>)>>();
         // Ensure given legs count is matches with the total number of legs given portfolio have.
         ensure!(
-            legs.len() as u64 == legs_count,
+            legs.len() as u64 <= legs_count,
             Error::<T>::IncorrectLegCountSubmitted
         );
         Ok(legs)

@@ -1866,12 +1866,12 @@ fn basic_fuzzing() {
                                 asset: tickers[i * 4 + j],
                                 amount: 1,
                             });
-                            if !legs_count.contains_key(&dids[j]) {
-                                legs_count.insert(dids[j], 1);
+                            let count = if legs_count.contains_key(&dids[j]) {
+                                *legs_count.get(&dids[j]).unwrap() + 1
                             } else {
-                                let old_count = *legs_count.get(&dids[j]).unwrap();
-                                legs_count.insert(dids[j], old_count + 1);
-                            }
+                                1
+                            };
+                            legs_count.insert(dids[j], count);
                             if legs.len() >= 100 {
                                 break;
                             }
