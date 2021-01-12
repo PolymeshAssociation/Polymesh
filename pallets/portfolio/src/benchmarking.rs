@@ -20,7 +20,7 @@ use polymesh_common_utilities::benchs::{generate_ticker, UserBuilder};
 use polymesh_primitives::PortfolioName;
 
 use frame_benchmarking::benchmarks;
-use sp_std::prelude::*;
+use sp_std::{convert::TryFrom, prelude::*};
 
 benchmarks! {
     _ {}
@@ -55,7 +55,7 @@ benchmarks! {
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
         let target = UserBuilder::<T>::default().generate_did().build("target");
-        let first_ticker = generate_ticker(0u64);
+        let first_ticker = Ticker::try_from(generate_ticker(0u64).as_slice()).unwrap();
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
@@ -63,7 +63,7 @@ benchmarks! {
         let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
         for x in 0..i as u64 {
-            let ticker = generate_ticker(x);
+            let ticker = Ticker::try_from(generate_ticker(x).as_slice()).unwrap();
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,

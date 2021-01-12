@@ -5446,6 +5446,7 @@ dependencies = [
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",

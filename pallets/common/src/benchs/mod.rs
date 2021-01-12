@@ -15,39 +15,17 @@
 
 mod user;
 use crate::traits::identity::Trait;
-use polymesh_primitives::Ticker;
-use sp_std::{convert::TryFrom, prelude::*};
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;
 pub use user_builder::{uid_from_name_and_idx, UserBuilder};
 
 mod asset;
-pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+pub use asset::{generate_ticker, make_asset, make_indivisible_asset, make_ticker, ResultTicker};
 
 pub fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)
         .build(prefix)
-}
-
-/// Given a number, this function generates a ticker with
-/// A-Z, least number of characters in Lexicographic order
-pub fn generate_ticker(n: u64) -> Ticker {
-    fn calc_base26(n: u64, base_26: &mut Vec<u8>) {
-        if n >= 26 {
-            // Subtracting 1 is not required and shouldn't be done for a proper base_26 conversion
-            // However, without this hack, B will be the first char after a bump in number of chars.
-            // i.e. the sequence will go A,B...Z,BA,BB...ZZ,BAA. We want the sequence to start with A.
-            // Subtracting 1 here means we are doing 1 indexing rather than 0.
-            // i.e. A = 1, B = 2 instead of A = 0, B = 1
-            calc_base26((n / 26) - 1, base_26);
-        }
-        let character = n % 26 + 65;
-        base_26.push(character as u8);
-    }
-    let mut base_26 = Vec::new();
-    calc_base26(n, &mut base_26);
-    Ticker::try_from(base_26.as_slice()).unwrap()
 }

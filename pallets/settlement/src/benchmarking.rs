@@ -69,8 +69,8 @@ impl<T: Trait> From<User<T>> for UserData<T> {
     }
 }
 
-fn make_asset<T: Trait, N: AsRef<[u8]>>(owner: &User<T>, name: Option<N>) -> Ticker {
-    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, N>(owner, name)
+fn make_asset<T: Trait>(owner: &User<T>, name: Option<Vec<u8>>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Vec<u8>>(owner, name)
         .expect("Asset cannot be created")
 }
 
@@ -432,11 +432,7 @@ fn setup_affirm_instruction<T: Trait>(
     let to_data = UserData::from(to);
 
     for n in 0..l {
-        tickers.push(make_base_asset::<T>(
-            &from,
-            true,
-            Some(generate_ticker(n as u64 + 1)),
-        ));
+        tickers.push(make_asset::<T>(&from, Some(generate_ticker(n as u64 + 1))));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),
