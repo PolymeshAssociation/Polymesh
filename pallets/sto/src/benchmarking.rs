@@ -3,7 +3,10 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use pallet_settlement::{benchmarking::compliance_setup, VenueDetails};
+use pallet_settlement::{
+    benchmarking::{add_transfer_manager, compliance_setup},
+    VenueDetails,
+};
 use polymesh_common_utilities::benchs::User;
 use polymesh_common_utilities::{asset::AssetType, benchs::UserBuilder};
 use polymesh_primitives::TrustedIssuer;
@@ -36,26 +39,48 @@ fn create_asset<T: Trait>(
 }
 
 fn create_assets_and_compliance<T: Trait>(
-    user: &User<T>,
-    tickers: &[Ticker],
+    from: &User<T>,
+    to: &User<T>,
+    offering_ticker: Ticker,
+    raise_ticker: Ticker,
     supply: u128,
     complexity: u32,
+    transfer_managers: u32,
 ) -> DispatchResult {
     let t_issuer = UserBuilder::<T>::default()
         .generate_did()
         .build("TrustedClaimIssuer");
     let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-    for ticker in tickers {
-        create_asset::<T>(user.origin(), ticker.clone(), supply.clone())?;
-        compliance_setup::<T>(
-            complexity,
-            ticker.clone(),
-            user.origin(),
-            user.did(),
-            user.did(),
-            trusted_issuer.clone(),
-        );
-    }
+    create_asset::<T>(from.origin(), offering_ticker.clone(), supply.clone())?;
+    create_asset::<T>(to.origin(), raise_ticker.clone(), supply.clone())?;
+    compliance_setup::<T>(
+        complexity,
+        offering_ticker.clone(),
+        from.origin(),
+        from.did(),
+        to.did(),
+        trusted_issuer.clone(),
+    );
+    compliance_setup::<T>(
+        complexity,
+        raise_ticker.clone(),
+        to.origin(),
+        to.did(),
+        from.did(),
+        trusted_issuer.clone(),
+    );
+    add_transfer_manager::<T>(
+        offering_ticker.clone(),
+        from.origin(),
+        transfer_managers,
+        from.did(),
+    );
+    add_transfer_manager::<T>(
+        raise_ticker.clone(),
+        to.origin(),
+        transfer_managers,
+        to.did(),
+    );
     Ok(())
 }
 
@@ -82,23 +107,36 @@ fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
     Ok(venue_id)
 }
 
-fn setup_fundraiser<T: Trait>(complexity: u32, tiers: u32) -> Result<User<T>, DispatchError> {
-    let (alice, alice_portfolio) = user::<T>("alice");
+struct UserWithPortfolio<T: Trait> {
+    user: User<T>,
+    portfolio: PortfolioId,
+}
+
+fn setup_fundraiser<T: Trait>(
+    complexity: u32,
+    tiers: u32,
+    transfer_managers: u32,
+) -> Result<(UserWithPortfolio<T>, UserWithPortfolio<T>), DispatchError> {
+    let alice = user::<T>("alice");
+    let bob = user::<T>("bob");
 
     create_assets_and_compliance::<T>(
-        &alice,
-        &[OFFERING_TICKER, RAISE_TICKER],
+        &alice.user,
+        &bob.user,
+        OFFERING_TICKER,
+        RAISE_TICKER,
         1_000_000,
         complexity,
+        transfer_managers,
     )?;
 
-    let venue_id = create_venue(&alice)?;
+    let venue_id = create_venue(&alice.user)?;
 
     <Sto<T>>::create_fundraiser(
-        alice.origin().into(),
-        alice_portfolio,
+        alice.user.origin().into(),
+        alice.portfolio,
         OFFERING_TICKER,
-        alice_portfolio,
+        alice.portfolio,
         RAISE_TICKER,
         generate_tiers::<T>(tiers),
         venue_id,
@@ -108,13 +146,13 @@ fn setup_fundraiser<T: Trait>(complexity: u32, tiers: u32) -> Result<User<T>, Di
         vec![].into(),
     )?;
 
-    Ok(alice)
+    Ok((alice, bob))
 }
 
-fn user<T: Trait>(name: &'static str) -> (User<T>, PortfolioId) {
+fn user<T: Trait>(name: &'static str) -> UserWithPortfolio<T> {
     let user = <UserBuilder<T>>::default().generate_did().build(name);
     let portfolio = PortfolioId::default_portfolio(user.did());
-    (user, portfolio)
+    UserWithPortfolio { user, portfolio }
 }
 
 benchmarks! {
@@ -124,17 +162,17 @@ benchmarks! {
         // Number of tiers
         let i in 1 .. MAX_TIERS as u32;
 
-        let (alice, alice_portfolio) = user::<T>("alice");
+        let alice = user::<T>("alice");
 
-         create_assets_and_compliance::<T>(&alice, &[OFFERING_TICKER, RAISE_TICKER], 1_000_000, 0)?;
+         create_assets_and_compliance::<T>(&alice.user, &alice.user, OFFERING_TICKER, RAISE_TICKER, 1_000_000, 0, 0)?;
 
-        let venue_id = create_venue(&alice)?;
+        let venue_id = create_venue(&alice.user)?;
         let tiers = generate_tiers::<T>(i);
     }: _(
-            alice.origin(),
-            alice_portfolio,
+            alice.user.origin(),
+            alice.portfolio,
             OFFERING_TICKER,
-            alice_portfolio,
+            alice.portfolio,
             RAISE_TICKER,
             tiers,
             venue_id,
@@ -148,23 +186,14 @@ benchmarks! {
     }
 
     invest {
-        // Rule complexity
         let c in 1 .. T::MaxConditionComplexity::get() as u32;
+        let s in 1 .. T::MaxTransferManagersPerAsset::get() as u32;
 
-        let  alice = setup_fundraiser::<T>(c, MAX_TIERS as u32)?;
-        let alice_portfolio = PortfolioId::default_portfolio(alice.did());
-        let (bob, bob_portfolio) = user::<T>("bob");
-
-        <Asset<T>>::unsafe_transfer(
-            alice_portfolio,
-            bob_portfolio,
-            &RAISE_TICKER,
-            1_000_000.into()
-        )?;
+        let (alice, bob) = setup_fundraiser::<T>(c, MAX_TIERS as u32, s)?;
     }: _(
-            bob.origin(),
-            bob_portfolio,
-            bob_portfolio,
+            bob.user.origin(),
+            bob.portfolio,
+            bob.portfolio,
             OFFERING_TICKER,
             0,
             (MAX_TIERS as u128).into(),
@@ -172,34 +201,39 @@ benchmarks! {
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.did()) > 0.into(), "invest");
+        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0.into(), "invest");
     }
 
     freeze_fundraiser {
-        let alice = setup_fundraiser::<T>(0, 1)?;
-    }: _(alice.origin(), OFFERING_TICKER, 0)
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+    }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "freeze_fundraiser");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Frozen, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
-        let alice = setup_fundraiser::<T>(0, 1)?;
-    }: _(alice.origin(), OFFERING_TICKER, 0)
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+        <Sto<T>>::freeze_fundraiser(
+            alice.user.origin().into(),
+            OFFERING_TICKER,
+            0,
+        )?;
+    }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "unfreeze_fundraiser");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Live, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
-        let alice = setup_fundraiser::<T>(0, 1)?;
-    }: _(alice.origin(), OFFERING_TICKER, 0, 100.into(), Some(101.into()))
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100.into(), Some(101.into()))
     verify {
-        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "modify_fundraiser_window");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101.into()), "modify_fundraiser_window");
     }
 
     stop {
-        let alice = setup_fundraiser::<T>(0, 1)?;
-    }: _(alice.origin(), OFFERING_TICKER, 0)
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+    }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "modify_fundraiser_window");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Closed, "stop");
     }
 }

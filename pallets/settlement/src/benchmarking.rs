@@ -558,7 +558,7 @@ fn create_receipt_details<T: Trait>(
     }
 }
 
-fn add_transfer_manager<T: Trait>(
+pub fn add_transfer_manager<T: Trait>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     tm_no: u32,
