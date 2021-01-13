@@ -39,6 +39,7 @@ pallet-transaction-payment = { path = "../../pallets/transaction-payment", defau
 pallet-treasury = { path = "../../pallets/treasury", default-features = false }
 pallet-utility = { path = "../../pallets/utility", default-features = false }
 polymesh-contracts = { path = "../../pallets/contracts", default-features = false }
+pallet-sudo = { path = "../../pallets/sudo", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -76,7 +77,6 @@ pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-feat
 pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-offences = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }

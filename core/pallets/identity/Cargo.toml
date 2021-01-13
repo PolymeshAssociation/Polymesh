@@ -40,6 +40,7 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 equalize = []
 default = ["std", "equalize"]
 no_cdd = []
+running-ci = []
 no_std = [
     "confidential_identity/u64_backend",
 ]
