@@ -54,6 +54,7 @@
 //! `false` otherwise.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -76,7 +77,7 @@ use polymesh_common_utilities::{
     identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{storage_migration_ver, IdentityId};
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
@@ -149,11 +150,51 @@ pub struct PolymeshVotes<IdentityId, BlockNumber> {
     pub ayes: Vec<IdentityId>,
     /// The current set of committee members that rejected it.
     pub nays: Vec<IdentityId>,
-    /// The hard end time of this vote.
-    pub end: BlockNumber,
     /// The time **at** which the proposal is expired.
     pub expiry: MaybeBlock<BlockNumber>,
 }
+
+mod migrate {
+    use super::*;
+    use polymesh_primitives::migrate::{Empty, Migrate};
+    #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+    /// Info for keeping track of a motion being voted on.
+    pub struct PolymeshVotesOld<IdentityId, BlockNumber> {
+        /// The proposal's unique index.
+        pub index: ProposalIndex,
+        /// The current set of committee members that approved it.
+        pub ayes: Vec<IdentityId>,
+        /// The current set of committee members that rejected it.
+        pub nays: Vec<IdentityId>,
+        /// The hard end time of this vote.
+        pub end: BlockNumber,
+        /// The time **at** which the proposal is expired.
+        pub expiry: MaybeBlock<BlockNumber>,
+    }
+    impl<IdentityId: Encode + Decode, BlockNumber: Encode + Decode> Migrate
+        for PolymeshVotesOld<IdentityId, BlockNumber>
+    {
+        type Context = Empty;
+        type Into = PolymeshVotes<IdentityId, BlockNumber>;
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+            let Self {
+                index,
+                ayes,
+                nays,
+                end: _,
+                expiry,
+            } = self;
+            Some(Self::Into {
+                index,
+                ayes,
+                nays,
+                expiry,
+            })
+        }
+    }
+}
+
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Committee {
@@ -173,6 +214,8 @@ decl_storage! {
         pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
         /// Time after which a proposal will expire.
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(phantom): PhantomData<(T, I)>;
@@ -252,6 +295,18 @@ decl_module! {
         type Error = Error<T, I>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{storage_migrate_on, migrate::{migrate_map, Empty}};
+
+            storage_migrate_on!(Self::storage_version(), 1, [I] {
+                migrate_map::<migrate::PolymeshVotesOld<IdentityId, T::BlockNumber>, _>(
+                    b"Committee", b"Voting", |_| Empty
+                );
+            });
+
+            0
+        }
 
         /// Change the vote threshold the determines the winning proposal.
         /// For e.g., for a simple majority use (1, 2) which represents the in-equation ">= 1/2".
@@ -566,7 +621,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: now,
                 expiry: Self::expires_after() + now,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
