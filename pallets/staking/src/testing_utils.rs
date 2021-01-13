@@ -20,6 +20,9 @@
 
 use crate::Module as Staking;
 use crate::*;
+use polymesh_common_utilities::identity::IdentityFnTrait;
+use polymesh_primitives::InvestorUid;
+
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use rand_chacha::{
@@ -31,17 +34,42 @@ use sp_npos_elections::*;
 
 const SEED: u32 = 0;
 
+/// Grab a funded user with the given balance.
+pub fn create_funded_user_with_balance<T: Trait>(
+    string: &'static str,
+    n: u32,
+    balance: BalanceOf<T>,
+) -> T::AccountId {
+    let user = account(string, n, SEED);
+    T::Currency::make_free_balance_be(&user, balance);
+    // ensure T::CurrencyToVote will work correctly.
+    T::Currency::issue(balance);
+    user
+}
+
 /// Grab a funded user.
 pub fn create_funded_user<T: Trait>(
     string: &'static str,
     n: u32,
     balance_factor: u32,
 ) -> T::AccountId {
-    let user = account(string, n, SEED);
     let balance = T::Currency::minimum_balance() * balance_factor.into();
-    T::Currency::make_free_balance_be(&user, balance);
-    // ensure T::CurrencyToVote will work correctly.
-    T::Currency::issue(balance);
+    create_funded_user_with_balance::<T>(string, n, balance)
+}
+
+/// Grab a funded users with a given balance and its DID is also generated.
+pub fn create_funded_user_with_did<T: Trait>(
+    string: &'static str,
+    n: u32,
+    balance: BalanceOf<T>,
+) -> T::AccountId {
+    let user = create_funded_user_with_balance::<T>(string, n, balance.into());
+
+    let uid = InvestorUid::from(string);
+    T::IdentityFn::register_did(user.clone(), uid, vec![]).expect("Identity cannot be registered");
+    let did = T::IdentityFn::get_identity(&user).expect("Identity cannot be loaded");
+    PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
+
     user
 }
 
@@ -50,16 +78,25 @@ pub fn create_stash_controller<T: Trait>(
     n: u32,
     balance_factor: u32,
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    let controller = create_funded_user::<T>("controller", n, balance_factor);
+    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    create_stash_controller_with_balance::<T>(n, amount)
+}
+
+/// Create a stash and controller pair.
+/// Both accounts are created with the given balance and with DID.
+pub fn create_stash_controller_with_balance<T: Trait>(
+    n: u32,
+    balance: BalanceOf<T>,
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
+    let stash = create_funded_user_with_did::<T>("stash", n, balance);
+    let controller = create_funded_user_with_did::<T>("controller", n, balance);
     let controller_lookup: <T::Lookup as StaticLookup>::Source =
         T::Lookup::unlookup(controller.clone());
     let reward_destination = RewardDestination::Staked;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(
         RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,
-        amount,
+        balance.into(),
         reward_destination,
     )?;
     return Ok((stash, controller));

@@ -20,14 +20,13 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_asset::{
-    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf,
-    SecurityToken, Tokens,
+    AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf, SecurityToken, Tokens,
 };
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{self, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
@@ -68,6 +67,11 @@ impl<T: Trait> From<User<T>> for UserData<T> {
             did: user.did(),
         }
     }
+}
+
+fn make_asset<T: Trait, N: AsRef<[u8]>>(owner: &User<T>, name: Option<N>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, N>(owner, name)
+        .expect("Asset cannot be created")
 }
 
 fn set_block_number<T: Trait>(new_block_no: u64) {
@@ -436,16 +440,8 @@ fn setup_affirm_instruction<T: Trait>(
     // Create legs vector.
     // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
     // Assumption here is that instruction will never be executed as still there is one auth pending.
-    let from_ticker = make_base_asset::<T>(
-        &from,
-        true,
-        Some(Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap()),
-    );
-    let to_ticker = make_base_asset::<T>(
-        &to,
-        true,
-        Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()),
-    );
+    let from_ticker = make_asset::<T, _>(&from, Some([b'A'; 8 as usize]));
+    let to_ticker = make_asset::<T, _>(&to, Some("BBBBBBBB"));
     let from_data = UserData::from(from);
     let to_data = UserData::from(to);
     if l == 1 {

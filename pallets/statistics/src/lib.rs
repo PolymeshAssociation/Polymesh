@@ -22,7 +22,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     traits::Get, weights::Weight,
 };
-use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
+use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
 use polymesh_primitives::{IdentityId, ScopeId, Ticker};
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
@@ -47,7 +47,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
     /// Maximum transfer managers that can be enabled for an Asset
     type MaxTransferManagersPerAsset: Get<u32>;
     /// Weights for extrinsics

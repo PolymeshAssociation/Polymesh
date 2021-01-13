@@ -41,6 +41,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
+running-ci = []
 std = [
 	"substrate-test-runtime-client",
 	"serde_derive",
