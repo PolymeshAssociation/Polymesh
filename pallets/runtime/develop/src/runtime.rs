@@ -412,11 +412,6 @@ impl pallet_staking::Trait for Runtime {
     type PalletsOrigin = OriginCaller;
 }
 
-parameter_types! {
-    // pallet_committee::Module::<_,_>::close requires MotionDuration > 0.
-    pub const MotionDuration: BlockNumber = 1;
-}
-
 /// Voting majority origin for `Instance`.
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
@@ -427,7 +422,6 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 /// PolymeshCommittee as an instance of group
@@ -452,7 +446,6 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
-            type MotionDuration = MotionDuration;
             type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {

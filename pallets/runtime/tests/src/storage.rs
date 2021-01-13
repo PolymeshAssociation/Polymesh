@@ -436,10 +436,6 @@ impl group::Trait<group::Instance2> for TestStorage {
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
 
-parameter_types! {
-    pub const MotionDuration: BlockNumber = 0u64;
-}
-
 /// Voting majority origin for `Instance`.
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
@@ -449,7 +445,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
@@ -459,7 +454,6 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 

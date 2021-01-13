@@ -21,7 +21,6 @@
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
-// - If MotionDuration > 0 then only the `close()` dispatchable will be used.
 
 //! # Committee Module
 //!
@@ -66,7 +65,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
+    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::{GetDispatchInfo, Weight},
 };
 use frame_system::{self as system};
@@ -125,9 +124,6 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// The time-out for council motions.
-    type MotionDuration: Get<Self::BlockNumber>;
 
     /// Weight computation.
     type WeightInfo: WeightInfo;
@@ -570,7 +566,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: now + T::MotionDuration::get(),
+                end: now,
                 expiry: Self::expires_after() + now,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
