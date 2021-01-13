@@ -12,6 +12,7 @@ path = "src/main.rs"
 [workspace]
 members = [
     "bin/bench",
+    "bin/crypto-cli",
     "bin/testing",
     "node-rpc",
     "pallets/asset",
