@@ -919,12 +919,8 @@ impl<T: Trait> Module<T> {
             &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
-        let legs_count = legs.len() as u32;
-        for (leg_id, leg_details) in legs
-            .into_iter()
-            .filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
-        {
+        let (legs_count, legs) = Self::filtered_legs(instruction_id, &portfolios);
+        for (leg_id, leg_details) in legs {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
@@ -1099,13 +1095,9 @@ impl<T: Trait> Module<T> {
             &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
         )?;
 
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
-        let legs_count = legs.len() as u32;
+        let (legs_count, legs) = Self::filtered_legs(instruction_id, &portfolios);
         with_transaction(|| {
-            for (leg_id, leg_details) in legs
-                .into_iter()
-                .filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
-            {
+            for (leg_id, leg_details) in legs {
                 if let Err(_) = Self::lock_via_leg(&leg_details) {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                     return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
@@ -1332,14 +1324,10 @@ impl<T: Trait> Module<T> {
             );
         }
 
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
-        let legs_count = legs.len() as u32;
+        let (legs_count, legs) = Self::filtered_legs(instruction_id, &portfolios_set);
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
-            for (leg_id, leg_details) in legs
-                .into_iter()
-                .filter(|(_leg_id, leg_details)| portfolios_set.contains(&leg_details.from))
-            {
+            for (leg_id, leg_details) in legs {
                 // Receipt for the leg was provided
                 if let Some(receipt) = receipt_details
                     .iter()
@@ -1517,5 +1505,19 @@ impl<T: Trait> Module<T> {
             );
         }
         Ok(())
+    }
+
+    /// Returns total number of legs of an `instruction_id` and an iterator over the legs where sender is in the `portfolios` set.
+    fn filtered_legs(
+        instruction_id: u64,
+        portfolios: &BTreeSet<PortfolioId>,
+    ) -> (u32, impl Iterator<Item = (u64, Leg<T::Balance>)> + '_) {
+        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        let legs_count = legs.len() as u32;
+        (
+            legs_count,
+            legs.into_iter()
+                .filter(move |(_, leg_details)| portfolios.contains(&leg_details.from)),
+        )
     }
 }

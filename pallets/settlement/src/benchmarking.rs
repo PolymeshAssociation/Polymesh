@@ -379,7 +379,7 @@ pub fn setup_conditions<T: Trait>(
                 vec![trusted_issuer.clone()],
             )
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 fn compliance_setup<T: Trait>(
