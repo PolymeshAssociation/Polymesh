@@ -138,7 +138,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee
     /// with `M` and `N` set dynamically in `set_vote_threshold`.
-    Condoned(PhantomData<(AccountId, I)>),
+    Endorsed(PhantomData<(AccountId, I)>),
 }
 
 /// Origin for the committee module.
@@ -535,7 +535,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     fn execute(did: IdentityId, proposal: <T as Trait<I>>::Proposal, hash: T::Hash) {
-        let origin = RawOrigin::Condoned(PhantomData).into();
+        let origin = RawOrigin::Endorsed(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
     }
@@ -681,11 +681,11 @@ where
 {
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().map(|RawOrigin::Condoned(PhantomData)| ())
+        o.into().map(|RawOrigin::Endorsed(PhantomData)| ())
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn successful_origin() -> O {
-        O::from(RawOrigin::Condoned(PhantomData))
+        O::from(RawOrigin::Endorsed(PhantomData))
     }
 }

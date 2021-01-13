@@ -282,7 +282,7 @@ fn changing_vote_threshold_works() {
 
 /// Constructs an origin for the governance council voting majority.
 pub fn gc_vmo() -> Origin {
-    pallet_committee::Origin::<TestStorage, committee::Instance1>::Condoned(<_>::default()).into()
+    pallet_committee::Origin::<TestStorage, committee::Instance1>::Endorsed(<_>::default()).into()
 }
 
 fn changing_vote_threshold_works_we() {
