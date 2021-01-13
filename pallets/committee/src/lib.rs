@@ -343,11 +343,14 @@ decl_module! {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = (
-            500_000_000 + call.get_dispatch_info().weight,
-            call.get_dispatch_info().class,
-            Pays::Yes
-        )]
+        #[weight = {
+            let dispatch_info = call.get_dispatch_info();
+            (
+                500_000_000 + dispatch_info.weight,
+                dispatch_info.class,
+                Pays::Yes
+            )
+        }]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
