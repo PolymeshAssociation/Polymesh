@@ -476,10 +476,17 @@ async function mintingAsset(api, minter, did, ticker) {
 
 async function sendTx(signer, tx) {
   let nonceObj = { nonce: nonces.get(signer.address) };
+  let passed;
+  
+  try {
   const result = await sendTransaction(tx, signer, nonceObj);
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
+   passed = result.findRecord("system", "ExtrinsicSuccess");
+  } finally {
+    nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  }
+  
   if (!passed) return -1;
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  
 }
 
 async function addComplianceRequirement(api, sender, ticker) {

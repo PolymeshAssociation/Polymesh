@@ -39,12 +39,18 @@ async function main() {
   await reqImports.authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys);
   
   await reqImports.distributePolyBatch( api, [secondary_keys[0]], reqImports.transfer_amount, alice );
-  
-  const portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
-  
-  //assert.equal(portfolioOutput, false);
-  
-  await setPermissionToSigner(api, primary_keys, secondary_keys);
+
+  let portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
+
+  assert.equal(portfolioOutput, false);
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, "Portfolio", "create_portfolio");
+
+  portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
+
+  assert.equal(portfolioOutput, true);
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, "Portfolio", "move_portfolio_funds");
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -56,15 +62,15 @@ async function main() {
   process.exit();
 }
 
-async function setPermissionToSigner(api, accounts, secondary_accounts) {
+async function setPermissionToSigner(api, accounts, secondary_accounts, pallet_name, dispatchable_name) {
 
   const permissions = {
     "asset": null,
     "extrinsic": [
       {
-        "pallet_name": "Portfolio",
+        "pallet_name": pallet_name,
         "total": true,
-        "dispatchable_names": [{"DispatchableName": "create_portfolio"}]
+        "dispatchable_names": [ dispatchable_name ]
       }
     ],
     "portfolio": null
@@ -80,10 +86,18 @@ async function setPermissionToSigner(api, accounts, secondary_accounts) {
 
 // Attach a secondary key to each DID
 async function addSecondaryKeys(api, accounts, secondary_accounts) {
+
+  const emptyPermissions =
+  {
+    "asset": [],
+    "extrinsic": [],
+    "portfolio": []
+  };
+
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Secondary Item to identity.
 
-    const transaction = api.tx.identity.addAuthorization({ Account: secondary_accounts[i].publicKey }, { JoinIdentity: reqImports.totalPermissions }, null);
+    const transaction = api.tx.identity.addAuthorization({ Account: secondary_accounts[i].publicKey }, { JoinIdentity: emptyPermissions }, null);
     let tx = await reqImports.sendTx(accounts[i], transaction);
     if(tx !== -1) reqImports.fail_count--;
   }
@@ -91,9 +105,14 @@ async function addSecondaryKeys(api, accounts, secondary_accounts) {
 
 async function createPortfolio(api, name, signer) {
 
+  try {
   const transaction = api.tx.portfolio.createPortfolio(name);
-  const tx = await reqImports.sendTx(signer, transaction);
-  return (tx === -1) ? false : true;
+  await reqImports.sendTx(signer, transaction);
+  return true;
+  } catch (err) {
+    return false;
+  }
+
 }
 
 main().catch(console.error);
