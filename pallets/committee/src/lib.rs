@@ -143,7 +143,7 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
-pub struct PolymeshVotes<IdentityId, BlockNumber> {
+pub struct PolymeshVotes<BlockNumber> {
     /// The proposal's unique index.
     pub index: ProposalIndex,
     /// The current set of committee members that approved it.
@@ -159,7 +159,7 @@ mod migrate {
     use polymesh_primitives::migrate::{Empty, Migrate};
     #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
     /// Info for keeping track of a motion being voted on.
-    pub struct PolymeshVotesOld<IdentityId, BlockNumber> {
+    pub struct PolymeshVotesOld<BlockNumber> {
         /// The proposal's unique index.
         pub index: ProposalIndex,
         /// The current set of committee members that approved it.
@@ -171,11 +171,9 @@ mod migrate {
         /// The time **at** which the proposal is expired.
         pub expiry: MaybeBlock<BlockNumber>,
     }
-    impl<IdentityId: Encode + Decode, BlockNumber: Encode + Decode> Migrate
-        for PolymeshVotesOld<IdentityId, BlockNumber>
-    {
+    impl<BlockNumber: Encode + Decode> Migrate for PolymeshVotesOld<BlockNumber> {
         type Context = Empty;
-        type Into = PolymeshVotes<IdentityId, BlockNumber>;
+        type Into = PolymeshVotes<BlockNumber>;
         fn migrate(self, _: Self::Context) -> Option<Self::Into> {
             let Self {
                 index,
@@ -203,7 +201,7 @@ decl_storage! {
         /// Actual proposal for a given hash.
         pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
+        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
@@ -300,7 +298,7 @@ decl_module! {
             use polymesh_primitives::{storage_migrate_on, migrate::{migrate_map, Empty}};
 
             storage_migrate_on!(Self::storage_version(), 1, [I] {
-                migrate_map::<migrate::PolymeshVotesOld<IdentityId, T::BlockNumber>, _>(
+                migrate_map::<migrate::PolymeshVotesOld<T::BlockNumber>, _>(
                     b"Committee", b"Voting", |_| Empty
                 );
             });
@@ -438,7 +436,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     fn ensure_proposal(
         hash: &T::Hash,
         idx: ProposalIndex,
-    ) -> Result<PolymeshVotes<IdentityId, T::BlockNumber>, DispatchError> {
+    ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
         let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
         ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
         Ok(voting)
