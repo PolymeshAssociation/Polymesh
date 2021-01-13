@@ -1467,8 +1467,7 @@ impl<T: Trait> Module<T> {
     ) -> Option<IdentityClaim> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
-        let claim = Claims::get(&pk, &sk);
-        Claims::contains_key(&pk, &sk).then(|| claim)
+        Claims::contains_key(&pk, &sk).then(|| Claims::get(&pk, &sk))
     }
 
     /// It checks that `sender` is the primary key of `did` Identifier and that

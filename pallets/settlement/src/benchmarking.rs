@@ -360,25 +360,26 @@ pub fn setup_conditions<T: Trait>(
     dids: Vec<IdentityId>,
     ticker: Ticker,
 ) -> Vec<Condition> {
-    let mut conditions = Vec::with_capacity(count as usize);
-    for i in 0..count {
-        let scope = Scope::Custom((ticker.encode(), vec![1; i.try_into().unwrap()]).encode());
-        let claim = Claim::Jurisdiction(CountryCode::AF, scope);
-        for did in &dids {
-            identity::Module::<T>::base_add_claim(
-                did.clone(),
-                claim.clone(),
-                trusted_issuer.issuer,
-                None,
-            );
-        }
-        let condition = Condition::new(
-            ConditionType::IsPresent(claim),
-            vec![trusted_issuer.clone()],
-        );
-        conditions.push(condition);
-    }
-    conditions
+    let encoded_ticker = ticker.encode();
+    (0..count)
+        .map(|i| {
+            let scope =
+                Scope::Custom((encoded_ticker.clone(), vec![1; i.try_into().unwrap()]).encode());
+            let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+            for did in &dids {
+                identity::Module::<T>::base_add_claim(
+                    did.clone(),
+                    claim.clone(),
+                    trusted_issuer.issuer,
+                    None,
+                );
+            }
+            Condition::new(
+                ConditionType::IsPresent(claim),
+                vec![trusted_issuer.clone()],
+            )
+        })
+        .collect::<Vec<_>>()
 }
 
 fn compliance_setup<T: Trait>(
@@ -860,12 +861,10 @@ benchmarks! {
         //
         // Worst case scenarios.
         // 1. Create maximum legs and both traded assets are different assets/securities.
-        // 2. Assets should have worst compliance restrictions ?
+        // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        //let s in 0 .. T::MaxTransferManagersPerAsset::get() as u32;
-        //let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
         let s = T::MaxTransferManagersPerAsset::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
@@ -898,7 +897,7 @@ benchmarks! {
         //     add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
         //     add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
         // }
-    }: _(origin, instruction_id)
+    }: _(origin, instruction_id, l)
     verify {
         // Ensure that any one leg processed through that give sufficient evidence of successful execution of instruction.
         let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);

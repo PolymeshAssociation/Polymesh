@@ -1,7 +1,7 @@
 #! /bin/bash
 
 pallet=$1
-extrinsic=$1
+extrinsic=$2
 
 if [[ -z "${pallet}" ]]; then
     pallet="*"
@@ -11,5 +11,5 @@ if [[ -z "${extrinsic}" ]]; then
     extrinsic="*"
 fi
 
-cargo build --release --features=runtime-benchmarks && \
+SKIP_WASM_BUILD=1 cargo build --release --features=runtime-benchmarks && \
 ./target/release/polymesh benchmark -p=${pallet} -e=${extrinsic}
