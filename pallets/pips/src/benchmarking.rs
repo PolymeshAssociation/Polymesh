@@ -108,7 +108,7 @@ fn pips_and_votes_setup<T: Trait>(
     let hi_voters = make_voters::<T>(voters_a_num, "hi");
     let bye_voters = make_voters::<T>(voters_b_num, "bye");
     let User { origin, did, .. } = user::<T>("initial", 0);
-    let did = did.expect("no did in pips_and_votes_setup");
+    let did = did.ok_or("no did in pips_and_votes_setup")?;
     for i in 0..PROPOSALS_NUM {
         let (proposal, url, description) = make_proposal::<T>();
         // Pick a proposer, diversifying like a poor man.
@@ -213,11 +213,12 @@ benchmarks! {
     }
 
     propose_from_community {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
+        let origin = user.origin();
     }: propose(origin, proposal, 42.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description);
@@ -225,8 +226,8 @@ benchmarks! {
 
     // `propose` from a committee origin.
     propose_from_committee {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
@@ -241,11 +242,11 @@ benchmarks! {
     }
 
     vote {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let proposer = user::<T>("proposer", 0);
+        identity::CurrentDid::put(proposer.did());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
-            origin.into(),
+            proposer.origin().into(),
             proposal,
             42.into(),
             Some(url),
@@ -257,14 +258,15 @@ benchmarks! {
         cast_votes::<T>(0, aye_voters.as_slice(), true)?;
         cast_votes::<T>(0, nay_voters.as_slice(), false)?;
         // Cast an opposite vote.
-        let User { account, origin, did, .. } = user::<T>("voter", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let voter = user::<T>("voter", 0);
+        identity::CurrentDid::put(voter.did());
         let voter_deposit = 43.into();
         // Cast an opposite vote.
-        Module::<T>::vote(origin.clone().into(), 0, false, voter_deposit)?;
+        Module::<T>::vote(voter.origin().into(), 0, false, voter_deposit)?;
+        let origin = voter.origin();
     }: _(origin, 0, true, voter_deposit)
     verify {
-        ensure!(voter_deposit == Deposits::<T>::get(0, &account).amount, "incorrect voter deposit");
+        ensure!(voter_deposit == Deposits::<T>::get(0, &voter.account()).amount, "incorrect voter deposit");
     }
 
     approve_committee_proposal {
@@ -285,33 +287,33 @@ benchmarks! {
     }
 
     reject_proposal {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42.into();
         Module::<T>::propose(
-            origin.into(),
+            user.origin().into(),
             proposal,
             deposit,
             Some(url),
             Some(description)
         )?;
-        ensure!(deposit == Deposits::<T>::get(&0, &account).amount, "incorrect deposit in reject_proposal");
+        ensure!(deposit == Deposits::<T>::get(&0, &user.account()).amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::reject_proposal(0);
     }: {
         call.dispatch_bypass_filter(vmo_origin)?;
     }
     verify {
-        ensure!(!Deposits::<T>::contains_key(&0, &account), "deposit of the rejected proposal is present");
+        ensure!(!Deposits::<T>::contains_key(&0, &user.account()), "deposit of the rejected proposal is present");
     }
 
     prune_proposal {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        identity::CurrentDid::put(did.unwrap());
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
-            origin.into(),
+            user.origin().into(),
             proposal,
             42.into(),
             Some(url),
@@ -331,43 +333,43 @@ benchmarks! {
     }
 
     reschedule_execution {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        let did = did.expect("missing did in reschedule_execution");
-        identity::CurrentDid::put(did);
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
-            origin.clone().into(),
+            user.origin().into(),
             proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
-        T::GovernanceCommittee::bench_set_release_coordinator(did);
-        Module::<T>::snapshot(origin.clone().into())?;
+        T::GovernanceCommittee::bench_set_release_coordinator(user.did());
+        Module::<T>::snapshot(user.origin().into())?;
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
         enact_call.dispatch_bypass_filter(vmo_origin)?;
         let future_block = frame_system::Module::<T>::block_number() + 100.into();
+        let origin = user.origin();
     }: _(origin, 0, Some(future_block))
     verify {
         ensure!(PipToSchedule::<T>::contains_key(&0), "rescheduled proposal is missing in the schedule");
     }
 
     clear_snapshot {
-        let User { account, origin, did, .. } = user::<T>("proposer", 0);
-        let did = did.expect("missing did in clear_snapshot");
-        identity::CurrentDid::put(did);
+        let user = user::<T>("proposer", 0);
+        identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
-            origin.clone().into(),
+            user.origin().into(),
             proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
-        T::GovernanceCommittee::bench_set_release_coordinator(did);
-        Module::<T>::snapshot(origin.clone().into())?;
+        T::GovernanceCommittee::bench_set_release_coordinator(user.did());
+        Module::<T>::snapshot(user.origin().into())?;
         ensure!(SnapshotMeta::<T>::get().is_some(), "missing a snapshot before clear_snapshot");
+        let origin = user.origin();
     }: _(origin)
     verify {
         ensure!(SnapshotMeta::<T>::get().is_none(), "snapshot was not cleared by clear_snapshot");
