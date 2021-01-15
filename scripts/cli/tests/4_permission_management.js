@@ -27,7 +27,7 @@ async function main() {
   let primary_keys = await reqImports.generateKeys(api, 1, primary_dev_seed );
 
   let secondary_keys = await reqImports.generateKeys(api, 1, secondary_dev_seed );
-
+  
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, alice);
   
   await reqImports.distributePolyBatch( api, [primary_keys[0]], reqImports.transfer_amount, alice );
@@ -52,6 +52,10 @@ async function main() {
 
   await setPermissionToSigner(api, primary_keys, secondary_keys, "Portfolio", "move_portfolio_funds");
 
+  let portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
+
+  // assert.equal(portfolioFundsOutput, false);
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -60,6 +64,43 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amount) {
+  try {
+    
+    
+    const primaryKeyDid = await reqImports.getDid(api, primary_key);
+    
+    const secondaryKeyDid = await reqImports.getDid(api, secondary_key);
+    
+    const portfolioNum = (await nextPortfolioNumber(api, secondaryKeyDid)) - 1;
+
+    const from = {
+      did: primaryKeyDid,
+      kind: 'Default'
+    }
+    
+    const to = {
+      did: secondaryKeyDid,
+      kind: {User: portfolioNum}
+    }
+    
+    const items = [
+      {
+        ticker,
+        amount
+      }
+    ]
+    
+    const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
+    
+    await reqImports.sendTx(secondary_key, transaction);
+    
+    return true;
+    } catch (err) {
+      return false;
+    }
 }
 
 async function setPermissionToSigner(api, accounts, secondary_accounts, pallet_name, dispatchable_name) {
@@ -113,6 +154,10 @@ async function createPortfolio(api, name, signer) {
     return false;
   }
 
+}
+
+async function nextPortfolioNumber(api, did) {
+  return await api.query.portfolio.nextPortfolioNumber(did);
 }
 
 main().catch(console.error);

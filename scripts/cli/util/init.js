@@ -477,7 +477,7 @@ async function mintingAsset(api, minter, did, ticker) {
 async function sendTx(signer, tx) {
   let nonceObj = { nonce: nonces.get(signer.address) };
   let passed;
-  
+
   try {
   const result = await sendTransaction(tx, signer, nonceObj);
    passed = result.findRecord("system", "ExtrinsicSuccess");
@@ -625,6 +625,10 @@ async function claimReceipt(
   await sendTx(sender, transaction);
 }
 
+async function getDid(api, account) {
+  return await api.query.identity.keyToIdentityIds(account.address);
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -673,6 +677,7 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
+  getDid
 };
 
 export { reqImports };
