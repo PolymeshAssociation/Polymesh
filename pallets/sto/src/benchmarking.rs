@@ -51,36 +51,43 @@ fn create_assets_and_compliance<T: Trait>(
         .generate_did()
         .build("TrustedClaimIssuer");
     let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-    create_asset::<T>(from.origin(), offering_ticker.clone(), supply.clone())?;
-    create_asset::<T>(to.origin(), raise_ticker.clone(), supply.clone())?;
-    compliance_setup::<T>(
+    let setup = |a: &User<T>,
+                 b: &User<T>,
+                 ticker: Ticker,
+                 supply: u128,
+                 complexity: u32,
+                 transfer_managers: u32|
+     -> DispatchResult {
+        create_asset::<T>(a.origin(), ticker.clone(), supply.clone())?;
+        compliance_setup::<T>(
+            complexity,
+            ticker.clone(),
+            a.origin(),
+            a.did(),
+            b.did(),
+            trusted_issuer.clone(),
+        );
+        add_transfer_manager::<T>(ticker.clone(), a.origin(), transfer_managers, a.did());
+        Ok(())
+    };
+
+    setup(
+        from,
+        to,
+        offering_ticker,
+        supply,
         complexity,
-        offering_ticker.clone(),
-        from.origin(),
-        from.did(),
-        to.did(),
-        trusted_issuer.clone(),
-    );
-    compliance_setup::<T>(
+        transfer_managers,
+    )?;
+    setup(
+        to,
+        from,
+        raise_ticker,
+        supply,
         complexity,
-        raise_ticker.clone(),
-        to.origin(),
-        to.did(),
-        from.did(),
-        trusted_issuer.clone(),
-    );
-    add_transfer_manager::<T>(
-        offering_ticker.clone(),
-        from.origin(),
         transfer_managers,
-        from.did(),
-    );
-    add_transfer_manager::<T>(
-        raise_ticker.clone(),
-        to.origin(),
-        transfer_managers,
-        to.did(),
-    );
+    )?;
+
     Ok(())
 }
 
