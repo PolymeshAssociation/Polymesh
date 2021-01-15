@@ -382,7 +382,7 @@ impl pallet_staking::Trait for Runtime {
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type RewardRemainder = Treasury;
+    type RewardRemainder = ();
     type Event = Event;
     type Slash = Treasury; // send the slashed funds to the treasury.
     type Reward = (); // rewards are minted from the void
