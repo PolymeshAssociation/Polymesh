@@ -182,10 +182,38 @@ fn raise_happy_path() {
             offering_ticker,
             fundraiser_id,
             1,
-            Some(2u128),
+            Some(1_000_000u128),
             None
         ),
         Error::InvestmentAmountTooLow
+    );
+    // Investment fails if the order is not filled
+    assert_noop!(
+        STO::invest(
+            bob_signed.clone(),
+            bob_portfolio,
+            bob_portfolio,
+            offering_ticker,
+            fundraiser_id,
+            1_000_001u128,
+            Some(1_000_000u128),
+            None
+        ),
+        Error::InsufficientTokensRemaining
+    );
+    // Investment fails if the maximum price is breached
+    assert_noop!(
+        STO::invest(
+            bob_signed.clone(),
+            bob_portfolio,
+            bob_portfolio,
+            offering_ticker,
+            fundraiser_id,
+            amount.into(),
+            Some(999_999u128),
+            None
+        ),
+        Error::MaxPriceExceeded
     );
     // Bob invests in Alice's fundraiser
     assert_ok!(STO::invest(
@@ -195,7 +223,7 @@ fn raise_happy_path() {
         offering_ticker,
         fundraiser_id,
         amount.into(),
-        Some(2u128),
+        Some(1_000_000u128),
         None
     ));
     check_fundraiser(1_000_000u128 - amount);

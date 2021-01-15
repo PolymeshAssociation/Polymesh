@@ -178,6 +178,8 @@ decl_error! {
         Unauthorized,
         /// An arithmetic operation overflowed.
         Overflow,
+        /// Not enough tokens left for sale.
+        InsufficientTokensRemaining,
         /// Fundraiser not found.
         FundraiserNotFound,
         /// Fundraiser is either frozen or stopped.
@@ -374,10 +376,10 @@ decl_module! {
                     .ok_or(Error::<T>::Overflow)?;
             }
 
-            ensure!(remaining == 0.into() || cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
-            let final_purchase_amount = purchase_amount - remaining;
+            ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+            ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
-                max_price.map(|max_price| cost <= max_price.saturating_mul(final_purchase_amount) / price_divisor).unwrap_or(true),
+                max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
                 Error::<T>::MaxPriceExceeded
             );
 
@@ -386,7 +388,7 @@ decl_module! {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
                     asset: fundraiser.offering_asset,
-                    amount: final_purchase_amount
+                    amount: purchase_amount
                 },
                 Leg {
                     from: funding_portfolio,
@@ -397,7 +399,7 @@ decl_module! {
             ];
 
             with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &final_purchase_amount)?;
+                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &purchase_amount)?;
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
@@ -427,7 +429,7 @@ decl_module! {
                 fundraiser.tiers[id].remaining -= amount;
             }
 
-            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, final_purchase_amount, cost));
+            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         }
 
