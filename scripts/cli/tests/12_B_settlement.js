@@ -102,7 +102,7 @@ async function main() {
   await reqImports.affirmInstruction(api, dave, instructionCounter, dave_did, 0);
 
   //await reqImports.rejectInstruction(api, eve, instructionCounter);
-  await reqImports.affirmInstruction(api, eve, instructionCounter, eve_did);
+  await reqImports.affirmInstruction(api, eve, instructionCounter, eve_did, 0);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
