@@ -442,12 +442,17 @@ benchmarks! {
 
     expire_scheduled_pip {
         pips_and_votes_setup::<T>(true)?;
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let origin = RawOrigin::Root;
+        ensure!(
+            ProposalState::Pending == Module::<T>::proposals(&0).unwrap().state,
+            "incorrect proposal state before expiration"
+        );
     }: _(origin, GC_DID, 0)
     verify {
         ensure!(
             ProposalState::Expired == Module::<T>::proposals(&0).unwrap().state,
-            "incorrect proposal state in expire_scheduled_pip"
+            "incorrect proposal state after expiration"
         );
     }
 }
