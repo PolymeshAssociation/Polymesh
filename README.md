@@ -80,7 +80,7 @@ cargo build
 
 Test cases are built in *debug mode* by default.
 
-## Using GDB 
+## Using GDB
 
 Using `rust-gdb` you will get pretty printed values for more types than directly with `gdb`.
 
