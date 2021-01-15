@@ -17,7 +17,7 @@
 use crate::*;
 
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{user, User},
     MaybeBlock, SystematicIssuers, GC_DID,
 };
 
@@ -33,12 +33,27 @@ use sp_std::{
     prelude::*,
 };
 
-const DESCRIPTION_LEN: usize = 1_000;
-const URL_LEN: usize = 500;
-const PROPOSAL_PADDING_LEN: usize = 10_000;
-const VOTERS_A_NUM: usize = 10; // 200;
-const VOTERS_B_NUM: usize = 10; // 200;
-const PROPOSALS_NUM: usize = 5; // 100;
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const DESCRIPTION_LEN: usize = 10;
+    pub const URL_LEN: usize = 50;
+    pub const PROPOSAL_PADDING_LEN: usize = 100;
+    pub const VOTERS_A_NUM: usize = 10;
+    pub const VOTERS_B_NUM: usize = 10;
+    pub const PROPOSALS_NUM: usize = 5;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const DESCRIPTION_LEN: usize = 1_000;
+    pub const URL_LEN: usize = 500;
+    pub const PROPOSAL_PADDING_LEN: usize = 10_000;
+    pub const VOTERS_A_NUM: usize = 200;
+    pub const VOTERS_B_NUM: usize = 200;
+    pub const PROPOSALS_NUM: usize = 100;
+}
+
+use limits::*;
 
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
@@ -61,10 +76,7 @@ fn make_voters<T: Trait>(
                 origin,
                 did,
                 ..
-            } = UserBuilder::<T>::default()
-                .generate_did()
-                .seed(i as u32)
-                .build(prefix);
+            } = user::<T>(prefix, i as u32);
             (account, origin, did.unwrap())
         })
         .collect()
@@ -95,7 +107,7 @@ fn pips_and_votes_setup<T: Trait>(
     };
     let hi_voters = make_voters::<T>(voters_a_num, "hi");
     let bye_voters = make_voters::<T>(voters_b_num, "bye");
-    let User { origin, did, .. } = UserBuilder::<T>::default().generate_did().build("initial");
+    let User { origin, did, .. } = user::<T>("initial", 0);
     let did = did.expect("no did in pips_and_votes_setup");
     for i in 0..PROPOSALS_NUM {
         let (proposal, url, description) = make_proposal::<T>();
@@ -201,8 +213,7 @@ benchmarks! {
     }
 
     propose_from_community {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let some_url = Some(url.clone());
@@ -214,8 +225,7 @@ benchmarks! {
 
     // `propose` from a committee origin.
     propose_from_committee {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
@@ -231,8 +241,7 @@ benchmarks! {
     }
 
     vote {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
@@ -248,8 +257,7 @@ benchmarks! {
         cast_votes::<T>(0, aye_voters.as_slice(), true)?;
         cast_votes::<T>(0, nay_voters.as_slice(), false)?;
         // Cast an opposite vote.
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("voter");
+        let User { account, origin, did, .. } = user::<T>("voter", 0);
         identity::CurrentDid::put(did.unwrap());
         let voter_deposit = 43.into();
         // Cast an opposite vote.
@@ -277,8 +285,7 @@ benchmarks! {
     }
 
     reject_proposal {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42.into();
@@ -300,8 +307,7 @@ benchmarks! {
     }
 
     prune_proposal {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
@@ -325,8 +331,7 @@ benchmarks! {
     }
 
     reschedule_execution {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         let did = did.expect("missing did in reschedule_execution");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
@@ -349,8 +354,7 @@ benchmarks! {
     }
 
     clear_snapshot {
-        let User { account, origin, did, .. } =
-            UserBuilder::<T>::default().generate_did().build("proposer");
+        let User { account, origin, did, .. } = user::<T>("proposer", 0);
         let did = did.expect("missing did in clear_snapshot");
         identity::CurrentDid::put(did);
         let (proposal, url, description) = make_proposal::<T>();
