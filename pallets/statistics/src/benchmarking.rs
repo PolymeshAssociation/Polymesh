@@ -32,20 +32,34 @@ fn init_ticker<T: Trait>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
-fn init_ctm<T: Trait>() -> (User<T>, Ticker, Vec<TransferManager>) {
+fn init_ctm<T: Trait>(
+    max_transfer_manager_per_asset: u32,
+) -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
-    let tms = (0..T::MaxTransferManagersPerAsset::get())
+    let tms = (0..max_transfer_manager_per_asset)
         .map(|x| TransferManager::CountTransferManager(x.into()))
         .collect::<Vec<_>>();
     ActiveTransferManagers::insert(ticker, tms.clone());
     (owner, ticker, tms)
 }
 
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const MAX_EXEMPTED_IDENTITIES: u32 = 10;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const MAX_EXEMPTED_IDENTITIES: u32 = 1000;
+}
+
 benchmarks! {
     _ {}
 
     add_transfer_manager {
-        let (owner, ticker, mut tms) = init_ctm::<T>();
+        let max_tm = T::MaxTransferManagersPerAsset::get().saturating_sub(1);
+        let (owner, ticker, mut tms) = init_ctm::<T>(max_tm);
+
         let last_tm = TransferManager::CountTransferManager(420);
         tms.push(last_tm.clone());
     }: _(owner.origin, ticker, last_tm)
@@ -54,8 +68,8 @@ benchmarks! {
     }
 
     remove_transfer_manager {
-        let (owner, ticker, mut tms) = init_ctm::<T>();
-        let last_tm = tms.pop().unwrap();
+        let (owner, ticker, mut tms) = init_ctm::<T>(T::MaxTransferManagersPerAsset::get());
+        let last_tm = tms.pop().expect("MaxTransferManagersPerAsset should be greater than zero");
     }: _(owner.origin, ticker, last_tm)
     verify {
         assert!(Module::<T>::transfer_managers(ticker) == tms);
@@ -63,7 +77,7 @@ benchmarks! {
 
     add_exempted_entities {
         // Length of the vector of Exempted identities being added.
-        let i in 0 .. 1000;
+        let i in 0 .. limits::MAX_EXEMPTED_IDENTITIES;
 
         let (owner, ticker) = init_ticker::<T>();
         let scope_ids = (0..i as u128).map(IdentityId::from).collect::<Vec<_>>();
@@ -76,7 +90,7 @@ benchmarks! {
 
     remove_exempted_entities {
         // Length of the vector of Exempted identities being removed.
-        let i in 0 .. 1000;
+        let i in 0 .. limits::MAX_EXEMPTED_IDENTITIES;
 
         let (owner, ticker) = init_ticker::<T>();
         let tm = TransferManager::CountTransferManager(420);

@@ -8,6 +8,9 @@ pub mod runtime;
 pub use fee_details::CddHandler;
 pub mod constants;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks;
+
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 

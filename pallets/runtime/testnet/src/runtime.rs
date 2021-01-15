@@ -190,7 +190,7 @@ parameter_types! {
 }
 
 impl pallet_babe::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -220,7 +220,7 @@ impl pallet_indices::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type Deposit = IndexDeposit;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
 }
 
 parameter_types! {
@@ -341,7 +341,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -423,6 +423,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -447,6 +448,7 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type Event = Event;
             type MotionDuration = MotionDuration;
+            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
@@ -614,7 +616,7 @@ impl pallet_im_online::Trait for Runtime {
 }
 
 impl pallet_grandpa::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
     type Event = Event;
     type Call = Call;
 
@@ -683,6 +685,7 @@ impl asset::Trait for Runtime {
     type UnixTime = pallet_timestamp::Module<Runtime>;
     type AssetNameMaxLength = AssetNameMaxLength;
     type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
@@ -785,7 +788,7 @@ impl pallet_scheduler::Trait for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
 construct_runtime!(

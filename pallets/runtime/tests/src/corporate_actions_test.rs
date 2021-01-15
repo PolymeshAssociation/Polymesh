@@ -20,7 +20,7 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::{AssetName, Trait as _};
+use polymesh_common_utilities::asset::{AssetFnTrait, AssetName};
 use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,

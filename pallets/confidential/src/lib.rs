@@ -26,7 +26,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_identity as identity;
-use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
+use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use sp_std::prelude::*;
@@ -60,7 +60,7 @@ pub trait WeightInfo {
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
-    type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
 }
 
