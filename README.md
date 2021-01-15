@@ -51,9 +51,6 @@ Run unit tests:
 
 # Polymesh Alcyone Public Testnet
 
-The Polymesh Alcyone Public Testnet can be viewed at:  
-https://stats.polymesh.live/#list/Polymesh%20Alcyone%20Testnet
-
 The latest tagged commit for the public testnet can be found at:  
 https://github.com/PolymathNetwork/Polymesh/releases
 
