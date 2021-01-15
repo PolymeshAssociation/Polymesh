@@ -58,16 +58,16 @@ fn create_assets_and_compliance<T: Trait>(
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        create_asset::<T>(a.origin(), ticker.clone(), supply.clone())?;
+        create_asset::<T>(a.origin(), ticker, supply)?;
         compliance_setup::<T>(
             complexity,
-            ticker.clone(),
+            ticker,
             a.origin(),
             a.did(),
             b.did(),
             trusted_issuer.clone(),
         );
-        add_transfer_manager::<T>(ticker.clone(), a.origin(), transfer_managers, a.did());
+        add_transfer_manager::<T>(ticker, a.origin(), transfer_managers, a.did());
         Ok(())
     };
 
