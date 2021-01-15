@@ -149,7 +149,7 @@ fn lei_checksum(bytes: [u8; 18]) -> u8 {
             i += if b > 9 { 2 } else { 1 };
             total
         });
-    (98 - (total * 100 % 97)) as u8
+    (98 - (total.wrapping_mul(100) % 97)) as u8
 }
 
 fn byte_value(b: u8) -> u8 {
