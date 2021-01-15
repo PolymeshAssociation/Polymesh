@@ -4717,12 +4717,12 @@ dependencies = [
 [[package]]
 name = "pallet-sudo"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -5227,7 +5227,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "chrono",
  "ed25519-dalek",
