@@ -1552,10 +1552,10 @@ impl<T: Trait> Module<T> {
         portfolios: &BTreeSet<PortfolioId>,
         max_filtered_legs: u32,
     ) -> Result<(u32, Vec<(u64, Leg<T::Balance>)>), DispatchError> {
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
-        let legs_count = legs.len() as u32;
-        let filtered_legs = legs
+        let mut legs_count = 0;
+        let filtered_legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
             .into_iter()
+            .inspect(|_| legs_count += 1)
             .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
             .collect::<Vec<_>>();
         // Ensure leg count is under the limit
