@@ -990,7 +990,9 @@ impl<T: Trait> Module<T> {
     }
 
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
+        legs.sort_by_key(|leg| leg.0);
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
