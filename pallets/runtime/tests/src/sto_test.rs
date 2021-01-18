@@ -440,7 +440,7 @@ fn zero_price_sto() {
         ticker,
         fundraiser_id,
         amount.into(),
-        None,
+        Some(0),
         None
     ));
 
