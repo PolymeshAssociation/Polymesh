@@ -315,7 +315,7 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn execute_scheduled_instruction(l: u32, s: u32, c: u32) -> Weight;
+    fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
@@ -561,7 +561,7 @@ decl_module! {
         /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
         )]
         pub fn add_instruction(
             origin,
@@ -587,7 +587,7 @@ decl_module! {
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
         #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
         )]
         pub fn add_and_affirm_instruction(
             origin,
@@ -601,7 +601,7 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u64;
+                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
                 Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
@@ -613,9 +613,9 @@ decl_module! {
         /// * `instruction_id` - Instruction id to affirm.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
         /// * `legs` - List of legs needs to affirmed.
-        #[weight = <T as Trait>::WeightInfo::affirm_instruction(*legs_count as u32)]
-        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) -> DispatchResult {
-            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter(), legs_count)
+        #[weight = <T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32)]
+        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
+            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter(), max_legs_count)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -623,13 +623,13 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*legs_count as u32)]
-        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) {
+        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
+        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, legs_count, secondary_key.as_ref())?;
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
             if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
@@ -641,8 +641,8 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
         /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
-        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*legs_count as u32)]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, legs_count: u64) {
+        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*max_legs_count as u32)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             ensure!(!portfolios.is_empty(), Error::<T>::NoPortfolioProvided);
 
@@ -659,7 +659,7 @@ decl_module! {
                     _ => return Err(Error::<T>::NoPendingAffirm.into())
                 };
             }
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios, legs_count, secondary_key.as_ref())?;
+            let legs_count = Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios, secondary_key.as_ref(), max_legs_count)?;
 
             // Updates storage to mark the instruction as rejected.
             for portfolio in portfolios_set {
@@ -669,7 +669,7 @@ decl_module! {
 
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
             // Schedule the instruction to execute in the next block only if it was meant to be executed on affirmation.
-            Self::maybe_schedule_instruction(Zero::zero(), instruction_id)
+            Self::maybe_schedule_instruction(Zero::zero(), instruction_id, legs_count)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -681,9 +681,9 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with
-        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(receipt_details.len() as u32)]
-        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
+        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(*max_legs_count as u32).max(<T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32))]
+        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios, max_legs_count)
         }
 
         /// Claims a signed receipt.
@@ -776,8 +776,8 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())]
-        fn execute_scheduled_instruction(origin, instruction_id: u64) {
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
+        fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
             ensure_root(origin)?;
             Self::execute_instruction(instruction_id)?;
         }
@@ -885,7 +885,7 @@ impl<T: Trait> Module<T> {
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            Self::schedule_instruction(instruction_counter, block_number);
+            Self::schedule_instruction(instruction_counter, block_number, legs.len() as u32);
         }
 
         <InstructionDetails<T>>::insert(instruction_counter, instruction);
@@ -908,29 +908,13 @@ impl<T: Trait> Module<T> {
         Ok(instruction_counter)
     }
 
-    fn get_valid_legs(
-        instruction_id: u64,
-        legs_count: u64,
-        portfolios: &BTreeSet<PortfolioId>,
-    ) -> Result<Vec<(u64, Leg<T::Balance>)>, DispatchError> {
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
-            .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
-            .collect::<Vec<(u64, Leg<T::Balance>)>>();
-        // Ensure given legs count is matches with the total number of legs given portfolio have.
-        ensure!(
-            legs.len() as u64 <= legs_count,
-            Error::<T>::LegCountTooSmall
-        );
-        Ok(legs)
-    }
-
     fn unsafe_withdraw_instruction_affirmation(
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
-        legs_count: u64,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> DispatchResult {
+        max_legs_count: u32,
+    ) -> Result<u32, DispatchError> {
         // checks custodianship of portfolios and affirmation status
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
@@ -939,9 +923,10 @@ impl<T: Trait> Module<T> {
             secondary_key,
             &[AffirmationStatus::Affirmed],
         )?;
-        // Unlock tokens that were previously locked during the affirmation.
-        let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
-        for (leg_id, leg_details) in legs.iter() {
+        // Unlock tokens that were previously locked during the affirmation
+        let (total_leg_count, filtered_legs) =
+            Self::filtered_legs(instruction_id, &portfolios, max_legs_count)?;
+        for (leg_id, leg_details) in filtered_legs {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
@@ -949,7 +934,7 @@ impl<T: Trait> Module<T> {
                     Self::deposit_event(RawEvent::ReceiptUnclaimed(
                         did,
                         instruction_id,
-                        *leg_id,
+                        leg_id,
                         receipt_uid,
                         signer,
                     ));
@@ -980,7 +965,7 @@ impl<T: Trait> Module<T> {
             *affirms_pending += u64::try_from(portfolios.len()).unwrap_or_default()
         });
 
-        Ok(())
+        Ok(total_leg_count)
     }
 
     fn ensure_instruction_validity(instruction_id: u64) -> DispatchResult {
@@ -1105,9 +1090,9 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
-        legs_count: u64,
+        max_legs_count: u32,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> DispatchResult {
+    ) -> Result<u32, DispatchError> {
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
@@ -1117,9 +1102,10 @@ impl<T: Trait> Module<T> {
             &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
         )?;
 
-        let legs = Self::get_valid_legs(instruction_id, legs_count, &portfolios)?;
+        let (total_leg_count, filtered_legs) =
+            Self::filtered_legs(instruction_id, &portfolios, max_legs_count)?;
         with_transaction(|| {
-            for (leg_id, leg_details) in legs.iter() {
+            for (leg_id, leg_details) in filtered_legs {
                 if let Err(_) = Self::lock_via_leg(&leg_details) {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                     return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
@@ -1150,7 +1136,7 @@ impl<T: Trait> Module<T> {
             affirms_pending.saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default()),
         );
 
-        Ok(())
+        Ok(total_leg_count)
     }
 
     fn unsafe_claim_receipt(
@@ -1253,13 +1239,13 @@ impl<T: Trait> Module<T> {
 
     /// Schedule a given instruction to be executed on the next block only if the
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
-    fn maybe_schedule_instruction(affirms_pending: u64, id: u64) {
+    fn maybe_schedule_instruction(affirms_pending: u64, id: u64, legs_count: u32) {
         if affirms_pending == 0
             && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
             let execution_at = system::Module::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at);
+            Self::schedule_instruction(id, execution_at, legs_count);
         }
     }
 
@@ -1268,8 +1254,8 @@ impl<T: Trait> Module<T> {
     /// NB - It is expected to execute the given instruction into the given block number but
     /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
     /// for the given block so there are chances where the instruction execution block no. may drift.
-    fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) {
-        let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
+    fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber, legs_count: u32) {
+        let call = Call::<T>::execute_scheduled_instruction(instruction_id, legs_count).into();
         if let Err(_) = T::Scheduler::schedule_named(
             (SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode(),
             DispatchTime::At(execution_at),
@@ -1289,7 +1275,8 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-    ) -> DispatchResult {
+        max_legs_count: u32,
+    ) -> Result<u32, DispatchError> {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1346,12 +1333,11 @@ impl<T: Trait> Module<T> {
             );
         }
 
+        let (total_leg_count, filtered_legs) =
+            Self::filtered_legs(instruction_id, &portfolios_set, max_legs_count)?;
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
-            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
-            for (leg_id, leg_details) in
-                legs.filter(|(_leg_id, leg_details)| portfolios_set.contains(&leg_details.from))
-            {
+            for (leg_id, leg_details) in filtered_legs {
                 // Receipt for the leg was provided
                 if let Some(receipt) = receipt_details
                     .iter()
@@ -1407,15 +1393,15 @@ impl<T: Trait> Module<T> {
         }
 
         InstructionAffirmsPending::insert(instruction_id, affirms_pending);
-        Ok(())
+        Ok(total_leg_count)
     }
 
     pub fn base_affirm_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
-        legs_count: u64,
-    ) -> DispatchResult {
+        max_legs_count: u32,
+    ) -> Result<u32, DispatchError> {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
@@ -1425,7 +1411,7 @@ impl<T: Trait> Module<T> {
             did,
             instruction_id,
             portfolios_set,
-            legs_count,
+            max_legs_count,
             secondary_key.as_ref(),
         )
     }
@@ -1437,12 +1423,20 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
+        max_legs_count: u32,
     ) -> DispatchResult {
-        Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+        let legs_count = Self::base_affirm_with_receipts(
+            origin,
+            instruction_id,
+            receipt_details,
+            portfolios,
+            max_legs_count,
+        )?;
         // Schedule instruction to be execute in the next block (expected) if conditions are met.
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
             instruction_id,
+            legs_count,
         );
         Ok(())
     }
@@ -1453,13 +1447,15 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
-        legs_count: u64,
+        max_legs_count: u32,
     ) -> DispatchResult {
-        Self::base_affirm_instruction(origin, instruction_id, portfolios, legs_count)?;
+        let legs_count =
+            Self::base_affirm_instruction(origin, instruction_id, portfolios, max_legs_count)?;
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
             instruction_id,
+            legs_count,
         );
         Ok(())
     }
@@ -1471,14 +1467,14 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
-        legs_count: u64,
+        max_legs_count: u32,
     ) -> DispatchResult {
         with_transaction(|| {
             Self::base_affirm_instruction(
                 origin,
                 instruction_id,
                 portfolios.into_iter(),
-                legs_count,
+                max_legs_count,
             )?;
             Self::execute_settle_on_affirmation_instruction(
                 instruction_id,
@@ -1496,9 +1492,16 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
+        max_legs_count: u32,
     ) -> DispatchResult {
         with_transaction(|| {
-            Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+            Self::base_affirm_with_receipts(
+                origin,
+                instruction_id,
+                receipt_details,
+                portfolios,
+                max_legs_count,
+            )?;
             Self::execute_settle_on_affirmation_instruction(
                 instruction_id,
                 Self::instruction_affirms_pending(instruction_id),
@@ -1540,5 +1543,26 @@ impl<T: Trait> Module<T> {
             );
         }
         Ok(())
+    }
+
+    /// Returns total number of legs of an `instruction_id` and vector of legs where sender is in the `portfolios` set.
+    /// Also, ensures that the number of filtered legs is under the limit.
+    fn filtered_legs(
+        instruction_id: u64,
+        portfolios: &BTreeSet<PortfolioId>,
+        max_filtered_legs: u32,
+    ) -> Result<(u32, Vec<(u64, Leg<T::Balance>)>), DispatchError> {
+        let mut legs_count = 0;
+        let filtered_legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
+            .into_iter()
+            .inspect(|_| legs_count += 1)
+            .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
+            .collect::<Vec<_>>();
+        // Ensure leg count is under the limit
+        ensure!(
+            filtered_legs.len() as u32 <= max_filtered_legs,
+            Error::<T>::LegCountTooSmall
+        );
+        Ok((legs_count, filtered_legs))
     }
 }
