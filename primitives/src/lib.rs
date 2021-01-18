@@ -317,11 +317,11 @@ macro_rules! storage_migration_ver {
 /// It also updates `StorageVersion` in the current pallet to `$ver`.
 #[macro_export]
 macro_rules! storage_migrate_on {
-    ($curr: expr, $ver:literal, $body: block) => {{
+    ($curr: expr, $ver:literal, $([$($targ:ty),*])? $body: block) => {{
         const TARGET_VERSION: Version = Version::new($ver).unwrap();
         if $curr < TARGET_VERSION {
             $body;
-            StorageVersion::put(TARGET_VERSION);
+            StorageVersion::< $($($targ),*)? >::put(TARGET_VERSION);
         }
     }};
 }

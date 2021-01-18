@@ -82,18 +82,18 @@ impl AssetIdentifier {
             })
             .rev()
             .enumerate()
-            .fold((0, 0), |(mut s1, mut s2), (i, digit)| {
+            .fold((0u8, 0u8), |(mut s1, mut s2), (i, digit)| {
                 if i % 2 == 0 {
-                    s1 += digit;
+                    s1 = s1.wrapping_add(digit);
                 } else {
-                    s2 += 2 * digit;
+                    s2 = s2.wrapping_add(2u8.wrapping_mul(digit));
                     if digit >= 5 {
-                        s2 -= 9;
+                        s2 = s2.wrapping_sub(9);
                     }
                 }
                 (s1, s2)
             });
-        ((s1 + s2) % 10 == 0).then_some(AssetIdentifier::ISIN(bytes))
+        (s1.wrapping_add(s2) % 10 == 0).then_some(AssetIdentifier::ISIN(bytes))
     }
 
     /// Validate `bytes` is a valid LEI identifier, returns an instance of `Identifier` if successful
@@ -102,7 +102,12 @@ impl AssetIdentifier {
             .try_into()
             .ok()
             .map(lei_checksum)
-            .filter(|hash| *hash == (bytes[18] - b'0') * 10 + (bytes[19] - b'0'))
+            .filter(|hash| {
+                *hash
+                    == (bytes[18].wrapping_sub(b'0'))
+                        .wrapping_mul(10)
+                        .wrapping_add(bytes[19].wrapping_sub(b'0'))
+            })
             .map(|_| AssetIdentifier::LEI(bytes))
     }
 
@@ -125,7 +130,7 @@ fn cusip_checksum(bytes: &[u8]) -> u8 {
         .map(byte_value)
         .enumerate()
         .map(|(i, v)| v << (i % 2))
-        .map(|v| (v / 10) + v % 10)
+        .map(|v| (v / 10).wrapping_add(v % 10))
         .map(|x| x as usize)
         .sum();
     ((10 - (total % 10)) % 10) as u8
@@ -139,12 +144,12 @@ fn lei_checksum(bytes: [u8; 18]) -> u8 {
         .rev()
         .map(byte_value)
         .map(|x| x as u128)
-        .fold(0, |mut total, b| {
-            total += b * 10u128.pow(i as u32);
+        .fold(0u128, |total, b| {
+            let total = total.wrapping_add(b.wrapping_mul(10u128.wrapping_pow(i as u32)));
             i += if b > 9 { 2 } else { 1 };
             total
         });
-    (98 - (total * 100 % 97)) as u8
+    (98 - (total.wrapping_mul(100) % 97)) as u8
 }
 
 fn byte_value(b: u8) -> u8 {

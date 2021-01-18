@@ -627,8 +627,8 @@ benchmarks! {
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
-
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -641,8 +641,8 @@ benchmarks! {
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
-
-    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -677,7 +677,8 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(i.into());
         }
-    }: _(origin, ticker, venues.clone())
+        let s_venues = venues.clone();
+    }: _(origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -694,7 +695,8 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(i.into());
         }
-    }: _(origin, ticker, venues.clone())
+        let s_venues = venues.clone();
+    }: _(origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -713,9 +715,9 @@ benchmarks! {
         let instruction_id: u64 = 1;
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, None)?;
+        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None)?;
 
-    }: _(origin, instruction_id, portfolios)
+    }: _(origin, instruction_id, portfolios, l.into())
     verify {
         for (idx, leg) in legs.iter().enumerate() {
             ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
@@ -741,7 +743,7 @@ benchmarks! {
             // use leg_id for the receipt_uid as well.
             set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), leg_id);
         }
-    }: withdraw_affirmation(origin, instruction_id, portfolios)
+    }: withdraw_affirmation(origin, instruction_id, portfolios, l.into())
     verify {
         for (idx, leg) in legs.iter().enumerate() {
             ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
@@ -774,7 +776,8 @@ benchmarks! {
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-    }: _(origin, instruction_id, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: _(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
@@ -790,7 +793,8 @@ benchmarks! {
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id: u64 = 1;
-    }: reject_instruction(origin, instruction_id, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: reject_instruction(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
@@ -799,11 +803,12 @@ benchmarks! {
 
 
     affirm_instruction {
-
-        let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
         let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-    }: _(RawOrigin::Signed(to.account), instruction_id, portfolios_to.clone())
+        let to_portfolios = portfolios_to.clone();
+        let legs_count = (l / 2).into();
+    }: _(RawOrigin::Signed(to.account), instruction_id, to_portfolios, legs_count)
     verify {
         for p in portfolios_to.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
@@ -825,7 +830,8 @@ benchmarks! {
         // Some manual setup to support the extrinsic.
         set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
         T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into())?;
-    }: _(origin, instruction_id, receipt.clone())
+        let s_receipt = receipt.clone();
+    }: _(origin, instruction_id, s_receipt)
     verify {
         ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
             receipt.signer,
@@ -846,7 +852,8 @@ benchmarks! {
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
             receipt_details.push(create_receipt_details::<T>(idx as u32, l));
         });
-    }: _(origin, instruction_id, receipt_details.clone(), s_portfolios)
+        let s_receipt_details = receipt_details.clone();
+    }: _(origin, instruction_id, s_receipt_details, s_portfolios)
     verify {
         for (i, receipt) in receipt_details.iter().enumerate() {
             ensure!(Module::<T>::instruction_leg_status(instruction_id, i as u64) ==  LegStatus::ExecutionToBeSkipped(
@@ -871,6 +878,7 @@ benchmarks! {
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
         let (portfolios_to, from, to, tickers, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
+        let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
         let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
@@ -879,7 +887,7 @@ benchmarks! {
         let from_origin = RawOrigin::Signed(from.account.clone());
         let to_origin = RawOrigin::Signed(to.account.clone());
         // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
+        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());
