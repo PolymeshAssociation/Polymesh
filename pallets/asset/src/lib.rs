@@ -1600,10 +1600,6 @@ impl<T: Trait> Module<T> {
         Self::ensure_granular(ticker, value)?;
 
         ensure!(
-            <BalanceOf<T>>::contains_key(ticker, &from_portfolio.did),
-            Error::<T>::NotAnAssetHolder
-        );
-        ensure!(
             from_portfolio.did != to_portfolio.did,
             Error::<T>::SenderSameAsReceiver
         );
