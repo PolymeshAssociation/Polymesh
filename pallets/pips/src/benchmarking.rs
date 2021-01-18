@@ -56,13 +56,13 @@ mod limits {
 use limits::*;
 
 /// Makes a proposal.
-fn make_proposal<T: Trait>() -> (T::Proposal, Url, PipDescription) {
+fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
-    let proposal = Call::<T>::set_min_proposal_deposit(0.into());
-//    let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
+//    let proposal = Call::<T>::set_min_proposal_deposit(0.into());
+    let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
     let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
-    (proposal.into(), url, description)
+    (proposal, url, description)
 }
 
 /// Creates voters with seeds from 1 to `num_voters` inclusive.
@@ -122,7 +122,7 @@ fn pips_and_votes_setup<T: Trait>(
         identity::CurrentDid::put(proposer_did);
         Module::<T>::propose(
             proposer_origin.into(),
-            Box::new(proposal),
+            proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone()),
@@ -221,7 +221,6 @@ benchmarks! {
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let origin = user.origin();
-        let proposal = Box::new(proposal);
     }: propose(origin, proposal, 42.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description);
@@ -236,7 +235,7 @@ benchmarks! {
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
-        let call = Call::<T>::propose(Box::new(proposal), 0.into(), some_url, some_desc);
+        let call = Call::<T>::propose(proposal, 0.into(), some_url, some_desc);
     }: {
         call.dispatch_bypass_filter(origin)?;
     }
@@ -250,7 +249,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             proposer.origin().into(),
-            Box::new(proposal),
+            proposal,
             42.into(),
             Some(url),
             Some(description)
@@ -278,12 +277,7 @@ benchmarks! {
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
         Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        let propose_call = Call::<T>::propose(
-            Box::new(proposal),
-            0.into(),
-            Some(url.clone()),
-            Some(description.clone())
-        );
+        let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
         propose_call.dispatch_bypass_filter(proposer_origin)?;
         let origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::approve_committee_proposal(0);
@@ -301,7 +295,7 @@ benchmarks! {
         let deposit = 42.into();
         Module::<T>::propose(
             user.origin().into(),
-            Box::new(proposal),
+            proposal,
             deposit,
             Some(url),
             Some(description)
@@ -322,7 +316,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
-            Box::new(proposal),
+            proposal,
             42.into(),
             Some(url),
             Some(description)
@@ -346,7 +340,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
-            Box::new(proposal),
+            proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone())
@@ -369,7 +363,7 @@ benchmarks! {
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
-            Box::new(proposal),
+            proposal,
             42.into(),
             Some(url.clone()),
             Some(description.clone())
