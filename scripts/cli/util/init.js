@@ -292,13 +292,13 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, ticker) {
+async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
 
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
   const transaction = api.tx.asset.createAsset(
-    ticker, ticker, 1000000, true, 0, [], "abc"
+    ticker, ticker, amount, true, 0, [], fundingRound
   );
   await sendTransaction(transaction, accounts[0], nonceObj);
 
@@ -669,6 +669,7 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
+  getDefaultPortfolio,
 };
 
 export { reqImports };
