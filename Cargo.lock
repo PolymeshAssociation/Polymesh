@@ -4111,6 +4111,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "polymesh-primitives-derive",
  "serde",
  "serde_derive",
  "sp-api",

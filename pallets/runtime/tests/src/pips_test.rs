@@ -114,7 +114,8 @@ const THE_COMMITTEE: Proposer<Public> = Proposer::Committee(pallet_pips::Committ
 
 fn committee_proposal(deposit: u128) -> DispatchResult {
     standard_proposal(
-        &pallet_committee::Origin::<TestStorage, committee::Instance4>::Members(0, 0).into(),
+        &pallet_committee::Origin::<TestStorage, committee::Instance4>::Endorsed(<_>::default())
+            .into(),
         &THE_COMMITTEE,
         deposit,
     )
