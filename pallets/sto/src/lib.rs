@@ -413,7 +413,7 @@ decl_module! {
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
-                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, None)?;
+                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
                 match receipt {
@@ -422,8 +422,9 @@ decl_module! {
                         instruction_id,
                         vec![receipt],
                         portfolios,
+                        2
                     ),
-                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios),
+                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios, 1),
                 }
             })?;
 
