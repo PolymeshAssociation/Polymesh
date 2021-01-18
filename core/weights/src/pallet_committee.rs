@@ -38,9 +38,4 @@ impl pallet_committee::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn close() -> Weight {
-        (998_207_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
 }
