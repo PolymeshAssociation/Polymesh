@@ -1091,7 +1091,7 @@ decl_module! {
 
         /// Internal dispatchable that handles execution of a PIP.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_pip()]
-        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
+        pub fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
             Self::execute_proposal(id)
@@ -1099,7 +1099,7 @@ decl_module! {
 
         /// Internal dispatchable that handles expiration of a PIP.
         #[weight = <T as Trait>::WeightInfo::expire_scheduled_pip()]
-        fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
+        pub fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
                 Self::maybe_unsnapshot_pip(id, ProposalState::Pending);

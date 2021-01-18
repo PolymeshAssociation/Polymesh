@@ -20,7 +20,7 @@ use pallet_pips::{
     VotingResult,
 };
 use pallet_treasury as treasury;
-use polymesh_common_utilities::{pip::PipId, MaybeBlock};
+use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -73,7 +73,9 @@ macro_rules! assert_no_pip {
 }
 
 fn make_proposal(value: u64) -> Call {
-    Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
+//    Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
+    let content = vec![b'X'; 100];
+    Call::System(frame_system::Call::remark(content)).into()
 }
 
 fn proposal(
@@ -1767,5 +1769,19 @@ fn propose_dupe_live_insert_panics() {
 
         // Triggers a panic, assertion never reached.
         assert_ok!(alice_proposal(0));
+    });
+}
+
+#[test]
+fn expire_scheduled_pip() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        let pip_id = Pips::pip_id_sequence();
+        assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
+        assert_state(pip_id, false, ProposalState::Pending);
+        assert_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
+        assert_pruned(pip_id);
     });
 }
