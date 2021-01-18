@@ -853,7 +853,7 @@ benchmarks! {
             receipt_details.push(create_receipt_details::<T>(idx as u32, l));
         });
         let s_receipt_details = receipt_details.clone();
-    }: _(origin, instruction_id, s_receipt_details, s_portfolios)
+    }: _(origin, instruction_id, s_receipt_details, s_portfolios, r)
     verify {
         for (i, receipt) in receipt_details.iter().enumerate() {
             ensure!(Module::<T>::instruction_leg_status(instruction_id, i as u64) ==  LegStatus::ExecutionToBeSkipped(
