@@ -581,6 +581,7 @@ impl settlement::Trait for Runtime {
 
 impl sto::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 parameter_types! {

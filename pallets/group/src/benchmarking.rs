@@ -21,7 +21,7 @@ fn make_users<T: IdentityTrait + Trait<I>, I: Instance>(m: u32) -> Vec<IdentityI
                 .build("member")
                 .did()
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 /// Create `m` new users and add them into the group.

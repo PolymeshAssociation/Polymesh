@@ -60,7 +60,7 @@ pub fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
             condition_type: ConditionType::IsPresent(Claim::NoData),
             issuers: issuers.clone(),
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 /// Create a new token with name `name` on behalf of `owner`.
 /// The new token is a _divisible_ one with 1_000_000 units.

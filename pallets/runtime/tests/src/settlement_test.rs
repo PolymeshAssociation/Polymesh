@@ -1827,7 +1827,7 @@ fn basic_fuzzing() {
             let mut legs = Vec::with_capacity(100);
             let mut receipts = Vec::with_capacity(100);
             let mut receipt_legs = HashMap::with_capacity(100);
-            let mut legs_count: HashMap<IdentityId, u64> = HashMap::with_capacity(100);
+            let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
             for i in 0..10 {
                 for j in 0..4 {
                     let mut final_i = 100_000;
@@ -2110,7 +2110,8 @@ fn claim_multiple_receipts_during_authorization() {
                             metadata: ReceiptMetadata::default()
                         },
                     ],
-                    default_portfolio_vec(alice_did)
+                    default_portfolio_vec(alice_did),
+                    10
                 ),
                 Error::ReceiptAlreadyClaimed
             );
@@ -2138,7 +2139,8 @@ fn claim_multiple_receipts_during_authorization() {
                         metadata: ReceiptMetadata::default()
                     },
                 ],
-                default_portfolio_vec(alice_did)
+                default_portfolio_vec(alice_did),
+                10
             ));
 
             assert_eq!(

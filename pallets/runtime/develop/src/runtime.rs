@@ -571,6 +571,7 @@ impl settlement::Trait for Runtime {
 
 impl sto::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 parameter_types! {
@@ -676,7 +677,7 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxConditionComplexity: u32 = 150;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
@@ -1285,6 +1286,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
+            add_benchmark!(params, batches, pallet_sto, Sto);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
