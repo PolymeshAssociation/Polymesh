@@ -2,13 +2,11 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
-use frame_system::RawOrigin;
 use pallet_settlement::{
-    benchmarking::{add_transfer_manager, compliance_setup},
+    benchmarking::{add_transfer_managers, compliance_setup},
     VenueDetails,
 };
-use polymesh_common_utilities::benchs::User;
-use polymesh_common_utilities::{asset::AssetType, benchs::UserBuilder};
+use polymesh_common_utilities::benchs::{make_asset, User, UserBuilder};
 use polymesh_primitives::TrustedIssuer;
 
 const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
@@ -21,29 +19,11 @@ pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
-fn create_asset<T: Trait>(
-    origin: RawOrigin<T::AccountId>,
-    ticker: Ticker,
-    supply: u128,
-) -> DispatchResult {
-    <Asset<T>>::create_asset(
-        origin.into(),
-        vec![b'A'].into(),
-        ticker,
-        supply.into(),
-        true,
-        AssetType::default(),
-        vec![],
-        None,
-    )
-}
-
 fn create_assets_and_compliance<T: Trait>(
     from: &User<T>,
     to: &User<T>,
     offering_ticker: Ticker,
     raise_ticker: Ticker,
-    supply: u128,
     complexity: u32,
     transfer_managers: u32,
 ) -> DispatchResult {
@@ -54,11 +34,10 @@ fn create_assets_and_compliance<T: Trait>(
     let setup = |a: &User<T>,
                  b: &User<T>,
                  ticker: Ticker,
-                 supply: u128,
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        create_asset::<T>(a.origin(), ticker, supply)?;
+        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Ticker>(a, Some(ticker))?;
         compliance_setup::<T>(
             complexity,
             ticker,
@@ -67,26 +46,12 @@ fn create_assets_and_compliance<T: Trait>(
             b.did(),
             trusted_issuer.clone(),
         );
-        add_transfer_manager::<T>(ticker, a.origin(), transfer_managers, a.did());
+        add_transfer_managers::<T>(ticker, a.origin(), a.did(), transfer_managers);
         Ok(())
     };
 
-    setup(
-        from,
-        to,
-        offering_ticker,
-        supply,
-        complexity,
-        transfer_managers,
-    )?;
-    setup(
-        to,
-        from,
-        raise_ticker,
-        supply,
-        complexity,
-        transfer_managers,
-    )?;
+    setup(from, to, offering_ticker, complexity, transfer_managers)?;
+    setup(to, from, raise_ticker, complexity, transfer_managers)?;
 
     Ok(())
 }
@@ -132,7 +97,6 @@ fn setup_fundraiser<T: Trait>(
         &bob.user,
         OFFERING_TICKER,
         RAISE_TICKER,
-        1_000_000,
         complexity,
         transfer_managers,
     )?;
@@ -171,7 +135,7 @@ benchmarks! {
 
         let alice = user::<T>("alice");
 
-        create_assets_and_compliance::<T>(&alice.user, &alice.user, OFFERING_TICKER, RAISE_TICKER, 1_000_000, 0, 0)?;
+        create_assets_and_compliance::<T>(&alice.user, &alice.user, OFFERING_TICKER, RAISE_TICKER, 0, 0)?;
 
         let venue_id = create_venue(&alice.user)?;
         let tiers = generate_tiers::<T>(i);

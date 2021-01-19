@@ -16,31 +16,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_common_utilities::benchs::{generate_ticker, UserBuilder};
 use polymesh_primitives::PortfolioName;
 
 use frame_benchmarking::benchmarks;
 use sp_std::{convert::TryFrom, prelude::*};
-
-/// Given a number, this function generates a ticker with
-/// A-Z, least number of characters in Lexicographic order
-fn generate_ticker(n: u64) -> Ticker {
-    fn calc_base26(n: u64, base_26: &mut Vec<u8>) {
-        if n >= 26 {
-            // Subtracting 1 is not required and shouldn't be done for a proper base_26 conversion
-            // However, without this hack, B will be the first char after a bump in number of chars.
-            // i.e. the sequence will go A,B...Z,BA,BB...ZZ,BAA. We want the sequence to start with A.
-            // Subtracting 1 here means we are doing 1 indexing rather than 0.
-            // i.e. A = 1, B = 2 instead of A = 0, B = 1
-            calc_base26((n / 26) - 1, base_26);
-        }
-        let character = n % 26 + 65;
-        base_26.push(character as u8);
-    }
-    let mut base_26 = Vec::new();
-    calc_base26(n, &mut base_26);
-    Ticker::try_from(base_26.as_slice()).unwrap()
-}
 
 benchmarks! {
     _ {}
@@ -75,7 +55,7 @@ benchmarks! {
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
         let target = UserBuilder::<T>::default().generate_did().build("target");
-        let first_ticker = generate_ticker(0u64);
+        let first_ticker = Ticker::try_from(generate_ticker(0u64).as_slice()).unwrap();
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
@@ -83,7 +63,7 @@ benchmarks! {
         let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
         for x in 0..i as u64 {
-            let ticker = generate_ticker(x);
+            let ticker = Ticker::try_from(generate_ticker(x).as_slice()).unwrap();
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,

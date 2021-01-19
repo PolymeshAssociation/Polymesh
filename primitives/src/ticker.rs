@@ -41,6 +41,12 @@ impl Default for Ticker {
     }
 }
 
+impl AsRef<[u8]> for Ticker {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl TryFrom<&[u8]> for Ticker {
     type Error = Error;
 
@@ -71,14 +77,6 @@ impl Decode for Ticker {
 }
 
 impl Ticker {
-    /// Create ticker by repeating `b` for `TICKER_LEN`
-    pub const fn repeating(b: u8) -> Ticker {
-        // TODO: replace with u8::to_ascii_uppercase when it's const
-        const fn to_ascii_uppercase(b: u8) -> u8 {
-            b & !((b.is_ascii_lowercase() as u8) << 5)
-        }
-        Self([to_ascii_uppercase(b); TICKER_LEN])
-    }
     /// Computes the effective length of the ticker, that is, the length of the minimal prefix after
     /// which only zeros appear.
     pub fn len(&self) -> usize {
@@ -112,6 +110,18 @@ impl Ticker {
     #[inline]
     pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
         self.0.iter()
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Ticker {
+    /// Create ticker by repeating `b` for `TICKER_LEN`
+    pub const fn repeating(b: u8) -> Ticker {
+        // TODO: replace with u8::to_ascii_uppercase when it's const
+        const fn to_ascii_uppercase(b: u8) -> u8 {
+            b & !((b.is_ascii_lowercase() as u8) << 5)
+        }
+        Self([to_ascii_uppercase(b); TICKER_LEN])
     }
 }
 

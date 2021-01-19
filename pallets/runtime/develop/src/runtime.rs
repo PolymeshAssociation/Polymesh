@@ -677,7 +677,7 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxConditionComplexity: u32 = 150;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {

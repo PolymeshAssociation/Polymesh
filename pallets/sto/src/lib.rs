@@ -436,6 +436,7 @@ decl_module! {
                         instruction_id,
                         vec![receipt],
                         portfolios,
+                        2
                     ),
                     None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios, 1),
                 }
