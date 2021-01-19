@@ -16,55 +16,52 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
+
 use pallet_asset::SecurityToken;
-use pallet_balances as balances;
-use polymesh_common_utilities::asset::AssetType;
-use polymesh_primitives::{IdentityId, InvestorUid, TrustedFor, TrustedIssuer};
+use polymesh_common_utilities::{
+    asset::AssetType,
+    benchs::{User, UserBuilder},
+};
+use polymesh_primitives::{TrustedFor, TrustedIssuer};
 
-use frame_benchmarking::{account, benchmarks};
-use frame_support::traits::Currency;
-use frame_system::RawOrigin;
+use frame_benchmarking::benchmarks;
 
-const SEED: u32 = 1;
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
 const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
 const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
 const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
-/// Helper class to create accounts and its DID to simplify benchmarks and UT.
-pub struct User<T: Trait> {
-    pub account: T::AccountId,
-    pub origin: RawOrigin<T::AccountId>,
-    pub did: Option<IdentityId>,
-}
-
-impl<T: Trait> User<T> {
-    /// Create an account based on `name` and `u` with 1_000_000 as free balance.
-    /// It also registers the DID for that account.
-    pub fn new(name: &'static str, u: u32) -> Self {
-        let mut user = Self::without_did(name, u);
-        let uid = InvestorUid::from((name, u).encode().as_slice());
-        let _ = identity::Module::<T>::register_did(user.origin.clone().into(), uid, vec![]);
-        user.did = identity::Module::<T>::get_identity(&user.account);
-
-        user
-    }
-
-    /// Create an account based on `name` and `u` with 1_000_000 as free balance.
-    pub fn without_did(name: &'static str, u: u32) -> Self {
-        let account: T::AccountId = account(name, u, SEED);
-        let origin = RawOrigin::Signed(account.clone());
-        let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-
-        Self {
-            account,
-            origin,
-            did: None,
-        }
+/// Create a token issuer trusted for `Any`.
+pub fn make_issuer<T: IdentityTrait + BalancesTrait>(id: u32) -> TrustedIssuer {
+    let u = UserBuilder::<T>::default()
+        .generate_did()
+        .seed(id)
+        .build("ISSUER");
+    TrustedIssuer {
+        issuer: IdentityId::from(u.did.unwrap()),
+        trusted_for: TrustedFor::Any,
     }
 }
 
+/// Helper function to create `s` token issuers with `fn make_issuer`.
+/// # TODO
+///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
+///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
+///   complience requiriments.
+pub fn make_issuers<T: IdentityTrait + BalancesTrait>(s: u32) -> Vec<TrustedIssuer> {
+    (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
+}
+
+/// Create simple conditions with a variable number of `issuers`.
+pub fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
+    (0..s)
+        .map(|_| Condition {
+            condition_type: ConditionType::IsPresent(Claim::NoData),
+            issuers: issuers.clone(),
+        })
+        .collect::<Vec<_>>()
+}
 /// Create a new token with name `name` on behalf of `owner`.
 /// The new token is a _divisible_ one with 1_000_000 units.
 pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
@@ -91,34 +88,6 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     .expect("Cannot create an asset");
 
     ticker
-}
-
-/// Create a token issuer trusted for `Any`.
-fn make_issuer<T: Trait>(id: u32) -> TrustedIssuer {
-    let u = User::<T>::new("ISSUER", id);
-    TrustedIssuer {
-        issuer: IdentityId::from(u.did.unwrap()),
-        trusted_for: TrustedFor::Any,
-    }
-}
-
-/// Helper function to create `s` token issuers with `fn make_issuer`.
-/// # TODO
-///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
-///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
-///   complience requiriments.
-fn make_issuers<T: Trait>(s: u32) -> Vec<TrustedIssuer> {
-    (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
-}
-
-/// Create simple conditions with a variable number of `issuers`.
-fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
-    (0..s)
-        .map(|_| Condition {
-            condition_type: ConditionType::IsPresent(Claim::NoData),
-            issuers: issuers.clone(),
-        })
-        .collect::<Vec<_>>()
 }
 
 /// This struct helps to simplify the parameter copy/pass during the benchmarks.
@@ -156,8 +125,8 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
         receiver_conditions_count: u32,
     ) -> Self {
         // Create accounts and token.
-        let owner = User::<T>::new("OWNER", SEED);
-        let buyer = User::<T>::new("BUYER", SEED);
+        let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
+        let buyer = UserBuilder::<T>::default().generate_did().build("BUYER");
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
@@ -290,12 +259,13 @@ benchmarks! {
 
         // Delete the latest trusted issuer.
         let issuer = Module::<T>::trusted_claim_issuer(d.ticker).pop().unwrap();
-    }: _(d.owner.origin, d.ticker, issuer.clone())
+    }: _(d.owner.origin, d.ticker, issuer.issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
         ensure!(
-            trusted_issuers.contains(&issuer) == false,
-            "Default trusted claim issuer was not removed");
+            !trusted_issuers.contains(&issuer),
+            "Default trusted claim issuer was not removed"
+        );
     }
 
     change_compliance_requirement {

@@ -14,16 +14,17 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::*;
 
-pub const GAS_LIMIT: u64 = 1_000_000_000;
+pub const GAS_LIMIT: u64 = 13_000_000_000;
+
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
-pub trait AssetSubTrait {
+pub trait AssetSubTrait<Balance> {
     /// Accept and process a ticker transfer
     ///
     /// # Arguments
@@ -50,6 +51,13 @@ pub trait AssetSubTrait {
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
     fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult;
+
+    /// Returns balance for a given scope id and target DID.
+    ///
+    /// # Arguments
+    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
+    /// * `target` - The `IdentityId` whose balance needs to be queried.
+    fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
 }
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct IssueAssetItem<U> {
@@ -109,15 +117,13 @@ pub trait Trait<Balance, Account, Origin> {
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
-    /// Get the PIA of a token.
-    fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId>;
     /// Transfer an asset from one portfolio to another.
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
-    ) -> DispatchResultWithPostInfo;
+    ) -> DispatchResult;
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,

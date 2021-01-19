@@ -14,9 +14,8 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "substrate-2", default-features = false }
-curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
-schnorrkel = { version = "0.9.1", default-features = false }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0" }
+schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
 
 # Substrate
@@ -26,7 +25,9 @@ sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate"
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-runtime-interface = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
@@ -39,12 +40,12 @@ serde_json = "1.0.48"
 default = ["std"]
 
 # Backends
-u32_backend = [ "cryptography/u32_backend", "schnorrkel/u32_backend"]
-u64_backend = [ "cryptography/u64_backend", "schnorrkel/u64_backend"]
-avx2_backend = [ "cryptography/avx2_backend", "schnorrkel/u64_backend"]
+u32_backend = [ "confidential_identity/u32_backend", "schnorrkel/u32_backend"]
+u64_backend = [ "confidential_identity/u64_backend", "schnorrkel/u64_backend"]
+avx2_backend = [ "confidential_identity/avx2_backend", "schnorrkel/avx2_backend"]
 
 no_std = [
-    "cryptography/no_std"
+    "confidential_identity/no_std"
 ]
 
 std = [
@@ -62,8 +63,7 @@ std = [
     # Crypto
     "blake2/simd",
     "blake2/std",
-    "cryptography/std",
-    "curve25519-dalek/std",
+    "confidential_identity/std",
     "polymesh-primitives-derive/std",
     "schnorrkel/std",
     "sp-application-crypto/std"

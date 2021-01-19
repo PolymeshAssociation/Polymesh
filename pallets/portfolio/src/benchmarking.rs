@@ -15,9 +15,11 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-use frame_benchmarking::benchmarks;
-use pallet_identity::benchmarking::make_account;
+
+use polymesh_common_utilities::benchs::UserBuilder;
 use polymesh_primitives::PortfolioName;
+
+use frame_benchmarking::benchmarks;
 use sp_std::{convert::TryFrom, prelude::*};
 
 /// Given a number, this function generates a ticker with
@@ -47,36 +49,38 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let (_, target_origin, target_did) = make_account::<T>("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target_did);
-    }: _(target_origin, portfolio_name.clone())
+        let next_portfolio_num = NextPortfolioNumber::get(&did);
+    }: _(target.origin, portfolio_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&target_did, &next_portfolio_num), portfolio_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
     }
 
     delete_portfolio {
-        let (_, target_origin, target_did) = make_account::<T>("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target_did);
-        Module::<T>::create_portfolio(target_origin.clone().into(), portfolio_name.clone())?;
-        assert_eq!(Portfolios::get(&target_did, &next_portfolio_num), portfolio_name);
-    }: _(target_origin, next_portfolio_num.clone())
+        let next_portfolio_num = NextPortfolioNumber::get(&did);
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
+    }: _(target.origin, next_portfolio_num.clone())
     verify {
-        assert!(!Portfolios::contains_key(&target_did, &next_portfolio_num));
+        assert!(!Portfolios::contains_key(&did, &next_portfolio_num));
     }
 
     move_portfolio_funds {
         // Number of assets being moved
         let i in 1 .. 500;
         let mut items = Vec::with_capacity(i as usize);
-        let (_, target_origin, target_did) = make_account::<T>("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
         let first_ticker = generate_ticker(0u64);
         let amount = T::Balance::from(10);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target_did);
-        let default_portfolio = PortfolioId::default_portfolio(target_did);
-        let user_portfolio = PortfolioId::user_portfolio(target_did, next_portfolio_num.clone());
+        let next_portfolio_num = NextPortfolioNumber::get(&target.did());
+        let default_portfolio = PortfolioId::default_portfolio(target.did());
+        let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
         for x in 0..i as u64 {
             let ticker = generate_ticker(x);
@@ -87,11 +91,11 @@ benchmarks! {
             <PortfolioAssetBalances<T>>::insert(&default_portfolio, &ticker, amount);
         }
 
-        Module::<T>::create_portfolio(target_origin.clone().into(), portfolio_name.clone())?;
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
 
         assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), amount);
         assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), 0.into());
-    }: _(target_origin, default_portfolio, user_portfolio, items)
+    }: _(target.origin, default_portfolio, user_portfolio, items)
     verify {
         assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), 0.into());
         assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), amount);
@@ -101,15 +105,16 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. 500;
 
-        let (_, target_origin, target_did) = make_account::<T>("target", 0);
+        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
-        let next_portfolio_num = NextPortfolioNumber::get(&target_did);
-        Module::<T>::create_portfolio(target_origin.clone().into(), portfolio_name.clone())?;
-        assert_eq!(Portfolios::get(&target_did, &next_portfolio_num), portfolio_name);
+        let next_portfolio_num = NextPortfolioNumber::get(&did);
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
         let new_name = PortfolioName(vec![66u8; i as usize]);
 
-    }: _(target_origin, next_portfolio_num.clone(), new_name.clone())
+    }: _(target.origin, next_portfolio_num.clone(), new_name.clone())
     verify {
-        assert_eq!(Portfolios::get(&target_did, &next_portfolio_num), new_name);
+        assert_eq!(Portfolios::get(&did, &next_portfolio_num), new_name);
     }
 }

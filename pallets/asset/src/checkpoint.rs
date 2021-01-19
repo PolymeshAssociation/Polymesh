@@ -485,7 +485,7 @@ impl<T: Trait> Module<T> {
         // Compute the next timestamp, if needed.
         // If the start isn't now or this schedule recurs, we'll need to schedule as done in (2).
         let schedule = CheckpointSchedule { start, period };
-        let future_at = (cp_id.is_none() || period.amount.is_some())
+        let future_at = (cp_id.is_none() || period.amount > 0)
             .then(|| {
                 schedule
                     .next_checkpoint(now)
@@ -525,8 +525,7 @@ impl<T: Trait> Module<T> {
 
     /// The `actor` creates a checkpoint at `at` for `ticker`.
     /// The ID of the new checkpoint is returned.
-    // TODO(Centril): privatize when dividend module is nixed.
-    pub fn create_at_by(
+    fn create_at_by(
         actor: EventDid,
         ticker: Ticker,
         at: Moment,

@@ -20,11 +20,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
+use core::mem;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    storage::StorageValue,
     traits::{CallMetadata, GetCallMetadata},
 };
 use polymesh_common_utilities::traits::{
@@ -47,13 +50,19 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {}
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // This definition is needed because the construct_runtime! macro uses it to generate metadata.
+        // Without this definition, the metadata won't have details about the errors of this module.
+        // That will lead to UIs either throwing fits or showing incorrect error messages.
+        type Error = Error<T>;
+    }
 }
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The caller is not authorized to call the current extrinsic.
         UnauthorizedCaller,
+        RecursionNotAllowed,
     }
 }
 
@@ -63,14 +72,12 @@ impl<T: Trait> Module<T> {
     pub fn ensure_call_permissions(
         who: &T::AccountId,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
-        if let Some(data) = T::Checker::check_account_call_permissions(
+        T::Checker::check_account_call_permissions(
             who,
             &Self::current_pallet_name(),
             &Self::current_dispatchable_name(),
-        ) {
-            return Ok(data);
-        }
-        Err(Error::<T>::UnauthorizedCaller.into())
+        )
+        .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
     }
 }
 
@@ -98,14 +105,14 @@ impl<T: Trait> StoreCallMetadata<T> {
 
     /// Stores call metadata in runtime storage.
     pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
-        <CurrentPalletName>::put(pallet_name);
-        <CurrentDispatchableName>::put(dispatchable_name);
+        CurrentPalletName::put(pallet_name);
+        CurrentDispatchableName::put(dispatchable_name);
     }
 
     /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
-        <CurrentPalletName>::kill();
-        <CurrentDispatchableName>::kill();
+        CurrentPalletName::kill();
+        CurrentDispatchableName::kill();
     }
 }
 
@@ -122,20 +129,20 @@ impl<T: Trait + Send + Sync> SignedExtension for StoreCallMetadata<T> {
 
     fn validate(
         &self,
-        _who: &Self::AccountId,
-        _call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
+        _: &Self::AccountId,
+        _: &Self::Call,
+        _: &DispatchInfoOf<Self::Call>,
+        _: usize,
     ) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 
     fn pre_dispatch(
         self,
-        _who: &Self::AccountId,
+        _: &Self::AccountId,
         call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
+        _: &DispatchInfoOf<Self::Call>,
+        _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(
@@ -146,11 +153,11 @@ impl<T: Trait + Send + Sync> SignedExtension for StoreCallMetadata<T> {
     }
 
     fn post_dispatch(
-        _pre: Self::Pre,
-        _info: &DispatchInfoOf<Self::Call>,
-        _post_info: &PostDispatchInfoOf<Self::Call>,
-        _len: usize,
-        _result: &DispatchResult,
+        _: Self::Pre,
+        _: &DispatchInfoOf<Self::Call>,
+        _: &PostDispatchInfoOf<Self::Call>,
+        _: usize,
+        _: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         Self::clear_call_metadata();
         Ok(())
@@ -176,15 +183,14 @@ pub fn with_call_metadata<Succ, Err>(
     result
 }
 
-/// Replaces the current call metadata with the given ones and returns the old, replaced call
-/// metadata.
+/// Replaces the current call metadata with the given ones and returns the old,
+/// replaced call metadata.
 pub fn swap_call_metadata(
     pallet_name: PalletName,
     dispatchable_name: DispatchableName,
 ) -> (PalletName, DispatchableName) {
-    let old_pallet_name = <CurrentPalletName>::get();
-    let old_dispatchable_name = <CurrentDispatchableName>::get();
-    <CurrentPalletName>::put(pallet_name);
-    <CurrentDispatchableName>::put(dispatchable_name);
-    (old_pallet_name, old_dispatchable_name)
+    (
+        CurrentPalletName::mutate(|s| mem::replace(s, pallet_name)),
+        CurrentDispatchableName::mutate(|s| mem::replace(s, dispatchable_name)),
+    )
 }

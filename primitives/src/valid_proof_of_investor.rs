@@ -1,6 +1,5 @@
 use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
-use cryptography::claim_proofs::ProofPublicKey;
-use curve25519_dalek::ristretto::CompressedRistretto;
+use confidential_identity::{CompressedRistretto, ProofPublicKey};
 
 // ZKProofs claims
 // =========================================================
@@ -56,7 +55,7 @@ mod tests {
     use super::*;
     use crate::proposition::{exists, Proposition};
     use crate::{Claim, Context, InvestorUid, InvestorZKProofData, Ticker};
-    use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+    use confidential_identity::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
 
     #[test]
@@ -71,14 +70,14 @@ mod tests {
         let context = Context {
             claims: vec![].into_iter(),
             id: investor_id,
-            primary_issuance_agent: None,
+            primary_issuance_agent: investor_id,
         };
         assert_eq!(proposition.evaluate(context), false);
 
         let context = Context {
             claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))].into_iter(),
             id: investor_id,
-            primary_issuance_agent: None,
+            primary_issuance_agent: investor_id,
         };
         assert_eq!(proposition.evaluate(context), true);
 

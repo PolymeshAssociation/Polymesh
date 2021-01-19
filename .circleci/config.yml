@@ -41,6 +41,29 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+  benchmark-build:
+    docker:
+      - image: polymathnet/rust:debian-nightly-2020-09-28
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build binary with runtime-benchmarks
+          command: cargo build --release --features=runtime-benchmarks || cargo build --release -j 1 --features=runtime-benchmarks
+          no_output_timeout: 30m
+      - save_cache:
+          key: v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2020-09-28
@@ -162,13 +185,4 @@ workflows:
     jobs:
       - lint
       - test
-  daily-builds:
-    triggers:
-      - schedule:
-          cron: "0 0 * * *"
-          filters:
-            branches:
-              only:
-                - master
-    jobs:
-      - build
+      - benchmark-build

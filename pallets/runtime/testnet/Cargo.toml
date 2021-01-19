@@ -108,7 +108,6 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
-    "pallet-asset/runtime-benchmarks",
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",
@@ -170,4 +169,8 @@ std = [
     "sp-transaction-pool/std",
     "sp-version/std",
     "polymesh-contracts/std"
+]
+
+runtime-benchmarks = [
+    "pallet-asset/runtime-benchmarks",
 ]

@@ -1,5 +1,5 @@
 use crate::{IdentityId, InvestorZKProofData};
-use cryptography::claim_proofs::compute_cdd_id;
+use confidential_identity::compute_cdd_id;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -72,7 +72,7 @@ impl CddId {
 
     /// Only the zero-filled `CddId` is considered as invalid.
     #[inline]
-    pub fn is_wildcard(&self) -> bool {
+    pub fn is_default_cdd(&self) -> bool {
         self.0 == [0u8; 32]
     }
 }

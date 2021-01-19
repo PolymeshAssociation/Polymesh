@@ -13,6 +13,11 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 # Others
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+either = { version = "1.6.1", default-features = false }
+
+# Cryptography
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0" }
+schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -28,18 +33,20 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 # Only in STD
-schnorrkel = { version = "0.9.1", default-features = false, optional = true }
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "substrate-2", default-features = false, optional = true }
 
 [features]
 equalize = []
 default = ["std", "equalize"]
 no_cdd = []
-no_std = []
+no_std = [
+    "confidential_identity/u64_backend",
+]
 only-staking = []
 std = [
     "codec/std",
+    "confidential_identity/std",
+    "confidential_identity/u64_backend",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
@@ -58,6 +65,6 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "cryptography",
+    "polymesh-common-utilities/runtime-benchmarks",
     "schnorrkel",
 ]
