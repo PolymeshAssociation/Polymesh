@@ -73,9 +73,11 @@ macro_rules! assert_no_pip {
 }
 
 fn make_proposal(value: u64) -> Call {
-//    Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
-    let content = vec![b'X'; 100];
-    Call::System(frame_system::Call::remark(content)).into()
+    Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
+}
+
+fn make_remark_proposal() -> Call {
+    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
 }
 
 fn proposal(
@@ -112,6 +114,17 @@ fn standard_proposal(
     proposal(signer, proposer, make_proposal(42), deposit, None, None)
 }
 
+fn remark_proposal(signer: &Origin, proposer: &Proposer<Public>, deposit: u128) -> DispatchResult {
+    proposal(
+        signer,
+        proposer,
+        make_remark_proposal(),
+        deposit,
+        None,
+        None,
+    )
+}
+
 const THE_COMMITTEE: Proposer<Public> = Proposer::Committee(pallet_pips::Committee::Upgrade);
 
 fn committee_proposal(deposit: u128) -> DispatchResult {
@@ -126,6 +139,11 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 fn alice_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.public();
     standard_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+}
+
+fn alice_remark_proposal(deposit: u128) -> DispatchResult {
+    let acc = AccountKeyring::Alice.public();
+    remark_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
@@ -1779,7 +1797,7 @@ fn expire_scheduled_pip() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
         let pip_id = Pips::pip_id_sequence();
-        assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
+        assert_ok!(alice_remark_proposal(0));
         assert_state(pip_id, false, ProposalState::Pending);
         assert_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
         assert_pruned(pip_id);
