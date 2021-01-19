@@ -58,7 +58,7 @@ use limits::*;
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
-//    let proposal = Call::<T>::set_min_proposal_deposit(0.into());
+    //    let proposal = Call::<T>::set_min_proposal_deposit(0.into());
     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
     let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
@@ -164,6 +164,16 @@ fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchRe
     Ok(())
 }
 
+fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> DispatchResult {
+    if Proposals::<T>::contains_key(&0) {
+        ensure!(
+            state == Module::<T>::proposals(&0).unwrap().state,
+            err
+        );
+    }
+    Ok(())
+}
+
 benchmarks! {
     _ {}
 
@@ -223,7 +233,7 @@ benchmarks! {
         let origin = user.origin();
     }: propose(origin, proposal, 42.into(), some_url, some_desc)
     verify {
-        propose_verify::<T>(url, description);
+        propose_verify::<T>(url, description)?;
     }
 
     // `propose` from a committee origin.
@@ -240,7 +250,7 @@ benchmarks! {
         call.dispatch_bypass_filter(origin)?;
     }
     verify {
-        propose_verify::<T>(url, description);
+        propose_verify::<T>(url, description)?;
     }
 
     vote {
@@ -434,27 +444,26 @@ benchmarks! {
         let origin = RawOrigin::Root;
     }: _(origin, 0)
     verify {
-        if Proposals::<T>::contains_key(&0) {
-            ensure!(
-                ProposalState::Failed == Module::<T>::proposals(&0).unwrap().state,
-                "incorrect proposal state in execute_scheduled_pip"
-            );
-        }
+        execute_verify::<T>(ProposalState::Failed, "incorrect proposal state after execution")?;
     }
 
     expire_scheduled_pip {
-        pips_and_votes_setup::<T>(true)?;
+        // set up
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
-        let origin = RawOrigin::Root;
+        let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
+
+        // snapshot
+        identity::CurrentDid::put(did0);
+        T::GovernanceCommittee::bench_set_release_coordinator(did0);
+        Module::<T>::snapshot(origin0.into())?;
+
         ensure!(
             ProposalState::Pending == Module::<T>::proposals(&0).unwrap().state,
             "incorrect proposal state before expiration"
         );
+        let origin = RawOrigin::Root;
     }: _(origin, GC_DID, 0)
     verify {
-        ensure!(
-            ProposalState::Expired == Module::<T>::proposals(&0).unwrap().state,
-            "incorrect proposal state after expiration"
-        );
+        execute_verify::<T>(ProposalState::Expired, "incorrect proposal state after expiration")?;
     }
 }
