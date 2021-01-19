@@ -28,7 +28,7 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -138,14 +138,9 @@ fn pips_and_votes_setup<T: Trait>(
 }
 
 fn enact_call<T: Trait>(num_approves: u32, num_rejects: u32, num_skips: u32) -> Call<T> {
-    let seed = [
-        0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0,
-        0, 0,
-    ];
+    let seed = [42; 32];
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let mut indices: Vec<u32> = (0..(num_approves + num_rejects + num_skips))
-        .iter()
-        .collect();
+    let mut indices: Vec<u32> = (0..(num_approves + num_rejects + num_skips)).collect();
     indices.shuffle(&mut rng);
     Call::<T>::enact_snapshot_results(
         Module::<T>::snapshot_queue()
@@ -408,11 +403,11 @@ benchmarks! {
     // TODO reduce fn complexity
     enact_snapshot_results {
         // The number of Approve results.
-        let a in 0..PROPOSALS_NUM as u32;
+        let a in 0..PROPOSALS_NUM as u32 / 3;
         // The number of Reject results.
-        let r in 0..(PROPOSALS_NUM as u32 - a - 1);
+        let r in 0..PROPOSALS_NUM as u32 / 3;
         // The number of Skip results.
-        let s in 0..(PROPOSALS_NUM as u32 - a - r - 1);
+        let s in 0..PROPOSALS_NUM as u32 / 3;
 
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
