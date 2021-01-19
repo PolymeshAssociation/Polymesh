@@ -434,7 +434,7 @@ fn general_testnet_genesis(
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
-            code: general::WASM_BINARY.to_vec(),
+            code: general::WASM_BINARY.unwrap_or_default().to_vec(),
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
@@ -620,7 +620,7 @@ fn alcyone_testnet_genesis(
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
-            code: alcyone::WASM_BINARY.to_vec(),
+            code: alcyone::WASM_BINARY.unwrap_or_default().to_vec(),
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
