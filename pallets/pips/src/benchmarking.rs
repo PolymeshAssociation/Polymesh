@@ -28,6 +28,8 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
+use rand::seq::SliceRandom;
+use rand_chacha::ChaCha20Rng;
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
@@ -135,7 +137,16 @@ fn pips_and_votes_setup<T: Trait>(
     Ok((origin, did))
 }
 
-fn enact_call<T: Trait>(num_skips: u32, num_rejects: u32, num_approves: u32) -> Call<T> {
+fn enact_call<T: Trait>(num_approves: u32, num_rejects: u32, num_skips: u32) -> Call<T> {
+    let seed = [
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0,
+        0, 0,
+    ];
+    let mut rng = ChaCha20Rng::from_seed(seed);
+    let mut indices: Vec<u32> = (0..(num_approves + num_rejects + num_skips))
+        .iter()
+        .collect();
+    indices.shuffle(&mut rng);
     Call::<T>::enact_snapshot_results(
         Module::<T>::snapshot_queue()
             .iter()
@@ -166,10 +177,7 @@ fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchRe
 
 fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> DispatchResult {
     if Proposals::<T>::contains_key(&0) {
-        ensure!(
-            state == Module::<T>::proposals(&0).unwrap().state,
-            err
-        );
+        ensure!(state == Module::<T>::proposals(&0).unwrap().state, err);
     }
     Ok(())
 }
@@ -299,6 +307,7 @@ benchmarks! {
     }
 
     reject_proposal {
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -321,6 +330,7 @@ benchmarks! {
     }
 
     prune_proposal {
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -332,7 +342,6 @@ benchmarks! {
             Some(description)
         )?;
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false)?;
         let reject_call = Call::<T>::reject_proposal(0);
         reject_call.dispatch_bypass_filter(vmo_origin.clone())?;
         let call = Call::<T>::prune_proposal(0);
@@ -398,12 +407,12 @@ benchmarks! {
 
     // TODO reduce fn complexity
     enact_snapshot_results {
-        // The number of Skip results.
-        let s in 0..PROPOSALS_NUM as u32;
-        // The number of Reject results.
-        let r in 0..PROPOSALS_NUM as u32;
         // The number of Approve results.
         let a in 0..PROPOSALS_NUM as u32;
+        // The number of Reject results.
+        let r in 0..(PROPOSALS_NUM as u32 - a - 1);
+        // The number of Skip results.
+        let s in 0..(PROPOSALS_NUM as u32 - a - r - 1);
 
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
@@ -414,7 +423,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>(s, r, a);
+        let enact_call = enact_call::<T>(a, r, s);
     }: {
         enact_call.dispatch_bypass_filter(enact_origin)?;
     }
@@ -427,6 +436,7 @@ benchmarks! {
 
     execute_scheduled_pip {
         // set up
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
         // snapshot
@@ -436,7 +446,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>(0, 0, PROPOSALS_NUM as u32);
+        let enact_call = enact_call::<T>(PROPOSALS_NUM as u32, 0, 0);
         enact_call.dispatch_bypass_filter(enact_origin)?;
 
         // execute
