@@ -20,8 +20,8 @@
 
 use crate::Module as Staking;
 use crate::*;
-use polymesh_common_utilities::identity::IdentityFnTrait;
-use polymesh_primitives::InvestorUid;
+use polymesh_common_utilities::{ identity::IdentityFnTrait, benchs::{ UserBuilder, User, user }};
+use polymesh_primitives::{ InvestorUid, AuthorizationData, Permissions, Signatory };
 
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
@@ -29,195 +29,167 @@ use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
 };
+use sp_runtime::DispatchError;
 use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
 
 const SEED: u32 = 0;
 
 /// Grab a funded user with the given balance.
-pub fn create_funded_user_with_balance<T: Trait>(
-    string: &'static str,
-    n: u32,
-    balance: BalanceOf<T>,
-) -> T::AccountId {
-    let user = account(string, n, SEED);
-    T::Currency::make_free_balance_be(&user, balance);
-    // ensure T::CurrencyToVote will work correctly.
-    T::Currency::issue(balance);
-    user
-}
-
-/// Grab a funded user.
 pub fn create_funded_user<T: Trait>(
     string: &'static str,
     n: u32,
-    balance_factor: u32,
-) -> T::AccountId {
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
-    create_funded_user_with_balance::<T>(string, n, balance)
-}
-
-/// Grab a funded users with a given balance and its DID is also generated.
-pub fn create_funded_user_with_did<T: Trait>(
-    string: &'static str,
-    n: u32,
-    balance: BalanceOf<T>,
-) -> T::AccountId {
-    let user = create_funded_user_with_balance::<T>(string, n, balance.into());
-
-    let uid = InvestorUid::from(string);
-    T::IdentityFn::register_did(user.clone(), uid, vec![]).expect("Identity cannot be registered");
-    let did = T::IdentityFn::get_identity(&user).expect("Identity cannot be loaded");
-    PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
-
+    balance: u32,
+) -> User<T> {
+    let user = UserBuilder::<T>::default().balance(balance).seed(n).generate_did().build(string);
+    // ensure T::CurrencyToVote will work correctly.
+    T::Currency::issue(balance.into());
     user
-}
-
-/// Create a stash and controller pair.
-pub fn create_stash_controller<T: Trait>(
-    n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
-    create_stash_controller_with_balance::<T>(n, amount)
 }
 
 /// Create a stash and controller pair.
 /// Both accounts are created with the given balance and with DID.
-pub fn create_stash_controller_with_balance<T: Trait>(
+pub fn create_stash_controller<T: Trait>(
     n: u32,
-    balance: BalanceOf<T>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user_with_did::<T>("stash", n, balance);
-    let controller = create_funded_user_with_did::<T>("controller", n, balance);
-    let controller_lookup: <T::Lookup as StaticLookup>::Source =
-        T::Lookup::unlookup(controller.clone());
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    let stash = create_funded_user::<T>("stash", n, balance);
+    let controller = UserBuilder::<T>::default().balance(balance).seed(n).build("controller");
+    // Attach the controller key as the secondary key to the stash.
+    let auth_id =  <identity::Module<T>>::add_auth(
+        stash.did(),
+        Signatory::Account(controller.account()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    );
+    <identity::Module<T>>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    let controller_lookup = controller.lookup();
     let reward_destination = RewardDestination::Staked;
     Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
+        stash.origin().into(),
         controller_lookup,
-        balance.into(),
+        (balance / 10u32).into(),
         reward_destination,
     )?;
     return Ok((stash, controller));
 }
 
-/// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
-/// This is used to test worst case payout scenarios.
-pub fn create_stash_and_dead_controller<T: Trait>(
-    n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    // controller has no funds
-    let controller = create_funded_user::<T>("controller", n, 0);
-    let controller_lookup: <T::Lookup as StaticLookup>::Source =
-        T::Lookup::unlookup(controller.clone());
-    let reward_destination = RewardDestination::Controller;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
-    Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
-        controller_lookup,
-        amount,
-        reward_destination,
-    )?;
-    return Ok((stash, controller));
-}
+// /// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
+// /// This is used to test worst case payout scenarios.
+// pub fn create_stash_and_dead_controller<T: Trait>(
+//     n: u32,
+//     balance_factor: u32,
+// ) -> Result<(T::AccountId, T::AccountId), &'static str> {
+//     let stash = create_funded_user::<T>("stash", n, balance_factor);
+//     // controller has no funds
+//     let controller = create_funded_user::<T>("controller", n, 0);
+//     let controller_lookup: <T::Lookup as StaticLookup>::Source =
+//         T::Lookup::unlookup(controller.clone());
+//     let reward_destination = RewardDestination::Controller;
+//     let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+//     Staking::<T>::bond(
+//         RawOrigin::Signed(stash.clone()).into(),
+//         controller_lookup,
+//         amount,
+//         reward_destination,
+//     )?;
+//     return Ok((stash, controller));
+// }
 
-/// create `max` validators.
-pub fn create_validators<T: Trait>(
-    max: u32,
-    balance_factor: u32,
-) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
-    let mut validators: Vec<<T::Lookup as StaticLookup>::Source> = Vec::with_capacity(max as usize);
-    for i in 0..max {
-        let (stash, controller) = create_stash_controller::<T>(i, balance_factor)?;
-        let validator_prefs = ValidatorPrefs {
-            commission: Perbill::from_percent(50),
-        };
-        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
-        let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(stash);
-        validators.push(stash_lookup);
-    }
-    Ok(validators)
-}
+// /// create `max` validators.
+// pub fn create_validators<T: Trait>(
+//     max: u32,
+//     balance_factor: u32,
+// ) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
+//     let mut validators: Vec<<T::Lookup as StaticLookup>::Source> = Vec::with_capacity(max as usize);
+//     for i in 0..max {
+//         let (stash, controller) = create_stash_controller::<T>(i, balance_factor)?;
+//         let validator_prefs = ValidatorPrefs {
+//             commission: Perbill::from_percent(50),
+//         };
+//         Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+//         let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(stash);
+//         validators.push(stash_lookup);
+//     }
+//     Ok(validators)
+// }
 
-/// This function generates validators and nominators who are randomly nominating
-/// `edge_per_nominator` random validators (until `to_nominate` if provided).
-///
-/// Parameters:
-/// - `validators`: number of bonded validators
-/// - `nominators`: number of bonded nominators.
-/// - `edge_per_nominator`: number of edge (vote) per nominator.
-/// - `randomize_stake`: whether to randomize the stakes.
-/// - `to_nominate`: if `Some(n)`, only the first `n` bonded validator are voted upon.
-///    Else, all of them are considered and `edge_per_nominator` random validators are voted for.
-///
-/// Return the validators choosen to be nominated.
-pub fn create_validators_with_nominators_for_era<T: Trait>(
-    validators: u32,
-    nominators: u32,
-    edge_per_nominator: usize,
-    randomize_stake: bool,
-    to_nominate: Option<u32>,
-) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
-    let mut validators_stash: Vec<<T::Lookup as StaticLookup>::Source> =
-        Vec::with_capacity(validators as usize);
-    let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
+// /// This function generates validators and nominators who are randomly nominating
+// /// `edge_per_nominator` random validators (until `to_nominate` if provided).
+// ///
+// /// Parameters:
+// /// - `validators`: number of bonded validators
+// /// - `nominators`: number of bonded nominators.
+// /// - `edge_per_nominator`: number of edge (vote) per nominator.
+// /// - `randomize_stake`: whether to randomize the stakes.
+// /// - `to_nominate`: if `Some(n)`, only the first `n` bonded validator are voted upon.
+// ///    Else, all of them are considered and `edge_per_nominator` random validators are voted for.
+// ///
+// /// Return the validators choosen to be nominated.
+// pub fn create_validators_with_nominators_for_era<T: Trait>(
+//     validators: u32,
+//     nominators: u32,
+//     edge_per_nominator: usize,
+//     randomize_stake: bool,
+//     to_nominate: Option<u32>,
+// ) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
+//     let mut validators_stash: Vec<<T::Lookup as StaticLookup>::Source> =
+//         Vec::with_capacity(validators as usize);
+//     let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
 
-    // Create validators
-    for i in 0..validators {
-        let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
-        } else {
-            100u32
-        };
-        let (v_stash, v_controller) = create_stash_controller::<T>(i, balance_factor)?;
-        let validator_prefs = ValidatorPrefs {
-            commission: Perbill::from_percent(50),
-        };
-        Staking::<T>::validate(
-            RawOrigin::Signed(v_controller.clone()).into(),
-            validator_prefs,
-        )?;
-        let stash_lookup: <T::Lookup as StaticLookup>::Source =
-            T::Lookup::unlookup(v_stash.clone());
-        validators_stash.push(stash_lookup.clone());
-    }
+//     // Create validators
+//     for i in 0..validators {
+//         let balance_factor = if randomize_stake {
+//             rng.next_u32() % 255 + 10
+//         } else {
+//             100u32
+//         };
+//         let (v_stash, v_controller) = create_stash_controller::<T>(i, balance_factor)?;
+//         let validator_prefs = ValidatorPrefs {
+//             commission: Perbill::from_percent(50),
+//         };
+//         Staking::<T>::validate(
+//             RawOrigin::Signed(v_controller.clone()).into(),
+//             validator_prefs,
+//         )?;
+//         let stash_lookup: <T::Lookup as StaticLookup>::Source =
+//             T::Lookup::unlookup(v_stash.clone());
+//         validators_stash.push(stash_lookup.clone());
+//     }
 
-    let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
-    let validator_choosen = validators_stash[0..to_nominate].to_vec();
+//     let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
+//     let validator_choosen = validators_stash[0..to_nominate].to_vec();
 
-    // Create nominators
-    for j in 0..nominators {
-        let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
-        } else {
-            100u32
-        };
-        let (_n_stash, n_controller) =
-            create_stash_controller::<T>(u32::max_value() - j, balance_factor)?;
+//     // Create nominators
+//     for j in 0..nominators {
+//         let balance_factor = if randomize_stake {
+//             rng.next_u32() % 255 + 10
+//         } else {
+//             100u32
+//         };
+//         let (_n_stash, n_controller) =
+//             create_stash_controller::<T>(u32::max_value() - j, balance_factor)?;
 
-        // Have them randomly validate
-        let mut available_validators = validator_choosen.clone();
-        let mut selected_validators: Vec<<T::Lookup as StaticLookup>::Source> =
-            Vec::with_capacity(edge_per_nominator);
+//         // Have them randomly validate
+//         let mut available_validators = validator_choosen.clone();
+//         let mut selected_validators: Vec<<T::Lookup as StaticLookup>::Source> =
+//             Vec::with_capacity(edge_per_nominator);
 
-        for _ in 0..validators.min(edge_per_nominator as u32) {
-            let selected = rng.next_u32() as usize % available_validators.len();
-            let validator = available_validators.remove(selected);
-            selected_validators.push(validator);
-        }
-        Staking::<T>::nominate(
-            RawOrigin::Signed(n_controller.clone()).into(),
-            selected_validators,
-        )?;
-    }
+//         for _ in 0..validators.min(edge_per_nominator as u32) {
+//             let selected = rng.next_u32() as usize % available_validators.len();
+//             let validator = available_validators.remove(selected);
+//             selected_validators.push(validator);
+//         }
+//         Staking::<T>::nominate(
+//             RawOrigin::Signed(n_controller.clone()).into(),
+//             selected_validators,
+//         )?;
+//     }
 
-    ValidatorCount::put(validators);
+//     ValidatorCount::put(validators);
 
-    Ok(validator_choosen)
-}
+//     Ok(validator_choosen)
+// }
 
 /// Build a _really bad_ but acceptable solution for election. This should always yield a solution
 /// which has a less score than the seq-phragmen.

@@ -1257,10 +1257,10 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
             use frame_system_benchmarking::Module as SystemBench;
-            use crate::benchmarks::pallet_session::Module as SessionBench;
+            //use crate::benchmarks::pallet_session::Module as SessionBench;
 
             impl frame_system_benchmarking::Trait for Runtime {}
-            impl crate::benchmarks::pallet_session::Trait for Runtime {}
+            //impl crate::benchmarks::pallet_session::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1305,9 +1305,10 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_permissions, Permissions);
             add_benchmark!(params, batches, pallet_babe, Babe);
             add_benchmark!(params, batches, pallet_indices, Indices);
-            add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
+            // add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_staking, Staking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
