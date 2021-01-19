@@ -46,6 +46,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Get, UnixTime},
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use polymesh_common_utilities::{
@@ -54,7 +55,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
-    EventDid, IdentityId, Moment, Ticker,
+    storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -67,7 +68,7 @@ type Asset<T> = pallet_asset::Module<T>;
 
 /// ID of a `StoredSchedule`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ScheduleId(pub u64);
 
 /// One or more scheduled checkpoints in the future.
@@ -103,6 +104,8 @@ impl From<Moment> for ScheduleSpec {
         Self { start, period }
     }
 }
+
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Checkpoint {
@@ -161,17 +164,25 @@ decl_storage! {
         pub Schedules get(fn schedules):
             map hasher(blake2_128_concat) Ticker => Vec<StoredSchedule>;
 
-        /// Is the schedule removable?
+        /// How many "strong" references are there to a given `ScheduleId`?
         ///
-        /// (ticker, schedule ID) -> removable?
-        pub ScheduleRemovable get(fn schedule_removable):
-            map hasher(blake2_128_concat) (Ticker, ScheduleId) => bool;
+        /// The presence of a "strong" reference, in the sense of `Rc<T>`,
+        /// entails that the referenced schedule cannot be removed.
+        /// Thus, as long as `strong_ref_count(schedule_id) > 0`,
+        /// `remove_schedule(schedule_id)` will error.
+        ///
+        /// (ticker, schedule ID) -> strong ref count
+        pub ScheduleRefCount get(fn schedule_ref_count):
+            map hasher(blake2_128_concat) (Ticker, ScheduleId) => u32;
 
         /// All the checkpoints a given schedule originated.
         ///
         /// (ticker, schedule ID) -> [checkpoint ID]
         pub SchedulePoints get(fn schedule_points):
             map hasher(blake2_128_concat) (Ticker, ScheduleId) => Vec<CheckpointId>;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -180,6 +191,20 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                use frame_support::migration::{StorageIterator, put_storage_value};
+                StorageIterator::<bool>::new(b"Checkpoint", b"ScheduleRemovable")
+                    .drain()
+                    .for_each(|(key, removable)| put_storage_value(
+                        b"Checkpoint", b"ScheduleRefCount", &key,
+                        if removable { 1 } else { 0 }
+                    ));
+            });
+
+            0
+        }
 
         /// Creates a single checkpoint at the current time.
         ///
@@ -215,6 +240,8 @@ decl_module! {
         /// Creates a schedule generating checkpoints
         /// in the future at either a fixed time or at intervals.
         ///
+        /// The schedule starts out with `strong_ref_count(schedule_id) <- 0`.
+        ///
         /// # Arguments
         /// - `origin` is a signer that has permissions to act as owner of `ticker`.
         /// - `ticker` to create the schedule for.
@@ -234,7 +261,7 @@ decl_module! {
             schedule: ScheduleSpec,
         ) {
             let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?.for_event();
-            Self::create_schedule_base(owner, ticker, schedule, true)?;
+            Self::create_schedule_base(owner, ticker, schedule, 0)?;
         }
 
         /// Removes the checkpoint schedule of an asset identified by `id`.
@@ -259,14 +286,14 @@ decl_module! {
             // If the ID matches and schedule is removable, it should be removed.
             let schedule_id = (ticker, id);
             let schedule = Schedules::try_mutate(&ticker, |ss| {
-                ensure!(ScheduleRemovable::get(schedule_id), Error::<T>::ScheduleNotRemovable);
+                ensure!(ScheduleRefCount::get(schedule_id) == 0, Error::<T>::ScheduleNotRemovable);
                 // By definiton of `id` existing, `.remove(pos)` won't panic.
                 Self::ensure_schedule_exists(&ss, id).map(|pos| ss.remove(pos))
             })?;
 
             // Remove some additional data.
             // We don't remove historical points related to the schedule.
-            ScheduleRemovable::remove(schedule_id);
+            ScheduleRefCount::remove(schedule_id);
 
             // Emit event.
             Self::deposit_event(RawEvent::ScheduleRemoved(owner, ticker, schedule));
@@ -309,7 +336,7 @@ decl_error! {
         ScheduleOverflow,
         /// A checkpoint schedule does not exist for the asset.
         NoSuchSchedule,
-        /// A checkpoint schedule is not removable.
+        /// A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
         ScheduleNotRemovable,
         /// Failed to compute the next checkpoint.
         /// The schedule does not have any upcoming checkpoints.
@@ -459,7 +486,7 @@ impl<T: Trait> Module<T> {
         did: EventDid,
         ticker: Ticker,
         schedule: ScheduleSpec,
-        removable: bool,
+        ref_count: u32,
     ) -> Result<StoredSchedule, DispatchError> {
         let ScheduleSpec { period, start } = schedule;
 
@@ -509,8 +536,7 @@ impl<T: Trait> Module<T> {
         let at = future_at.unwrap_or(now);
         let schedule = StoredSchedule { at, id, schedule };
         if let Some(_) = future_at {
-            // Store removability + Sort schedule into the queue.
-            ScheduleRemovable::insert((ticker, id), removable);
+            // Sort schedule into the queue.
             Schedules::insert(&ticker, {
                 let mut schedules = schedules;
                 add_schedule(&mut schedules, schedule);
@@ -518,6 +544,7 @@ impl<T: Trait> Module<T> {
             })
         }
 
+        ScheduleRefCount::insert((ticker, id), ref_count);
         ScheduleIdSequence::insert(ticker, id);
         Self::deposit_event(RawEvent::ScheduleCreated(did, ticker, schedule));
         Ok(schedule)
@@ -597,7 +624,10 @@ impl<T: Trait> Module<T> {
 
 /// Add `schedule` to `ss` in its sorted place, assuming `ss` is already sorted.
 fn add_schedule(ss: &mut Vec<StoredSchedule>, schedule: StoredSchedule) {
-    let Ok(i) | Err(i) = ss.binary_search_by_key(&schedule.at, |s| s.at);
+    // `Ok(_)` is unreachable at runtime as adding a schedule with the same ID twice won't happen.
+    // However, we do this to simplify, as the comparison against IDs affords us sorting stability.
+    let Err(i) | Ok(i) =
+        ss.binary_search_by(|s| s.at.cmp(&schedule.at).then(s.id.cmp(&schedule.id)));
     ss.insert(i, schedule);
 }
 

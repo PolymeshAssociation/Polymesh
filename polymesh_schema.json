@@ -1087,7 +1087,7 @@
         "CADetails": "Text",
         "CACheckpoint": {
             "_enum": {
-                "Scheduled": "ScheduleId",
+                "Scheduled": "(ScheduleId, u64)",
                 "Existing": "CheckpointId"
             }
         },
