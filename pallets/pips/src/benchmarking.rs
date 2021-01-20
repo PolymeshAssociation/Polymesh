@@ -32,6 +32,7 @@ use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{
     convert::{TryFrom, TryInto},
+    iter,
     prelude::*,
 };
 
@@ -60,7 +61,6 @@ use limits::*;
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
-    //    let proposal = Call::<T>::set_min_proposal_deposit(0.into());
     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
     let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
@@ -137,24 +137,21 @@ fn pips_and_votes_setup<T: Trait>(
     Ok((origin, did))
 }
 
-fn enact_call<T: Trait>(num_approves: u32, num_rejects: u32, num_skips: u32) -> Call<T> {
+fn enact_call<T: Trait>(num_approves: usize, num_rejects: usize, num_skips: usize) -> Call<T> {
     let seed = [42; 32];
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let mut indices: Vec<u32> = (0..(num_approves + num_rejects + num_skips)).collect();
-    indices.shuffle(&mut rng);
+    let mut snapshot_results: Vec<_> = iter::repeat(SnapshotResult::Approve)
+        .take(num_approves)
+        .collect();
+    snapshot_results.extend(iter::repeat(SnapshotResult::Reject).take(num_rejects));
+    snapshot_results.extend(iter::repeat(SnapshotResult::Skip).take(num_skips));
+    snapshot_results.shuffle(&mut rng);
     Call::<T>::enact_snapshot_results(
         Module::<T>::snapshot_queue()
             .iter()
-            .map(|s| {
-                let id = s.id;
-                let action = if id % 2 == 0 {
-                    SnapshotResult::Approve
-                } else {
-                    SnapshotResult::Reject
-                };
-                (id, action)
-            })
             .rev()
+            .map(|s| s.id)
+            .zip(snapshot_results.into_iter())
             .collect(),
     )
 }
@@ -418,7 +415,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>(a, r, s);
+        let enact_call = enact_call::<T>(a as usize, r as usize, s as usize);
     }: {
         enact_call.dispatch_bypass_filter(enact_origin)?;
     }
@@ -441,7 +438,7 @@ benchmarks! {
 
         // enact
         let enact_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = enact_call::<T>(PROPOSALS_NUM as u32, 0, 0);
+        let enact_call = enact_call::<T>(PROPOSALS_NUM, 0, 0);
         enact_call.dispatch_bypass_filter(enact_origin)?;
 
         // execute
