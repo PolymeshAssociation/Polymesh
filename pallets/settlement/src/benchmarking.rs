@@ -20,14 +20,13 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_asset::{
-    benchmarking::make_base_asset, AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf,
-    SecurityToken, Tokens,
+    AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf, SecurityToken, Tokens,
 };
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
+    benchs::{self, generate_ticker, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetName, AssetType},
 };
@@ -70,6 +69,11 @@ impl<T: Trait> From<User<T>> for UserData<T> {
     }
 }
 
+fn make_asset<T: Trait>(owner: &User<T>, name: Option<Vec<u8>>) -> Ticker {
+    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Vec<u8>>(owner, name)
+        .expect("Asset cannot be created")
+}
+
 fn set_block_number<T: Trait>(new_block_no: u64) {
     system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
 }
@@ -90,7 +94,7 @@ fn create_venue_<T: Trait>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
 }
 
 /// Set instruction leg status to `LegStatus::ExecutionToBeSkipped` without any sanity checks.
-fn set_instruction_let_status_to_skipped<T: Trait>(
+fn set_instruction_leg_status_to_skipped<T: Trait>(
     instruction_id: u64,
     leg_id: u64,
     signer: T::AccountId,
@@ -312,36 +316,6 @@ fn emulate_portfolios<T: Trait>(
     })
 }
 
-fn setup_leg_and_portfolio_with_ticker<T: Trait>(
-    to_user: Option<UserData<T>>,
-    from_user: Option<UserData<T>>,
-    from_ticker: Ticker,
-    to_ticker: Ticker,
-    index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
-    sender_portfolios: &mut Vec<PortfolioId>,
-    receiver_portfolios: &mut Vec<PortfolioId>,
-) {
-    emulate_portfolios::<T>(
-        from_user.clone(),
-        to_user.clone(),
-        from_ticker,
-        index,
-        legs,
-        sender_portfolios,
-        receiver_portfolios,
-    );
-    emulate_portfolios::<T>(
-        to_user,
-        from_user,
-        to_ticker,
-        index,
-        legs,
-        receiver_portfolios,
-        sender_portfolios,
-    );
-}
-
 // Generate signature.
 fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
@@ -380,17 +354,35 @@ fn add_trusted_issuer<T: Trait>(
     .expect("Default trusted claim issuer cannot be added");
 }
 
-pub fn get_conditions<T: Trait>(complexity: u32, trusted_issuer: TrustedIssuer) -> Vec<Condition> {
-    let mut conditions = Vec::with_capacity(complexity as usize);
-    for i in 0..complexity / 2 {
-        let scope = Scope::Custom(vec![1; i.try_into().unwrap()]);
-        conditions.push(Claim::Jurisdiction(CountryCode::AF, scope));
-    }
-    let condition_type = ConditionType::IsNoneOf(conditions);
-    vec![Condition::new(condition_type, vec![trusted_issuer])]
+pub fn setup_conditions<T: Trait>(
+    count: u32,
+    trusted_issuer: TrustedIssuer,
+    dids: Vec<IdentityId>,
+    ticker: Ticker,
+) -> Vec<Condition> {
+    let encoded_ticker = ticker.encode();
+    (0..count)
+        .map(|i| {
+            let scope =
+                Scope::Custom((encoded_ticker.clone(), vec![1; i.try_into().unwrap()]).encode());
+            let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+            for did in &dids {
+                identity::Module::<T>::base_add_claim(
+                    did.clone(),
+                    claim.clone(),
+                    trusted_issuer.issuer,
+                    None,
+                );
+            }
+            Condition::new(
+                ConditionType::IsPresent(claim),
+                vec![trusted_issuer.clone()],
+            )
+        })
+        .collect()
 }
 
-fn compliance_setup<T: Trait>(
+pub fn compliance_setup<T: Trait>(
     max_complexity: u32,
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
@@ -404,12 +396,17 @@ fn compliance_setup<T: Trait>(
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
-    let cond = get_conditions::<T>(max_complexity, trusted_issuer);
+    let conditions = setup_conditions::<T>(
+        max_complexity / 2,
+        trusted_issuer,
+        vec![from_did, to_did],
+        ticker,
+    );
     pallet_compliance_manager::Module::<T>::add_compliance_requirement(
         origin.clone().into(),
         ticker,
-        cond.clone(),
-        cond,
+        conditions.clone(),
+        conditions,
     )
     .expect("Failed to add the asset compliance");
 }
@@ -420,8 +417,7 @@ fn setup_affirm_instruction<T: Trait>(
     Vec<PortfolioId>,
     UserData<T>,
     UserData<T>,
-    Ticker,
-    Ticker,
+    Vec<Ticker>,
     Vec<Leg<T::Balance>>,
 ) {
     // create venue
@@ -432,45 +428,21 @@ fn setup_affirm_instruction<T: Trait>(
     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
-
-    // Create legs vector.
-    // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
-    // Assumption here is that instruction will never be executed as still there is one auth pending.
-    let from_ticker = make_base_asset::<T>(
-        &from,
-        true,
-        Some(Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap()),
-    );
-    let to_ticker = make_base_asset::<T>(
-        &to,
-        true,
-        Some(Ticker::try_from(vec![b'B'; 8 as usize].as_slice()).unwrap()),
-    );
-    let from_data = UserData::from(from);
+    let mut tickers = Vec::with_capacity(l as usize);
+    let from_data = UserData::from(from.clone());
     let to_data = UserData::from(to);
-    if l == 1 {
+
+    for n in 0..l {
+        tickers.push(make_asset::<T>(&from, Some(generate_ticker(n as u64 + 1))));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),
-            from_ticker,
+            tickers[n as usize],
             l,
             &mut legs,
             &mut portfolios_from,
             &mut portfolios_to,
         );
-    } else {
-        for n in 0..l / 2 {
-            setup_leg_and_portfolio_with_ticker::<T>(
-                Some(to_data.clone()),
-                Some(from_data.clone()),
-                from_ticker,
-                to_ticker,
-                n,
-                &mut legs,
-                &mut portfolios_from,
-                &mut portfolios_to,
-            );
-        }
     }
     Module::<T>::add_and_affirm_instruction(
         (RawOrigin::Signed(from_data.account.clone())).into(),
@@ -482,14 +454,8 @@ fn setup_affirm_instruction<T: Trait>(
         portfolios_from,
     )
     .expect("Unable to add and affirm the instruction");
-    (
-        portfolios_to,
-        from_data,
-        to_data,
-        from_ticker,
-        to_ticker,
-        legs,
-    )
+
+    (portfolios_to, from_data, to_data, tickers, legs)
 }
 
 #[allow(dead_code)]
@@ -558,24 +524,31 @@ fn create_receipt_details<T: Trait>(
     }
 }
 
-fn add_transfer_manager<T: Trait>(
+pub fn add_transfer_managers<T: Trait>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
-    tm_no: u32,
     exempted_entity: IdentityId,
+    count: u32,
 ) {
-    let tm = TransferManager::CountTransferManager(tm_no.into());
-    // Add Transfer manager
-    <pallet_statistics::Module<T>>::add_transfer_manager(origin.clone().into(), ticker, tm.clone())
+    for i in 0..count {
+        let tm = TransferManager::CountTransferManager(i.into());
+        // Add Transfer manager
+        <pallet_statistics::Module<T>>::add_transfer_manager(
+            origin.clone().into(),
+            ticker,
+            tm.clone(),
+        )
         .expect("failed to add transfer manager");
-    // Exempt the user.
-    <pallet_statistics::Module<T>>::add_exempted_entities(
-        origin.into(),
-        ticker,
-        tm,
-        vec![exempted_entity],
-    )
-    .expect("failed to add exempted entities");
+        // Exempt the user.
+        <pallet_statistics::Module<T>>::add_exempted_entities(
+            origin.clone().into(),
+            ticker,
+            tm,
+            vec![exempted_entity],
+        )
+        .expect("failed to add exempted entities");
+    }
+    <pallet_statistics::Module<T>>::set_investor_count(&ticker, count.into());
 }
 
 benchmarks! {
@@ -654,8 +627,8 @@ benchmarks! {
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
-
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -668,8 +641,8 @@ benchmarks! {
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
-
-    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -704,7 +677,8 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(i.into());
         }
-    }: _(origin, ticker, venues.clone())
+        let s_venues = venues.clone();
+    }: _(origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -721,7 +695,8 @@ benchmarks! {
         for i in 0 .. v {
             venues.push(i.into());
         }
-    }: _(origin, ticker, venues.clone())
+        let s_venues = venues.clone();
+    }: _(origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -740,9 +715,9 @@ benchmarks! {
         let instruction_id: u64 = 1;
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, None)?;
+        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None)?;
 
-    }: _(origin, instruction_id, portfolios)
+    }: _(origin, instruction_id, portfolios, l.into())
     verify {
         for (idx, leg) in legs.iter().enumerate() {
             ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
@@ -766,9 +741,9 @@ benchmarks! {
         for (idx, _) in legs.clone().iter().enumerate() {
             let leg_id = u64::try_from(idx).unwrap_or_default();
             // use leg_id for the receipt_uid as well.
-            set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), leg_id);
+            set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), leg_id);
         }
-    }: withdraw_affirmation(origin, instruction_id, portfolios)
+    }: withdraw_affirmation(origin, instruction_id, portfolios, l.into())
     verify {
         for (idx, leg) in legs.iter().enumerate() {
             ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
@@ -785,7 +760,7 @@ benchmarks! {
         let instruction_id = 1;
         let leg_id = 0;
 
-        set_instruction_let_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
+        set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
     }: _(origin, instruction_id, leg_id)
     verify {
         ensure!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::ExecutionPending), "Fail: unclaim_receipt dispatch");
@@ -801,7 +776,8 @@ benchmarks! {
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-    }: _(origin, instruction_id, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: _(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
@@ -817,7 +793,8 @@ benchmarks! {
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id: u64 = 1;
-    }: reject_instruction(origin, instruction_id, portfolios.clone())
+        let s_portfolios = portfolios.clone();
+    }: reject_instruction(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
@@ -826,11 +803,12 @@ benchmarks! {
 
 
     affirm_instruction {
-
-        let l in 2 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
-        let (portfolios_to, _, to, _, _, _) = setup_affirm_instruction::<T>(l);
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
-    }: _(RawOrigin::Signed(to.account), instruction_id, portfolios_to.clone())
+        let to_portfolios = portfolios_to.clone();
+        let legs_count = (l / 2).into();
+    }: _(RawOrigin::Signed(to.account), instruction_id, to_portfolios, legs_count)
     verify {
         for p in portfolios_to.iter() {
             ensure!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
@@ -852,7 +830,8 @@ benchmarks! {
         // Some manual setup to support the extrinsic.
         set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
         T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into())?;
-    }: _(origin, instruction_id, receipt.clone())
+        let s_receipt = receipt.clone();
+    }: _(origin, instruction_id, s_receipt)
     verify {
         ensure!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
             receipt.signer,
@@ -873,7 +852,8 @@ benchmarks! {
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
             receipt_details.push(create_receipt_details::<T>(idx as u32, l));
         });
-    }: _(origin, instruction_id, receipt_details.clone(), s_portfolios)
+        let s_receipt_details = receipt_details.clone();
+    }: _(origin, instruction_id, s_receipt_details, s_portfolios, r)
     verify {
         for (i, receipt) in receipt_details.iter().enumerate() {
             ensure!(Module::<T>::instruction_leg_status(instruction_id, i as u64) ==  LegStatus::ExecutionToBeSkipped(
@@ -888,15 +868,17 @@ benchmarks! {
         //
         // Worst case scenarios.
         // 1. Create maximum legs and both traded assets are different assets/securities.
-        // 2. Assets should have worst compliance restrictions ?
+        // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        let s in 0 .. T::MaxTransferManagersPerAsset::get() as u32;
-        let c in 1 .. T::MaxConditionComplexity::get() as u32; // At least 1 compliance restriction needed.
+        let s = T::MaxTransferManagersPerAsset::get() as u32;
+        let c = T::MaxConditionComplexity::get() as u32;
+
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
-        let (portfolios_to, from, to, from_ticker, to_ticker, legs) = setup_affirm_instruction::<T>(l);
+        let (portfolios_to, from, to, tickers, legs) = setup_affirm_instruction::<T>(l);
         // Keep the portfolio asset balance before the instruction execution to verify it later.
+        let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
         let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
@@ -905,27 +887,25 @@ benchmarks! {
         let from_origin = RawOrigin::Signed(from.account.clone());
         let to_origin = RawOrigin::Signed(to.account.clone());
         // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to).expect("Settlement: Failed to affirm instruction");
+        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
         let trusted_issuer = TrustedIssuer::from(t_issuer.did());
 
         // Need to provide the Investor uniqueness claim for both sender and receiver,
         // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
-        compliance_setup::<T>(c, from_ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
-        compliance_setup::<T>(c, to_ticker, to_origin.clone(), from.did, to.did, trusted_issuer);
+        for ticker in tickers {
+            compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
+            add_transfer_managers::<T>(ticker, from_origin.clone(), from.did, s);
+        }
+
         // -------- Commented the smart extension integration ----------------
         // let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm")?;
         // for i in 0 .. s {
         //     add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
         //     add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
         // }
-
-        for i in 0 .. s {
-            add_transfer_manager::<T>(from_ticker, from_origin.clone(), i, from.did);
-            add_transfer_manager::<T>(to_ticker, to_origin.clone(), i, to.did);
-        }
-    }: _(origin, instruction_id)
+    }: _(origin, instruction_id, l)
     verify {
         // Ensure that any one leg processed through that give sufficient evidence of successful execution of instruction.
         let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);

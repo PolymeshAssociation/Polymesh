@@ -391,7 +391,7 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "InvestorZKProofData": "[u8;64]",
+        "InvestorZKProofData": "Signature",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",

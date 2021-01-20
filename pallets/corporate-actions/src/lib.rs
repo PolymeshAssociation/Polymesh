@@ -547,7 +547,10 @@ decl_module! {
         /// - `TooManyTargetIds` if `targets.unwrap().identities.len() > T::MaxTargetIds::get()`.
         /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(1, 1)
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(
+                T::MaxDidWhts::get(),
+                T::MaxTargetIds::get(),
+            )
             .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
                 withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
                 targets.as_ref().map_or(0, |t| t.identities.len() as u32),
