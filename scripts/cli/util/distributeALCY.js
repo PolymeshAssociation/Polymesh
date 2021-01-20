@@ -1,8 +1,8 @@
 // Set options as a parameter, environment variable, or rc file.
 require = require("esm")(module /*, options*/);
-module.exports = require("../util/init.js");
+module.exports = require("./init.js");
 
-let { reqImports } = require("../util/init.js");
+let { reqImports } = require("./init.js");
 const minimist = require('minimist');
 const args = minimist(process.argv.slice(2), {
     string: 'account'
