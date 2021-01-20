@@ -134,10 +134,10 @@ benchmarks! {
 
     // TODO(Centril): make this work with WASM execution.
     claim {
-        let i in 0..MAX_TARGETS;
-        let j in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGETS;
+        let w in 0..MAX_DID_WHT_IDS;
 
-        let (_, holder, ca_id) = prepare_transfer::<T>(i, j);
+        let (_, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(holder.origin(), ca_id)
     verify {
         ensure!(HolderPaid::get((ca_id, holder.did())), "not paid");
@@ -145,10 +145,10 @@ benchmarks! {
 
     // TODO(Centril): make this work with WASM execution.
     push_benefit {
-        let i in 0..MAX_TARGETS;
-        let j in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGETS;
+        let w in 0..MAX_DID_WHT_IDS;
 
-        let (owner, holder, ca_id) = prepare_transfer::<T>(i, j);
+        let (owner, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(owner.origin(), ca_id, holder.did())
     verify {
         ensure!(HolderPaid::get((ca_id, holder.did())), "not paid");

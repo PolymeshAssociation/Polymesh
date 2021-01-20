@@ -13,11 +13,9 @@ impl pallet_sto::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn invest(c: u32) -> Weight {
-        (373_222_000 as Weight)
-            .saturating_add((15_652_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(49 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(c as Weight)))
+    fn invest() -> Weight {
+        (1_100_000_000 as Weight)
+            .saturating_add(DbWeight::get().reads(100 as Weight))
             .saturating_add(DbWeight::get().writes(30 as Weight))
     }
     fn freeze_fundraiser() -> Weight {
