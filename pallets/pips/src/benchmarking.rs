@@ -58,6 +58,8 @@ mod limits {
 
 use limits::*;
 
+pub const MAX_SKIPPED_COUNT: u8 = 255;
+
 /// Makes a proposal.
 fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
@@ -299,7 +301,7 @@ benchmarks! {
     }
 
     reject_proposal {
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -322,7 +324,7 @@ benchmarks! {
     }
 
     prune_proposal {
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -406,6 +408,7 @@ benchmarks! {
         // The number of Skip results.
         let s in 0..PROPOSALS_NUM as u32 / 3;
 
+        Module::<T>::set_max_pip_skip_count(RawOrigin::Root.into(), MAX_SKIPPED_COUNT);
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
         // snapshot
@@ -428,7 +431,7 @@ benchmarks! {
 
     execute_scheduled_pip {
         // set up
-        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
         // snapshot
