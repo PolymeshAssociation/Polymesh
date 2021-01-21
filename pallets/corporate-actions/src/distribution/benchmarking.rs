@@ -21,10 +21,11 @@ use crate::{CAKind, CorporateActions};
 use frame_benchmarking::benchmarks;
 use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_common_utilities::benchs::{user, User};
-use polymesh_primitives::{
-    CddId, Claim, IdentityId, InvestorUid, PortfolioId, PortfolioNumber, Scope, Ticker,
+use polymesh_common_utilities::{
+    asset::AssetFnTrait,
+    benchs::{user, User},
 };
+use polymesh_primitives::{PortfolioId, PortfolioNumber, Ticker};
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
@@ -65,24 +66,6 @@ fn dist<T: Trait>(target_ids: u32) -> (User<T>, CAId, Ticker) {
     (owner, ca_id, currency)
 }
 
-// Add investor uniqueness claim directly in the storage.
-fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
-    identity::Module::<T>::base_add_claim(
-        did,
-        Claim::InvestorUniqueness(
-            Scope::Ticker(ticker),
-            did,
-            CddId::new(did, InvestorUid::from(did.to_bytes())),
-        ),
-        did,
-        None,
-    );
-    let current_balance = <pallet_asset::Module<T>>::balance_of(ticker, did);
-    <pallet_asset::AggregateBalance<T>>::insert(ticker, &did, current_balance);
-    <pallet_asset::BalanceOfAtScope<T>>::insert(did, did, current_balance);
-    <pallet_asset::ScopeIdOf>::insert(ticker, did, did);
-}
-
 fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
     target_ids: u32,
     did_whts_num: u32,
@@ -98,8 +81,14 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
     <pallet_timestamp::Now<T>>::set(3000.into());
 
     let holder = user::<T>("holder", SEED);
-    add_investor_uniqueness_claim::<T>(owner.did(), currency);
-    add_investor_uniqueness_claim::<T>(holder.did(), currency);
+    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(
+        owner.did(),
+        currency,
+    );
+    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(
+        holder.did(),
+        currency,
+    );
     <ComplianceManager<T>>::add_compliance_requirement(
         owner.origin().into(),
         currency,

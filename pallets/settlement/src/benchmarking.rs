@@ -19,23 +19,20 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
-use pallet_asset::{
-    AggregateBalance, BalanceOf, BalanceOfAtScope, ScopeIdOf, SecurityToken, Tokens,
-};
+use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
     benchs::{self, generate_ticker, User, UserBuilder},
     constants::currency::POLY,
-    traits::asset::{AssetName, AssetType},
+    traits::asset::{AssetFnTrait, AssetName, AssetType},
 };
 //use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
 use pallet_statistics::TransferManager;
 use polymesh_primitives::{
-    CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, PortfolioId,
-    PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker,
-    TrustedIssuer,
+    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
+    PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
 };
 use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
@@ -323,24 +320,6 @@ fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) 
     encoded
 }
 
-// Add investor uniqueness claim directly in the storage.
-fn add_investor_uniqueness_claim<T: Trait>(did: IdentityId, ticker: Ticker) {
-    identity::Module::<T>::base_add_claim(
-        did,
-        Claim::InvestorUniqueness(
-            Scope::Ticker(ticker),
-            did,
-            CddId::new(did, InvestorUid::from(did.to_bytes())),
-        ),
-        did,
-        None,
-    );
-    let current_balance = <pallet_asset::Module<T>>::balance_of(ticker, did);
-    <AggregateBalance<T>>::insert(ticker, &did, current_balance);
-    <BalanceOfAtScope<T>>::insert(did, did, current_balance);
-    <ScopeIdOf>::insert(ticker, did, did);
-}
-
 fn add_trusted_issuer<T: Trait>(
     origin: RawOrigin<T::AccountId>,
     ticker: Ticker,
@@ -391,8 +370,8 @@ pub fn compliance_setup<T: Trait>(
     trusted_issuer: TrustedIssuer,
 ) {
     // Add investor uniqueness claim.
-    add_investor_uniqueness_claim::<T>(from_did, ticker);
-    add_investor_uniqueness_claim::<T>(to_did, ticker);
+    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(from_did, ticker);
+    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(to_did, ticker);
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
