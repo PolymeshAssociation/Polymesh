@@ -382,7 +382,7 @@ pub fn setup_conditions<T: Trait>(
         .collect()
 }
 
-fn compliance_setup<T: Trait>(
+pub fn compliance_setup<T: Trait>(
     max_complexity: u32,
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
@@ -524,7 +524,7 @@ fn create_receipt_details<T: Trait>(
     }
 }
 
-fn add_transfer_managers<T: Trait>(
+pub fn add_transfer_managers<T: Trait>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     exempted_entity: IdentityId,
