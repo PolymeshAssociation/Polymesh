@@ -5307,6 +5307,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-build-tool"
+version = "0.1.0"
+dependencies = [
+ "substrate-wasm-builder-runner",
+]
+
+[[package]]
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
@@ -5498,6 +5505,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "parity-scale-codec",
+ "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
@@ -5520,7 +5528,6 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
 ]
 
 [[package]]
@@ -5575,6 +5582,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "parity-scale-codec",
+ "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
@@ -5598,7 +5606,6 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
 ]
 
 [[package]]
