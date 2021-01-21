@@ -317,8 +317,7 @@ pub trait WeightInfo {
     fn disallow_venues(u: u32) -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
-    fn invalidate_receipt() -> Weight;
-    fn revalidate_receipt() -> Weight;
+    fn change_receipt_validity() -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -359,10 +358,8 @@ decl_event!(
         InstructionRejected(IdentityId, u64),
         /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
         ReceiptClaimed(IdentityId, u64, u64, u64, AccountId, ReceiptMetadata),
-        /// A receipt has been invalidated (did, signer, receipt_uid)
-        ReceiptInvalidated(IdentityId, AccountId, u64),
-        /// A receipt has been revalidated (did, signer, receipt_uid)
-        ReceiptRevalidated(IdentityId, AccountId, u64),
+        /// A receipt has been invalidated (did, signer, receipt_uid, validity)
+        ReceiptValidityChanged(IdentityId, AccountId, u64, bool),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
         ReceiptUnclaimed(IdentityId, u64, u64, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
@@ -781,32 +778,20 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
         }
 
-        /// Marks a receipt issued by the caller as already claimed.
+        /// Marks a receipt issued by the caller as claimed or not claimed.
+        /// This allows the receipt issuer to invalidate an already issued receipt or revalidate an already claimed receipt.
         ///
         /// * `receipt_uid` - Unique ID of the receipt.
-        #[weight = <T as Trait>::WeightInfo::invalidate_receipt()]
-        pub fn invalidate_receipt(origin, receipt_uid: u64) {
+        /// * `validity` - New validity of the receipt.
+        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
             let PermissionedCallOriginData {
                 primary_did,
                 sender: signer,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
-            Self::deposit_event(RawEvent::ReceiptInvalidated(primary_did, signer, receipt_uid));
-        }
-
-        /// Marks a receipt issued by the caller as not claimed.
-        ///
-        /// * `receipt_uid` - Unique ID of the receipt.
-        #[weight = <T as Trait>::WeightInfo::revalidate_receipt()]
-        pub fn revalidate_receipt(origin, receipt_uid: u64) {
-            let PermissionedCallOriginData {
-                primary_did,
-                sender: signer,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-            Self::deposit_event(RawEvent::ReceiptRevalidated(primary_did, signer, receipt_uid));
+            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, !validity);
+            Self::deposit_event(RawEvent::ReceiptValidityChanged(primary_did, signer, receipt_uid, validity));
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.

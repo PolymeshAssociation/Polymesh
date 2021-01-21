@@ -919,7 +919,11 @@ fn claiming_receipt() {
             let metadata = ReceiptMetadata::from(vec![42u8]);
 
             // Can not claim invalidated receipt
-            assert_ok!(Settlement::invalidate_receipt(alice_signed.clone(), 0));
+            assert_ok!(Settlement::change_receipt_validity(
+                alice_signed.clone(),
+                0,
+                false
+            ));
             assert_noop!(
                 Settlement::claim_receipt(
                     alice_signed.clone(),
@@ -936,7 +940,11 @@ fn claiming_receipt() {
                 ),
                 Error::ReceiptAlreadyClaimed
             );
-            assert_ok!(Settlement::revalidate_receipt(alice_signed.clone(), 0));
+            assert_ok!(Settlement::change_receipt_validity(
+                alice_signed.clone(),
+                0,
+                true
+            ));
 
             // Claiming, unclaiming and claiming receipt
             assert_ok!(Settlement::claim_receipt(

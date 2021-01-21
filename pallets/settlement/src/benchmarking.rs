@@ -863,19 +863,11 @@ benchmarks! {
         }
     }
 
-    invalidate_receipt {
+    change_receipt_validity {
         let signer = user::<T>("signer", 0);
-    }: _(signer.origin(), 0)
+    }: _(signer.origin(), 0, false)
     verify {
         assert!(Module::<T>::receipts_used(&signer.account(), 0));
-    }
-
-    revalidate_receipt {
-        let signer = user::<T>("signer", 0);
-        <ReceiptsUsed<T>>::insert(&signer.account(), 0, true);
-    }: _(signer.origin(), 0)
-    verify {
-        assert!(!Module::<T>::receipts_used(&signer.account(), 0));
     }
 
     execute_scheduled_instruction {
