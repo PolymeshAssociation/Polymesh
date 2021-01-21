@@ -917,6 +917,27 @@ fn claiming_receipt() {
             );
 
             let metadata = ReceiptMetadata::from(vec![42u8]);
+
+            // Can not claim invalidated receipt
+            assert_ok!(Settlement::invalidate_receipt(alice_signed.clone(), 0));
+            assert_noop!(
+                Settlement::claim_receipt(
+                    alice_signed.clone(),
+                    instruction_counter,
+                    ReceiptDetails {
+                        receipt_uid: 0,
+                        leg_id: 0,
+                        signer: AccountKeyring::Alice.public(),
+                        signature: OffChainSignature::from(
+                            AccountKeyring::Alice.sign(&msg.encode())
+                        ),
+                        metadata: metadata.clone()
+                    }
+                ),
+                Error::ReceiptAlreadyClaimed
+            );
+            assert_ok!(Settlement::revalidate_receipt(alice_signed.clone(), 0));
+
             // Claiming, unclaiming and claiming receipt
             assert_ok!(Settlement::claim_receipt(
                 alice_signed.clone(),
