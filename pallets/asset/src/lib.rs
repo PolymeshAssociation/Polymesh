@@ -1136,8 +1136,6 @@ decl_error! {
         TotalSupplyOverflow,
         /// An invalid granularity.
         InvalidGranularity,
-        /// The account does not hold this token.
-        NotAnAssetHolder,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
