@@ -19,13 +19,16 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use node_primitives::{AccountId, IdentifyAccount, IdentityId, InvestorUid, Signature};
+use node_primitives::{AccountId, IdentityId, InvestorUid, Signature};
 use node_runtime::{config::*, StakerStatus};
 use polymesh_common_utilities::constants::currency::*;
 use sp_core::ChangesTrieConfiguration;
 use sp_core::{sr25519, Pair, Public};
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::{traits::Verify, Perbill};
+use sp_runtime::{
+    traits::{IdentifyAccount, Verify},
+    Perbill,
+};
 /// Create genesis runtime configuration for tests.
 pub fn config(support_changes_trie: bool) -> GenesisConfig {
     config_endowed(support_changes_trie, Default::default())
@@ -191,5 +194,6 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         settlement: Some(Default::default()),
         checkpoint: Some(Default::default()),
         multisig: Some(Default::default()),
+        pallet_corporate_actions: Some(Default::default()),
     }
 }
