@@ -867,7 +867,7 @@ benchmarks! {
         let signer = user::<T>("signer", 0);
     }: _(signer.origin(), 0, false)
     verify {
-        assert!(Module::<T>::receipts_used(&signer.account(), 0));
+        ensure!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
     execute_scheduled_instruction {
