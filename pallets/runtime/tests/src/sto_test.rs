@@ -178,59 +178,35 @@ fn raise_happy_path() {
         STO::fundraiser_name(offering_ticker, fundraiser_id),
         fundraiser_name
     );
-    // Investment fails if the minimum investment amount is not met
-    assert_noop!(
+    let sto_invest = |purchase_amount, max_price| {
         STO::invest(
             bob_signed.clone(),
             bob_portfolio,
             bob_portfolio,
             offering_ticker,
             fundraiser_id,
-            1,
-            Some(1_000_000u128),
-            None
-        ),
+            purchase_amount,
+            max_price,
+            None,
+        )
+    };
+    // Investment fails if the minimum investment amount is not met
+    assert_noop!(
+        sto_invest(1, Some(1_000_000u128)),
         Error::InvestmentAmountTooLow
     );
     // Investment fails if the order is not filled
     assert_noop!(
-        STO::invest(
-            bob_signed.clone(),
-            bob_portfolio,
-            bob_portfolio,
-            offering_ticker,
-            fundraiser_id,
-            1_000_001u128,
-            Some(1_000_000u128),
-            None
-        ),
+        sto_invest(1_000_001u128, Some(1_000_000u128)),
         Error::InsufficientTokensRemaining
     );
     // Investment fails if the maximum price is breached
     assert_noop!(
-        STO::invest(
-            bob_signed.clone(),
-            bob_portfolio,
-            bob_portfolio,
-            offering_ticker,
-            fundraiser_id,
-            amount.into(),
-            Some(999_999u128),
-            None
-        ),
+        sto_invest(amount.into(), Some(999_999u128)),
         Error::MaxPriceExceeded
     );
     // Bob invests in Alice's fundraiser
-    assert_ok!(STO::invest(
-        bob_signed.clone(),
-        bob_portfolio,
-        bob_portfolio,
-        offering_ticker,
-        fundraiser_id,
-        amount.into(),
-        Some(1_000_000u128),
-        None
-    ));
+    assert_ok!(sto_invest(amount.into(), Some(1_000_000u128)));
     check_fundraiser(1_000_000u128 - amount);
 
     assert_eq!(
