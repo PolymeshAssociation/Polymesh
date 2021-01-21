@@ -40,7 +40,7 @@
 //! - Other misc storage items as defined in `decl_storage!`.
 
 use codec::{Decode, Encode};
-use core::iter;
+use core::{iter, mem};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -57,6 +57,7 @@ use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
     storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
 };
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -73,7 +74,7 @@ pub struct ScheduleId(pub u64);
 
 /// One or more scheduled checkpoints in the future.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, Migrate)]
 pub struct StoredSchedule {
     /// A series of checkpoints in the future defined by the schedule.
     pub schedule: CheckpointSchedule,
@@ -83,6 +84,12 @@ pub struct StoredSchedule {
     /// When the next checkpoint is due to be created.
     /// Used as a cache for more efficient sorting.
     pub at: Moment,
+    /// Number of CPs that the schedule may create
+    /// before it is evicted from the schedule set.
+    ///
+    /// The value `0` is special cased to mean infinity.
+    #[migrate_with(0)]
+    pub remaining: u32,
 }
 
 /// Input specification for a checkpoint schedule.
@@ -94,6 +101,11 @@ pub struct ScheduleSpec {
     pub start: Option<Moment>,
     /// The period at which the checkpoint is set to recur after `start`.
     pub period: CalendarPeriod,
+    /// Number of CPs that the schedule may create
+    /// before it is evicted from the schedule set.
+    ///
+    /// The value `0` is special cased to mean infinity.
+    pub remaining: u32,
 }
 
 /// Create a schedule spec due exactly at the provided `start: Moment` time.
@@ -101,7 +113,11 @@ impl From<Moment> for ScheduleSpec {
     fn from(start: Moment) -> Self {
         let period = <_>::default();
         let start = start.into();
-        Self { start, period }
+        Self {
+            start,
+            period,
+            remaining: 0,
+        }
     }
 }
 
@@ -194,13 +210,17 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion::get(), 1, {
+                use polymesh_primitives::migrate::{migrate_map, Empty};
                 use frame_support::migration::{StorageIterator, put_storage_value};
+
                 StorageIterator::<bool>::new(b"Checkpoint", b"ScheduleRemovable")
                     .drain()
                     .for_each(|(key, removable)| put_storage_value(
                         b"Checkpoint", b"ScheduleRefCount", &key,
                         if removable { 1 } else { 0 }
                     ));
+
+                migrate_map::<StoredScheduleOld, _>(b"Checkpoint", b"Schedules", |_| Empty);
             });
 
             0
@@ -424,7 +444,7 @@ impl<T: Trait> Module<T> {
             return Ok(());
         }
 
-        // Find the first schedule not due. All the schedule before `end` are due.
+        // Find the first schedule not due. All the schedules before `end` are due.
         let now = Self::now_unix();
         let end = schedules
             .iter()
@@ -439,23 +459,47 @@ impl<T: Trait> Module<T> {
         // Plan for CP creation for due schedules and rescheduling.
         let mut reschedule = Vec::new();
         let mut create = Vec::with_capacity(end); // Lower bound; might add more.
-        for store in schedules.drain(..end) {
-            let schedule = store.schedule;
-            // If the schedule is recurring, we'll need to reschedule.
-            if let Some(at) = schedule.next_checkpoint(now) {
-                reschedule.push(StoredSchedule { at, ..store });
-            }
+        for StoredSchedule {
+            schedule,
+            id,
+            at,
+            mut remaining,
+        } in schedules.drain(..end)
+        {
+            let infinite = remaining == 0;
 
             // Plan for all checkpoints for this schedule.
+            //
             // There might be more than one.
             // As an example, consider a checkpoint due every day,
             // and then there's a week without any transactions.
+            //
+            // Also consider schedules with a bounded number of CPs to make before being evicted.
+            // Here we limit the number of CPs to make, taking at most that many.
             create.extend(
-                iter::successors(Some(store.at), |&at| {
-                    schedule.next_checkpoint(at).filter(|&at| at <= now)
-                })
-                .map(|at| (at, store.id)),
+                iter::successors(Some(at), |&at| schedule.next_checkpoint(at))
+                    .take_while(|&at| at <= now)
+                    .take_while(|_| {
+                        infinite || {
+                            let new = remaining.saturating_sub(1);
+                            mem::replace(&mut remaining, new) > 0
+                        }
+                    })
+                    .map(|at| (at, id)),
             );
+
+            // If the schedule is recurring, we'll need to reschedule.
+            // Non-`infinite` schedules with no `remaining` ticks are not rescheduled.
+            if infinite || remaining > 0 {
+                if let Some(at) = schedule.next_checkpoint(now) {
+                    reschedule.push(StoredSchedule {
+                        schedule,
+                        id,
+                        at,
+                        remaining,
+                    });
+                }
+            }
         }
 
         // Ensure that ID count won't overflow.
@@ -488,7 +532,11 @@ impl<T: Trait> Module<T> {
         schedule: ScheduleSpec,
         ref_count: u32,
     ) -> Result<StoredSchedule, DispatchError> {
-        let ScheduleSpec { period, start } = schedule;
+        let ScheduleSpec {
+            period,
+            start,
+            mut remaining,
+        } = schedule;
 
         // Ensure the total complexity for all schedules is not too great.
         let schedules = Schedules::get(ticker);
@@ -503,16 +551,25 @@ impl<T: Trait> Module<T> {
         let id = Self::next_schedule_id(&ticker)?;
 
         // If start is now, we'll create the first checkpoint immediately later at (1).
+        let infinite = remaining == 0;
         let now = Self::now_unix();
         let start = start.unwrap_or(now);
         let cp_id = (start == now)
-            .then(|| Self::next_cp_ids(&ticker, 1).map(|(cp_id, _)| cp_id))
+            .then(|| {
+                Self::next_cp_ids(&ticker, 1).map(|(cp_id, _)| {
+                    // Decrement remaining, maintaining infinity -> infinity.
+                    remaining = remaining.saturating_sub(1);
+                    cp_id
+                })
+            })
             .transpose()?;
 
         // Compute the next timestamp, if needed.
-        // If the start isn't now or this schedule recurs, we'll need to schedule as done in (2).
+        // If the start isn't now or this schedule recurs,
+        // including having more CPs-to-generate remaining,
+        // we'll need to schedule as done in (2).
         let schedule = CheckpointSchedule { start, period };
-        let future_at = (cp_id.is_none() || period.amount > 0)
+        let future_at = (cp_id.is_none() || (period.amount > 0 && (infinite || remaining != 0)))
             .then(|| {
                 schedule
                     .next_checkpoint(now)
@@ -534,7 +591,12 @@ impl<T: Trait> Module<T> {
 
         // (2) There will be some future checkpoint, so schedule it.
         let at = future_at.unwrap_or(now);
-        let schedule = StoredSchedule { at, id, schedule };
+        let schedule = StoredSchedule {
+            at,
+            id,
+            schedule,
+            remaining,
+        };
         if let Some(_) = future_at {
             // Sort schedule into the queue.
             Schedules::insert(&ticker, {

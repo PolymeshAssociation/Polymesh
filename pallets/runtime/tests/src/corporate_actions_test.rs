@@ -920,7 +920,12 @@ fn change_record_date_works() {
         let mk_schedule = |at, id| {
             let period = <_>::default();
             let schedule = CheckpointSchedule { start: at, period };
-            StoredSchedule { at, id, schedule }
+            StoredSchedule {
+                at,
+                id,
+                schedule,
+                remaining: 0,
+            }
         };
         let mut all_schedules = vec![];
         let mut change_ok_scheduled = || {
