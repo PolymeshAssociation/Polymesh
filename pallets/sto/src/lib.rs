@@ -230,7 +230,7 @@ decl_module! {
         /// * `venue_id` - Venue to handle settlement.
         /// * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
         /// * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
-        /// * `minimum_investment` - Minimum amount of raising_asset that an investor needs to spend to invest in this raise.
+        /// * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
         /// * `fundraiser_name` - Fundraiser name, only used in the UIs.
         ///
         /// # Weight
