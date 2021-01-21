@@ -2331,11 +2331,8 @@ decl_module! {
         #[weight = (750_000_000, Operational, Pays::Yes)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <Identity<T>>::get_identity(&key);
-
             <MinimumBondThreshold<T>>::put(new_value);
-            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
+            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(Some(GC_DID), new_value));
         }
 
         /// Force there to be no new eras indefinitely.
