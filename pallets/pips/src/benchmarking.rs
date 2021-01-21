@@ -23,6 +23,7 @@ use polymesh_common_utilities::{
 
 use frame_benchmarking::benchmarks;
 use frame_support::{
+    debug,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnfilteredDispatchable,
@@ -437,6 +438,7 @@ benchmarks! {
         identity::CurrentDid::put(did0);
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
         Module::<T>::snapshot(origin0.into())?;
+        debug::info!("snapshot queue = {:?}", Module::<T>::snapshot_queue());
         ensure!(
             Module::<T>::snapshot_queue().len() == PROPOSALS_NUM as usize,
             "wrong snapshot queue length"

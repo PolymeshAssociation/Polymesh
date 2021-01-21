@@ -333,8 +333,8 @@ pub struct SnapshotMetadata<T: Trait> {
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+//#[cfg_attr(feature = "std", derive(Debug))]
 pub struct SnapshottedPip<Balance> {
     /// Identifies the PIP this refers to.
     pub id: PipId,
@@ -840,6 +840,7 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             let old_res = Self::aggregate_result(id);
+            debug::info!("old_res = {:?}", old_res);
 
             with_transaction(|| {
                 // Reserve the deposit, or refund if needed.
@@ -1492,21 +1493,29 @@ impl<T: Trait> Module<T> {
     /// Adjust the live queue under the assumption that `id` should be moved up or down the queue.
     fn adjust_live_queue(id: PipId, old: SnapshottedPip<BalanceOf<T>>) {
         let new = Self::aggregate_result(id);
+        debug::info!("old = {:?}, new = {:?}", old, new);
         <LiveQueue<T>>::mutate(|queue| {
             let old_pos = queue.binary_search_by(|res| compare_spip(res, &old));
             let new_pos = queue.binary_search_by(|res| compare_spip(res, &new));
+            debug::info!("old_pos = {:?}, new_pos = {:?}", old_pos, new_pos);
             match (old_pos, new_pos) {
                 // First time adding to queue, so insert.
-                (Err(_), Ok(pos) | Err(pos)) => queue.insert(pos, new),
+                (Err(_), Ok(pos) | Err(pos)) => {
+                    queue.insert(pos, new);
+                    debug::info!("branch 1");
+                }
                 // Already in queue. Swap positions.
                 (Ok(old_pos), Err(new_pos)) => {
                     // Cannot underflow by definition of binary search finding an element.
                     let new_pos = new_pos.min(queue.len() - 1);
                     move_element(queue, old_pos, new_pos);
                     queue[new_pos] = new;
+                    debug::info!("branch 2");
                 }
                 // We have `old_res == new_res`. Queue state is already good.
-                (Ok(_), Ok(_)) => {}
+                (Ok(_), Ok(_)) => {
+                    debug::info!("branch 3");
+                }
             }
         });
     }
@@ -1565,6 +1574,7 @@ impl<T: Trait> Module<T> {
 /// then `move_element(&mut arr, 1, 3);` would result in `[1, 3, 4, 2, 5]`
 /// whereas `move_element(&mut arr, 3, 1)` would yield `[1, 4, 2, 3, 5]`.
 fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
+    let len = slice.len();
     let elem = slice[old];
     if old < new {
         // Left shift elements after `old` by one element.
@@ -1574,6 +1584,7 @@ fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
         slice.copy_within(new..old, new + 1);
     }
     slice[new] = elem;
+    assert_eq!(len, slice.len());
 }
 
 #[cfg(test)]
