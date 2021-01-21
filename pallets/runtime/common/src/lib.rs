@@ -48,14 +48,14 @@ parameter_types! {
     pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
     /// 20 ms is needed to create a block
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
-    // 0.8 ms is needed to process an empty extrinsic
-    pub const ExtrinsicBaseWeight: Weight = 800 * WEIGHT_PER_MICROS;
-    /// When the read/writes are cached, they take 25, 100 microseconds
-    /// but when they are uncached, they take 250, 450 microseconds.
-    /// Most read/writes are cached in production
-    /// so we are taking a defensive middle number here.
+    /// 0.65 ms is needed to process an empty extrinsic
+    pub const ExtrinsicBaseWeight: Weight = 650 * WEIGHT_PER_MICROS;
+    /// When the read/writes are cached/buffered, they take 25/100 microseconds on NVMe disks.
+    /// When they are uncached, they take 250/450 microseconds on NVMe disks.
+    /// Most read will be cached and writes will be buffered in production.
+    /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
     pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-        read: 100 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
+        read: 50 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
         write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
     };
 }
