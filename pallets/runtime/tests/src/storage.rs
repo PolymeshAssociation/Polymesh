@@ -344,6 +344,7 @@ impl settlement::Trait for TestStorage {
 
 impl sto::Trait for TestStorage {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 impl ChargeTxFee for TestStorage {

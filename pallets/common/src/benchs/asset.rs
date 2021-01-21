@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use polymesh_primitives::{ticker::TICKER_LEN, Ticker};
+use polymesh_primitives::Ticker;
 
 use frame_system::RawOrigin;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -20,11 +20,10 @@ where
     Asset: AssetFnTrait<Balance, Acc, O>,
     N: AsRef<[u8]>,
 {
-    let ticker_name = match &opt_name {
-        Some(name) => name.as_ref(),
-        _ => [b'A'; TICKER_LEN as usize].as_ref(),
+    let ticker = match &opt_name {
+        Some(name) => Ticker::try_from(name.as_ref()).map_err(|_| "Invalid ticker name")?,
+        _ => Ticker::repeating(b'A'),
     };
-    let ticker = Ticker::try_from(ticker_name).map_err(|_| "Invalid ticker name")?;
     Asset::register_ticker(owner, ticker).map_err(|_| "Ticker cannot be registered")?;
 
     Ok(ticker)
