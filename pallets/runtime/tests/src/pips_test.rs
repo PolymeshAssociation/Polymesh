@@ -72,6 +72,13 @@ macro_rules! assert_no_pip {
     }};
 }
 
+fn spip(id: PipId, dir: bool, power: u128) -> SnapshottedPip<u128> {
+    SnapshottedPip {
+        id,
+        weight: (dir, power),
+    }
+}
+
 fn make_proposal(value: u64) -> Call {
     Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
 }
@@ -1519,13 +1526,7 @@ fn snapshot_only_pending_hot_community() {
         assert_ok!(committee_proposal(0));
 
         assert_ok!(Pips::snapshot(rc));
-        assert_eq!(
-            Pips::snapshot_queue(),
-            vec![SnapshottedPip {
-                id: p,
-                weight: (true, 0)
-            }]
-        );
+        assert_eq!(Pips::snapshot_queue(), vec![spip(p, true, 0)]);
         assert_ne!(Pips::snapshot_metadata(), None);
     });
 }
@@ -1560,32 +1561,15 @@ fn snapshot_works() {
         assert_eq!(
             Pips::snapshot_queue(),
             vec![
-                SnapshottedPip {
-                    id: 1,
-                    weight: (false, 100)
-                },
-                SnapshottedPip {
-                    id: 5,
-                    weight: (false, 50)
-                },
-                SnapshottedPip {
-                    id: 3,
-                    weight: (true, 0)
-                },
-                SnapshottedPip {
-                    id: 2,
-                    weight: (true, 0)
-                },
-                SnapshottedPip {
-                    id: 0,
-                    weight: (true, 100)
-                },
-                SnapshottedPip {
-                    id: 4,
-                    weight: (true, 150)
-                },
+                spip(1, false, 100),
+                spip(5, false, 50),
+                spip(3, true, 0),
+                spip(2, true, 0),
+                spip(0, true, 100),
+                spip(4, true, 150),
             ]
         );
+
         let assert_snapshot = |id| {
             assert_eq!(
                 Pips::snapshot_metadata(),
@@ -1683,14 +1667,7 @@ fn enact_snapshot_results_works() {
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
-        let mk_queue = |ids: &[PipId]| {
-            ids.iter()
-                .map(|&id| SnapshottedPip {
-                    id,
-                    weight: (true, 0),
-                })
-                .collect::<Vec<_>>()
-        };
+        let mk_queue = |ids: &[PipId]| ids.iter().map(|&id| spip(id, true, 0)).collect::<Vec<_>>();
 
         // Make 3 PIPs, snapshot, and enact results for all, emptying the queue.
         assert_ok!(alice_proposal(0));
@@ -1779,11 +1756,7 @@ fn propose_dupe_live_insert_panics() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Manipulate storage to provoke panic in `insert_live_queue`.
-        let spip = SnapshottedPip {
-            id: 0,
-            weight: (true, 0),
-        };
-        <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip]);
+        <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip(0, true, 0)]);
 
         // Triggers a panic, assertion never reached.
         assert_ok!(alice_proposal(0));
@@ -1801,5 +1774,42 @@ fn expire_scheduled_pip() {
         assert_state(pip_id, false, ProposalState::Pending);
         assert_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
         assert_pruned(pip_id);
+    });
+}
+
+#[test]
+fn live_queue_off_by_one_insertion_regression_test() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        assert_ok!(alice_proposal(2));
+        assert_ok!(alice_proposal(4));
+        assert_eq!(Pips::live_queue(), vec![spip(0, true, 2), spip(1, true, 4)]);
+
+        let user = User::new(AccountKeyring::Bob);
+        assert_ok!(Pips::vote(user.origin(), 0, true, 1));
+        assert_eq!(Pips::live_queue(), vec![spip(0, true, 3), spip(1, true, 4)]);
+    });
+}
+
+#[test]
+fn live_queue_off_by_one_insertion_regression_test2() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+
+        let user = User::new(AccountKeyring::Bob);
+
+        assert_ok!(alice_proposal(0)); // 0
+        assert_ok!(alice_proposal(0)); // 1
+        assert_ok!(alice_proposal(50)); // 2
+        assert_ok!(Pips::vote(user.origin(), 0, false, 100));
+        assert_ok!(Pips::vote(user.origin(), 2, false, 100));
+        assert_eq!(
+            Pips::live_queue(),
+            vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
+        );
     });
 }
