@@ -126,4 +126,9 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+    fn controller_transfer() -> Weight {
+        (309_999_000 as Weight)
+            .saturating_add(DbWeight::get().reads(18 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+    }
 }

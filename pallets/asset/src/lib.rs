@@ -148,6 +148,7 @@ pub trait WeightInfo {
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn accept_primary_issuance_agent_transfer() -> Weight;
+    fn controller_transfer() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -1012,6 +1013,30 @@ decl_module! {
             };
             ClassicTickers::insert(&classic_ticker_import.ticker, classic_ticker);
         }
+
+        /// Forces transfers token from `portfolio_to` to pia default portfolio.
+        /// Only PIA is allowed to execute this.
+        ///
+        /// # Arguments
+        /// * `origin` Must be a PIA for a given ticker.
+        /// * `ticker` Ticker symbol of the asset.
+        /// * `value`  Amount of tokens need to force transfer.
+        /// * `portfolio_to` From whom portfolio tokens gets transferred.
+        #[weight = <T as Trait>::WeightInfo::controller_transfer()]
+        pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, portfolio_to: PortfolioId) {
+            let pia = Identity::<T>::ensure_perms(origin)?;
+            // Ensure that `origin` is the PIA or the token owner.
+            Self::ensure_pia(&ticker, pia)?;
+
+            // transfer `value` of ticker tokens from `investor_did` to controller
+            Self::unsafe_transfer(
+                portfolio_to,
+                PortfolioId::default_portfolio(pia),
+                &ticker,
+                value,
+            )?;
+            Self::deposit_event(RawEvent::ControllerTransfer(pia, ticker, portfolio_to.did, value));
+        }
     }
 }
 
@@ -1093,6 +1118,9 @@ decl_event! {
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
+        /// Event for when a forced transfer takes place.
+        /// caller DID/ controller DID, ticker, token holder DID, value
+        ControllerTransfer(IdentityId, Ticker, IdentityId, Balance),
     }
 }
 
@@ -1857,27 +1885,6 @@ impl<T: Trait> Module<T> {
             to_did, ticker, old_pia, pia,
         ));
 
-        Ok(())
-    }
-
-    /// Forces a transfer between two DIDs.
-    pub fn controller_transfer(
-        origin: T::Origin,
-        ticker: Ticker,
-        value: T::Balance,
-        investor_portfolio_id: PortfolioId,
-    ) -> DispatchResult {
-        let pia = Identity::<T>::ensure_perms(origin)?;
-        // Ensure that `origin` is the PIA or the token owner.
-        Self::ensure_pia(&ticker, pia)?;
-
-        // transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(
-            investor_portfolio_id,
-            PortfolioId::default_portfolio(pia),
-            &ticker,
-            value,
-        )?;
         Ok(())
     }
 
