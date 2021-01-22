@@ -1136,8 +1136,6 @@ decl_error! {
         TotalSupplyOverflow,
         /// An invalid granularity.
         InvalidGranularity,
-        /// The account does not hold this token.
-        NotAnAssetHolder,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
@@ -1599,10 +1597,6 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
 
-        ensure!(
-            <BalanceOf<T>>::contains_key(ticker, &from_portfolio.did),
-            Error::<T>::NotAnAssetHolder
-        );
         ensure!(
             from_portfolio.did != to_portfolio.did,
             Error::<T>::SenderSameAsReceiver
