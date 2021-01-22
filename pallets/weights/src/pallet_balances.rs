@@ -8,32 +8,32 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl pallet_balances::WeightInfo for WeightInfo {
     fn transfer() -> Weight {
-        (151_316_000 as Weight)
+        (182_678_000 as Weight)
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn transfer_with_memo() -> Weight {
-        (152_944_000 as Weight)
+        (168_990_000 as Weight)
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn deposit_block_reward_reserve_balance() -> Weight {
-        (129_366_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
+        (174_742_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn set_balance() -> Weight {
-        (95_896_000 as Weight)
+        (115_936_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn force_transfer() -> Weight {
-        (97_813_000 as Weight)
+        (116_926_000 as Weight)
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn burn_account_balance() -> Weight {
-        (107_402_000 as Weight)
+        (147_453_000 as Weight)
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }

@@ -33,6 +33,7 @@ pub mod pallet_identity;
 pub mod pallet_im_online;
 pub mod pallet_indices;
 pub mod pallet_multisig;
+pub mod pallet_permissions;
 pub mod pallet_pips;
 pub mod pallet_portfolio;
 pub mod pallet_protocol_fee;

@@ -7,35 +7,35 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl pallet_sto::WeightInfo for WeightInfo {
-    fn create_fundraiser(i: u32) -> Weight {
-        (64_497_000 as Weight)
-            .saturating_add((3_796_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+    // WARNING! Some components were not used: ["i"]
+    fn create_fundraiser() -> Weight {
+        (233_299_000 as Weight)
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
     fn invest() -> Weight {
-        (1_100_000_000 as Weight)
-            .saturating_add(DbWeight::get().reads(100 as Weight))
+        (5_744_445_000 as Weight)
+            .saturating_add(DbWeight::get().reads(159 as Weight))
             .saturating_add(DbWeight::get().writes(30 as Weight))
     }
     fn freeze_fundraiser() -> Weight {
-        (45_670_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
+        (155_155_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn unfreeze_fundraiser() -> Weight {
-        (45_069_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
+        (166_632_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn modify_fundraiser_window() -> Weight {
-        (52_246_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
+        (135_027_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn stop() -> Weight {
-        (47_577_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
+        (160_263_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
 }

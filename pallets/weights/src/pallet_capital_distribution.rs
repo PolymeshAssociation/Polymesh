@@ -6,34 +6,34 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
-impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
+impl pallet_capital_distribution::WeightInfo for WeightInfo {
     fn distribute() -> Weight {
-        (63_053_000 as Weight)
-            .saturating_add(DbWeight::get().reads(15 as Weight))
+        (228_327_000 as Weight)
+            .saturating_add(DbWeight::get().reads(17 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    fn claim(i: u32, j: u32) -> Weight {
-        (205_654_000 as Weight)
-            .saturating_add((246_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add((128_000 as Weight).saturating_mul(j as Weight))
+    fn claim(t: u32, w: u32) -> Weight {
+        (730_892_000 as Weight)
+            .saturating_add((427_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add((214_000 as Weight).saturating_mul(w as Weight))
             .saturating_add(DbWeight::get().reads(31 as Weight))
             .saturating_add(DbWeight::get().writes(11 as Weight))
     }
-    fn push_benefit(i: u32, j: u32) -> Weight {
-        (210_363_000 as Weight)
-            .saturating_add((240_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add((128_000 as Weight).saturating_mul(j as Weight))
-            .saturating_add(DbWeight::get().reads(31 as Weight))
+    fn push_benefit(t: u32, w: u32) -> Weight {
+        (721_582_000 as Weight)
+            .saturating_add((473_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add((217_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(DbWeight::get().reads(32 as Weight))
             .saturating_add(DbWeight::get().writes(11 as Weight))
     }
     fn reclaim() -> Weight {
-        (40_246_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
+        (155_556_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn remove_distribution() -> Weight {
-        (47_413_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
+        (163_289_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
 }
