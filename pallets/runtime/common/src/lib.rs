@@ -23,13 +23,15 @@ pub mod impls;
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use frame_support::weights::{
+    constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_NANOS, WEIGHT_PER_SECOND},
+    GetDispatchInfo, Weight,
+};
 use frame_support::{
     parameter_types,
     traits::Currency,
     weights::{
-        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_SECOND},
-        RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
+        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use frame_system::{self as system};

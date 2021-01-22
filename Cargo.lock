@@ -5713,7 +5713,6 @@ dependencies = [
 name = "polymesh-weights"
 version = "0.1.0"
 dependencies = [
- "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-babe",
@@ -5740,6 +5739,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-contracts",
+ "polymesh-runtime-common",
 ]
 
 [[package]]
