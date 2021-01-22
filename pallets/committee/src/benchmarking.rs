@@ -224,17 +224,4 @@ benchmarks_instance! {
     verify {
         vote_verify::<T, I>(&did, hash, first_proposal_num, false)?;
     }
-
-    close {
-        let members = make_members_and_proposals::<T, I>()?;
-        let first_proposal_num = 0;
-        let hash = make_proposal::<T, I>(first_proposal_num).1;
-        let member = &members[0];
-        let origin = member.origin.clone();
-        let did = member.did();
-        identity::CurrentDid::put(did);
-    }: _(origin, hash, first_proposal_num)
-    verify {
-        ensure!(!Proposals::<T, I>::get().contains(&hash), "closed proposal is not removed");
-    }
 }

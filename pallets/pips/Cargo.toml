@@ -41,6 +41,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
+running-ci = []
 std = [
     "codec/std",
     "frame-support/std",

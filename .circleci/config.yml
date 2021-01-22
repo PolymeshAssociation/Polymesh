@@ -41,7 +41,7 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
-  benchmark-build:
+  benchmark:
     docker:
       - image: polymathnet/rust:debian-nightly-2020-09-28
     environment:
@@ -57,8 +57,12 @@ jobs:
             - v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
-          command: cargo build --release --features=runtime-benchmarks || cargo build --release -j 1 --features=runtime-benchmarks
+          command: cargo build --release --features=runtime-benchmarks,running-ci || cargo build --release -j 1 --features=runtime-benchmarks,running-ci
           no_output_timeout: 30m
+      - run:
+          name: Run benchmarks
+          command: ./target/release/polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
+          no_output_timeout: 2h
       - save_cache:
           key: v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -89,6 +93,7 @@ jobs:
             --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
+            --package pallet-sudo
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
@@ -98,6 +103,7 @@ jobs:
             --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
+            --package pallet-sudo
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
@@ -183,4 +189,4 @@ workflows:
     jobs:
       - lint
       - test
-      - benchmark-build
+      - benchmark

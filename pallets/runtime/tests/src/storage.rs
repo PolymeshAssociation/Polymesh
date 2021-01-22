@@ -52,7 +52,6 @@ use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
-    u32_trait::{_1, _2},
     H256,
 };
 use sp_runtime::{
@@ -345,6 +344,7 @@ impl settlement::Trait for TestStorage {
 
 impl sto::Trait for TestStorage {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 impl ChargeTxFee for TestStorage {
@@ -437,19 +437,15 @@ impl group::Trait<group::Instance2> for TestStorage {
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
 
-parameter_types! {
-    pub const MotionDuration: BlockNumber = 0u64;
-}
-
 /// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
@@ -457,8 +453,8 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
@@ -732,6 +728,18 @@ pub fn make_account(
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let uid = InvestorUid::from(format!("{}", id).as_str());
     make_account_with_uid(id, uid)
+}
+
+pub fn make_account_with_portfolio(
+    id: AccountId,
+) -> (
+    <TestStorage as frame_system::Trait>::Origin,
+    IdentityId,
+    PortfolioId,
+) {
+    let (origin, did) = make_account(id).unwrap();
+    let portfolio = PortfolioId::default_portfolio(did);
+    (origin, did, portfolio)
 }
 
 pub fn make_account_with_scope(

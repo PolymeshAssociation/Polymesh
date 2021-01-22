@@ -1086,6 +1086,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "crypto-cli"
+version = "1.0.0"
+dependencies = [
+ "confidential_identity",
+ "hex",
+ "parity-scale-codec",
+ "polymesh-primitives",
+]
+
+[[package]]
 name = "crypto-mac"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4101,6 +4111,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "polymesh-primitives-derive",
  "serde",
  "serde_derive",
  "sp-api",
@@ -4725,10 +4736,12 @@ dependencies = [
 name = "pallet-sto"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
  "pallet-identity",
  "pallet-permissions",
  "pallet-portfolio",
@@ -4752,12 +4765,12 @@ dependencies = [
 [[package]]
 name = "pallet-sudo"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -5723,6 +5736,7 @@ dependencies = [
  "pallet-session",
  "pallet-settlement",
  "pallet-statistics",
+ "pallet-sto",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "pallet-utility",

@@ -60,7 +60,7 @@ use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
-    u32_trait::{_1, _2, _4},
+    u32_trait::{_1, _4},
     OpaqueMetadata,
 };
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -383,7 +383,7 @@ impl pallet_staking::Trait for Runtime {
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type RewardRemainder = Treasury;
+    type RewardRemainder = ();
     type Event = Event;
     type Slash = Treasury; // send the slashed funds to the treasury.
     type Reward = (); // rewards are minted from the void
@@ -414,21 +414,16 @@ impl pallet_staking::Trait for Runtime {
     type PalletsOrigin = OriginCaller;
 }
 
-parameter_types! {
-    // pallet_committee::Module::<_,_>::close requires MotionDuration > 0.
-    pub const MotionDuration: BlockNumber = 1;
-}
-
 /// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 /// PolymeshCommittee as an instance of group
@@ -451,8 +446,8 @@ macro_rules! committee_config {
             type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<committee::$instance>;
+            type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
-            type MotionDuration = MotionDuration;
             type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
@@ -578,6 +573,7 @@ impl settlement::Trait for Runtime {
 
 impl sto::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 parameter_types! {
@@ -683,7 +679,7 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxConditionComplexity: u32 = 150;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
@@ -1292,6 +1288,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
+            add_benchmark!(params, batches, pallet_sto, Sto);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);

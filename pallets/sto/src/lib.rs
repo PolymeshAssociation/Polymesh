@@ -23,10 +23,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Get,
 };
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -43,8 +47,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
+use frame_support::weights::Weight;
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
@@ -142,9 +147,20 @@ impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
 )]
 pub struct FundraiserName(Vec<u8>);
 
+pub trait WeightInfo {
+    fn create_fundraiser(i: u32) -> Weight;
+    fn invest(c: u32) -> Weight;
+    fn freeze_fundraiser() -> Weight;
+    fn unfreeze_fundraiser() -> Weight;
+    fn modify_fundraiser_window() -> Weight;
+    fn stop() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    /// Weight information for extrinsic of the sto pallet.
+    type WeightInfo: WeightInfo;
 }
 
 decl_event!(
@@ -230,10 +246,12 @@ decl_module! {
         /// * `venue_id` - Venue to handle settlement.
         /// * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
         /// * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
+        /// * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
+        /// * `fundraiser_name` - Fundraiser name, only used in the UIs.
         ///
         /// # Weight
         /// `800_000_000` placeholder
-        #[weight = 800_000_000]
+        #[weight = <T as Trait>::WeightInfo::create_fundraiser(tiers.len() as u32)]
         pub fn create_fundraiser(
             origin,
             offering_portfolio: PortfolioId,
@@ -300,20 +318,20 @@ decl_module! {
         /// * `funding_portfolio` - Portfolio that will fund the investment.
         /// * `offering_asset` - Asset to invest in.
         /// * `fundraiser_id` - ID of the fundraiser to invest in.
-        /// * `investment_amount` - Amount of `offering_asset` to invest in.
+        /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
         ///
         /// # Weight
         /// `2_000_000_000` placeholder
-        #[weight = 2_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::invest(T::MaxConditionComplexity::get())]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
             funding_portfolio: PortfolioId,
             offering_asset: Ticker,
             fundraiser_id: u64,
-            investment_amount: T::Balance,
+            purchase_amount: T::Balance,
             max_price: Option<T::Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) {
@@ -329,7 +347,6 @@ decl_module! {
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
-            ensure!(investment_amount >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
 
             let now = Timestamp::<T>::get();
             ensure!(
@@ -338,7 +355,7 @@ decl_module! {
             );
 
             // Remaining tokens to fulfil the investment amount
-            let mut remaining = investment_amount;
+            let mut remaining = purchase_amount;
             // Total cost to to fulfil the investment amount.
             // Primary use is to calculate the blended price (offering_token_amount / cost).
             // Blended price must be <= to max_price or the investment will fail.
@@ -378,8 +395,9 @@ decl_module! {
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+            ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
-                max_price.map(|max_price| cost <= max_price * investment_amount).unwrap_or(true),
+                max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
                 Error::<T>::MaxPriceExceeded
             );
 
@@ -388,7 +406,7 @@ decl_module! {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
                     asset: fundraiser.offering_asset,
-                    amount: investment_amount
+                    amount: purchase_amount
                 },
                 Leg {
                     from: funding_portfolio,
@@ -399,7 +417,7 @@ decl_module! {
             ];
 
             with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &investment_amount)?;
+                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &purchase_amount)?;
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
@@ -411,7 +429,7 @@ decl_module! {
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
-                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, None)?;
+                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
                 match receipt {
@@ -420,8 +438,9 @@ decl_module! {
                         instruction_id,
                         vec![receipt],
                         portfolios,
+                        2
                     ),
-                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios),
+                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios, 1),
                 }
             })?;
 
@@ -429,7 +448,7 @@ decl_module! {
                 fundraiser.tiers[id].remaining -= amount;
             }
 
-            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, investment_amount, cost));
+            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         }
 
@@ -440,7 +459,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::freeze_fundraiser()]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, true)
         }
@@ -452,7 +471,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::unfreeze_fundraiser()]
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, false)
         }
@@ -466,7 +485,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             Self::ensure_perms_pia(origin, &offering_asset)?;
 
@@ -492,7 +511,7 @@ decl_module! {
         ///
         /// # Weight
         /// `1_000` placeholder
-        #[weight = 1_000]
+        #[weight = <T as Trait>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
             let did = Self::ensure_perms(origin, &offering_asset)?.0;
 
