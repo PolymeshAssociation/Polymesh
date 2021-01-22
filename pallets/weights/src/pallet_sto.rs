@@ -8,7 +8,7 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl pallet_sto::WeightInfo for WeightInfo {
     // WARNING! Some components were not used: ["i"]
-    fn create_fundraiser() -> Weight {
+    fn create_fundraiser(_i: u32) -> Weight {
         (233_299_000 as Weight)
             .saturating_add(DbWeight::get().reads(13 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))

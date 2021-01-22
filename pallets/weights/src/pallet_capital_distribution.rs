@@ -6,7 +6,7 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
-impl pallet_capital_distribution::WeightInfo for WeightInfo {
+impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     fn distribute() -> Weight {
         (228_327_000 as Weight)
             .saturating_add(DbWeight::get().reads(17 as Weight))

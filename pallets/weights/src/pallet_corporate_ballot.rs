@@ -6,7 +6,7 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
-impl pallet_corporate_ballot::WeightInfo for WeightInfo {
+impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     fn attach_ballot(c: u32) -> Weight {
         (195_816_000 as Weight)
             .saturating_add((69_000 as Weight).saturating_mul(c as Weight))

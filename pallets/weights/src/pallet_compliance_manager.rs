@@ -40,7 +40,7 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // WARNING! Some components were not used: ["s"]
-    fn change_compliance_requirement(r: u32) -> Weight {
+    fn change_compliance_requirement(r: u32, _s: u32) -> Weight {
         (199_636_000 as Weight)
             .saturating_add((10_080_000 as Weight).saturating_mul(r as Weight))
             .saturating_add(DbWeight::get().reads(9 as Weight))
