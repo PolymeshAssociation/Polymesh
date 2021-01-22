@@ -730,6 +730,18 @@ pub fn make_account(
     make_account_with_uid(id, uid)
 }
 
+pub fn make_account_with_portfolio(
+    id: AccountId,
+) -> (
+    <TestStorage as frame_system::Trait>::Origin,
+    IdentityId,
+    PortfolioId,
+) {
+    let (origin, did) = make_account(id).unwrap();
+    let portfolio = PortfolioId::default_portfolio(did);
+    (origin, did, portfolio)
+}
+
 pub fn make_account_with_scope(
     id: AccountId,
     ticker: Ticker,
