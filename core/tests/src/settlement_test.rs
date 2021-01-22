@@ -7,7 +7,9 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, traits::OnInitialize, StorageMap};
+use frame_support::{
+    assert_noop, assert_ok, traits::OnInitialize, IterableStorageDoubleMap, StorageMap,
+};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -3218,6 +3220,91 @@ fn reject_instruction() {
                 instruction_counter2,
                 AffirmationStatus::Unknown,
                 AffirmationStatus::Unknown,
+            );
+        });
+}
+
+#[test]
+fn dirty_storage_with_tx() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .set_max_legs_allowed(500)
+        .build()
+        .execute_with(|| {
+            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let instruction_counter = Settlement::instruction_counter();
+            let alice_init_balance = Asset::balance_of(&ticker, alice_did);
+            let bob_init_balance = Asset::balance_of(&ticker, bob_did);
+            let amount1 = 100u128;
+            let amount2 = 50u128;
+            let eve = AccountKeyring::Eve.public();
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+
+            assert_ok!(Settlement::add_instruction(
+                alice_signed.clone(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![
+                    Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount1
+                    },
+                    Leg {
+                        from: PortfolioId::default_portfolio(bob_did),
+                        to: PortfolioId::default_portfolio(alice_did),
+                        asset: ticker,
+                        amount: 0
+                    },
+                    Leg {
+                        from: PortfolioId::default_portfolio(alice_did),
+                        to: PortfolioId::default_portfolio(bob_did),
+                        asset: ticker,
+                        amount: amount2
+                    }
+                ]
+            ));
+
+            assert_affirm_instruction!(alice_signed.clone(), instruction_counter, alice_did, 2);
+            assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
+            assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
+            set_current_block_number(5);
+            assert_affirm_instruction_with_one_leg!(
+                bob_signed.clone(),
+                instruction_counter,
+                bob_did
+            );
+
+            // Advances the block no. to execute the instruction.
+            let total_amount = amount1 + amount2;
+            assert_eq!(
+                Settlement::instruction_affirms_pending(instruction_counter),
+                0
+            );
+            next_block();
+            assert_eq!(
+                settlement::InstructionLegs::<TestStorage>::iter_prefix(instruction_counter)
+                    .count(),
+                0
+            );
+
+            // Ensure proper balance transfers
+            assert_eq!(
+                Asset::balance_of(&ticker, alice_did),
+                alice_init_balance - total_amount
+            );
+            assert_eq!(
+                Asset::balance_of(&ticker, bob_did),
+                bob_init_balance + total_amount
             );
         });
 }
