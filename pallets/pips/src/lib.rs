@@ -1499,6 +1499,21 @@ impl<T: Trait> Module<T> {
                 (Ok(old_pos), Err(new_pos)) => {
                     // Cannot underflow by definition of binary search finding an element.
                     let new_pos = new_pos.min(queue.len() - 1);
+
+                    // Suppose we have a vector `v = [0, 4]`.
+                    // Then `v.binary_search(&2)` would yield `Err(i = 1)`.
+                    // Doing `v.insert(i, 2)` will result in `[0, 2, 4]`, which is expected.
+                    //
+                    // However, because we wish to update, rather than insert,
+                    // we would instead have `(old_pos, new_pos) = (0, 1)`.
+                    // In this case `move_element(&mut v, 0, 1)` would result in `v = [4, 0]`,
+                    // breaking the sort order as defined by `compare_spip`.
+                    // This will fix this problem, adapting the binary search results for updating.
+                    let new_pos = new_pos
+                        - ((old_pos < new_pos
+                            && compare_spip(&new, &queue[new_pos]) == Ordering::Less)
+                            as usize);
+
                     move_element(queue, old_pos, new_pos);
                     queue[new_pos] = new;
                 }
