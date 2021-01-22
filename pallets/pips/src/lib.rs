@@ -840,7 +840,6 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             let old_res = Self::aggregate_result(id);
-            debug::info!("old_res = {:?}", old_res);
 
             with_transaction(|| {
                 // Reserve the deposit, or refund if needed.

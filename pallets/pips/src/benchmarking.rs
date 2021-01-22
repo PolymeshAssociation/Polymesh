@@ -23,7 +23,6 @@ use polymesh_common_utilities::{
 
 use frame_benchmarking::benchmarks;
 use frame_support::{
-    debug,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnfilteredDispatchable,
@@ -302,7 +301,7 @@ benchmarks! {
     }
 
     reject_proposal {
-//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -325,7 +324,7 @@ benchmarks! {
     }
 
     prune_proposal {
-//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false)?;
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
@@ -423,22 +422,21 @@ benchmarks! {
         enact_call.dispatch_bypass_filter(enact_origin)?;
     }
     verify {
-        // ensure!(
-        //     Module::<T>::snapshot_queue().len() == PROPOSALS_NUM - (a + r + s) as usize,
-        //     "incorrect snapshot queue after enact_snapshot_results"
-        // );
+        ensure!(
+            Module::<T>::snapshot_queue().len() == PROPOSALS_NUM - (a + r + s) as usize,
+            "incorrect snapshot queue after enact_snapshot_results"
+        );
     }
 
     execute_scheduled_pip {
         // set up
-//        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
+        Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true)?;
         let (origin0, did0) = pips_and_votes_setup::<T>(true)?;
 
         // snapshot
         identity::CurrentDid::put(did0);
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
         Module::<T>::snapshot(origin0.into())?;
-        debug::info!("snapshot queue = {:?}", Module::<T>::snapshot_queue());
         ensure!(
             Module::<T>::snapshot_queue().len() == PROPOSALS_NUM as usize,
             "wrong snapshot queue length"

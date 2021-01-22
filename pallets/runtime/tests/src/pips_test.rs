@@ -1764,6 +1764,27 @@ fn propose_dupe_live_insert_panics() {
 }
 
 #[test]
+fn execute_scheduled_pip() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        let pip_id = Pips::pip_id_sequence();
+        assert_ok!(alice_remark_proposal(0));
+        let user = User::new(AccountKeyring::Alice);
+        set_members(vec![user.did]);
+        assert_ok!(Pips::snapshot(user.origin()));
+        assert_ok!(Pips::enact_snapshot_results(
+            gc_vmo(),
+            vec![(pip_id, SnapshotResult::Approve)],
+        ));
+        assert_state(pip_id, false, ProposalState::Scheduled);
+        assert_ok!(Pips::execute_scheduled_pip(root(), pip_id));
+        assert_pruned(pip_id);
+    });
+}
+
+#[test]
 fn expire_scheduled_pip() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
