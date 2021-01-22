@@ -1490,35 +1490,18 @@ impl<T: Trait> Module<T> {
     fn adjust_live_queue(id: PipId, old: SnapshottedPip<BalanceOf<T>>) {
         let new = Self::aggregate_result(id);
         <LiveQueue<T>>::mutate(|queue| {
-            let old_pos = queue.binary_search_by(|res| compare_spip(res, &old));
-            let new_pos = queue.binary_search_by(|res| compare_spip(res, &new));
-            match (old_pos, new_pos) {
-                // First time adding to queue, so insert.
-                (Err(_), Ok(pos) | Err(pos)) => queue.insert(pos, new),
-                // Already in queue. Swap positions.
-                (Ok(old_pos), Err(new_pos)) => {
-                    // Cannot underflow by definition of binary search finding an element.
-                    let new_pos = new_pos.min(queue.len() - 1);
+            // Remove the old element.
+            //
+            // Under normal conditions, we can assume its in the list and findable,
+            // as the list is sorted, updated, and old is taken before modification.
+            // However, we still prefer to be defensive here, and same below.
+            if let Ok(old_pos) = queue.binary_search_by(|res| compare_spip(res, &old)) {
+                queue.remove(old_pos);
+            }
 
-                    // Suppose we have a vector `v = [0, 4]`.
-                    // Then `v.binary_search(&2)` would yield `Err(i = 1)`.
-                    // Doing `v.insert(i, 2)` will result in `[0, 2, 4]`, which is expected.
-                    //
-                    // However, because we wish to update, rather than insert,
-                    // we would instead have `(old_pos, new_pos) = (0, 1)`.
-                    // In this case `move_element(&mut v, 0, 1)` would result in `v = [4, 0]`,
-                    // breaking the sort order as defined by `compare_spip`.
-                    // This will fix this problem, adapting the binary search results for updating.
-                    let new_pos = new_pos
-                        - ((old_pos < new_pos
-                            && compare_spip(&new, &queue[new_pos]) == Ordering::Less)
-                            as usize);
-
-                    move_element(queue, old_pos, new_pos);
-                    queue[new_pos] = new;
-                }
-                // We have `old_res == new_res`. Queue state is already good.
-                (Ok(_), Ok(_)) => {}
+            // Insert the new element.
+            if let Err(new_pos) = queue.binary_search_by(|res| compare_spip(res, &new)) {
+                queue.insert(new_pos, new);
             }
         });
     }
@@ -1569,23 +1552,6 @@ impl<T: Trait> Module<T> {
         };
         proposal_data
     }
-}
-
-/// Move `slice[old]` to `slice[new]`, shifting other elements as necessary.
-///
-/// For example, given `let arr = [1, 2, 3, 4, 5];`,
-/// then `move_element(&mut arr, 1, 3);` would result in `[1, 3, 4, 2, 5]`
-/// whereas `move_element(&mut arr, 3, 1)` would yield `[1, 4, 2, 3, 5]`.
-fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
-    let elem = slice[old];
-    if old < new {
-        // Left shift elements after `old` by one element.
-        slice.copy_within(old + 1..=new, old);
-    } else {
-        // Right shift elements from `new` by one element.
-        slice.copy_within(new..old, new + 1);
-    }
-    slice[new] = elem;
 }
 
 #[cfg(test)]
