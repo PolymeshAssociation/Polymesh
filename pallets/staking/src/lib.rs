@@ -1150,6 +1150,9 @@ pub trait Trait:
 
     /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
     type FixedYearlyReward: Get<BalanceOf<Self>>;
+
+    /// Maximum number of validators permitted.
+    type MaxValidatorAllowed: Get<u32>;
 }
 
 /// Mode of era-forcing.
@@ -1631,6 +1634,9 @@ decl_module! {
 
         /// Total year rewards that gets paid during fixed reward schedule.
         const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
+
+        /// Maximum number of validators accounted for the weight estimation of `set_commission_cap`.
+        const MaxValidatorAllowed: u32 = T::MaxValidatorAllowed::get();
 
         type Error = Error<T>;
 

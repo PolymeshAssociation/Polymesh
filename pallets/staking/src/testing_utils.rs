@@ -20,31 +20,40 @@
 
 use crate::Module as Staking;
 use crate::*;
-use polymesh_common_utilities::{ identity::IdentityFnTrait, benchs::{ UserBuilder, User, user }};
-use polymesh_primitives::{ InvestorUid, AuthorizationData, Permissions, Signatory };
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 
-use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
 };
-use sp_runtime::DispatchError;
 use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
+use sp_runtime::DispatchError;
 
 const SEED: u32 = 0;
 
 /// Grab a funded user with the given balance.
-pub fn create_funded_user<T: Trait>(
-    string: &'static str,
-    n: u32,
-    balance: u32,
-) -> User<T> {
-    let user = UserBuilder::<T>::default().balance(balance).seed(n).generate_did().build(string);
+pub fn create_funded_user<T: Trait>(string: &'static str, n: u32, balance: u32) -> User<T> {
+    let user = UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .generate_did()
+        .build(string);
     // ensure T::CurrencyToVote will work correctly.
     T::Currency::issue(balance.into());
     user
+}
+
+pub fn create_stash_controller_with_balance<T: Trait>(
+    n: u32,
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    let (s, c) = create_stash_controller::<T>(n, balance)?;
+    let _ = T::Balances::make_free_balance_be(&c.account(), balance.into());
+    T::Currency::issue(balance.into());
+    Ok((s, c))
 }
 
 /// Create a stash and controller pair.
@@ -54,9 +63,12 @@ pub fn create_stash_controller<T: Trait>(
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     let stash = create_funded_user::<T>("stash", n, balance);
-    let controller = UserBuilder::<T>::default().balance(balance).seed(n).build("controller");
+    let controller = UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .build("controller");
     // Attach the controller key as the secondary key to the stash.
-    let auth_id =  <identity::Module<T>>::add_auth(
+    let auth_id = <identity::Module<T>>::add_auth(
         stash.did(),
         Signatory::Account(controller.account()),
         AuthorizationData::JoinIdentity(Permissions::default()),
@@ -74,27 +86,6 @@ pub fn create_stash_controller<T: Trait>(
     return Ok((stash, controller));
 }
 
-/// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
-/// This is used to test worst case payout scenarios.
-pub fn create_stash_and_dead_controller<T: Trait>(
-    n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    // controller has no funds
-    let controller = create_funded_user::<T>("controller", n, 0);
-    let controller_lookup = controller.lookup();
-    let reward_destination = RewardDestination::Controller;
-    let amount = balance_factor / 10;
-    Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
-        controller_lookup,
-        amount,
-        reward_destination,
-    )?;
-    return Ok((stash, controller));
-}
-
 /// create `max` validators.
 pub fn create_validators<T: Trait>(
     max: u32,
@@ -107,7 +98,8 @@ pub fn create_validators<T: Trait>(
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
         };
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2)).expect("Failed to add permissioned validator");
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))
+            .expect("Failed to add permissioned validator");
         Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
         let stash_lookup = stash.lookup();
         validators.push(stash_lookup);
@@ -116,10 +108,13 @@ pub fn create_validators<T: Trait>(
 }
 
 pub fn emulate_validator_setup<T: Trait>(min_bond: u32, validator_count: u32, cap: Perbill) {
-    Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), min_bond.into()).expect("Failed to set the min bond threshold");
-    Staking::<T>::set_validator_count(RawOrigin::Root.into(), validator_count).expect("Failed to set the validator count");
-    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), cap).expect("Failed to set the validator commission cap");
-} 
+    Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), min_bond.into())
+        .expect("Failed to set the min bond threshold");
+    Staking::<T>::set_validator_count(RawOrigin::Root.into(), validator_count)
+        .expect("Failed to set the validator count");
+    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), cap)
+        .expect("Failed to set the validator commission cap");
+}
 
 /// This function generates validators and nominators who are randomly nominating
 /// `edge_per_nominator` random validators (until `to_nominate` if provided).
@@ -155,11 +150,9 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
         };
-        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2)).expect("Failed to add permissioned validator");
-        Staking::<T>::validate(
-            v_controller.origin().into(),
-            validator_prefs,
-        )?;
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
+            .expect("Failed to add permissioned validator");
+        Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
         validators_stash.push(v_stash.lookup());
     }
 
@@ -186,10 +179,7 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
             let validator = available_validators.remove(selected);
             selected_validators.push(validator);
         }
-        Staking::<T>::nominate(
-            n_controller.origin().into(),
-            selected_validators,
-        )?;
+        Staking::<T>::nominate(n_controller.origin().into(), selected_validators)?;
     }
 
     ValidatorCount::put(validators);

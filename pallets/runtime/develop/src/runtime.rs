@@ -376,6 +376,7 @@ parameter_types! {
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MaxValidatorAllowed: u32 = 150;
 }
 
 impl pallet_staking::Trait for Runtime {
@@ -409,6 +410,7 @@ impl pallet_staking::Trait for Runtime {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
+    type MaxValidatorAllowed = MaxValidatorAllowed;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -1257,10 +1259,10 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
             use frame_system_benchmarking::Module as SystemBench;
-            //use crate::benchmarks::pallet_session::Module as SessionBench;
+            use crate::benchmarks::pallet_session::Module as SessionBench;
 
             impl frame_system_benchmarking::Trait for Runtime {}
-            //impl crate::benchmarks::pallet_session::Trait for Runtime {}
+            impl crate::benchmarks::pallet_session::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1305,7 +1307,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_permissions, Permissions);
             add_benchmark!(params, batches, pallet_babe, Babe);
             add_benchmark!(params, batches, pallet_indices, Indices);
-            // add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
             add_benchmark!(params, batches, pallet_staking, Staking);

@@ -23,6 +23,7 @@ use testing_utils::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
 use sp_runtime::traits::One;
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
@@ -48,8 +49,10 @@ fn add_slashing_spans<T: Trait>(who: &T::AccountId, spans: u32) {
 }
 
 fn add_perm_validator<T: Trait>(id: IdentityId, intended_count: Option<u32>) {
-    Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10).expect("Failed to set the validator count");
-    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), id, intended_count).expect("Failed to add permissioned validator");
+    Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
+        .expect("Failed to set the validator count");
+    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), id, intended_count)
+        .expect("Failed to add permissioned validator");
 }
 
 // This function generates one validator being nominated by n nominators, and returns the validator
@@ -59,7 +62,7 @@ pub fn create_validator_with_nominators<T: Trait>(
     upper_bound: u32,
     dead: bool,
 ) -> Result<T::AccountId, &'static str> {
-    create_validator_with_nominators_with_balance::<T>(n, upper_bound, 100.into(), dead)
+    create_validator_with_nominators_with_balance::<T>(n, upper_bound, 10000u32, dead)
 }
 
 // This function generates one validator being nominated by n nominators, and returns the validator
@@ -68,7 +71,7 @@ pub fn create_validator_with_nominators<T: Trait>(
 pub fn create_validator_with_nominators_with_balance<T: Trait>(
     n: u32,
     upper_bound: u32,
-    balance: BalanceOf<T>,
+    balance: u32,
     dead: bool,
 ) -> Result<T::AccountId, &'static str> {
     let mut points_total = 0;
@@ -81,7 +84,8 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
         commission: Perbill::from_percent(10),
     };
     emulate_validator_setup::<T>(1, 10, Perbill::from_percent(10));
-    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2)).expect("Failed to add permissioned validator");
+    Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
+        .expect("Failed to add permissioned validator");
     Staking::<T>::validate(v_controller_origin.into(), validator_prefs)?;
     let stash_lookup = v_stash.lookup();
 
@@ -91,15 +95,12 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     // Give the validator n nominators, but keep total users in the system the same.
     for i in 0..upper_bound {
         let (_n_stash, n_controller) = if !dead {
-            create_stash_controller::<T>(u32::max_value() - i, 100)?
+            create_stash_controller_with_balance::<T>(u32::max_value() - i, 100)?
         } else {
-            create_stash_and_dead_controller::<T>(u32::max_value() - i, 100)?
+            create_stash_controller::<T>(u32::max_value() - i, 100)?
         };
         if i < n {
-            Staking::<T>::nominate(
-                n_controller.origin().into(),
-                vec![stash_lookup.clone()],
-            )?;
+            Staking::<T>::nominate(n_controller.origin().into(), vec![stash_lookup.clone()])?;
         }
     }
 
@@ -120,10 +121,30 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     ErasRewardPoints::<T>::insert(current_era, reward);
 
     // Create reward pool
-    let total_payout = T::Currency::minimum_balance() * 1000.into();
+    let total_payout: BalanceOf<T> = 1000u32.into();
     <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
-    Ok(v_stash)
+    Ok(v_stash.account())
+}
+
+fn payout_stakers_<T: Trait>(
+    alive: bool,
+    n: u32,
+) -> Result<(RawOrigin<T::AccountId>, T::AccountId, u32, BalanceOf<T>), DispatchError> {
+    let validator = create_validator_with_nominators::<T>(
+        n,
+        T::MaxNominatorRewardedPerValidator::get() as u32,
+        !alive,
+    )?;
+    let current_era = CurrentEra::get().unwrap();
+    let caller = UserBuilder::<T>::default()
+        .seed(n)
+        .generate_did()
+        .build("caller");
+    let caller_key = frame_system::Account::<T>::hashed_key_for(&caller.account());
+    frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+    let balance_before = T::Currency::free_balance(&validator);
+    Ok((caller.origin(), validator, current_era, balance_before))
 }
 
 benchmarks! {
@@ -230,6 +251,18 @@ benchmarks! {
         ensure!(pref.is_none(), "fail to remove a permissioned identity");
     }
 
+    set_commission_cap {
+        let m in 0..T::MaxValidatorAllowed::get();
+        // Add validators
+        for i in 0 .. m {
+            let stash = create_funded_user::<T>("stash", i, 100);
+            Validators::<T>::insert(stash.account(), ValidatorPrefs { commission: Perbill::from_percent(70)});
+        }
+    }: _(RawOrigin::Root, Perbill::from_percent(50))
+    verify {
+        assert!(Validators::<T>::iter().map(|(_, pref)| pref.commission).all(|com| com == Perbill::from_percent(50)));
+    }
+
     validate {
         let u in ...;
         Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), 100.into())?;
@@ -328,33 +361,25 @@ benchmarks! {
         assert_eq!(UnappliedSlashes::<T>::get(&era).len(), (MAX_SLASHES - s) as usize);
     }
 
-    // payout_stakers {
-    //     let n in 1 .. T::MaxNominatorRewardedPerValidator::get() as u32;
-    //     let validator = create_validator_with_nominators::<T>(n, T::MaxNominatorRewardedPerValidator::get() as u32, true)?;
+    payout_stakers {
+        let n in 1 .. T::MaxNominatorRewardedPerValidator::get() as u32;
+        let (origin, validator, current_era, balance_before) = payout_stakers_::<T>(false, n)?;
+    }: _(origin, validator.clone(), current_era)
+    verify {
+        // Validator has been paid!
+        let balance_after = T::Currency::free_balance(&validator);
+        assert!(balance_before < balance_after);
+    }
 
-    //     let current_era = CurrentEra::get().unwrap();
-    //     let caller = whitelisted_caller();
-    //     let balance_before = T::Currency::free_balance(&validator);
-    // }: _(RawOrigin::Signed(caller), validator.clone(), current_era)
-    // verify {
-    //     // Validator has been paid!
-    //     let balance_after = T::Currency::free_balance(&validator);
-    //     assert!(balance_before < balance_after);
-    // }
-
-    // payout_stakers_alive_controller {
-    //     let n in 1 .. T::MaxNominatorRewardedPerValidator::get() as u32;
-    //     let validator = create_validator_with_nominators::<T>(n, T::MaxNominatorRewardedPerValidator::get() as u32, false)?;
-
-    //     let current_era = CurrentEra::get().unwrap();
-    //     let caller = whitelisted_caller();
-    //     let balance_before = T::Currency::free_balance(&validator);
-    // }: payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era)
-    // verify {
-    //     // Validator has been paid!
-    //     let balance_after = T::Currency::free_balance(&validator);
-    //     assert!(balance_before < balance_after);
-    // }
+    payout_stakers_alive_controller {
+        let n in 1 .. T::MaxNominatorRewardedPerValidator::get() as u32;
+        let (origin, validator, current_era, balance_before) = payout_stakers_::<T>(true, n)?;
+    }: payout_stakers(origin, validator.clone(), current_era)
+    verify {
+        // Validator has been paid!
+        let balance_after = T::Currency::free_balance(&validator);
+        assert!(balance_before < balance_after);
+    }
 
     rebond {
         let l in 1 .. MAX_UNLOCKING_CHUNKS as u32;
@@ -440,43 +465,43 @@ benchmarks! {
         assert!(balance_before > balance_after);
     }
 
-    // payout_all {
-    //     let v in 1 .. 10;
-    //     let n in 1 .. 100;
-    //     create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None)?;
-    //     // Start a new Era
-    //     let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
-    //     assert!(new_validators.len() == v as usize);
+    payout_all {
+        let v in 1 .. 10;
+        let n in 1 .. 100;
+        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None)?;
+        // Start a new Era
+        let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
+        assert!(new_validators.len() == v as usize);
 
-    //     let current_era = CurrentEra::get().unwrap();
-    //     let mut points_total = 0;
-    //     let mut points_individual = Vec::new();
-    //     let mut payout_calls_arg = Vec::new();
+        let current_era = CurrentEra::get().unwrap();
+        let mut points_total = 0;
+        let mut points_individual = Vec::new();
+        let mut payout_calls_arg = Vec::new();
 
-    //     for validator in new_validators.iter() {
-    //         points_total += 10;
-    //         points_individual.push((validator.clone(), 10));
-    //         payout_calls_arg.push((validator.clone(), current_era));
-    //     }
+        for validator in new_validators.iter() {
+            points_total += 10;
+            points_individual.push((validator.clone(), 10));
+            payout_calls_arg.push((validator.clone(), current_era));
+        }
 
-    //     // Give Era Points
-    //     let reward = EraRewardPoints::<T::AccountId> {
-    //         total: points_total,
-    //         individual: points_individual.into_iter().collect(),
-    //     };
+        // Give Era Points
+        let reward = EraRewardPoints::<T::AccountId> {
+            total: points_total,
+            individual: points_individual.into_iter().collect(),
+        };
 
-    //     ErasRewardPoints::<T>::insert(current_era, reward);
+        ErasRewardPoints::<T>::insert(current_era, reward);
 
-    //     // Create reward pool
-    //     let total_payout = T::Currency::minimum_balance() * 1000.into();
-    //     <ErasValidatorReward<T>>::insert(current_era, total_payout);
+        // Create reward pool
+        let total_payout: BalanceOf<T> = 1000u32.into();
+        <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
-    //     let caller: T::AccountId = whitelisted_caller();
-    // }: {
-    //     for arg in payout_calls_arg {
-    //         <Staking<T>>::payout_stakers(RawOrigin::Signed(caller.clone()).into(), arg.0, arg.1)?;
-    //     }
-    // }
+        let caller: T::AccountId = whitelisted_caller();
+    }: {
+        for arg in payout_calls_arg {
+            <Staking<T>>::payout_stakers(RawOrigin::Signed(caller.clone()).into(), arg.0, arg.1)?;
+        }
+    }
 
     // This benchmark create `v` validators intent, `n` nominators intent, each nominator nominate
     // MAX_NOMINATIONS in the set of the first `w` validators.
