@@ -33,8 +33,10 @@ async function batchAtomic(api, sender, receivers, amount, ticker, venueId) {
     let senderDid = await api.query.identity.keyToIdentityIds(sender.publicKey);
 
     for (i = 0; i < receivers.length; i++) {
-        let tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i][0], ticker, amount);
-        txBatch.push(tx);
+        if (receivers[i][0] != senderDid) {
+            let tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i][0], ticker, amount);
+            txBatch.push(tx);
+        }
     }
 
     let completeBatchTx = await api.tx.utility.batchAtomic(txBatch);  
