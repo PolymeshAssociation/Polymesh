@@ -470,11 +470,11 @@ fn add_smart_extension_to_ticker<T: Trait>(
     ]; // Allow 100% as percentage ownership and allow primary issuance.
     <polymesh_contracts::Module<T>>::instantiate(
         origin.clone().into(),
-        0.into(),
+        0u32.into(),
         Weight::max_value(),
         code_hash,
         data.clone(),
-        0.into(),
+        0u32.into(),
     )
     .expect("Settlement: Failed to instantiate the contract");
     let extension_id =

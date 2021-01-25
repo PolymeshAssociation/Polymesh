@@ -61,7 +61,7 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     let mut tiers = Vec::with_capacity(n);
     for i in 0..n {
         tiers.push(PriceTier {
-            total: 1.into(),
+            total: 1u32.into(),
             price: (i as u128 + 1).into(),
         })
     }
@@ -113,7 +113,7 @@ fn setup_fundraiser<T: Trait>(
         venue_id,
         None,
         Some(101.into()),
-        0.into(),
+        0u32.into(),
         vec![].into(),
     )?;
 
@@ -149,7 +149,7 @@ benchmarks! {
             venue_id,
             None,
             None,
-            0.into(),
+           0u32.into(),
             vec![].into()
         )
     verify {
@@ -172,7 +172,7 @@ benchmarks! {
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0.into(), "invest");
+        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) >0u32.into(), "invest");
     }
 
     freeze_fundraiser {

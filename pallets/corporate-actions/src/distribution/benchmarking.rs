@@ -44,7 +44,7 @@ fn dist<T: Trait>(target_ids: u32) -> (User<T>, CAId, Ticker) {
 
     let currency = currency::<T>(&owner);
     let amount = 1000.into();
-    let pnum = 1.into();
+    let pnum = 1u32.into();
     portfolio::<T>(&owner, pnum, currency, amount);
 
     <Module<T>>::distribute(
@@ -125,7 +125,7 @@ benchmarks! {
         let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
         let currency = currency::<T>(&owner);
         let amount = 1000.into();
-        let pnum = 1.into();
+        let pnum =1u32.into();
         portfolio::<T>(&owner, pnum, currency, amount);
     }: _(owner.origin(), ca_id, Some(pnum), currency, amount, 3000, Some(4000))
     verify {

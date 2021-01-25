@@ -169,9 +169,11 @@ fn updating_pips_variables_works() {
 
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::None);
         assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
-        assert_last_event!(
-            Event::PendingPipExpiryChanged(_, MaybeBlock::None, MaybeBlock::Some(13))
-        );
+        assert_last_event!(Event::PendingPipExpiryChanged(
+            _,
+            MaybeBlock::None,
+            MaybeBlock::Some(13)
+        ));
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::Some(13));
 
         assert_eq!(Pips::max_pip_skip_count(), 1);

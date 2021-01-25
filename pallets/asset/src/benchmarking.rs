@@ -84,7 +84,7 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
     let reg_config = make_default_reg_config::<T>();
     let root = frame_system::RawOrigin::Root.into();
 
-    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0.into(), reg_config)
+    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u32.into(), reg_config)
         .expect("`reserve_classic_ticker` failed");
 }
 

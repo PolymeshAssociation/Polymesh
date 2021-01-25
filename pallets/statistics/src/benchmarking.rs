@@ -126,7 +126,7 @@ benchmarks! {
             owner_did,
             100.into(),
             200.into(),
-            0.into(),
+           0u32.into(),
             500.into(),
         )?;
     }

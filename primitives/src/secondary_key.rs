@@ -518,7 +518,7 @@ mod tests {
         let key = Public::from_raw([b'A'; 32]);
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
-        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
+        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1u32.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),

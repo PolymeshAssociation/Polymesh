@@ -74,10 +74,10 @@ benchmarks! {
         Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
 
         assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), amount);
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), 0.into());
+        assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker),0u32.into());
     }: _(target.origin, default_portfolio, user_portfolio, items)
     verify {
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), 0.into());
+        assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker),0u32.into());
         assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), amount);
     }
 

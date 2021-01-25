@@ -76,7 +76,7 @@ benchmarks! {
         // Construct the voting list.
         let votes = (0..j)
             .map(|j| BallotVote {
-                power: 0.into(),
+                power:0u32.into(),
                 fallback: (j as u16).checked_sub(1),
             })
             .collect::<Vec<_>>();

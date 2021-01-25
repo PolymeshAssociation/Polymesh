@@ -256,7 +256,9 @@ fn batch_secondary_with_permissions() {
         bob_origin.clone(),
         low_risk_name.clone()
     ));
-    assert_last_event!(EventTest::portfolio(pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)));
+    assert_last_event!(EventTest::portfolio(
+        pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)
+    ));
     check_name(low_risk_name.clone());
 
     // Set and check Bob's permissions.
@@ -300,7 +302,7 @@ fn batch_secondary_with_permissions() {
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
         Call::Portfolio(PortfolioCall::rename_portfolio(
-            1.into(),
+            1u32.into(),
             high_risk_name.clone(),
         )),
     ];

@@ -327,7 +327,7 @@ benchmarks! {
         let (_, controller) = create_stash_controller::<T>(u, 100)?;
         let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
         let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-            value: 1.into(),
+            value:1u32.into(),
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {
@@ -364,7 +364,7 @@ benchmarks! {
         let s in 1 .. MAX_SPANS;
         let (stash, controller) = create_stash_controller::<T>(0, 100)?;
         add_slashing_spans::<T>(&stash, s);
-        T::Currency::make_free_balance_be(&stash, 0.into());
+        T::Currency::make_free_balance_be(&stash,0u32.into());
     }: _(RawOrigin::Signed(controller), stash.clone(), s)
     verify {
         assert!(!Bonded::<T>::contains_key(&stash));
@@ -386,7 +386,7 @@ benchmarks! {
         let (stash, controller) = create_stash_controller::<T>(0, 100)?;
         let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
         let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-            value: 1.into(),
+            value:1u32.into(),
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {

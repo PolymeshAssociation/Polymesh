@@ -93,7 +93,7 @@ fn cast_votes<T: Trait>(
 ) -> DispatchResult {
     for (_, origin, did) in voters {
         identity::CurrentDid::put(did);
-        Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1.into())?;
+        Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1u32.into())?;
     }
     Ok(())
 }
@@ -224,8 +224,8 @@ benchmarks! {
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        let call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(),0u32.into())?;
+        let call = Call::<T>::propose(proposal,0u32.into(), Some(url.clone()), Some(description.clone()));
     }: {
         call.dispatch_bypass_filter(origin)?;
     }
@@ -270,8 +270,8 @@ benchmarks! {
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(),0u32.into())?;
+        let propose_call = Call::<T>::propose(proposal,0u32.into(), Some(url.clone()), Some(description.clone()));
         propose_call.dispatch_bypass_filter(proposer_origin)?;
         let origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::approve_committee_proposal(0);

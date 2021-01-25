@@ -945,7 +945,7 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // 2. New value should be valid block number.
-            let next_block = <system::Module<T>>::block_number() + 1.into();
+            let next_block = <system::Module<T>>::block_number() + 1u32.into();
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
@@ -1161,7 +1161,7 @@ impl<T: Trait> Module<T> {
     /// i.e., once run, refunding again will refund nothing.
     fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
-            <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
+            <Deposits<T>>::iter_prefix_values(id).fold(0u32.into(), |acc, depo_info| {
                 Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
                 depo_info.amount.saturating_add(acc)
             });

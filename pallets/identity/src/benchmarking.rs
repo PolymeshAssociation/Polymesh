@@ -128,7 +128,7 @@ benchmarks! {
 
         let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
 
-    }: _(RawOrigin::Root, cdd.did(), 0.into(), None)
+    }: _(RawOrigin::Root, cdd.did(),0u32.into(), None)
 
     remove_secondary_keys {
         // Number of secondary items.
