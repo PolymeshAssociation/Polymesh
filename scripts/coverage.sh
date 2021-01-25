@@ -4,13 +4,8 @@ cargo check
 
 RUSTFLAGS="-Zinstrument-coverage" \
 LLVM_PROFILE_FILE="json5format-%m.profraw" \
-# Hack required for CircleCI to keep RAM usage low
-cargo build -p librocksdb-sys -j 1
-
-RUSTFLAGS="-Zinstrument-coverage" \
-LLVM_PROFILE_FILE="json5format-%m.profraw" \
 SKIP_WASM_BUILD=1 \
-cargo test --tests \
+cargo test -j 1 --tests \
     --package pallet-staking \
     --package pallet-group \
     --package pallet-sudo \
