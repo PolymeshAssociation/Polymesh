@@ -124,7 +124,7 @@ fn pips_and_votes_setup<T: Trait>(
         Module::<T>::propose(
             proposer_origin.into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone()),
         )?;
@@ -166,7 +166,7 @@ benchmarks! {
 
     set_min_proposal_deposit {
         let origin = RawOrigin::Root;
-        let deposit = 42.into();
+        let deposit = 42u32.into();
     }: _(origin, deposit)
     verify {
         assert_eq!(deposit, MinimumProposalDeposit::<T>::get());
@@ -174,7 +174,7 @@ benchmarks! {
 
     set_default_enactment_period {
         let origin = RawOrigin::Root;
-        let period = 42.into();
+        let period = 42u32.into();
     }: _(origin, period)
     verify {
         assert_eq!(period, DefaultEnactmentPeriod::<T>::get());
@@ -182,7 +182,7 @@ benchmarks! {
 
     set_pending_pip_expiry {
         let origin = RawOrigin::Root;
-        let maybe_block = MaybeBlock::Some(42.into());
+        let maybe_block = MaybeBlock::Some(42u32.into());
     }: _(origin, maybe_block)
     verify {
         assert_eq!(maybe_block, PendingPipExpiry::<T>::get());
@@ -209,7 +209,7 @@ benchmarks! {
             UserBuilder::<T>::default().generate_did().build("proposer");
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
-    }: propose(origin, proposal, 42.into(), Some(url.clone()), Some(description.clone()))
+    }: propose(origin, proposal, 42u32.into(), Some(url.clone()), Some(description.clone()))
     verify {
         let meta = Module::<T>::proposal_metadata(0).unwrap();
         assert_eq!(0, meta.id);
@@ -244,7 +244,7 @@ benchmarks! {
         Module::<T>::propose(
             origin.into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url),
             Some(description)
         )?;
@@ -257,7 +257,7 @@ benchmarks! {
         let User { account, origin, did, .. } =
             UserBuilder::<T>::default().generate_did().build("voter");
         identity::CurrentDid::put(did.unwrap());
-        let voter_deposit = 43.into();
+        let voter_deposit = 43u32.into();
         // Cast an opposite vote.
         Module::<T>::vote(origin.clone().into(), 0, false, voter_deposit)?;
     }: _(origin, 0, true, voter_deposit)
@@ -287,7 +287,7 @@ benchmarks! {
             UserBuilder::<T>::default().generate_did().build("proposer");
         identity::CurrentDid::put(did.unwrap());
         let (proposal, url, description) = make_proposal::<T>();
-        let deposit = 42.into();
+        let deposit = 42u32.into();
         Module::<T>::propose(
             origin.into(),
             proposal,
@@ -313,7 +313,7 @@ benchmarks! {
         Module::<T>::propose(
             origin.into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url),
             Some(description)
         )?;
@@ -339,7 +339,7 @@ benchmarks! {
         Module::<T>::propose(
             origin.clone().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
@@ -348,7 +348,7 @@ benchmarks! {
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
         enact_call.dispatch_bypass_filter(vmo_origin)?;
-        let future_block = frame_system::Module::<T>::block_number() + 100.into();
+        let future_block = frame_system::Module::<T>::block_number() + 100u32.into();
     }: _(origin, 0, Some(future_block))
     verify {
         assert_eq!(true, PipToSchedule::<T>::contains_key(&0));
@@ -363,7 +363,7 @@ benchmarks! {
         Module::<T>::propose(
             origin.clone().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
@@ -386,7 +386,7 @@ benchmarks! {
     // TODO reduce fn complexity
     enact_snapshot_results {
         // let origin0 = snapshot_setup::<T>()?;
-        // Module::<T>::snapshot(origin0.into())?;
+        // Module::<T>::snapshot(origin0u32.into())?;
         // let enact_origin = T::VotingMajorityOrigin::successful_origin();
         // let enact_call = enact_call::<T>();
     }: {

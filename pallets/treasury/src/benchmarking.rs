@@ -50,14 +50,14 @@ benchmarks! {
 
     }: _(RawOrigin::Root, beneficiaries)
     verify {
-        assert_eq!(Module::<T>::balance(), 100.into());
+        assert_eq!(Module::<T>::balance(), 100u32.into());
     }
 
     reimbursement {
         let caller = UserBuilder::<T>::default().balance(1_000).generate_did().build("caller");
-        let amount = 500.into();
+        let amount = 500u32.into();
     }: _(caller.origin(), amount)
     verify {
-        assert_eq!(Module::<T>::balance(), 500.into());
+        assert_eq!(Module::<T>::balance(), 500u32.into());
     }
 }

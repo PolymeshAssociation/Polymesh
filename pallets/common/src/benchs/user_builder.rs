@@ -27,7 +27,7 @@ use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_primitives::{IdentityId, InvestorUid};
 use sp_io::hashing::blake2_256;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryInto, prelude::*};
 
 pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -37,7 +37,7 @@ pub struct UserBuilder<T: Trait> {
     account: Option<T::AccountId>,
     uid: Option<InvestorUid>,
     did: Option<IdentityId>,
-    balance: u128,
+    balance: i64,
     seed: u32,
     generate_did: bool,
     as_cdd_provider: bool,
@@ -59,7 +59,8 @@ impl<T: Trait> UserBuilder<T> {
             .clone()
             .map_or_else(|| Self::make_key_pair(name, self.seed), |acc| (acc, None));
         let origin = RawOrigin::Signed(account.clone());
-        let _ = T::Balances::make_free_balance_be(&account, self.balance.into());
+        let balance: u32 = self.balance.try_into().unwrap();
+        let _ = T::Balances::make_free_balance_be(&account, balance.into());
 
         // Generate DID or use the one given.
         let uid = self
@@ -115,7 +116,7 @@ impl<T: Trait> UserBuilder<T> {
         self_update!(self, account, Some(acc.into()))
     }
 
-    pub fn balance<B: Into<T::Balance>>(self, b: B) -> Self {
+    pub fn balance<B: Into<i64>>(self, b: B) -> Self {
         self_update!(self, balance, b.into())
     }
 
@@ -146,7 +147,7 @@ impl<T: Trait> Default for UserBuilder<T> {
             account: None,
             uid: None,
             did: None,
-            balance: 5_000_000u128,
+            balance: 5_000_000,
             seed: 0,
             generate_did: false,
             as_cdd_provider: false,

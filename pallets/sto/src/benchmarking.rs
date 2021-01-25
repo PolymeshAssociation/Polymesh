@@ -112,7 +112,7 @@ fn setup_fundraiser<T: Trait>(
         generate_tiers::<T>(tiers),
         venue_id,
         None,
-        Some(101.into()),
+        Some(101u32.into()),
         0u32.into(),
         vec![].into(),
     )?;
@@ -168,7 +168,7 @@ benchmarks! {
             OFFERING_TICKER,
             0,
             (MAX_TIERS as u128).into(),
-            Some(100.into()),
+            Some(100u32.into()),
             None
         )
     verify {
@@ -196,9 +196,9 @@ benchmarks! {
 
     modify_fundraiser_window {
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
-    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100.into(), Some(101.into()))
+    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100u32.into(), Some(101u32.into()))
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101.into()), "modify_fundraiser_window");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {

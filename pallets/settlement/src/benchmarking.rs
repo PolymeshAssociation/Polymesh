@@ -122,7 +122,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchError> {
     let ticker = Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap();
     let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    let total_supply: T::Balance = 90000.into();
+    let total_supply: T::Balance = 90000u32.into();
     let token = SecurityToken {
         name,
         total_supply,
@@ -153,13 +153,13 @@ fn setup_leg_and_portfolio<T: Trait>(
     let variance = index + 1;
     let ticker = Ticker::try_from(vec![b'A'; variance as usize].as_slice()).unwrap();
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
-    let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500.into());
+    let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
         asset: ticker,
-        amount: 100.into(),
+        amount: 100u32.into(),
     });
     receiver_portfolios.push(portfolio_to);
     sender_portfolios.push(portfolio_from);
@@ -197,7 +197,7 @@ fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Bal
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
         asset: ticker,
-        amount: 100.into(),
+        amount: 100u32.into(),
     });
 }
 
@@ -281,7 +281,7 @@ fn emulate_add_instruction<T: Trait>(
             populate_legs_for_instruction::<T>(i, &mut legs);
         }
     }
-    <pallet_timestamp::Now<T>>::set(100000000.into());
+    <pallet_timestamp::Now<T>>::set(100000000u32.into());
     Ok((
         legs,
         venue_id,
@@ -600,7 +600,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false)?;
 
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs)
+    }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
     verify {
         verify_add_instruction::<T>(venue_id, settlement_type)?;
     }
@@ -609,13 +609,13 @@ benchmarks! {
     add_instruction_with_settle_on_block_type {
         let l in 1 .. T::MaxLegsInInstruction::get() as u32; // Variation for the MAX leg count.
         // Define settlement type
-        let settlement_type = SettlementType::SettleOnBlock(100.into());
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
 
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false)?;
 
-    }: add_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs)
+    }: add_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
     verify {
         verify_add_instruction::<T>(venue_id, settlement_type)?;
     }
@@ -628,7 +628,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
         let s_portfolios = portfolios.clone();
-    }: _(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
+    }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -637,12 +637,12 @@ benchmarks! {
     add_and_affirm_instruction_with_settle_on_block_type {
         let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Define settlement type.
-        let settlement_type = SettlementType::SettleOnBlock(100.into());
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
         let s_portfolios = portfolios.clone();
-    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999.into()), Some(99999999.into()), legs, s_portfolios)
+    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios)?;
     }
@@ -826,7 +826,7 @@ benchmarks! {
         let ticker = Ticker::try_from(vec![b'A'; 1 as usize].as_slice()).unwrap();
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
         let leg_id = 0;
-        let amount = 100;
+        let amount = 100u128;
         // Some manual setup to support the extrinsic.
         set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
         T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into())?;

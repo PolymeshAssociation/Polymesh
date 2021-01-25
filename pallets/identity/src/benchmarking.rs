@@ -47,7 +47,7 @@ fn setup_investor_uniqueness_claim<T: Trait>(
         191, 123, 156, 212, 20, 215, 87, 23, 42, 84, 181, 128, 73,
     ]);
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
+    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666u32.into()));
 
     let scope = Scope::Custom([228u8, 152, 116, 104, 5, 8, 30, 188, 143, 185, 10, 208].to_vec());
     let scope_did = IdentityId::from([
@@ -240,7 +240,7 @@ benchmarks! {
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
-    }: _(caller.origin, target.did(), claim, Some(666.into()))
+    }: _(caller.origin, target.did(), claim, Some(666u32.into()))
 
     forwarded_call {
         // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
@@ -257,7 +257,7 @@ benchmarks! {
 
     revoke_claim {
         let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof, Some(666.into()))?;
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof, Some(666u32.into()))?;
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
@@ -281,7 +281,7 @@ benchmarks! {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
         let signatory = Signatory::Identity(caller.did());
         let auth_data = AuthorizationData::JoinIdentity(Permissions::default());
-    }: _(caller.origin, signatory, auth_data, Some(666.into()))
+    }: _(caller.origin, signatory, auth_data, Some(666u32.into()))
 
     remove_authorization {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
@@ -290,7 +290,7 @@ benchmarks! {
             caller.did(),
             signatory.clone(),
             AuthorizationData::JoinIdentity(Permissions::default()),
-            Some(666.into()),
+            Some(666u32.into()),
         );
     }: _(caller.origin, signatory, auth_id, true)
 
@@ -345,11 +345,11 @@ benchmarks! {
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: caller.did(),
             nonce,
-            expires_at: 600.into(),
+            expires_at: 600u32.into(),
         };
     }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
         let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666.into()))
+    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666u32.into()))
 }

@@ -37,7 +37,7 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // Therefore, in general, we'll be using the owner as the CAA.
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
-    <pallet_timestamp::Now<T>>::set(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
     let ticker =
@@ -92,7 +92,7 @@ fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Documen
 crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
 
-    <pallet_timestamp::Now<T>>::set(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let origin: T::Origin = owner.origin().into();
     <Module<T>>::initiate_corporate_action(
@@ -139,7 +139,7 @@ crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
         owner.origin().into(),
         currency.as_slice().into(),
         currency,
-        1_000_000.into(),
+        1_000_000u32.into(),
         true,
         <_>::default(),
         vec![],
@@ -156,7 +156,7 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
         ca_id,
         None,
         currency,
-        1000.into(),
+        1000u32.into(),
         4000,
         None,
     )

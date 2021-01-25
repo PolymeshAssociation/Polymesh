@@ -208,28 +208,28 @@ benchmarks! {
 
     create_or_approve_proposal_as_identity {
         let (alice, multisig, signers, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
-    }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
         ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_or_approve_proposal_as_key {
         let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
-    }: _(signer_origin, ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(signer_origin, ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
         ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_identity {
         let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
-    }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
         ensure_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_key {
         let (_, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
-    }: _(signer_origin, ephemeral_multisig, proposal, Some(1337.into()), true)
+    }: _(signer_origin, ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
         ensure_proposal_created!(proposal_id, multisig);
     }

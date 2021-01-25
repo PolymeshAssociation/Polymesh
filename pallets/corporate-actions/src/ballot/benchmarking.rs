@@ -68,7 +68,7 @@ benchmarks! {
 
         // Attach and prepare to vote.
         let (owner, ca_id) = attach::<T>(1, j);
-        <pallet_timestamp::Now<T>>::set(3000.into());
+        <pallet_timestamp::Now<T>>::set(3000u32.into());
 
         // Change targets, as they are read in voting.
         set_ca_targets::<T>(ca_id, k);

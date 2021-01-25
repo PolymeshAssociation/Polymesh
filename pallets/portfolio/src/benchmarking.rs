@@ -56,7 +56,7 @@ benchmarks! {
         let mut items = Vec::with_capacity(i as usize);
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let first_ticker = Ticker::try_from(generate_ticker(0u64).as_slice()).unwrap();
-        let amount = T::Balance::from(10);
+        let amount = T::Balance::from(10u32);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
         let default_portfolio = PortfolioId::default_portfolio(target.did());
