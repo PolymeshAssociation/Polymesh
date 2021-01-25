@@ -29,3 +29,5 @@ tmp/
 
 # profiling data for code coverage
 **/*.profraw
+*.profdata
+coverage.txt

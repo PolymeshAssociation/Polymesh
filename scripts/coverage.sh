@@ -1,30 +1,37 @@
-# RUSTFLAGS="-Zinstrument-coverage" \
-# LLVM_PROFILE_FILE="json5format-%m.profraw" \
-# SKIP_WASM_BUILD=1 \
-# cargo test --tests \
-#     --package polymesh-runtime-tests \
-#     --features default_identity \
-#     --package pallet-staking \
-#     --package pallet-balances:0.1.0 \
-#     --package polymesh-primitives \
-#     --package pallet-transaction-payment
+RUSTFLAGS="-Zinstrument-coverage" \
+LLVM_PROFILE_FILE="json5format-%m.profraw" \
+SKIP_WASM_BUILD=1 \
+cargo test --tests \
+    --package pallet-staking \
+    --package pallet-group \
+    --package pallet-sudo \
+    --package polymesh-primitives \
+    --package node-rpc-runtime-api \
+    --package pallet-transaction-payment \
+    --package polymesh-runtime-tests \
+    --package pallet-balances:0.1.0 \
+    --features default_identity \
+    --package pallet-transaction-payment
 
-# cargo profdata -- merge \
-#     -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
+cargo profdata -- merge \
+    -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
-if [[ -z "${DEPLOY_ENV}" ]]; then
+if [[ -z "${CIRCLECI}" ]]; then
     cargo cov -- export \
     $( \
         for file in \
             $( \
             RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 \
                 cargo test --tests \
-                    --package polymesh-runtime-tests \
-                    --features default_identity \
                     --package pallet-staking \
-                    --package pallet-balances:0.1.0 \
+                    --package pallet-group \
+                    --package pallet-sudo \
                     --package polymesh-primitives \
+                    --package node-rpc-runtime-api \
                     --package pallet-transaction-payment \
+                    --package polymesh-runtime-tests \
+                    --package pallet-balances:0.1.0 \
+                    --features default_identity \
                     --no-run --message-format=json \
                 | jq -r "select(.profile.test == true) | .filenames[]" \
                 | grep -v dSYM - \
@@ -49,12 +56,15 @@ else
             $( \
             RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 \
                 cargo test --tests \
-                    --package polymesh-runtime-tests \
-                    --features default_identity \
                     --package pallet-staking \
-                    --package pallet-balances:0.1.0 \
+                    --package pallet-group \
+                    --package pallet-sudo \
                     --package polymesh-primitives \
+                    --package node-rpc-runtime-api \
                     --package pallet-transaction-payment \
+                    --package polymesh-runtime-tests \
+                    --package pallet-balances:0.1.0 \
+                    --features default_identity \
                     --no-run --message-format=json \
                 | jq -r "select(.profile.test == true) | .filenames[]" \
                 | grep -v dSYM - \

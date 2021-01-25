@@ -115,6 +115,29 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+  coverage:
+    docker:
+      - image: polymathnet/rust:debian-nightly-2021-01-25
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v1-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Tests
+          command: bash ./scripts/coverage.sh
+          no_output_timeout: 1h
+      - save_cache:
+          key: v1-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
   cli:
     docker:
       - image: polymathnet/rust:debian-nightly-2020-09-28
@@ -188,5 +211,5 @@ workflows:
   commit:
     jobs:
       - lint
-      - test
+      - coverage
       - benchmark
