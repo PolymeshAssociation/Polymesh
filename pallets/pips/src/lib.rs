@@ -333,8 +333,8 @@ pub struct SnapshotMetadata<T: Trait> {
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-//#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct SnapshottedPip<Balance> {
     /// Identifies the PIP this refers to.
     pub id: PipId,
