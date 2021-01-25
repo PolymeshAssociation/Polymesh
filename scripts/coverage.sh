@@ -19,7 +19,7 @@ cargo test --tests \
 cargo profdata -- merge \
     -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
-if [[ -z "$CIRCLECI" ]]; then
+if [[ -v CIRCLECI ]]; then
     cargo cov -- export \
     $( \
         for file in \
