@@ -1,6 +1,10 @@
 RUSTFLAGS="-Zinstrument-coverage" \
 LLVM_PROFILE_FILE="json5format-%m.profraw" \
-DUMMY_WASM_BUILD=1 \
+cargo check
+
+RUSTFLAGS="-Zinstrument-coverage" \
+LLVM_PROFILE_FILE="json5format-%m.profraw" \
+SKIP_WASM_BUILD=1 \
 cargo test --tests \
     --package pallet-staking \
     --package pallet-group \
