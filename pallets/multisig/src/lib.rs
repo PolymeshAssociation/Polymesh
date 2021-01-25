@@ -488,10 +488,9 @@ decl_module! {
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
-            // NB: the below check can be underflow but that doesn't matter
-            // because the checks in the next loop will fail in that case.
+            let pending_num_of_signers = <NumberOfSigners<T>>::get(&multisig).saturating_sub(signers_len);
             ensure!(
-                <NumberOfSigners<T>>::get(&multisig) - signers_len >= <MultiSigSignsRequired<T>>::get(&multisig),
+                pending_num_of_signers >= <MultiSigSignsRequired<T>>::get(&multisig),
                 Error::<T>::NotEnoughSigners
             );
 
@@ -503,7 +502,7 @@ decl_module! {
                 Self::unsafe_signer_removal(multisig.clone(), signer);
             }
 
-            <NumberOfSigners<T>>::mutate(&multisig, |x| *x -= signers_len);
+            <NumberOfSigners<T>>::insert(&multisig, pending_num_of_signers);
         }
 
         /// Changes the number of signatures required by a multisig. This must be called by the
