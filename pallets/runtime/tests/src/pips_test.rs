@@ -1,7 +1,9 @@
 use super::{
     assert_event_exists,
     committee_test::{gc_vmo, set_members},
-    storage::{fast_forward_blocks, root, Call, EventTest, TestStorage, User},
+    storage::{
+        fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
+    },
     ExtBuilder,
 };
 use frame_support::{
@@ -81,10 +83,6 @@ fn spip(id: PipId, dir: bool, power: u128) -> SnapshottedPip<u128> {
 
 fn make_proposal(value: u64) -> Call {
     Call::Pips(pips::Call::set_min_proposal_deposit(value.into()))
-}
-
-fn make_remark_proposal() -> Call {
-    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
 }
 
 fn proposal(
@@ -454,7 +452,7 @@ fn proposal_details_are_correct() {
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
 
-        let call = make_proposal(42);
+        let call = make_remark_proposal();
         let proposal_url: Url = b"www.abc.com".into();
         let proposal_desc: PipDescription = b"Test description".into();
 
