@@ -282,7 +282,7 @@ decl_module! {
             let offering_amount: T::Balance = tiers
                 .iter()
                 .map(|t| t.total)
-                .fold(0.into(), |total, x| total + x);
+                .fold(0.into(), |total, x| total.saturating_add(x));
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
