@@ -31,7 +31,7 @@ sp-runtime-interface = { git = "https://github.com/paritytech/substrate", defaul
 # Crypto
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0" }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.1" }
 
 # Only Benchmarking
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.1", optional = true }
