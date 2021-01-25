@@ -146,7 +146,7 @@ pub trait WeightInfo {
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
     fn snapshot() -> Weight;
-    fn enact_snapshot_results() -> Weight;
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
 }
@@ -1021,7 +1021,21 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results()]
+        #[weight = {
+            use SnapshotResult::*;
+
+            let mut approves = 0;
+            let mut rejects = 0;
+            let mut skips = 0;
+            for r in results.iter().map(|result| result.1) {
+                match r {
+                    Approve => approves += 1,
+                    Reject => rejects += 1,
+                    Skip => skips += 1,
+                }
+            }
+            <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips)
+        }]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
