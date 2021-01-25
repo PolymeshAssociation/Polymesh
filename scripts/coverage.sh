@@ -1,6 +1,6 @@
 RUSTFLAGS="-Zinstrument-coverage" \
 LLVM_PROFILE_FILE="json5format-%m.profraw" \
-SKIP_WASM_BUILD=1 \
+DUMMY_WASM_BUILD=1 \
 cargo test --tests \
     --package pallet-staking \
     --package pallet-group \
@@ -16,7 +16,7 @@ cargo test --tests \
 cargo profdata -- merge \
     -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
-if [[ -z "${CIRCLECI}" ]]; then
+if [[ -z "$CIRCLECI" ]]; then
     cargo cov -- export \
     $( \
         for file in \
