@@ -49,6 +49,7 @@ if [[ -v CIRCLECI ]]; then
     --ignore-filename-regex='/.cargo/git/' \
     --ignore-filename-regex='/target/debug/' \
     --ignore-filename-regex='/tests/' \
+    --ignore-filename-regex='/bin/' \
     --ignore-filename-regex='/rustc/' > coverage.txt
 
     bash <(curl -s https://codecov.io/bash)
@@ -82,6 +83,7 @@ else
     --ignore-filename-regex='/.cargo/git/' \
     --ignore-filename-regex='/target/debug/' \
     --ignore-filename-regex='/tests/' \
+    --ignore-filename-regex='/bin/' \
     --ignore-filename-regex='/rustc/' \
     --summary-only
 
