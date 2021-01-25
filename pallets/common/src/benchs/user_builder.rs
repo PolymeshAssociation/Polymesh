@@ -59,7 +59,7 @@ impl<T: Trait> UserBuilder<T> {
             .clone()
             .map_or_else(|| Self::make_key_pair(name, self.seed), |acc| (acc, None));
         let origin = RawOrigin::Signed(account.clone());
-        let amount: u32 = self.balance.try_into().unwrap_or_default() as u32;
+        let amount = u32::try_from(self.balance).unwrap();
         let _ = T::Balances::make_free_balance_be(&account, amount.into());
 
         // Generate DID or use the one given.

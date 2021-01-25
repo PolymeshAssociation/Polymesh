@@ -1,5 +1,5 @@
-RUSTFLAGS="-Zinstrument-coverage" \
-LLVM_PROFILE_FILE="json5format-%m.profraw" \
+# For someone reason, WASM toolchain is not detected by the next command
+# Therefore, building wasm binaries using this command and skipping in next
 cargo check
 
 RUSTFLAGS="-Zinstrument-coverage" \
@@ -14,8 +14,7 @@ cargo test --tests \
     --package pallet-transaction-payment \
     --package polymesh-runtime-tests \
     --package pallet-balances:0.1.0 \
-    --features default_identity \
-    --package pallet-transaction-payment
+    --features default_identity
 
 cargo profdata -- merge \
     -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
