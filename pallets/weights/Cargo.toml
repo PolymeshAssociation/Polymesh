@@ -6,14 +6,14 @@ edition = "2018"
 
 [dependencies]
 # substrate pallets
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.1" }
 
 # our pallets
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
