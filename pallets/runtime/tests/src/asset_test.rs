@@ -2080,7 +2080,7 @@ fn classic_ticker_genesis_already_registered_other_did() {
         ..import_a.clone()
     };
     test_asset_genesis(AssetGenesis {
-        classic_migration_contract_did: 1u32.into(),
+        classic_migration_contract_did: 1.into(),
         classic_migration_tconfig: default_reg_config(),
         classic_migration_tickers: vec![import_a, import_b],
         ..<_>::default()
@@ -2414,7 +2414,7 @@ fn classic_ticker_claim_works() {
             registration_length: Some(expire_after),
             ..default_reg_config()
         },
-        classic_migration_contract_did: 0u32.into(),
+        classic_migration_contract_did: 0.into(),
         reserved_country_currency_codes: vec![],
         versions: vec![],
     };

@@ -302,7 +302,7 @@ fn batch_secondary_with_permissions() {
     let calls = vec![
         Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
         Call::Portfolio(PortfolioCall::rename_portfolio(
-            1u32.into(),
+            1u64.into(),
             high_risk_name.clone(),
         )),
     ];
