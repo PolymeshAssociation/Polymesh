@@ -525,8 +525,7 @@ impl<T: Trait> Module<T> {
 
     /// The `actor` creates a checkpoint at `at` for `ticker`.
     /// The ID of the new checkpoint is returned.
-    // TODO(Centril): privatize when dividend module is nixed.
-    pub fn create_at_by(
+    fn create_at_by(
         actor: EventDid,
         ticker: Ticker,
         at: Moment,

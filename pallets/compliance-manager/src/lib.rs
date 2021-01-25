@@ -117,7 +117,7 @@ pub trait Trait:
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId, Self::Origin>;
 
-    /// Weight details of all extrinsics
+    /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
@@ -163,17 +163,10 @@ pub struct ComplianceRequirementResult {
 
 impl From<ComplianceRequirement> for ComplianceRequirementResult {
     fn from(requirement: ComplianceRequirement) -> Self {
+        let from_conds = |conds: Vec<_>| conds.into_iter().map(ConditionResult::from).collect();
         Self {
-            sender_conditions: requirement
-                .sender_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
-            receiver_conditions: requirement
-                .receiver_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
+            sender_conditions: from_conds(requirement.sender_conditions),
+            receiver_conditions: from_conds(requirement.receiver_conditions),
             id: requirement.id,
             result: true,
         }
@@ -554,7 +547,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
@@ -587,7 +580,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         let slot = &mut None;
         conditions.iter().all(|condition| {
@@ -600,7 +593,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         condition: &Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
         slot: &mut Option<Vec<TrustedIssuer>>,
     ) -> bool {
         let context = Self::fetch_context(did, ticker, slot, &condition, primary_issuance_agent);
@@ -614,7 +607,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut [ConditionResult],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         conditions.iter_mut().fold(true, |result, condition| {
             let cond = &condition.condition;
@@ -653,7 +646,7 @@ impl<T: Trait> Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
     ) -> AssetComplianceResult {
-        let primary_issuance_agent = T::Asset::primary_issuance_agent(ticker);
+        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
@@ -691,7 +684,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
-    fn verify_compliance_complexity(
+    pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
         add: usize,
@@ -704,7 +697,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
     /// is within the maximum condition complexity allowed.
-    fn base_verify_compliance_complexity(
+    pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         default_issuer_count: usize,
     ) -> DispatchResult {
@@ -739,25 +732,16 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        primary_issuance_agent: Option<IdentityId>,
-    ) -> Result<(u8, Weight), DispatchError> {
+        primary_issuance_agent: IdentityId,
+    ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
         if asset_compliance.paused {
-            return Ok((
-                ERC1400_TRANSFER_SUCCESS,
-                weight_for::weight_for_reading_asset_compliance::<T>(),
-            ));
+            return Ok(ERC1400_TRANSFER_SUCCESS);
         }
-
-        let mut requirement_count: usize = 0;
-        let verify_weight = |count| {
-            weight_for::weight_for_verify_restriction::<T>(u64::try_from(count).unwrap_or(0))
-        };
 
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                requirement_count += requirement.sender_conditions.len();
                 if !Self::are_all_conditions_satisfied(
                     ticker,
                     from_did,
@@ -770,7 +754,6 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                requirement_count += requirement.receiver_conditions.len();
                 if Self::are_all_conditions_satisfied(
                     ticker,
                     to_did,
@@ -778,10 +761,10 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
-                    return Ok((ERC1400_TRANSFER_SUCCESS, verify_weight(requirement_count)));
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
             }
         }
-        Ok((ERC1400_TRANSFER_FAILURE, verify_weight(requirement_count)))
+        Ok(ERC1400_TRANSFER_FAILURE)
     }
 }

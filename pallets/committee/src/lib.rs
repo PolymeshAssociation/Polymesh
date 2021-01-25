@@ -65,12 +65,12 @@ use frame_support::{
     traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
     weights::{DispatchClass::Operational, GetDispatchInfo, Pays},
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
@@ -80,8 +80,6 @@ use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
-
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The committee trait.
 pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
@@ -200,10 +198,9 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Sender Identity is not part of the committee.
-        MemberNotFound,
-        /// The proposer or voter is not a committee member.
-        BadOrigin,
+        /// A DID isn't part of the committee.
+        /// The DID may either be a caller or some other context.
+        NotAMember,
         /// No such proposal.
         NoSuchProposal,
         /// Proposal exists, but it has expired.
@@ -256,11 +253,11 @@ decl_module! {
         /// * `id` - The DID of the new release coordinator.
         ///
         /// # Errors
-        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
+        /// * `NotAMember`, If the new coordinator `id` is not part of the committee.
         #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
         pub fn set_release_coordinator(origin, id: IdentityId) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+            Self::ensure_did_is_member(&id)?;
             <ReleaseCoordinator<I>>::put(id);
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(GC_DID, Some(id)));
         }
@@ -295,23 +292,19 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&who)?;
-            let did = Context::current_identity_or::<Identity<T>>(&who)?;
-
-            let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+            let did = Self::ensure_is_member(origin)?;
+            let voting = Self::ensure_proposal(&proposal, index)?;
 
             // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
             let now = system::Module::<T>::block_number();
             Self::ensure_not_expired(&proposal, voting.expiry, now)?;
 
             ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
             ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
 
             let mut no_votes = voting.nays.len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
-            let seats = Self::members().len() as MemberCount;
+            let seats = Self::seats();
             let abstentions = seats - (yes_votes + no_votes);
             no_votes += abstentions;
 
@@ -365,7 +358,7 @@ decl_module! {
         /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
         ///
         /// # Errors
-        /// * `BadOrigin`, if the `origin` is not a member of this committee.
+        /// * `NotAMember`, if the `origin` is not a member of this committee.
         #[weight = (500_000_000, Operational, Pays::Yes)]
         pub fn vote(
             origin,
@@ -377,8 +370,7 @@ decl_module! {
             let did = Self::ensure_is_member(origin)?;
 
             // 2a. Ensure a prior proposal exists and that their indices match.
-            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+            let mut voting = Self::ensure_proposal(&proposal, index)?;
 
             // 2b. Ensure proposal hasn't expired. If it has, prune the proposal and bail.
             Self::ensure_not_expired(&proposal, voting.expiry, system::Module::<T>::block_number())?;
@@ -397,9 +389,8 @@ decl_module! {
             <Voting<T, I>>::insert(&proposal, voting);
 
             // 4. Emit event.
-            let members = Self::members().len() as MemberCount;
             Self::deposit_event(RawEvent::Voted(
-                did, index, proposal, approve, ayes, nays, members,
+                did, index, proposal, approve, ayes, nays, Self::seats(),
             ));
 
             // 5. Check whether majority has been reached and if so, execute proposal.
@@ -410,20 +401,36 @@ decl_module! {
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Ensures that `origin` is a committee member, returning its identity, or throws `BadOrigin`.
+    /// Ensure proposal with `hash` exists and has index `idx`.
+    fn ensure_proposal(
+        hash: &T::Hash,
+        idx: ProposalIndex,
+    ) -> Result<PolymeshVotes<IdentityId, T::BlockNumber>, DispatchError> {
+        let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
+        ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
+        Ok(voting)
+    }
+
+    /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
     fn ensure_is_member(
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<IdentityId, DispatchError> {
-        let who = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&who)?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
-        ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
-        Ok(who_id)
+        let did = <Identity<T>>::ensure_perms(origin)?;
+        Self::ensure_did_is_member(&did)?;
+        Ok(did)
     }
 
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
-    pub fn is_member(who: &IdentityId) -> bool {
-        Self::members().contains(who)
+    pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
+        ensure!(
+            Self::members().binary_search(who).is_ok(),
+            Error::<T, I>::NotAMember
+        );
+        Ok(())
+    }
+
+    fn seats() -> MemberCount {
+        Self::members().len() as _
     }
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
@@ -437,25 +444,21 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// # Return
     /// It returns true if vote was removed.
     fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
-        let mut is_id_removed = None;
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
-            is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, true));
-                Some(voting.ayes.swap_remove(idx))
-            } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, false));
-                Some(voting.nays.swap_remove(idx))
-            } else {
-                None
+            let idx = voting.index;
+            let remove = |from: &mut Vec<_>, sig| {
+                from.iter().position(|a| *a == id).map(|pos| {
+                    Self::deposit_event(RawEvent::VoteRetracted(id, idx, proposal, sig));
+                    from.swap_remove(pos)
+                })
             };
-
-            if is_id_removed.is_some() {
-                <Voting<T, I>>::insert(&proposal, voting);
-            }
+            return remove(&mut voting.ayes, true)
+                .or_else(|| remove(&mut voting.nays, false))
+                .map(|_| <Voting<T, I>>::insert(&proposal, voting))
+                .is_some();
         }
-
-        is_id_removed.is_some()
+        false
     }
 
     /// Accepts or rejects the proposal if its threshold is satisfied.
@@ -470,11 +473,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 return;
             }
 
-            let seats = Self::members().len() as MemberCount;
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let no_votes = voting.nays.len() as MemberCount;
+            let ayes = voting.ayes.len() as MemberCount;
+            let nays = voting.nays.len() as MemberCount;
             let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
+            Self::check_threshold_finalize(proposal, did, voting, ayes, nays, Self::seats());
         }
     }
 
@@ -597,7 +599,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // 3. Execute if committee is single member, and otherwise record the vote.
-        let seats = Self::members().len() as MemberCount;
+        let seats = Self::seats();
         if seats < 2 {
             Self::execute(did, proposal, proposal_hash, 1, seats);
         } else {
@@ -647,6 +649,14 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn bench_set_release_coordinator(id: IdentityId) {
+        if !Self::members().contains(&id) {
+            Self::change_members_sorted(&[id], &[], &[id]);
+        }
+        <ReleaseCoordinator<I>>::put(id);
     }
 }
 

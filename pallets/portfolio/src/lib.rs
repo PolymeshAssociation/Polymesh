@@ -41,6 +41,7 @@
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 
+#![feature(const_option)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -49,18 +50,20 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::Weight, IterableStorageDoubleMap,
+    storage::StorageValue, weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, SecondaryKey, Signatory, Ticker,
+    storage_migration_ver, AuthorizationData, AuthorizationError, IdentityId, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};
+
+storage_migration_ver!(1);
 
 type Identity<T> = identity::Module<T>;
 
@@ -86,7 +89,7 @@ pub trait Trait: CommonTrait + IdentityTrait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Session {
+    trait Store for Module<T: Trait> as Portfolio {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
@@ -113,6 +116,8 @@ decl_storage! {
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -203,15 +208,31 @@ decl_module! {
         /// The event logger.
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{storage_migrate_on, migrate::move_map_rename_module};
+
+            let storage_ver = StorageVersion::get();
+
+            storage_migrate_on!(storage_ver, 1, {
+                move_map_rename_module::<PortfolioName>(b"Session", b"Portfolio", b"Portfolios");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioAssetBalances");
+                move_map_rename_module::<PortfolioNumber>(b"Session", b"Portfolio", b"NextPortfolioNumber");
+                move_map_rename_module::<Option<IdentityId>>(b"Session", b"Portfolio", b"PortfolioCustodian");
+                move_map_rename_module::<T::Balance>(b"Session", b"Portfolio", b"PortfolioLockedAssets");
+                move_map_rename_module::<bool>(b"Session", b"Portfolio", b"PortfoliosInCustody");
+            });
+
+            0
+        }
+
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
-        pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
+        pub fn create_portfolio(origin, name: PortfolioName) {
             let primary_did = Identity::<T>::ensure_perms(origin)?;
             Self::ensure_name_unique(&primary_did, &name)?;
             let num = Self::get_next_portfolio_number(&primary_did);
-            <Portfolios>::insert(&primary_did, &num, name.clone());
+            Portfolios::insert(&primary_did, &num, name.clone());
             Self::deposit_event(RawEvent::PortfolioCreated(primary_did, num, name));
-            Ok(())
         }
 
         /// Deletes a user portfolio. A portfolio can be deleted only if it has no funds.
@@ -220,7 +241,7 @@ decl_module! {
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
         #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
-        pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
+        pub fn delete_portfolio(origin, num: PortfolioNumber) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
@@ -231,12 +252,10 @@ decl_module! {
 
             // Check that the portfolio exists and the secondary key has access to it
             Self::ensure_user_portfolio_validity(primary_did, num)?;
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), portfolio_id)?;
-            Self::ensure_portfolio_custody(portfolio_id, primary_did)?;
+            Self::ensure_portfolio_custody_and_permission(portfolio_id, primary_did, secondary_key.as_ref())?;
 
-            <Portfolios>::remove(&primary_did, &num);
+            Portfolios::remove(&primary_did, &num);
             Self::deposit_event(RawEvent::PortfolioDeleted(primary_did, num));
-            Ok(())
         }
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
@@ -255,30 +274,33 @@ decl_module! {
             from: PortfolioId,
             to: PortfolioId,
             items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
-        ) -> DispatchResult {
+        ) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            // Check that the source and destination portfolios are in fact different.
+            // Ensure the source and destination portfolios are in fact different.
             ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
-            // Check that the source and destination did are in fact same.
+            // Ensure the source and destination DID are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
 
-            // Ensures that the secondary key has access to the sender portfolio.
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
-            // Check that the sender is the custodian of the `from` portfolio
-            Self::ensure_portfolio_custody(from, primary_did)?;
+            // Ensure the sender is the custodian & secondary key has access to the portfolio.
+            Self::ensure_portfolio_custody_and_permission(from, primary_did, secondary_key.as_ref())?;
 
-            // Check that the receiving portfolio exists.
+            // Ensure the receiving portfolio exists.
             Self::ensure_portfolio_validity(&to)?;
-            // Ensures that the secondary key has access to the receiver's portfolio.
+            // Ensure that the secondary key has access to the receiver's portfolio.
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
 
-            for item in items {
+            // Ensure there are sufficient funds for all moves.
+            for item in &items {
                 Self::ensure_sufficient_balance(&from, &item.ticker, &item.amount)?;
+            }
+
+            // Commit changes.
+            for item in items {
                 Self::unchecked_transfer_portfolio_balance(&from, &to, &item.ticker, item.amount);
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                     primary_did,
@@ -288,7 +310,6 @@ decl_module! {
                     item.amount
                 ));
             }
-            Ok(())
         }
 
         /// Renames a non-default portfolio.
@@ -300,23 +321,21 @@ decl_module! {
             origin,
             num: PortfolioNumber,
             to_name: PortfolioName,
-        ) -> DispatchResult {
+        ) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), PortfolioId::user_portfolio(primary_did, num))?;
-            // Check that the portfolio exists.
-            ensure!(<Portfolios>::contains_key(&primary_did, &num), Error::<T>::PortfolioDoesNotExist);
+            Self::ensure_user_portfolio_validity(primary_did, num)?;
             Self::ensure_name_unique(&primary_did, &to_name)?;
-            <Portfolios>::mutate(&primary_did, &num, |p| *p = to_name.clone());
+            Portfolios::mutate(&primary_did, &num, |p| *p = to_name.clone());
             Self::deposit_event(RawEvent::PortfolioRenamed(
                 primary_did,
                 num,
                 to_name,
             ));
-            Ok(())
         }
     }
 }
@@ -355,7 +374,7 @@ impl<T: Trait> Module<T> {
 
     /// An RPC function that lists all user-defined portfolio number-name pairs.
     pub fn rpc_get_portfolios(did: IdentityId) -> Vec<(PortfolioNumber, PortfolioName)> {
-        <Portfolios>::iter_prefix(&did).collect()
+        Portfolios::iter_prefix(&did).collect()
     }
 
     /// An RPC function that lists all token-balance pairs of a portfolio.
@@ -367,7 +386,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensures that there is no portfolio with the desired `name` yet.
     fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
-        let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| &n.1 != name);
+        let name_uniq = Portfolios::iter_prefix(&did).all(|n| &n.1 != name);
         ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
         Ok(())
     }
@@ -402,7 +421,7 @@ impl<T: Trait> Module<T> {
     /// Ensure that the `PortfolioNumber` is valid.
     fn ensure_user_portfolio_validity(did: IdentityId, num: PortfolioNumber) -> DispatchResult {
         ensure!(
-            <Portfolios>::contains_key(did, num),
+            Portfolios::contains_key(did, num),
             Error::<T>::PortfolioDoesNotExist
         );
         Ok(())
@@ -413,7 +432,7 @@ impl<T: Trait> Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         portfolio: PortfolioId,
     ) -> DispatchResult {
-        // Default portfolio are always allowed. Custom portfolios must be permissioned.
+        // If `sk` is None, caller is primary key and has full permissions.
         if let Some(sk) = secondary_key {
             // Check that the secondary signer is allowed to work with this portfolio.
             ensure!(
@@ -537,8 +556,7 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
             _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
         };
 
-        let current_custodian =
-            <PortfolioCustodian>::get(&portfolio_id).unwrap_or(portfolio_id.did);
+        let current_custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
 
         <identity::Module<T>>::consume_auth(
             current_custodian,
