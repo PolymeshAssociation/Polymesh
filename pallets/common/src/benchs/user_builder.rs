@@ -27,7 +27,7 @@ use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_primitives::{IdentityId, InvestorUid};
 use sp_io::hashing::blake2_256;
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
