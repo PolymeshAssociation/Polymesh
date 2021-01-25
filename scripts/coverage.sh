@@ -33,12 +33,13 @@ if [[ -z "${DEPLOY_ENV}" ]]; then
             printf "%s %s " -object $file; \
         done \
     ) \
+    --format='lcov' \
     --instr-profile=json5format.profdata \
     --ignore-filename-regex='/.cargo/registry/' \
     --ignore-filename-regex='/.cargo/git/' \
     --ignore-filename-regex='/target/debug/' \
     --ignore-filename-regex='/tests/' \
-    --ignore-filename-regex='/rustc/' > coverage.json
+    --ignore-filename-regex='/rustc/' > coverage.txt
 
     bash <(curl -s https://codecov.io/bash)
 else
