@@ -13,12 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    self as polymesh_primitives, secondary_key::SecondaryKeyOld, IdentityRole, SecondaryKey,
-    Signatory,
-};
+use crate::{SecondaryKey, Signatory};
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::Migrate;
 use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -30,17 +26,6 @@ use sp_std::{convert::From, prelude::Vec};
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity<AccountId: Encode + Decode> {
     pub primary_key: AccountId,
-    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
-}
-
-/// Identity information.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct IdentityWithRoles<AccountId: Encode + Decode> {
-    pub roles: Vec<IdentityRole>,
-    pub primary_key: AccountId,
-    #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 

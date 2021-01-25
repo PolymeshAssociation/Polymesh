@@ -26,7 +26,7 @@
 //! compliance failure, all other legs will also fail.
 //!
 //! An instruction must be authorized by all the counter parties involved for it to be executed.
-//! An instruction can be set to automatically execute when all authorizations are received or at a particular block number.
+//! An instruction can be set to automatically execute in the next block when all authorizations are received or at a particular block number.
 //!
 //! Offchain settlements are represented via receipts. If a leg has a receipt attached to it, it will not be executed onchain.
 //! All other legs will be executed onchain during settlement.
@@ -52,25 +52,27 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure, storage,
     traits::{
-        schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
+        schedule::{DispatchTime, Named as ScheduleNamed},
         Get,
     },
-    weights::{PostDispatchInfo, Weight},
-    IterableStorageDoubleMap, Parameter, StorageHasher, Twox128,
+    weights::Weight,
+    IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    traits::{
-        asset::GAS_LIMIT, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait,
-        CommonTrait,
+    constants::{
+        queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+        schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
+    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -78,10 +80,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::{
-    traits::{Dispatchable, Verify, Zero},
-    DispatchErrorWithPostInfo,
-};
+use sp_runtime::traits::{One, Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -89,21 +88,22 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + asset::Trait
+    frame_system::Trait
+    + CommonTrait
+    + IdentityTrait
+    + pallet_timestamp::Trait
+    + asset::Trait
+    + pallet_compliance_manager::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The maximum number of total legs allowed for a instruction can have.
     type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
-    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
-    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
-        + From<Call<Self>>;
-    /// Weight information for extrinsic in this pallet.
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+    /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
 
@@ -186,9 +186,9 @@ impl Default for AffirmationStatus {
 /// Type of settlement
 #[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SettlementType<BlockNumber> {
-    /// Instruction should be settled as soon as all affirmations are received
+    /// Instruction should be settled in the next block as soon as all affirmations are received.
     SettleOnAffirmation,
-    /// Instruction should be settled on a particular block
+    /// Instruction should be settled on a particular block.
     SettleOnBlock(BlockNumber),
 }
 
@@ -212,7 +212,9 @@ pub struct Instruction<Moment, BlockNumber> {
     /// Date at which this instruction was created
     pub created_at: Option<Moment>,
     /// Date from which this instruction is valid
-    pub valid_from: Option<Moment>,
+    pub trade_date: Option<Moment>,
+    /// Date after which the instruction should be settled (not enforced)
+    pub value_date: Option<Moment>,
 }
 
 /// Details of a leg including the leg id in the instruction
@@ -304,15 +306,17 @@ pub trait WeightInfo {
     fn update_venue(d: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
-    fn affirm_instruction() -> Weight;
+    fn affirm_instruction(l: u32) -> Weight;
     fn withdraw_affirmation(u: u32) -> Weight;
-    fn reject_instruction() -> Weight;
-    fn affirm_with_receipts() -> Weight;
+    fn reject_instruction(l: u32) -> Weight;
+    fn affirm_with_receipts(r: u32) -> Weight;
     fn claim_receipt() -> Weight;
     fn unclaim_receipt() -> Weight;
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
+    fn execute_scheduled_instruction(l: u32, s: u32, c: u32) -> Weight;
+    fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -320,118 +324,6 @@ pub trait WeightInfo {
     fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
-}
-
-impl WeightInfo for () {
-    fn create_venue(_d: u32, _u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn update_venue(_d: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn affirm_instruction() -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn reject_instruction() -> Weight {
-        1_000_000_000
-    }
-    fn affirm_with_receipts() -> Weight {
-        1_000_000_000
-    }
-    fn claim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn unclaim_receipt() -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering() -> Weight {
-        1_000_000_000
-    }
-    fn allow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn disallow_venues(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_venue_filtering_disallow() -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_affirmation_with_receipt(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn add_and_affirm_instruction_with_settle_on_block_type(_u: u32) -> Weight {
-        1_000_000_000
-    }
-}
-
-pub mod weight_for {
-    use super::*;
-
-    pub fn weight_for_execute_instruction_if_no_pending_affirm<T: Trait>(
-        weight_for_custodian_transfer: Weight,
-    ) -> Weight {
-        T::DbWeight::get()
-            .reads(4) // Weight for read
-            .saturating_add(150_000_000) // General weight
-            .saturating_add(weight_for_custodian_transfer) // Weight for custodian transfer
-    }
-
-    pub fn weight_for_execute_instruction_if_pending_affirm<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 1) // For read and write
-            .saturating_add(900_000_000) // Mocking unchecked_release_locks() function weight.
-    }
-
-    pub fn weight_for_affirmation_with_receipts<T: Trait>(no_of_receipts: u32) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(6, 3) // weight for read and write
-            .saturating_add((no_of_receipts * 80_000_000).into()) // Weight for receipts.
-            .saturating_add(
-                T::DbWeight::get()
-                    .reads_writes(3, 1)
-                    .saturating_mul(no_of_receipts.into()),
-            ) // weight for read and write related to receipts.
-    }
-
-    pub fn weight_for_affirmation_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(5, 3) // weight for read and writes
-            .saturating_add(600_000_000)
-    }
-
-    pub fn weight_for_reject_instruction<T: Trait>() -> Weight {
-        T::DbWeight::get()
-            .reads_writes(3, 2) // weight for read and writes
-            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction_affirmation()`
-    }
-
-    pub fn weight_for_transfer<T: Trait>() -> Weight {
-        GAS_LIMIT
-            .saturating_mul(
-                (<Asset<T>>::max_number_of_tm_extension() * T::MaxLegsInInstruction::get()).into(),
-            )
-            .saturating_add(70_000_000) // Weight for compliance manager
-            .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // Weight for read
-            .saturating_add(150_000_000)
-    }
-
-    pub fn weight_for_instruction_creation<T: Trait>(no_of_legs: usize) -> Weight {
-        T::DbWeight::get()
-            .reads_writes(2, 5)
-            .saturating_add(u64::try_from(no_of_legs * 50_000_000).unwrap_or_default())
-    }
 }
 
 decl_event!(
@@ -447,12 +339,13 @@ decl_event!(
         /// An existing venue has been updated (did, venue_id, details, type)
         VenueUpdated(IdentityId, u64, VenueDetails, VenueType),
         /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, valid_from, legs)
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
             IdentityId,
             u64,
             u64,
             SettlementType<BlockNumber>,
+            Option<Moment>,
             Option<Moment>,
             Vec<Leg<Balance>>,
         ),
@@ -480,6 +373,8 @@ decl_event!(
         InstructionExecuted(IdentityId, u64),
         /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
         VenueUnauthorized(IdentityId, Ticker, u64),
+        /// Scheduling of instruction fails.
+        SchedulingFailed(DispatchError),
     }
 );
 
@@ -510,8 +405,8 @@ decl_error! {
         FailedToLockTokens,
         /// Instruction failed to execute.
         InstructionFailed,
-        /// Instruction validity has not started yet.
-        InstructionWaitingValidity,
+        /// Instruction has invalid dates
+        InstructionDatesInvalid,
         /// Instruction's target settle block reached.
         InstructionSettleBlockPassed,
         /// Offchain signature is invalid.
@@ -527,7 +422,9 @@ decl_error! {
         /// Portfolio based actions require at least one portfolio to be provided as input.
         NoPortfolioProvided,
         /// The current instruction affirmation status does not support the requested action.
-        UnexpectedAffirmationStatus
+        UnexpectedAffirmationStatus,
+        /// Scheduling of an instruction fails.
+        FailedToSchedule
     }
 }
 
@@ -589,8 +486,8 @@ decl_module! {
                 storage::unhashed::kill_prefix(&prefix);
 
                 // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
-                <VenueCounter>::put(1);
-                <InstructionCounter>::put(1);
+                VenueCounter::put(1);
+                InstructionCounter::put(1);
             });
 
             1_000
@@ -604,20 +501,18 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 5_000_000 * signers.len()`
-        #[weight = 200_000_000 + 5_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
-        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+        #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
+        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
+            let did = Identity::<T>::ensure_perms(origin)?;
             let venue = Venue::new(did, details, venue_type);
             // NB: Venue counter starts with 1.
-            let venue_counter = Self::venue_counter();
-            <VenueInfo>::insert(venue_counter, venue.clone());
+            let venue_counter = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
+            VenueInfo::insert(venue_counter, venue.clone());
             for signer in signers {
                 <VenueSigners<T>>::insert(venue_counter, signer, true);
             }
-            <VenueCounter>::put(venue_counter + 1);
-            <UserVenues>::append(did, venue_counter);
+            UserVenues::append(did, venue_counter);
             Self::deposit_event(RawEvent::VenueCreated(did, venue_counter, venue.details, venue.venue_type));
-            Ok(())
         }
 
         /// Edit venue details and types.
@@ -629,21 +524,25 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000
-        #[weight = 200_000_000]
-        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, venue_type: Option<VenueType>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            // Check if a venue exists and the sender is the creator of the venue
-            let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
-            ensure!(venue.creator == did, Error::<T>::Unauthorized);
-            if let Some(venue_details) = details {
-                venue.details = venue_details;
-            }
-            if let Some(v_type) = venue_type {
-                venue.venue_type = v_type;
-            }
-            <VenueInfo>::insert(&venue_id, venue.clone());
-            Self::deposit_event(RawEvent::VenueUpdated(did, venue_id, venue.details, venue.venue_type));
-            Ok(())
+        #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
+        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, typ: Option<VenueType>) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            VenueInfo::try_mutate(venue_id, |venue| {
+                // Ensure venue exists & that DID created it.
+                let venue = venue.as_mut().ok_or(Error::<T>::InvalidVenue)?;
+                ensure!(venue.creator == did, Error::<T>::Unauthorized);
+
+                // Update details & type.
+                if let Some(details) = details {
+                    venue.details = details;
+                }
+                if let Some(typ) = typ {
+                    venue.venue_type = typ;
+                }
+
+                Self::deposit_event(RawEvent::VenueUpdated(did, venue_id, venue.details.clone(), venue.venue_type.clone()));
+                Ok(())
+            })
         }
 
         /// Adds a new instruction.
@@ -651,23 +550,27 @@ decl_module! {
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())]
+        #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+        )]
         pub fn add_instruction(
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>
-        ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-            Ok(())
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
         }
 
         /// Adds and affirms a new instruction.
@@ -675,35 +578,30 @@ decl_module! {
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirmations or waiting till a specific block.
-        /// * `valid_from` - Optional date from which people can interact with this instruction.
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())
-            + weight_for::weight_for_affirmation_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>()
-        ]
+        #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())
+        )]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: u64,
             settlement_type: SettlementType<T::BlockNumber>,
-            valid_from: Option<T::Moment>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>,
             portfolios: Vec<PortfolioId>
-        ) -> DispatchResultWithPostInfo {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            let legs_count = legs.len();
-            let affirm_instruction_weight = with_transaction(|| {
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-                Self::affirm_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())
-            })?;
-            Ok(
-                Some(
-                    weight_for::weight_for_instruction_creation::<T>(legs_count)
-                        .saturating_add(affirm_instruction_weight.actual_weight.unwrap_or_default())
-                ).into()
-            )
+        ) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            with_transaction(|| {
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
+                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter())
+            })
         }
 
         /// Provide affirmation to an existing instruction.
@@ -711,18 +609,9 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to affirm.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction
-        #[weight = weight_for::weight_for_affirmation_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-        ]
-        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            match Self::base_affirm_instruction(origin, instruction_id, portfolios) {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => if e.error == Error::<T>::InstructionFailed.into() || e.error == Error::<T>::UnauthorizedVenue.into() {
-                    Ok(e.post_info)
-                } else {
-                    Err(e)
-                }
-            }
+        #[weight = <T as Trait>::WeightInfo::affirm_instruction(portfolios.len() as u32)]
+        pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
+            Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter())
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -730,13 +619,17 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-        #[weight = 25_000_000_000]
-        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(portfolios.len() as u32)]
+        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())
+            Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref())?;
+            if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
+                // Cancel the scheduled task for the execution of a given instruction.
+                let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
+            }
         }
 
         /// Rejects an existing instruction.
@@ -744,13 +637,12 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
         /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
-        #[weight = weight_for::weight_for_reject_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-        ]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(portfolios.len() as u32)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            ensure!(!portfolios.is_empty(), Error::<T>::NoPortfolioProvided);
+
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            ensure!(portfolios_set.len() > 0, Error::<T>::NoPortfolioProvided);
 
             // If the instruction was affirmed by the portfolio, the affirmation must be withdrawn.
             // The sender must have custodian permission over the portfolio.
@@ -767,22 +659,13 @@ decl_module! {
 
             // Updates storage to mark the instruction as rejected.
             for portfolio in portfolios_set {
-                <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
-                <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
+                UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
+                AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
             }
-
-            // Execute the instruction if it was meant to be executed on affirmation
-            let weight_for_instruction_execution = Self::is_instruction_executed(
-                Zero::zero(),
-                Self::instruction_details(instruction_id).settlement_type,
-                instruction_id
-            );
 
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
-            match weight_for_instruction_execution {
-                Ok(post_info) => Ok(post_info.actual_weight.map(|w| w.saturating_add(weight_for::weight_for_reject_instruction::<T>())).into()),
-                Err(e) => Ok(e.post_info)
-            }
+            // Schedule the instruction to execute in the next block only if it was meant to be executed on affirmation.
+            Self::maybe_schedule_instruction(Zero::zero(), instruction_id)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -794,18 +677,9 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with
-        #[weight = weight_for::weight_for_affirmation_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
-            ]
-        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            match Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios) {
-                Ok(post_info) => Ok(post_info),
-                Err(e) => if e == Error::<T>::InstructionFailed.into() || e == Error::<T>::UnauthorizedVenue.into() {
-                    Ok(e.post_info)
-                }else {
-                    Err(e)
-                }
-            }
+        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(receipt_details.len() as u32)]
+        pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResult {
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios)
         }
 
         /// Claims a signed receipt.
@@ -816,7 +690,7 @@ decl_module! {
         /// * `receipt_uid` - Receipt ID generated by the signer.
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
-        #[weight = 10_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let (primary_did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
@@ -832,22 +706,21 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Target instruction id for the receipt.
         /// * `leg_id` - Target leg id for the receipt
-        #[weight = 5_000_000_000]
-        pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
+        pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
-            if let LegStatus::ExecutionToBeSkipped(signer, receipt_uid) = Self::instruction_leg_status(instruction_id, leg_id) {
-                let leg = Self::instruction_legs(instruction_id, leg_id);
-                T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key.as_ref())?;
-                // Lock tokens that are part of the leg
-                T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)?;
-                <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
-                <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
-                Self::deposit_event(RawEvent::ReceiptUnclaimed(did, instruction_id, leg_id, receipt_uid, signer));
-                Ok(())
-            } else {
-                Err(Error::<T>::ReceiptNotClaimed.into())
-            }
+            let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
+                LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
+                _ => return Err(Error::<T>::ReceiptNotClaimed.into()),
+            };
+            let leg = Self::instruction_legs(instruction_id, leg_id);
+            T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key.as_ref())?;
+            // Lock tokens that are part of the leg
+            Self::lock_via_leg(&leg)?;
+            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
+            <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
+            Self::deposit_event(RawEvent::ReceiptUnclaimed(did, instruction_id, leg_id, receipt_uid, signer));
         }
 
         /// Enables or disabled venue filtering for a token.
@@ -855,16 +728,15 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token in question.
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
-        #[weight = 200_000_000]
-        pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
+        pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             if enabled {
-                <VenueFiltering>::insert(ticker, enabled);
+                VenueFiltering::insert(ticker, enabled);
             } else {
-                <VenueFiltering>::remove(ticker);
+                VenueFiltering::remove(ticker);
             }
             Self::deposit_event(RawEvent::VenueFiltering(did, ticker, enabled));
-            Ok(())
         }
 
         /// Allows additional venues to create instructions involving an asset.
@@ -874,14 +746,13 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 500_000 * venues.len()`
-        #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
-        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
+        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
-                <VenueAllowList>::insert(&ticker, venue, true);
+                VenueAllowList::insert(&ticker, venue, true);
             }
             Self::deposit_event(RawEvent::VenuesAllowed(did, ticker, venues));
-            Ok(())
         }
 
         /// Revokes permission given to venues for creating instructions involving a particular asset.
@@ -891,26 +762,33 @@ decl_module! {
         ///
         /// # Weight
         /// `200_000_000 + 500_000 * venues.len()`
-        #[weight = 200_000_000 + 500_000 * u64::try_from(venues.len()).unwrap_or_default()]
-        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) -> DispatchResult {
+        #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
+        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             for venue in &venues {
-                <VenueAllowList>::remove(&ticker, venue);
+                VenueAllowList::remove(&ticker, venue);
             }
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
-            Ok(())
         }
 
-        /// An internal call to execute a scheduled settlement instruction.
-        #[weight = 500_000_000]
-        fn execute_scheduled_instruction(origin, instruction_id: u64) -> DispatchResultWithPostInfo {
+        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(T::MaxLegsInInstruction::get(), T::MaxNumberOfTMExtensionForAsset::get(), T::MaxConditionComplexity::get())]
+        fn execute_scheduled_instruction(origin, instruction_id: u64) {
             ensure_root(origin)?;
-            Self::execute_instruction(instruction_id).1
+            Self::execute_instruction(instruction_id)?;
         }
     }
 }
 
 impl<T: Trait> Module<T> {
+    fn lock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
+        T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
+    }
+
+    fn unlock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
+        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, &leg.amount)
+    }
+
     /// Ensure origin call permission and the given instruction validity.
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Trait>::Origin,
@@ -929,7 +807,8 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         venue_id: u64,
         settlement_type: SettlementType<T::BlockNumber>,
-        valid_from: Option<T::Moment>,
+        trade_date: Option<T::Moment>,
+        value_date: Option<T::Moment>,
         legs: Vec<Leg<T::Balance>>,
     ) -> Result<u64, DispatchError> {
         // Check whether the no. of legs within the limit or not.
@@ -938,7 +817,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::LegsCountExceededMaxLimit
         );
 
-        // Ensure that the scheduled block number is in the future so that T::Scheduler::schedule
+        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
             ensure!(
@@ -952,8 +831,6 @@ impl<T: Trait> Module<T> {
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
 
         // Prepare data to store in storage
-        // NB Instruction counter starts from 1
-        let instruction_counter = Self::instruction_counter();
         let mut counter_parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
         // This is done to create a list of unique CP and tickers involved in the instruction.
@@ -974,18 +851,21 @@ impl<T: Trait> Module<T> {
             }
         }
 
+        // NB Instruction counter starts from 1
+        let instruction_counter = Self::instruction_counter();
         let instruction = Instruction {
             instruction_id: instruction_counter,
             venue_id,
             status: InstructionStatus::Pending,
             settlement_type,
             created_at: Some(<pallet_timestamp::Module<T>>::get()),
-            valid_from,
+            trade_date,
+            value_date,
         };
 
         // write data to storage
         for counter_party in &counter_parties {
-            <UserAffirmations>::insert(
+            UserAffirmations::insert(
                 counter_party,
                 instruction_counter,
                 AffirmationStatus::Pending,
@@ -1001,30 +881,24 @@ impl<T: Trait> Module<T> {
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            let call = Call::<T>::execute_scheduled_instruction(instruction_counter).into();
-            T::Scheduler::schedule(
-                DispatchTime::At(block_number),
-                None,
-                LOWEST_PRIORITY,
-                RawOrigin::Root.into(),
-                call,
-            )?;
+            Self::schedule_instruction(instruction_counter, block_number);
         }
 
         <InstructionDetails<T>>::insert(instruction_counter, instruction);
-        <InstructionAffirmsPending>::insert(
+        InstructionAffirmsPending::insert(
             instruction_counter,
             u64::try_from(counter_parties.len()).unwrap_or_default(),
         );
         venue.instructions.push(instruction_counter);
-        <VenueInfo>::insert(venue_id, venue);
-        <InstructionCounter>::put(instruction_counter + 1);
+        VenueInfo::insert(venue_id, venue);
+        InstructionCounter::put(instruction_counter + 1);
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
             venue_id,
             instruction_counter,
             settlement_type,
-            valid_from,
+            trade_date,
+            value_date,
             legs,
         ));
         Ok(instruction_counter)
@@ -1063,11 +937,7 @@ impl<T: Trait> Module<T> {
                 }
                 LegStatus::ExecutionPending => {
                     // Tokens are unlocked, need to be unlocked
-                    T::Portfolio::unlock_tokens(
-                        &leg_details.from,
-                        &leg_details.asset,
-                        &leg_details.amount,
-                    )?;
+                    Self::unlock_via_leg(&leg_details)?;
                 }
                 LegStatus::PendingTokenLock => {
                     return Err(Error::<T>::InstructionNotAffirmed.into())
@@ -1078,8 +948,8 @@ impl<T: Trait> Module<T> {
 
         // Updates storage
         for portfolio in &portfolios {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Pending);
-            <AffirmsReceived>::remove(instruction_id, portfolio);
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Pending);
+            AffirmsReceived::remove(instruction_id, portfolio);
             Self::deposit_event(RawEvent::AffirmationWithdrawn(
                 did,
                 *portfolio,
@@ -1087,7 +957,7 @@ impl<T: Trait> Module<T> {
             ));
         }
 
-        <InstructionAffirmsPending>::mutate(instruction_id, |affirms_pending| {
+        InstructionAffirmsPending::mutate(instruction_id, |affirms_pending| {
             *affirms_pending += u64::try_from(portfolios.len()).unwrap_or_default()
         });
 
@@ -1095,19 +965,18 @@ impl<T: Trait> Module<T> {
     }
 
     fn ensure_instruction_validity(instruction_id: u64) -> DispatchResult {
-        let instruction_details = Self::instruction_details(instruction_id);
+        let details = Self::instruction_details(instruction_id);
         ensure!(
-            instruction_details.status == InstructionStatus::Pending,
+            details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
-        if let Some(valid_from) = instruction_details.valid_from {
-            #[cfg(not(feature = "runtime-benchmarks"))]
+        if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
             ensure!(
-                <pallet_timestamp::Module<T>>::get() >= valid_from,
-                Error::<T>::InstructionWaitingValidity
+                value_date >= trade_date,
+                Error::<T>::InstructionDatesInvalid
             );
         }
-        if let SettlementType::SettleOnBlock(block_number) = instruction_details.settlement_type {
+        if let SettlementType::SettleOnBlock(block_number) = details.settlement_type {
             ensure!(
                 block_number > system::Module::<T>::block_number(),
                 Error::<T>::InstructionSettleBlockPassed
@@ -1116,22 +985,21 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_instruction(instruction_id: u64) -> (u32, DispatchResultWithPostInfo) {
+    fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
-        let weight_for_execution = if Self::instruction_affirms_pending(instruction_id) > 0 {
+        if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
+            Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::deposit_event(RawEvent::InstructionRejected(
                 SettlementDID.as_id(),
                 instruction_id,
             ));
             result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-            weight_for::weight_for_execute_instruction_if_pending_affirm::<T>()
         } else {
-            let mut transaction_weight = 0;
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
             let venue_id = Self::instruction_details(instruction_id).venue_id;
@@ -1152,15 +1020,14 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         status == LegStatus::ExecutionPending
                     }) {
-                        let result = <Asset<T>>::base_transfer(
+                        if <Asset<T>>::base_transfer(
                             leg_details.from,
                             leg_details.to,
                             &leg_details.asset,
                             leg_details.amount,
-                        );
-                        if let Ok(post_info) = result {
-                            transaction_weight += post_info.actual_weight.unwrap_or_default();
-                        } else {
+                        )
+                        .is_err()
+                        {
                             return Err(leg_id);
                         }
                     }
@@ -1182,11 +1049,12 @@ impl<T: Trait> Module<T> {
                             SettlementDID.as_id(),
                             instruction_id,
                         ));
+                        // We need to unclaim receipts for the failed transaction so that they can be reused
+                        Self::unsafe_unclaim_receipts(instruction_id, &legs);
                         result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
                     }
                 }
             }
-            weight_for::weight_for_execute_instruction_if_no_pending_affirm::<T>(transaction_weight)
         };
 
         // Clean up instruction details to reduce chain bloat
@@ -1197,16 +1065,7 @@ impl<T: Trait> Module<T> {
         AffirmsReceived::remove_prefix(instruction_id);
         Self::prune_user_affirmations(&legs, instruction_id);
 
-        let post_info = PostDispatchInfo {
-            actual_weight: Some(weight_for_execution.saturating_add(T::DbWeight::get().writes(5))),
-            pays_fee: Default::default(),
-        };
-        (
-            instructions_processed,
-            result
-                .map(|_| post_info)
-                .map_err(|error| DispatchErrorWithPostInfo { post_info, error }),
-        )
+        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
     }
 
     fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
@@ -1243,13 +1102,7 @@ impl<T: Trait> Module<T> {
             for (leg_id, leg_details) in
                 legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
             {
-                if T::Portfolio::lock_tokens(
-                    &leg_details.from,
-                    &leg_details.asset,
-                    &leg_details.amount,
-                )
-                .is_err()
-                {
+                if let Err(_) = Self::lock_via_leg(&leg_details) {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                     return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
                 }
@@ -1266,15 +1119,15 @@ impl<T: Trait> Module<T> {
 
         // Updates storage
         for portfolio in &portfolios {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
             Self::deposit_event(RawEvent::InstructionAffirmed(
                 did,
                 *portfolio,
                 instruction_id,
             ));
         }
-        <InstructionAffirmsPending>::insert(
+        InstructionAffirmsPending::insert(
             instruction_id,
             affirms_pending.saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default()),
         );
@@ -1324,7 +1177,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidSignature
         );
 
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, &leg.amount)?;
+        Self::unlock_via_leg(&leg)?;
 
         <ReceiptsUsed<T>>::insert(&receipt_details.signer, receipt_details.receipt_uid, true);
 
@@ -1347,8 +1200,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
-        for (leg_id, leg_details) in legs.iter() {
+    // Unclaims all receipts for an instruction
+    // Should only be used if user is unclaiming, or instruction has failed
+    fn unsafe_unclaim_receipts(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+        for (leg_id, _) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
@@ -1360,36 +1215,55 @@ impl<T: Trait> Module<T> {
                         signer,
                     ));
                 }
-                LegStatus::ExecutionPending => {
-                    // This can never return an error since the settlement module
-                    // must've locked these tokens when instruction was affirmed
-                    T::Portfolio::unlock_tokens(
-                        &leg_details.from,
-                        &leg_details.asset,
-                        &leg_details.amount,
-                    )
-                    .ok();
-                }
-                LegStatus::PendingTokenLock => {}
+                LegStatus::PendingTokenLock | LegStatus::ExecutionPending => {}
             }
         }
     }
 
-    fn is_instruction_executed(
-        affirms_pending: u64,
-        settlement_type: SettlementType<T::BlockNumber>,
-        id: u64,
-    ) -> DispatchResultWithPostInfo {
-        let execute_instruction_result =
-            if affirms_pending == 0 && settlement_type == SettlementType::SettleOnAffirmation {
-                Self::execute_instruction(id).1
-            } else {
-                Ok(PostDispatchInfo {
-                    actual_weight: Some(Zero::zero()),
-                    pays_fee: Default::default(),
-                })
-            };
-        execute_instruction_result
+    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+        for (leg_id, leg_details) in legs.iter() {
+            match Self::instruction_leg_status(instruction_id, leg_id) {
+                LegStatus::ExecutionPending => {
+                    // This can never return an error since the settlement module
+                    // must've locked these tokens when instruction was affirmed
+                    let _ = Self::unlock_via_leg(&leg_details);
+                }
+                LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
+            }
+        }
+    }
+
+    /// Schedule a given instruction to be executed on the next block only if the
+    /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
+    fn maybe_schedule_instruction(affirms_pending: u64, id: u64) {
+        if affirms_pending == 0
+            && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
+        {
+            // Schedule instruction to be executed in the next block.
+            let execution_at = system::Module::<T>::block_number() + One::one();
+            Self::schedule_instruction(id, execution_at);
+        }
+    }
+
+    /// Schedule execution of given instruction at given block number.
+    ///
+    /// NB - It is expected to execute the given instruction into the given block number but
+    /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
+    /// for the given block so there are chances where the instruction execution block no. may drift.
+    fn schedule_instruction(instruction_id: u64, execution_at: T::BlockNumber) {
+        let call = Call::<T>::execute_scheduled_instruction(instruction_id).into();
+        if let Err(_) = T::Scheduler::schedule_named(
+            (SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode(),
+            DispatchTime::At(execution_at),
+            None,
+            SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
+            RawOrigin::Root.into(),
+            call,
+        ) {
+            Self::deposit_event(RawEvent::SchedulingFailed(
+                Error::<T>::FailedToSchedule.into(),
+            ));
+        }
     }
 
     pub fn base_affirm_with_receipts(
@@ -1397,7 +1271,7 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-    ) -> DispatchResultWithPostInfo {
+    ) -> DispatchResult {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1448,7 +1322,6 @@ impl<T: Trait> Module<T> {
                 asset: leg.asset,
                 amount: leg.amount,
             };
-
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),
                 Error::<T>::InvalidSignature
@@ -1474,17 +1347,10 @@ impl<T: Trait> Module<T> {
                             receipt.receipt_uid,
                         ),
                     );
+                } else if let Err(_) = Self::lock_via_leg(&leg_details) {
+                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
+                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
                 } else {
-                    if T::Portfolio::lock_tokens(
-                        &leg_details.from,
-                        &leg_details.asset,
-                        &leg_details.amount,
-                    )
-                    .is_err()
-                    {
-                        // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                        return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                    }
                     <InstructionLegStatus<T>>::insert(
                         instruction_id,
                         leg_id,
@@ -1498,17 +1364,8 @@ impl<T: Trait> Module<T> {
         // Update storage
         let affirms_pending = Self::instruction_affirms_pending(instruction_id)
             .saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
-        for portfolio in portfolios_set {
-            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
-            <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
-            Self::deposit_event(RawEvent::InstructionAffirmed(
-                did,
-                portfolio,
-                instruction_id,
-            ));
-        }
 
-        <InstructionAffirmsPending>::insert(instruction_id, affirms_pending);
+        // Mark receipts used in affirmation as claimed
         for receipt in &receipt_details {
             <ReceiptsUsed<T>>::insert(&receipt.signer, receipt.receipt_uid, true);
             Self::deposit_event(RawEvent::ReceiptClaimed(
@@ -1521,54 +1378,114 @@ impl<T: Trait> Module<T> {
             ));
         }
 
-        // Execute instruction if conditions are met.
-        let execute_instruction_weight = Self::is_instruction_executed(
-            affirms_pending,
-            instruction_details.settlement_type,
-            instruction_id,
-        );
+        for portfolio in portfolios_set {
+            UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
+            Self::deposit_event(RawEvent::InstructionAffirmed(
+                did,
+                portfolio,
+                instruction_id,
+            ));
+        }
 
-        execute_instruction_weight.map(|info| {
-            info.actual_weight
-                .map(|w| {
-                    w.saturating_add(weight_for::weight_for_affirmation_with_receipts::<T>(
-                        u32::try_from(receipt_details.len()).unwrap_or_default(),
-                    ))
-                })
-                .into()
-        })
+        InstructionAffirmsPending::insert(instruction_id, affirms_pending);
+        Ok(())
     }
 
     pub fn base_affirm_instruction(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
-        portfolios: Vec<PortfolioId>,
-    ) -> DispatchResultWithPostInfo {
+        portfolios: impl Iterator<Item = PortfolioId>,
+    ) -> DispatchResult {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
-        let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+        let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(
-            did,
-            instruction_id,
-            portfolios_set,
-            secondary_key.as_ref(),
-        )?;
+        Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set, secondary_key.as_ref())
+    }
 
-        // Execute the instruction if conditions are met
-        let affirms_pending = Self::instruction_affirms_pending(instruction_id);
-        let weight_for_instruction_execution = Self::is_instruction_executed(
-            affirms_pending,
-            Self::instruction_details(instruction_id).settlement_type,
+    // It affirms the instruction and may schedule the instruction
+    // depends on the settlement type.
+    pub fn affirm_with_receipts_and_maybe_schedule_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+        // Schedule instruction to be execute in the next block (expected) if conditions are met.
+        Self::maybe_schedule_instruction(
+            Self::instruction_affirms_pending(instruction_id),
             instruction_id,
         );
+        Ok(())
+    }
 
-        weight_for_instruction_execution.map(|info| {
-            info.actual_weight
-                .map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>()))
-                .into()
+    /// Schedule settlement instruction execution in the next block, unless already scheduled.
+    /// Used for general purpose settlement.
+    pub fn affirm_and_maybe_schedule_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        portfolios: impl Iterator<Item = PortfolioId>,
+    ) -> DispatchResult {
+        Self::base_affirm_instruction(origin, instruction_id, portfolios)?;
+        // Schedule the instruction if conditions are met
+        Self::maybe_schedule_instruction(
+            Self::instruction_affirms_pending(instruction_id),
+            instruction_id,
+        );
+        Ok(())
+    }
+
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    ///
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
+    pub fn affirm_and_execute_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        with_transaction(|| {
+            Self::base_affirm_instruction(origin, instruction_id, portfolios.into_iter())?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
         })
+    }
+
+    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    ///
+    /// NB - Use this function only in the STO pallet to support DVP settlements.
+    pub fn affirm_with_receipts_and_execute_instruction(
+        origin: <T as frame_system::Trait>::Origin,
+        instruction_id: u64,
+        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
+        portfolios: Vec<PortfolioId>,
+    ) -> DispatchResult {
+        with_transaction(|| {
+            Self::base_affirm_with_receipts(origin, instruction_id, receipt_details, portfolios)?;
+            Self::execute_settle_on_affirmation_instruction(
+                instruction_id,
+                Self::instruction_affirms_pending(instruction_id),
+                Self::instruction_details(instruction_id).settlement_type,
+            )
+        })
+    }
+
+    fn execute_settle_on_affirmation_instruction(
+        instruction_id: u64,
+        affirms_pending: u64,
+        settlement_type: SettlementType<T::BlockNumber>,
+    ) -> DispatchResult {
+        // We assume `settlement_type == SettleOnAffirmation`,
+        // to be defensive, however, this is checked before instruction execution.
+        if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
+            Self::execute_instruction(instruction_id)?;
+        }
+        Ok(())
     }
 
     fn ensure_portfolios_and_affirmation_status(

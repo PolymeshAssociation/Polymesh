@@ -279,7 +279,7 @@
 //! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new
 //!   validators is stored in the Session module's `Validators` at the end of each era.
 
-#![recursion_limit = "128"]
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(any(feature = "runtime-benchmarks"))]
@@ -335,7 +335,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         TransactionValidityError, ValidTransaction,
     },
-    DispatchError, PerThing, PerU16, Perbill, Percent, RuntimeDebug,
+    DispatchError, PerThing, PerU16, Perbill, Percent, Permill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -463,16 +463,18 @@ pub enum StakerStatus<AccountId> {
 
 /// A destination account for payment.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug)]
-pub enum RewardDestination {
+pub enum RewardDestination<AccountId> {
     /// Pay into the stash account, increasing the amount at stake accordingly.
     Staked,
     /// Pay into the stash account, not increasing the amount at stake.
     Stash,
     /// Pay into the controller account.
     Controller,
+    /// Pay into the specified account.
+    Account(AccountId),
 }
 
-impl Default for RewardDestination {
+impl<AccountId> Default for RewardDestination<AccountId> {
     fn default() -> Self {
         RewardDestination::Staked
     }
@@ -487,20 +489,33 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// TODO: Remove before mainnet - only used for storage upgrade
-/// Commission can be set globally or by validator
+/// Preference of an identity regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Commission {
-    /// Flag that allow every validator to have individual commission.
-    Individual,
-    /// Every validator has same commission that set globally.
-    Global(Perbill),
+pub struct PermissionedIdentityPrefs {
+    /// Intended number of validators an identity wants to run.
+    ///
+    /// Act as a hard limit on the number of validators an identity can run.
+    /// However, it can be amended using governance.
+    ///
+    /// The count satisfies `count < MaxValidatorPerIdentity * Self::validator_count()`.
+    pub intended_count: u32,
+    /// Keeps track of the running number of validators of a DID.
+    pub running_count: u32,
 }
 
-impl Default for Commission {
+impl Default for PermissionedIdentityPrefs {
     fn default() -> Self {
-        Commission::Individual
+        // By default only 1 validator is allowed to run by an identity.
+        Self::new(1)
+    }
+}
+
+impl PermissionedIdentityPrefs {
+    pub fn new(count: u32) -> Self {
+        Self {
+            intended_count: count,
+            running_count: 0,
+        }
     }
 }
 
@@ -1125,6 +1140,16 @@ pub trait Trait:
 
     /// Overarching type of all pallets origins.
     type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+    /// Maximum amount of validators that can run by an identity.
+    /// It will be MaxValidatorPerIdentity * Self::validator_count().
+    type MaxValidatorPerIdentity: Get<Permill>;
+
+    /// Maximum amount of total issuance after which fixed rewards kicks in.
+    type MaxVariableInflationTotalIssuance: Get<BalanceOf<Self>>;
+
+    /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
+    type FixedYearlyReward: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -1176,11 +1201,12 @@ enum Releases {
     V3_0_0,
     V4_0_0,
     V5_0_0,
+    V6_0_0,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V4_0_0
+        Releases::V6_0_0
     }
 }
 
@@ -1215,7 +1241,7 @@ decl_storage! {
             => Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
 
         /// Where the reward payment should be made. Keyed by stash.
-        pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination;
+        pub Payee get(fn payee): map hasher(twox_64_concat) T::AccountId => RewardDestination<T::AccountId>;
 
         /// The map from (wannabe) validator stash key to the preferences of that validator.
         pub Validators get(fn validators):
@@ -1363,7 +1389,7 @@ decl_storage! {
 
         /// Entities that are allowed to run operator/validator nodes.
         pub PermissionedIdentity get(fn permissioned_identity):
-            map hasher(twox_64_concat) IdentityId => bool;
+            map hasher(twox_64_concat) IdentityId => Option<PermissionedIdentityPrefs>;
 
         // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
         /// Every validator has commission that should be in the range [0, Cap].
@@ -1378,8 +1404,8 @@ decl_storage! {
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
-        /// This is set to v5.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V5_0_0): Releases;
+        /// This is set to v6.0.0 for new networks.
+        StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_0): Releases;
     }
     add_extra_genesis {
         config(stakers):
@@ -1399,6 +1425,11 @@ decl_storage! {
                 );
                 let _ = match status {
                     StakerStatus::Validator => {
+                        if <Module<T>>::permissioned_identity(&did).is_none() {
+                            // Adding identity directly in the storage by assuming it is CDD'ed
+                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
+                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
+                        }
                         let mut prefs = ValidatorPrefs::default();
                         // Setting the cap value here.
                         prefs.commission = config.validator_commission_cap;
@@ -1406,11 +1437,6 @@ decl_storage! {
                             controller_origin.clone(),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        if !<Module<T>>::permissioned_identity(&did) {
-                            // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::insert(&did, true);
-                            <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
-                        }
                         Ok(())
                     },
                     StakerStatus::Nominator(votes) => {
@@ -1548,6 +1574,12 @@ decl_error! {
         InvalidValidatorIdentity,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
+        /// Validator stash identity was not permissioned.
+        StashIdentityNotPermissioned,
+        /// Running validator count hit the intended count.
+        HitIntendedValidatorCount,
+        /// When the intended number of validators to run is >= 2/3 of `validator_count`.
+        IntendedCountIsExceedingConsensusLimit
     }
 }
 
@@ -1589,26 +1621,41 @@ decl_module! {
         /// their reward. This used to limit the i/o cost for the nominator payout.
         const MaxNominatorRewardedPerValidator: u32 = T::MaxNominatorRewardedPerValidator::get();
 
+        /// Maximum number of validators for each permissioned identity.
+        ///
+        /// Max number of validators count = `MaxValidatorPerIdentity * Self::validator_count()`.
+        const MaxValidatorPerIdentity: Permill = T::MaxValidatorPerIdentity::get();
+
+        /// Maximum amount of `T::currency::total_issuance()` after that non-inflated rewards get paid.
+        const MaxVariableInflationTotalIssuance: BalanceOf<T> = T::MaxVariableInflationTotalIssuance::get();
+
+        /// Total year rewards that gets paid during fixed reward schedule.
+        const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
+
         type Error = Error<T>;
 
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::migrate::migrate_map_keys_and_value;
-            use frame_support::storage::migration::take_storage_value;
 
-            if StorageVersion::get() == Releases::V4_0_0 {
-                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
-                    Some((<Identity<T>>::get_identity(&k).unwrap_or_default(), v))
+            if StorageVersion::get() == Releases::V5_0_0 {
+                let intended_count = Self::get_allowed_validator_count();
+                let current_validators = <Validators<T>>::iter().map(|(k, _)| k).collect::<Vec<T::AccountId>>();
+                migrate_map_keys_and_value::<_,PermissionedIdentityPrefs,Twox64Concat,IdentityId,_,_>(b"Staking", b"PermissionedIdentity", b"PermissionedIdentity", |id: IdentityId, v: bool| {
+                    if v {
+                        let running_count = current_validators
+                            .iter()
+                            .filter_map(<Identity<T>>::get_identity)
+                            .filter(|v_id| id == *v_id)
+                            .count() as u32;
+                        Some((id, PermissionedIdentityPrefs {intended_count, running_count }))
+                    } else {
+                        None
+                    }
                 });
 
-                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
-                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
-                    ValidatorCommissionCap::put(commision);
-                } else {
-                    ValidatorCommissionCap::put(Perbill::from_percent(100));
-                }
-                StorageVersion::put(Releases::V5_0_0);
+                StorageVersion::put(Releases::V6_0_0);
             }
             1_000
         }
@@ -1732,7 +1779,7 @@ decl_module! {
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
             #[compact] value: BalanceOf<T>,
-            payee: RewardDestination,
+            payee: RewardDestination<T::AccountId>,
         ) {
             let stash = ensure_signed(origin)?;
             ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
@@ -1759,7 +1806,7 @@ decl_module! {
 
             let stash_balance = T::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Bonded(did, stash.clone(), value));
             let item = StakingLedger {
                 stash,
@@ -1811,7 +1858,7 @@ decl_module! {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
                 ledger.active += extra;
-                let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+                let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
             }
@@ -1964,12 +2011,23 @@ decl_module! {
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
 
-            ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-            // Polymesh-Note - It is used to check whether the passed commission is <= commission cap.
-            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
+            // Polymesh-Note - Make sure stash has valid permissioned identity.
+            if let Some(id) = <Identity<T>>::get_identity(stash) {
+                // Ensure stash's identity is be permissioned.
+                let mut id_pref = Self::permissioned_identity(id)
+                    .ok_or_else(|| Error::<T>::StashIdentityNotPermissioned)?;
+                // Ensure identity doesn't run more validators than the intended count.
+                ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
+                ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+                // Ensures that the passed commission is within the cap.
+                ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
+                // Updates the running count.
+                id_pref.running_count += 1;
+                PermissionedIdentity::insert(id, id_pref);
+                <Nominators<T>>::remove(stash);
+                <Validators<T>>::insert(stash, prefs);
+            }
 
-            <Nominators<T>>::remove(stash);
-            <Validators<T>>::insert(stash, prefs);
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.
@@ -2021,6 +2079,8 @@ decl_module! {
                         suppressed: false,
                     };
 
+                    // Polymesh-note: Decrement the running count by 1.
+                    Self::release_running_validator(&stash);
                     <Validators<T>>::remove(stash);
                     <Nominators<T>>::insert(stash, &nominations);
                     Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
@@ -2070,7 +2130,7 @@ decl_module! {
         ///     - Write: Payee
         /// # </weight>
         #[weight = 11 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(1, 1)]
-        pub fn set_payee(origin, payee: RewardDestination) {
+        pub fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
@@ -2156,14 +2216,24 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
         /// * identity Validator's IdentityId.
+        /// * intended_count No. of validators given identity intends to run.
         #[weight = 750_000_000]
-        pub fn add_permissioned_validator(origin, identity: IdentityId) {
+        pub fn add_permissioned_validator(origin, identity: IdentityId, intended_count: Option<u32>) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(!Self::permissioned_identity(&identity), Error::<T>::AlreadyExists);
+            ensure!(Self::permissioned_identity(&identity).is_none(), Error::<T>::AlreadyExists);
             // Validate the cdd status of the identity.
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
+            let pref = match intended_count {
+                Some(count) => {
+                    // Maximum allowed validator count is always less than the `MaxValidatorPerIdentity of validator_count()`.
+                    ensure!(count < Self::get_allowed_validator_count(), Error::<T>::IntendedCountIsExceedingConsensusLimit);
+                    PermissionedIdentityPrefs::new(count)
+                },
+                None => PermissionedIdentityPrefs::default()
+            };
+
             // Change identity status to be Permissioned
-            PermissionedIdentity::insert(&identity, true);
+            PermissionedIdentity::insert(&identity, pref);
             Self::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, identity));
         }
 
@@ -2177,9 +2247,9 @@ decl_module! {
         #[weight = 750_000_000]
         pub fn remove_permissioned_validator(origin, identity: IdentityId) {
             T::RequiredRemoveOrigin::ensure_origin(origin)?;
-            ensure!(Self::permissioned_identity(&identity), Error::<T>::NotExists);
+            ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
             // Change identity status to be Non-Permissioned
-            PermissionedIdentity::insert(&identity, false);
+            PermissionedIdentity::remove(&identity);
 
             Self::deposit_event(RawEvent::PermissionedIdentityRemoved(GC_DID, identity));
         }
@@ -2197,7 +2267,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
+            let caller_id = Context::current_identity_or::<T::IdentityFn>(&caller)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -2665,10 +2735,32 @@ decl_module! {
             SlashingAllowedFor::put(slashing_switch);
             Self::deposit_event(RawEvent::SlashingAllowedForChanged(slashing_switch));
         }
+
+        /// Update the intended validator count for a given DID.
+        ///
+        /// # Arguments
+        /// * origin which must be the required origin for adding a potential validator.
+        /// * identity to add as a validator.
+        /// * new_intended_count New value of intended count.
+        #[weight = 150_000_000]
+        pub fn update_permissioned_validator_intended_count(origin, identity: IdentityId, new_intended_count: u32) -> DispatchResult {
+            T::RequiredAddOrigin::ensure_origin(origin)?;
+            ensure!(Self::get_allowed_validator_count() > new_intended_count, Error::<T>::IntendedCountIsExceedingConsensusLimit);
+            PermissionedIdentity::try_mutate(&identity, |pref| {
+                pref.as_mut()
+                    .ok_or_else(|| Error::<T>::NotExists.into())
+                    .map(|p| p.intended_count = new_intended_count)
+            })
+        }
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the allowed validator count.
+    fn get_allowed_validator_count() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
+    }
+
     /// Returns the `T::Origin` for given target AccountId.
     fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
         <T as frame_system::Trait>::Origin::from(Some(target).into())
@@ -2849,8 +2941,23 @@ impl<T: Trait> Module<T> {
 
     /// Chill a stash account.
     fn chill_stash(stash: &T::AccountId) {
+        // Polymesh-note: Decrement the running count by 1.
+        Self::release_running_validator(stash);
         <Validators<T>>::remove(stash);
         <Nominators<T>>::remove(stash);
+    }
+
+    /// Decrease the running count of validators by 1 for the stash identity.
+    fn release_running_validator(stash: &T::AccountId) {
+        if let Some(id) = <Identity<T>>::get_identity(stash) {
+            PermissionedIdentity::mutate(&id, |pref| {
+                if let Some(p) = pref {
+                    if p.running_count > 0 {
+                        p.running_count -= 1
+                    }
+                }
+            });
+        }
     }
 
     /// Actually make a payment to a staker. This uses the currency's reward function
@@ -2870,6 +2977,9 @@ impl<T: Trait> Module<T> {
                     Self::update_ledger(&controller, &l);
                     r
                 }),
+            RewardDestination::Account(dest_account) => {
+                Some(T::Currency::deposit_creating(&dest_account, amount))
+            }
         }
     }
 
@@ -3225,6 +3335,8 @@ impl<T: Trait> Module<T> {
                 T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 era_duration.saturated_into::<u64>(),
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
             );
             let rest = max_payout.saturating_sub(validator_payout);
 
@@ -3636,7 +3748,7 @@ impl<T: Trait> Module<T> {
     /// Is validator's `stash` account compliant?
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         <Identity<T>>::get_identity(&stash).map_or(false, |id| {
-            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id)
+            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_identity(id).is_some()
         })
     }
 
@@ -3670,7 +3782,7 @@ impl<T: Trait> Module<T> {
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk { value, era });
             Self::update_ledger(&controller, &ledger);
-            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
             Self::deposit_event(RawEvent::Unbonded(did, ledger.stash.clone(), value));
         }
     }
@@ -3883,18 +3995,21 @@ where
             T::AccountId,
             pallet_session::historical::IdentificationTuple<T>,
         >],
-        slash_fraction: &[Perbill],
+        raw_slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
             return Err(());
         }
 
-        // Polymesh-note: Allow early return of weight when slashing is off or allowed for none.
-        if Self::slashing_allowed_for() == SlashingSwitch::None {
-            // Return `0` weight because no need to run through when Slashing is off.
-            return Ok(Zero::zero());
-        }
+        // Polymesh-note: When slashing is off or allowed for none, set slash fraction to zero
+        let long_living_slash_fraction;
+        let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
+            long_living_slash_fraction = vec![Perbill::from_parts(0); raw_slash_fraction.len()];
+            long_living_slash_fraction.as_slice()
+        } else {
+            raw_slash_fraction
+        };
 
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;

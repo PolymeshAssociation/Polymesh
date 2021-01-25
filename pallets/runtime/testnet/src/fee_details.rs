@@ -115,10 +115,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 bridge::Call::propose_bridge_tx(..) | bridge::Call::batch_propose_bridge_tx(..),
             ) => handle_multisig(&Bridge::controller_key(), caller),
             // All other calls.
-            //
-            // If the account has enabled charging fee to identity then the identity should be charged
-            // otherwise, the account should be charged. In any case, the external account
-            // must directly be linked to an identity with valid CDD.
+            // The external account must directly be linked to an identity with valid CDD.
             _ => match Identity::get_identity(caller) {
                 Some(did) if Identity::has_valid_cdd(did) => {
                     Context::set_current_identity::<Identity>(Some(did));

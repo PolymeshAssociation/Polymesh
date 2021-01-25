@@ -12,25 +12,23 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(box_syntax)]
-
-use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
-use polymesh_primitives::{IdentityId, Ticker};
-use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
-
-use pallet_identity as identity;
-
-use cryptography::{
-    asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
-    CompressedRistretto, RangeProof, Scalar,
-};
 
 use codec::{Decode, Encode};
+use cryptography_core::{
+    asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
+    bulletproofs::RangeProof,
+    CompressedRistretto, Scalar,
+};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
     weights::Weight,
 };
+use pallet_identity as identity;
+use polymesh_common_utilities::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait};
+use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use sp_std::prelude::*;
 
 pub mod rng;
@@ -90,13 +88,8 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = <T as Trait>::WeightInfo::add_range_proof()]
-        pub fn add_range_proof(origin,
-            target_id: IdentityId,
-            ticker: Ticker,
-            secret_value: u64,
-        ) -> DispatchResult
-        {
-            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+        pub fn add_range_proof(origin, target_id: IdentityId, ticker: Ticker, secret_value: u64) {
+            let prover = Identity::<T>::ensure_perms(origin)?;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -113,29 +106,20 @@ decl_module! {
                 max_two_exp: 32,
             };
             let prover_ticker_key = ProverTickerKey { prover, ticker };
-            <RangeProofs>::insert(&target_id, &prover_ticker_key, ticker_range_proof);
-            Ok(())
+            RangeProofs::insert(&target_id, &prover_ticker_key, ticker_range_proof);
         }
 
         #[weight = <T as Trait>::WeightInfo::add_verify_range_proof()]
-        pub fn add_verify_range_proof(origin,
-            target: IdentityId,
-            prover: IdentityId,
-            ticker: Ticker) -> DispatchResult
-        {
-            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
+        pub fn add_verify_range_proof(origin, target: IdentityId, prover: IdentityId, ticker: Ticker) {
+            let verifier_id = Identity::<T>::ensure_perms(origin)?;
             Self::verify_range_proof(target, prover, ticker)?;
-
-            <RangeProofVerifications>::insert((target, ticker), verifier_id, true);
-            Ok(())
+            RangeProofVerifications::insert((target, ticker), verifier_id, true);
         }
     }
 }
 
 decl_event! {
-    pub enum Event
-    {
+    pub enum Event {
         RangeProofAdded(IdentityId, Ticker, TickerRangeProof),
         RangeProofVerified(IdentityId, IdentityId, Ticker),
     }

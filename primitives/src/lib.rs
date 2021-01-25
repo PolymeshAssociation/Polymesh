@@ -20,16 +20,16 @@
 #![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
-use cryptography::Scalar;
+use confidential_identity::Scalar;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
-pub use codec::{Compact, Decode, Encode};
-pub use sp_runtime::{
+use codec::{Decode, Encode};
+use sp_runtime::{
     generic,
-    traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
+    traits::{BlakeTwo256, IdentifyAccount, Verify},
     MultiSignature,
 };
 
@@ -150,10 +150,6 @@ pub use asset_identifier::AssetIdentifier;
 pub mod event_only;
 pub use event_only::EventOnly;
 
-/// Role for identities.
-pub mod identity_role;
-pub use identity_role::IdentityRole;
-
 /// Polymesh Distributed Identity.
 pub mod identity_id;
 pub use identity_id::{
@@ -163,7 +159,7 @@ pub use identity_id::{
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::{Identity, IdentityWithRoles};
+pub use identity::Identity;
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
@@ -182,7 +178,7 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
-pub use jurisdiction::{CountryCode, JurisdictionName};
+pub use jurisdiction::CountryCode;
 
 /// Utilities for storage migration.
 pub mod migrate;
@@ -218,8 +214,13 @@ pub use smart_extension::{
     SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
 
+/// Document hash
+pub mod document_hash;
+pub use document_hash::{DocumentHash, DocumentHashOld};
+
+/// Document types
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
+pub use document::{Document, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
@@ -235,6 +236,9 @@ pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;
+
+/// Runtime crypto tools.
+pub mod crypto;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
