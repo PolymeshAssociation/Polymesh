@@ -12,10 +12,12 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-#![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
 
+use frame_benchmarking::benchmarks;
+use frame_support::StorageValue;
+use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{self, User, UserBuilder},
     constants::currency::POLY,
@@ -23,10 +25,6 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
-
-use frame_benchmarking::benchmarks;
-use frame_support::StorageValue;
-use frame_system::RawOrigin;
 use sp_io::hashing::keccak_256;
 use sp_std::{
     convert::{TryFrom, TryInto},

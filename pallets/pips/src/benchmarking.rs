@@ -13,13 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-
-use polymesh_common_utilities::{
-    benchs::{user, User},
-    MaybeBlock, SystematicIssuers, GC_DID,
-};
 
 use frame_benchmarking::benchmarks;
 use frame_support::{
@@ -28,6 +22,10 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
+use polymesh_common_utilities::{
+    benchs::{user, User},
+    MaybeBlock, SystematicIssuers, GC_DID,
+};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{
