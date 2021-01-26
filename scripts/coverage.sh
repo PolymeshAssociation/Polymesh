@@ -5,6 +5,16 @@ cargo check
 RUSTFLAGS="-Zinstrument-coverage" \
 LLVM_PROFILE_FILE="json5format-%m.profraw" \
 SKIP_WASM_BUILD=1 \
+cargo test --tests \
+    --package pallet-staking \
+    --package pallet-group \
+    --package pallet-sudo \
+    --package polymesh-primitives \
+    --package node-rpc-runtime-api \
+    --package pallet-transaction-payment \
+    --package polymesh-runtime-tests \
+    --package pallet-balances:0.1.0 \
+    --features default_identity || \
 cargo test -j 1 --tests \
     --package pallet-staking \
     --package pallet-group \
@@ -16,15 +26,14 @@ cargo test -j 1 --tests \
     --package pallet-balances:0.1.0 \
     --features default_identity
 
-cargo profdata -- merge \
-    -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
+cargo profdata -- merge -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
 if [[ -v CIRCLECI ]]; then
     cargo cov -- export \
     $( \
         for file in \
             $( \
-            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 \
+            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
                 cargo test --tests \
                     --package pallet-staking \
                     --package pallet-group \
@@ -58,7 +67,7 @@ else
     $( \
         for file in \
             $( \
-            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 \
+            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
                 cargo test --tests \
                     --package pallet-staking \
                     --package pallet-group \
