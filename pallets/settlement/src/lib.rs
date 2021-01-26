@@ -448,7 +448,7 @@ decl_storage! {
         /// Details about an instruction. instruction_id -> instruction_details
         InstructionDetails get(fn instruction_details): map hasher(twox_64_concat) u64 => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
-        InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg<T::Balance>;
+        pub InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg<T::Balance>;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
         InstructionLegStatus get(fn instruction_leg_status): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
@@ -1009,7 +1009,14 @@ impl<T: Trait> Module<T> {
     }
 
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
+        // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
+        // Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
+        // Instruction has two legs: 1. Alice transfers 5 tokens to Charlie. 2. Bob transfers 5 tokens to Alice.
+        // If the instruction is executed in order, it remains valid but if the second leg gets executed before first,
+        // Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
+        legs.sort_by_key(|leg| leg.0);
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
