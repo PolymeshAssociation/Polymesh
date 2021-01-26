@@ -53,7 +53,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
-const MAX_TIERS: usize = 10;
+pub const MAX_TIERS: usize = 10;
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
@@ -279,10 +279,11 @@ decl_module! {
                 Error::<T>::InvalidPriceTiers
             );
 
-            let offering_amount: T::Balance = tiers
-                .iter()
-                .map(|t| t.total)
-                .fold(0.into(), |total, x| total.saturating_add(x));
+            let mut offering_amount: T::Balance = 0.into();
+            for price_tier in tiers.iter() {
+                offering_amount = offering_amount.checked_add(&price_tier.total)
+                    .ok_or_else(|| Error::<T>::InvalidPriceTiers)?;
+            }
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
