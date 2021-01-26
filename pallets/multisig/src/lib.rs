@@ -488,7 +488,8 @@ decl_module! {
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
-            let pending_num_of_signers = <NumberOfSigners<T>>::get(&multisig).saturating_sub(signers_len);
+            let pending_num_of_signers = <NumberOfSigners<T>>::get(&multisig).checked_sub(signers_len)
+                .ok_or(Error::<T>::TooMuchSigners)?;
             ensure!(
                 pending_num_of_signers >= <MultiSigSignsRequired<T>>::get(&multisig),
                 Error::<T>::NotEnoughSigners
@@ -675,6 +676,8 @@ decl_error! {
         MultisigMissingIdentity,
         /// Scheduling of a proposal fails
         FailedToSchedule,
+        /// More signers than required.
+        TooMuchSigners,
     }
 }
 
