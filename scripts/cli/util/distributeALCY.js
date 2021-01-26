@@ -48,11 +48,9 @@ async function batchAtomic(api, sender, receivers, amount, ticker, venueId) {
     for (i = 0; i < txArray.length; i += batchSize) {
         batch = txArray.slice(i, i + batchSize);
         batchTx = await api.tx.utility.batchAtomic(batch);
-        batchArray.push(batchTx);
+        await reqImports.sendTx(sender, batchTx);  
     }
 
-    let completeBatchTx = await api.tx.utility.batchAtomic(batchArray);  
-    await reqImports.sendTx(sender, completeBatchTx);  
 }
 
 async function addAndAffirmInstruction(api, venueId, senderDid, receiverDid, ticker, amount) {
