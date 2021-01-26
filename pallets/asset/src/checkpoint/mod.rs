@@ -39,13 +39,16 @@
 //!    and applies new balances in `updates` for the last checkpoint.
 //! - Other misc storage items as defined in `decl_storage!`.
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{Get, UnixTime},
+    traits::UnixTime,
     weights::Weight,
 };
 use frame_system::ensure_root;
@@ -202,6 +205,13 @@ decl_storage! {
     }
 }
 
+pub trait WeightInfo {
+    fn create_checkpoint() -> Weight;
+    fn set_schedules_max_complexity() -> Weight;
+    fn create_schedule(existing_schedules: u32) -> Weight;
+    fn remove_schedule(existing_schedules: u32) -> Weight;
+}
+
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
@@ -235,7 +245,7 @@ decl_module! {
         /// # Errors
         /// - `Unauthorized` if the DID of `origin` doesn't own `ticker`.
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
+        #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
             let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?.for_event();
             Self::create_at_by(owner, ticker, Self::now_unix())?;
@@ -250,7 +260,7 @@ decl_module! {
         /// # Arguments
         /// - `origin` is the root origin.
         /// - `max_complexity` allowed for an arbitrary ticker's schedule set.
-        #[weight = 1_000_000_000]
+        #[weight = T::CPWeightInfo::set_schedules_max_complexity()]
         pub fn set_schedules_max_complexity(origin, max_complexity: u64) {
             ensure_root(origin)?;
             SchedulesMaxComplexity::put(max_complexity);
@@ -274,7 +284,7 @@ decl_module! {
         /// - `ScheduleOverflow` if the schedule ID counter would overflow.
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         /// - `FailedToComputeNextCheckpoint` if the next checkpoint for `schedule` is in the past.
-        #[weight = T::DbWeight::get().reads_writes(6, 2) + 1_000_000_000]
+        #[weight = T::CPWeightInfo::create_schedule(1)]
         pub fn create_schedule(
             origin,
             ticker: Ticker,
@@ -295,7 +305,7 @@ decl_module! {
         /// - `Unauthorized` if the caller doesn't own the asset.
         /// - `NoCheckpointSchedule` if `id` does not identify a schedule for this `ticker`.
         /// - `ScheduleNotRemovable` if `id` exists but is not removable.
-        #[weight = T::DbWeight::get().reads_writes(5, 2) + 400_000_000]
+        #[weight = T::CPWeightInfo::remove_schedule(1)]
         pub fn remove_schedule(
             origin,
             ticker: Ticker,

@@ -141,7 +141,7 @@ fn owner<T: Trait>() -> User<T> {
     UserBuilder::<T>::default().generate_did().build("owner")
 }
 
-fn owned_ticker<T: Trait>() -> (User<T>, Ticker) {
+pub fn owned_ticker<T: Trait>() -> (User<T>, Ticker) {
     let owner = owner::<T>();
     let ticker = make_asset::<T>(&owner);
     (owner, ticker)

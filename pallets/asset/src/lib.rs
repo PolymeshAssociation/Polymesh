@@ -189,6 +189,7 @@ pub trait Trait:
     type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
+    type CPWeightInfo: checkpoint::WeightInfo;
 }
 
 /// Ownership status of a ticker/token.
