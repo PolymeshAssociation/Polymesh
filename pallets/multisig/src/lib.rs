@@ -489,7 +489,7 @@ decl_module! {
             let signers_len: u64 = u64::try_from(signers.len()).unwrap_or_default();
 
             let pending_num_of_signers = <NumberOfSigners<T>>::get(&multisig).checked_sub(signers_len)
-                .ok_or(Error::<T>::TooMuchSigners)?;
+                .ok_or(Error::<T>::TooManySigners)?;
             ensure!(
                 pending_num_of_signers >= <MultiSigSignsRequired<T>>::get(&multisig),
                 Error::<T>::NotEnoughSigners
