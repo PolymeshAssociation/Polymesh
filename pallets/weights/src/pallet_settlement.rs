@@ -141,4 +141,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(3 as Weight))
             .saturating_add(DbWeight::get().writes((14 as Weight).saturating_mul(l as Weight)))
     }
+    fn change_receipt_validity() -> Weight {
+        (200_000_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

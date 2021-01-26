@@ -24,7 +24,7 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{self, generate_ticker, User, UserBuilder},
+    benchs::{self, generate_ticker, user, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetFnTrait, AssetName, AssetType},
 };
@@ -840,6 +840,13 @@ benchmarks! {
                 receipt.receipt_uid,
             ), "Settlement: Fail to affirm with receipts");
         }
+    }
+
+    change_receipt_validity {
+        let signer = user::<T>("signer", 0);
+    }: _(signer.origin(), 0, false)
+    verify {
+        ensure!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
     execute_scheduled_instruction {
