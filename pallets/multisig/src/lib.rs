@@ -677,7 +677,7 @@ decl_error! {
         /// Scheduling of a proposal fails
         FailedToSchedule,
         /// More signers than required.
-        TooMuchSigners,
+        TooManySigners,
     }
 }
 
