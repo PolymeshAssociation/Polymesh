@@ -279,11 +279,11 @@ decl_module! {
                 Error::<T>::InvalidPriceTiers
             );
 
-            let mut offering_amount: T::Balance = 0.into();
-            for price_tier in tiers.iter() {
-                offering_amount = offering_amount.checked_add(&price_tier.total)
-                    .ok_or_else(|| Error::<T>::InvalidPriceTiers)?;
-            }
+            let offering_amount: T::Balance = tiers
+                .iter()
+                .map(|t| t.total)
+                .try_fold(0.into(), |total: T::Balance, x| total.checked_add(&x))
+                .ok_or_else(|| Error::<T>::InvalidPriceTiers)?;
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
