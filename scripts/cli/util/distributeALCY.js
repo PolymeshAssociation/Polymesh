@@ -29,17 +29,29 @@ async function main() {
 
 async function batchAtomic(api, sender, receivers, amount, ticker, venueId) {
 
-    let txBatch = [];
+    let tx;
+    let txArray = [];
+    let batch;
+    let batchTx;
+    let batchArray = [];
     let senderDid = await api.query.identity.keyToIdentityIds(sender.publicKey);
+    let batchSize = 10;
 
     for (i = 0; i < receivers.length; i++) {
         if (receivers[i][0] != senderDid) {
-            let tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i][0], ticker, amount);
-            txBatch.push(tx);
+            tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i][0], ticker, amount);
+            txArray.push(tx);
         }
     }
 
-    let completeBatchTx = await api.tx.utility.batchAtomic(txBatch);  
+    
+    for (i = 0; i < txArray.length; i += batchSize) {
+        batch = txArray.slice(i, i + batchSize);
+        batchTx = await api.tx.utility.batchAtomic(batch);
+        batchArray.push(batchTx);
+    }
+
+    let completeBatchTx = await api.tx.utility.batchAtomic(batchArray);  
     await reqImports.sendTx(sender, completeBatchTx);  
 }
 

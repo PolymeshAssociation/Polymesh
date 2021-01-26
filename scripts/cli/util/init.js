@@ -494,13 +494,20 @@ async function sendTx(signer, tx) {
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addComplianceRequirement(
-    ticker,
-    [],
-    []
-  );
 
-  await sendTx(sender, transaction);
+  let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
+
+  if (assetCompliance.requirements.length == 0) {
+    const transaction = await api.tx.complianceManager.addComplianceRequirement(
+      ticker,
+      [],
+      []
+    );
+
+    await sendTx(sender, transaction);
+  } else {
+    console.log("Asset already has compliance.");
+  }
 }
 
 async function createVenue(api, sender) {
