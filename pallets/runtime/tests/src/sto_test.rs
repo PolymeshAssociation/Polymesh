@@ -129,7 +129,7 @@ fn init_raise_context(
 }
 
 fn raise_happy_path() {
-    const raise_supply: u128 = 1_000_000;
+    const RAISE_SUPPLY: u128 = 1_000_000;
     let RaiseContext {
         alice_signed,
         alice_did,
@@ -139,14 +139,14 @@ fn raise_happy_path() {
         bob_portfolio,
         offering_ticker,
         raise_ticker,
-    } = init_raise_context(1_000_000, Some(raise_supply));
+    } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
     let raise_ticker = raise_ticker.unwrap();
 
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        raise_supply
+        RAISE_SUPPLY
     ));
 
     empty_compliance(alice_signed.clone(), offering_ticker);
@@ -483,13 +483,10 @@ fn zero_price_sto() {
 fn invalid_fundraiser() {
     let RaiseContext {
         alice_signed,
-        alice_did,
         alice_portfolio,
-        bob_signed,
-        bob_did,
-        bob_portfolio,
         offering_ticker,
         raise_ticker,
+        ..
     } = init_raise_context(1_000_000, Some(1_000_000));
 
     let venue_counter = Settlement::venue_counter();
