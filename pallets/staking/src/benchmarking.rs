@@ -86,8 +86,13 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     emulate_validator_setup::<T>(1, 10, Perbill::from_percent(60));
     Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
         .expect("Failed to add permissioned validator");
-    Staking::<T>::validate(v_controller_origin.into(), validator_prefs.clone()).expect("Failed to validate");
-    assert_eq!(Staking::<T>::validators(v_stash.account()), validator_prefs, "Failed to set the validator");
+    Staking::<T>::validate(v_controller_origin.into(), validator_prefs.clone())
+        .expect("Failed to validate");
+    assert_eq!(
+        Staking::<T>::validators(v_stash.account()),
+        validator_prefs,
+        "Failed to set the validator"
+    );
     let stash_lookup = v_stash.lookup();
 
     points_total += 10;
@@ -138,7 +143,11 @@ fn payout_stakers_<T: Trait>(
         !alive,
     )?;
     let current_era = CurrentEra::get().unwrap();
-    <ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
+    <ErasValidatorPrefs<T>>::insert(
+        current_era,
+        validator.clone(),
+        <Staking<T>>::validators(&validator),
+    );
     let caller = UserBuilder::<T>::default()
         .seed(n)
         .generate_did()
