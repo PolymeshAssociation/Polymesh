@@ -119,6 +119,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_runtime_common::MaximumBlockWeight;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -1034,7 +1035,8 @@ decl_module! {
                     Skip => skips += 1,
                 }
             }
-            <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips)
+            let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
+            weight.min(MaximumBlockWeight::get())
         }]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;

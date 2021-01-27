@@ -4458,6 +4458,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
+ "polymesh-runtime-common",
  "rand 0.8.2",
  "rand_chacha 0.3.0",
  "serde",

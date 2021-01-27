@@ -8,6 +8,7 @@ edition = "2018"
 polymesh-common-utilities = { path = "../common", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-runtime-common = { path = "../runtime/common", default-features = false }
 
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
@@ -55,6 +56,7 @@ std = [
     "pallet-treasury/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
+    "polymesh-runtime-common/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",
