@@ -61,7 +61,7 @@ pub fn create_validator_with_nominators<T: Trait>(
     n: u32,
     upper_bound: u32,
     dead: bool,
-) -> Result<T::AccountId, &'static str> {
+) -> Result<T::AccountId, DispatchError> {
     create_validator_with_nominators_with_balance::<T>(n, upper_bound, 10000u32, dead)
 }
 
@@ -73,7 +73,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     upper_bound: u32,
     balance: u32,
     dead: bool,
-) -> Result<T::AccountId, &'static str> {
+) -> Result<T::AccountId, DispatchError> {
     let mut points_total = 0;
     let mut points_individual = Vec::new();
 
@@ -81,12 +81,13 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     let v_controller_origin = v_controller.origin();
 
     let validator_prefs = ValidatorPrefs {
-        commission: Perbill::from_percent(10),
+        commission: Perbill::from_percent(50),
     };
-    emulate_validator_setup::<T>(1, 10, Perbill::from_percent(10));
+    emulate_validator_setup::<T>(1, 10, Perbill::from_percent(60));
     Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
         .expect("Failed to add permissioned validator");
-    Staking::<T>::validate(v_controller_origin.into(), validator_prefs)?;
+    Staking::<T>::validate(v_controller_origin.into(), validator_prefs.clone()).expect("Failed to validate");
+    assert_eq!(Staking::<T>::validators(v_stash.account()), validator_prefs, "Failed to set the validator");
     let stash_lookup = v_stash.lookup();
 
     points_total += 10;
@@ -121,7 +122,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     ErasRewardPoints::<T>::insert(current_era, reward);
 
     // Create reward pool
-    let total_payout: BalanceOf<T> = 1000u32.into();
+    let total_payout: BalanceOf<T> = 10000u32.into();
     <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
     Ok(v_stash.account())
@@ -137,6 +138,7 @@ fn payout_stakers_<T: Trait>(
         !alive,
     )?;
     let current_era = CurrentEra::get().unwrap();
+    <ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
     let caller = UserBuilder::<T>::default()
         .seed(n)
         .generate_did()
@@ -250,14 +252,18 @@ benchmarks! {
 
     set_commission_cap {
         let m = T::MaxValidatorAllowed::get();
+        let mut stashes = Vec::with_capacity(m as usize);
         // Add validators
         for i in 0 .. m {
             let stash = create_funded_user::<T>("stash", i, 1000);
+            stashes.push(stash.account());
             Validators::<T>::insert(stash.account(), ValidatorPrefs { commission: Perbill::from_percent(70)});
         }
     }: _(RawOrigin::Root, Perbill::from_percent(50))
     verify {
-        assert!(Validators::<T>::iter().map(|(_, pref)| pref.commission).all(|com| com == Perbill::from_percent(50)));
+        stashes.iter().for_each(|s| {
+            assert_eq!(Staking::<T>::validators(s), ValidatorPrefs { commission: Perbill::from_percent(50) });
+        });
     }
 
     validate {
