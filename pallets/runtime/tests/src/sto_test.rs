@@ -116,7 +116,7 @@ fn init_raise_context(
         raise_ticker
     });
 
-    RaiseContext::<Origin> {
+    RaiseContext {
         alice_signed,
         alice_did,
         alice_portfolio,
