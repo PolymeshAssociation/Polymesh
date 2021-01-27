@@ -15,10 +15,13 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly-2020-09-28
         target: wasm32-unknown-unknown
         override: true
         default: true
+    # This step is needed as a hack to generate wasm runtimes since cargo doc does not compile in order.
+    # That can cause weird issues around runtime wasm not being present when binary is being compiled.
+    - name: Cargo check
+      run: cargo check
     - name: Build docs
       run: cargo doc --no-deps --workspace --release --verbose --exclude node-bench --exclude node-testing
     - name: Add index file
