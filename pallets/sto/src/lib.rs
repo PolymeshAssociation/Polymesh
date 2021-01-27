@@ -283,7 +283,7 @@ decl_module! {
                 .iter()
                 .map(|t| t.total)
                 .try_fold(0.into(), |total: T::Balance, x| total.checked_add(&x))
-                .ok_or_else(|| Error::<T>::InvalidPriceTiers)?;
+                .ok_or(Error::<T>::InvalidPriceTiers)?;
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
