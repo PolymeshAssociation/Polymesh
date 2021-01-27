@@ -177,8 +177,7 @@ benchmarks! {
     }
 
     unbond {
-        let u in ...;
-        let (_, controller) = create_stash_controller::<T>(u, 2000)?;
+        let (_, controller) = create_stash_controller::<T>(500, 2000)?;
         let amount = 20;
         let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before")?;
         let original_bonded: BalanceOf<T> = ledger.active;
@@ -231,8 +230,7 @@ benchmarks! {
     }
 
     add_permissioned_validator {
-        let u in ...;
-        let (stash, controller) = create_stash_controller::<T>(u, 100)?;
+        let (stash, controller) = create_stash_controller::<T>(5, 100)?;
         Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)?;
     }: _(RawOrigin::Root, stash.did(), Some(1))
     verify {
@@ -242,8 +240,7 @@ benchmarks! {
     }
 
     remove_permissioned_validator {
-        let u in ...;
-        let (stash, controller) = create_stash_controller::<T>(u, 100)?;
+        let (stash, controller) = create_stash_controller::<T>(5, 100)?;
         add_perm_validator::<T>(stash.did(), Some(1));
     }: _(RawOrigin::Root, stash.did())
     verify {
@@ -252,10 +249,10 @@ benchmarks! {
     }
 
     set_commission_cap {
-        let m in 0..T::MaxValidatorAllowed::get();
+        let m = T::MaxValidatorAllowed::get();
         // Add validators
         for i in 0 .. m {
-            let stash = create_funded_user::<T>("stash", i, 100);
+            let stash = create_funded_user::<T>("stash", i, 1000);
             Validators::<T>::insert(stash.account(), ValidatorPrefs { commission: Perbill::from_percent(70)});
         }
     }: _(RawOrigin::Root, Perbill::from_percent(50))
@@ -264,9 +261,8 @@ benchmarks! {
     }
 
     validate {
-        let u in ...;
         Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), 100.into())?;
-        let (stash, controller) = create_stash_controller::<T>(u, 10000)?;
+        let (stash, controller) = create_stash_controller::<T>(70, 10000)?;
         add_perm_validator::<T>(stash.did(), Some(2));
         let prefs = ValidatorPrefs::default();
     }: _(controller.origin(), prefs)
