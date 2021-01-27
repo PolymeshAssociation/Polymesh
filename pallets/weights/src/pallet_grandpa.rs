@@ -22,9 +22,8 @@
 //!     - `fn note_stalled`.
 //!
 
-use frame_support::weights::{
-    constants::{RocksDbWeight as DbWeight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
-    Weight,
+use polymesh_runtime_common::{
+    RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,
 };
 
 pub struct WeightInfo;

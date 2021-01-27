@@ -5,7 +5,7 @@ use crate::{
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account,
-        register_keyring_account_without_cdd, root, AccountId, Checkpoint, TestStorage,
+        register_keyring_account_without_cdd, root, AccountId, Checkpoint, TestStorage, User,
     },
 };
 use chrono::prelude::Utc;
@@ -18,9 +18,10 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
-    ClassicTickers, ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig,
-    Tickers,
+    self as asset,
+    checkpoint::{ScheduleId, StoredSchedule},
+    AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers,
+    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -37,9 +38,11 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
-    calendar::{CalendarPeriod, CalendarUnit, CheckpointId, FixedOrVariableCalendarUnit},
-    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId, InvestorUid, PortfolioId,
-    Signatory, SmartExtension, SmartExtensionType, Ticker,
+    calendar::{
+        CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
+    },
+    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId, InvestorUid, Moment,
+    PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -346,6 +349,15 @@ fn issuers_can_redeem_tokens() {
         })
 }
 
+fn default_transfer(from: IdentityId, to: IdentityId, ticker: Ticker, val: u128) {
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(from),
+        PortfolioId::default_portfolio(to),
+        &ticker,
+        val
+    ));
+}
+
 #[test]
 fn checkpoints_fuzz_test() {
     println!("Starting");
@@ -403,12 +415,7 @@ fn checkpoints_fuzz_test() {
                     }
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
-                    assert_ok!(Asset::unsafe_transfer(
-                        PortfolioId::default_portfolio(owner_did),
-                        PortfolioId::default_portfolio(bob_did),
-                        &ticker,
-                        1
-                    ));
+                    default_transfer(owner_did, bob_did, ticker, 1);
                 }
                 assert_ok!(Checkpoint::create_checkpoint(owner_signed.clone(), ticker));
                 let bal_at = |id, did| Asset::get_balance_at(ticker, did, CheckpointId(id));
@@ -2705,6 +2712,7 @@ fn next_checkpoint_is_updated_we() {
     let schedule = ScheduleSpec {
         start: Some(start),
         period,
+        remaining: 0,
     };
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
@@ -2723,12 +2731,7 @@ fn next_checkpoint_is_updated_we() {
 
     let transfer = |at| {
         Timestamp::set_timestamp(at);
-        assert_ok!(Asset::unsafe_transfer(
-            PortfolioId::default_portfolio(alice_did),
-            PortfolioId::default_portfolio(bob_did),
-            &ticker,
-            total_supply / 2,
-        ));
+        default_transfer(alice_did, bob_did, ticker, total_supply / 2);
     };
 
     // Make a transaction before the next timestamp.
@@ -2785,6 +2788,7 @@ fn non_recurring_schedule_works_we() {
     let schedule = ScheduleSpec {
         start: Some(start),
         period,
+        remaining: 0,
     };
     assert_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
@@ -2813,4 +2817,108 @@ fn next_checkpoints(ticker: Ticker, start: u64) -> Vec<Option<u64>> {
         .into_iter()
         .map(|s| s.schedule.next_checkpoint(start))
         .collect()
+}
+
+#[test]
+fn schedule_remaining_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let start = 1_000;
+        Timestamp::set_timestamp(start);
+
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        // Create the asset.
+        let token_name = b"NXT";
+        let ticker = Ticker::try_from(&token_name[..]).unwrap();
+        assert_ok!(Asset::create_asset(
+            alice.origin(),
+            token_name.into(),
+            ticker,
+            1_000_000,
+            true,
+            AssetType::default(),
+            vec![],
+            None,
+        ));
+
+        let transfer = |at: Moment| {
+            Timestamp::set_timestamp(at * 1_000);
+            default_transfer(alice.did, bob.did, ticker, 1);
+        };
+        let collect_ts = |sh_id| {
+            Checkpoint::schedule_points((ticker, sh_id))
+                .into_iter()
+                .map(Checkpoint::timestamps)
+                .collect::<Vec<_>>()
+        };
+
+        // No schedules yet.
+        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+
+        // For simplicity, we use 1s = 1_000ms periods.
+        let period = CalendarPeriod {
+            unit: CalendarUnit::Second,
+            amount: 1,
+        };
+
+        // Allow such a schedule to be added on-chain. Otherwise, we'll have errors.
+        assert_ok!(Checkpoint::set_schedules_max_complexity(
+            root(),
+            period.complexity()
+        ));
+
+        // Create a schedule with one remaining and where `start == now`.
+        let mut spec = ScheduleSpec {
+            start: Some(start),
+            period,
+            remaining: 1,
+        };
+        let schedule = CheckpointSchedule { start, period };
+        assert_ok!(Checkpoint::create_schedule(alice.origin(), ticker, spec));
+
+        // We had `remaining == 1` and `start == now`,
+        // so since a CP was created, hence `remaining => 0`,
+        // the schedule was immediately evicted.
+        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+        assert_eq!(collect_ts(ScheduleId(1)), vec![start]);
+
+        // This time, we set `remaining == 5`, but we still have `start == now`,
+        // thus one CP is immediately created, so `remaining => 4`.
+        spec.remaining = 5;
+        let id2 = ScheduleId(2);
+        let assert_ts = |ticks| {
+            assert_eq!(
+                collect_ts(id2),
+                (1..=ticks).map(|x| x * 1_000).collect::<Vec<_>>()
+            );
+        };
+        let assert_sh = |at: Moment, remaining| {
+            assert_eq!(
+                Checkpoint::schedules(ticker),
+                vec![StoredSchedule {
+                    id: id2,
+                    schedule,
+                    at: 1_000 * at,
+                    remaining,
+                }]
+            );
+        };
+        assert_ok!(Checkpoint::create_schedule(alice.origin(), ticker, spec));
+        assert_sh(2, 4);
+        assert_ts(1);
+
+        // Transfer and move through the 2nd to 4th recurrences.
+        for i in 2..5 {
+            transfer(i);
+            assert_sh(i + 1, spec.remaining - i as u32);
+            assert_ts(i);
+        }
+
+        // Transfer and move to the 5th (last) recurrence.
+        // We've to the point where there are no ticks left.
+        transfer(5);
+        assert_eq!(Checkpoint::schedules(ticker), vec![]);
+        assert_ts(5);
+    });
 }

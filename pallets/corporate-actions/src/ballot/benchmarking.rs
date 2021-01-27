@@ -53,9 +53,9 @@ benchmarks! {
     _ {}
 
     attach_ballot {
-        let j in 0..MAX_CHOICES;
+        let c in 0..MAX_CHOICES;
 
-        let meta = meta(1, j);
+        let meta = meta(1, c);
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
@@ -63,21 +63,21 @@ benchmarks! {
     }
 
     vote {
-        let j in 0..MAX_CHOICES;
-        let k in 0..MAX_TARGETS;
+        let c in 0..MAX_CHOICES;
+        let t in 0..MAX_TARGETS;
 
         // Attach and prepare to vote.
-        let (owner, ca_id) = attach::<T>(1, j);
+        let (owner, ca_id) = attach::<T>(1, c);
         <pallet_timestamp::Now<T>>::set(3000u32.into());
 
         // Change targets, as they are read in voting.
-        set_ca_targets::<T>(ca_id, k);
+        set_ca_targets::<T>(ca_id, t);
 
         // Construct the voting list.
-        let votes = (0..j)
-            .map(|j| BallotVote {
-                power:0u32.into(),
-                fallback: (j as u16).checked_sub(1),
+        let votes = (0..c)
+            .map(|c| BallotVote {
+                power: 0u32.into(),
+                fallback: (c as u16).checked_sub(1),
             })
             .collect::<Vec<_>>();
 
@@ -97,10 +97,10 @@ benchmarks! {
     }
 
     change_meta {
-        let j in 0..MAX_CHOICES;
+        let c in 0..MAX_CHOICES;
 
         let (owner, ca_id) = attach::<T>(0, 0);
-        let meta = meta(1, j);
+        let meta = meta(1, c);
         let meta2 = meta.clone();
     }: _(owner.origin(), ca_id, meta)
     verify {

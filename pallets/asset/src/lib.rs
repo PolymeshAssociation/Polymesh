@@ -1170,15 +1170,6 @@ decl_error! {
 }
 
 impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
-    fn _mint_from_sto(
-        ticker: &Ticker,
-        caller: T::AccountId,
-        sender: IdentityId,
-        assets_purchased: T::Balance,
-    ) -> DispatchResult {
-        Self::_mint(ticker, caller, sender, assets_purchased, None)
-    }
-
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::_is_owner(ticker, did)
     }
@@ -1247,6 +1238,26 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     #[inline]
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::register_ticker(origin, ticker)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Adds an artificial IU claim for benchmarks
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
+        Identity::<T>::base_add_claim(
+            did,
+            Claim::InvestorUniqueness(
+                Scope::Ticker(ticker),
+                did,
+                CddId::new(did, InvestorUid::from(did.to_bytes())),
+            ),
+            did,
+            None,
+        );
+        let current_balance = Self::balance_of(ticker, did);
+        <AggregateBalance<T>>::insert(ticker, &did, current_balance);
+        <BalanceOfAtScope<T>>::insert(did, did, current_balance);
+        <ScopeIdOf>::insert(ticker, did, did);
     }
 }
 

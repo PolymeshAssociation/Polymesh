@@ -157,10 +157,7 @@ benchmarks! {
     }
 
     invest {
-        let c in 1 .. T::MaxConditionComplexity::get() as u32;
-        let s in 1 .. T::MaxTransferManagersPerAsset::get() as u32;
-
-        let (alice, bob) = setup_fundraiser::<T>(c, MAX_TIERS as u32, s)?;
+        let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, T::MaxTransferManagersPerAsset::get() as u32)?;
     }: _(
             bob.user.origin(),
             bob.portfolio,
