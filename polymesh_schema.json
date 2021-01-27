@@ -932,11 +932,13 @@
         "StoredSchedule": {
             "schedule": "CheckpointSchedule",
             "id": "ScheduleId",
-            "at": "Moment"
+            "at": "Moment",
+            "remaining": "u32"
         },
         "ScheduleSpec": {
             "start": "Option<Moment>",
-            "period": "CalendarPeriod"
+            "period": "CalendarPeriod",
+            "remaining": "u32"
         },
         "InstructionStatus": {
             "_enum": {
@@ -1087,7 +1089,7 @@
         "CADetails": "Text",
         "CACheckpoint": {
             "_enum": {
-                "Scheduled": "ScheduleId",
+                "Scheduled": "(ScheduleId, u64)",
                 "Existing": "CheckpointId"
             }
         },

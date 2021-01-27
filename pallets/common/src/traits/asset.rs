@@ -105,12 +105,6 @@ impl Default for FundingRoundName {
 pub trait AssetFnTrait<Balance, Account, Origin> {
     fn total_supply(ticker: &Ticker) -> Balance;
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-    fn _mint_from_sto(
-        ticker: &Ticker,
-        caller: Account,
-        sender_did: IdentityId,
-        assets_purchased: Balance,
-    ) -> DispatchResult;
     /// Check if an Identity is the owner of a ticker.
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
     /// Get an Identity's balance of a token at a particular checkpoint.
@@ -142,4 +136,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     ) -> DispatchResult;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Adds an artificial IU claim for benchmarks
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
 }
