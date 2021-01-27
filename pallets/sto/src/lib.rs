@@ -30,7 +30,6 @@ use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get,
 };
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -149,7 +148,7 @@ pub struct FundraiserName(Vec<u8>);
 
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
-    fn invest(c: u32) -> Weight;
+    fn invest() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
@@ -325,7 +324,7 @@ decl_module! {
         ///
         /// # Weight
         /// `2_000_000_000` placeholder
-        #[weight = <T as Trait>::WeightInfo::invest(T::MaxConditionComplexity::get())]
+        #[weight = <T as Trait>::WeightInfo::invest()]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
