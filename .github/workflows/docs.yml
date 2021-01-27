@@ -19,12 +19,8 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
         default: true
-    # This step is needed as a hack to generate wasm runtimes since cargo doc does not compile in order.
-    # That can cause weird issues around runtime wasm not being present when binary is being compiled.
-    - name: Cargo check
-      run: cargo check
     - name: Build docs
-      run: cargo doc --no-deps --workspace --release --verbose --exclude node-bench --exclude node-testing
+      run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-testing
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
     - name: Publish to Cloudflare workers
