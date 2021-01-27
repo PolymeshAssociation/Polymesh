@@ -23,7 +23,7 @@ use testing_utils::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::benchs::UserBuilder;
 use sp_runtime::traits::One;
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
