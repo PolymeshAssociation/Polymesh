@@ -214,10 +214,10 @@ benchmarks! {
     }
 
     set_default_targets {
-        let i in 0..MAX_TARGET_IDENTITIES;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        let targets = target_ids::<T>(i, TargetTreatment::Exclude);
+        let targets = target_ids::<T>(t, TargetTreatment::Exclude);
         let targets2 = targets.clone();
     }: _(owner.origin(), ticker, targets)
     verify {
@@ -232,11 +232,11 @@ benchmarks! {
     }
 
     set_did_withholding_tax {
-        let i in 0..(MAX_DID_WHT_IDS - 1);
+        let w in 0..(MAX_DID_WHT_IDS - 1);
 
         let (owner, ticker) = setup::<T>();
-        let mut whts = init_did_whts::<T>(ticker, i);
-        let last = target::<T>(i + 1);
+        let mut whts = init_did_whts::<T>(ticker, w);
+        let last = target::<T>(w + 1);
     }: _(owner.origin(), ticker, last, Some(TAX))
     verify {
         whts.push((last, TAX));
@@ -245,13 +245,13 @@ benchmarks! {
     }
 
     initiate_corporate_action_use_defaults {
-        let j in 0..MAX_DID_WHT_IDS;
-        let k in 0..MAX_TARGET_IDENTITIES;
+        let w in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
         let details = details(DETAILS_LEN);
-        let whts = init_did_whts::<T>(ticker, j);
-        let targets = target_ids::<T>(k, TargetTreatment::Exclude).dedup();
+        let whts = init_did_whts::<T>(ticker, w);
+        let targets = target_ids::<T>(t, TargetTreatment::Exclude).dedup();
         DefaultTargetIdentities::insert(ticker, targets);
     }: initiate_corporate_action(
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, None, None, None
@@ -261,13 +261,13 @@ benchmarks! {
     }
 
     initiate_corporate_action_provided {
-        let j in 0..MAX_DID_WHT_IDS;
-        let k in 0..MAX_TARGET_IDENTITIES;
+        let w in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
         let details = details(DETAILS_LEN);
-        let whts = Some(did_whts::<T>(j));
-        let targets = Some(target_ids::<T>(k, TargetTreatment::Exclude));
+        let whts = Some(did_whts::<T>(w));
+        let targets = Some(target_ids::<T>(t, TargetTreatment::Exclude));
     }: initiate_corporate_action(
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
@@ -276,11 +276,11 @@ benchmarks! {
     }
 
     link_ca_doc {
-        let i in 0..MAX_DOCS;
+        let d in 0..MAX_DOCS;
 
         let (owner, ticker) = setup::<T>();
         let origin: T::Origin = owner.origin().into();
-        let ids = add_docs::<T>(&origin, ticker, i);
+        let ids = add_docs::<T>(&origin, ticker, d);
         let ids2 = ids.clone();
         <Module<T>>::initiate_corporate_action(
             origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
