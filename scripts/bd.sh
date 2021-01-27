@@ -11,5 +11,5 @@ if [[ -z "${extrinsic}" ]]; then
     extrinsic="*"
 fi
 
-SKIP_WASM_BUILD=1 cargo build --release --features=runtime-benchmarks && \
+BUILD_DUMMY_WASM_BINARY=1 cargo build --release --features=runtime-benchmarks && \
 ./target/release/polymesh benchmark -p=${pallet} -e=${extrinsic}

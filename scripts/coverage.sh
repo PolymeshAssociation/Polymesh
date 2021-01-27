@@ -1,10 +1,6 @@
-# For someone reason, WASM toolchain is not detected by the next command
-# Therefore, building wasm binaries using this command and skipping in next
-cargo check
-
 RUSTFLAGS="-Zinstrument-coverage" \
 LLVM_PROFILE_FILE="json5format-%m.profraw" \
-SKIP_WASM_BUILD=1 \
+BUILD_DUMMY_WASM_BINARY=1 \
 cargo test --tests \
     --package pallet-staking \
     --package pallet-group \
@@ -33,7 +29,7 @@ if [[ -v CIRCLECI ]]; then
     $( \
         for file in \
             $( \
-            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
+            RUSTFLAGS="-Zinstrument-coverage" BUILD_DUMMY_WASM_BINARY=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
                 cargo test --tests \
                     --package pallet-staking \
                     --package pallet-group \
@@ -69,7 +65,7 @@ else
     $( \
         for file in \
             $( \
-            RUSTFLAGS="-Zinstrument-coverage" SKIP_WASM_BUILD=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
+            RUSTFLAGS="-Zinstrument-coverage" BUILD_DUMMY_WASM_BINARY=1 LLVM_PROFILE_FILE="json5format-%m.profraw" \
                 cargo test --tests \
                     --package pallet-staking \
                     --package pallet-group \
