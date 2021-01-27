@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 polymesh-primitives = { path = "../../primitives" }
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", tag = "v2.2.0" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", tag = "v2.2.2" }
 codec = { version = "1.2.0", package = "parity-scale-codec" }
 hex = "0.4.0"

@@ -62,7 +62,7 @@ pub type Index = u32;
 /// App-specific crypto used for reporting equivocation/misbehavior in BABE and
 /// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
 /// account.
-// #[cfg(feature = "std")]
+#[cfg(feature = "std")]
 pub mod report {
     use super::{Signature, Verify};
     use frame_system::offchain::AppCrypto;
