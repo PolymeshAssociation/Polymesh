@@ -90,10 +90,9 @@ pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-fe
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-smallvec = "1.4.0"
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0"}
+polymesh-build-tool = { path = "../build_tool", default-features = false } 
 
 [features]
 default = ["std", "equalize"]
