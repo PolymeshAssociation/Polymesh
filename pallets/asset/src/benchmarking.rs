@@ -448,7 +448,7 @@ benchmarks! {
         let auth_id = identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(primary_issuance_agent.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker.clone()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
     }: _(primary_issuance_agent.origin(), auth_id)
@@ -465,7 +465,7 @@ benchmarks! {
         let auth_id = identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(pia.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker.clone()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
         Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;

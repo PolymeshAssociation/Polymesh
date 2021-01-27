@@ -1014,28 +1014,27 @@ decl_module! {
             ClassicTickers::insert(&classic_ticker_import.ticker, classic_ticker);
         }
 
-        /// Forces transfers token from `portfolio_to` to pia default portfolio.
+        /// Forces a transfer of token from `from_portfolio` to the PIA's default portfolio.
         /// Only PIA is allowed to execute this.
         ///
         /// # Arguments
         /// * `origin` Must be a PIA for a given ticker.
         /// * `ticker` Ticker symbol of the asset.
         /// * `value`  Amount of tokens need to force transfer.
-        /// * `portfolio_to` From whom portfolio tokens gets transferred.
+        /// * `from_portfolio` From whom portfolio tokens gets transferred.
         #[weight = <T as Trait>::WeightInfo::controller_transfer()]
-        pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, portfolio_to: PortfolioId) {
-            let pia = Identity::<T>::ensure_perms(origin)?;
+        pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, from_portfolio: PortfolioId) {
             // Ensure that `origin` is the PIA or the token owner.
-            Self::ensure_pia(&ticker, pia)?;
+            let pia = Self::ensure_pia_with_custody_and_permissions(origin, ticker)?.primary_did;
 
-            // transfer `value` of ticker tokens from `investor_did` to controller
+            // Transfer `value` of ticker tokens from `investor_did` to controller
             Self::unsafe_transfer(
-                portfolio_to,
+                from_portfolio,
                 PortfolioId::default_portfolio(pia),
                 &ticker,
                 value,
             )?;
-            Self::deposit_event(RawEvent::ControllerTransfer(pia, ticker, portfolio_to.did, value));
+            Self::deposit_event(RawEvent::ControllerTransfer(pia, ticker, from_portfolio, value));
         }
     }
 }
@@ -1119,8 +1118,8 @@ decl_event! {
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
         /// Event for when a forced transfer takes place.
-        /// caller DID/ controller DID, ticker, token holder DID, value
-        ControllerTransfer(IdentityId, Ticker, IdentityId, Balance),
+        /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
+        ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
     }
 }
 
