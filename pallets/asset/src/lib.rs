@@ -1055,9 +1055,6 @@ decl_event! {
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
-        /// Event for when a forced redemption takes place.
-        /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
-        ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
