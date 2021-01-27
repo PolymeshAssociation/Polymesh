@@ -52,7 +52,6 @@ members = [
     "primitives",
     "rpc",
     "rpc/runtime-api",
-    "utils/wasm-builder"
 ]
 
 [dependencies]

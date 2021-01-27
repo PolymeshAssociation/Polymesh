@@ -111,6 +111,24 @@ fn make_extension<T: Trait>(is_archive: bool) -> SmartExtension<T::AccountId> {
     extension_details
 }
 
+fn emulate_controller_transfer<T: Trait>(
+    ticker: Ticker,
+    investor_did: IdentityId,
+    pia: IdentityId,
+) {
+    // Assign balance to an investor.
+    let mock_storage = |id: IdentityId, bal: T::Balance| {
+        let s_id: ScopeId = id;
+        <BalanceOf<T>>::insert(ticker, id, bal);
+        <BalanceOfAtScope<T>>::insert(s_id, id, bal);
+        <AggregateBalance<T>>::insert(ticker, id, bal);
+        ScopeIdOf::insert(ticker, id, s_id);
+        Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
+    };
+    mock_storage(investor_did, 1000.into());
+    mock_storage(pia, 5000.into());
+}
+
 benchmarks! {
     _ { }
 
@@ -304,82 +322,82 @@ benchmarks! {
         }
     }
 
-     set_funding_round {
+    set_funding_round {
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
         let owner = UserBuilder::default().generate_did().build("owner");
         let ticker = make_asset::<T>(&owner);
 
         let fundr = FundingRoundName::from(vec![b'X'; f as usize].as_slice());
-     }: _(owner.origin, ticker.clone(), fundr.clone())
-     verify {
+    }: _(owner.origin, ticker.clone(), fundr.clone())
+    verify {
         assert_eq!( Module::<T>::funding_round(ticker), fundr);
-     }
+    }
 
 
-     update_identifiers {
-         let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
+    update_identifiers {
+        let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
 
-         let owner = UserBuilder::default().generate_did().build("owner");
-         let ticker = make_asset::<T>(&owner);
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let ticker = make_asset::<T>(&owner);
 
-         let identifiers: Vec<AssetIdentifier> =
-             iter::repeat(AssetIdentifier::cusip(*b"037833100").unwrap()).take(i as usize).collect();
+        let identifiers: Vec<AssetIdentifier> =
+            iter::repeat(AssetIdentifier::cusip(*b"037833100").unwrap()).take(i as usize).collect();
 
-     }: _(owner.origin(), ticker.clone(), identifiers.clone())
-     verify {
+    }: _(owner.origin(), ticker.clone(), identifiers.clone())
+    verify {
         assert_eq!( Module::<T>::identifiers(ticker), identifiers);
-     }
+    }
 
-     add_extension {
-         let owner = UserBuilder::default().generate_did().build("owner");
-         let ticker = make_asset::<T>(&owner);
-         let ext_details = make_extension::<T>(false);
-         let ext_id = ext_details.extension_id.clone();
-     }: _(owner.origin(), ticker.clone(), ext_details.clone())
-     verify {
-         assert_eq!( Module::<T>::extension_details((ticker, ext_id)), ext_details);
-     }
+    add_extension {
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let ticker = make_asset::<T>(&owner);
+        let ext_details = make_extension::<T>(false);
+        let ext_id = ext_details.extension_id.clone();
+    }: _(owner.origin(), ticker.clone(), ext_details.clone())
+    verify {
+        assert_eq!( Module::<T>::extension_details((ticker, ext_id)), ext_details);
+    }
 
-     archive_extension {
-         let owner = UserBuilder::default().generate_did().build("owner");
-         let ticker = make_asset::<T>(&owner);
-         let ext_details = make_extension::<T>(false);
-         let ext_id = ext_details.extension_id.clone();
-         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
-             .expect( "Extension cannot be added");
+    archive_extension {
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let ticker = make_asset::<T>(&owner);
+        let ext_details = make_extension::<T>(false);
+        let ext_id = ext_details.extension_id.clone();
+        Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+            .expect( "Extension cannot be added");
 
-     }: _(owner.origin, ticker.clone(), ext_id.clone())
-     verify {
-         let ext_details = Module::<T>::extension_details((ticker,ext_id));
-         assert_eq!( ext_details.is_archive, true);
-     }
+    }: _(owner.origin, ticker.clone(), ext_id.clone())
+    verify {
+        let ext_details = Module::<T>::extension_details((ticker,ext_id));
+        assert_eq!( ext_details.is_archive, true);
+    }
 
-     unarchive_extension {
-         let owner = UserBuilder::default().generate_did().build("owner");
-         let ticker = make_asset::<T>(&owner);
-         let ext_details = make_extension::<T>(true);
-         let ext_id = ext_details.extension_id.clone();
-         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
-             .expect( "Extension cannot be added");
+    unarchive_extension {
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let ticker = make_asset::<T>(&owner);
+        let ext_details = make_extension::<T>(true);
+        let ext_id = ext_details.extension_id.clone();
+        Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+            .expect( "Extension cannot be added");
 
-     }: _(owner.origin(), ticker.clone(), ext_id.clone())
-     verify {
-         let ext_details = Module::<T>::extension_details((ticker,ext_id));
-         assert_eq!( ext_details.is_archive, false);
-     }
+    }: _(owner.origin(), ticker.clone(), ext_id.clone())
+    verify {
+        let ext_details = Module::<T>::extension_details((ticker,ext_id));
+        assert_eq!( ext_details.is_archive, false);
+    }
 
-     remove_smart_extension {
-         let owner = UserBuilder::default().generate_did().build("owner");
-         let ticker = make_asset::<T>(&owner);
-         let ext_details = make_extension::<T>(false);
-         let ext_id = ext_details.extension_id.clone();
-         Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
-             .expect( "Extension cannot be added");
-     }: _(owner.origin(), ticker.clone(), ext_id.clone())
-     verify {
-        assert_eq!(<ExtensionDetails<T>>::contains_key((ticker,ext_id)), false);
-     }
+    remove_smart_extension {
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let ticker = make_asset::<T>(&owner);
+        let ext_details = make_extension::<T>(false);
+        let ext_id = ext_details.extension_id.clone();
+        Module::<T>::add_extension( owner.origin().into(), ticker.clone(), ext_details)
+            .expect( "Extension cannot be added");
+    }: _(owner.origin(), ticker.clone(), ext_id.clone())
+    verify {
+    assert_eq!(<ExtensionDetails<T>>::contains_key((ticker,ext_id)), false);
+    }
 
     remove_primary_issuance_agent {
         let owner = UserBuilder::default().generate_did().build("owner");
@@ -430,12 +448,31 @@ benchmarks! {
         let auth_id = identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(primary_issuance_agent.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker.clone()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
     }: _(primary_issuance_agent.origin(), auth_id)
     verify {
         let token = Module::<T>::token_details(&ticker);
         assert_eq!(token.primary_issuance_agent, primary_issuance_agent.did);
+    }
+
+    controller_transfer {
+        let owner = UserBuilder::default().generate_did().build("owner");
+        let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
+        let investor = UserBuilder::<T>::default().generate_did().build("investor");
+        let ticker = make_asset::<T>(&owner);
+        let auth_id = identity::Module::<T>::add_auth(
+            owner.did(),
+            Signatory::from(pia.did()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
+            None,
+        );
+        Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
+        emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
+        let portfolio_to = PortfolioId::default_portfolio(investor.did());
+    }: _(pia.origin(), ticker, 500.into(), portfolio_to)
+    verify {
+        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500.into());
     }
 }

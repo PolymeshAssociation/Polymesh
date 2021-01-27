@@ -623,15 +623,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "build-helper"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdce191bf3fa4995ce948c8c83b4640a1745457a149e73c6db75b4ffe36aad5f"
-dependencies = [
- "semver 0.6.0",
-]
-
-[[package]]
 name = "bulletproofs"
 version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=v2-packed-simd#c466eab8987717eb92a8235e7dabc303e0e54ddb"
@@ -714,18 +705,6 @@ name = "cache-padded"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
-
-[[package]]
-name = "cargo_metadata"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8de60b887edf6d74370fc8eb177040da4847d971d6234c7b13a6da324ef0caf"
-dependencies = [
- "semver 0.9.0",
- "serde",
- "serde_derive",
- "serde_json",
-]
 
 [[package]]
 name = "cast"
@@ -1805,16 +1784,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "libloading",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
  "winapi 0.3.9",
 ]
 
@@ -4317,7 +4286,7 @@ dependencies = [
  "frame-system",
  "pallet-contracts-primitives",
  "parity-scale-codec",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "pwasm-utils",
  "serde",
  "sp-core",
@@ -5112,15 +5081,6 @@ dependencies = [
 
 [[package]]
 name = "parity-wasm"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16ad52817c4d343339b3bc2e26861bd21478eda0b7509acf83505727000512ac"
-dependencies = [
- "byteorder 1.4.2",
-]
-
-[[package]]
-name = "parity-wasm"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddfc878dac00da22f8f61e7af3157988424567ab01d9920b962ef7dcbd7cd865"
@@ -5501,6 +5461,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-build-tool"
+version = "0.1.0"
+dependencies = [
+ "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/paritytech/substrate?tag=v2.0.0)",
+]
+
+[[package]]
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
@@ -5536,7 +5503,7 @@ dependencies = [
  "pallet-identity",
  "pallet-protocol-fee",
  "parity-scale-codec",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
@@ -5632,6 +5599,7 @@ dependencies = [
  "polymesh-primitives",
  "rand 0.7.3",
  "serde",
+ "smallvec 1.6.1",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5692,13 +5660,13 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "parity-scale-codec",
+ "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
  "serde",
- "smallvec 1.6.1",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -5714,7 +5682,6 @@ dependencies = [
  "sp-std 2.0.1",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
 ]
 
 [[package]]
@@ -5769,6 +5736,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "parity-scale-codec",
+ "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
  "polymesh-primitives",
@@ -5776,7 +5744,6 @@ dependencies = [
  "polymesh-weights",
  "serde",
  "serde_derive",
- "smallvec 1.6.1",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -5792,7 +5759,6 @@ dependencies = [
  "sp-std 2.0.1",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner",
 ]
 
 [[package]]
@@ -5894,6 +5860,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-contracts",
+ "polymesh-runtime-common",
 ]
 
 [[package]]
@@ -6052,7 +6019,7 @@ checksum = "0f53bc2558e8376358ebdc28301546471d67336584f6438ed4b7c7457a055fd7"
 dependencies = [
  "byteorder 1.4.2",
  "log",
- "parity-wasm 0.41.0",
+ "parity-wasm",
 ]
 
 [[package]]
@@ -6554,7 +6521,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
- "semver 0.9.0",
+ "semver",
 ]
 
 [[package]]
@@ -6977,7 +6944,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "parking_lot 0.10.2",
  "sc-executor-common",
  "sc-executor-wasmi",
@@ -7003,7 +6970,7 @@ dependencies = [
  "derive_more",
  "log",
  "parity-scale-codec",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "sp-allocator",
  "sp-core",
  "sp-runtime-interface",
@@ -7034,7 +7001,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "log",
  "parity-scale-codec",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "pwasm-utils",
  "sc-executor-common",
  "scoped-tls",
@@ -7642,21 +7609,11 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a3186ec9e65071a2095434b1f5bb24838d4e8e130f584c790f6033c79943537"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser",
- "serde",
 ]
 
 [[package]]
@@ -8774,7 +8731,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
- "substrate-wasm-builder-runner",
+ "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "trie-db",
 ]
 
@@ -8820,19 +8777,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "substrate-wasm-builder"
-version = "1.0.11"
-dependencies = [
- "atty",
- "build-helper",
- "cargo_metadata",
- "fs2",
- "itertools 0.8.2",
- "tempfile",
- "toml",
- "walkdir",
- "wasm-gc-api",
-]
+name = "substrate-wasm-builder-runner"
+version = "1.0.6"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 
 [[package]]
 name = "substrate-wasm-builder-runner"
@@ -9787,17 +9734,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd4945e4943ae02d15c13962b38a5b1e81eadd4b71214eee75af64a4d6a4fd64"
 
 [[package]]
-name = "wasm-gc-api"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0c32691b6c7e6c14e7f8fd55361a9088b507aa49620fcd06c09b3a1082186b9"
-dependencies = [
- "log",
- "parity-wasm 0.32.0",
- "rustc-demangle",
-]
-
-[[package]]
 name = "wasm-timer"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9823,7 +9759,7 @@ dependencies = [
  "memory_units",
  "num-rational",
  "num-traits",
- "parity-wasm 0.41.0",
+ "parity-wasm",
  "wasmi-validation",
 ]
 
@@ -9833,7 +9769,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea78c597064ba73596099281e2f4cfc019075122a65cdda3205af94f0b264d93"
 dependencies = [
- "parity-wasm 0.41.0",
+ "parity-wasm",
 ]
 
 [[package]]
