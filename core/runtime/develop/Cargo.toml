@@ -42,7 +42,6 @@ pallet-sudo = { path = "../../pallets/sudo", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
-smallvec = "1.4.0"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }

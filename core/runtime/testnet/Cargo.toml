@@ -89,7 +89,6 @@ pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate",
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-smallvec = "1.4.0"
 
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false } 

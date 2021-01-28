@@ -4080,7 +4080,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-primitives-derive",
  "serde",
  "serde_derive",
  "sp-api",
@@ -5445,6 +5444,7 @@ dependencies = [
  "polymesh-primitives-derive",
  "rand 0.7.3",
  "serde",
+ "smallvec 1.4.2",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5512,7 +5512,6 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-weights",
  "serde",
- "smallvec 1.4.2",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -5590,7 +5589,6 @@ dependencies = [
  "polymesh-weights",
  "serde",
  "serde_derive",
- "smallvec 1.4.2",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -5633,7 +5631,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-group",
- "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
  "pallet-permissions",
@@ -5681,7 +5678,6 @@ dependencies = [
 name = "polymesh-weights"
 version = "0.1.0"
 dependencies = [
- "frame-support",
  "frame-system",
  "pallet-asset",
  "pallet-babe",
@@ -5708,6 +5704,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-contracts",
+ "polymesh-runtime-common",
 ]
 
 [[package]]
