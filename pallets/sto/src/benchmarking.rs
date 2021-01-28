@@ -149,7 +149,7 @@ benchmarks! {
             venue_id,
             None,
             None,
-           0u32.into(),
+            0u32.into(),
             vec![].into()
         )
     verify {
@@ -169,7 +169,7 @@ benchmarks! {
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) >0u32.into(), "invest");
+        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0u32.into(), "invest");
     }
 
     freeze_fundraiser {

@@ -274,7 +274,7 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(offering_portfolio, did, secondary_key.as_ref())?;
 
             ensure!(
-                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total >0u32.into()),
+                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total > 0u32.into()),
                 Error::<T>::InvalidPriceTiers
             );
 
@@ -368,9 +368,9 @@ decl_module! {
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
 
-            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining >0u32.into()) {
+            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining > 0u32.into()) {
                 // fulfilled the investment amount
-                if remaining ==0u32.into() {
+                if remaining == 0u32.into() {
                     break
                 }
 
@@ -393,7 +393,7 @@ decl_module! {
                     .ok_or(Error::<T>::Overflow)?;
             }
 
-            ensure!(remaining ==0u32.into(), Error::<T>::InsufficientTokensRemaining);
+            ensure!(remaining == 0u32.into(), Error::<T>::InsufficientTokensRemaining);
             ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
                 max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
