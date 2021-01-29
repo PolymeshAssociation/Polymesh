@@ -29,6 +29,10 @@ async function main() {
   let secondary_keys = await reqImports.generateKeys(api, 1, secondary_dev_seed );
   
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, alice);
+
+  let extrinsics = [];
+  let portfolios = [];
+  let assets = [];
   
   await reqImports.distributePolyBatch( api, [primary_keys[0]], reqImports.transfer_amount, alice );
   
@@ -44,17 +48,33 @@ async function main() {
 
   assert.equal(portfolioOutput, false);
 
-  await setPermissionToSigner(api, primary_keys, secondary_keys, "Portfolio", "create_portfolio");
+  setExtrinsic(extrinsics, "Portfolio", "create_portfolio");
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
 
   portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
 
   assert.equal(portfolioOutput, true);
 
-  await setPermissionToSigner(api, primary_keys, secondary_keys, "Portfolio", "move_portfolio_funds");
+  setExtrinsic(extrinsics, "Portfolio", "move_portfolio_funds");
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
 
   let portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
 
-  // assert.equal(portfolioFundsOutput, false);
+  assert.equal(portfolioFundsOutput, false);
+
+  await setPortfolio(api, portfolios, primary_keys[0], null);
+
+  await setPortfolio(api, portfolios, secondary_keys[0], "user");
+
+  console.log(`portfolios : ${JSON.stringify(portfolios)}`);
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
+
+  portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
+
+  assert.equal(portfolioFundsOutput, true);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -103,18 +123,50 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
     }
 }
 
-async function setPermissionToSigner(api, accounts, secondary_accounts, pallet_name, dispatchable_name) {
+async function setPortfolio(api, portfolioArray, key, type) {
+  let keyDid = await reqImports.getDid(api, key);
+
+  switch(type) {
+
+    case 'user':
+      
+      const portfolioNum = (await nextPortfolioNumber(api, keyDid)) - 1;
+
+      let userPortfolio = {
+        did: keyDid,
+        kind: {User: portfolioNum}
+      };
+
+      portfolioArray.push(userPortfolio);
+    break;
+
+    default:
+
+      let defaultPortfolio = {
+        did: keyDid,
+        kind: 'Default'
+      };
+
+      portfolioArray.push(defaultPortfolio);
+    break;
+
+  }
+}
+
+function setExtrinsic(extrinsicArray, palletName, dispatchName) {
+  extrinsicArray.push({
+    "pallet_name": palletName,
+    "total": true,
+    "dispatchable_names": [ dispatchName ]
+  });
+}
+
+async function setPermissionToSigner(api, accounts, secondary_accounts, extrinsic, portfolio, asset) {
 
   const permissions = {
-    "asset": null,
-    "extrinsic": [
-      {
-        "pallet_name": pallet_name,
-        "total": true,
-        "dispatchable_names": [ dispatchable_name ]
-      }
-    ],
-    "portfolio": null
+    "asset": asset,
+    "extrinsic": extrinsic,
+    "portfolio": portfolio
   };
 
   for (let i = 0; i < accounts.length; i++) {
