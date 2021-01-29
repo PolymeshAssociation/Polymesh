@@ -206,9 +206,13 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn increase_validator_count() -> Weight {
-        todo!()
+        (12_443_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn scale_validator_count() -> Weight {
-        todo!()
+        (22_453_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }
