@@ -13,6 +13,7 @@ polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-weights = { path = "../../weights", default-features = false }
+polymesh-extensions = { path = "../extensions", default-features = false }
 
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
@@ -173,6 +174,7 @@ std = [
     "sp-transaction-pool/std",
     "sp-version/std",
     "polymesh-contracts/std",
+    "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

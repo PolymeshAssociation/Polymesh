@@ -8,6 +8,7 @@ edition = "2018"
 polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
+polymesh-extensions = { path = "../extensions", default-features = false }
 
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }

@@ -679,7 +679,6 @@ impl pallet_utility::Trait for TestStorage {
 }
 
 impl PermissionChecker for TestStorage {
-    type Call = Call;
     type Checker = Identity;
 }
 

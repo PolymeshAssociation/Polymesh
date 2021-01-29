@@ -29,6 +29,7 @@ use polymesh_common_utilities::{
     traits::{balances::AccountData, identity::Trait as IdentityTrait, PermissionChecker},
     CommonTrait,
 };
+use polymesh_extensions::SignedExtra;
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
     IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
@@ -504,16 +505,7 @@ where
             // so the actual block number is `n`.
             .saturating_sub(1);
         let tip = 0;
-        let extra: SignedExtra = (
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-            frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-            pallet_permissions::StoreCallMetadata::<Runtime>::new(),
-        );
+        let extra = SignedExtra::<Runtime>::new(current_block, period, nonce, tip);
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
                 debug::warn!("Unable to create signed payload: {:?}", e);
@@ -740,7 +732,6 @@ impl confidential::Trait for Runtime {
 }
 
 impl PermissionChecker for Runtime {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -870,23 +861,13 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-    frame_system::CheckSpecVersion<Runtime>,
-    frame_system::CheckTxVersion<Runtime>,
-    frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
-    frame_system::CheckNonce<Runtime>,
-    frame_system::CheckWeight<Runtime>,
-    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_permissions::StoreCallMetadata<Runtime>,
-);
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic =
+    generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra<Runtime>>;
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<Call, SignedExtra<Runtime>>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra<Runtime>>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = pallet_executive::Executive<
     Runtime,

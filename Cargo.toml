@@ -34,6 +34,7 @@ members = [
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/runtime/common",
+    "pallets/runtime/extensions",
     "pallets/runtime/develop",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
