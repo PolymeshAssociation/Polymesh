@@ -729,6 +729,22 @@ benchmarks! {
     verify {
         assert!(Staking::<T>::permissioned_identity(stash_id).unwrap().intended_count == 2, "Unable to update intended validator count");
     }
+
+    increase_validator_count {
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
+        .expect("Failed to set the validator count");
+    }: _(RawOrigin::Root, 15)
+    verify {
+        assert_eq!(Staking::<T>::validator_count(), 25);
+    }
+
+    scale_validator_count {
+        Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
+        .expect("Failed to set the validator count");
+    }: _(RawOrigin::Root, Percent::from_percent(25))
+    verify {
+        assert_eq!(Staking::<T>::validator_count(), 12);
+    }
 }
 
 #[cfg(test)]

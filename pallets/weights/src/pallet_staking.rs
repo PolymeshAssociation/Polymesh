@@ -67,38 +67,30 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn chill(u: u32) -> Weight {
+    fn chill() -> Weight {
         (57_444_000 as Weight)
-            .saturating_add((9_000 as Weight).saturating_mul(u as Weight))
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn set_payee(u: u32) -> Weight {
+    fn set_payee() -> Weight {
         (29_842_000 as Weight)
-            .saturating_add((2_000 as Weight).saturating_mul(u as Weight))
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // WARNING! Some components were not used: ["u"]
     fn set_controller() -> Weight {
         (70_035_000 as Weight)
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    // WARNING! Some components were not used: ["c"]
     fn set_validator_count() -> Weight {
         (1_941_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // WARNING! Some components were not used: ["i"]
     fn force_no_eras() -> Weight {
         (1_873_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn force_new_era(i: u32) -> Weight {
-        (1_854_000 as Weight)
-            .saturating_add((340_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+    fn force_new_era() -> Weight {
+        (1_854_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // WARNING! Some components were not used: ["i"]
     fn force_new_era_always() -> Weight {
         (1_854_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
@@ -212,5 +204,11 @@ impl pallet_staking::WeightInfo for WeightInfo {
         (44_183_000 as Weight)
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn increase_validator_count() -> Weight {
+        todo!()
+    }
+    fn scale_validator_count() -> Weight {
+        todo!()
     }
 }
