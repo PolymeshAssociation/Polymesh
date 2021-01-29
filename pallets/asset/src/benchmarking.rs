@@ -26,11 +26,7 @@ use polymesh_common_utilities::{
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
 use sp_io::hashing::keccak_256;
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    iter,
-    prelude::*,
-};
+use sp_std::{convert::TryInto, iter, prelude::*};
 
 const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 4096;
@@ -147,59 +143,72 @@ pub fn owned_ticker<T: Trait>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
-fn verify_ownership<T: Trait>(ticker: Ticker, owner: &User<T>, new_owner: &User<T>) {
+fn verify_ownership<T: Trait>(
+    ticker: Ticker,
+    old: IdentityId,
+    new: IdentityId,
+    rel: AssetOwnershipRelation,
+) {
     assert_eq!(
-        Module::<T>::asset_ownership_relation(owner.did(), ticker),
+        Module::<T>::asset_ownership_relation(old, ticker),
         AssetOwnershipRelation::NotOwned
     );
-    assert_eq!(
-        Module::<T>::asset_ownership_relation(new_owner.did(), ticker),
-        AssetOwnershipRelation::TickerOwned
-    );
+    assert_eq!(Module::<T>::asset_ownership_relation(new, ticker), rel);
+}
+
+fn set_config<T: Trait>() {
+    <TickerConfig<T>>::put(TickerRegistrationConfig {
+        max_ticker_length: TICKER_LEN as u8,
+        registration_length: Some((60u32 * 24 * 60 * 60).into()),
+    });
 }
 
 benchmarks! {
-    _ { }
+    _ {}
 
     register_ticker {
-        <TickerConfig<T>>::put(TickerRegistrationConfig {
-            max_ticker_length: TICKER_LEN as u8,
-            registration_length: Some((60u32 * 24 * 60 * 60).into()),
-        });
-
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
         // Generate a ticker of length `t`.
-        let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap();
+        set_config::<T>();
+        let ticker = Ticker::repeating(b'A');
     }: _(caller.origin, ticker)
     verify {
         assert_eq!(Module::<T>::is_ticker_available(&ticker), false);
     }
 
     accept_ticker_transfer {
-        let (owner, ticker) = owned_ticker::<T>();
+        let owner = owner::<T>();
+        let ticker = make_ticker::<T>(owner.origin().into());
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
+        let did = new_owner.did();
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker);
-        let new_owner_auth_id = identity::Module::<T>::add_auth(owner.did(), Signatory::from(new_owner.did()), AuthorizationData::TransferTicker(ticker), None);
-    }: _(new_owner.origin(), new_owner_auth_id)
+        let new_owner_auth_id = identity::Module::<T>::add_auth(
+            owner.did(),
+            Signatory::from(did),
+            AuthorizationData::TransferTicker(ticker),
+            None
+        );
+    }: _(new_owner.origin, new_owner_auth_id)
     verify {
-        verify_ownership::<T>(ticker, &owner, &new_owner);
+        verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::TickerOwned);
     }
 
     accept_asset_ownership_transfer {
         let (owner, ticker) = owned_ticker::<T>();
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
+        let did = new_owner.did();
 
         let new_owner_auth_id = identity::Module::<T>::add_auth(
             owner.did(),
-            Signatory::from(new_owner.did()),
+            Signatory::from(did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
-    }: _(new_owner.origin(), new_owner_auth_id)
+    }: _(new_owner.origin, new_owner_auth_id)
     verify {
-        assert_eq!(Module::<T>::token_details(&ticker).owner_did, new_owner.did());
-        verify_ownership::<T>(ticker, &owner, &new_owner);
+        assert_eq!(Module::<T>::token_details(&ticker).owner_did, did);
+        verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::AssetOwned);
     }
 
     create_asset {
@@ -210,33 +219,31 @@ benchmarks! {
         // Funding round name length.
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
-        <TickerConfig<T>>::put(TickerRegistrationConfig {
-            max_ticker_length: TICKER_LEN as u8,
-            registration_length: Some((60u32 * 24 * 60 * 60).into()),
-        });
-        let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap();
+        set_config::<T>();
+        let ticker = Ticker::repeating(b'A');
         let name = AssetName::from(vec![b'N'; n as usize].as_slice());
 
         let identifiers: Vec<_> = iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap())
             .take(i as usize)
             .collect();
+        let identifiers2 = identifiers.clone();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let owner = owner::<T>();
         let total_supply: T::Balance = 1_000_000u32.into();
 
+        let asset_type = AssetType::default();
         let token = SecurityToken {
-            name,
+            name: name.clone(),
             owner_did: owner.did(),
             total_supply: total_supply.clone(),
             divisible: true,
-            asset_type: AssetType::default(),
+            asset_type: asset_type.clone(),
             primary_issuance_agent: None,
         };
-
-    }: _(owner.origin(), token.name.clone(), ticker, total_supply, token.divisible, token.asset_type.clone(), identifiers.clone(), Some(fundr))
+    }: _(owner.origin, name, ticker, total_supply, token.divisible, asset_type, identifiers, Some(fundr))
     verify {
         assert_eq!(Module::<T>::token_details(ticker), token);
-        assert_eq!(Module::<T>::identifiers(ticker), identifiers);
+        assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
 
     freeze {
@@ -263,10 +270,11 @@ benchmarks! {
         let n in 1 .. T::AssetNameMaxLength::get() as u32;
 
         let new_name = AssetName::from(vec![b'N'; n as usize].as_slice());
+        let new_name2 = new_name.clone();
         let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin(), ticker, new_name.clone())
+    }: _(owner.origin, ticker, new_name)
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).name, new_name);
+        assert_eq!(Module::<T>::token_details(ticker).name, new_name2);
     }
 
     issue {
@@ -297,10 +305,11 @@ benchmarks! {
 
         let (owner, ticker) = owned_ticker::<T>();
         let docs = iter::repeat(make_document()).take(d as usize).collect::<Vec<_>>();
-    }: _(owner.origin, docs.clone(), ticker)
+        let docs2 = docs.clone();
+    }: _(owner.origin, docs, ticker)
     verify {
         for i in 1..d {
-            assert_eq!(Module::<T>::asset_documents(ticker, DocumentId(i)), docs[i as usize]);
+            assert_eq!(Module::<T>::asset_documents(ticker, DocumentId(i)), docs2[i as usize]);
         }
     }
 
@@ -308,12 +317,14 @@ benchmarks! {
         let d in 1 .. MAX_DOCS_PER_ASSET;
 
         let (owner, ticker) = owned_ticker::<T>();
-        let docs = iter::repeat(make_document()).take(MAX_DOCS_PER_ASSET as usize).collect::<Vec<_>>();
+        let docs = iter::repeat(make_document())
+            .take(MAX_DOCS_PER_ASSET as usize)
+            .collect::<Vec<_>>();
         Module::<T>::add_documents(owner.origin().into(), docs.clone(), ticker)
             .expect("Documents cannot be added");
 
         let remove_doc_ids = (1..d).map(|i| DocumentId(i - 1)).collect::<Vec<_>>();
-    }: _(owner.origin, remove_doc_ids.clone(), ticker)
+    }: _(owner.origin, remove_doc_ids, ticker)
     verify {
         for i in 1..d {
             assert_eq!(AssetDocuments::contains_key( &ticker, DocumentId(i-1)), false);
@@ -325,12 +336,13 @@ benchmarks! {
 
         let (owner, ticker) = owned_ticker::<T>();
         let fundr = FundingRoundName::from(vec![b'X'; f as usize].as_slice());
-     }: _(owner.origin, ticker, fundr.clone())
-     verify {
-        assert_eq!(Module::<T>::funding_round(ticker), fundr);
-     }
+        let fundr2 = fundr.clone();
+    }: _(owner.origin, ticker, fundr)
+    verify {
+        assert_eq!(Module::<T>::funding_round(ticker), fundr2);
+    }
 
-     update_identifiers {
+    update_identifiers {
         let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
 
         let (owner, ticker) = owned_ticker::<T>();
@@ -339,60 +351,64 @@ benchmarks! {
             .take(i as usize)
             .collect();
         let identifiers2 = identifiers.clone();
-     }: _(owner.origin(), ticker, identifiers)
-     verify {
+    }: _(owner.origin, ticker, identifiers)
+    verify {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
-     }
+    }
 
-     add_extension {
+    add_extension {
         let (owner, ticker) = owned_ticker::<T>();
-        let ext_details = make_extension::<T>(false);
-        let ext_id = ext_details.extension_id.clone();
-     }: _(owner.origin(), ticker, ext_details.clone())
-     verify {
-        assert_eq!(Module::<T>::extension_details((ticker, ext_id)), ext_details);
-     }
+        let details = make_extension::<T>(false);
+        let details2 = details.clone();
+    }: _(owner.origin, ticker, details)
+    verify {
+        assert_eq!(details2, Module::<T>::extension_details((ticker, details2.extension_id.clone())));
+    }
 
-     archive_extension {
+    archive_extension {
         let (owner, ticker, ext_id) = add_ext::<T>(false);
-     }: _(owner.origin, ticker, ext_id.clone())
-     verify {
-        assert_eq!(Module::<T>::extension_details((ticker, ext_id)).is_archive, true);
-     }
+        let ext_id2 = ext_id.clone();
+    }: _(owner.origin, ticker, ext_id)
+    verify {
+        assert_eq!(Module::<T>::extension_details((ticker, ext_id2)).is_archive, true);
+    }
 
-     unarchive_extension {
+    unarchive_extension {
         let (owner, ticker, ext_id) = add_ext::<T>(true);
-     }: _(owner.origin(), ticker, ext_id.clone())
-     verify {
-        assert_eq!(Module::<T>::extension_details((ticker, ext_id)).is_archive, false);
-     }
+        let ext_id2 = ext_id.clone();
+    }: _(owner.origin, ticker, ext_id)
+    verify {
+        assert_eq!(Module::<T>::extension_details((ticker, ext_id2)).is_archive, false);
+    }
 
-     remove_smart_extension {
+    remove_smart_extension {
         let (owner, ticker, ext_id) = add_ext::<T>(false);
-     }: _(owner.origin(), ticker, ext_id.clone())
-     verify {
-        assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id)), false);
-     }
+        let ext_id2 = ext_id.clone();
+    }: _(owner.origin, ticker, ext_id)
+    verify {
+        assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id2)), false);
+    }
 
     remove_primary_issuance_agent {
         let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin(), ticker)
+    }: _(owner.origin, ticker)
     verify {
         assert_eq!(Module::<T>::token_details(ticker).primary_issuance_agent, None);
     }
 
     claim_classic_ticker {
         let owner = owner::<T>();
+        let did = owner.did();
         let owner_eth_sk = secp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
         let owner_eth_pk = ethereum::address(&owner_eth_sk);
 
         let ticker: Ticker = b"USDX1"[..].try_into().unwrap();
         make_classic_ticker::<T>(owner_eth_pk, ticker);
 
-        let eth_sig = ethereum::eth_msg(owner.did(), b"classic_claim", &owner_eth_sk);
-    }: _(owner.origin(), ticker, eth_sig)
+        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &owner_eth_sk);
+    }: _(owner.origin, ticker, eth_sig)
     verify {
-        assert_eq!(owner.did(), Module::<T>::ticker_registration(ticker).owner);
+        assert_eq!(did, Module::<T>::ticker_registration(ticker).owner);
     }
 
     reserve_classic_ticker {
@@ -421,7 +437,7 @@ benchmarks! {
             AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
-    }: _(pia.origin(), auth_id)
+    }: _(pia.origin, auth_id)
     verify {
         assert_eq!(Module::<T>::token_details(&ticker).primary_issuance_agent, pia.did);
     }
@@ -439,7 +455,7 @@ benchmarks! {
         Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
-    }: _(pia.origin(), ticker, 500u32.into(), portfolio_to)
+    }: _(pia.origin, ticker, 500u32.into(), portfolio_to)
     verify {
         assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
     }
