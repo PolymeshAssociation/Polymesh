@@ -260,7 +260,7 @@ benchmarks! {
     }
 
     set_commission_cap {
-        let m = T::MaxValidatorAllowed::get();
+        let m in 0 .. T::MaxValidatorAllowed::get() as u32;
         let mut stashes = Vec::with_capacity(m as usize);
         // Add validators
         for i in 0 .. m {
@@ -296,13 +296,11 @@ benchmarks! {
     }
 
     chill {
-        let u in ...;
-        let (_, controller) = create_stash_controller::<T>(u, 100)?;
+        let (_, controller) = create_stash_controller::<T>(10, 100)?;
     }: _(controller.origin())
 
     set_payee {
-        let u in ...;
-        let (stash, controller) = create_stash_controller::<T>(u, 100)?;
+        let (stash, controller) = create_stash_controller::<T>(10, 100)?;
         assert_eq!(Payee::<T>::get(&stash.account()), RewardDestination::Staked);
     }: _(controller.origin(), RewardDestination::Controller)
     verify {
@@ -310,9 +308,8 @@ benchmarks! {
     }
 
     set_controller {
-        let u in ...;
-        let (stash, _) = create_stash_controller::<T>(u, 100)?;
-        let new_controller = create_funded_user::<T>("new_controller", u, 100);
+        let (stash, _) = create_stash_controller::<T>(10, 100)?;
+        let new_controller = create_funded_user::<T>("new_controller", 10, 100);
         let new_controller_lookup = new_controller.lookup();
     }: _(stash.origin(), new_controller_lookup)
     verify {
@@ -326,13 +323,13 @@ benchmarks! {
         assert_eq!(ValidatorCount::get(), c);
     }
 
-    force_no_eras { let i in 0 .. 1; }: _(RawOrigin::Root)
+    force_no_eras { }: _(RawOrigin::Root)
     verify { assert_eq!(ForceEra::get(), Forcing::ForceNone); }
 
-    force_new_era {let i in 0 .. 1; }: _(RawOrigin::Root)
+    force_new_era { }: _(RawOrigin::Root)
     verify { assert_eq!(ForceEra::get(), Forcing::ForceNew); }
 
-    force_new_era_always { let i in 0 .. 1; }: _(RawOrigin::Root)
+    force_new_era_always { }: _(RawOrigin::Root)
     verify { assert_eq!(ForceEra::get(), Forcing::ForceAlways); }
 
     // Worst case scenario, the list of invulnerables is very long.
@@ -715,6 +712,22 @@ benchmarks! {
                 size,
             ).is_err()
         );
+    }
+
+    change_slashing_allowed_for {
+
+    }: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)
+    verify {
+        assert!(Staking::<T>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator, "Incorrect value set");
+    }
+
+    update_permissioned_validator_intended_count {
+        let (stash, controller) = create_stash_controller::<T>(5, 100)?;
+        let stash_id = stash.did();
+        add_perm_validator::<T>(stash_id, Some(1));
+    }: _(RawOrigin::Root, stash_id, 2)
+    verify {
+        assert!(Staking::<T>::permissioned_identity(stash_id).unwrap().intended_count == 2, "Unable to update intended validator count");
     }
 }
 

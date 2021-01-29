@@ -376,7 +376,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;

@@ -63,10 +63,7 @@ pub fn create_stash_controller<T: Trait>(
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     let stash = create_funded_user::<T>("stash", n, balance);
-    let controller = UserBuilder::<T>::default()
-        .balance(balance)
-        .seed(n)
-        .build("controller");
+    let controller = UserBuilder::<T>::default().seed(n).build("controller");
     // Attach the controller key as the secondary key to the stash.
     let auth_id = <identity::Module<T>>::add_auth(
         stash.did(),
