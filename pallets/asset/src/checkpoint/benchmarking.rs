@@ -19,22 +19,6 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use polymesh_primitives::calendar::CalendarUnit;
 
-const MAX_STORED_SCHEDULES: u32 = 1000;
-
-const SCHEDULE: ScheduleSpec = ScheduleSpec {
-    // Not entirely clear this is more expensive, but probably is.
-    // In either case, this triggers `start == now`, which is definitely more expensive.
-    start: None,
-    // Forces us into the most amount of branches.
-    remaining: 2,
-    period: CalendarPeriod {
-        // We want the schedule to be recurring as it triggers more branches.
-        amount: 5,
-        // Months have the most complicated "next at" calculation, so we use months.
-        unit: CalendarUnit::Month,
-    },
-};
-
 fn init<T: Trait>() -> (RawOrigin<T::AccountId>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000.into());
     let (owner, ticker) = owned_ticker::<T>();
@@ -44,13 +28,14 @@ fn init<T: Trait>() -> (RawOrigin<T::AccountId>, Ticker) {
 fn init_with_existing<T: Trait>(existing: u32) -> (RawOrigin<T::AccountId>, Ticker) {
     let (owner, ticker) = init::<T>();
 
-    // Ensure max compexity admits `existing + 1` schedules.
-    let max = SCHEDULE.period.complexity() * (existing as u64 + 1);
-    Module::<T>::set_schedules_max_complexity(RawOrigin::Root.into(), max).unwrap();
-
     // First create some schedules. To make sorting more expensive, we'll make em all equal.
+    let schedule = ScheduleSpec {
+        start: Some(2000),
+        remaining: 0,
+        period: <_>::default(),
+    };
     for _ in 0..existing {
-        Module::<T>::create_schedule(owner.clone().into(), ticker, SCHEDULE).unwrap();
+        Module::<T>::create_schedule(owner.clone().into(), ticker, schedule).unwrap();
     }
 
     (owner, ticker)
@@ -73,17 +58,38 @@ benchmarks! {
 
     create_schedule {
         // Stored schedules before creating this one.
-        let s in 0 .. MAX_STORED_SCHEDULES;
+        let s in 1 .. Module::<T>::schedules_max_complexity() as u32;
+
+        // Make a schedule that is as complex as possible.
+        let schedule = ScheduleSpec {
+            // Not entirely clear this is more expensive, but probably is.
+            // In either case, this triggers `start == now`, which is definitely more expensive.
+            start: None,
+            // Forces us into the most amount of branches.
+            remaining: 2,
+            period: CalendarPeriod {
+                // We want the schedule to be recurring as it triggers more branches.
+                amount: 5,
+                // Months have the most complicated "next at" calculation, so we use months.
+                unit: CalendarUnit::Month,
+            },
+        };
+
+        // Ensure it will fit in the max complexity.
+        Module::<T>::set_schedules_max_complexity(
+            RawOrigin::Root.into(),
+            schedule.period.complexity() * Module::<T>::schedules_max_complexity()
+        ).unwrap();
 
         let (owner, ticker) = init_with_existing::<T>(s);
-    }: _(owner, ticker, SCHEDULE)
+    }: _(owner, ticker, schedule)
     verify {
         assert_eq!(Module::<T>::schedule_id_sequence(ticker), ScheduleId(s as u64 + 1))
     }
 
     remove_schedule {
         // Stored schedules before creating this one.
-        let s in 1 .. MAX_STORED_SCHEDULES;
+        let s in 1 .. Module::<T>::schedules_max_complexity() as u32;
 
         let id = ScheduleId(s as u64);
         let (owner, ticker) = init_with_existing::<T>(s);
