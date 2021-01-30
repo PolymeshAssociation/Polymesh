@@ -52,8 +52,8 @@ benchmarks! {
 
     move_portfolio_funds {
         // Number of assets being moved
-        let i in 1 .. 500;
-        let mut items = Vec::with_capacity(i as usize);
+        let a in 1 .. 500;
+        let mut items = Vec::with_capacity(a as usize);
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let first_ticker = Ticker::try_from(generate_ticker(0u64).as_slice()).unwrap();
         let amount = T::Balance::from(10);
@@ -62,7 +62,7 @@ benchmarks! {
         let default_portfolio = PortfolioId::default_portfolio(target.did());
         let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
-        for x in 0..i as u64 {
+        for x in 0..a as u64 {
             let ticker = Ticker::try_from(generate_ticker(x).as_slice()).unwrap();
             items.push(MovePortfolioItem {
                 ticker,

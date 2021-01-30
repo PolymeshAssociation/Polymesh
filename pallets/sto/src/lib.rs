@@ -30,7 +30,6 @@ use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get,
 };
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -49,11 +48,11 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
 use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
-const MAX_TIERS: usize = 10;
+pub const MAX_TIERS: usize = 10;
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
@@ -149,7 +148,7 @@ pub struct FundraiserName(Vec<u8>);
 
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
-    fn invest(c: u32) -> Weight;
+    fn invest() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
@@ -246,6 +245,8 @@ decl_module! {
         /// * `venue_id` - Venue to handle settlement.
         /// * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
         /// * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
+        /// * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
+        /// * `fundraiser_name` - Fundraiser name, only used in the UIs.
         ///
         /// # Weight
         /// `800_000_000` placeholder
@@ -280,7 +281,8 @@ decl_module! {
             let offering_amount: T::Balance = tiers
                 .iter()
                 .map(|t| t.total)
-                .fold(0.into(), |total, x| total + x);
+                .try_fold(0.into(), |total: T::Balance, x| total.checked_add(&x))
+                .ok_or(Error::<T>::InvalidPriceTiers)?;
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
@@ -316,20 +318,20 @@ decl_module! {
         /// * `funding_portfolio` - Portfolio that will fund the investment.
         /// * `offering_asset` - Asset to invest in.
         /// * `fundraiser_id` - ID of the fundraiser to invest in.
-        /// * `investment_amount` - Amount of `offering_asset` to invest in.
+        /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
         ///
         /// # Weight
         /// `2_000_000_000` placeholder
-        #[weight = <T as Trait>::WeightInfo::invest(T::MaxConditionComplexity::get())]
+        #[weight = <T as Trait>::WeightInfo::invest()]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
             funding_portfolio: PortfolioId,
             offering_asset: Ticker,
             fundraiser_id: u64,
-            investment_amount: T::Balance,
+            purchase_amount: T::Balance,
             max_price: Option<T::Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) {
@@ -345,7 +347,6 @@ decl_module! {
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
 
             ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
-            ensure!(investment_amount >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
 
             let now = Timestamp::<T>::get();
             ensure!(
@@ -354,7 +355,7 @@ decl_module! {
             );
 
             // Remaining tokens to fulfil the investment amount
-            let mut remaining = investment_amount;
+            let mut remaining = purchase_amount;
             // Total cost to to fulfil the investment amount.
             // Primary use is to calculate the blended price (offering_token_amount / cost).
             // Blended price must be <= to max_price or the investment will fail.
@@ -394,8 +395,9 @@ decl_module! {
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+            ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
-                max_price.map(|max_price| cost <= max_price * investment_amount).unwrap_or(true),
+                max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
                 Error::<T>::MaxPriceExceeded
             );
 
@@ -404,7 +406,7 @@ decl_module! {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
                     asset: fundraiser.offering_asset,
-                    amount: investment_amount
+                    amount: purchase_amount
                 },
                 Leg {
                     from: funding_portfolio,
@@ -415,7 +417,7 @@ decl_module! {
             ];
 
             with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &investment_amount)?;
+                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &purchase_amount)?;
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
@@ -446,7 +448,7 @@ decl_module! {
                 fundraiser.tiers[id].remaining -= amount;
             }
 
-            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, investment_amount, cost));
+            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         }
 

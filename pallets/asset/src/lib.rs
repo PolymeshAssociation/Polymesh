@@ -148,6 +148,7 @@ pub trait WeightInfo {
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn accept_primary_issuance_agent_transfer() -> Weight;
+    fn controller_transfer() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -1012,6 +1013,29 @@ decl_module! {
             };
             ClassicTickers::insert(&classic_ticker_import.ticker, classic_ticker);
         }
+
+        /// Forces a transfer of token from `from_portfolio` to the PIA's default portfolio.
+        /// Only PIA is allowed to execute this.
+        ///
+        /// # Arguments
+        /// * `origin` Must be a PIA for a given ticker.
+        /// * `ticker` Ticker symbol of the asset.
+        /// * `value`  Amount of tokens need to force transfer.
+        /// * `from_portfolio` From whom portfolio tokens gets transferred.
+        #[weight = <T as Trait>::WeightInfo::controller_transfer()]
+        pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, from_portfolio: PortfolioId) {
+            // Ensure that `origin` is the PIA or the token owner.
+            let pia = Self::ensure_pia_with_custody_and_permissions(origin, ticker)?.primary_did;
+
+            // Transfer `value` of ticker tokens from `investor_did` to controller
+            Self::unsafe_transfer(
+                from_portfolio,
+                PortfolioId::default_portfolio(pia),
+                &ticker,
+                value,
+            )?;
+            Self::deposit_event(RawEvent::ControllerTransfer(pia, ticker, from_portfolio, value));
+        }
     }
 }
 
@@ -1031,9 +1055,6 @@ decl_event! {
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
-        /// Event for when a forced redemption takes place.
-        /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
-        ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
@@ -1093,6 +1114,9 @@ decl_event! {
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
+        /// Event for when a forced transfer takes place.
+        /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
+        ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
     }
 }
 
@@ -1136,8 +1160,6 @@ decl_error! {
         TotalSupplyOverflow,
         /// An invalid granularity.
         InvalidGranularity,
-        /// The account does not hold this token.
-        NotAnAssetHolder,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
@@ -1172,15 +1194,6 @@ decl_error! {
 }
 
 impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
-    fn _mint_from_sto(
-        ticker: &Ticker,
-        caller: T::AccountId,
-        sender: IdentityId,
-        assets_purchased: T::Balance,
-    ) -> DispatchResult {
-        Self::_mint(ticker, caller, sender, assets_purchased, None)
-    }
-
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::_is_owner(ticker, did)
     }
@@ -1249,6 +1262,26 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     #[inline]
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::register_ticker(origin, ticker)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Adds an artificial IU claim for benchmarks
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
+        Identity::<T>::base_add_claim(
+            did,
+            Claim::InvestorUniqueness(
+                Scope::Ticker(ticker),
+                did,
+                CddId::new(did, InvestorUid::from(did.to_bytes())),
+            ),
+            did,
+            None,
+        );
+        let current_balance = Self::balance_of(ticker, did);
+        <AggregateBalance<T>>::insert(ticker, &did, current_balance);
+        <BalanceOfAtScope<T>>::insert(did, did, current_balance);
+        <ScopeIdOf>::insert(ticker, did, did);
     }
 }
 
@@ -1600,10 +1633,6 @@ impl<T: Trait> Module<T> {
         Self::ensure_granular(ticker, value)?;
 
         ensure!(
-            <BalanceOf<T>>::contains_key(ticker, &from_portfolio.did),
-            Error::<T>::NotAnAssetHolder
-        );
-        ensure!(
             from_portfolio.did != to_portfolio.did,
             Error::<T>::SenderSameAsReceiver
         );
@@ -1863,27 +1892,6 @@ impl<T: Trait> Module<T> {
             to_did, ticker, old_pia, pia,
         ));
 
-        Ok(())
-    }
-
-    /// Forces a transfer between two DIDs.
-    pub fn controller_transfer(
-        origin: T::Origin,
-        ticker: Ticker,
-        value: T::Balance,
-        investor_portfolio_id: PortfolioId,
-    ) -> DispatchResult {
-        let pia = Identity::<T>::ensure_perms(origin)?;
-        // Ensure that `origin` is the PIA or the token owner.
-        Self::ensure_pia(&ticker, pia)?;
-
-        // transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(
-            investor_portfolio_id,
-            PortfolioId::default_portfolio(pia),
-            &ticker,
-            value,
-        )?;
         Ok(())
     }
 

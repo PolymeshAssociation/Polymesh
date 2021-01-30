@@ -317,6 +317,7 @@ pub trait WeightInfo {
     fn disallow_venues(u: u32) -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
+    fn change_receipt_validity() -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -357,6 +358,8 @@ decl_event!(
         InstructionRejected(IdentityId, u64),
         /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer, receipt metadata)
         ReceiptClaimed(IdentityId, u64, u64, u64, AccountId, ReceiptMetadata),
+        /// A receipt has been invalidated (did, signer, receipt_uid, validity)
+        ReceiptValidityChanged(IdentityId, AccountId, u64, bool),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
         ReceiptUnclaimed(IdentityId, u64, u64, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
@@ -445,7 +448,7 @@ decl_storage! {
         /// Details about an instruction. instruction_id -> instruction_details
         InstructionDetails get(fn instruction_details): map hasher(twox_64_concat) u64 => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
-        InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg<T::Balance>;
+        pub InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg<T::Balance>;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
         InstructionLegStatus get(fn instruction_leg_status): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
@@ -775,6 +778,22 @@ decl_module! {
             Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
         }
 
+        /// Marks a receipt issued by the caller as claimed or not claimed.
+        /// This allows the receipt issuer to invalidate an already issued receipt or revalidate an already claimed receipt.
+        ///
+        /// * `receipt_uid` - Unique ID of the receipt.
+        /// * `validity` - New validity of the receipt.
+        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
+            let PermissionedCallOriginData {
+                primary_did,
+                sender: signer,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, !validity);
+            Self::deposit_event(RawEvent::ReceiptValidityChanged(primary_did, signer, receipt_uid, validity));
+        }
+
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
         fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
@@ -990,7 +1009,14 @@ impl<T: Trait> Module<T> {
     }
 
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
-        let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
+        // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
+        // Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
+        // Instruction has two legs: 1. Alice transfers 5 tokens to Charlie. 2. Bob transfers 5 tokens to Alice.
+        // If the instruction is executed in order, it remains valid but if the second leg gets executed before first,
+        // Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
+        legs.sort_by_key(|leg| leg.0);
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
         let mut result = DispatchResult::Ok(());
