@@ -33,6 +33,7 @@ async function main() {
   let extrinsics = [];
   let portfolios = [];
   let assets = [];
+  let documents = [];
   
   await reqImports.distributePolyBatch( api, [primary_keys[0]], reqImports.transfer_amount, alice );
   
@@ -68,13 +69,29 @@ async function main() {
 
   await setPortfolio(api, portfolios, secondary_keys[0], "user");
 
-  console.log(`portfolios : ${JSON.stringify(portfolios)}`);
-
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
 
   portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
 
   assert.equal(portfolioFundsOutput, true);
+
+  setExtrinsic(extrinsics, "asset", "add_documents");
+  
+  await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
+
+  setDoc(documents, "www.google.com", 0, "google", null, null);
+
+  let addDocsOutput = await addDocuments(api, ticker, documents, secondary_keys[0]);
+
+  assert.equal(addDocsOutput, false);
+
+  setAsset(ticker, assets);
+
+  await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
+
+  addDocsOutput = await addDocuments(api, ticker, documents, secondary_keys[0]);
+
+  assert.equal(addDocsOutput, true);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -84,6 +101,26 @@ async function main() {
   }
 
   process.exit();
+}
+
+function setDoc(docArray, uri, contentHash, name, docType, filingDate) {
+  docArray.push({
+    "uri": uri,
+    "content_hash": contentHash,
+    "name": name,
+    "doc_type": docType,
+    "filing_date": filingDate
+  });
+}
+
+async function addDocuments(api, ticker, docs, signer) {
+  try {
+    const transaction = api.tx.asset.addDocuments(docs, ticker);
+    await reqImports.sendTx(signer, transaction);
+  } catch(err) {
+    console.log(err);
+    return false;
+  }
 }
 
 async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amount) {
@@ -121,6 +158,10 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
     } catch (err) {
       return false;
     }
+}
+
+function setAsset(ticker, assetArray) {
+  assetArray.push(ticker);
 }
 
 async function setPortfolio(api, portfolioArray, key, type) {
