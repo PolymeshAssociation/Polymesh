@@ -31,7 +31,7 @@ async function main() {
     alice
   );
 
-  await reqImports.issueTokenPerDid(api, [alice], ticker);
+  await reqImports.issueTokenPerDid(api, [alice], ticker, 1000000, null);
 
   await addComplianceRequirement(api, alice, ticker);
 
