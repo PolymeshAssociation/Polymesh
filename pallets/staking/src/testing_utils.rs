@@ -75,7 +75,7 @@ pub fn create_stash_with_dead_controller<T: Trait>(
 fn _create_stash_controller<T: Trait>(
     n: u32,
     balance: u32,
-    reward_destination: RewardDestination,
+    reward_destination: RewardDestination<T::AccountId>,
     controller_balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     let stash = create_funded_user::<T>("stash", n, balance);
