@@ -75,7 +75,7 @@ async function main() {
 
   assert.equal(portfolioFundsOutput, true);
 
-  setExtrinsic(extrinsics, "asset", "add_documents");
+  setExtrinsic(extrinsics, "Asset", "add_documents");
   
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
 
@@ -117,8 +117,8 @@ async function addDocuments(api, ticker, docs, signer) {
   try {
     const transaction = api.tx.asset.addDocuments(docs, ticker);
     await reqImports.sendTx(signer, transaction);
+    return true;
   } catch(err) {
-    console.log(err);
     return false;
   }
 }
@@ -197,7 +197,7 @@ async function setPortfolio(api, portfolioArray, key, type) {
 function setExtrinsic(extrinsicArray, palletName, dispatchName) {
   extrinsicArray.push({
     "pallet_name": palletName,
-    "total": true,
+    "total": false,
     "dispatchable_names": [ dispatchName ]
   });
 }
@@ -212,7 +212,7 @@ async function setPermissionToSigner(api, accounts, secondary_accounts, extrinsi
 
   for (let i = 0; i < accounts.length; i++) {
     let signer = { Account: secondary_accounts[i].publicKey };
-    let transaction = api.tx.identity.setPermissionToSigner(signer, permissions);
+    let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
     let tx = await reqImports.sendTx(accounts[i], transaction);
     if(tx !== -1) reqImports.fail_count--;
   }
