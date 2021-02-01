@@ -62,8 +62,24 @@ pub fn create_stash_controller<T: Trait>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
+    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, balance);
+}
+
+pub fn create_stash_with_dead_controller<T: Trait>(
+    n: u32,
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, 0);
+}
+
+fn _create_stash_controller<T: Trait>(
+    n: u32,
+    balance: u32,
+    reward_destination: RewardDestination,
+    controller_balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
     let stash = create_funded_user::<T>("stash", n, balance);
-    let controller = UserBuilder::<T>::default().seed(n).build("controller");
+    let controller = create_funded_user::<T>("stash", n, controller_balance);
     // Attach the controller key as the secondary key to the stash.
     let auth_id = <identity::Module<T>>::add_auth(
         stash.did(),
@@ -73,7 +89,6 @@ pub fn create_stash_controller<T: Trait>(
     );
     <identity::Module<T>>::join_identity_as_key(controller.origin().into(), auth_id)?;
     let controller_lookup = controller.lookup();
-    let reward_destination = RewardDestination::Staked;
     Staking::<T>::bond(
         stash.origin().into(),
         controller_lookup,

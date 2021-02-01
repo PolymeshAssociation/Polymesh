@@ -103,7 +103,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
         let (_n_stash, n_controller) = if !dead {
             create_stash_controller_with_balance::<T>(u32::max_value() - i, 100)?
         } else {
-            create_stash_controller::<T>(u32::max_value() - i, 100)?
+            create_stash_with_dead_controller::<T>(u32::max_value() - i, 100)?
         };
         if i < n {
             Staking::<T>::nominate(n_controller.origin().into(), vec![stash_lookup.clone()])?;
@@ -260,7 +260,7 @@ benchmarks! {
     }
 
     set_commission_cap {
-        let m in 0 .. T::MaxValidatorAllowed::get() as u32;
+        let m in 0 .. MAX_ALLOWED_VALIDATORS;
         let mut stashes = Vec::with_capacity(m as usize);
         // Add validators
         for i in 0 .. m {

@@ -353,6 +353,8 @@ use sp_std::{
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+/// Maximum number of validators accounted for the weight estimation of `set_commission_cap`.
+pub const MAX_ALLOWED_VALIDATORS: u32 = 150;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
 
 pub(crate) const LOG_TARGET: &str = "staking";
@@ -1101,9 +1103,6 @@ pub trait Trait:
 
     /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
     type FixedYearlyReward: Get<BalanceOf<Self>>;
-
-    /// Maximum number of validators permitted.
-    type MaxValidatorAllowed: Get<u32>;
 }
 
 /// Mode of era-forcing.
@@ -1585,9 +1584,6 @@ decl_module! {
 
         /// Total year rewards that gets paid during fixed reward schedule.
         const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
-
-        /// Maximum number of validators accounted for the weight estimation of `set_commission_cap`.
-        const MaxValidatorAllowed: u32 = T::MaxValidatorAllowed::get();
 
         type Error = Error<T>;
 
@@ -2256,7 +2252,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_cap` the new commission cap.
-        #[weight = (<T as Trait>::WeightInfo::set_commission_cap(T::MaxValidatorAllowed::get() as u32), Operational, Pays::Yes)]
+        #[weight = (<T as Trait>::WeightInfo::set_commission_cap(MAX_ALLOWED_VALIDATORS), Operational, Pays::Yes)]
         pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
 

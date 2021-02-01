@@ -605,7 +605,6 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
-    pub const MaxValidatorAllowed: u32 = 150;
 }
 
 thread_local! {
@@ -667,7 +666,6 @@ impl Trait for Test {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
-    type MaxValidatorAllowed = MaxValidatorAllowed;
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
