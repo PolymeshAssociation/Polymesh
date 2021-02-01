@@ -478,6 +478,13 @@ fn refund_consistent_with_actual_weight() {
 
 #[test]
 fn normal_tx_with_tip() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(normal_tx_with_tip_ext);
+}
+
+fn normal_tx_with_tip_ext() {
     let len = 10;
     let tip = 42;
     let user = AccountKeyring::Alice.public();
@@ -501,6 +508,13 @@ fn normal_tx_with_tip() {
 }
 
 #[test]
+fn operational_tx_with_tip() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(operational_tx_with_tip_ext);
+}
+
 fn operational_tx_with_tip_ext() {
     let len = 10;
     let tip = 42;
