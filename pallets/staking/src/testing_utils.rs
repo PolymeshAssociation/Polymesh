@@ -62,14 +62,14 @@ pub fn create_stash_controller<T: Trait>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
-    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, balance);
+    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, balance)
 }
 
 pub fn create_stash_with_dead_controller<T: Trait>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
-    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, 0);
+    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, 0)
 }
 
 fn _create_stash_controller<T: Trait>(
