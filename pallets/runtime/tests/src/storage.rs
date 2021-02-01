@@ -977,6 +977,10 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
     (cdd_id, uid)
 }
 
+pub fn make_remark_proposal() -> Call {
+    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
+}
+
 #[macro_export]
 macro_rules! assert_last_event {
     ($event:pat) => {
