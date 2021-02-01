@@ -16,13 +16,23 @@ async function main() {
     const amount = args.amount; 
     const venueId = args.venueId;
 
+    let empty_did = "0x0000000000000000000000000000000000000000000000000000000000000000"
     const listOfDids = await api.query.identity.didRecords.entries();
+    let all_dids = new Array();
+    
+    for (let i = 0; i < listOfDids.length; i++) {
+      let pk = listOfDids[i][1]['primary_key'];
+      let did = await api.query.identity.keyToIdentityIds(pk);
+      if (did.toString() != empty_did) {
+        all_dids.push(did);
+      }
+    }    
     
     await reqImports.issueTokenPerDid(api, [account], ticker, 100_000_000_000_000, null);
     
     await reqImports.addComplianceRequirement(api, account, ticker);
     
-    await batchAtomic(api, account, listOfDids, amount, ticker, venueId);
+    await batchAtomic(api, account, all_dids, amount, ticker, venueId);
 
     process.exit();
 }
@@ -33,14 +43,16 @@ async function batchAtomic(api, sender, receivers, amount, ticker, venueId) {
     let txArray = [];
     let batch;
     let batchTx;
-    let batchArray = [];
     let senderDid = await api.query.identity.keyToIdentityIds(sender.publicKey);
     let batchSize = 10;
 
     for (i = 0; i < receivers.length; i++) {
-        if (receivers[i][0] != senderDid) {
-            tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i][0], ticker, amount);
+        if (receivers[i] != senderDid.toString()) {
+            console.log("Prepping for DID: ", receivers[i].toString());
+            tx = await addAndAffirmInstruction(api, venueId, senderDid, receivers[i], ticker, amount);
             txArray.push(tx);
+        } else {
+            console.log("Skipping Sender");
         }
     }
 
