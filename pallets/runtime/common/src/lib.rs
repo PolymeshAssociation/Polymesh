@@ -48,8 +48,12 @@ pub type NegativeImbalance<T> =
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
     /// We allow for 2 seconds of compute with a 6 second average block time.
+    ///
+    /// If this is updated, `PipsEnactSnapshotMaximumWeight` needs to be updated accordingly.
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     /// Portion of the block available to normal class of dispatches.
+    ///
+    /// If this is updated, `PipsEnactSnapshotMaximumWeight` needs to be updated accordingly.
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     /// Blocks can be of upto 10 MB in size.
     pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
@@ -69,6 +73,9 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
+    /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
+    /// `MaximumBlockWeight * AvailableBlockRatio`.
+    pub const PipsEnactSnapshotMaximumWeight: Weight = WEIGHT_PER_SECOND * 2 * 75 / 100;
 }
 
 /// Converts Weight to Fee

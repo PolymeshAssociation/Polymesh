@@ -8,6 +8,7 @@ edition = "2018"
 polymesh-common-utilities = { path = "../common", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-runtime-common = { path = "../runtime/common", default-features = false }
 
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
@@ -34,6 +35,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 
 # Benchmarking
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.1", optional = true }
+rand = { version = "0.8.2", default-features = false, optional = true }
+rand_chacha = { version = "0.3.0", default-features = false, optional = true }
 pallet-committee = { path = "../committee", default-features = false, optional = true }
 
 [features]
@@ -53,6 +56,7 @@ std = [
     "pallet-treasury/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
+    "polymesh-runtime-common/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",
@@ -64,5 +68,7 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "rand",
+    "rand_chacha",
     "pallet-committee",
 ]
