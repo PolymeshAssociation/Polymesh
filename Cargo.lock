@@ -5515,6 +5515,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-extensions"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-permissions",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "sp-runtime",
+ "sp-std 2.0.1",
+]
+
+[[package]]
 name = "polymesh-node-rpc"
 version = "0.1.0"
 dependencies = [
@@ -5663,6 +5678,7 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
+ "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
@@ -5739,6 +5755,7 @@ dependencies = [
  "polymesh-build-tool",
  "polymesh-common-utilities",
  "polymesh-contracts",
+ "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-weights",
@@ -5809,6 +5826,7 @@ dependencies = [
  "parking_lot 0.10.2",
  "polymesh-common-utilities",
  "polymesh-contracts",
+ "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
