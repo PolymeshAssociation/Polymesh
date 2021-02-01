@@ -37,7 +37,7 @@ async function main() {
   
   await reqImports.distributePolyBatch( api, [primary_keys[0]], reqImports.transfer_amount, alice );
   
-  await reqImports.issueTokenPerDid(api, [primary_keys[0]], ticker);
+  await reqImports.issueTokenPerDid(api, [primary_keys[0]], ticker, 1000000, null);
   
   await addSecondaryKeys( api, primary_keys, secondary_keys );
   
