@@ -7,10 +7,9 @@
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
   "scripts": {
-    "start": "npm run build && npm run global",
+    "start": "npm run build",
     "create": "npm run build && npm run test",
     "build": "npm run clean:some && tsc -p .",
-    "global": "npm i -g && polymesh-cli",
     "clean:some": "rm -rf ./dist ./docs",
     "clean:all": "rm -rf ./node_modules ./yarn.lock ./dist ./docs",
     "tscov": "tscov --min-coverage 90",
@@ -55,6 +54,7 @@
     "esm": "^3.2.25",
     "figlet": "^1.4.0",
     "inquirer": "^7.1.0",
+    "minimist": "^1.2.5",
     "nodejs-fs-utils": "^1.2.4",
     "path": "^0.12.7",
     "pm2": "^4.2.3",
