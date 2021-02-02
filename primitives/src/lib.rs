@@ -19,15 +19,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
 
+use blake2::{Blake2b, Digest};
+use confidential_identity::Scalar;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
-pub use codec::{Compact, Decode, Encode};
-pub use sp_runtime::{
+use codec::{Decode, Encode};
+use sp_runtime::{
     generic,
-    traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
+    traits::{BlakeTwo256, IdentifyAccount, Verify},
     MultiSignature,
 };
 
@@ -136,10 +138,6 @@ pub use asset_identifier::AssetIdentifier;
 pub mod event_only;
 pub use event_only::EventOnly;
 
-/// Role for identities.
-pub mod identity_role;
-pub use identity_role::IdentityRole;
-
 /// Polymesh Distributed Identity.
 pub mod identity_id;
 pub use identity_id::{
@@ -149,7 +147,7 @@ pub use identity_id::{
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::{Identity, IdentityWithRoles};
+pub use identity::Identity;
 
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
@@ -168,7 +166,7 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
-pub use jurisdiction::{CountryCode, JurisdictionName};
+pub use jurisdiction::CountryCode;
 
 /// Utilities for storage migration.
 pub mod migrate;
@@ -211,12 +209,17 @@ pub use ticker::Ticker;
 /// This module defines types used by smart extensions
 pub mod smart_extension;
 pub use smart_extension::{
-    ExtensionAttributes, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
+    ExtensionAttributes, MetaDescription, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
     SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
 
+/// Document hash
+pub mod document_hash;
+pub use document_hash::{DocumentHash, DocumentHashOld};
+
+/// Document types
 pub mod document;
-pub use document::{Document, DocumentHash, DocumentId, DocumentName, DocumentUri};
+pub use document::{Document, DocumentId, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
@@ -232,6 +235,9 @@ pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;
+
+/// Runtime crypto tools.
+pub mod crypto;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -269,9 +275,62 @@ pub struct PalletName(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
+/// Create a `Version` struct with an upper limit.
+#[macro_export]
+macro_rules! storage_migration_ver {
+    ($ver:literal) => {
+        #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub struct Version(u8);
+
+        impl Version {
+            const MAX: u8 = $ver;
+
+            /// Constructor as `const function` which is interpreted by the compiler at
+            /// compile-time.
+            const fn new(ver: u8) -> Option<Self> {
+                if ver <= Self::MAX {
+                    Some(Self(ver))
+                } else {
+                    None
+                }
+            }
+        }
+
+        impl Default for Version {
+            fn default() -> Self {
+                Version(0)
+            }
+        }
+
+        impl sp_std::convert::TryFrom<u8> for Version {
+            type Error = &'static str;
+
+            fn try_from(ver: u8) -> Result<Self, Self::Error> {
+                Self::new(ver).ok_or("Unsupported version")
+            }
+        }
+    };
+}
+
+/// Helper macro which execute the `$body` if `$curr` is less than version `$ver`.
+/// It also updates `StorageVersion` in the current pallet to `$ver`.
+#[macro_export]
+macro_rules! storage_migrate_on {
+    ($curr: expr, $ver:literal, $([$($targ:ty),*])? $body: block) => {{
+        const TARGET_VERSION: Version = Version::new($ver).unwrap();
+        if $curr < TARGET_VERSION {
+            $body;
+            StorageVersion::< $($($targ),*)? >::put(TARGET_VERSION);
+        }
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+
+    use codec::{Decode, Encode};
+    use sp_std::convert::TryInto;
 
     #[derive(VecU8StrongTyped)]
     struct A(Vec<u8>);
@@ -334,5 +393,19 @@ mod tests {
         // Strong types are not equal.
         // The below line does NOT compile.
         // let c3 :C = _d1;
+    }
+
+    #[test]
+    fn storage_migration_ver_test_1() {
+        storage_migration_ver!(3);
+
+        assert!(Version::new(2).is_some());
+        assert!(Version::new(4).is_none());
+
+        let v: Result<Version, _> = 3u8.try_into();
+        assert!(v.is_ok());
+
+        let v: Result<Version, _> = 5u8.try_into();
+        assert!(v.is_err());
     }
 }

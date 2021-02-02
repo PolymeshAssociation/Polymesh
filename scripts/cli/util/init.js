@@ -512,10 +512,11 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function affirmInstruction(api, sender, instructionCounter, did) {
+async function affirmInstruction(api, sender, instructionCounter, did, leg_counts) {
   const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
-    [getDefaultPortfolio(did)]
+    [getDefaultPortfolio(did)],
+    leg_counts
   );
 
   await sendTx(sender, transaction);
@@ -570,12 +571,14 @@ async function addInstruction(
       venueCounter,
       0,
       null,
+      null,
       [leg]
     );
   } else {
     transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
+      null,
       null,
       [leg, leg2]
     );

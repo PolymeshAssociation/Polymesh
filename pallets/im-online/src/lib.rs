@@ -81,14 +81,11 @@ mod tests;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
-    traits::EnsureOrigin,
-    traits::Get,
-    weights::{DispatchClass, Weight},
+    debug, decl_error, decl_event, decl_module, decl_storage, ensure, traits::Get, weights::Weight,
     Parameter,
 };
-use frame_system::ensure_none;
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use frame_system::{ensure_none, ensure_root};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
@@ -284,8 +281,12 @@ pub trait Trait: SendTransactionTypes<Call<Self>> + pallet_session::historical::
     /// multiple pallets send unsigned transactions.
     type UnsignedPriority: Get<TransactionPriority>;
 
-    /// Origin for changing slashing params.
-    type CommitteeOrigin: EnsureOrigin<Self::Origin>;
+    type WeightInfo: WeightInfo;
+}
+
+pub trait WeightInfo {
+    fn heartbeat(keys_len: u32, external_addresses_len: u32) -> Weight;
+    fn set_slashing_params() -> Weight;
 }
 
 decl_event!(
@@ -348,8 +349,6 @@ decl_error! {
         InvalidSlashingParam,
         /// Unauthorized origin
         NotAuthorised,
-        /// Missing Caller DID
-        MissingCurrentIdentity
     }
 }
 
@@ -371,12 +370,7 @@ decl_module! {
         /// # </weight>
         // NOTE: the weight include cost of validate_unsigned as it is part of the cost to import
         // block with such an extrinsic.
-        #[weight = (310_000_000 + T::DbWeight::get().reads_writes(4, 1))
-            .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
-            .saturating_add(
-                1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
-            )
-        ]
+        #[weight = <T as Trait>::WeightInfo::heartbeat(heartbeat.validators_len,heartbeat.network_state.external_addresses.len() as u32)]
         fn heartbeat(
             origin,
             heartbeat: Heartbeat<T::BlockNumber>,
@@ -411,12 +405,11 @@ decl_module! {
 
         /// Set slashing params to be used in calculating `slash_fraction`
         /// Only Governance committee is allowed to set these params.
-        #[weight = (100_000, DispatchClass::Operational)]
+        #[weight =  <T as Trait>::WeightInfo::set_slashing_params()]
         fn set_slashing_params(origin, params: OfflineSlashingParams) {
+            ensure_root(origin)?;
             ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
             ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
-
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
             Self::deposit_event(RawEvent::SlashingParamsUpdated(params));

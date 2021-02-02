@@ -38,10 +38,11 @@ fn motions_basic_environment_works() {
 }
 
 fn motions_basic_environment_works_we() {
-    let committee = [AccountKeyring::Alice, AccountKeyring::Bob]
+    let mut committee = [AccountKeyring::Alice, AccountKeyring::Bob]
         .iter()
         .map(|key| get_identity_id(*key).unwrap())
         .collect::<Vec<_>>();
+    committee.sort();
 
     System::set_block_number(1);
     assert_eq!(Committee::members(), committee);
@@ -63,7 +64,7 @@ fn assert_mem_len(len: u32) {
 }
 
 fn assert_mem(who: IdentityId, is: bool) {
-    assert_eq!(Committee::is_member(&who), is);
+    assert_eq!(Committee::ensure_did_is_member(&who).is_ok(), is);
 }
 
 fn abdicate_membership(who: IdentityId, signer: &Origin, n: u32) {
@@ -134,7 +135,7 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -162,7 +163,7 @@ fn preventing_motions_from_non_members_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
         vote(&alice_signer, true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 }
 
@@ -188,7 +189,7 @@ fn preventing_voting_from_non_members_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
         vote(&bob_signer, true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 }
 
@@ -222,7 +223,6 @@ fn motions_revoting_works_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -237,7 +237,6 @@ fn motions_revoting_works_we() {
             index: 0,
             ayes: vec![],
             nays: vec![alice_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -281,7 +280,7 @@ fn changing_vote_threshold_works() {
 
 /// Constructs an origin for the governance council voting majority.
 pub fn gc_vmo() -> Origin {
-    pallet_committee::Origin::<TestStorage, committee::Instance1>::Members(0, 0).into()
+    pallet_committee::Origin::<TestStorage, committee::Instance1>::Endorsed(<_>::default()).into()
 }
 
 fn changing_vote_threshold_works_we() {
@@ -354,7 +353,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![bob_did],
             nays: vec![charlie_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -367,7 +365,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![charlie_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -380,7 +377,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -397,7 +393,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![bob_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -408,7 +403,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![bob_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -431,7 +425,7 @@ fn rage_quit_we() {
     let did = IdentityId::default();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, true)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -466,7 +460,7 @@ fn release_coordinator_we() {
 
     assert_err!(
         Committee::set_release_coordinator(gc_vmo(), charlie_id),
-        committee::Error::<TestStorage, committee::Instance1>::MemberNotFound
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
 
     assert_ok!(Committee::set_release_coordinator(gc_vmo(), bob_id));
@@ -555,7 +549,7 @@ fn enact_we() {
     assert_ok!(vote(&alice_signer, true));
     assert_err!(
         vote(&Origin::signed(dave), true),
-        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
+        committee::Error::<TestStorage, committee::Instance1>::NotAMember,
     );
     assert_ok!(vote(&Origin::signed(bob), true));
     check_scheduled(0);
@@ -580,7 +574,6 @@ fn mesh_1065_regression_test() {
                     index: 0,
                     ayes,
                     nays: vec![],
-                    end: System::block_number(),
                     expiry: <_>::default(),
                 })
             );

@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for Identity module.
-#![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
 use frame_support::traits::Currency;

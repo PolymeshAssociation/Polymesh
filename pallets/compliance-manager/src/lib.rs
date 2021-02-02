@@ -71,6 +71,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(const_option)]
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::result::Result;
@@ -82,8 +86,9 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_identity as identity;
+pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait,
+    asset::AssetFnTrait,
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -91,13 +96,13 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
-    proposition, Claim, Condition, ConditionType, IdentityId, Ticker, TrustedIssuer,
+    proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
+    IdentityId, Ticker, TrustedIssuer,
 };
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
-    cmp::max,
     convert::{From, TryFrom},
     prelude::*,
 };
@@ -110,7 +115,10 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+
+    /// Weight details of all extrinsic
+    type WeightInfo: WeightInfo;
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
@@ -155,17 +163,10 @@ pub struct ComplianceRequirementResult {
 
 impl From<ComplianceRequirement> for ComplianceRequirementResult {
     fn from(requirement: ComplianceRequirement) -> Self {
+        let from_conds = |conds: Vec<_>| conds.into_iter().map(ConditionResult::from).collect();
         Self {
-            sender_conditions: requirement
-                .sender_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
-            receiver_conditions: requirement
-                .receiver_conditions
-                .iter()
-                .map(|condition| ConditionResult::from(condition.clone()))
-                .collect(),
+            sender_conditions: from_conds(requirement.sender_conditions),
+            receiver_conditions: from_conds(requirement.receiver_conditions),
             id: requirement.id,
             result: true,
         }
@@ -241,31 +242,31 @@ pub mod weight_for {
     }
 }
 
+// A value placed in storage that represents the current version of the this storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+storage_migration_ver!(1);
+
 decl_storage! {
     trait Store for Module<T: Trait> as ComplianceManager {
         /// Asset compliance for a ticker (Ticker -> AssetCompliance)
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) Ticker => AssetCompliance;
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a secondary key for the DID.
-        SenderMustBeSecondaryKeyForDid,
         /// User is not authorized.
         Unauthorized,
         /// Did not exist
         DidNotExist,
-        /// When parameter has length < 1
-        InvalidLength,
         /// Compliance requirement id doesn't exist
         InvalidComplianceRequirementId,
         /// Issuer exist but trying to add it again
         IncorrectOperationOnTrustedIssuer,
-        /// Missing current DID
-        MissingCurrentIdentity,
         /// There are duplicate compliance requirements.
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
@@ -281,10 +282,13 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::migrate::{Empty, migrate_map};
-            use polymesh_primitives::condition::TrustedIssuerOld;
+            use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
 
-            migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
+            let storage_ver = StorageVersion::get();
+
+            storage_migrate_on!(storage_ver, 1, {
+                migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
+            });
 
             1_000
         }
@@ -297,9 +301,9 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * sender_conditions - Sender transfer conditions.
         /// * receiver_conditions - Receiver transfer conditions.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::add_compliance_requirement( sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
@@ -328,9 +332,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * id - Compliance requirement id which is need to be removed
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
                 let before = requirements.len();
@@ -352,11 +356,9 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `DuplicateAssetCompliance` if `asset_compliance` contains multiple entries with the same `requirement_id`.
         ///
-        /// # Weight
-        /// `read_and_write_weight + 100_000_000 + 500_000 * asset_compliance.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
+        #[weight = <T as Trait>::WeightInfo::replace_asset_compliance( asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -377,9 +379,9 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             AssetCompliances::remove(ticker);
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
         }
@@ -389,7 +391,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::pause_asset_compliance()]
         pub fn pause_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, ticker));
@@ -400,7 +402,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
+        #[weight = <T as Trait>::WeightInfo::resume_asset_compliance()]
         pub fn resume_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, ticker));
@@ -412,9 +414,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
@@ -431,12 +433,12 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
-        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+        #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
+        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
-                issuers.retain(|ti| ti != &issuer);
+                issuers.retain(|ti| ti.issuer != issuer);
                 ensure!(len != issuers.len(), Error::<T>::IncorrectOperationOnTrustedIssuer);
                 Ok(()) as DispatchResult
             })?;
@@ -449,9 +451,11 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * new_req - Compliance requirement.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_compliance_requirement(
+            new_req.sender_conditions.len() as u32,
+            new_req.receiver_conditions.len() as u32)]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
-            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -497,26 +501,11 @@ decl_event!(
         TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
         /// Emitted when default claim issuer list for a given ticker get removed.
         /// (caller DID, Ticker, Removed TrustedIssuer).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, TrustedIssuer),
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
     }
 );
 
 impl<T: Trait> Module<T> {
-    /// Ensure that `origin` can modify `ticker`'s compliance rules.
-    fn ensure_can_modify_rules(
-        origin: T::Origin,
-        ticker: Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-        Ok(did)
-    }
-
-    /// Returns true if `sender_did` is the owner of `ticker` asset.
-    fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
-        T::Asset::is_owner(ticker, sender_did)
-    }
-
     /// Fetches all claims of `target` identity with type
     /// and scope from `claim` and generated by any of `issuers`.
     fn fetch_claims<'a>(
@@ -558,7 +547,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
@@ -591,7 +580,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         let slot = &mut None;
         conditions.iter().all(|condition| {
@@ -604,7 +593,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         condition: &Condition,
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
         slot: &mut Option<Vec<TrustedIssuer>>,
     ) -> bool {
         let context = Self::fetch_context(did, ticker, slot, &condition, primary_issuance_agent);
@@ -618,7 +607,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut [ConditionResult],
-        primary_issuance_agent: Option<IdentityId>,
+        primary_issuance_agent: IdentityId,
     ) -> bool {
         conditions.iter_mut().fold(true, |result, condition| {
             let cond = &condition.condition;
@@ -635,7 +624,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Self::ensure_can_modify_rules(origin, ticker)?;
+        let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
         AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
         Ok(did)
     }
@@ -657,7 +646,7 @@ impl<T: Trait> Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
     ) -> AssetComplianceResult {
-        let primary_issuance_agent = T::Asset::primary_issuance_agent(ticker);
+        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
@@ -695,7 +684,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
-    fn verify_compliance_complexity(
+    pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
         add: usize,
@@ -708,7 +697,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
     /// is within the maximum condition complexity allowed.
-    fn base_verify_compliance_complexity(
+    pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         default_issuer_count: usize,
     ) -> DispatchResult {
@@ -743,25 +732,16 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        primary_issuance_agent: Option<IdentityId>,
-    ) -> Result<(u8, Weight), DispatchError> {
+        primary_issuance_agent: IdentityId,
+    ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
         if asset_compliance.paused {
-            return Ok((
-                ERC1400_TRANSFER_SUCCESS,
-                weight_for::weight_for_reading_asset_compliance::<T>(),
-            ));
+            return Ok(ERC1400_TRANSFER_SUCCESS);
         }
-
-        let mut requirement_count: usize = 0;
-        let verify_weight = |count| {
-            weight_for::weight_for_verify_restriction::<T>(u64::try_from(count).unwrap_or(0))
-        };
 
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                requirement_count += requirement.sender_conditions.len();
                 if !Self::are_all_conditions_satisfied(
                     ticker,
                     from_did,
@@ -774,7 +754,6 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                requirement_count += requirement.receiver_conditions.len();
                 if Self::are_all_conditions_satisfied(
                     ticker,
                     to_did,
@@ -782,10 +761,10 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
-                    return Ok((ERC1400_TRANSFER_SUCCESS, verify_weight(requirement_count)));
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
             }
         }
-        Ok((ERC1400_TRANSFER_FAILURE, verify_weight(requirement_count)))
+        Ok(ERC1400_TRANSFER_FAILURE)
     }
 }

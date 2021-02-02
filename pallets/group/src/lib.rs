@@ -74,9 +74,12 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
-    group::{GroupTrait, InactiveMember, MemberCount, RawEvent, Trait},
+    group::{GroupTrait, InactiveMember, MemberCount, RawEvent, Trait, WeightInfo},
     Context, GC_DID,
 };
 use polymesh_primitives::IdentityId;
@@ -86,7 +89,6 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{ChangeMembers, EnsureOrigin},
-    weights::{DispatchClass, Pays},
     StorageValue,
 };
 use frame_system::ensure_signed;
@@ -131,7 +133,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `limit` - the numer of active members there may be concurrently.
-        #[weight = (100_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_active_members_limit()]
         pub fn set_active_members_limit(origin, limit: MemberCount) {
             T::LimitOrigin::ensure_origin(origin)?;
             let old = <ActiveMembersLimit<I>>::mutate(|slot| core::mem::replace(slot, limit));
@@ -154,7 +156,7 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::disable_member()]
         pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
@@ -170,7 +172,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::add_member()]
         pub fn add_member(origin, who: IdentityId) -> DispatchResult {
             T::AddOrigin::ensure_origin(origin)?;
             <Self as GroupTrait<T::Moment>>::add_member(who)
@@ -186,10 +188,10 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::remove_member()]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
-            Self::unsafe_remove_member(who)
+            Self::base_remove_member(who)
         }
 
         /// Swaps out one member `remove` for another member `add`.
@@ -200,7 +202,7 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::swap_member()]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::ensure_origin(origin)?;
 
@@ -228,7 +230,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::reset_members( members.len() as u32)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::ensure_origin(origin)?;
 
@@ -254,21 +256,21 @@ decl_module! {
         ///
         /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn abdicate_membership(origin) -> DispatchResult {
+        #[weight = <T as Trait<I>>::WeightInfo::abdicate_membership()]
+        pub fn abdicate_membership(origin) {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_primary_key(&remove_id, &who),
-                Error::<T,I>::OnlyPrimaryKeyAllowed);
+            ensure!(
+                <Identity<T>>::is_primary_key(&remove_id, &who),
+                Error::<T,I>::OnlyPrimaryKeyAllowed
+            );
 
             let mut members = Self::get_members();
-            ensure!(members.contains(&remove_id),
-                Error::<T,I>::NoSuchMember);
-            ensure!( members.len() > 1,
-                Error::<T,I>::LastMemberCannotQuit);
+            ensure!(members.len() > 1, Error::<T,I>::LastMemberCannotQuit);
+            ensure!(members.binary_search(&remove_id).is_ok(), Error::<T,I>::NoSuchMember);
 
-            members.retain( |id| *id != remove_id);
+            members.retain(|id| *id != remove_id);
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(
@@ -276,8 +278,6 @@ decl_module! {
                 &[remove_id],
                 &members[..],
             );
-
-            Ok(())
         }
     }
 }
@@ -320,15 +320,15 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     ///
     /// # Arguments
     /// * `who` IdentityId to be removed from the group.
-    fn unsafe_remove_member(who: IdentityId) -> DispatchResult {
-        Self::unsafe_remove_active_member(who).or_else(|_| Self::unsafe_remove_inactive_member(who))
+    fn base_remove_member(who: IdentityId) -> DispatchResult {
+        Self::base_remove_active_member(who).or_else(|_| Self::base_remove_inactive_member(who))
     }
 
     /// Removes `who` as "inactive member"
     ///
     /// # Errors
     /// * `NoSuchMember` if `who` is not part of *inactive members*.
-    fn unsafe_remove_inactive_member(who: IdentityId) -> DispatchResult {
+    fn base_remove_inactive_member(who: IdentityId) -> DispatchResult {
         let inactive_who = InactiveMember::<T::Moment>::from(who);
         let mut members = <InactiveMembers<T, I>>::get();
         let position = members
@@ -349,7 +349,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     ///
     /// # Errors
     /// * `NoSuchMember` if `who` is not part of *active members*.
-    fn unsafe_remove_active_member(who: IdentityId) -> DispatchResult {
+    fn base_remove_active_member(who: IdentityId) -> DispatchResult {
         let mut members = <ActiveMembers<I>>::get();
         let location = members
             .binary_search(&who)
@@ -398,7 +398,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         expiry: Option<T::Moment>,
         at: Option<T::Moment>,
     ) -> DispatchResult {
-        Self::unsafe_remove_active_member(who)?;
+        Self::base_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
         let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);

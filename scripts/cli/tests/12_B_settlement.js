@@ -93,16 +93,16 @@ async function main() {
     100
   );
 
-  await reqImports.affirmInstruction(api, alice, instructionCounter, alice_did);
+  await reqImports.affirmInstruction(api, alice, instructionCounter, alice_did, 4);
 
-  await reqImports.affirmInstruction(api, bob, instructionCounter, bob_did);
+  await reqImports.affirmInstruction(api, bob, instructionCounter, bob_did, 1);
 
-  await reqImports.affirmInstruction(api, charlie, instructionCounter, charlie_did);
+  await reqImports.affirmInstruction(api, charlie, instructionCounter, charlie_did, 0);
 
-  await reqImports.affirmInstruction(api, dave, instructionCounter, dave_did);
+  await reqImports.affirmInstruction(api, dave, instructionCounter, dave_did, 0);
 
   //await reqImports.rejectInstruction(api, eve, instructionCounter);
-  await reqImports.affirmInstruction(api, eve, instructionCounter, eve_did);
+  await reqImports.affirmInstruction(api, eve, instructionCounter, eve_did, 0);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
@@ -185,7 +185,7 @@ async function addGroupInstruction(
     amount: amount,
   };
 
-  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, [
+  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, null, [
     {"NonConfidentialLeg": NonConfidentialLeg},
     {"NonConfidentialLeg": NonConfidentialLeg2},
     {"NonConfidentialLeg": NonConfidentialLeg3},

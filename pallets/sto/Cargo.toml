@@ -7,12 +7,14 @@ edition = "2018"
 [dependencies]
 pallet-asset = { path = "../asset", default-features = false  }
 pallet-balances = { path = "../balances", default-features = false  }
+pallet-compliance-manager = { path = "../compliance-manager", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
 pallet-permissions = { path = "../permissions", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-settlement = { path = "../settlement", default-features = false  }
 polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-portfolio = { path = "../portfolio", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -29,6 +31,9 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+
+# Only in STD
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
 [features]
 equalize = []
@@ -47,6 +52,7 @@ std = [
 	"sp-api/std",
 	"frame-system/std",
 	"frame-support/std",
+	"frame-benchmarking/std",
 	"polymesh-common-utilities/std",
 	"pallet-balances/std",
 	"polymesh-primitives/std",
@@ -54,4 +60,7 @@ std = [
 	"pallet-asset/std",
 	"pallet-settlement/std",
 	"pallet-timestamp/std"
+]
+runtime-benchmarks = [
+	"frame-benchmarking"
 ]

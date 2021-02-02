@@ -1,8 +1,5 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use crate::{
-    constants::{fee::*, time::*},
-    fee_details::CddHandler,
-};
+use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
 use pallet_asset::{self as asset, checkpoint};
 use pallet_balances as balances;
@@ -22,7 +19,6 @@ use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCou
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
-use pallet_statistics as statistics;
 use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
@@ -39,17 +35,16 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
-    dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
-    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
-    RocksDbWeight,
+    merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
+    ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
+    TransactionByteFee, WeightToFee,
 };
 
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+    weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -63,7 +58,7 @@ use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
-    u32_trait::{_1, _2, _4},
+    u32_trait::{_1, _4},
     OpaqueMetadata,
 };
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -78,7 +73,7 @@ use sp_runtime::{
         BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, OpaqueKeys, SaturatedConversion,
         Saturating, StaticLookup, Verify,
     },
-    ApplyExtrinsicResult, MultiSignature, Perbill,
+    ApplyExtrinsicResult, MultiSignature, Perbill, Permill,
 };
 
 use sp_std::prelude::*;
@@ -95,8 +90,6 @@ pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use smallvec::smallvec;
-
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -110,7 +103,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2000,
+    spec_version: 2002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -196,7 +189,7 @@ parameter_types! {
 }
 
 impl pallet_babe::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -226,7 +219,7 @@ impl pallet_indices::Trait for Runtime {
     type Currency = Balances;
     type Deposit = IndexDeposit;
     type Event = Event;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
 }
 
 parameter_types! {
@@ -243,26 +236,6 @@ pub type DealWithFees = SplitTwoWays<
     _1,
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
-
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        smallvec![WeightToFeeCoefficient {
-            degree: 1,
-            coeff_frac: Perbill::from_percent(3), // use only 3% of the exact weight value.
-            coeff_integer: 0u128,                 // Coefficient is zero.
-            negative: false,
-        }]
-    }
-}
-
-parameter_types! {
-    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
-    // for a sane configuration, this should always be less than `AvailableBlockRatio`.
-    pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
-}
 
 impl pallet_transaction_payment::Trait for Runtime {
     type Currency = Balances;
@@ -285,9 +258,8 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = frame_system::Module<Runtime>;
-    type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -348,7 +320,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -375,15 +347,18 @@ parameter_types! {
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
 }
 
 impl pallet_staking::Trait for Runtime {
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type RewardRemainder = Treasury;
+    type RewardRemainder = ();
     type Event = Event;
     type Slash = Treasury; // send the slashed funds to the treasury.
     type Reward = (); // rewards are minted from the void
@@ -407,23 +382,23 @@ impl pallet_staking::Trait for Runtime {
     type RequiredCommissionOrigin = EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
+    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
     type PalletsOrigin = OriginCaller;
 }
 
-parameter_types! {
-    pub const MotionDuration: BlockNumber = 0;
-}
-
 /// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
+    type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
-    type MotionDuration = MotionDuration;
+    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
@@ -435,6 +410,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 macro_rules! committee_config {
@@ -444,8 +420,9 @@ macro_rules! committee_config {
             type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<committee::$instance>;
+            type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
-            type MotionDuration = MotionDuration;
+            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
@@ -459,6 +436,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
+            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
         }
     };
 }
@@ -468,17 +446,19 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
@@ -549,23 +529,25 @@ where
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 parameter_types! {
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInInstruction: u32 = 10;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type Asset = Asset;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
 impl sto::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
 }
 
 parameter_types! {
@@ -592,11 +574,11 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
 }
 
 impl pallet_grandpa::Trait for Runtime {
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
     type Event = Event;
     type Call = Call;
 
@@ -634,14 +616,15 @@ impl pallet_sudo::Trait for Runtime {
 
 impl multisig::Trait for Runtime {
     type Event = Event;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
+    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type Scheduler = Scheduler;
-    type SchedulerOrigin = OriginCaller;
-    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -651,6 +634,9 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const AssetNameMaxLength: usize = 1024;
+    pub const FundingRoundNameMaxLength: usize = 1024;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
 }
 
 impl asset::Trait for Runtime {
@@ -659,6 +645,11 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<Runtime>;
+    type AssetNameMaxLength = AssetNameMaxLength;
+    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+    type AssetFn = Asset;
+    type AllowedGasLimit = AllowedGasLimit;
+    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
 }
 
 impl pallet_confidential_asset::Trait for Runtime {
@@ -673,16 +664,8 @@ parameter_types! {
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
     type MaxConditionComplexity = MaxConditionComplexity;
-}
-
-impl voting::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
-impl sto_capped::Trait for Runtime {
-    type Event = Event;
 }
 
 impl IdentityTrait for Runtime {
@@ -700,29 +683,29 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
+    type IdentityFn = identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
 }
 
 parameter_types! {
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
+    pub const MaxTargetIds: u32 = 1000;
+    pub const MaxDidWhts: u32 = 1000;
 }
 
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
 }
 
 impl pallet_corporate_actions::Trait for Runtime {
     type Event = Event;
+    type MaxTargetIds = MaxTargetIds;
+    type MaxDidWhts = MaxDidWhts;
     type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
-}
-
-impl exemption::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-}
-
-impl dividend::Trait for Runtime {
-    type Event = Event;
+    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
 }
 
 /// CddProviders instance of group
@@ -736,17 +719,29 @@ impl group::Trait<group::Instance2> for Runtime {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl statistics::Trait for Runtime {}
+parameter_types! {
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+}
+impl pallet_statistics::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+}
 
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+    type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
 }
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl PermissionChecker for Runtime {
@@ -780,7 +775,7 @@ impl pallet_scheduler::Trait for Runtime {
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
 construct_runtime!(
@@ -789,73 +784,84 @@ construct_runtime!(
         NodeBlock = polymesh_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        // Must be before session.
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
+        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
+        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
 
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
-        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
-        TransactionPayment: pallet_transaction_payment::{Module, Storage},
+        // Balance: Genesis config dependencies: System.
+        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
 
-        // Consensus frame_support.
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Offences: pallet_offences::{Module, Call, Storage, Event},
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent},
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+        // TransactionPayment: Genesis config dependencies: Balance.
+        TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
 
-        Historical: pallet_session_historical::{Module},
+        // Identity: Genesis config deps: Timestamp.
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+
+        // CddServiceProviders: Genesis config deps: Identity
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+
+        // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
+        Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+
+        // Session: Genesis config deps: System.
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
+        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 11,
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
+        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
+        Historical: pallet_session_historical::{Module} = 16,
+
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
-
-        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>},
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
+        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Event<T>},
-        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+        Treasury: treasury::{Module, Call, Event<T>} = 21,
+        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
 
-        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
+        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
 
-        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
+        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+
+        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
-        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
-        Dividend: dividend::{Module, Call, Storage, Event<T>},
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
-        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
-        ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
-        Voting: voting::{Module, Call, Storage, Event<T>},
-        StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        Exemption: exemption::{Module, Call, Storage, Event},
-        Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
-        Sto: sto::{Module, Call, Storage, Event<T>},
-        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        Statistic: statistics::{Module, Call, Storage},
-        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
-        Utility: utility::{Module, Call, Storage, Event},
-        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
-        Confidential: confidential::{Module, Call, Storage, Event},
-        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Event<T>, Storage },
-        Permissions: pallet_permissions::{Module, Storage},
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
-        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>},
-        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>},
-        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config},
+        ////////////
+
+        // Asset: Genesis config deps: Timestamp,
+        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+
+        // Bridge: Genesis config deps: Multisig, Identity,
+        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
+        ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
+        Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
+        Sto: sto::{Module, Call, Storage, Event<T>} = 37,
+        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
+        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        Utility: utility::{Module, Call, Storage, Event} = 41,
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
+        Confidential: confidential::{Module, Call, Storage, Event} = 43,
+        Permissions: pallet_permissions::{Module, Storage} = 44,
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
+        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
     }
 );
 
@@ -1124,13 +1130,13 @@ impl_runtime_apis! {
             Pips::voted_on(address)
         }
 
-        /// Retrieve referendums voted on information by `address` account.
+        /// Retrieve PIPs voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
             Pips::voting_history_by_address(address)
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
+        /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1194,7 +1200,7 @@ impl_runtime_apis! {
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
-            sender: AccountId,
+            _sender: AccountId,
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
             to_custodian: Option<IdentityId>,
@@ -1202,7 +1208,7 @@ impl_runtime_apis! {
             ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+            Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
@@ -1235,29 +1241,17 @@ impl_runtime_apis! {
         }
     }
 
-    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
-        #[inline]
-        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
-            Ok(Portfolio::rpc_get_portfolios(did))
-        }
-
-        #[inline]
-        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
-            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
-        {
-            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
-        }
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-
             use frame_system_benchmarking::Module as SystemBench;
+            use crate::benchmarks::pallet_session::Module as SessionBench;
+
             impl frame_system_benchmarking::Trait for Runtime {}
+            impl crate::benchmarks::pallet_session::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1280,10 +1274,32 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, pallet_pips, Pips);
+            add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, pallet_settlement, Settlement);
+            add_benchmark!(params, batches, pallet_sto, Sto);
+            add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
+            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
+            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
+            add_benchmark!(params, batches, polymesh_contracts, Contracts);
+            add_benchmark!(params, batches, pallet_utility, Utility);
+            add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
+            add_benchmark!(params, batches, pallet_confidential, Confidential);
+            add_benchmark!(params, batches, pallet_treasury, Treasury);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_group, CddServiceProviders);
+            add_benchmark!(params, batches, pallet_statistics, Statistics);
+            add_benchmark!(params, batches, pallet_permissions, Permissions);
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_indices, Indices);
+            add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

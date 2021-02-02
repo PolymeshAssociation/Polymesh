@@ -3,8 +3,9 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
+use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_common_utilities::portfolio::PortfolioSubTrait;
+use polymesh_common_utilities::{asset::AssetType, portfolio::PortfolioSubTrait};
 use polymesh_primitives::{
     AssetType, AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, SecurityToken, Signatory, Ticker,
@@ -23,7 +24,7 @@ fn create_token() -> (SecurityToken<u128>, Ticker) {
     let owner_did = Identity::get_identity(&AccountKeyring::Alice.public()).unwrap();
     let total_supply = 1_000_000u128;
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did,
         total_supply,
         divisible: true,

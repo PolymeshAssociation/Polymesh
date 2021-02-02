@@ -43,6 +43,7 @@ pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
+pallet-sudo = { path = "../../sudo", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -81,7 +82,6 @@ pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-feat
 pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-offences = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
@@ -91,10 +91,9 @@ pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-fe
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-smallvec = "1.4.0"
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0"}
+polymesh-build-tool = { path = "../build_tool", default-features = false } 
 
 [features]
 default = ["std", "equalize"]
@@ -108,7 +107,6 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
-    "pallet-asset/runtime-benchmarks",
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",
@@ -171,4 +169,8 @@ std = [
     "sp-version/std",
     "polymesh-contracts/std",
     "pallet-confidential-asset/std"
+]
+
+runtime-benchmarks = [
+    "pallet-asset/runtime-benchmarks",
 ]

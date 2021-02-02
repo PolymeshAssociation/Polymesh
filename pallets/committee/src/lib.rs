@@ -21,7 +21,6 @@
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
-// - If MotionDuration > 0 then only the `close()` dispatchable will be used.
 
 //! # Committee Module
 //!
@@ -55,33 +54,57 @@
 //! `false` otherwise.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+use core::marker::PhantomData;
 use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
-    weights::{DispatchClass::Operational, GetDispatchInfo, Pays},
+    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
+    weights::{GetDispatchInfo, Weight},
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::IdentityId;
-use sp_core::u32_trait::Value as U32;
-use sp_runtime::traits::{Hash, Zero};
+use polymesh_primitives::{storage_migration_ver, IdentityId};
+use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
+
+/// The maximum number of members in a committee defined for the sake of weight computation.  This
+/// is not defined as a trait parameter but rather as a plain constant because this value has to be
+/// the same for all instances.
+// TODO: ensure this bound when adding members.
+pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
+
+/// The maximum number of concurrently active proposals defined for the sake of weight computation.
+/// This is not defined as a trait parameter but rather as a plain constant because this value has
+/// to be the same for all instances.
+// TODO: ensure this bound when adding proposals.
+pub const PROPOSALS_MAX: u32 = 500;
+
+pub trait WeightInfo {
+    fn set_vote_threshold() -> Weight;
+    fn set_release_coordinator() -> Weight;
+    fn set_expires_after() -> Weight;
+    fn vote_or_propose_new_proposal() -> Weight;
+    fn vote_or_propose_existing_proposal() -> Weight;
+    fn vote_aye() -> Weight;
+    fn vote_nay() -> Weight;
+}
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
-
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The committee trait.
 pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
@@ -89,25 +112,30 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
 
     /// The outer call dispatch type.
-    type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin> + GetDispatchInfo;
+    type Proposal: Parameter
+        + Dispatchable<Origin = <Self as Trait<I>>::Origin>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
+    /// Required origin for changing the voting threshold.
+    type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
-    /// The time-out for council motions.
-    type MotionDuration: Get<Self::BlockNumber>;
+    /// Weight computation.
+    type WeightInfo: WeightInfo;
 }
 
 /// Origin for the committee module.
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub enum RawOrigin<AccountId, I> {
-    /// It has been condoned by M of N members of this committee.
-    Members(MemberCount, MemberCount),
-    /// Dummy to manage the fact we have instancing.
-    _Phantom(sp_std::marker::PhantomData<(AccountId, I)>),
+    /// It has been condoned by M of N members of this committee
+    /// with `M` and `N` set dynamically in `set_vote_threshold`.
+    Endorsed(PhantomData<(AccountId, I)>),
 }
 
 /// Origin for the committee module.
@@ -115,27 +143,65 @@ pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::Accoun
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
-pub struct PolymeshVotes<IdentityId, BlockNumber> {
+pub struct PolymeshVotes<BlockNumber> {
     /// The proposal's unique index.
     pub index: ProposalIndex,
     /// The current set of committee members that approved it.
     pub ayes: Vec<IdentityId>,
     /// The current set of committee members that rejected it.
     pub nays: Vec<IdentityId>,
-    /// The hard end time of this vote.
-    pub end: BlockNumber,
     /// The time **at** which the proposal is expired.
     pub expiry: MaybeBlock<BlockNumber>,
 }
+
+mod migrate {
+    use super::*;
+    use polymesh_primitives::migrate::{Empty, Migrate};
+    #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+    /// Info for keeping track of a motion being voted on.
+    pub struct PolymeshVotesOld<BlockNumber> {
+        /// The proposal's unique index.
+        pub index: ProposalIndex,
+        /// The current set of committee members that approved it.
+        pub ayes: Vec<IdentityId>,
+        /// The current set of committee members that rejected it.
+        pub nays: Vec<IdentityId>,
+        /// The hard end time of this vote.
+        pub end: BlockNumber,
+        /// The time **at** which the proposal is expired.
+        pub expiry: MaybeBlock<BlockNumber>,
+    }
+    impl<BlockNumber: Encode + Decode> Migrate for PolymeshVotesOld<BlockNumber> {
+        type Context = Empty;
+        type Into = PolymeshVotes<BlockNumber>;
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+            let Self {
+                index,
+                ayes,
+                nays,
+                end: _,
+                expiry,
+            } = self;
+            Some(Self::Into {
+                index,
+                ayes,
+                nays,
+                expiry,
+            })
+        }
+    }
+}
+
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Committee {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map hasher(twox_64_concat) T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
-        pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
+        pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
         /// Proposals so far.
         pub ProposalCount get(fn proposal_count): u32;
         /// The current members of the committee.
@@ -146,9 +212,11 @@ decl_storage! {
         pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
         /// Time after which a proposal will expire.
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
-        config(phantom): sp_std::marker::PhantomData<(T, I)>;
+        config(phantom): PhantomData<(T, I)>;
     }
 }
 
@@ -178,12 +246,9 @@ decl_event!(
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// Parameters: caller DID, proposal hash, yay vote count, nay vote count, total seats.
         Rejected(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
-        /// A motion was executed; `bool` is true if returned without error.
-        /// Parameters: caller DID, proposal hash, status of proposal dispatch.
-        Executed(IdentityId, Hash, bool),
-        /// A proposal was closed after its duration was up.
-        /// Parameters: caller DID, proposal hash, yay vote count, nay vote count.
-        Closed(IdentityId, Hash, MemberCount, MemberCount),
+        /// A motion was executed; `DispatchResult` is `Ok(())` if returned without error.
+        /// Parameters: caller DID, proposal hash, result of proposal dispatch.
+        Executed(IdentityId, Hash, DispatchResult),
         /// Release coordinator has been updated.
         /// Parameters: caller DID, DID of the release coordinator.
         ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
@@ -200,14 +265,9 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Only primary key of the identity is allowed.
-        OnlyPrimaryKeyAllowed,
-        /// Sender Identity is not part of the committee.
-        MemberNotFound,
-        /// Last member of the committee can not quit.
-        LastMemberCannotQuit,
-        /// The proposer or voter is not a committee member.
-        BadOrigin,
+        /// A DID isn't part of the committee.
+        /// The DID may either be a caller or some other context.
+        NotAMember,
         /// No such proposal.
         NoSuchProposal,
         /// Proposal exists, but it has expired.
@@ -218,12 +278,6 @@ decl_error! {
         MismatchedVotingIndex,
         /// Proportion must be a rational number.
         InvalidProportion,
-        /// The close call is made too early, before the end of the voting.
-        CloseBeforeVoteEnd,
-        /// When `MotionDuration` is set to 0.
-        NotAllowed,
-        /// The current DID is missing.
-        MissingCurrentIdentity,
         /// First vote on a proposal creates it, so it must be an approval.
         /// All proposals are motions to execute something as "GC majority".
         /// To reject e.g., a PIP, a motion to reject should be *approved*.
@@ -240,16 +294,27 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
-        /// majority use (1, 2) which represents the in-equation ">= 1/2"
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{storage_migrate_on, migrate::{migrate_map, Empty}};
+
+            storage_migrate_on!(Self::storage_version(), 1, [I] {
+                migrate_map::<migrate::PolymeshVotesOld<T::BlockNumber>, _>(
+                    b"Committee", b"Voting", |_| Empty
+                );
+            });
+
+            0
+        }
+
+        /// Change the vote threshold the determines the winning proposal.
+        /// For e.g., for a simple majority use (1, 2) which represents the in-equation ">= 1/2".
         ///
         /// # Arguments
-        /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = (100_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_vote_threshold()]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::VoteThresholdOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
@@ -262,11 +327,11 @@ decl_module! {
         /// * `id` - The DID of the new release coordinator.
         ///
         /// # Errors
-        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
-        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        /// * `NotAMember`, If the new coordinator `id` is not part of the committee.
+        #[weight = <T as Trait<I>>::WeightInfo::set_release_coordinator()]
         pub fn set_release_coordinator(origin, id: IdentityId) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+            Self::ensure_did_is_member(&id)?;
             <ReleaseCoordinator<I>>::put(id);
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(GC_DID, Some(id)));
         }
@@ -275,55 +340,11 @@ decl_module! {
         ///
         /// # Arguments
         /// * `expiry` - The new expiry time.
-        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        #[weight = <T as Trait<I>>::WeightInfo::set_expires_after()]
         pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
-        }
-
-        /// May be called by any signed account after the voting duration has ended in order to
-        /// finish voting and close the proposal.
-        ///
-        /// Abstentions are counted as rejections.
-        ///
-        /// # Arguments
-        /// * `proposal` - A hash of the proposal to be closed.
-        /// * `index` - The proposal index.
-        ///
-        /// # Complexity
-        /// - the weight of `proposal` preimage.
-        /// - up to three events deposited.
-        /// - one read, two removals, one mutation. (plus three static reads.)
-        /// - computation and i/o `O(P + L + M)` where:
-        ///   - `M` is number of members,
-        ///   - `P` is number of active proposals,
-        ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
-        fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&who)?;
-            let did = Context::current_identity_or::<Identity<T>>(&who)?;
-
-            let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-
-            // Ensure proposal hasn't expired. If it has, prune the proposal and bail.
-            let now = system::Module::<T>::block_number();
-            Self::ensure_not_expired(&proposal, voting.expiry, now)?;
-
-            ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
-            ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
-
-            let mut no_votes = voting.nays.len() as MemberCount;
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let seats = Self::members().len() as MemberCount;
-            let abstentions = seats - (yes_votes + no_votes);
-            no_votes += abstentions;
-
-            Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
-
-            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
         }
 
         /// Proposes to the committee that `call` should be executed in its name.
@@ -342,12 +363,9 @@ decl_module! {
         ///
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
-        /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = (
-            500_000_000 + call.get_dispatch_info().weight,
-            call.get_dispatch_info().class,
-            Pays::Yes
-        )]
+        /// * `NotAMember`, if the `origin` is not a member of this committee.
+        #[weight = <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() +
+          call.get_dispatch_info().weight]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
@@ -368,23 +386,26 @@ decl_module! {
         /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
         ///
         /// # Errors
-        /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = (500_000_000, Operational, Pays::Yes)]
+        /// * `NotAMember`, if the `origin` is not a member of this committee.
+        #[weight = if *approve {
+            <T as Trait<I>>::WeightInfo::vote_aye()
+        } else {
+            <T as Trait<I>>::WeightInfo::vote_nay()
+        }]
         pub fn vote(
             origin,
             proposal: T::Hash,
             index: ProposalIndex,
             approve: bool,
-        ) -> DispatchResult {
+        ) {
             // 1. Ensure `origin` is a committee member.
             let did = Self::ensure_is_member(origin)?;
 
             // 2a. Ensure a prior proposal exists and that their indices match.
-            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+            let mut voting = Self::ensure_proposal(&proposal, index)?;
 
             // 2b. Ensure proposal hasn't expired. If it has, prune the proposal and bail.
-            Self::ensure_not_expired(&proposal, voting.expiry, system::Module::<T>::block_number())?;
+            Self::ensure_not_expired(&proposal, voting.expiry)?;
 
             // 3. Vote on aye / nay and remove from the other.
             let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
@@ -400,33 +421,47 @@ decl_module! {
             <Voting<T, I>>::insert(&proposal, voting);
 
             // 4. Emit event.
-            let members = Self::members().len() as MemberCount;
             Self::deposit_event(RawEvent::Voted(
-                did, index, proposal, approve, ayes, nays, members,
+                did, index, proposal, approve, ayes, nays, Self::seats(),
             ));
 
             // 5. Check whether majority has been reached and if so, execute proposal.
-            Self::check_proposal_threshold(proposal);
-            Ok(())
+            Self::execute_if_passed(proposal);
         }
     }
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Ensures that `origin` is a committee member, returning its identity, or throws `BadOrigin`.
+    /// Ensure proposal with `hash` exists and has index `idx`.
+    fn ensure_proposal(
+        hash: &T::Hash,
+        idx: ProposalIndex,
+    ) -> Result<PolymeshVotes<T::BlockNumber>, DispatchError> {
+        let voting = Self::voting(&hash).ok_or(Error::<T, I>::NoSuchProposal)?;
+        ensure!(voting.index == idx, Error::<T, I>::MismatchedVotingIndex);
+        Ok(voting)
+    }
+
+    /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
     fn ensure_is_member(
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<IdentityId, DispatchError> {
-        let who = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&who)?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
-        ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
-        Ok(who_id)
+        let did = <Identity<T>>::ensure_perms(origin)?;
+        Self::ensure_did_is_member(&did)?;
+        Ok(did)
     }
 
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
-    pub fn is_member(who: &IdentityId) -> bool {
-        Self::members().contains(who)
+    pub fn ensure_did_is_member(who: &IdentityId) -> DispatchResult {
+        ensure!(
+            Self::members().binary_search(who).is_ok(),
+            Error::<T, I>::NotAMember
+        );
+        Ok(())
+    }
+
+    fn seats() -> MemberCount {
+        Self::members().len() as _
     }
 
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
@@ -440,65 +475,45 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// # Return
     /// It returns true if vote was removed.
     fn remove_vote_from(id: IdentityId, proposal: T::Hash) -> bool {
-        let mut is_id_removed = None;
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
-            is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, true));
-                Some(voting.ayes.swap_remove(idx))
-            } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, false));
-                Some(voting.nays.swap_remove(idx))
-            } else {
-                None
+            let idx = voting.index;
+            let remove = |from: &mut Vec<_>, sig| {
+                from.iter().position(|a| *a == id).map(|pos| {
+                    Self::deposit_event(RawEvent::VoteRetracted(id, idx, proposal, sig));
+                    from.swap_remove(pos)
+                })
             };
-
-            if is_id_removed.is_some() {
-                <Voting<T, I>>::insert(&proposal, voting);
-            }
+            return remove(&mut voting.ayes, true)
+                .or_else(|| remove(&mut voting.nays, false))
+                .map(|_| <Voting<T, I>>::insert(&proposal, voting))
+                .is_some();
         }
-
-        is_id_removed.is_some()
+        false
     }
 
     /// Accepts or rejects the proposal if its threshold is satisfied.
-    fn check_proposal_threshold(proposal: T::Hash) {
-        if let Some(voting) = Self::voting(&proposal) {
+    fn execute_if_passed(proposal: T::Hash) {
+        let voting = match Self::voting(&proposal) {
             // Make sure we don't have an expired proposal at this point.
-            if let Err(_) = Self::ensure_not_expired(
-                &proposal,
-                voting.expiry,
-                system::Module::<T>::block_number(),
-            ) {
-                return;
-            }
+            Some(v) if Self::ensure_not_expired(&proposal, v.expiry).is_ok() => v,
+            _ => return,
+        };
+        let ayes = voting.ayes.len() as MemberCount;
+        let nays = voting.nays.len() as MemberCount;
 
-            let seats = Self::members().len() as MemberCount;
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let no_votes = voting.nays.len() as MemberCount;
-            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
-        }
-    }
-
-    fn check_threshold_finalize(
-        proposal: T::Hash,
-        did: IdentityId,
-        voting: PolymeshVotes<IdentityId, T::BlockNumber>,
-        yes_votes: MemberCount,
-        no_votes: MemberCount,
-        seats: MemberCount,
-    ) {
         let threshold = <VoteThreshold<I>>::get();
+        let seats = Self::seats();
         let satisfied =
             |main, other| main >= other && Self::is_threshold_satisfied(main, seats, threshold);
-        let approved = satisfied(yes_votes, no_votes);
-        let rejected = satisfied(no_votes, yes_votes);
-
+        let approved = satisfied(ayes, nays);
+        let rejected = satisfied(nays, ayes);
         if !approved && !rejected {
             return;
         }
-        Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
+
+        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::finalize_proposal(approved, seats, ayes, nays, proposal, did);
         let event = RawEvent::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
         Self::deposit_event(event);
     }
@@ -527,18 +542,18 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         proposal: T::Hash,
         current_did: IdentityId,
     ) {
-        if approved {
-            let event = RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats);
-            Self::deposit_event(event);
+        let event = if approved {
+            RawEvent::Approved
+        } else {
+            RawEvent::Rejected
+        };
+        Self::deposit_event(event(current_did, proposal, yes_votes, no_votes, seats));
 
+        if approved {
             // execute motion, assuming it exists.
             if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                Self::execute(current_did, p, proposal, yes_votes, seats);
+                Self::execute(current_did, p, proposal);
             }
-        } else {
-            // rejected
-            let event = RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats);
-            Self::deposit_event(event);
         }
 
         // Clear remaining proposal data.
@@ -557,10 +572,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     fn ensure_not_expired(
         proposal: &T::Hash,
         expiry: MaybeBlock<T::BlockNumber>,
-        now: T::BlockNumber,
     ) -> Result<(), Error<T, I>> {
         match expiry {
-            MaybeBlock::Some(e) if e <= now => {
+            MaybeBlock::Some(e) if e <= system::Module::<T>::block_number() => {
                 Self::clear_proposal(proposal);
                 <ProposalOf<T, I>>::remove(proposal);
                 Err(Error::<T, I>::ProposalExpired)
@@ -569,16 +583,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(
-        did: IdentityId,
-        proposal: <T as Trait<I>>::Proposal,
-        hash: T::Hash,
-        ayes: MemberCount,
-        seats: MemberCount,
-    ) {
-        let origin = RawOrigin::Members(ayes, seats).into();
-        let ok = proposal.dispatch(origin).is_ok();
-        Self::deposit_event(RawEvent::Executed(did, hash, ok));
+    fn execute(did: IdentityId, proposal: <T as Trait<I>>::Proposal, hash: T::Hash) {
+        let origin = RawOrigin::Endorsed(PhantomData).into();
+        let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
+        Self::deposit_event(RawEvent::Executed(did, hash, res));
     }
 
     /// Any committee member proposes a dispatchable.
@@ -600,9 +608,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // 3. Execute if committee is single member, and otherwise record the vote.
-        let seats = Self::members().len() as MemberCount;
-        if seats < 2 {
-            Self::execute(did, proposal, proposal_hash, 1, seats);
+        if Self::seats() < 2 {
+            Self::execute(did, proposal, proposal_hash);
         } else {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::append(proposal_hash);
@@ -612,7 +619,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: now + T::MotionDuration::get(),
                 expiry: Self::expires_after() + now,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
@@ -651,6 +657,14 @@ impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> 
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn bench_set_release_coordinator(id: IdentityId) {
+        if !Self::members().contains(&id) {
+            Self::change_members_sorted(&[id], &[], &[id]);
+        }
+        <ReleaseCoordinator<I>>::put(id);
+    }
 }
 
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
@@ -672,7 +686,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                     .iter()
                     .any(|id| Self::remove_vote_from(*id, *proposal))
             })
-            .for_each(Self::check_proposal_threshold);
+            .for_each(Self::execute_if_passed);
 
         // Double check if any `outgoing` is the Release coordinator.
         if let Some(curr_rc) = Self::release_coordinator() {
@@ -708,52 +722,18 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-pub struct EnsureProportionMoreThan<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionMoreThan<N, D, AccountId, I>
+pub struct EnsureThresholdMet<AccountId, I = DefaultInstance>(PhantomData<(AccountId, I)>);
+impl<O, AccountId, I> EnsureOrigin<O> for EnsureThresholdMet<AccountId, I>
+where
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
 {
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE > N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
+        o.into().map(|RawOrigin::Endorsed(PhantomData)| ())
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn successful_origin() -> O {
-        O::from(RawOrigin::Members(1u32, 0u32))
-    }
-}
-
-pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
-    sp_std::marker::PhantomData<(N, D, AccountId, I)>,
-);
-impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        N: U32,
-        D: U32,
-        AccountId,
-        I,
-    > EnsureOrigin<O> for EnsureProportionAtLeast<N, D, AccountId, I>
-{
-    type Success = ();
-    fn try_origin(o: O) -> Result<Self::Success, O> {
-        o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
-            r => Err(O::from(r)),
-        })
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> O {
-        O::from(RawOrigin::Members(0u32, 0u32))
+        O::from(RawOrigin::Endorsed(PhantomData))
     }
 }

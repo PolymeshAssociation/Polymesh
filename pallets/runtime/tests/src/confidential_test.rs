@@ -4,11 +4,11 @@ use super::{
 };
 
 use confidential_identity::{compute_cdd_id, compute_scope_id};
-use pallet_asset as asset;
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity as identity;
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
 use polymesh_primitives::{
     AssetIdentifier, AssetType, Claim, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId,
     Scope, SecurityToken, Ticker,
@@ -256,12 +256,10 @@ fn scope_claims_we() {
     assert_ne!(
         Asset::_is_valid_transfer(
             &st2_id,
-            AccountKeyring::Alice.public(),
             PortfolioId::default_portfolio(alice_id),
             PortfolioId::default_portfolio(inv_did_1),
             10
-        )
-        .map(|(a, _)| a),
+        ),
         Ok(ERC1400_TRANSFER_SUCCESS)
     );
 }

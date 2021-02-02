@@ -18,26 +18,27 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
-pub mod dividend;
-pub mod exemption;
 pub mod impls;
-pub mod sto_capped;
-pub mod voting;
 
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use frame_support::weights::{
+    constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_NANOS, WEIGHT_PER_SECOND},
+    GetDispatchInfo, Weight,
+};
 use frame_support::{
     parameter_types,
     traits::Currency,
     weights::{
-        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_SECOND},
-        RuntimeDbWeight, Weight,
+        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use frame_system::{self as system};
 use pallet_balances as balances;
-use polymesh_primitives::{BlockNumber, IdentityId, Moment};
+use polymesh_common_utilities::constants::currency::*;
+use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
+use smallvec::smallvec;
 
 pub use impls::{Author, CurrencyToVoteHandler};
 
@@ -48,20 +49,47 @@ parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
     /// We allow for 2 seconds of compute with a 6 second average block time.
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
+    /// Portion of the block available to normal class of dispatches.
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
-    /// 20 ms is needed to create a block
+    /// Blocks can be of upto 10 MB in size.
+    pub const MaximumBlockLength: u32 = 10 * 1024 * 1024;
+    /// 20 ms is needed to create a block.
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
-    // 0.8 ms is needed to process an empty extrinsic
-    pub const ExtrinsicBaseWeight: Weight = 800 * WEIGHT_PER_MICROS;
-    /// When the read/writes are cached, they take 25, 100 microseconds
-    /// but when they are uncached, they take 250, 450 microseconds.
-    /// Most read/writes are cached in production
-    /// so we are taking a defensive middle number here.
+    /// 0.65 ms is needed to process an empty extrinsic.
+    pub const ExtrinsicBaseWeight: Weight = 650 * WEIGHT_PER_MICROS;
+    /// When the read/writes are cached/buffered, they take 25/100 microseconds on NVMe disks.
+    /// When they are uncached, they take 250/450 microseconds on NVMe disks.
+    /// Most read will be cached and writes will be buffered in production.
+    /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
     pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-        read: 100 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
+        read: 50 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
         write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
     };
+    /// This implies a 100 POLYX fee per MB of transaction length
+    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    /// We want the noop transaction to cost 0.03 POLYX
+    pub const PolyXBaseFee: Balance = 3 * CENTS;
+}
+
+/// Converts Weight to Fee
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+    type Balance = Balance;
+    /// We want a 0.03 POLYX fee per ExtrinsicBaseWeight.
+    /// 650_000_000 weight = 30_000 fee => 21_666 weight = 1 fee.
+    /// Hence, 1 fee = 0 + 1/21_666 weight.
+    /// This implies, coeff_integer = 0 and coeff_frac = 1/21_666.
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        smallvec![WeightToFeeCoefficient {
+            degree: 1,
+            coeff_frac: Perbill::from_rational_approximation(
+                PolyXBaseFee::get().into(),
+                ExtrinsicBaseWeight::get() as u128
+            ),
+            coeff_integer: 0u128, // Coefficient is zero.
+            negative: false,
+        }]
+    }
 }
 
 use pallet_group_rpc_runtime_api::Member;
@@ -73,11 +101,9 @@ pub fn merge_active_and_inactive<Block>(
     active: Vec<IdentityId>,
     inactive: Vec<InactiveMember<Moment>>,
 ) -> Vec<Member> {
-    let active_members = active.into_iter().map(Member::from).collect::<Vec<_>>();
-    let inactive_members = inactive.into_iter().map(Member::from).collect::<Vec<_>>();
-
-    active_members
+    active
         .into_iter()
-        .chain(inactive_members.into_iter())
-        .collect::<Vec<_>>()
+        .map(Member::from)
+        .chain(inactive.into_iter().map(Member::from))
+        .collect()
 }

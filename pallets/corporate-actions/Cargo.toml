@@ -31,9 +31,13 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
+
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.0", optional = true }
+pallet-compliance-manager = { path = "../compliance-manager", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -55,4 +59,9 @@ std = [
     "sp-std/std",
     "sp-version/std",
     "sp-arithmetic/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "confidential_identity",
+    "pallet-compliance-manager"
 ]
