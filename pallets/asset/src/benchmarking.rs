@@ -70,7 +70,7 @@ pub fn make_document() -> Document {
 fn make_default_reg_config<T: Trait>() -> TickerRegistrationConfig<T::Moment> {
     TickerRegistrationConfig {
         max_ticker_length: 8,
-        registration_length: Some(10000.into()),
+        registration_length: Some(10000u32.into()),
     }
 }
 
@@ -84,7 +84,7 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
     let reg_config = make_default_reg_config::<T>();
     let root = frame_system::RawOrigin::Root.into();
 
-    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0.into(), reg_config)
+    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u128.into(), reg_config)
         .expect("`reserve_classic_ticker` failed");
 }
 
@@ -125,8 +125,8 @@ fn emulate_controller_transfer<T: Trait>(
         ScopeIdOf::insert(ticker, id, s_id);
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
     };
-    mock_storage(investor_did, 1000.into());
-    mock_storage(pia, 5000.into());
+    mock_storage(investor_did, 1000u32.into());
+    mock_storage(pia, 5000u32.into());
 }
 
 benchmarks! {
@@ -135,7 +135,7 @@ benchmarks! {
     register_ticker {
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: TICKER_LEN as u8,
-            registration_length: Some((60 * 24 * 60 * 60).into()),
+            registration_length: Some((60u32 * 24 * 60 * 60).into()),
         });
 
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
@@ -198,7 +198,7 @@ benchmarks! {
 
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: TICKER_LEN as u8,
-            registration_length: Some((60 * 24 * 60 * 60).into()),
+            registration_length: Some((60u32 * 24 * 60 * 60).into()),
         });
         let ticker = Ticker::try_from(vec![b'A'; TICKER_LEN].as_slice()).unwrap();
         let name = AssetName::from(vec![b'N'; n as usize].as_slice());
@@ -207,7 +207,7 @@ benchmarks! {
             iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let owner = UserBuilder::<T>::default().generate_did().build("owner");
-        let total_supply: T::Balance = 1_000_000.into();
+        let total_supply: T::Balance = 1_000_000u32.into();
 
         let token = SecurityToken {
             name,
@@ -471,8 +471,8 @@ benchmarks! {
         Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
-    }: _(pia.origin(), ticker, 500.into(), portfolio_to)
+    }: _(pia.origin(), ticker, 500u32.into(), portfolio_to)
     verify {
-        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500.into());
+        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
     }
 }

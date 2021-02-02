@@ -15,7 +15,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         owner.origin.clone().into(),
         name.into(),
         ticker.clone(),
-        1_000_000.into(),
+        1_000_000u32.into(),
         true,
         AssetType::default(),
         Vec::new(),
@@ -124,10 +124,10 @@ benchmarks! {
             &ticker,
             owner_did,
             owner_did,
-            100.into(),
-            200.into(),
-            0.into(),
-            500.into(),
+            100u32.into(),
+            200u32.into(),
+            0u32.into(),
+            500u32.into(),
         )?;
     }
 }

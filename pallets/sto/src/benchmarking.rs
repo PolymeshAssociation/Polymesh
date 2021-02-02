@@ -61,7 +61,7 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     let mut tiers = Vec::with_capacity(n);
     for i in 0..n {
         tiers.push(PriceTier {
-            total: 1.into(),
+            total: 1u32.into(),
             price: (i as u128 + 1).into(),
         })
     }
@@ -112,8 +112,8 @@ fn setup_fundraiser<T: Trait>(
         generate_tiers::<T>(tiers),
         venue_id,
         None,
-        Some(101.into()),
-        0.into(),
+        Some(101u32.into()),
+        0u32.into(),
         vec![].into(),
     )?;
 
@@ -149,7 +149,7 @@ benchmarks! {
             venue_id,
             None,
             None,
-            0.into(),
+            0u32.into(),
             vec![].into()
         )
     verify {
@@ -165,11 +165,11 @@ benchmarks! {
             OFFERING_TICKER,
             0,
             (MAX_TIERS as u128).into(),
-            Some(100.into()),
+            Some(100u32.into()),
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0.into(), "invest");
+        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0u32.into(), "invest");
     }
 
     freeze_fundraiser {
@@ -193,9 +193,9 @@ benchmarks! {
 
     modify_fundraiser_window {
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
-    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100.into(), Some(101.into()))
+    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100u32.into(), Some(101u32.into()))
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101.into()), "modify_fundraiser_window");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {

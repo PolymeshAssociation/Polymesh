@@ -1839,7 +1839,7 @@ impl<T: Trait> Module<T> {
 
     /// Is `value` a multiple of "one unit"?
     fn is_unit_multiple(value: T::Balance) -> bool {
-        value % ONE_UNIT.into() == 0.into()
+        value % ONE_UNIT.into() == 0u32.into()
     }
 
     /// Accept and process a ticker transfer.
@@ -1942,7 +1942,7 @@ impl<T: Trait> Module<T> {
         let selector = hex!("D1140AC9");
         let balance = |did| {
             T::Balance::encode(&match did {
-                None => 0.into(),
+                None => 0u32.into(),
                 Some(did) => {
                     let scope_id = Self::scope_id_of(ticker, &did);
                     // Using aggregate balance instead of individual identity balance.
@@ -2015,7 +2015,7 @@ impl<T: Trait> Module<T> {
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> (ExecResult, Gas) {
-        <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data)
+        <pallet_contracts::Module<T>>::bare_call(from, dest, 0u32.into(), gas_limit, data)
     }
 
     /// RPC: Function allows external users to know wether the transfer extrinsic

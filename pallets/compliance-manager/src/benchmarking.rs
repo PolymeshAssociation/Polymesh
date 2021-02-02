@@ -79,7 +79,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         owner.origin.clone().into(),
         token.name.clone(),
         ticker.clone(),
-        token.total_supply.into(),
+        u128::try_from(token.total_supply).unwrap().into(),
         true,
         token.asset_type.clone(),
         vec![],
