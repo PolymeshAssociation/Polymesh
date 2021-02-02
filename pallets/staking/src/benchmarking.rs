@@ -62,7 +62,7 @@ pub fn create_validator_with_nominators<T: Trait>(
     upper_bound: u32,
     dead: bool,
 ) -> Result<T::AccountId, DispatchError> {
-    create_validator_with_nominators_with_balance::<T>(n, upper_bound, 10000u32, dead)
+    create_validator_with_nominators_with_balance::<T>(n, upper_bound, 10000u32.into(), dead)
 }
 
 // This function generates one validator being nominated by n nominators, and returns the validator
@@ -169,7 +169,7 @@ benchmarks! {
         let controller = create_funded_user::<T>("controller", 5, 100);
         let controller_lookup = controller.lookup();
         let reward_destination = RewardDestination::Staked;
-    }: _(stash.origin(), controller_lookup, 10.into(), reward_destination)
+    }: _(stash.origin(), controller_lookup, 10u32.into(), reward_destination)
     verify {
         assert!(Bonded::<T>::contains_key(stash.account()));
         assert!(Ledger::<T>::contains_key(controller.account()));
@@ -394,7 +394,7 @@ benchmarks! {
         let (_, controller) = create_stash_controller::<T>(u, 1000)?;
         let mut staking_ledger = Ledger::<T>::get(controller.account()).unwrap();
         let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-            value: 1.into(),
+            value: 1u32.into(),
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {
@@ -453,7 +453,7 @@ benchmarks! {
         let (stash, controller) = create_stash_controller::<T>(0, 100)?;
         let mut staking_ledger = Ledger::<T>::get(controller.account()).unwrap();
         let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-            value: 1.into(),
+            value: 1u32.into(),
             era: EraIndex::zero(),
         };
         for _ in 0 .. l {

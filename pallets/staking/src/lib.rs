@@ -3252,7 +3252,7 @@ impl<T: Trait> Module<T> {
             let rest = max_payout.saturating_sub(validator_payout);
 
             // Schedule Rewards for the validators
-            let next_block_no = <frame_system::Module<T>>::block_number() + 1.into();
+            let next_block_no = <frame_system::Module<T>>::block_number() + 1u32.into();
             for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
                 let schedule_block_no = next_block_no + index.saturated_into::<T::BlockNumber>();
                 match T::RewardScheduler::schedule(
