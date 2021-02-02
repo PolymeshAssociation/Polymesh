@@ -1696,7 +1696,7 @@ impl<T: Trait> Module<T> {
                 );
             } else {
                 ensure!(
-                    !Self::base_fetch_valid_cdd_claims(target, 0.into(), None).any(|id_claim| {
+                    !Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None).any(|id_claim| {
                         if let Claim::CustomerDueDiligence(c_id) = id_claim.claim {
                             return !c_id.is_default_cdd() && c_id != *cdd_id;
                         }

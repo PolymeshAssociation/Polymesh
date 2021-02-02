@@ -154,7 +154,7 @@ benchmarks_instance! {
     }
 
     set_expires_after {
-        let maybe_block = MaybeBlock::Some(1.into());
+        let maybe_block = MaybeBlock::Some(1u32.into());
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_expires_after(maybe_block);
     }: {

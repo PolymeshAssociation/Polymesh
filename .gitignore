@@ -26,3 +26,8 @@ tmp/
 
 # vim swap files
 **/*.swp
+
+# profiling data for code coverage
+**/*.profraw
+*.profdata
+coverage.txt

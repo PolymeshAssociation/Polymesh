@@ -34,7 +34,7 @@ fn make_ticker<T: Trait>(owner: &User<T>) -> Ticker {
         owner.origin().into(),
         sc_name,
         ticker.clone(),
-        1_000.into(),
+        1_000u32.into(),
         true,
         AssetType::default(),
         vec![],
