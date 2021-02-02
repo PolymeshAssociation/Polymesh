@@ -328,7 +328,6 @@ impl treasury::Trait for Runtime {
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 

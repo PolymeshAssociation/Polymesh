@@ -333,7 +333,6 @@ impl multisig::Trait for TestStorage {
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
