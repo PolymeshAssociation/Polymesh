@@ -105,7 +105,7 @@ fn pips_and_votes_setup<T: Trait>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32)?;
-    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
+    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into())?;
     let (voters_a_num, voters_b_num) = if approve_only {
         (VOTERS_A_NUM + VOTERS_B_NUM, 0)
     } else {

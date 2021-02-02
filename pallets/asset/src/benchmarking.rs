@@ -125,8 +125,8 @@ fn emulate_controller_transfer<T: Trait>(
         ScopeIdOf::insert(ticker, id, s_id);
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
     };
-    mock_storage(investor_did, 1000.into());
-    mock_storage(pia, 5000.into());
+    mock_storage(investor_did, 1000u32.into());
+    mock_storage(pia, 5000u32.into());
 }
 
 benchmarks! {
@@ -471,8 +471,8 @@ benchmarks! {
         Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
-    }: _(pia.origin(), ticker, 500.into(), portfolio_to)
+    }: _(pia.origin(), ticker, 500u32.into(), portfolio_to)
     verify {
-        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500.into());
+        assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
     }
 }
