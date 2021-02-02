@@ -191,8 +191,6 @@ parameter_types! {
 polymesh_runtime_common::misc1!();
 
 impl committee::Trait<GovernanceCommittee> for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -215,8 +213,6 @@ impl group::Trait<group::Instance1> for Runtime {
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
         impl committee::Trait<committee::$instance> for Runtime {
-            type Origin = Origin;
-            type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
