@@ -658,11 +658,9 @@ impl pips::Trait for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Treasury = treasury::Module<Self>;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
 }
 
 impl confidential::Trait for TestStorage {
