@@ -20,7 +20,7 @@ use frame_system::RawOrigin;
 use polymesh_primitives::calendar::CalendarUnit;
 
 fn init<T: Trait>() -> (RawOrigin<T::AccountId>, Ticker) {
-    <pallet_timestamp::Now<T>>::set(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
     let (owner, ticker) = owned_ticker::<T>();
     (owner.origin(), ticker)
 }
