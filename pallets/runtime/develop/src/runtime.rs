@@ -1,23 +1,37 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    weights::Weight,
+};
+use frame_system::EnsureRoot;
 use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;
+use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
     types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
+use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
 use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
@@ -26,34 +40,19 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait, PermissionChecker},
+    traits::{identity::Trait as IdentityTrait, PermissionChecker},
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
+    AccountId, Authorization, AuthorizationType, Balance, BlockNumber, IdentityId, Index, Moment,
+    PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
-    ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
-    TransactionByteFee, WeightToFee,
+    merge_active_and_inactive, AvailableBlockRatio, BlockHashCount, MaximumBlockWeight,
+    NegativeImbalance, TransactionByteFee, WeightToFee,
 };
-
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::Weight,
-};
-use frame_system::EnsureRoot;
-use pallet_contracts_rpc_runtime_api::ContractExecResult;
-use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
-};
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-use pallet_session::historical as pallet_session_historical;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
@@ -70,8 +69,8 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, OpaqueKeys, SaturatedConversion,
-        Saturating, StaticLookup, Verify,
+        BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, SaturatedConversion, Saturating,
+        StaticLookup, Verify,
     },
     ApplyExtrinsicResult, MultiSignature, Perbill, Permill,
 };
@@ -123,108 +122,32 @@ parameter_types! {
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
         .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
     pub const Version: RuntimeVersion = VERSION;
-}
 
-impl frame_system::Trait for Runtime {
-    /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = ();
-    /// The identifier used to distinguish between accounts.
-    type AccountId = AccountId;
-    /// The aggregated dispatch type that is available for extrinsics.
-    type Call = Call;
-    /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-    type Lookup = Indices;
-    /// The index type for storing how many extrinsics an account has signed.
-    type Index = Index;
-    /// The index type for blocks.
-    type BlockNumber = BlockNumber;
-    /// The type for hashing blocks and tries.
-    type Hash = Hash;
-    /// The hashing algorithm used.
-    type Hashing = BlakeTwo256;
-    /// The header type.
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
-    /// The ubiquitous event type.
-    type Event = Event;
-    /// The ubiquitous origin type.
-    type Origin = Origin;
-    /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-    type BlockHashCount = BlockHashCount;
-    /// Maximum weight of each block.
-    type MaximumBlockWeight = MaximumBlockWeight;
-    /// The weight of database operations that the runtime can invoke.
-    type DbWeight = RocksDbWeight;
-    /// The weight of the overhead invoked on the block import process, independent of the
-    /// extrinsics included in that block.
-    type BlockExecutionWeight = BlockExecutionWeight;
-    /// The base weight of any extrinsic processed by the runtime, independent of the
-    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
-    /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
-    /// initialize cost).
-    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
-    /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
-    type MaximumBlockLength = MaximumBlockLength;
-    /// Portion of the block weight that is available to all normal transactions.
-    type AvailableBlockRatio = AvailableBlockRatio;
-    /// Version of the runtime.
-    type Version = Version;
-    /// Converts a module to the index of the module in `construct_runtime!`.
-    ///
-    /// This type is being generated by `construct_runtime!`.
-    type PalletInfo = PalletInfo;
-    /// What to do if a new account is created.
-    type OnNewAccount = ();
-    /// What to do if an account is fully reaped from the system.
-    type OnKilledAccount = ();
-    /// The data to be stored in an account.
-    type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
-}
-
-parameter_types! {
+    // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
-}
 
-impl pallet_babe::Trait for Runtime {
-    type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
-    type EpochDuration = EpochDuration;
-    type ExpectedBlockTime = ExpectedBlockTime;
-    type EpochChangeTrigger = pallet_babe::ExternalTrigger;
-
-    type KeyOwnerProofSystem = Historical;
-
-    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        pallet_babe::AuthorityId,
-    )>>::Proof;
-
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        pallet_babe::AuthorityId,
-    )>>::IdentificationTuple;
-
-    type HandleEquivocation =
-        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
-}
-
-parameter_types! {
+    // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
-}
 
-impl pallet_indices::Trait for Runtime {
-    type AccountIndex = AccountIndex;
-    type Currency = Balances;
-    type Deposit = IndexDeposit;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
-}
-
-parameter_types! {
+    // Balances:
     pub const ExistentialDeposit: Balance = 0u128;
     pub const MaxLocks: u32 = 50;
+
+    // Timestamp:
+    pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+
+    // Authorship:
+    pub const UncleGenerations: BlockNumber = 0;
+
+    // Session:
+    // NOTE: `SessionHandler` and `SessionKeys` are co-dependent:
+    // One key will be used for each handler.
+    // The number and order of items in `SessionHandler` *MUST* be the same number
+    // and order of keys in `SessionKeys`.
+    // TODO: Introduce some structure to tie these together to make it a bit less of a footgun.
+    // This should be easy, since OneSessionHandler trait provides the `Key` as an associated type. #2858
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -237,102 +160,9 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
-impl pallet_transaction_payment::Trait for Runtime {
-    type Currency = Balances;
-    type OnTransactionPayment = DealWithFees;
-    type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = WeightToFee;
-    type FeeMultiplierUpdate = ();
-    type CddHandler = CddHandler;
-    type GovernanceCommittee = PolymeshCommittee;
-    type CddProviders = CddServiceProviders;
-    type Identity = Identity;
-}
-
-impl CommonTrait for Runtime {
-    type Balance = Balance;
-    type AssetSubTraitTarget = Asset;
-    type BlockRewardsReserve = balances::Module<Runtime>;
-}
-
-impl balances::Trait for Runtime {
-    type MaxLocks = MaxLocks;
-    type DustRemoval = ();
-    type Event = Event;
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = frame_system::Module<Runtime>;
-    type CddChecker = CddChecker<Runtime>;
-    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
-}
-
-impl protocol_fee::Trait for Runtime {
-    type Event = Event;
-    type Currency = Balances;
-    type OnProtocolFeePayment = DealWithFees;
-    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
-}
-
-parameter_types! {
-    pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
-}
-
-impl pallet_timestamp::Trait for Runtime {
-    type Moment = Moment;
-    type OnTimestampSet = Babe;
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
-}
-
-parameter_types! {
-    pub const UncleGenerations: BlockNumber = 0;
-}
-
-// TODO: substrate#2986 implement this properly
-impl pallet_authorship::Trait for Runtime {
-    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
-    type EventHandler = (Staking, ImOnline);
-}
-
-impl_opaque_keys! {
-    pub struct SessionKeys {
-        pub grandpa: Grandpa,
-        pub babe: Babe,
-        pub im_online: ImOnline,
-        pub authority_discovery: AuthorityDiscovery,
-    }
-}
-
-// NOTE: `SessionHandler` and `SessionKeys` are co-dependent: One key will be used for each handler.
-// The number and order of items in `SessionHandler` *MUST* be the same number and order of keys in
-// `SessionKeys`.
-// TODO: Introduce some structure to tie these together to make it a bit less of a footgun. This
-// should be easy, since OneSessionHandler trait provides the `Key` as an associated type. #2858
-parameter_types! {
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
-}
-
-impl pallet_session::Trait for Runtime {
-    type Event = Event;
-    type ValidatorId = <Self as frame_system::Trait>::AccountId;
-    type ValidatorIdOf = pallet_staking::StashOf<Self>;
-    type ShouldEndSession = Babe;
-    type NextSessionRotation = Babe;
-    type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
-    type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-    type Keys = SessionKeys;
-    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
-    type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
-}
-
-impl pallet_session::historical::Trait for Runtime {
-    type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-    type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
-}
-
+// Staking:
 pallet_staking_reward_curve::build! {
-    const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+    const REWARD_CURVE: PiecewiseLinear<'_> = curve!(
         min_inflation: 0_025_000,
         max_inflation: 0_140_000,
         ideal_stake: 0_700_000,
@@ -341,7 +171,6 @@ pallet_staking_reward_curve::build! {
         test_precision: 0_005_000,
     );
 }
-
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
@@ -358,40 +187,7 @@ parameter_types! {
     pub const MinimumBond: Balance = 1 * POLY;
 }
 
-impl pallet_staking::Trait for Runtime {
-    type Currency = Balances;
-    type UnixTime = Timestamp;
-    type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type RewardRemainder = ();
-    type Event = Event;
-    type Slash = Treasury; // send the slashed funds to the treasury.
-    type Reward = (); // rewards are minted from the void
-    type SessionsPerEra = SessionsPerEra;
-    type BondingDuration = BondingDuration;
-    type SlashDeferDuration = SlashDeferDuration;
-    type SlashCancelOrigin = EnsureRoot<AccountId>;
-    type SessionInterface = Self;
-    type RewardCurve = RewardCurve;
-    type NextNewSession = Session;
-    type ElectionLookahead = ElectionLookahead;
-    type Call = Call;
-    type MaxIterations = MaxIterations;
-    type MinSolutionScoreBump = MinSolutionScoreBump;
-    type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
-    type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
-    type RequiredAddOrigin = EnsureRoot<AccountId>;
-    type RequiredRemoveOrigin = EnsureRoot<AccountId>;
-    type RequiredComplianceOrigin = EnsureRoot<AccountId>;
-    type RequiredCommissionOrigin = EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
-    type RewardScheduler = Scheduler;
-    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
-    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
-    type FixedYearlyReward = FixedYearlyReward;
-    type MinimumBond = MinimumBond;
-    type PalletsOrigin = OriginCaller;
-}
+polymesh_runtime_common::misc1!();
 
 /// Voting majority origin for `Instance`.
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
