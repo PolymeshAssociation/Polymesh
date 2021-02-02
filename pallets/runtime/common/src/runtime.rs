@@ -205,3 +205,8 @@ macro_rules! misc1 {
         }
     };
 }
+
+/// Voting majority origin for `Instance`.
+pub type VMO<Instance> = pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
+
+pub type GovernanceCommittee = pallet_committee::Instance1;

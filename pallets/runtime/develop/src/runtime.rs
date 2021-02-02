@@ -7,7 +7,6 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::Weight,
 };
-use frame_system::EnsureRoot;
 use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
@@ -50,8 +49,10 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     cdd_check::CddChecker,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, AvailableBlockRatio, BlockHashCount, MaximumBlockWeight,
-    NegativeImbalance, TransactionByteFee, WeightToFee,
+    merge_active_and_inactive,
+    runtime::{VMO, GovernanceCommittee},
+    AvailableBlockRatio, BlockHashCount, MaximumBlockWeight, NegativeImbalance, TransactionByteFee,
+    WeightToFee,
 };
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -189,10 +190,6 @@ parameter_types! {
 
 polymesh_runtime_common::misc1!();
 
-/// Voting majority origin for `Instance`.
-type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
-
-type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
@@ -201,14 +198,15 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
+
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type LimitOrigin = EnsureRoot<AccountId>;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
+    type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type AddOrigin = Self::LimitOrigin;
+    type RemoveOrigin = Self::LimitOrigin;
+    type SwapOrigin = Self::LimitOrigin;
+    type ResetOrigin = Self::LimitOrigin;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
@@ -228,11 +226,11 @@ macro_rules! committee_config {
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
             // Committee cannot alter its own active membership limit.
-            type LimitOrigin = EnsureRoot<AccountId>;
+            type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<committee::$instance>;
-            type RemoveOrigin = VMO<committee::$instance>;
-            type SwapOrigin = VMO<committee::$instance>;
+            type RemoveOrigin = Self::AddOrigin;
+            type SwapOrigin = Self::AddOrigin;
             // ...but it cannot reset its own membership; GC needs to do that.
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
@@ -503,11 +501,11 @@ impl pallet_corporate_actions::Trait for Runtime {
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
     // Cannot alter its own active membership limit.
-    type LimitOrigin = EnsureRoot<AccountId>;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
+    type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
@@ -563,7 +561,7 @@ impl pallet_scheduler::Trait for Runtime {
     type PalletsOrigin = OriginCaller;
     type Call = Call;
     type MaximumWeight = MaximumSchedulerWeight;
-    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type ScheduleOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
