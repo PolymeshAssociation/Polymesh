@@ -20,10 +20,10 @@
 
 use crate::Module as Staking;
 use crate::*;
+use frame_benchmarking::account;
+use frame_system::RawOrigin;
 use polymesh_common_utilities::benchs::{User, UserBuilder};
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
-
-use frame_system::RawOrigin;
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
@@ -62,24 +62,38 @@ pub fn create_stash_controller<T: Trait>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
-    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, balance)
+    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, false)
 }
 
 pub fn create_stash_with_dead_controller<T: Trait>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
-    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, 0)
+    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, true)
 }
 
 fn _create_stash_controller<T: Trait>(
     n: u32,
     balance: u32,
     reward_destination: RewardDestination<T::AccountId>,
-    controller_balance: u32,
+    dead: bool,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     let stash = create_funded_user::<T>("stash", n, balance);
-    let controller = create_funded_user::<T>("stash", n, controller_balance);
+    let controller = if dead {
+        let acc: T::AccountId = account("controller", n, 100);
+        User {
+            account: acc.clone(),
+            origin: RawOrigin::Signed(acc),
+            did: None,
+            secret: None,
+            uid: None,
+        }
+    } else {
+        UserBuilder::<T>::default()
+            .balance(balance)
+            .seed(n)
+            .build("controller")
+    };
     // Attach the controller key as the secondary key to the stash.
     let auth_id = <identity::Module<T>>::add_auth(
         stash.did(),

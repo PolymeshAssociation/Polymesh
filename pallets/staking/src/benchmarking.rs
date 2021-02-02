@@ -177,7 +177,7 @@ benchmarks! {
 
     bond_extra {
         let (stash, controller) = create_stash_controller::<T>(5, 1000)?;
-        let max_additional = 200;
+        let max_additional = 200u32;
         let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before")?;
         let original_bonded: BalanceOf<T> = ledger.active;
     }: _(stash.origin(), max_additional.into())
@@ -189,7 +189,7 @@ benchmarks! {
 
     unbond {
         let (_, controller) = create_stash_controller::<T>(500, 2000)?;
-        let amount = 20;
+        let amount = 20u32;
         let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before")?;
         let original_bonded: BalanceOf<T> = ledger.active;
     }: _(controller.origin(), amount.into())
@@ -205,7 +205,7 @@ benchmarks! {
         let s in 0 .. MAX_SPANS;
         let (stash, controller) = create_stash_controller::<T>(0, 1000)?;
         add_slashing_spans::<T>(&stash.account(), s);
-        let amount = 50; // Half of total
+        let amount = 50u32; // Half of total
         Staking::<T>::unbond(controller.origin().into(), amount.into())?;
         CurrentEra::put(EraIndex::max_value());
         let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before")?;
@@ -223,7 +223,7 @@ benchmarks! {
         let s in 0 .. MAX_SPANS;
         let (stash, controller) = create_stash_controller::<T>(0, 1000)?;
         add_slashing_spans::<T>(&stash.account(), s);
-        let amount = 100;
+        let amount = 100u32;
         Staking::<T>::unbond(controller.origin().into(), amount.into())?;
         CurrentEra::put(EraIndex::max_value());
         let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before")?;
@@ -235,9 +235,9 @@ benchmarks! {
 
     set_min_bond_threshold {
         let origin = RawOrigin::Root;
-    }: _(origin, 10000.into())
+    }: _(origin, 10000u32.into())
     verify {
-        assert_eq!(Staking::<T>::min_bond_threshold(), 10000.into());
+        assert_eq!(Staking::<T>::min_bond_threshold(), 10000u32.into());
     }
 
     add_permissioned_validator {
@@ -276,7 +276,7 @@ benchmarks! {
     }
 
     validate {
-        Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), 100.into())?;
+        Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), 100u32.into())?;
         let (stash, controller) = create_stash_controller::<T>(70, 10000)?;
         add_perm_validator::<T>(stash.did(), Some(2));
         let prefs = ValidatorPrefs::default();
@@ -431,7 +431,7 @@ benchmarks! {
         let s in 1 .. MAX_SPANS;
         let (stash, controller) = create_stash_controller::<T>(0, 100)?;
         add_slashing_spans::<T>(&stash.account(), s);
-        T::Currency::make_free_balance_be(&stash.account(), 0.into());
+        T::Currency::make_free_balance_be(&stash.account(), 0u32.into());
     }: _(controller.origin(), stash.account(), s)
     verify {
         assert!(!Bonded::<T>::contains_key(&stash.account()));
@@ -464,7 +464,7 @@ benchmarks! {
     }: {
         crate::slashing::do_slash::<T>(
             &stash.account(),
-            10.into(),
+            10u32.into(),
             &mut BalanceOf::<T>::zero(),
             &mut NegativeImbalanceOf::<T>::zero()
         );
