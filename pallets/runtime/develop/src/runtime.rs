@@ -298,14 +298,14 @@ where
             .saturating_sub(1);
         let tip = 0;
         let extra: SignedExtra = (
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-            frame_system::CheckNonce::<Runtime>::from(nonce),
-            polymesh_extensions::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-            pallet_permissions::StoreCallMetadata::<Runtime>::new(),
+            frame_system::CheckSpecVersion::new(),
+            frame_system::CheckTxVersion::new(),
+            frame_system::CheckGenesis::new(),
+            frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
+            frame_system::CheckNonce::from(nonce),
+            frame_system::CheckWeight::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::from(tip),
+            pallet_permissions::StoreCallMetadata::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
