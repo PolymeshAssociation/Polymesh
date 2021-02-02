@@ -17,8 +17,6 @@
 
 //! I'm Online pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 
 use frame_benchmarking::benchmarks;

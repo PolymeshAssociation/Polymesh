@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};
 use crate::{CAKind, CorporateActions};

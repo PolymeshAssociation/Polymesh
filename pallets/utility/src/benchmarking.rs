@@ -1,11 +1,9 @@
 use crate::*;
+use frame_benchmarking::benchmarks;
 use pallet_balances::{self as balances, Call as BalancesCall};
 use polymesh_common_utilities::benchs::{User, UserBuilder};
-
-use frame_benchmarking::benchmarks;
-use sp_runtime::traits::StaticLookup;
-
 use sp_core::sr25519::Signature;
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::MultiSignature;
 
 const MAX_CALLS: u32 = 30;
