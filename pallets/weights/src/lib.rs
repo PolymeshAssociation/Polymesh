@@ -22,6 +22,7 @@ pub mod pallet_asset;
 pub mod pallet_babe;
 pub mod pallet_balances;
 pub mod pallet_capital_distribution;
+pub mod pallet_checkpoint;
 pub mod pallet_committee;
 pub mod pallet_compliance_manager;
 pub mod pallet_confidential;

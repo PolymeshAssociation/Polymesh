@@ -13,13 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-
+use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::benchs::{generate_ticker, UserBuilder};
 use polymesh_primitives::PortfolioName;
-
-use frame_benchmarking::benchmarks;
 use sp_std::{convert::TryFrom, prelude::*};
 
 benchmarks! {

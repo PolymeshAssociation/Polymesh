@@ -17,14 +17,11 @@
 
 //! Balances pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use crate::Module as Balances;
-use polymesh_common_utilities::benchs::UserBuilder;
-
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::UserBuilder;
 
 fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))

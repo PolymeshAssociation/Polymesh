@@ -13,18 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
 
+use frame_benchmarking::benchmarks;
 use pallet_asset::SecurityToken;
 use polymesh_common_utilities::{
     asset::AssetType,
     benchs::{User, UserBuilder},
 };
 use polymesh_primitives::{TrustedFor, TrustedIssuer};
-
-use frame_benchmarking::benchmarks;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;

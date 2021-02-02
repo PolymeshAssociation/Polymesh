@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks};
@@ -23,13 +22,12 @@ use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
+use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
     benchs::{self, generate_ticker, user, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::{AssetFnTrait, AssetName, AssetType},
 };
-//use polymesh_contracts::benchmarking::emulate_blueprint_in_storage;
-use pallet_statistics::TransferManager;
 use polymesh_primitives::{
     Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
