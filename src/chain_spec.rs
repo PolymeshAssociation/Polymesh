@@ -440,7 +440,7 @@ fn general_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
-        checkpoint: Some(checkpoint!()),
+        pallet_checkpoint: Some(checkpoint!()),
         identity: Some(GeneralConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,
@@ -628,7 +628,7 @@ fn alcyone_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
-        checkpoint: Some(checkpoint!()),
+        pallet_checkpoint: Some(checkpoint!()),
         identity: Some(AlcyoneConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,

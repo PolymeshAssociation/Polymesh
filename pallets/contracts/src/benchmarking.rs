@@ -13,18 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
-
-use pallet_contracts::PristineCode;
-use polymesh_common_utilities::benchs::UserBuilder;
-use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 
 use frame_benchmarking::benchmarks;
 use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
+use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;
+use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;

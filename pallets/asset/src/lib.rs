@@ -76,6 +76,7 @@
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 //! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the Compliance Manager.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(bool_to_option, or_patterns, const_option)]
@@ -188,6 +189,7 @@ pub trait Trait:
     type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
+    type CPWeightInfo: checkpoint::WeightInfo;
 }
 
 /// Ownership status of a ticker/token.

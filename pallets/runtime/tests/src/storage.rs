@@ -563,6 +563,7 @@ impl asset::Trait for TestStorage {
     type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
 }
 
 parameter_types! {

@@ -12,14 +12,12 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-#![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
 
-use polymesh_common_utilities::benchs::UserBuilder;
-
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::UserBuilder;
 use sp_std::vec::Vec;
 
 const MAX_BENEFICIARIES: u32 = 128;
