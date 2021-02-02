@@ -54,7 +54,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v1-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --release --features=runtime-benchmarks,running-ci || cargo build --release -j 1 --features=runtime-benchmarks,running-ci
@@ -64,7 +64,7 @@ jobs:
           command: ./target/release/polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
           no_output_timeout: 2h
       - save_cache:
-          key: v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v1-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
