@@ -1,0 +1,38 @@
+[package]
+name = "migration-tests"
+version = "0.1.0"
+authors = ["Mudit Gupta <hi@mudit.blog>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+remote-externalities = { path = "remote-externalities" }
+polymesh-runtime = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+
+# Our pallets
+pallet-asset = { path = "../pallets/asset" }
+pallet-balances = { path = "../pallets/balances" }
+pallet-sto = { path = "../pallets/sto" }
+pallet-bridge = { path = "../pallets/bridge" }
+pallet-committee = { path = "../pallets/committee" }
+pallet-compliance-manager = { path = "../pallets/compliance-manager" }
+pallet-confidential = { path = "../pallets/confidential" }
+pallet-corporate-actions = { path = "../pallets/corporate-actions" }
+pallet-group = { path = "../pallets/group" }
+pallet-group-rpc-runtime-api = { path = "../pallets/group/rpc/runtime-api" }
+pallet-identity = { path = "../pallets/identity" }
+pallet-im-online = { path = "../pallets/im-online" }
+pallet-multisig = { path = "../pallets/multisig" }
+pallet-permissions = { path = "../pallets/permissions" }
+pallet-pips = { path = "../pallets/pips" }
+pallet-portfolio = { path = "../pallets/portfolio" }
+pallet-protocol-fee = { path = "../pallets/protocol-fee" }
+pallet-settlement = { path = "../pallets/settlement" }
+pallet-staking = { path = "../pallets/staking" }
+pallet-statistics = { path = "../pallets/statistics" }
+pallet-transaction-payment = { path = "../pallets/transaction-payment" }
+pallet-treasury = { path = "../pallets/treasury" }
+pallet-utility = { path = "../pallets/utility" }
+polymesh-contracts = { path = "../pallets/contracts" }
+pallet-sudo = { path = "../pallets/sudo" }
