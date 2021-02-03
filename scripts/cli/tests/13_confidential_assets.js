@@ -24,49 +24,57 @@ async function main() {
 
   const ticker = await reqImports.generateRandomTicker(api);
   const ticker2 = await reqImports.generateRandomTicker(api);
-  const tickerHexList = ["01", "02"];
+  const tickerHex = reqImports.stringToHex(ticker);
+  const ticker2Hex = reqImports.stringToHex(ticker2); 
+  const tickerHexSubStr = tickerHex.substr(2);
+  const ticker2HexSubStr = ticker2Hex.substr(2);
+  const tickerHexList = [tickerHexSubStr, ticker2HexSubStr];
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
   let bob = await reqImports.generateRandomEntity(api);
   let charlie = await reqImports.generateRandomEntity(api);
+  let dave = await reqImports.generateRandomEntity(api);
 
   let alice_did = await reqImports.keyToIdentityIds(api, alice.publicKey);
 
-  let dids = await reqImports.createIdentities(api, [bob, charlie], alice);
+  let dids = await reqImports.createIdentities(api, [bob, charlie, dave], alice);
   let bob_did = dids[0];
   let charlie_did = dids[1];
+  let dave_did = dids[2];
+
   await reqImports.distributePolyBatch(
     api,
-    [bob, charlie],
-    reqImports.transfer_amount,
+    [bob, charlie, dave],
+    reqImports.transfer_amount * 2,
     alice
   );
 
   console.log("Alice: ", alice_did);
   console.log("Bob: ", bob_did);
   console.log("Charlie: ", charlie_did);
+  console.log("Dave: ", dave_did);
 
   
-  // Alice creates Confidential Assets 
+  // Dave creates Confidential Assets 
   console.log("-----------> Creating confidential assets.");
-  await createConfidentialAsset(api, "0x01", alice);
-  await createConfidentialAsset(api, "0x02", alice);
+  await createConfidentialAsset(api, tickerHex, dave);
+  await createConfidentialAsset(api, ticker2Hex, dave);
 
-  // Alice and Bob create their Mercat account locally and submit the proof to the chain
-  console.log("-----------> Creating Alice and Bob's mercat accounts.");
-  const aliceMercatInfo = await create_account(tickerHexList, tickerHexList[0]);
-  const bobMercatInfo = await create_account(tickerHexList, tickerHexList[0]);
+  // Dave and Bob create their Mercat account locally and submit the proof to the chain
+  console.log("-----------> Creating Dave and Bob's mercat accounts.");
+  const daveMercatInfo = create_account(tickerHexList, tickerHexList[0]);
+  const bobMercatInfo = create_account(tickerHexList, tickerHexList[0]);
 
-  // Validate Alice and Bob's Mercat Accounts
-  console.log("-----------> Submitting alice mercat account proofs.");
-  await validateMercatAccount(api, alice, aliceMercatInfo.account_tx);
+  // Validate Dave and Bob's Mercat Accounts
+  console.log("-----------> Submitting dave mercat account proofs.");
+  await validateMercatAccount(api, dave, daveMercatInfo.account_tx);
   console.log("-----------> Submitting bob mercat account proofs.");
   await validateMercatAccount(api, bob, bobMercatInfo.account_tx);
 
   // Charlie creates his mediator Mercat Account 
   console.log("-----------> Creating Charlie's account.");
-  const charlieMercatAccount = await createMercatMediatorAccount();
+  const charlieMercatAccount = createMercatMediatorAccount();
   const charliePublicKey = charlieMercatAccount.public_key;
   const charlieAccount = charlieMercatAccount.secret_account;
 
@@ -74,14 +82,14 @@ async function main() {
   console.log("-----------> Submitting Charlie's account.");
   await addMediatorMercatAccount(api, charlie, charliePublicKey);
 
-  let aliceBalance = await displayBalance(api, alice_did, aliceMercatInfo, "Alice initial balance");
-  let bobBalance = await displayBalance(api, bob_did, bobMercatInfo, "Bob initial balance");
+  await displayBalance(api, dave_did, daveMercatInfo, "Dave initial balance");
+  await displayBalance(api, bob_did, bobMercatInfo, "Bob initial balance");
   
   // Mint Tokens 
   console.log("-----------> Minting assets.");
-  await mintTokens(api, alice, "0x01", 1000, aliceMercatInfo);
+  await mintTokens(api, dave, tickerHex, 1000, daveMercatInfo);
 
-  await displayBalance(api, alice_did, aliceMercatInfo, "Alice balance after minting");
+  await displayBalance(api, dave_did, daveMercatInfo, "Dave balance after minting");
 
   // Create Venue
   console.log("-----------> Creating venue.");
@@ -93,29 +101,29 @@ async function main() {
     api,
     venueCounter,
     charlie,
-    alice_did,
+    dave_did,
     bob_did,
     charlie_did,
-    aliceMercatInfo.account_id,
+    daveMercatInfo.account_id,
     bobMercatInfo.account_id
   );
   
   console.log("-----------> Initializing confidential transaction.");
   let bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
-  let aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
-  const initTransactionProof = await createTransaction(
+  let daveEncryptedBalance = await getEncryptedBalance(api, dave_did, daveMercatInfo.account_id);
+  const initTransactionProof = createTransaction(
     100,
-    aliceMercatInfo,
+    daveMercatInfo,
     bobPublicAccount,
     charliePublicKey,
-    aliceEncryptedBalance
+    daveEncryptedBalance
   );
 
   console.log("-----------> Submitting initial confidential transaction proof.");
-  await affirmConfidentialInstruction(api, instructionCounter, {InitializedTransfer: initTransactionProof}, alice, alice_did);
+  await affirmConfidentialInstruction(api, instructionCounter, {InitializedTransfer: initTransactionProof}, dave, dave_did);
 
   console.log("-----------> Finalizing confidential transaction.");
-  const finalizeTransactionProof = await finalizeTransaction(
+  const finalizeTransactionProof = finalizeTransaction(
     100,
     initTransactionProof,
     bobMercatInfo,
@@ -125,21 +133,21 @@ async function main() {
   bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
   await affirmConfidentialInstruction(api, instructionCounter, {FinalizedTransfer: finalizeTransactionProof}, bob, bob_did);
 
-  const alicePublicAccount = new PubAccount(aliceMercatInfo.account_id, aliceMercatInfo.public_key);
+  const davePublicAccount = new PubAccount(daveMercatInfo.account_id, daveMercatInfo.public_key);
 
   console.log("-----------> Justifying confidential transaction.");
-  const justifiedTransactionProof = justify_transaction(finalizeTransactionProof, charlieAccount, alicePublicAccount, aliceEncryptedBalance, bobPublicAccount, "01");
+  const justifiedTransactionProof = (justify_transaction(finalizeTransactionProof, charlieAccount, davePublicAccount, daveEncryptedBalance, bobPublicAccount, tickerHexSubStr)).justified_tx;
   
   console.log("-----------> Submitting justify confidential transaction proof.");
   await affirmConfidentialInstruction(api, instructionCounter, {JustifiedTransfer: justifiedTransactionProof}, charlie, charlie_did);
 
-  await displayBalance(api, alice_did, aliceMercatInfo, "Alice balance after giving tokens to Bob");
-  await displayBalance(api, bob_did, bobMercatInfo, "Bob balance after getting tokens from Alice");
+  await displayBalance(api, dave_did, daveMercatInfo, "Dave balance after giving tokens to Bob");
+  await displayBalance(api, bob_did, bobMercatInfo, "Bob balance after getting tokens from Dave");
 
-  aliceEncryptedBalance = await getEncryptedBalance(api, alice_did, aliceMercatInfo.account_id);
+  daveEncryptedBalance = await getEncryptedBalance(api, dave_did, daveMercatInfo.account_id);
   const bobEncryptedBalance = await getEncryptedBalance(api, bob_did, bobMercatInfo.account_id);
 
-  assert.equal(decryptBalances(aliceEncryptedBalance, aliceMercatInfo), 900);
+  assert.equal(decryptBalances(daveEncryptedBalance, daveMercatInfo), 900);
   assert.equal(decryptBalances(bobEncryptedBalance, bobMercatInfo), 100);
 
   if (reqImports.fail_count > 0) {
@@ -152,12 +160,7 @@ async function main() {
   process.exit();
 }
 
-function encodeToBase64(data) {
-    let buffer = Buffer.from(data);
-    return buffer.toString('base64');
-}
-
-async function finalizeTransaction(amount, initializeProof, receiverMercatAccountInfo) {
+function finalizeTransaction(amount, initializeProof, receiverMercatAccountInfo) {
   const receiverPublicAccount = new PubAccount(receiverMercatAccountInfo.account_id, receiverMercatAccountInfo.public_key);
   const receiverAccount = new Account(receiverMercatAccountInfo.secret_account, receiverPublicAccount);
 
@@ -173,11 +176,11 @@ async function affirmConfidentialInstruction(api, instruction_id, proof, signer,
     if(tx !== -1) reqImports.fail_count--;
 }
 
-async function createTransaction(amount, senderMercatAccountInfo, receiverPubAccount, mediatorPublicKey, encrypted_pending_balance) {
+function createTransaction(amount, senderMercatAccountInfo, receiverPubAccount, mediatorPublicKey, encrypted_pending_balance) {
   const senderPublicAccount = new PubAccount(senderMercatAccountInfo.account_id, senderMercatAccountInfo.public_key);
   const senderAccount = new Account(senderMercatAccountInfo.secret_account, senderPublicAccount);
 
-  let tx = await create_transaction(amount, senderAccount, encrypted_pending_balance, receiverPubAccount, mediatorPublicKey);
+  let tx = create_transaction(amount, senderAccount, encrypted_pending_balance, receiverPubAccount, mediatorPublicKey);
 
   return tx.init_tx;
 }
@@ -207,15 +210,11 @@ async function getEncryptedBalance(api, did, mercatAccountID){
     return await api.query.confidentialAsset.mercatAccountBalance(did, mercatAccountID);
 }
 
-async function decryptBalances(encryptedBalance, mercatAccountInfo) {
+function decryptBalances(encryptedBalance, mercatAccountInfo) {
   const publicAccount = new PubAccount(mercatAccountInfo.account_id,  mercatAccountInfo.public_key);
   const account = new Account(mercatAccountInfo.secret_account, publicAccount);
 
   return decrypt(encryptedBalance, account);
-}
-
-async function removeChainDir(chain_dir) {
-    await exec(`rm -rf ${chain_dir}`);
 }
 
 async function addMediatorMercatAccount(api, signer, public_key) {
@@ -232,7 +231,7 @@ async function validateMercatAccount(api, signer, proof) {
     if(tx !== -1) reqImports.fail_count--;
 }
 
-async function createMercatMediatorAccount() {
+function createMercatMediatorAccount() {
   const charlieMercatInfo = create_mediator_account();
   
   return charlieMercatInfo;
