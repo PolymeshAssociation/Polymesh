@@ -32,6 +32,9 @@ jobs:
           keys:
             - v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v4-release-cache-{{ checksum "./rust.version" }}
+      - update:
+          name: Force an update on Polymesh-Substrate
+          command: cargo update -p frame-system
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
