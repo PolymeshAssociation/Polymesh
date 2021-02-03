@@ -292,17 +292,25 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, ticker) {
-
+async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
+  
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  let tickerExist = await api.query.asset.tickers(ticker);
+  
+  if (tickerExist.owner == 0) {
 
-  let nonceObj = { nonce: nonces.get(accounts[0].address) };
-  const transaction = api.tx.asset.createAsset(
-    ticker, ticker, 1000000, true, 0, [], "abc"
-  );
-  await sendTransaction(transaction, accounts[0], nonceObj);
+    let nonceObj = { nonce: nonces.get(accounts[0].address) };
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, amount, true, 0, [], fundingRound
+    );
+    await sendTransaction(transaction, accounts[0], nonceObj);
 
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    
+  } else {
+    console.log("ticker exists already");
+  }
+
 }
 
 // Returns the asset did
@@ -486,13 +494,20 @@ async function sendTx(signer, tx) {
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addComplianceRequirement(
-    ticker,
-    [],
-    []
-  );
 
-  await sendTx(sender, transaction);
+  let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
+
+  if (assetCompliance.requirements.length == 0) {
+    const transaction = await api.tx.complianceManager.addComplianceRequirement(
+      ticker,
+      [],
+      []
+    );
+
+    await sendTx(sender, transaction);
+  } else {
+    console.log("Asset already has compliance.");
+  }
 }
 
 async function createVenue(api, sender) {
@@ -670,6 +685,7 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
+  getDefaultPortfolio,
 };
 
 export { reqImports };

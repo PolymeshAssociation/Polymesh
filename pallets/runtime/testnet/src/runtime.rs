@@ -7,7 +7,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::EnsureRoot;
-use pallet_asset::{self as asset, checkpoint};
+use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -660,6 +660,7 @@ impl asset::Trait for Runtime {
     type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
 }
 
 parameter_types! {
@@ -850,7 +851,7 @@ construct_runtime!(
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
     }
 );
 

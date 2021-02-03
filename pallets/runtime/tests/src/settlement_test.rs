@@ -319,7 +319,7 @@ fn create_and_affirm_instruction() {
             // If affirmation fails, the instruction should be rolled back.
             // i.e. this tx should be a no-op.
             assert_noop!(
-                add_and_affirm_tx(user_portfolio_vec(alice_did, 1.into())),
+                add_and_affirm_tx(user_portfolio_vec(alice_did, 1u64.into())),
                 Error::UnexpectedAffirmationStatus
             );
 

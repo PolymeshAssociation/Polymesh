@@ -43,9 +43,9 @@ async function main() {
     alice
   );
 
-  await reqImports.issueTokenPerDid(api, [alice], ticker);
+  await reqImports.issueTokenPerDid(api, [alice], ticker, 1000000, null);
 
-  await reqImports.issueTokenPerDid(api, [bob], ticker2);
+  await reqImports.issueTokenPerDid(api, [bob], ticker2, 1000000, null);
 
   await reqImports.addComplianceRequirement(api, alice, ticker);
   await reqImports.addComplianceRequirement(api, bob, ticker2);

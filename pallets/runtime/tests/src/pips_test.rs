@@ -1,7 +1,9 @@
 use super::{
     assert_event_exists,
     committee_test::{gc_vmo, set_members},
-    storage::{fast_forward_blocks, root, Call, EventTest, TestStorage, User},
+    storage::{
+        fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
+    },
     ExtBuilder,
 };
 use frame_support::{
@@ -20,7 +22,7 @@ use pallet_pips::{
     VotingResult,
 };
 use pallet_treasury as treasury;
-use polymesh_common_utilities::{pip::PipId, MaybeBlock};
+use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -117,6 +119,17 @@ fn standard_proposal(
     proposal(signer, proposer, make_proposal(42), deposit, None, None)
 }
 
+fn remark_proposal(signer: &Origin, proposer: &Proposer<Public>, deposit: u128) -> DispatchResult {
+    proposal(
+        signer,
+        proposer,
+        make_remark_proposal(),
+        deposit,
+        None,
+        None,
+    )
+}
+
 const THE_COMMITTEE: Proposer<Public> = Proposer::Committee(pallet_pips::Committee::Upgrade);
 
 fn committee_proposal(deposit: u128) -> DispatchResult {
@@ -131,6 +144,11 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 fn alice_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.public();
     standard_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+}
+
+fn alice_remark_proposal(deposit: u128) -> DispatchResult {
+    let acc = AccountKeyring::Alice.public();
+    remark_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
@@ -176,9 +194,11 @@ fn updating_pips_variables_works() {
 
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::None);
         assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
-        assert_last_event!(
-            Event::PendingPipExpiryChanged(_, MaybeBlock::None, MaybeBlock::Some(13))
-        );
+        assert_last_event!(Event::PendingPipExpiryChanged(
+            _,
+            MaybeBlock::None,
+            MaybeBlock::Some(13)
+        ));
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::Some(13));
 
         assert_eq!(Pips::max_pip_skip_count(), 1);
@@ -434,7 +454,7 @@ fn proposal_details_are_correct() {
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
 
-        let call = make_proposal(42);
+        let call = make_remark_proposal();
         let proposal_url: Url = b"www.abc.com".into();
         let proposal_desc: PipDescription = b"Test description".into();
 
@@ -1740,6 +1760,41 @@ fn propose_dupe_live_insert_panics() {
 
         // Triggers a panic, assertion never reached.
         assert_ok!(alice_proposal(0));
+    });
+}
+
+#[test]
+fn execute_scheduled_pip() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        let pip_id = Pips::pip_id_sequence();
+        assert_ok!(alice_remark_proposal(0));
+        let user = User::new(AccountKeyring::Alice);
+        set_members(vec![user.did]);
+        assert_ok!(Pips::snapshot(user.origin()));
+        assert_ok!(Pips::enact_snapshot_results(
+            gc_vmo(),
+            vec![(pip_id, SnapshotResult::Approve)],
+        ));
+        assert_state(pip_id, false, ProposalState::Scheduled);
+        assert_ok!(Pips::execute_scheduled_pip(root(), pip_id));
+        assert_pruned(pip_id);
+    });
+}
+
+#[test]
+fn expire_scheduled_pip() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        let pip_id = Pips::pip_id_sequence();
+        assert_ok!(alice_remark_proposal(0));
+        assert_state(pip_id, false, ProposalState::Pending);
+        assert_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
+        assert_pruned(pip_id);
     });
 }
 

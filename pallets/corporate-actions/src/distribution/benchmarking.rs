@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use crate::benchmarking::{currency, did_whts, set_ca_targets, setup_ca, SEED};
 use crate::{CAKind, CorporateActions};
@@ -46,8 +44,8 @@ fn dist<T: Trait>(target_ids: u32) -> (User<T>, CAId, Ticker) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
-    let amount = 1000.into();
-    let pnum = 1.into();
+    let amount = 1000u32.into();
+    let pnum = 1u64.into();
     portfolio::<T>(&owner, pnum, currency, amount);
 
     <Module<T>>::distribute(
@@ -78,7 +76,7 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
         ca.as_mut().unwrap().withholding_tax = whts;
     });
 
-    <pallet_timestamp::Now<T>>::set(3000.into());
+    <pallet_timestamp::Now<T>>::set(3000u32.into());
 
     let holder = user::<T>("holder", SEED);
     <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(
@@ -108,8 +106,8 @@ benchmarks! {
     distribute {
         let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
         let currency = currency::<T>(&owner);
-        let amount = 1000.into();
-        let pnum = 1.into();
+        let amount = 1000u32.into();
+        let pnum =1u64.into();
         portfolio::<T>(&owner, pnum, currency, amount);
     }: _(owner.origin(), ca_id, Some(pnum), currency, amount, 3000, Some(4000))
     verify {
@@ -139,7 +137,7 @@ benchmarks! {
     reclaim {
         let (owner, ca_id, currency) = dist::<T>(0);
 
-        <pallet_timestamp::Now<T>>::set(5000.into());
+        <pallet_timestamp::Now<T>>::set(5000u32.into());
     }: _(owner.origin(), ca_id)
     verify {
         ensure!(<Distributions<T>>::get(ca_id).unwrap().reclaimed, "not reclaimed");

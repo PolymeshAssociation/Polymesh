@@ -1,5 +1,11 @@
 {
     "types": {
+        "AccountInfo": "AccountInfoWithRefCount",
+        "Address": "IndicesLookupSource",
+        "LookupSource": "IndicesLookupSource",
+        "ValidatorPrefsBlocked": {
+            "commission": "Compact<Perbill>"
+        },
         "IdentityId": "[u8; 32]",
         "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
