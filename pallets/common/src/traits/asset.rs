@@ -13,13 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
-    calendar::CheckpointId, AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+    asset::{AssetName, AssetType, FundingRoundName},
+    calendar::CheckpointId,
+    AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_std::prelude::*;
+use sp_std::prelude::Vec;
 
 pub const GAS_LIMIT: u64 = 13_000_000_000;
 
@@ -58,48 +58,6 @@ pub trait AssetSubTrait<Balance> {
     /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
     /// * `target` - The `IdentityId` whose balance needs to be queried.
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
-}
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct IssueAssetItem<U> {
-    pub investor_did: IdentityId,
-    pub value: U,
-}
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
-
-/// The type of an asset represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum AssetType {
-    EquityCommon,
-    EquityPreferred,
-    Commodity,
-    FixedIncome,
-    REIT,
-    Fund,
-    RevenueShareAgreement,
-    StructuredProduct,
-    Derivative,
-    Custom(Vec<u8>),
-}
-
-impl Default for AssetType {
-    fn default() -> Self {
-        Self::Custom(b"undefined".to_vec())
-    }
-}
-
-/// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
-pub struct FundingRoundName(pub Vec<u8>);
-
-impl Default for FundingRoundName {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
