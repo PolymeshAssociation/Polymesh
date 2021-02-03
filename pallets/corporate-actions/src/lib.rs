@@ -993,7 +993,7 @@ impl<T: Trait> Module<T> {
                     <Checkpoint<T>>::checkpoint_exists(&ticker, id),
                     Error::<T>::NoSuchCheckpointId
                 );
-                (<Checkpoint<T>>::timestamps(id), CACheckpoint::Existing(id))
+                (<Checkpoint<T>>::timestamps(ticker, id), CACheckpoint::Existing(id))
             }
         };
         Ok(RecordDate { date, checkpoint })

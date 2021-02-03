@@ -559,7 +559,7 @@ fn initiate_corporate_action_record_date() {
                     Checkpoint::schedule_points((ticker, schedule_id)),
                     vec![cp_id]
                 );
-                assert_eq!(date, Checkpoint::timestamps(cp_id));
+                assert_eq!(date, Checkpoint::timestamps(ticker, cp_id));
             }
         };
 

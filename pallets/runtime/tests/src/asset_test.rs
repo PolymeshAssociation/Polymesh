@@ -2721,7 +2721,7 @@ fn next_checkpoint_is_updated_we() {
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-    assert_eq!(start, Checkpoint::timestamps(id));
+    assert_eq!(start, Checkpoint::timestamps(ticker, id));
     assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
@@ -2746,7 +2746,7 @@ fn next_checkpoint_is_updated_we() {
     let id = CheckpointId(2);
     assert_eq!(vec![start + 2 * period_ms], checkpoint_ats(ticker));
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-    assert_eq!(start + period_ms, Checkpoint::timestamps(id));
+    assert_eq!(start + period_ms, Checkpoint::timestamps(ticker, id));
     assert_eq!(
         total_supply / 2,
         Asset::get_balance_at(ticker, alice_did, id)
@@ -2797,7 +2797,7 @@ fn non_recurring_schedule_works_we() {
     assert_ok!(Checkpoint::create_schedule(alice_signed, ticker, schedule));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
-    assert_eq!(start, Checkpoint::timestamps(id));
+    assert_eq!(start, Checkpoint::timestamps(ticker, id));
     assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
@@ -2849,7 +2849,7 @@ fn schedule_remaining_works() {
         let collect_ts = |sh_id| {
             Checkpoint::schedule_points((ticker, sh_id))
                 .into_iter()
-                .map(Checkpoint::timestamps)
+                .map(|cp| Checkpoint::timestamps(ticker, cp))
                 .collect::<Vec<_>>()
         };
 
@@ -2949,11 +2949,12 @@ fn mesh_1531_ts_collission_regression_test() {
         let cp = CheckpointId(1);
         Timestamp::set_timestamp(1_000);
         assert_ok!(Checkpoint::create_checkpoint(owner.origin(), alpha));
-        assert_eq!(Checkpoint::timestamps(cp), 1_000);
+        assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
 
         // Second CP is for beta, using same ID.
         Timestamp::set_timestamp(2_000);
         assert_ok!(Checkpoint::create_checkpoint(owner.origin(), beta));
-        assert_eq!(Checkpoint::timestamps(cp), 2_000); // bug!
+        assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
+        assert_eq!(Checkpoint::timestamps(beta, cp), 2_000);
     });
 }

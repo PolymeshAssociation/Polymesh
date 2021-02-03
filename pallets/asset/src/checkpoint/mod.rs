@@ -161,9 +161,9 @@ decl_storage! {
         /// Every schedule-originated checkpoint maps its ID to its due time.
         /// Every checkpoint manually created maps its ID to the time of recording.
         ///
-        /// (checkpoint ID) -> checkpoint timestamp
+        /// (ticker) -> (checkpoint ID) -> checkpoint timestamp
         pub Timestamps get(fn timestamps):
-            map hasher(twox_64_concat) CheckpointId => Moment;
+            double_map hasher(twox_64_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
 
         // -------------------- Checkpoint Schedule storage --------------------
 
@@ -647,8 +647,8 @@ impl<T: Trait> Module<T> {
         let supply = <Asset<T>>::token_details(ticker).total_supply;
         <TotalSupply<T>>::insert(&(ticker, id), supply);
 
-        // Relate ID -> time.
-        Timestamps::insert(id, at);
+        // Relate Ticker -> ID -> time.
+        Timestamps::insert(ticker, id, at);
 
         // Emit event & we're done.
         Self::deposit_event(RawEvent::CheckpointCreated(actor, ticker, id, supply, at));
