@@ -2922,3 +2922,38 @@ fn schedule_remaining_works() {
         assert_ts(5);
     });
 }
+
+#[test]
+fn mesh_1531_ts_collission_regression_test() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Create the assets.
+        let owner = User::new(AccountKeyring::Alice);
+        let asset = |name: &[u8]| {
+            let ticker = Ticker::try_from(&name[..]).unwrap();
+            assert_ok!(Asset::create_asset(
+                owner.origin(),
+                name.into(),
+                ticker,
+                1_000_000,
+                true,
+                AssetType::default(),
+                vec![],
+                None,
+            ));
+            ticker
+        };
+        let alpha = asset(b"ALPHA");
+        let beta = asset(b"BETA");
+
+        // First CP is made at 1s.
+        let cp = CheckpointId(1);
+        Timestamp::set_timestamp(1_000);
+        assert_ok!(Checkpoint::create_checkpoint(owner.origin(), alpha));
+        assert_eq!(Checkpoint::timestamps(cp), 1_000);
+
+        // Second CP is for beta, using same ID.
+        Timestamp::set_timestamp(2_000);
+        assert_ok!(Checkpoint::create_checkpoint(owner.origin(), beta));
+        assert_eq!(Checkpoint::timestamps(cp), 2_000); // bug!
+    });
+}
