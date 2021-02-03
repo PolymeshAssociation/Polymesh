@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 // Modified by Polymath Inc - 2nd February 2021
 // Priority of a transaction is always zero.
 
