@@ -76,7 +76,7 @@
 //!     NB - The steps 4-7 must be performed sequentially by each party since they all need information
 //!          from the chain that is only available after the previous party authorizes the
 //!          instruction.
-//!     
+//!
 //!
 //! ### Goals
 //!
@@ -122,7 +122,7 @@ use mercat::{
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, constants::currency::ONE_UNIT, identity::Trait as IdentityTrait,
+    asset::AssetFnTrait, constants::currency::ONE_UNIT, identity::Trait as IdentityTrait,
     CommonTrait, Context,
 };
 use polymesh_primitives::{
@@ -137,7 +137,7 @@ use sp_std::{
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
+    type NonConfidentialAsset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.

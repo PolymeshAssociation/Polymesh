@@ -39,7 +39,7 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", default-fe
 # Only in STD
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "v2-mainnet", default-features = false }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 [features]
