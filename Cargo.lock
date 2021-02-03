@@ -853,7 +853,7 @@ dependencies = [
  "serde_json",
  "sha3 0.8.2",
  "sp-io",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "zeroize",
 ]
 
@@ -1189,7 +1189,7 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.0#e4af2c6fae4caaa2167cef126971c377c334b4e0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.1#9c41a116204dcffd681ac6dbe7a3073784c40f3e"
 dependencies = [
  "bulletproofs",
  "byteorder 1.4.2",
@@ -1202,7 +1202,7 @@ dependencies = [
  "rand_core 0.5.1",
  "serde",
  "sha3 0.8.2",
- "sp-std 2.0.0",
+ "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "zeroize",
 ]
 
@@ -1629,7 +1629,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-storage",
 ]
 
@@ -1663,7 +1663,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-tracing",
 ]
 
@@ -1675,7 +1675,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-core",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -1699,7 +1699,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-tracing",
 ]
 
@@ -1748,7 +1748,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -1763,7 +1763,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -3812,7 +3812,7 @@ dependencies = [
  "sp-core",
  "sp-rpc",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -3832,7 +3832,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4083,7 +4083,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4100,7 +4100,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-authority-discovery",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4115,7 +4115,7 @@ dependencies = [
  "sp-authorship",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4139,7 +4139,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-timestamp",
 ]
 
@@ -4162,7 +4162,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
  "substrate-test-runtime-client",
 ]
@@ -4178,7 +4178,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4198,7 +4198,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4220,7 +4220,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4246,7 +4246,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4273,7 +4273,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4293,7 +4293,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-sandbox",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "wasmi-validation",
 ]
 
@@ -4304,7 +4304,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4335,7 +4335,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4365,7 +4365,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4382,7 +4382,7 @@ dependencies = [
  "sp-finality-tracker",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4404,7 +4404,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4425,7 +4425,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4443,7 +4443,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "substrate-test-runtime-client",
 ]
 
@@ -4458,7 +4458,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4483,7 +4483,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4503,7 +4503,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4520,7 +4520,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4539,7 +4539,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4555,7 +4555,7 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4570,7 +4570,7 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4599,7 +4599,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4618,7 +4618,7 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "sp-arithmetic",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4636,7 +4636,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4678,7 +4678,7 @@ dependencies = [
  "parity-scale-codec",
  "safe-mix",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4693,7 +4693,7 @@ dependencies = [
  "serde",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4712,7 +4712,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-trie",
 ]
 
@@ -4745,7 +4745,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-serializer",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4772,7 +4772,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "static_assertions",
 ]
 
@@ -4832,7 +4832,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "substrate-test-runtime-client",
 ]
 
@@ -4862,7 +4862,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-serializer",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4877,7 +4877,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4894,7 +4894,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-timestamp",
 ]
 
@@ -4912,7 +4912,7 @@ dependencies = [
  "sp-api",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4934,7 +4934,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -4949,7 +4949,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -4970,7 +4970,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -5467,7 +5467,7 @@ dependencies = [
 name = "polymesh-build-tool"
 version = "0.1.0"
 dependencies = [
- "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/paritytech/substrate?tag=v2.0.0)",
+ "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
 ]
 
 [[package]]
@@ -5491,7 +5491,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "substrate-test-runtime-client",
 ]
 
@@ -5513,7 +5513,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "wat",
 ]
 
@@ -5529,7 +5529,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -5582,7 +5582,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -5621,7 +5621,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -5698,7 +5698,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-transaction-pool",
  "sp-version",
 ]
@@ -5764,6 +5764,7 @@ dependencies = [
  "polymesh-weights",
  "serde",
  "serde_derive",
+ "smallvec 1.6.1",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -5776,7 +5777,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-transaction-pool",
  "sp-version",
 ]
@@ -5821,6 +5822,7 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-statistics",
  "pallet-sto",
+ "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury 0.1.0",
@@ -5844,7 +5846,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "substrate-test-runtime-client",
  "substrate-test-utils",
  "wat",
@@ -6787,7 +6789,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-storage",
  "sp-transaction-pool",
  "sp-trie",
@@ -7917,7 +7919,7 @@ dependencies = [
  "derive_more",
  "log",
  "sp-core",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-wasm-interface",
 ]
 
@@ -7932,7 +7934,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-version",
 ]
 
@@ -7957,7 +7959,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -7970,7 +7972,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-debug-derive",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -7982,7 +7984,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -7993,7 +7995,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8005,7 +8007,7 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8052,7 +8054,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-trie",
  "sp-utils",
  "sp-version",
@@ -8070,7 +8072,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-timestamp",
 ]
 
@@ -8089,7 +8091,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-timestamp",
 ]
 
@@ -8111,7 +8113,7 @@ dependencies = [
  "schnorrkel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-core",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8148,7 +8150,7 @@ dependencies = [
  "sp-debug-derive",
  "sp-externalities",
  "sp-runtime-interface",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-storage",
  "substrate-bip39",
  "tiny-bip39",
@@ -8184,7 +8186,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-storage",
 ]
 
@@ -8201,7 +8203,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8211,7 +8213,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "parity-scale-codec",
  "sp-inherents",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8223,7 +8225,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "sp-core",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8241,7 +8243,7 @@ dependencies = [
  "sp-externalities",
  "sp-runtime-interface",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-tracing",
  "sp-trie",
  "sp-wasm-interface",
@@ -8269,7 +8271,7 @@ dependencies = [
  "serde",
  "sp-arithmetic",
  "sp-npos-elections-compact",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8330,7 +8332,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8342,7 +8344,7 @@ dependencies = [
  "primitive-types",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-storage",
  "sp-tracing",
  "sp-wasm-interface",
@@ -8369,7 +8371,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-io",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-wasm-interface",
  "wasmi",
 ]
@@ -8393,7 +8395,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-staking",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8403,7 +8405,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8421,7 +8423,7 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-panic-handler",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-trie",
  "trie-db",
  "trie-root",
@@ -8429,8 +8431,8 @@ dependencies = [
 
 [[package]]
 name = "sp-std"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
+version = "2.0.1"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b059817c3ebe12fc130cdd850d62"
 
 [[package]]
 name = "sp-std"
@@ -8447,7 +8449,7 @@ dependencies = [
  "ref-cast",
  "serde",
  "sp-debug-derive",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8460,7 +8462,7 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "wasm-timer",
 ]
 
@@ -8471,7 +8473,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "log",
  "parity-scale-codec",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -8501,7 +8503,7 @@ dependencies = [
  "memory-db",
  "parity-scale-codec",
  "sp-core",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "trie-db",
  "trie-root",
 ]
@@ -8527,7 +8529,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-runtime",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -8537,7 +8539,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#7b12f540
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "wasmi",
 ]
 
@@ -8748,7 +8750,7 @@ dependencies = [
  "sp-runtime-interface",
  "sp-session",
  "sp-state-machine",
- "sp-std 2.0.1",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
@@ -8800,7 +8802,7 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder-runner"
 version = "1.0.6"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b059817c3ebe12fc130cdd850d62"
 
 [[package]]
 name = "substrate-wasm-builder-runner"

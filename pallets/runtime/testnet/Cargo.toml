@@ -91,9 +91,10 @@ pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", defau
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
 frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+smallvec = "1.4.0"
 
 [build-dependencies]
-polymesh-build-tool = { path = "../build_tool", default-features = false } 
+polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]

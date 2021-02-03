@@ -34,7 +34,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"serde_derive",
 	"serde/std",
 	"codec/std",

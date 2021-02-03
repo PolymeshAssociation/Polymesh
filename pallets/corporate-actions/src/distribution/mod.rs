@@ -329,7 +329,7 @@ decl_module! {
             Self::unlock(&dist, dist.remaining)?;
 
             // Zero `remaining` + note that we've reclaimed.
-            <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining: 0.into(), ..dist });
+            <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
 
             // Emit event.
             Self::deposit_event(Event::<T>::Reclaimed(did, ca_id, dist.remaining));

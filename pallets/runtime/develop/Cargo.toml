@@ -95,7 +95,7 @@ frame-system-benchmarking = { git = "https://github.com/PolymathNetwork/substrat
 hex-literal = { version = "0.3.1", optional = true }
 
 [build-dependencies]
-polymesh-build-tool = { path = "../build_tool", default-features = false } 
+polymesh-build-tool = { path = "../build_tool", default-features = false }
 
 [features]
 default = ["std", "equalize"]
