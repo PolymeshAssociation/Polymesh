@@ -124,7 +124,7 @@ impl From<Moment> for ScheduleSpec {
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Checkpoint {
@@ -201,7 +201,7 @@ decl_storage! {
             map hasher(blake2_128_concat) (Ticker, ScheduleId) => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
 }
 
@@ -231,6 +231,12 @@ decl_module! {
                     ));
 
                 migrate_map::<StoredScheduleOld, _>(b"Checkpoint", b"Schedules", |_| Empty);
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                // We're making it into a double map due to a bug, nuke storage.
+                use polymesh_primitives::migrate::kill_item;
+                kill_item(b"Checkpoint", b"Timestamps");
             });
 
             0
