@@ -55,5 +55,7 @@ impl Default for AssetType {
 }
 
 /// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped)]
+#[derive(
+    Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
+)]
 pub struct FundingRoundName(pub Vec<u8>);
