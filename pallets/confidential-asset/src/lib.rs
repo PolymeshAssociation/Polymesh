@@ -491,7 +491,7 @@ decl_module! {
             if !T::NonConfidentialAsset::is_divisible(ticker) {
                 ensure!(
                     // Non-divisible asset amounts must maintain a 6 decimal places of precision.
-                    total_supply % ONE_UNIT.into() == 0.into(),
+                    total_supply % ONE_UNIT.into() == 0u32.into(),
                     Error::<T>::InvalidTotalSupply
                 );
             }
