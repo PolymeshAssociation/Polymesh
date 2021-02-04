@@ -193,7 +193,7 @@ where
 
     /// Do the validate checks. This can be applied to both signed and unsigned.
     ///
-    /// It only checks that the block weight and length limit will not exceed.
+    /// It only checks that the block weight and length do not exceed their limits.
     /// NOTE The returned transaction priority is 0 on success.
     fn do_validate(info: &DispatchInfoOf<T::Call>, len: usize) -> TransactionValidity {
         // ignore the next length. If they return `Ok`, then it is below the limit.
