@@ -7,7 +7,7 @@ use std::{sync::Mutex, time::Instant};
 extern crate lazy_static;
 
 #[cfg(test)]
-mod first_test;
+mod staking_tests;
 
 struct TestState;
 
@@ -49,7 +49,7 @@ where
     let now = Instant::now();
     state.execute_with(<Runtime as DryRunRuntimeUpgrade>::dry_run_runtime_upgrade);
     let elapsed = now.elapsed();
-    println!("Storage Migration took: {:#?}", elapsed);
+    println!("Storage Migrations took: {:#?}", elapsed);
 
     state.execute_with(post_tests);
 }
