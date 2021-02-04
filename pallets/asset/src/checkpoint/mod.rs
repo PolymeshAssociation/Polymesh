@@ -163,7 +163,7 @@ decl_storage! {
         ///
         /// (ticker) -> (checkpoint ID) -> checkpoint timestamp
         pub Timestamps get(fn timestamps):
-            double_map hasher(twox_64_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
 
         // -------------------- Checkpoint Schedule storage --------------------
 
