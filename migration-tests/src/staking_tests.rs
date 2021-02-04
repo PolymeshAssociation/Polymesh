@@ -15,10 +15,9 @@ fn first_test() {
             );
         },
         || {
-            println!(
-                "Validator count after migration: {:?}",
-                Staking::validator_count()
-            );
+            let vc = Staking::validator_count();
+            println!("Validator count after migration: {:?}", vc);
+            assert!(vc == 666);
         },
     );
 }
