@@ -227,6 +227,9 @@ decl_module! {
         /// - `ScheduleOverflow` if the schedule ID counter would overflow.
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         /// - `FailedToComputeNextCheckpoint` if the next checkpoint for `schedule` is in the past.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = T::DbWeight::get().reads_writes(6, 2) + 1_000_000_000]
         pub fn create_schedule(
             origin,
@@ -248,6 +251,9 @@ decl_module! {
         /// - `Unauthorized` if the caller doesn't own the asset.
         /// - `NoCheckpointSchedule` if `id` does not identify a schedule for this `ticker`.
         /// - `ScheduleNotRemovable` if `id` exists but is not removable.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = T::DbWeight::get().reads_writes(5, 2) + 400_000_000]
         pub fn remove_schedule(
             origin,

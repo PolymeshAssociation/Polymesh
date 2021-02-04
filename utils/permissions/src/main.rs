@@ -19,7 +19,7 @@ fn main() {
 
     let pallets_regex = Regex::new("target/doc/pallet_.*").unwrap();
 
-    let mut permission_mappings = BTreeMap::new();
+    let mut permission_mappings: BTreeMap<String, BTreeMap<String, Vec<String>>> = BTreeMap::new();
 
     read_dir("target/doc")
         .expect("dir does not exist")
@@ -50,12 +50,11 @@ fn main() {
         .map(|(pallet, doc)| (pallet, parse_permissions(doc)))
         .for_each(|(pallet, permissions)| {
             for (extrinsic, permission) in permissions {
-                let extrinsic_mapping = permission_mappings
+                permission_mappings
                     .entry(pallet.clone())
-                    .or_insert(BTreeMap::new());
-                extrinsic_mapping
+                    .or_insert(Default::default())
                     .entry(extrinsic.clone())
-                    .or_insert(Vec::new())
+                    .or_insert(Default::default())
                     .push(permission);
             }
         });
@@ -64,6 +63,10 @@ fn main() {
 }
 
 fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
+    let h1_selector = Selector::parse("h1").unwrap();
+    let ul_selector = Selector::parse("ul").unwrap();
+    let li_selector = Selector::parse("li").unwrap();
+
     let mut permissions = Vec::new();
     for variant in doc.variants {
         if let Some(doc_block_div) = variant
@@ -75,16 +78,12 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
                 .select(&Selector::parse("*").unwrap())
                 .collect();
 
-            let h1_selector = Selector::parse("h1").unwrap();
-            let ul_selector = Selector::parse("ul").unwrap();
-            let li_selector = Selector::parse("li").unwrap();
-
             for (i, child) in children.iter().enumerate() {
                 if h1_selector.matches(child)
                     && child
                         .value()
                         .id()
-                        .map(|s| s == "permissions")
+                        .map(|s| s.starts_with("permissions"))
                         .unwrap_or(false)
                 {
                     if let Some(ul) = children[i + 1..]

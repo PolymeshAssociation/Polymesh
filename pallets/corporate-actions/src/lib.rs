@@ -441,6 +441,9 @@ decl_module! {
         ///
         /// ## Errors
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
@@ -457,6 +460,9 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -480,6 +486,9 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -500,6 +509,9 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -547,6 +559,9 @@ decl_module! {
         /// - `TooManyTargetIds` if `targets.unwrap().identities.len() > T::MaxTargetIds::get()`.
         /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(
                 T::MaxDidWhts::get(),
                 T::MaxTargetIds::get(),
@@ -654,6 +669,9 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
@@ -679,6 +697,9 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
             .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
@@ -719,6 +740,9 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
             .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
