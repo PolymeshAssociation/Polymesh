@@ -23,26 +23,37 @@ use sp_std::prelude::Vec;
 )]
 pub struct AssetName(pub Vec<u8>);
 
-/// The type of an asset represented by a token.
+/// The type of security represented by a token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
-    /// Common stock.
+    /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,
-    /// Preferred stock.
+    /// Preferred stock. Preferred stockholders have a higher claim to dividends or asset
+    /// distribution than common stockholders.
     EquityPreferred,
-    /// Commodity.
+    /// Commodity - a basic good used in commerce that is interchangeable with other commodities of
+    /// the same type.
     Commodity,
-    /// Fixed income security, for example, a bond.
+    /// Fixed income security - an investment that provides a return in the form of fixed periodic
+    /// interest payments and the eventual return of principal at maturity. Examples: bonds,
+    /// treasury bills, certificates of deposit.
     FixedIncome,
-    /// Real estate investment trust.
+    /// Real estate investment trust - a company that owns, operates, or finances income-producing
+    /// properties.
     REIT,
-    /// Investment fund.
+    /// Investment fund - a supply of capital belonging to numerous investors used to collectively
+    /// purchase securities while each investor retains ownership and control of his own shares.
     Fund,
-    /// Revenue share partnership agreement.
+    /// Revenue share partnership agreement - a document signed by all partners in a partnership
+    /// that has procedures when distributing business profits or losses.
     RevenueShareAgreement,
-    /// Structured product, aka market-linked investment.
+    /// Structured product, aka market-linked investment - a pre-packaged structured finance
+    /// investment strategy based on a single security, a basket of securities, options, indices,
+    /// commodities, debt issuance or foreign currencies, and to a lesser extent, derivatives.
     StructuredProduct,
-    /// Derivative contract.
+    /// Derivative contract - a contract between two parties for buying or selling a security at a
+    /// predetermined price within a specific time period. Examples: forwards, futures, options or
+    /// swaps.
     Derivative,
     /// Anything else.
     Custom(Vec<u8>),
