@@ -8,9 +8,39 @@ edition = "2018"
 
 [dependencies]
 remote-externalities = { path = "remote-externalities" }
-polymesh-runtime = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+tokio = { version = "1" }
+frame-support = { version = "2.0.1" }
 
-# Our pallets
+# Old pallets
+polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-asset-old = { package = "pallet-asset", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-balances-old = { package = "pallet-balances", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-sto-old = { package = "pallet-sto", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-bridge-old = { package = "pallet-bridge", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-committee-old = { package = "pallet-committee", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-compliance-manager-old = { package = "pallet-compliance-manager", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-confidential-old = { package = "pallet-confidential", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-corporate-actions-old = { package = "pallet-corporate-actions", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-group-old = { package = "pallet-group", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-group-rpc-runtime-api-old = { package = "pallet-group-rpc-runtime-api", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-identity-old = { package = "pallet-identity", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-im-online-old = { package = "pallet-im-online", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-multisig-old = { package = "pallet-multisig", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-permissions-old = { package = "pallet-permissions", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-pips-old = { package = "pallet-pips", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-portfolio-old = { package = "pallet-portfolio", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-protocol-fee-old = { package = "pallet-protocol-fee", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-settlement-old = { package = "pallet-settlement", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-staking-old = { package = "pallet-staking", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-statistics-old = { package = "pallet-statistics", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-transaction-payment-old = { package = "pallet-transaction-payment", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-treasury-old = { package = "pallet-treasury", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-utility-old = { package = "pallet-utility", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+polymesh-contracts-old = { package = "polymesh-contracts", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+pallet-sudo-old = { package = "pallet-sudo", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
+
+# New pallets
+polymesh-runtime = { package = "polymesh-runtime-testnet", path = "../pallets/runtime/testnet" }
 pallet-asset = { path = "../pallets/asset" }
 pallet-balances = { path = "../pallets/balances" }
 pallet-sto = { path = "../pallets/sto" }

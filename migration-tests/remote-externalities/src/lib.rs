@@ -1,66 +1,42 @@
+// This file is part of Substrate.
+
+// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //! # Remote Externalities
 //!
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
-//! based chain.
+//! based chain, or a local cache file.
 //!
-//! #### Building
+//! #### Runtime to Test Against
 //!
-//! Building this crate can be bit tricky, here are some advise about it.
-//!
-//! You have two main issues:
-//!
-//! 1. You need to get your hand on a `Runtime`; something that implements all of the pallet
-//!    `Config` traits (formerly `trait Trait`).
-//! 2. If that runtime happens to come from the polkadot repo, you need to make sure it compiles.
-//!
-//! In both cases, you probably also need to import an un-merged pallet from substrate that you are
-//! working on, so let's first take a look at that.
-//!
-//! You need to building such a structure:
-//!
-//! ```ignore
-//! .
-//! | -- ./substrate (where you are coding something new that needs to be tested)
-//! | -- ./substrate-debug-kit (your beloved debug kit)
-//! ```
-//!
-//! From the sibling substrate, you probably want to import `./substrate/frame/new-pallet`. Then,
-//! you need to make sure dependencies used by this crate (i.e. `sp-io`) match the ones being used
-//! in `new-pallet` (otherwise there's a 99% chance that some dependency version resolution will
-//! fail -- try it if you feel fancy). To do this, the easiest way is to make this repo's
-//! dependencies point to your sibling substrate. You can use _cargo path override_ for this, but
-//! there's also a simpler script for this. Simply run `node update_cargo.js local` in the root of
-//! this repo and all of the substrate dependencies will point to a sibling substrate. Use `node
-//! update_cargo.js exact` to switch back.
-//!
-//! > At this point, if there has been a breaking change in `sp-*` crates, this crate might not
-//! compile. Please make an issue. This is rather rare.
-//!
-//! Now we can get to the above issues again. You have two options:
+//! While not absolutely necessary, you most likely need a `Runtime` equivalent in your test setup
+//! through which you can infer storage types. There are two options here:
 //!
 //! 1. Build a mock runtime, similar how to you would build one in a pallet test (see example
 //!    below). The very important point here is that this mock needs to hold real values for types
-//!    that matter for you. Some typical ones are:
+//!    that matter for you, based on the chain of interest. Some typical ones are:
 //!
 //! - `sp_runtime::AccountId32` as `AccountId`.
 //! - `u32` as `BlockNumber`.
 //! - `u128` as Balance.
 //!
-//! And most importantly the types of `my-pallet`. Once you have your `Runtime`, you can use it for
-//! storage type resolution and do things like `<my_pallet::Pallet<Runtime>>::function()` or
-//! `<my_pallet::StorageItem<Runtime>>::get()`.
+//! Once you have your `Runtime`, you can use it for storage type resolution and do things like
+//! `<my_pallet::Pallet<Runtime>>::storage_getter()` or `<my_pallet::StorageItem<Runtime>>::get()`.
 //!
-//! 2. Finally, the second option:
-//!
-//! If you you already have new pallet integrated in polkadot, you can directly pull
-//! `polkadot-runtime` or `kusama-runtime` and use that, like `use polkadot_runtime::Runtime` (which
-//! will take a week to compile). Note that you, again, have to make sure that the substrate
-//! dependencies don't clash: You need a local polkadot repo next to the above two, use it to import
-//! the `Runtime`, and make sure there is a `.cargo/config` file in polkadot overriding substrate
-//! dependencies to point to the local one.
-//!
-//! > I personally recommend building a mock runtime if you only use remote-externalities, and use a
-//! real runtime if you use `migration-dry-run`.
+//! 2. Or, you can use a real runtime.
 //!
 //! ### Example
 //!
@@ -123,6 +99,7 @@
 //!         .build()
 //!         .execute_with(|| assert_eq!(<pallet_staking::Module<Runtime>>::validator_count(), 400));
 //! }
+//! ```
 
 use std::{
 	fs,
@@ -133,11 +110,12 @@ use log::*;
 use sp_core::{hashing::twox_128};
 pub use sp_io::TestExternalities;
 use sp_core::storage::{StorageKey, StorageData};
-use jsonrpsee_http_client::{HttpClient, HttpConfig};
-use jsonrpsee_types::jsonrpc::{Params, to_value as to_json_value};
+use futures::future::Future;
 
-type Hash = sp_core::H256;
 type KeyPair = (StorageKey, StorageData);
+type Number = u32;
+type Hash = sp_core::H256;
+// TODO: make these two generic.
 
 const LOG_TARGET: &'static str = "remote-ext";
 
@@ -163,7 +141,6 @@ impl Debug for HexSlice<'_> {
 		Ok(())
 	}
 }
-
 /// Extension trait for hex display.
 pub trait HexDisplayExt {
 	fn hex_display(&self) -> HexSlice<'_>;
@@ -175,48 +152,99 @@ impl<T: ?Sized + AsRef<[u8]>> HexDisplayExt for T {
 	}
 }
 
-#[derive(Copy, Clone, Debug)]
-/// Basic configuration for the cache behavior.
-pub enum CacheMode {
-	/// Use the cache if it is there, else create it.
-	UseElseCreate,
-	/// Force a new cache to be created from remote, then use it.
-	ForceUpdate,
-	/// None. Use remote and don't create anything.
-	None,
+/// The execution mode.
+#[derive(Clone)]
+pub enum Mode {
+	/// Online.
+	Online(OnlineConfig),
+	/// Offline. Uses a cached file and needs not any client config.
+	Offline(OfflineConfig),
 }
 
-/// The name of the cache file configuration.
-pub enum CacheName {
-	/// It will be {chain_name},{hash},{modules?}.bin
-	Auto,
-	/// Forced to the given file name.
-	Forced(String),
+/// configuration of the online execution.
+///
+/// A cache config must be present.
+#[derive(Clone)]
+pub struct OfflineConfig {
+	cache: CacheConfig,
+}
+
+/// Configuration of the online execution.
+///
+/// A cache config may be present and will be written to in that case.
+#[derive(Clone)]
+pub struct OnlineConfig {
+	uri: String,
+	at: Option<Hash>,
+	cache: Option<CacheConfig>,
+	modules: Vec<String>,
+}
+
+impl Default for OnlineConfig {
+	fn default() -> Self {
+		Self {
+			uri: "http://localhost:9933".into(),
+			at: None,
+			cache: None,
+			modules: Default::default(),
+		}
+	}
+}
+
+/// Configuration of the cache.
+#[derive(Clone)]
+pub struct CacheConfig {
+	name: String,
+	directory: String,
+}
+
+impl Default for CacheConfig {
+	fn default() -> Self {
+		Self { name: "CACHE".into(), directory: ".".into() }
+	}
+}
+
+impl CacheConfig {
+	fn path(&self) -> PathBuf {
+		Path::new(&self.directory).join(self.name.clone())
+	}
 }
 
 /// Builder for remote-externalities.
 pub struct Builder {
-	at: Option<Hash>,
-	uri: String,
 	inject: Vec<KeyPair>,
-	module_filter: Vec<String>,
-	cache_config: CacheMode,
-	cache_name_config: CacheName,
-	client: Option<HttpClient>,
+	mode: Mode,
 	chain: String,
 }
 
 impl Default for Builder {
 	fn default() -> Self {
 		Self {
-			uri: "http://localhost:9933".into(),
-			at: Default::default(),
 			inject: Default::default(),
-			module_filter: Default::default(),
-			cache_config: CacheMode::None,
-			cache_name_config: CacheName::Auto,
-			client: None,
+			mode: Mode::Online(OnlineConfig {
+				at: None,
+				uri: "http://localhost:9933".into(),
+				cache: None,
+				modules: Default::default(),
+			}),
 			chain: "UNSET".into(),
+		}
+	}
+}
+
+// Mode methods
+impl Builder {
+	fn as_online(&self) -> &OnlineConfig {
+		match &self.mode {
+			Mode::Online(config) => &config,
+			_ => panic!("Unexpected mode: Online"),
+		}
+	}
+
+	fn as_online_mut(&mut self) -> &mut OnlineConfig {
+		match &mut self.mode {
+			Mode::Online(config) => config,
+			_ => panic!("Unexpected mode: Online"),
 		}
 	}
 }
@@ -224,111 +252,78 @@ impl Default for Builder {
 // RPC methods
 impl Builder {
 	async fn rpc_get_head(&self) -> Hash {
-		let json_value = self
-			.rpc_client()
-			.request("chain_getFinalizedHead", Params::None)
-			.await
-			.expect("get chain finalized head request failed");
-		jsonrpsee_types::jsonrpc::from_value(json_value).unwrap()
+		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+		let uri = self.as_online().uri.clone();
+		rt.block_on::<_, _, ()>(futures::lazy(move || {
+			trace!(target: LOG_TARGET, "rpc: finalized_head");
+			let client: sc_rpc_api::chain::ChainClient<Number, Hash, (), ()> =
+				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
+			Ok(client.finalized_head().wait().unwrap())
+		}))
+		.unwrap()
 	}
 
 	/// Relay the request to `state_getPairs` rpc endpoint.
 	///
 	/// Note that this is an unsafe RPC.
 	async fn rpc_get_pairs(&self, prefix: StorageKey, at: Hash) -> Vec<KeyPair> {
-		let serialized_prefix = to_json_value(prefix).expect("StorageKey serialization infallible");
-		let at = to_json_value(at).expect("Block hash serialization infallible");
-		let json_value = self
-			.rpc_client()
-			.request("state_getPairs", Params::Array(vec![serialized_prefix, at]))
-			.await
-			.expect("Storage state_getPairs failed");
-		jsonrpsee_types::jsonrpc::from_value(json_value).unwrap()
+		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+		let uri = self.as_online().uri.clone();
+		rt.block_on::<_, _, ()>(futures::lazy(move || {
+			trace!(target: LOG_TARGET, "rpc: storage_pairs: {:?} / {:?}", prefix, at);
+			let client: sc_rpc_api::state::StateClient<Hash> =
+				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
+			Ok(client.storage_pairs(prefix, Some(at)).wait().unwrap())
+		}))
+		.unwrap()
 	}
 
 	/// Get the chain name.
 	async fn chain_name(&self) -> String {
-		let json_value = self
-			.rpc_client()
-			.request("system_chain", Params::None)
-			.await
-			.expect("system_chain failed");
-		jsonrpsee_types::jsonrpc::from_value(json_value).unwrap()
-	}
-
-	fn rpc_client(&self) -> &HttpClient {
-		self.client.as_ref().expect("Client initialized after `build`; qed")
+		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+		let uri = self.as_online().uri.clone();
+		rt.block_on::<_, _, ()>(futures::lazy(move || {
+			trace!(target: LOG_TARGET, "rpc: system_chain");
+			let client: sc_rpc_api::system::SystemClient<(), ()> =
+				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
+			Ok(client.system_chain().wait().unwrap())
+		}))
+		.unwrap()
 	}
 }
 
 // Internal methods
 impl Builder {
-	/// The file name associated with this scrape.
-	fn final_cache_name(&self) -> String {
-		match &self.cache_name_config {
-			CacheName::Auto => {
-				format!("{},{:?},{}.bin", self.chain, self.final_at(), self.module_filter.join(","))
-			}
-			CacheName::Forced(name) => name.clone(),
-		}
-	}
-
-	/// Directory at which to create the cache. Not configurable for now.
-	// TODO
-	fn cache_dir() -> &'static str {
-		"."
-	}
-
-	/// The final path of the cache.
-	fn cache_path(&self) -> PathBuf {
-		Path::new(Self::cache_dir()).join(self.final_cache_name())
-	}
-
 	/// Save the given data as cache.
-	fn save_cache(&self, data: &[KeyPair]) {
+	fn save_cache(&self, data: &[KeyPair], path: &Path) {
 		let bdata = bincode::serialize(data).unwrap();
-		let path = self.cache_path();
 		info!(target: LOG_TARGET, "writing to cache file {:?}", path);
 		fs::write(path, bdata).unwrap();
 	}
 
-	/// Try and initialize `Self` from cache
-	fn try_scrape_cached(&self) -> Result<Vec<KeyPair>, &'static str> {
-		info!(
-			target: LOG_TARGET,
-			"scraping keypairs from cache {:?} @ {:?}",
-			self.cache_path(),
-			self.final_at()
-		);
-		let path = self.cache_path();
-		fs::read(path)
-			.map_err(|_| "failed to read cache")
-			.and_then(|b| bincode::deserialize(&b[..]).map_err(|_| "failed to decode cache"))
-	}
-
-	/// Get the final `at` that shall be used.
-	///
-	/// This should be only called after a call to [`build`].
-	fn final_at(&self) -> Hash {
-		self.at.expect("At intialized after `built`; qed")
+	/// initialize `Self` from cache. Panics if the file does not exist.
+	fn load_cache(&self, path: &Path) -> Vec<KeyPair> {
+		info!(target: LOG_TARGET, "scraping keypairs from cache {:?}", path,);
+		let bytes = fs::read(path).unwrap();
+		bincode::deserialize(&bytes[..]).unwrap()
 	}
 
 	/// Build `Self` from a network node denoted by `uri`.
-	async fn scrape_remote(&self) -> Vec<KeyPair> {
-		let at = self.final_at();
-		info!(target: LOG_TARGET, "scraping keypairs from remote node {} @ {:?}", self.uri, at);
+	async fn load_remote(&self) -> Vec<KeyPair> {
+		let config = self.as_online();
+		let at = self.as_online().at.unwrap().clone();
+		info!(target: LOG_TARGET, "scraping keypairs from remote node {} @ {:?}", config.uri, at);
 
-		let mut keys_and_values = if self.module_filter.len() > 0 {
+		let keys_and_values = if config.modules.len() > 0 {
 			let mut filtered_kv = vec![];
-			for f in self.module_filter.iter() {
+			for f in config.modules.iter() {
 				let hashed_prefix = StorageKey(twox_128(f.as_bytes()).to_vec());
 				let module_kv = self.rpc_get_pairs(hashed_prefix.clone(), at).await;
 				info!(
 					target: LOG_TARGET,
-					"downloaded data for module {} (count: {} / prefix: {:?}).",
+					"downloaded data for module {} (count: {}).",
 					f,
 					module_kv.len(),
-					hashed_prefix,
 				);
 				filtered_kv.extend(module_kv);
 			}
@@ -338,42 +333,30 @@ impl Builder {
 			self.rpc_get_pairs(StorageKey(vec![]), at).await.into_iter().collect::<Vec<_>>()
 		};
 
-		// concat any custom key values.
-		keys_and_values.extend(self.inject.clone());
 		keys_and_values
 	}
 
-	async fn force_update(&self) -> Vec<KeyPair> {
-		let kp = self.scrape_remote().await;
-		self.save_cache(&kp);
-		kp
+	async fn init_remote_client(&mut self) {
+		self.as_online_mut().at = Some(self.rpc_get_head().await);
+		// TODO: set the at.
+		self.chain = self.chain_name().await;
 	}
 
 	async fn pre_build(mut self) -> Vec<KeyPair> {
-		self.client = Some(
-			HttpClient::new(
-				self.uri.clone(),
-				HttpConfig { max_request_body_size: u32::max_value() },
-			)
-			.unwrap(),
-		);
-		self.at = match self.at {
-			Some(at) => Some(at),
-			None => Some(self.rpc_get_head().await),
-		};
-		self.chain = self.chain_name().await;
-
-		match self.cache_config {
-			CacheMode::None => self.scrape_remote().await,
-			CacheMode::ForceUpdate => self.force_update().await,
-			CacheMode::UseElseCreate => match self.try_scrape_cached() {
-				Ok(kp) => kp,
-				Err(why) => {
-					warn!(target: LOG_TARGET, "failed to load cache due to {:?}", why);
-					self.force_update().await
+		let mut base_kv = match self.mode.clone() {
+			Mode::Offline(config) => self.load_cache(&config.cache.path()),
+			Mode::Online(config) => {
+				self.init_remote_client().await;
+				let kp = self.load_remote().await;
+				if let Some(c) = config.cache {
+					self.save_cache(&kp, &c.path());
 				}
-			},
-		}
+				kp
+			}
+		};
+
+		base_kv.extend(self.inject.clone());
+		base_kv
 	}
 }
 
@@ -384,22 +367,6 @@ impl Builder {
 		Default::default()
 	}
 
-	/// Scrape the chain at the given block hash.
-	///
-	/// If not set, latest finalized will be used.
-	pub fn at(mut self, at: Hash) -> Self {
-		self.at = Some(at);
-		self
-	}
-
-	/// Look for a chain at the given URI.
-	///
-	/// If not set, `ws://localhost:9944` will be used.
-	pub fn uri(mut self, uri: String) -> Self {
-		self.uri = uri;
-		self
-	}
-
 	/// Inject a manual list of key and values to the storage.
 	pub fn inject(mut self, injections: &[KeyPair]) -> Self {
 		for i in injections {
@@ -408,23 +375,9 @@ impl Builder {
 		self
 	}
 
-	/// Scrape only this module.
-	///
-	/// If used multiple times, all of the given modules will be used, else the entire chain.
-	pub fn module(mut self, module: &str) -> Self {
-		self.module_filter.push(module.to_string());
-		self
-	}
-
 	/// Configure a cache to be used.
-	pub fn cache_mode(mut self, mode: CacheMode) -> Self {
-		self.cache_config = mode;
-		self
-	}
-
-	/// Configure the name of the cache file.
-	pub fn cache_name(mut self, name: CacheName) -> Self {
-		self.cache_name_config = name;
+	pub fn mode(mut self, mode: Mode) -> Self {
+		self.mode = mode;
 		self
 	}
 
@@ -446,23 +399,26 @@ impl Builder {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	const TEST_URI: &'static str = "http://localhost:9933";
 
-	#[derive(Clone, Eq, PartialEq, Debug, Default)]
-	pub struct TestRuntime;
-
-	#[tokio::test]
-	// #[cfg(not(any(feature = "remote-test-kusama", feature = "remote-test-polkadot")))]
-	async fn can_build_system() {
+	#[async_std::test]
+	#[cfg(feature = "remote-test")]
+	async fn can_build_one_pallet() {
 		let _ = env_logger::Builder::from_default_env()
 			.format_module_path(false)
 			.format_level(true)
 			.try_init();
 
-		Builder::new().uri(TEST_URI.into()).module("System").build().await.execute_with(|| {});
+		Builder::new()
+			.mode(Mode::Online(OnlineConfig {
+				modules: vec!["Proxy".into()],
+				..Default::default()
+			}))
+			.build()
+			.await
+			.execute_with(|| {});
 	}
 
-	#[tokio::test]
+	#[async_std::test]
 	async fn can_load_cache() {
 		let _ = env_logger::Builder::from_default_env()
 			.format_module_path(false)
@@ -470,16 +426,16 @@ mod tests {
 			.try_init();
 
 		Builder::new()
-			.uri(TEST_URI.into())
-			.cache_mode(CacheMode::UseElseCreate)
-			.cache_name(CacheName::Forced("test_cache".into()))
+			.mode(Mode::Offline(OfflineConfig {
+				cache: CacheConfig { name: "proxy_test".into(), ..Default::default() },
+			}))
 			.build()
 			.await
 			.execute_with(|| {});
 	}
 
-	#[tokio::test]
-	// #[cfg(not(any(feature = "remote-test-kusama", feature = "remote-test-polkadot")))]
+	#[async_std::test]
+	#[cfg(feature = "remote-test")]
 	async fn can_create_cache() {
 		let _ = env_logger::Builder::from_default_env()
 			.format_module_path(false)
@@ -487,14 +443,18 @@ mod tests {
 			.try_init();
 
 		Builder::new()
-			.uri(TEST_URI.into())
-			.cache_mode(CacheMode::UseElseCreate)
-			.module("System")
+			.mode(Mode::Online(OnlineConfig {
+				cache: Some(CacheConfig {
+					name: "test_cache_to_remove.bin".into(),
+					..Default::default()
+				}),
+				..Default::default()
+			}))
 			.build()
 			.await
 			.execute_with(|| {});
 
-		let to_delete = std::fs::read_dir(Builder::cache_dir())
+		let to_delete = std::fs::read_dir(CacheConfig::default().directory)
 			.unwrap()
 			.into_iter()
 			.map(|d| d.unwrap())
@@ -508,14 +468,14 @@ mod tests {
 		}
 	}
 
-	#[tokio::test]
-	// #[cfg(not(any(feature = "remote-test-kusama", feature = "remote-test-polkadot")))]
+	#[async_std::test]
+	#[cfg(feature = "remote-test")]
 	async fn can_build_all() {
 		let _ = env_logger::Builder::from_default_env()
 			.format_module_path(true)
 			.format_level(true)
 			.try_init();
 
-		Builder::new().uri(TEST_URI.into()).build().await.execute_with(|| {});
+		Builder::new().build().await.execute_with(|| {});
 	}
 }

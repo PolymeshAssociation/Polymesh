@@ -3,7 +3,7 @@ use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
 use frame_support::{
     construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    traits::{KeyOwnerProofSystem, OnRuntimeUpgrade, Randomness, SplitTwoWays},
     weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -764,6 +764,8 @@ impl pallet_scheduler::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
+pub type AllModulesExported = AllModules;
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1226,5 +1228,16 @@ impl_runtime_apis! {
                 CommitteeMembership::active_members(),
                 CommitteeMembership::inactive_members())
         }
+    }
+}
+
+pub trait DryRunRuntimeUpgrade {
+    /// dry-run runtime upgrades, returning the total weight consumed.
+    fn dry_run_runtime_upgrade() -> u64;
+}
+
+impl DryRunRuntimeUpgrade for Runtime {
+    fn dry_run_runtime_upgrade() -> Weight {
+        <System as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
 }
