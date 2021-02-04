@@ -33,3 +33,4 @@ tmp/
 coverage.txt
 
 **/test_cache
+**/CACHE

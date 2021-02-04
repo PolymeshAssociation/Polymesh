@@ -164,7 +164,7 @@ pub enum Mode {
 /// configuration of the online execution.
 ///
 /// A cache config must be present.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct OfflineConfig {
 	cache: CacheConfig,
 }
@@ -174,10 +174,10 @@ pub struct OfflineConfig {
 /// A cache config may be present and will be written to in that case.
 #[derive(Clone)]
 pub struct OnlineConfig {
-	uri: String,
-	at: Option<Hash>,
-	cache: Option<CacheConfig>,
-	modules: Vec<String>,
+	pub uri: String,
+	pub at: Option<Hash>,
+	pub cache: Option<CacheConfig>,
+	pub modules: Vec<String>,
 }
 
 impl Default for OnlineConfig {

@@ -1238,6 +1238,6 @@ pub trait DryRunRuntimeUpgrade {
 
 impl DryRunRuntimeUpgrade for Runtime {
     fn dry_run_runtime_upgrade() -> Weight {
-        <System as OnRuntimeUpgrade>::on_runtime_upgrade()
+        <AllModules as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
 }
