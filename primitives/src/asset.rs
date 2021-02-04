@@ -15,11 +15,11 @@
 
 use crate::IdentityId;
 use base64;
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use codec::{Decode, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
 
 #[derive(
@@ -170,6 +170,6 @@ pub enum TransactionError {
 
 /// A wrapper for a funding round name.
 #[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
+    Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
 )]
 pub struct FundingRoundName(pub Vec<u8>);
