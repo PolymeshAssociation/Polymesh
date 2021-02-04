@@ -34,8 +34,13 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 
 [features]
 equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
-no_std = [ "mercat/no_std" ]
+default = ["std", "equalize", "u64_backend"]
+
+# Backends
+u64_backend = ["mercat/u64_backend"]
+avx2_backend = ["mercat/avx2_backend"]
+
+no_std = ["mercat/no_std", "u64_backend"]
 only-staking = []
 std = [
     "codec/std",
@@ -43,7 +48,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "mercat/std",
-    "mercat/avx2_backend",
     "pallet-balances/std",
     "pallet-contracts/std",
     "pallet-identity/std",
