@@ -445,7 +445,7 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
-        ) -> DispatchResult {
+        ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)?;
             // Mint total supply to PIA
@@ -1092,12 +1092,11 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         did: IdentityId,
         name: AssetName,
         ticker: Ticker,
-        total_supply: T::Balance,
+        total_supply: Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        is_confidential: bool,
     ) -> DispatchResult {
         Self::base_create_asset(
             did,
@@ -1108,7 +1107,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
             asset_type,
             identifiers,
             funding_round,
-            is_confidential,
         )
     }
 
@@ -2133,7 +2131,6 @@ impl<T: Trait> Module<T> {
             total_supply,
             Self::funding_round(&ticker),
             total_supply,
-            None,
         ));
         Ok(())
     }

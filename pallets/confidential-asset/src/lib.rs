@@ -137,8 +137,14 @@ use sp_std::{
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
+    /// Pallet's events.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type NonConfidentialAsset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    /// Non-confidential asset methods.
+    type NonConfidentialAsset: AssetFnTrait<
+        <Self as frame_system::Trait>::Balance,
+        <Self as frame_system::Trait>::AccountId,
+        <Self as frame_system::Trait>::Origin,
+    >;
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
