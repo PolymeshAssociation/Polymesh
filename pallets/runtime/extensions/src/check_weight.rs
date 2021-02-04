@@ -191,7 +191,7 @@ where
         Ok(())
     }
 
-    /// Do the validate checks. This can be applied to both signed and unsigned.
+    /// Do the validate checks. This can be applied to both signed and unsigned transactions.
     ///
     /// It only checks that the block weight and length do not exceed their limits.
     /// NOTE The returned transaction priority is 0 on success.
