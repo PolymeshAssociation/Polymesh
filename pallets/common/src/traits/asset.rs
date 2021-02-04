@@ -15,9 +15,9 @@
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{AssetName, AssetType, FundingRoundName, SecurityToken},
     calendar::CheckpointId,
-    AssetIdentifier, IdentityId, PortfolioId, ScopeId, SecurityToken, Ticker,
+    AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
