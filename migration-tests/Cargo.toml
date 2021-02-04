@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 remote-externalities = { path = "remote-externalities" }
-tokio = { version = "1", features = ["full"] }
 frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+futures = "0.3"
 
 # Old pallets
 polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
