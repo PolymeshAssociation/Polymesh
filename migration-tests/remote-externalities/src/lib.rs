@@ -101,16 +101,16 @@
 //! }
 //! ```
 
-use std::{
-	fs,
-	path::{Path, PathBuf},
-};
-use std::fmt::{Debug, Formatter, Result as FmtResult};
-use log::*;
-use sp_core::{hashing::twox_128};
-pub use sp_io::TestExternalities;
-use sp_core::storage::{StorageKey, StorageData};
 use futures::future::Future;
+use log::*;
+use sp_core::hashing::twox_128;
+use sp_core::storage::{StorageData, StorageKey};
+pub use sp_io::TestExternalities;
+use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 type KeyPair = (StorageKey, StorageData);
 type Number = u32;
@@ -123,42 +123,42 @@ const LOG_TARGET: &'static str = "remote-ext";
 pub struct HexSlice<'a>(&'a [u8]);
 
 impl<'a> HexSlice<'a> {
-	pub fn new<T>(data: &'a T) -> HexSlice<'a>
-	where
-		T: ?Sized + AsRef<[u8]> + 'a,
-	{
-		HexSlice(data.as_ref())
-	}
+    pub fn new<T>(data: &'a T) -> HexSlice<'a>
+    where
+        T: ?Sized + AsRef<[u8]> + 'a,
+    {
+        HexSlice(data.as_ref())
+    }
 }
 
 // You can choose to implement multiple traits, like Lower and UpperHex
 impl Debug for HexSlice<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-		write!(f, "0x")?;
-		for byte in self.0 {
-			write!(f, "{:x}", byte)?;
-		}
-		Ok(())
-	}
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "0x")?;
+        for byte in self.0 {
+            write!(f, "{:x}", byte)?;
+        }
+        Ok(())
+    }
 }
 /// Extension trait for hex display.
 pub trait HexDisplayExt {
-	fn hex_display(&self) -> HexSlice<'_>;
+    fn hex_display(&self) -> HexSlice<'_>;
 }
 
 impl<T: ?Sized + AsRef<[u8]>> HexDisplayExt for T {
-	fn hex_display(&self) -> HexSlice<'_> {
-		HexSlice::new(self)
-	}
+    fn hex_display(&self) -> HexSlice<'_> {
+        HexSlice::new(self)
+    }
 }
 
 /// The execution mode.
 #[derive(Clone)]
 pub enum Mode {
-	/// Online.
-	Online(OnlineConfig),
-	/// Offline. Uses a cached file and needs not any client config.
-	Offline(OfflineConfig),
+    /// Online.
+    Online(OnlineConfig),
+    /// Offline. Uses a cached file and needs not any client config.
+    Offline(OfflineConfig),
 }
 
 /// configuration of the online execution.
@@ -166,7 +166,7 @@ pub enum Mode {
 /// A cache config must be present.
 #[derive(Clone, Default)]
 pub struct OfflineConfig {
-	cache: CacheConfig,
+    cache: CacheConfig,
 }
 
 /// Configuration of the online execution.
@@ -174,308 +174,339 @@ pub struct OfflineConfig {
 /// A cache config may be present and will be written to in that case.
 #[derive(Clone)]
 pub struct OnlineConfig {
-	pub uri: String,
-	pub at: Option<Hash>,
-	pub cache: Option<CacheConfig>,
-	pub modules: Vec<String>,
+    pub uri: String,
+    pub at: Option<Hash>,
+    pub cache: Option<CacheConfig>,
+    pub modules: Vec<String>,
 }
 
 impl Default for OnlineConfig {
-	fn default() -> Self {
-		Self {
-			uri: "http://localhost:9933".into(),
-			at: None,
-			cache: None,
-			modules: Default::default(),
-		}
-	}
+    fn default() -> Self {
+        Self {
+            uri: "http://localhost:9933".into(),
+            at: None,
+            cache: None,
+            modules: Default::default(),
+        }
+    }
 }
 
 /// Configuration of the cache.
 #[derive(Clone)]
 pub struct CacheConfig {
-	name: String,
-	directory: String,
+    name: String,
+    directory: String,
 }
 
 impl Default for CacheConfig {
-	fn default() -> Self {
-		Self { name: "CACHE".into(), directory: ".".into() }
-	}
+    fn default() -> Self {
+        Self {
+            name: "CACHE".into(),
+            directory: ".".into(),
+        }
+    }
 }
 
 impl CacheConfig {
-	fn path(&self) -> PathBuf {
-		Path::new(&self.directory).join(self.name.clone())
-	}
+    fn path(&self) -> PathBuf {
+        Path::new(&self.directory).join(self.name.clone())
+    }
 }
 
 /// Builder for remote-externalities.
 pub struct Builder {
-	inject: Vec<KeyPair>,
-	mode: Mode,
-	chain: String,
+    inject: Vec<KeyPair>,
+    mode: Mode,
+    chain: String,
 }
 
 impl Default for Builder {
-	fn default() -> Self {
-		Self {
-			inject: Default::default(),
-			mode: Mode::Online(OnlineConfig {
-				at: None,
-				uri: "http://localhost:9933".into(),
-				cache: None,
-				modules: Default::default(),
-			}),
-			chain: "UNSET".into(),
-		}
-	}
+    fn default() -> Self {
+        Self {
+            inject: Default::default(),
+            mode: Mode::Online(OnlineConfig {
+                at: None,
+                uri: "http://localhost:9933".into(),
+                cache: None,
+                modules: Default::default(),
+            }),
+            chain: "UNSET".into(),
+        }
+    }
 }
 
 // Mode methods
 impl Builder {
-	fn as_online(&self) -> &OnlineConfig {
-		match &self.mode {
-			Mode::Online(config) => &config,
-			_ => panic!("Unexpected mode: Online"),
-		}
-	}
+    fn as_online(&self) -> &OnlineConfig {
+        match &self.mode {
+            Mode::Online(config) => &config,
+            _ => panic!("Unexpected mode: Online"),
+        }
+    }
 
-	fn as_online_mut(&mut self) -> &mut OnlineConfig {
-		match &mut self.mode {
-			Mode::Online(config) => config,
-			_ => panic!("Unexpected mode: Online"),
-		}
-	}
+    fn as_online_mut(&mut self) -> &mut OnlineConfig {
+        match &mut self.mode {
+            Mode::Online(config) => config,
+            _ => panic!("Unexpected mode: Online"),
+        }
+    }
 }
 
 // RPC methods
 impl Builder {
-	async fn rpc_get_head(&self) -> Hash {
-		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-		let uri = self.as_online().uri.clone();
-		rt.block_on::<_, _, ()>(futures::lazy(move || {
-			trace!(target: LOG_TARGET, "rpc: finalized_head");
-			let client: sc_rpc_api::chain::ChainClient<Number, Hash, (), ()> =
-				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
-			Ok(client.finalized_head().wait().unwrap())
-		}))
-		.unwrap()
-	}
+    async fn rpc_get_head(&self) -> Hash {
+        let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+        let uri = self.as_online().uri.clone();
+        rt.block_on::<_, _, ()>(futures::lazy(move || {
+            trace!(target: LOG_TARGET, "rpc: finalized_head");
+            let client: sc_rpc_api::chain::ChainClient<Number, Hash, (), ()> =
+                jsonrpc_core_client::transports::http::connect(&uri)
+                    .wait()
+                    .unwrap();
+            Ok(client.finalized_head().wait().unwrap())
+        }))
+        .unwrap()
+    }
 
-	/// Relay the request to `state_getPairs` rpc endpoint.
-	///
-	/// Note that this is an unsafe RPC.
-	async fn rpc_get_pairs(&self, prefix: StorageKey, at: Hash) -> Vec<KeyPair> {
-		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-		let uri = self.as_online().uri.clone();
-		rt.block_on::<_, _, ()>(futures::lazy(move || {
-			trace!(target: LOG_TARGET, "rpc: storage_pairs: {:?} / {:?}", prefix, at);
-			let client: sc_rpc_api::state::StateClient<Hash> =
-				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
-			Ok(client.storage_pairs(prefix, Some(at)).wait().unwrap())
-		}))
-		.unwrap()
-	}
+    /// Relay the request to `state_getPairs` rpc endpoint.
+    ///
+    /// Note that this is an unsafe RPC.
+    async fn rpc_get_pairs(&self, prefix: StorageKey, at: Hash) -> Vec<KeyPair> {
+        let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+        let uri = self.as_online().uri.clone();
+        rt.block_on::<_, _, ()>(futures::lazy(move || {
+            trace!(
+                target: LOG_TARGET,
+                "rpc: storage_pairs: {:?} / {:?}",
+                prefix,
+                at
+            );
+            let client: sc_rpc_api::state::StateClient<Hash> =
+                jsonrpc_core_client::transports::http::connect(&uri)
+                    .wait()
+                    .unwrap();
+            Ok(client.storage_pairs(prefix, Some(at)).wait().unwrap())
+        }))
+        .unwrap()
+    }
 
-	/// Get the chain name.
-	async fn chain_name(&self) -> String {
-		let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-		let uri = self.as_online().uri.clone();
-		rt.block_on::<_, _, ()>(futures::lazy(move || {
-			trace!(target: LOG_TARGET, "rpc: system_chain");
-			let client: sc_rpc_api::system::SystemClient<(), ()> =
-				jsonrpc_core_client::transports::http::connect(&uri).wait().unwrap();
-			Ok(client.system_chain().wait().unwrap())
-		}))
-		.unwrap()
-	}
+    /// Get the chain name.
+    async fn chain_name(&self) -> String {
+        let mut rt = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+        let uri = self.as_online().uri.clone();
+        rt.block_on::<_, _, ()>(futures::lazy(move || {
+            trace!(target: LOG_TARGET, "rpc: system_chain");
+            let client: sc_rpc_api::system::SystemClient<(), ()> =
+                jsonrpc_core_client::transports::http::connect(&uri)
+                    .wait()
+                    .unwrap();
+            Ok(client.system_chain().wait().unwrap())
+        }))
+        .unwrap()
+    }
 }
 
 // Internal methods
 impl Builder {
-	/// Save the given data as cache.
-	fn save_cache(&self, data: &[KeyPair], path: &Path) {
-		let bdata = bincode::serialize(data).unwrap();
-		info!(target: LOG_TARGET, "writing to cache file {:?}", path);
-		fs::write(path, bdata).unwrap();
-	}
+    /// Save the given data as cache.
+    fn save_cache(&self, data: &[KeyPair], path: &Path) {
+        let bdata = bincode::serialize(data).unwrap();
+        info!(target: LOG_TARGET, "writing to cache file {:?}", path);
+        fs::write(path, bdata).unwrap();
+    }
 
-	/// initialize `Self` from cache. Panics if the file does not exist.
-	fn load_cache(&self, path: &Path) -> Vec<KeyPair> {
-		info!(target: LOG_TARGET, "scraping keypairs from cache {:?}", path,);
-		let bytes = fs::read(path).unwrap();
-		bincode::deserialize(&bytes[..]).unwrap()
-	}
+    /// initialize `Self` from cache. Panics if the file does not exist.
+    fn load_cache(&self, path: &Path) -> Vec<KeyPair> {
+        info!(
+            target: LOG_TARGET,
+            "scraping keypairs from cache {:?}", path,
+        );
+        let bytes = fs::read(path).unwrap();
+        bincode::deserialize(&bytes[..]).unwrap()
+    }
 
-	/// Build `Self` from a network node denoted by `uri`.
-	async fn load_remote(&self) -> Vec<KeyPair> {
-		let config = self.as_online();
-		let at = self.as_online().at.unwrap().clone();
-		info!(target: LOG_TARGET, "scraping keypairs from remote node {} @ {:?}", config.uri, at);
+    /// Build `Self` from a network node denoted by `uri`.
+    async fn load_remote(&self) -> Vec<KeyPair> {
+        let config = self.as_online();
+        let at = self.as_online().at.unwrap().clone();
+        info!(
+            target: LOG_TARGET,
+            "scraping keypairs from remote node {} @ {:?}", config.uri, at
+        );
 
-		let keys_and_values = if config.modules.len() > 0 {
-			let mut filtered_kv = vec![];
-			for f in config.modules.iter() {
-				let hashed_prefix = StorageKey(twox_128(f.as_bytes()).to_vec());
-				let module_kv = self.rpc_get_pairs(hashed_prefix.clone(), at).await;
-				info!(
-					target: LOG_TARGET,
-					"downloaded data for module {} (count: {}).",
-					f,
-					module_kv.len(),
-				);
-				filtered_kv.extend(module_kv);
-			}
-			filtered_kv
-		} else {
-			info!(target: LOG_TARGET, "downloading data for all modules.");
-			self.rpc_get_pairs(StorageKey(vec![]), at).await.into_iter().collect::<Vec<_>>()
-		};
+        let keys_and_values = if config.modules.len() > 0 {
+            let mut filtered_kv = vec![];
+            for f in config.modules.iter() {
+                let hashed_prefix = StorageKey(twox_128(f.as_bytes()).to_vec());
+                let module_kv = self.rpc_get_pairs(hashed_prefix.clone(), at).await;
+                info!(
+                    target: LOG_TARGET,
+                    "downloaded data for module {} (count: {}).",
+                    f,
+                    module_kv.len(),
+                );
+                filtered_kv.extend(module_kv);
+            }
+            filtered_kv
+        } else {
+            info!(target: LOG_TARGET, "downloading data for all modules.");
+            self.rpc_get_pairs(StorageKey(vec![]), at)
+                .await
+                .into_iter()
+                .collect::<Vec<_>>()
+        };
 
-		keys_and_values
-	}
+        keys_and_values
+    }
 
-	async fn init_remote_client(&mut self) {
-		self.as_online_mut().at = Some(self.rpc_get_head().await);
-		// TODO: set the at.
-		self.chain = self.chain_name().await;
-	}
+    async fn init_remote_client(&mut self) {
+        self.as_online_mut().at = Some(self.rpc_get_head().await);
+        // TODO: set the at.
+        self.chain = self.chain_name().await;
+    }
 
-	async fn pre_build(mut self) -> Vec<KeyPair> {
-		let mut base_kv = match self.mode.clone() {
-			Mode::Offline(config) => self.load_cache(&config.cache.path()),
-			Mode::Online(config) => {
-				self.init_remote_client().await;
-				let kp = self.load_remote().await;
-				if let Some(c) = config.cache {
-					self.save_cache(&kp, &c.path());
-				}
-				kp
-			}
-		};
+    async fn pre_build(mut self) -> Vec<KeyPair> {
+        let mut base_kv = match self.mode.clone() {
+            Mode::Offline(config) => self.load_cache(&config.cache.path()),
+            Mode::Online(config) => {
+                self.init_remote_client().await;
+                let kp = self.load_remote().await;
+                if let Some(c) = config.cache {
+                    self.save_cache(&kp, &c.path());
+                }
+                kp
+            }
+        };
 
-		base_kv.extend(self.inject.clone());
-		base_kv
-	}
+        base_kv.extend(self.inject.clone());
+        base_kv
+    }
 }
 
 // Public methods
 impl Builder {
-	/// Create a new builder.
-	pub fn new() -> Self {
-		Default::default()
-	}
+    /// Create a new builder.
+    pub fn new() -> Self {
+        Default::default()
+    }
 
-	/// Inject a manual list of key and values to the storage.
-	pub fn inject(mut self, injections: &[KeyPair]) -> Self {
-		for i in injections {
-			self.inject.push(i.clone());
-		}
-		self
-	}
+    /// Inject a manual list of key and values to the storage.
+    pub fn inject(mut self, injections: &[KeyPair]) -> Self {
+        for i in injections {
+            self.inject.push(i.clone());
+        }
+        self
+    }
 
-	/// Configure a cache to be used.
-	pub fn mode(mut self, mode: Mode) -> Self {
-		self.mode = mode;
-		self
-	}
+    /// Configure a cache to be used.
+    pub fn mode(mut self, mode: Mode) -> Self {
+        self.mode = mode;
+        self
+    }
 
-	/// Build the test externalities.
-	pub async fn build(self) -> TestExternalities {
-		let kv = self.pre_build().await;
-		let mut ext = TestExternalities::new_empty();
+    /// Build the test externalities.
+    pub async fn build(self) -> TestExternalities {
+        let kv = self.pre_build().await;
+        let mut ext = TestExternalities::new_empty();
 
-		info!(target: LOG_TARGET, "injecting a total of {} keys", kv.len());
-		for (k, v) in kv {
-			let (k, v) = (k.0, v.0);
-			trace!(target: LOG_TARGET, "injecting {:?} -> {:?}", k.hex_display(), v.hex_display());
-			ext.insert(k, v);
-		}
-		ext
-	}
+        info!(target: LOG_TARGET, "injecting a total of {} keys", kv.len());
+        for (k, v) in kv {
+            let (k, v) = (k.0, v.0);
+            trace!(
+                target: LOG_TARGET,
+                "injecting {:?} -> {:?}",
+                k.hex_display(),
+                v.hex_display()
+            );
+            ext.insert(k, v);
+        }
+        ext
+    }
 }
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	#[async_std::test]
-	#[cfg(feature = "remote-test")]
-	async fn can_build_one_pallet() {
-		let _ = env_logger::Builder::from_default_env()
-			.format_module_path(false)
-			.format_level(true)
-			.try_init();
+    #[async_std::test]
+    #[cfg(feature = "remote-test")]
+    async fn can_build_one_pallet() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_module_path(false)
+            .format_level(true)
+            .try_init();
 
-		Builder::new()
-			.mode(Mode::Online(OnlineConfig {
-				modules: vec!["Proxy".into()],
-				..Default::default()
-			}))
-			.build()
-			.await
-			.execute_with(|| {});
-	}
+        Builder::new()
+            .mode(Mode::Online(OnlineConfig {
+                modules: vec!["Proxy".into()],
+                ..Default::default()
+            }))
+            .build()
+            .await
+            .execute_with(|| {});
+    }
 
-	#[async_std::test]
-	async fn can_load_cache() {
-		let _ = env_logger::Builder::from_default_env()
-			.format_module_path(false)
-			.format_level(true)
-			.try_init();
+    #[async_std::test]
+    async fn can_load_cache() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_module_path(false)
+            .format_level(true)
+            .try_init();
 
-		Builder::new()
-			.mode(Mode::Offline(OfflineConfig {
-				cache: CacheConfig { name: "proxy_test".into(), ..Default::default() },
-			}))
-			.build()
-			.await
-			.execute_with(|| {});
-	}
+        Builder::new()
+            .mode(Mode::Offline(OfflineConfig {
+                cache: CacheConfig {
+                    name: "proxy_test".into(),
+                    ..Default::default()
+                },
+            }))
+            .build()
+            .await
+            .execute_with(|| {});
+    }
 
-	#[async_std::test]
-	#[cfg(feature = "remote-test")]
-	async fn can_create_cache() {
-		let _ = env_logger::Builder::from_default_env()
-			.format_module_path(false)
-			.format_level(true)
-			.try_init();
+    #[async_std::test]
+    #[cfg(feature = "remote-test")]
+    async fn can_create_cache() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_module_path(false)
+            .format_level(true)
+            .try_init();
 
-		Builder::new()
-			.mode(Mode::Online(OnlineConfig {
-				cache: Some(CacheConfig {
-					name: "test_cache_to_remove.bin".into(),
-					..Default::default()
-				}),
-				..Default::default()
-			}))
-			.build()
-			.await
-			.execute_with(|| {});
+        Builder::new()
+            .mode(Mode::Online(OnlineConfig {
+                cache: Some(CacheConfig {
+                    name: "test_cache_to_remove.bin".into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }))
+            .build()
+            .await
+            .execute_with(|| {});
 
-		let to_delete = std::fs::read_dir(CacheConfig::default().directory)
-			.unwrap()
-			.into_iter()
-			.map(|d| d.unwrap())
-			.filter(|p| p.path().extension().unwrap_or_default() == "bin")
-			.collect::<Vec<_>>();
+        let to_delete = std::fs::read_dir(CacheConfig::default().directory)
+            .unwrap()
+            .into_iter()
+            .map(|d| d.unwrap())
+            .filter(|p| p.path().extension().unwrap_or_default() == "bin")
+            .collect::<Vec<_>>();
 
-		assert!(to_delete.len() > 0);
+        assert!(to_delete.len() > 0);
 
-		for d in to_delete {
-			std::fs::remove_file(d.path()).unwrap();
-		}
-	}
+        for d in to_delete {
+            std::fs::remove_file(d.path()).unwrap();
+        }
+    }
 
-	#[async_std::test]
-	#[cfg(feature = "remote-test")]
-	async fn can_build_all() {
-		let _ = env_logger::Builder::from_default_env()
-			.format_module_path(true)
-			.format_level(true)
-			.try_init();
+    #[async_std::test]
+    #[cfg(feature = "remote-test")]
+    async fn can_build_all() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_module_path(true)
+            .format_level(true)
+            .try_init();
 
-		Builder::new().build().await.execute_with(|| {});
-	}
+        Builder::new().build().await.execute_with(|| {});
+    }
 }
