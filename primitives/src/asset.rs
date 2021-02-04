@@ -13,18 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::IdentityId;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
-
-pub const GAS_LIMIT: u64 = 13_000_000_000;
-
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct IssueAssetItem<U> {
-    pub investor_did: IdentityId,
-    pub value: U,
-}
 
 /// A wrapper for a token name.
 #[derive(
@@ -35,15 +26,25 @@ pub struct AssetName(pub Vec<u8>);
 /// The type of an asset represented by a token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
+    /// Common stock.
     EquityCommon,
+    /// Preferred stock.
     EquityPreferred,
+    /// Commodity.
     Commodity,
+    /// Fixed income security, for example, a bond.
     FixedIncome,
+    /// Real estate investment trust.
     REIT,
+    /// Investment fund.
     Fund,
+    /// Revenue share partnership agreement.
     RevenueShareAgreement,
+    /// Structured product, aka market-linked investment.
     StructuredProduct,
+    /// Derivative contract.
     Derivative,
+    /// Anything else.
     Custom(Vec<u8>),
 }
 

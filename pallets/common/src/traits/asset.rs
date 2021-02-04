@@ -21,8 +21,6 @@ use polymesh_primitives::{
 };
 use sp_std::prelude::Vec;
 
-pub const GAS_LIMIT: u64 = 13_000_000_000;
-
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait<Balance> {
     /// Accept and process a ticker transfer
