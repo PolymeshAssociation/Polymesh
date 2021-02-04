@@ -13,17 +13,17 @@ struct TestState;
 
 impl TestState {
     fn init() {
-        let mode = if std::path::Path::new(".").join("CACHE").exists() {
-            Mode::Offline(OfflineConfig::default())
-        } else {
-            Mode::Online(OnlineConfig {
-                uri: "http://159.69.94.51:9933".into(),
-                cache: Some(CacheConfig::default()),
-                ..Default::default()
-            })
-        };
-
-        block_on(Builder::new().mode(mode).build());
+        if !std::path::Path::new(".").join("CACHE").exists() {
+            block_on(
+                Builder::new()
+                    .mode(Mode::Online(OnlineConfig {
+                        uri: "http://159.69.94.51:9933".into(),
+                        cache: Some(CacheConfig::default()),
+                        ..Default::default()
+                    }))
+                    .build(),
+            );
+        }
     }
 }
 
