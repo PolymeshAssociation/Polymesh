@@ -113,7 +113,11 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{
+        AssetName, AssetOwnershipRelation, AssetType, FundingRoundName, RestrictionResult,
+        SecurityToken, TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
+        TransactionError,
+    },
     calendar::CheckpointId,
     migrate::MigrationError,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
@@ -193,68 +197,6 @@ pub trait Trait:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: checkpoint::WeightInfo;
-}
-
-/// Ownership status of a ticker/token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AssetOwnershipRelation {
-    NotOwned,
-    TickerOwned,
-    AssetOwned,
-}
-
-impl Default for AssetOwnershipRelation {
-    fn default() -> Self {
-        Self::NotOwned
-    }
-}
-
-/// struct to store the token details.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SecurityToken<U> {
-    pub name: AssetName,
-    pub total_supply: U,
-    pub owner_did: IdentityId,
-    pub divisible: bool,
-    pub asset_type: AssetType,
-    pub primary_issuance_agent: Option<IdentityId>,
-}
-
-/// struct to store the ticker registration details.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistration<U> {
-    pub owner: IdentityId,
-    pub expiry: Option<U>,
-}
-
-/// struct to store the ticker registration config.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistrationConfig<U> {
-    pub max_ticker_length: u8,
-    pub registration_length: Option<U>,
-}
-
-/// Enum that represents the current status of a ticker.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
-pub enum TickerRegistrationStatus {
-    RegisteredByOther,
-    Available,
-    RegisteredByDid,
-}
-
-/// Enum that uses as the return type for the restriction verification.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RestrictionResult {
-    Valid,
-    Invalid,
-    ForceValid,
-}
-
-impl Default for RestrictionResult {
-    fn default() -> Self {
-        RestrictionResult::Invalid
-    }
 }
 
 /// Data imported from Polymath Classic regarding ticker registration/creation.
@@ -2208,17 +2150,27 @@ impl<T: Trait> Module<T> {
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult {
-        ensure!(name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
-        ensure!(funding_round.as_ref().map_or(0, |name| name.len()) <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
+        ensure!(
+            name.len() <= T::AssetNameMaxLength::get(),
+            Error::<T>::MaxLengthOfAssetNameExceeded
+        );
+        ensure!(
+            funding_round.as_ref().map_or(0, |name| name.len())
+                <= T::FundingRoundNameMaxLength::get(),
+            Error::<T>::FundingRoundNameMaxLengthExceeded
+        );
 
         let PermissionedCallOriginData {
             sender,
             primary_did: did,
-            secondary_key
+            secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         Self::ensure_create_asset_parameters(&ticker, total_supply)?;
-        ensure!(divisible || Self::is_unit_multiple(total_supply), Error::<T>::InvalidTotalSupply);
+        ensure!(
+            divisible || Self::is_unit_multiple(total_supply),
+            Error::<T>::InvalidTotalSupply
+        );
 
         // Ensure its registered by DID or at least expired, thus available.
         let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -2241,7 +2193,11 @@ impl<T: Trait> Module<T> {
 
         // Ensure that the caller has relevant portfolio permissions
         let user_default_portfolio = PortfolioId::default_portfolio(did);
-        Portfolio::<T>::ensure_portfolio_custody_and_permission(user_default_portfolio, did, secondary_key.as_ref())?;
+        Portfolio::<T>::ensure_portfolio_custody_and_permission(
+            user_default_portfolio,
+            did,
+            secondary_key.as_ref(),
+        )?;
 
         // Charge protocol fees.
         T::ProtocolFee::charge_fees(&{

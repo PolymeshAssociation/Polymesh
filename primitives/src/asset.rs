@@ -22,22 +22,28 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
+/// A wrapper for a base-64 encoded vector of bytes.
 #[derive(
     Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
 )]
 pub struct Base64Vec(pub Vec<u8>);
 
 impl Base64Vec {
+    /// Decodes a Base64-encoded vector of bytes.
+    ///
+    /// ## Errors
+    /// - `DecodeBase64Error` if `self` is not Base64-encoded.
     pub fn decode(&self) -> Result<Vec<u8>, DecodeBase64Error> {
         base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error)
     }
 
+    /// Creates a new Base64-encoded object by encoding a byte vector `inp`.
     pub fn new(inp: Vec<u8>) -> Self {
         Self::from(base64::encode(inp))
     }
 }
 
-/// Status of an Authorization after consume is called on it.
+/// The error type for `Base64Vec`.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct DecodeBase64Error;
 
@@ -98,8 +104,11 @@ impl Default for AssetType {
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
+    /// The ticker has no owner.
     NotOwned,
+    /// The ticker has an owner but its asset has no owner.
     TickerOwned,
+    /// Both the ticker and the asset have owners.
     AssetOwned,
 }
 
@@ -112,18 +121,26 @@ impl Default for AssetOwnershipRelation {
 /// struct to store the token details.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
+    /// Name of the asset.
     pub name: AssetName,
+    /// Total supply of the asset.
     pub total_supply: U,
+    /// Asset's owner DID.
     pub owner_did: IdentityId,
+    /// Whether the asset is divisible.
     pub divisible: bool,
+    /// Type of asset.
     pub asset_type: AssetType,
+    /// Asset's primary issuance agent.
     pub primary_issuance_agent: Option<IdentityId>,
 }
 
 /// struct to store the ticker registration details.
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
+    /// Ticker's owner.
     pub owner: IdentityId,
+    /// Ownership expiry in units of `U`.
     pub expiry: Option<U>,
 }
 
@@ -131,23 +148,33 @@ pub struct TickerRegistration<U> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
+    /// Maximum length of the ticker.
     pub max_ticker_length: u8,
+    /// Maximum duration of the registration procedure.
     pub registration_length: Option<U>,
 }
 
 /// Enum that represents the current status of a ticker.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
+    /// Registered by another party. Cannot be used by the calling party.
     RegisteredByOther,
+    /// Not registered by any party. Can be used by the calling party.
     Available,
+    /// Registered by the calling party. Can be used by the calling party.
     RegisteredByDid,
 }
 
 /// Enum that uses as the return type for the restriction verification.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
+    /// Restriction is valid.
     Valid,
+    /// Restriction is invalid.
     Invalid,
+    /// Restriction is valid by forcing.
+    ///
+    /// FIXME: this variant is not used. Clean it up?
     ForceValid,
 }
 
@@ -157,14 +184,15 @@ impl Default for RestrictionResult {
     }
 }
 
+///
 pub enum TransactionError {
-    /// 0-6 are used by substrate. Skipping them to avoid confusion
+    /// The tip should be above zero.
     ZeroTip = 0,
     /// Transaction needs an Identity associated to an account.
     MissingIdentity = 1,
-    /// CDD is required
+    /// CDD is required.
     CddRequired = 2,
-    /// Invalid auth id
+    /// Invalid auth id.
     InvalidAuthorization = 3,
 }
 
