@@ -16,7 +16,7 @@
 // limitations under the License.
 
 // Modified by Polymath Inc - 2nd February 2021
-// Priority of a transaction is always zero.
+//  - Priority of a transaction is always zero.
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -194,6 +194,7 @@ where
     /// Do the validate checks. This can be applied to both signed and unsigned.
     ///
     /// It only checks that the block weight and length limit will not exceed.
+    /// NOTE The returned transaction priority is 0 on success.
     fn do_validate(info: &DispatchInfoOf<T::Call>, len: usize) -> TransactionValidity {
         // ignore the next length. If they return `Ok`, then it is below the limit.
         let _ = Self::check_block_length(info, len)?;
