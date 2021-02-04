@@ -1,10 +1,8 @@
 use crate::*;
 use core::convert::TryFrom;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    asset::AssetType,
-    benchs::{User, UserBuilder},
-};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_primitives::asset::AssetType;
 use sp_std::prelude::*;
 
 /// Create a new token with name `name` on behalf of `owner`.

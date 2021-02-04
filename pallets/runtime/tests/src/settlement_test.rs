@@ -35,13 +35,14 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    self as settlement, AffirmationStatus, ConfidentialLeg, Instruction, InstructionStatus, Leg, LegStatus, Receipt, NonConfidentialLeg, MercatTxData,
-    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
+    self as settlement, AffirmationStatus, ConfidentialLeg, Instruction, InstructionStatus, Leg,
+    LegStatus, MercatTxData, NonConfidentialLeg, Receipt, ReceiptDetails, ReceiptMetadata,
+    SettlementType, VenueDetails, VenueType,
 };
-use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, AuthorizationData, Base64Vec, Claim, Condition,
-    ConditionType, FundingRoundName, IdentityId, PortfolioId, PortfolioName, SecurityToken,
+    asset::{AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, SecurityToken},
+    AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
     Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};

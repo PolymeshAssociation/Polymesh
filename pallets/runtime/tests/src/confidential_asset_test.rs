@@ -23,7 +23,8 @@ use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_primitives::{
-    AssetIdentifier, AssetOwnershipRelation, AssetType, FundingRoundName, SecurityToken, Ticker,
+    asset::{AssetOwnershipRelation, AssetType, FundingRoundName, SecurityToken},
+    AssetIdentifier, Ticker,
 };
 use rand::{rngs::StdRng, SeedableRng};
 use sp_core::sr25519::Public;

@@ -186,17 +186,11 @@ pub use secondary_key::{
 pub mod subset;
 pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
-/// Generic asset data types.
-pub mod asset;
-pub use asset::{
-    AssetName, AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, RestrictionResult,
-    SecurityToken, TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
-};
-
 /// Generic authorization data types for all two step processes
 pub mod authorization;
 /// Pub Traits
 pub mod traits;
+
 pub use authorization::AuthIdentifier;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
@@ -238,6 +232,9 @@ pub mod calendar;
 
 /// Runtime crypto tools.
 pub mod crypto;
+
+/// Asset type definitions.
+pub mod asset;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

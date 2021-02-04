@@ -126,7 +126,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    rng, AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
+    asset::{AssetName, AssetType, Base64Vec, FundingRoundName},
+    rng, AssetIdentifier, IdentityId, Ticker,
 };
 use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{

@@ -30,8 +30,8 @@ use pallet_settlement::{
     self as settlement, ConfidentialLeg, Leg, MercatTxData, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, IdentityId, PortfolioId,
-    SecurityToken, Ticker,
+    asset::{AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, SecurityToken},
+    IdentityId, PortfolioId, Ticker,
 };
 use rand::prelude::*;
 use sp_core::sr25519::Public;

@@ -898,10 +898,6 @@
                 "CddVerified": ""
             }
         },
-        "IssueAssetItem": {
-            "identity_did": "IdentityId",
-            "value": "Balance"
-        },
         "PortfolioName": "Text",
         "PortfolioNumber": "u64",
         "PortfolioKind": {

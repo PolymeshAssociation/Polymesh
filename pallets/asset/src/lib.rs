@@ -105,7 +105,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::Counter;
 use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetName, AssetSubTrait, AssetType, FundingRoundName},
+    asset::{AssetFnTrait, AssetSubTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -113,10 +113,12 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
-    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
-    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    asset::{AssetName, AssetType, FundingRoundName},
+    calendar::CheckpointId,
+    migrate::MigrationError,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
+    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
