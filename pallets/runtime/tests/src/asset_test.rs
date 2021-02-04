@@ -2722,7 +2722,7 @@ fn next_checkpoint_is_updated_we() {
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
-    assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
+    assert_eq!(total_supply, Checkpoint::total_supply_at(ticker, id));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
     let checkpoint2 = start + period_ms;
@@ -2798,7 +2798,7 @@ fn non_recurring_schedule_works_we() {
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
-    assert_eq!(total_supply, Checkpoint::total_supply_at(&(ticker, id)));
+    assert_eq!(total_supply, Checkpoint::total_supply_at(ticker, id));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, id));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, id));
     // The schedule will not recur.
@@ -2847,7 +2847,7 @@ fn schedule_remaining_works() {
             default_transfer(alice.did, bob.did, ticker, 1);
         };
         let collect_ts = |sh_id| {
-            Checkpoint::schedule_points((ticker, sh_id))
+            Checkpoint::schedule_points(ticker, sh_id)
                 .into_iter()
                 .map(|cp| Checkpoint::timestamps(ticker, cp))
                 .collect::<Vec<_>>()

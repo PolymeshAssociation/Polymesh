@@ -905,7 +905,7 @@ impl<T: Trait> Module<T> {
         let ticker = ca_id.ticker;
         match cp {
             // CP exists, use it.
-            Some(cp_id) => <Checkpoint<T>>::total_supply_at((ticker, cp_id)),
+            Some(cp_id) => <Checkpoint<T>>::total_supply_at(ticker, cp_id),
             // Although record date has passed, no transfers have happened yet for `ticker`.
             // Thus, there is no checkpoint ID, and we must use current supply instead.
             None => <Asset<T>>::token_details(ticker).total_supply,
@@ -935,7 +935,7 @@ impl<T: Trait> Module<T> {
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points((ticker, id))
+            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(ticker, id)
                 .get(idx as usize)
                 .copied(),
         }
@@ -955,7 +955,7 @@ impl<T: Trait> Module<T> {
         }) = record_date
         {
             // We've proven by getting here that `c > 0`, so `c - 1` cannot underflow.
-            ScheduleRefCount::mutate((ca_id.ticker, sh_id), |c| *c -= 1);
+            ScheduleRefCount::mutate(ca_id.ticker, sh_id, |c| *c -= 1);
         }
     }
 
@@ -982,9 +982,8 @@ impl<T: Trait> Module<T> {
                 let schedule = schedules[<Checkpoint<T>>::ensure_schedule_exists(&schedules, id)?];
                 // Schedule cannot be removable, otherwise the CP module may remove it,
                 // so we increment the strong reference count of `id`.
-                let ticker_sh = (ticker, id);
-                ScheduleRefCount::mutate(ticker_sh, |c| *c += 1);
-                let cp_at_idx = SchedulePoints::decode_len(ticker_sh).unwrap_or(0) as u64;
+                ScheduleRefCount::mutate(ticker, id, |c| *c += 1);
+                let cp_at_idx = SchedulePoints::decode_len(ticker, id).unwrap_or(0) as u64;
                 (schedule.at, CACheckpoint::Scheduled(schedule.id, cp_at_idx))
             }
             RecordDateSpec::Existing(id) => {
