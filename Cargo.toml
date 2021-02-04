@@ -16,8 +16,6 @@ members = [
     "bin/testing",
     "migration-tests",
     "migration-tests/remote-externalities",
-	"migration-tests/cli",
-	"migration-tests/api",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
@@ -60,8 +58,6 @@ members = [
 ]
 
 [dependencies]
-dry-run-runtime-upgrade-cli = { path = "migration-tests/cli" }
-
 im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }

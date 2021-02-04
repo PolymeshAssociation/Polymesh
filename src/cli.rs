@@ -53,7 +53,4 @@ pub enum Subcommand {
     /// The custom benchmark subcommmand benchmarking runtime pallets.
     #[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-    /// DryRun all of the runtime upgrade hooks in the current runtime upon a configurable state.
-	DryRunRuntimeUpgrade(dry_run_runtime_upgrade_cli::DryRunCmd),
 }

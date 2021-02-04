@@ -18,7 +18,7 @@ use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
     self, alcyone_chain_ops, general_chain_ops, new_full_base, AlcyoneExecutor, GeneralExecutor,
-    IsAlcyoneNetwork, NewChainOps, NewFullBase, new_partial
+    IsAlcyoneNetwork, NewChainOps, NewFullBase,
 };
 use core::future::Future;
 use log::info;
@@ -188,13 +188,6 @@ pub fn run() -> Result<()> {
                     .into())
             }
         }
-        Some(Subcommand::DryRun(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { task_manager, .. } = new_partial(&config)?;
-				Ok((cmd.run::<Block, service::AlcyoneExecutor>(config), task_manager))
-			})
-		}
     }
 }
 
