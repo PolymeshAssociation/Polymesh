@@ -8,6 +8,7 @@ edition = "2018"
 remote-externalities = { path = "remote-externalities" }
 frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
 futures = "0.3"
+lazy_static = "1.4.0"
 
 # Old pallets
 polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }

@@ -3468,6 +3468,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "futures 0.3.6",
+ "lazy_static",
  "pallet-staking 2.0.0",
  "pallet-staking 2.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "polymesh-runtime-testnet 0.1.0",
