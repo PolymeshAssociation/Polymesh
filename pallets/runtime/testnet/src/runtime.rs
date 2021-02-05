@@ -1,9 +1,13 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
+
+#[cfg(feature = "migration-dry-run")]
+use frame_support::traits::OnRuntimeUpgrade;
+
 use frame_support::{
     construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, OnRuntimeUpgrade, Randomness, SplitTwoWays},
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::Weight,
 };
 use frame_system::EnsureRoot;
