@@ -15,5 +15,5 @@ polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://gi
 pallet-staking-old = { package = "pallet-staking", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }
 
 # New pallets
-polymesh-runtime = { package = "polymesh-runtime-testnet", path = "../pallets/runtime/testnet" }
+polymesh-runtime = { package = "polymesh-runtime-testnet", path = "../pallets/runtime/testnet", features = ["migration-dry-run"] }
 pallet-staking = { path = "../pallets/staking" }

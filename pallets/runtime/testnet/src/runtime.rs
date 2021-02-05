@@ -1231,11 +1231,15 @@ impl_runtime_apis! {
     }
 }
 
+/// Trait for testing storage migrations.
+/// NB: Since this is defined outside the `impl_runtime_apis` macro, it is not callable in WASM.
+#[cfg(feature = "migration-dry-run")]
 pub trait DryRunRuntimeUpgrade {
     /// dry-run runtime upgrades, returning the total weight consumed.
     fn dry_run_runtime_upgrade() -> u64;
 }
 
+#[cfg(feature = "migration-dry-run")]
 impl DryRunRuntimeUpgrade for Runtime {
     fn dry_run_runtime_upgrade() -> Weight {
         <AllModules as OnRuntimeUpgrade>::on_runtime_upgrade()

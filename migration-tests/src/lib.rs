@@ -31,6 +31,9 @@ lazy_static! {
     static ref TEST_STATE: Mutex<()> = Mutex::new(TestState::init());
 }
 
+/// This is the main helper function for writing migration tests,
+/// This function takes two closures as input. It first executes the first closure on current blockchain state.
+/// It then executes the storage migrations and finally it executes the second closure.
 pub fn test_migration<F, G>(pre_tests: F, post_tests: G)
 where
     F: FnOnce() -> (),
