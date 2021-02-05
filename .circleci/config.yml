@@ -3,7 +3,7 @@ jobs:
   lint:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
-    resource_class: small
+    resource_class: medium
     environment:
       VERBOSE: "1"
     steps:
@@ -68,11 +68,10 @@ jobs:
   benchmark:
     docker:
       - image: debian:stable
-    resource_class: small
+    resource_class: medium
     environment:
       - VERBOSE: "1"
     steps:
-      - checkout
       - attach_workspace:
           at: .
       - run:
