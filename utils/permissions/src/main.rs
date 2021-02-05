@@ -1,6 +1,6 @@
 use crate::doc_parser::enums::{EnumDoc, EnumDocParser};
 use regex::Regex;
-use scraper::{ElementRef, Html, Selector};
+use scraper::{Html, Selector};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{read_dir, File};
 use std::io::Read;
@@ -87,7 +87,7 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
         })
         .for_each(|(name, doc_block_div)| {
             // Collect all children of the doc block, which in practice is the content of the doc block
-            let children: Vec<ElementRef> = doc_block_div
+            let children: Vec<_> = doc_block_div
                 .select(&Selector::parse("*").unwrap())
                 .collect();
 
