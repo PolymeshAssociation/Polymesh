@@ -5296,8 +5296,6 @@ dependencies = [
  "lazy_static",
  "regex",
  "scraper",
- "serde",
- "serde_json",
 ]
 
 [[package]]

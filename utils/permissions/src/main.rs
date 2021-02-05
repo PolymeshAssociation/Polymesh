@@ -14,13 +14,14 @@ fn main() {
             .ok()
             .map(|dir| dir.join("target/doc").exists())
             .unwrap_or(false),
-        "can't find target directory! trying running in project root"
+        "can't find target directory! try running in project root"
     );
 
     let pallets_regex = Regex::new("target/doc/pallet_.*").unwrap();
 
     let mut permission_mappings: BTreeMap<String, BTreeMap<String, Vec<String>>> = BTreeMap::new();
 
+    // read the docs of all crates in target that match a regex
     read_dir("target/doc")
         .expect("dir does not exist")
         .into_iter()
@@ -59,7 +60,13 @@ fn main() {
             }
         });
 
-    println!("{:#?}", permission_mappings);
+    permission_mappings
+        .into_iter()
+        .for_each(|(pallet, mapping)| {
+            mapping.into_iter().for_each(|(extrinsic, permissions)| {
+                println!("{},{},{}", pallet, extrinsic, permissions.join(","))
+            })
+        });
 }
 
 fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
@@ -68,40 +75,49 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
     let li_selector = Selector::parse("li").unwrap();
 
     let mut permissions = Vec::new();
-    for variant in doc.variants {
-        if let Some(doc_block_div) = variant
-            .doc_block
-            .select(&Selector::parse("div.docblock").unwrap())
-            .next()
-        {
+    doc.variants
+        .iter()
+        // Find the div that contains the content of the doc block
+        .filter_map(|variant| {
+            variant
+                .doc_block
+                .select(&Selector::parse("div.docblock").unwrap())
+                .next()
+                .map(|div| (variant.name.clone(), div))
+        })
+        .for_each(|(name, doc_block_div)| {
+            // Collect all children of the doc block, which in practice is the content of the doc block
             let children: Vec<ElementRef> = doc_block_div
                 .select(&Selector::parse("*").unwrap())
                 .collect();
 
-            for (i, child) in children.iter().enumerate() {
-                if h1_selector.matches(child)
-                    && child
+            children
+                .iter()
+                .enumerate()
+                .filter(|(_, child)| h1_selector.matches(child))
+                // Check if the heading is `# Permissions`
+                .filter(|(_, child)| {
+                    child
                         .value()
                         .id()
                         .map(|s| s.starts_with("permissions"))
                         .unwrap_or(false)
-                {
-                    if let Some(ul) = children[i + 1..]
+                })
+                // Look for a ul in the contents before the next h1
+                .for_each(|(i, _)| {
+                    children[i + 1..]
                         .iter()
+                        // Stop once we hit another h1
                         .take_while(|element| !h1_selector.matches(element))
                         .filter(|element| ul_selector.matches(element))
                         .next()
-                    {
-                        for li in ul
-                            .select(&li_selector)
-                            .map(|element| element.text().collect())
-                        {
-                            permissions.push((variant.name.clone(), li))
-                        }
-                    }
-                }
-            }
-        }
-    }
+                        .map(|ul| {
+                            ul.select(&li_selector)
+                                .map(|element| element.text().collect())
+                                .for_each(|li| permissions.push((name.clone(), li)))
+                        });
+                })
+        });
+
     permissions
 }

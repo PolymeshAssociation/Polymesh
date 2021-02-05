@@ -42,14 +42,17 @@ impl EnumDocParser {
 
     fn parse_variant(&self, all_divs: &Vec<ElementRef>, index: usize) -> Option<Variant> {
         let variant_div = all_divs[index];
+        // Look for a variant div and parse the name
         let name = VARIANT_REGEX
             .captures(variant_div.value().id()?)?
             .get(1)?
             .as_str()
             .to_owned();
 
+        // Check for a doc block associated with the above variant
         let doc_block = all_divs[index + 1..]
             .iter()
+            // Stop iterating once we hit the next variant
             .take_while(|div| {
                 div.value()
                     .id()
