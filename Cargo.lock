@@ -826,7 +826,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=v2-mainnet#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=master#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1160,7 +1160,7 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=v2-mainnet#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=master#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
 dependencies = [
  "bulletproofs",
  "byteorder 1.3.4",
@@ -3475,7 +3475,7 @@ checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
 [[package]]
 name = "mercat"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=v2-mainnet#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=master#e9214224b10de8afdb8d33ebeffc0ec738f65d1f"
 dependencies = [
  "byteorder 1.3.4",
  "cryptography_core",
