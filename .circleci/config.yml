@@ -33,12 +33,12 @@ jobs:
       - save_cache:
           key: v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "./target"
   benchmark-build:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
-    resource_class: xlarge
+    resource_class: large
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -55,13 +55,17 @@ jobs:
           command: cargo build --release --features=runtime-benchmarks,running-ci
           no_output_timeout: 1h
       - persist_to_workspace:
-          root: .
+          root: ./target/release
           paths:
-            - target
-            - rust.version
+            - polymesh
+      - save_cache:
+          key: v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "/usr/local/cargo"
+            - "./target"
   benchmark:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: debian:stable
     resource_class: small
     environment:
       - VERBOSE: "1"
@@ -71,12 +75,8 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./target/release/polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=1024
+          command: polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=1024
           no_output_timeout: 1h
-      - save_cache:
-          key: v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "./target"
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
@@ -109,7 +109,7 @@ jobs:
       - save_cache:
           key: v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "./target"
   coverage:
     docker:
@@ -136,7 +136,7 @@ jobs:
       - save_cache:
           key: v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "./target"
   cli:
     docker:
@@ -173,7 +173,7 @@ jobs:
       - save_cache:
           key: v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "./target"
             - "./scripts/cli/node_modules"
   clippy:
@@ -197,7 +197,7 @@ jobs:
       - save_cache:
           key: v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
+            - "/usr/local/cargo"
             - "./target"
 workflows:
   version: 2
