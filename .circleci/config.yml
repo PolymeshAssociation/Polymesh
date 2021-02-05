@@ -14,7 +14,7 @@ jobs:
   build:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
-    resource_class: large
+    resource_class: xlarge
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -34,11 +34,12 @@ jobs:
           key: v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
   benchmark-build:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
-    resource_class: large
+    resource_class: xlarge
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -62,6 +63,7 @@ jobs:
           key: v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
   benchmark:
     docker:
@@ -110,6 +112,7 @@ jobs:
           key: v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
   coverage:
     docker:
@@ -125,6 +128,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
+            - v4-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Install dependencies
@@ -134,14 +138,15 @@ jobs:
           command: bash ./scripts/coverage.sh
           no_output_timeout: 1h
       - save_cache:
-          key: v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v4-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
   cli:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
-    resource_class: large
+    resource_class: xlarge
     environment:
       VERBOSE: "1"
     steps:
@@ -174,6 +179,7 @@ jobs:
           key: v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
             - "./scripts/cli/node_modules"
   clippy:
@@ -198,6 +204,7 @@ jobs:
           key: v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cargo"
             - "./target"
 workflows:
   version: 2
