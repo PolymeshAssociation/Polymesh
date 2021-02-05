@@ -77,7 +77,7 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=1024
+          command: ./polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=1024
           no_output_timeout: 1h
   test:
     docker:
@@ -129,7 +129,6 @@ jobs:
       - restore_cache:
           keys:
             - v4-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Install dependencies
           command: rustup component add llvm-tools-preview && cargo install rustfilt cargo-binutils
