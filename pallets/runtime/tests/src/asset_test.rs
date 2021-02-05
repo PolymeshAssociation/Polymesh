@@ -29,15 +29,12 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    asset::{AssetType, FundingRoundName},
-    constants::*,
-    protocol_fee::ProtocolOp,
-    traits::balances::Memo,
-    traits::CddAndFeeDetails as _,
+    constants::*, protocol_fee::ProtocolOp, traits::balances::Memo, traits::CddAndFeeDetails as _,
     SystematicIssuers,
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
+    asset::{AssetType, FundingRoundName},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
