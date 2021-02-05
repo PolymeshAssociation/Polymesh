@@ -33,8 +33,8 @@ impl Base64Vec {
     ///
     /// ## Errors
     /// - `DecodeBase64Error` if `self` is not Base64-encoded.
-    pub fn decode(&self) -> Result<Vec<u8>, DecodeBase64Error> {
-        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error)
+    pub fn decode(&self) -> Result<Vec<u8>, DispatchError> {
+        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error.into())
     }
 
     /// Creates a new Base64-encoded object by encoding a byte vector `inp`.
@@ -49,6 +49,7 @@ pub struct DecodeBase64Error;
 
 impl From<DecodeBase64Error> for DispatchError {
     fn from(_: DecodeBase64Error) -> DispatchError {
+        // TODO: why does this error message look unrelated?
         DispatchError::Other("Authorization does not exist")
     }
 }

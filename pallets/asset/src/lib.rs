@@ -121,8 +121,8 @@ use polymesh_primitives::{
     calendar::CheckpointId,
     migrate::MigrationError,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
-    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    DocumentId, IdentifiedOriginData, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId,
+    SecondaryKey, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -446,11 +446,19 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) {
-            let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)?;
+            let identified_origin = Self::base_create_asset(
+                origin,
+                name,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                identifiers,
+                funding_round
+            )?;
             // Mint total supply to PIA
             if total_supply > Zero::zero() {
-                Self::_mint(&ticker, sender, did, total_supply, None)?;
+                Self::_mint(&ticker, identified_origin.account, identified_origin.did, total_supply, None)?;
             }
         }
 
@@ -1089,17 +1097,17 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
 
     /// Create and add a new security token.
     fn base_create_asset(
-        did: IdentityId,
+        origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: Balance,
+        total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult {
+    ) -> Result<IdentifiedOriginData<T::AccountId>, DispatchError> {
         Self::base_create_asset(
-            did,
+            origin,
             name,
             ticker,
             total_supply,
@@ -2137,7 +2145,7 @@ impl<T: Trait> Module<T> {
 
     /// Create and add a new security token.
     pub fn base_create_asset(
-        did: IdentityId,
+        origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
         total_supply: T::Balance,
@@ -2145,8 +2153,7 @@ impl<T: Trait> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-        is_confidential: bool,
-    ) -> DispatchResult {
+    ) -> Result<IdentifiedOriginData<T::AccountId>, DispatchError> {
         ensure!(
             name.len() <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
@@ -2158,8 +2165,8 @@ impl<T: Trait> Module<T> {
         );
 
         let PermissionedCallOriginData {
+            primary_did,
             sender,
-            primary_did: did,
             secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
@@ -2170,7 +2177,7 @@ impl<T: Trait> Module<T> {
         );
 
         // Ensure its registered by DID or at least expired, thus available.
-        let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
+        let available = match Self::is_ticker_available_or_registered_to(&ticker, primary_did) {
             TickerRegistrationStatus::RegisteredByOther => {
                 return Err(Error::<T>::TickerAlreadyRegistered.into())
             }
@@ -2189,10 +2196,10 @@ impl<T: Trait> Module<T> {
         Identity::<T>::ensure_no_id_record(token_did)?;
 
         // Ensure that the caller has relevant portfolio permissions
-        let user_default_portfolio = PortfolioId::default_portfolio(did);
+        let user_default_portfolio = PortfolioId::default_portfolio(primary_did);
         Portfolio::<T>::ensure_portfolio_custody_and_permission(
             user_default_portfolio,
-            did,
+            primary_did,
             secondary_key.as_ref(),
         )?;
 
@@ -2223,7 +2230,7 @@ impl<T: Trait> Module<T> {
         // Register the ticker or finish its registration.
         if available {
             // Ticker not registered by anyone (or registry expired), so register.
-            Self::_register_ticker(&ticker, did, None);
+            Self::_register_ticker(&ticker, primary_did, None);
         } else {
             // Ticker already registered by the user.
             <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
@@ -2232,7 +2239,7 @@ impl<T: Trait> Module<T> {
         let token = SecurityToken {
             name,
             total_supply,
-            owner_did: did,
+            owner_did: primary_did,
             divisible,
             asset_type: asset_type.clone(),
             primary_issuance_agent: None,
@@ -2243,14 +2250,14 @@ impl<T: Trait> Module<T> {
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever asset issuer/ primary issuance agent
         // have InvestorUniqueness claim. This also applies when issuing assets.
-        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+        <AssetOwnershipRelations>::insert(primary_did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did,
+            primary_did,
             ticker,
             total_supply,
             divisible,
             asset_type,
-            did,
+            primary_did,
         ));
 
         let identifiers: Vec<AssetIdentifier> = identifiers
@@ -2263,14 +2270,15 @@ impl<T: Trait> Module<T> {
         // Add funding round name.
         <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
-        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+        Self::deposit_event(RawEvent::IdentifiersUpdated(
+            primary_did,
+            ticker,
+            identifiers,
+        ));
 
-        if !is_confidential {
-            // Mint total supply to PIA
-            if total_supply > Zero::zero() {
-                Self::_mint(&ticker, sender, did, total_supply, None)?;
-            }
-        }
-        Ok(())
+        Ok(IdentifiedOriginData {
+            did: primary_did,
+            account: sender,
+        })
     }
 }

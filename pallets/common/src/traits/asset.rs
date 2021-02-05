@@ -17,7 +17,7 @@ use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, SecurityToken},
     calendar::CheckpointId,
-    AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+    AssetIdentifier, IdentifiedOriginData, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
@@ -59,24 +59,28 @@ pub trait AssetSubTrait<Balance> {
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
+    /// Returns the total supply of the asset.
     fn total_supply(ticker: &Ticker) -> Balance;
+    /// Returns the `ticker` asset balance of `did`.
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-    /// Check if an Identity is the owner of a ticker.
+    /// Checks if `did` is the owner of `ticker`.
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    /// Get an Identity's balance of a token at a particular checkpoint.
+    /// Gets the `ticker` asset balance of `did` at a particular checkpoint.
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
-    /// Get the PIA of a token if it's assigned or else the owner of the token.
+    /// Gets the PIA of `ticker` if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
-    /// Transfer an asset from one portfolio to another.
+    /// Transfer the `value` balance of the `ticker` asset from `from_portfolio` to `to_portfolio`.
     fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
     ) -> DispatchResult;
-    /// Create and add a new security token.
+    /// Common functionality of both confidential and non-confidential asset creation.
+    ///
+    /// In case of success, returns the result of permission check of `origin`.
     fn base_create_asset(
-        did: IdentityId,
+        origin: Origin,
         name: AssetName,
         ticker: Ticker,
         total_supply: Balance,
@@ -84,13 +88,13 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult;
-    /// Ensure that the caller has the required extrinsic and asset permissions.
+    ) -> Result<IdentifiedOriginData<Account>, DispatchError>;
+    /// Ensures that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,
         ticker: &Ticker,
     ) -> Result<IdentityId, DispatchError>;
-
+    /// Creates a new non-confidential asset.
     fn create_asset(
         origin: Origin,
         name: AssetName,
@@ -101,14 +105,18 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult;
+    /// Sets the total supply of an asset. Should only be called after carrying out the necessary
+    /// precondition checks.
     fn unchecked_set_total_supply(
         did: IdentityId,
         ticker: Ticker,
         total_supply: Balance,
     ) -> DispatchResult;
+    /// Returns the divisibility of the asset.
     fn is_divisible(ticker: Ticker) -> bool;
+    /// Returns asset details from blockchain storage.
     fn token_details(ticker: &Ticker) -> SecurityToken<Balance>;
-
+    /// Registers a ticker.
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks

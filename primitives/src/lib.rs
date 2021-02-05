@@ -272,6 +272,15 @@ pub struct PalletName(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
+/// The result of a successful signed origin permission check omitting the `SecondaryKey`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct IdentifiedOriginData<AccountId> {
+    /// The caller DID.
+    pub did: IdentityId,
+    /// The caller account.
+    pub account: AccountId,
+}
+
 /// Create a `Version` struct with an upper limit.
 #[macro_export]
 macro_rules! storage_migration_ver {

@@ -27,12 +27,9 @@ use frame_support::{
 };
 use pallet_identity as identity;
 use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{rng, IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use sp_std::prelude::*;
-
-pub mod rng;
-pub use rng::native_rng;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

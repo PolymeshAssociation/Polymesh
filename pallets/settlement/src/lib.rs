@@ -68,8 +68,8 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use mercat::{InitializedTransferTx, JustifiedTransferTx};
-use pallet_confidential_asset::{self as confidential_asset, MercatAccountId};
 use pallet_asset as asset;
+use pallet_confidential_asset::{self as confidential_asset, MercatAccountId};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{
@@ -80,10 +80,9 @@ use polymesh_common_utilities::{
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
-use polymesh_primitives::{Base64Vec, IdentityId, PortfolioId, Ticker};
-use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Base64Vec, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    asset::Base64Vec, storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId,
+    SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{One, Verify, Zero};
@@ -1264,7 +1263,9 @@ impl<T: Trait> Module<T> {
                                     leg_details.to,
                                     &leg_details.asset,
                                     leg_details.amount,
-                                ).is_err() {
+                                )
+                                .is_err()
+                                {
                                     return Err(leg_id);
                                 }
                             }
