@@ -5705,6 +5705,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
+ "pallet-staking",
  "pallet-statistics",
  "pallet-sto",
  "pallet-timestamp",

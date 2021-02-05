@@ -382,7 +382,7 @@ impl pallet_staking::Trait for Runtime {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
 /// Voting majority origin for `Instance`.
