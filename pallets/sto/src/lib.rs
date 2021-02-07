@@ -174,13 +174,23 @@ decl_event!(
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
-        /// An fundraiser has been frozen.
+        /// A fundraiser has been frozen.
         /// (primary issuance agent, fundraiser id)
         FundraiserFrozen(IdentityId, u64),
-        /// An fundraiser has been unfrozen.
+        /// A fundraiser has been unfrozen.
         /// (primary issuance agent, fundraiser id)
         FundraiserUnfrozen(IdentityId, u64),
-        /// An fundraiser has been stopped.
+        /// A fundraiser window has been modified.
+        /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
+        FundraiserModifyWindow(
+            IdentityId,
+            u64,
+            Moment,
+            Option<Moment>,
+            Moment,
+            Option<Moment>,
+        ),
+        /// A fundraiser has been stopped.
         /// (primary issuance agent, fundraiser id)
         FundraiserClosed(IdentityId, u64),
     }
@@ -487,7 +497,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            Self::ensure_perms_pia(origin, &offering_asset)?;
+            let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -498,6 +508,7 @@ decl_module! {
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
+                Self::deposit_event(RawEvent::FundraiserModifyWindow(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
                 fundraiser.start = start;
                 fundraiser.end = end;
                 Ok(())
@@ -533,6 +544,7 @@ decl_module! {
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
             fundraiser.status = FundraiserStatus::Closed;
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+            Self::deposit_event(RawEvent::FundraiserClosed(did, fundraiser_id));
         }
     }
 }
