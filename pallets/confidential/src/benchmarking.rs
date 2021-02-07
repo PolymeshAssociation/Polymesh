@@ -16,10 +16,8 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
-    traits::asset::AssetType,
-};
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_primitives::asset::AssetType;
 use sp_std::convert::TryFrom;
 
 const MAX_TICKER_LENGTH: u8 = 12;

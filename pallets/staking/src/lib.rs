@@ -353,6 +353,8 @@ use sp_std::{
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+/// Maximum number of validators accounted for the weight estimation of `set_commission_cap`.
+pub const MAX_ALLOWED_VALIDATORS: u32 = 150;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
 
 pub(crate) const LOG_TARGET: &str = "staking";
@@ -826,203 +828,43 @@ where
 
 type Identity<T> = identity::Module<T>;
 
-pub mod weight {
-    use super::*;
-
-    /// All weight notes are pertaining to the case of a better solution, in which we execute
-    /// the longest code path.
-    /// Weight: 0 + (0.63 μs * v) + (0.36 μs * n) + (96.53 μs * a ) + (8 μs * w ) with:
-    /// * v validators in snapshot validators,
-    /// * n nominators in snapshot nominators,
-    /// * a assignment in the submitted solution
-    /// * w winners in the submitted solution
-    ///
-    /// State reads:
-    ///     - Initial checks:
-    ///         - ElectionState, CurrentEra, QueuedScore
-    ///         - SnapshotValidators.len() + SnapShotNominators.len()
-    ///         - ValidatorCount
-    ///         - SnapshotValidators
-    ///         - SnapshotNominators
-    ///     - Iterate over nominators:
-    ///         - compact.len() * Nominators(who)
-    ///         - (non_self_vote_edges) * SlashingSpans
-    ///     - For `assignment_ratio_to_staked`: Basically read the staked value of each stash.
-    ///         - (winners.len() + compact.len()) * (Ledger + Bonded)
-    ///         - TotalIssuance (read a gzillion times potentially, but well it is cached.)
-    /// - State writes:
-    ///     - QueuedElected, QueuedScore
-    pub fn weight_for_submit_solution<T: Trait>(
-        winners: &[ValidatorIndex],
-        compact: &CompactAssignments,
-        size: &ElectionSize,
-    ) -> Weight {
-        (630 * WEIGHT_PER_NANOS)
-            .saturating_mul(size.validators as Weight)
-            .saturating_add((360 * WEIGHT_PER_NANOS).saturating_mul(size.nominators as Weight))
-            .saturating_add((96 * WEIGHT_PER_MICROS).saturating_mul(compact.len() as Weight))
-            .saturating_add((8 * WEIGHT_PER_MICROS).saturating_mul(winners.len() as Weight))
-            // Initial checks
-            .saturating_add(T::DbWeight::get().reads(8))
-            // Nominators
-            .saturating_add(T::DbWeight::get().reads(compact.len() as Weight))
-            // SlashingSpans (upper bound for invalid solution)
-            .saturating_add(T::DbWeight::get().reads(compact.edge_count() as Weight))
-            // `assignment_ratio_to_staked`
-            .saturating_add(
-                T::DbWeight::get().reads(2 * ((winners.len() + compact.len()) as Weight)),
-            )
-            .saturating_add(T::DbWeight::get().reads(1))
-            // write queued score and elected
-            .saturating_add(T::DbWeight::get().writes(2))
-    }
-
-    /// Weight of `submit_solution` in case of a correct submission.
-    ///
-    /// refund: we charged compact.len() * read(1) for SlashingSpans. A valid solution only reads
-    /// winners.len().
-    pub fn weight_for_correct_submit_solution<T: Trait>(
-        winners: &[ValidatorIndex],
-        compact: &CompactAssignments,
-        size: &ElectionSize,
-    ) -> Weight {
-        // NOTE: for consistency, we re-compute the original weight to maintain their relation and
-        // prevent any foot-guns.
-        let original_weight = weight_for_submit_solution::<T>(winners, compact, size);
-        original_weight
-            .saturating_sub(T::DbWeight::get().reads(compact.edge_count() as Weight))
-            .saturating_add(T::DbWeight::get().reads(winners.len() as Weight))
-    }
-
-    /// Weight of `payout_stakers()` & `payout_stakers_by_system()` dispatch.
-    // TODO: Weight is dummy, Need to benchamrk to get exact weight for the dispatch.
-    pub fn weight_for_payout_stakers<T: Trait>() -> Weight {
-        T::DbWeight::get().reads(5) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3)
-                * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-    }
-}
-
 pub trait WeightInfo {
-    fn bond(u: u32) -> Weight;
-    fn bond_extra(u: u32) -> Weight;
-    fn unbond(u: u32) -> Weight;
+    fn bond() -> Weight;
+    fn bond_extra() -> Weight;
+    fn unbond() -> Weight;
     fn withdraw_unbonded_update(s: u32) -> Weight;
     fn withdraw_unbonded_kill(s: u32) -> Weight;
-    fn validate(u: u32) -> Weight;
+    fn set_min_bond_threshold() -> Weight;
+    fn add_permissioned_validator() -> Weight;
+    fn remove_permissioned_validator() -> Weight;
+    fn set_commission_cap(m: u32) -> Weight;
+    fn validate() -> Weight;
     fn nominate(n: u32) -> Weight;
-    fn chill(u: u32) -> Weight;
-    fn set_payee(u: u32) -> Weight;
-    fn set_controller(u: u32) -> Weight;
-    fn set_validator_count(c: u32) -> Weight;
-    fn force_no_eras(i: u32) -> Weight;
-    fn force_new_era(i: u32) -> Weight;
-    fn force_new_era_always(i: u32) -> Weight;
+    fn chill() -> Weight;
+    fn set_payee() -> Weight;
+    fn set_controller() -> Weight;
+    fn set_validator_count() -> Weight;
+    fn force_no_eras() -> Weight;
+    fn force_new_era() -> Weight;
+    fn force_new_era_always() -> Weight;
     fn set_invulnerables(v: u32) -> Weight;
     fn force_unstake(s: u32) -> Weight;
     fn cancel_deferred_slash(s: u32) -> Weight;
     fn payout_stakers(n: u32) -> Weight;
-    fn payout_stakers_alive_controller(n: u32) -> Weight;
+    fn payout_stakers_alive_controller() -> Weight;
     fn rebond(l: u32) -> Weight;
     fn set_history_depth(e: u32) -> Weight;
     fn reap_stash(s: u32) -> Weight;
     fn new_era(v: u32, n: u32) -> Weight;
     fn do_slash(l: u32) -> Weight;
     fn payout_all(v: u32, n: u32) -> Weight;
-    fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32) -> Weight;
+    fn submit_solution_initial(v: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
-    fn submit_solution_weaker(v: u32, n: u32) -> Weight;
+    fn submit_solution_weaker(n: u32) -> Weight;
     fn change_slashing_allowed_for() -> Weight;
-}
-
-impl WeightInfo for () {
-    fn bond(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn bond_extra(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn unbond(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_unbonded_update(_s: u32) -> Weight {
-        1_000_000_000
-    }
-    fn withdraw_unbonded_kill(_s: u32) -> Weight {
-        1_000_000_000
-    }
-    fn validate(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn nominate(_n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn chill(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_payee(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_controller(_u: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_validator_count(_c: u32) -> Weight {
-        1_000_000_000
-    }
-    fn force_no_eras(_i: u32) -> Weight {
-        1_000_000_000
-    }
-    fn force_new_era(_i: u32) -> Weight {
-        1_000_000_000
-    }
-    fn force_new_era_always(_i: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_invulnerables(_v: u32) -> Weight {
-        1_000_000_000
-    }
-    fn force_unstake(_s: u32) -> Weight {
-        1_000_000_000
-    }
-    fn cancel_deferred_slash(_s: u32) -> Weight {
-        1_000_000_000
-    }
-    fn payout_stakers(_n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn payout_stakers_alive_controller(_n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn rebond(_l: u32) -> Weight {
-        1_000_000_000
-    }
-    fn set_history_depth(_e: u32) -> Weight {
-        1_000_000_000
-    }
-    fn reap_stash(_s: u32) -> Weight {
-        1_000_000_000
-    }
-    fn new_era(_v: u32, _n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn do_slash(_l: u32) -> Weight {
-        1_000_000_000
-    }
-    fn payout_all(_v: u32, _n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn submit_solution_initial(_v: u32, _n: u32, _a: u32, _w: u32) -> Weight {
-        1_000_000_000
-    }
-    fn submit_solution_better(_v: u32, _n: u32, _a: u32, _w: u32) -> Weight {
-        1_000_000_000
-    }
-    fn submit_solution_weaker(_v: u32, _n: u32) -> Weight {
-        1_000_000_000
-    }
-    fn change_slashing_allowed_for() -> Weight {
-        1_000_000_000
-    }
+    fn update_permissioned_validator_intended_count() -> Weight;
+    fn increase_validator_count() -> Weight;
+    fn scale_validator_count() -> Weight;
 }
 
 pub trait Trait:
@@ -1775,7 +1617,7 @@ decl_module! {
         /// * origin Stash account (signer of the extrinsic).
         /// * controller Account that controls the operation of stash.
         /// * payee Destination where reward can be transferred.
-        #[weight = 67 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(5, 4)]
+        #[weight = <T as Trait>::WeightInfo::bond()]
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
             #[compact] value: BalanceOf<T>,
@@ -1844,7 +1686,7 @@ decl_module! {
         /// # Arguments
         /// * origin Stash account (signer of the extrinsic).
         /// * max_additional Extra amount that need to be bonded.
-        #[weight = 55 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(4, 2)]
+        #[weight = <T as Trait>::WeightInfo::bond_extra()]
         pub fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let stash = ensure_signed(origin)?;
@@ -1900,7 +1742,7 @@ decl_module! {
         /// # Arguments
         /// * origin Controller (Signer of the extrinsic).
         /// * value Balance needs to be unbonded.
-        #[weight = 50 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(4, 2)]
+        #[weight = <T as Trait>::WeightInfo::unbond()]
         pub fn unbond(origin, #[compact] value: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1942,15 +1784,7 @@ decl_module! {
         /// - Writes Each: SpanSlash * S
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(6, 6)
-            .saturating_add(80 * WEIGHT_PER_MICROS)
-            .saturating_add(
-                (2 * WEIGHT_PER_MICROS).saturating_mul(Weight::from(*num_slashing_spans))
-            )
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans)))
-            // if slashing spans is non-zero, add 1 more write
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans).min(1)))
-        ]
+        #[weight = <T as Trait>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)]
         pub fn withdraw_unbonded(origin, num_slashing_spans: u32) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2004,7 +1838,7 @@ decl_module! {
         /// - Read: Era Election Status, Ledger
         /// - Write: Nominators, Validators
         /// # </weight>
-        #[weight = 17 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = <T as Trait>::WeightInfo::validate()]
         pub fn validate(origin, prefs: ValidatorPrefs) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2049,10 +1883,7 @@ decl_module! {
         /// - Reads: Era Election Status, Ledger, Current Era
         /// - Writes: Validators, Nominators
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 2)
-            .saturating_add(22 * WEIGHT_PER_MICROS)
-            .saturating_add((360 * WEIGHT_PER_NANOS).saturating_mul(targets.len() as Weight))
-        ]
+        #[weight = <T as Trait>::WeightInfo::nominate(targets.len() as u32)]
         pub fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2105,7 +1936,7 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger
         /// - Write: Validators, Nominators
         /// # </weight>
-        #[weight = 16 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = <T as Trait>::WeightInfo::chill()]
         pub fn chill(origin) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2129,7 +1960,7 @@ decl_module! {
         ///     - Read: Ledger
         ///     - Write: Payee
         /// # </weight>
-        #[weight = 11 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(1, 1)]
+        #[weight = <T as Trait>::WeightInfo::set_payee()]
         pub fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -2153,7 +1984,7 @@ decl_module! {
         /// - Read: Bonded, Ledger New Controller, Ledger Old Controller
         /// - Write: Bonded, Ledger New Controller, Ledger Old Controller
         /// # </weight>
-        #[weight = 25 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(3, 3)]
+        #[weight = <T as Trait>::WeightInfo::set_controller()]
         pub fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -2175,7 +2006,7 @@ decl_module! {
         /// Base Weight: 1.717 µs
         /// Write: Validator Count
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().writes(1)]
+        #[weight = <T as Trait>::WeightInfo::set_validator_count()]
         fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
@@ -2189,7 +2020,7 @@ decl_module! {
         /// Base Weight: 1.717 µs
         /// Read/Write: Validator Count
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(1, 1)]
+        #[weight = <T as Trait>::WeightInfo::increase_validator_count()]
         fn increase_validator_count(origin, #[compact] additional: u32) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += additional);
@@ -2203,7 +2034,7 @@ decl_module! {
         /// Base Weight: 1.717 µs
         /// Read/Write: Validator Count
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(1, 1)]
+        #[weight = <T as Trait>::WeightInfo::scale_validator_count()]
         fn scale_validator_count(origin, factor: Percent) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += factor * *n);
@@ -2217,7 +2048,7 @@ decl_module! {
         /// * origin Required origin for adding a potential validator.
         /// * identity Validator's IdentityId.
         /// * intended_count No. of validators given identity intends to run.
-        #[weight = 750_000_000]
+        #[weight = <T as Trait>::WeightInfo::add_permissioned_validator()]
         pub fn add_permissioned_validator(origin, identity: IdentityId, intended_count: Option<u32>) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
             ensure!(Self::permissioned_identity(&identity).is_none(), Error::<T>::AlreadyExists);
@@ -2244,7 +2075,7 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
         /// * identity Validator's IdentityId.
-        #[weight = 750_000_000]
+        #[weight = <T as Trait>::WeightInfo::remove_permissioned_validator()]
         pub fn remove_permissioned_validator(origin, identity: IdentityId) {
             T::RequiredRemoveOrigin::ensure_origin(origin)?;
             ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
@@ -2310,7 +2141,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_cap` the new commission cap.
-        #[weight = (800_000_000, Operational, Pays::Yes)]
+        #[weight = (<T as Trait>::WeightInfo::set_commission_cap(MAX_ALLOWED_VALIDATORS), Operational, Pays::Yes)]
         pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
 
@@ -2328,14 +2159,11 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_value` the new minimum
-        #[weight = (750_000_000, Operational, Pays::Yes)]
+        #[weight = (<T as Trait>::WeightInfo::set_min_bond_threshold(), Operational, Pays::Yes)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <Identity<T>>::get_identity(&key);
-
             <MinimumBondThreshold<T>>::put(new_value);
-            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
+            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(Some(GC_DID), new_value));
         }
 
         /// Force there to be no new eras indefinitely.
@@ -2347,7 +2175,7 @@ decl_module! {
         /// - Base Weight: 1.857 µs
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().writes(1)]
+        #[weight = <T as Trait>::WeightInfo::force_no_eras()]
         fn force_no_eras(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNone);
@@ -2363,7 +2191,7 @@ decl_module! {
         /// - Base Weight: 1.959 µs
         /// - Write ForceEra
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().writes(1)]
+        #[weight = <T as Trait>::WeightInfo::force_new_era()]
         fn force_new_era(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNew);
@@ -2378,10 +2206,7 @@ decl_module! {
         /// - Base Weight: 2.208 + .006 * V µs
         /// - Write: Invulnerables
         /// # </weight>
-        #[weight = T::DbWeight::get().writes(1)
-            .saturating_add(2 * WEIGHT_PER_MICROS)
-            .saturating_add((6 * WEIGHT_PER_NANOS).saturating_mul(validators.len() as Weight))
-        ]
+        #[weight = <T as Trait>::WeightInfo::set_invulnerables(validators.len() as u32)]
         fn set_invulnerables(origin, validators: Vec<T::AccountId>) {
             ensure_root(origin)?;
             <Invulnerables<T>>::put(validators);
@@ -2398,15 +2223,7 @@ decl_module! {
         /// Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Account, Locks
         /// Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(4, 7)
-            .saturating_add(53 * WEIGHT_PER_MICROS)
-            .saturating_add(
-                WEIGHT_PER_MICROS.saturating_mul(2).saturating_mul(Weight::from(*num_slashing_spans))
-            )
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans)))
-            // if slashing spans is non-zero, add 1 more write
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans > 0)))
-        ]
+        #[weight = <T as Trait>::WeightInfo::force_unstake(*num_slashing_spans)]
         pub fn force_unstake(origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure_root(origin)?;
 
@@ -2425,7 +2242,7 @@ decl_module! {
         /// - Base Weight: 2.05 µs
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().writes(1)]
+        #[weight = <T as Trait>::WeightInfo::force_new_era_always()]
         pub fn force_new_era_always(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceAlways);
@@ -2445,10 +2262,7 @@ decl_module! {
         /// - Read: Unapplied Slashes
         /// - Write: Unapplied Slashes
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1)
-            .saturating_add(5_870 * WEIGHT_PER_MICROS)
-            .saturating_add((35 * WEIGHT_PER_MICROS).saturating_mul(slash_indices.len() as Weight))
-        ]
+        #[weight = <T as Trait>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
         pub fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::ensure_origin(origin)?;
 
@@ -2495,7 +2309,7 @@ decl_module! {
         /// - Read Each: Bonded, Ledger, Payee, Locks, System Account (5 items)
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
-        #[weight = weight::weight_for_payout_stakers::<T>()]
+        #[weight = <T as Trait>::WeightInfo::payout_stakers(T::MaxNominatorRewardedPerValidator::get() as u32)]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
@@ -2517,11 +2331,7 @@ decl_module! {
         ///     - Reads: EraElectionStatus, Ledger, Locks, [Origin Account]
         ///     - Writes: [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight =
-            35 * WEIGHT_PER_MICROS
-            + 50 * WEIGHT_PER_NANOS * (MAX_UNLOCKING_CHUNKS as Weight)
-            + T::DbWeight::get().reads_writes(3, 2)
-        ]
+        #[weight = <T as Trait>::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
         pub fn rebond(origin, #[compact] value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2558,12 +2368,7 @@ decl_module! {
         ///     - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
         ///     - Writes Each: ErasValidatorReward, ErasRewardPoints, ErasTotalStake, ErasStartSessionIndex
         /// # </weight>
-        #[weight = {
-            let items = Weight::from(*_era_items_deleted);
-            T::DbWeight::get().reads_writes(2, 1)
-                .saturating_add(T::DbWeight::get().reads_writes(items, items))
-
-        }]
+        #[weight = <T as Trait>::WeightInfo::set_history_depth(*_era_items_deleted)]
         pub fn set_history_depth(origin,
             #[compact] new_history_depth: EraIndex,
             #[compact] _era_items_deleted: u32,
@@ -2597,15 +2402,7 @@ decl_module! {
         /// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
         /// - Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(4, 7)
-            .saturating_add(76 * WEIGHT_PER_MICROS)
-            .saturating_add(
-                WEIGHT_PER_MICROS.saturating_mul(2).saturating_mul(Weight::from(*num_slashing_spans))
-            )
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans)))
-            // if slashing spans is non-zero, add 1 more write
-            .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans).min(1)))
-        ]
+        #[weight = <T as Trait>::WeightInfo::reap_stash(*num_slashing_spans)]
         pub fn reap_stash(_origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
             Self::kill_stash(&stash, num_slashing_spans)?;
@@ -2659,7 +2456,12 @@ decl_module! {
         /// # <weight>
         /// See `crate::weight` module.
         /// # </weight>
-        #[weight = weight::weight_for_submit_solution::<T>(winners, compact, size)]
+        #[weight = <T as Trait>::WeightInfo::submit_solution_better(
+            size.validators.into(),
+            size.nominators.into(),
+            compact.len() as u32,
+            winners.len() as u32,
+        )]
         pub fn submit_election_solution(
             origin,
             winners: Vec<ValidatorIndex>,
@@ -2688,7 +2490,12 @@ decl_module! {
         /// # <weight>
         /// See `crate::weight` module.
         /// # </weight>
-        #[weight = weight::weight_for_submit_solution::<T>(winners, compact, size)]
+        #[weight = <T as Trait>::WeightInfo::submit_solution_better(
+            size.validators.into(),
+            size.nominators.into(),
+            compact.len() as u32,
+            winners.len() as u32,
+        )]
         pub fn submit_election_solution_unsigned(
             origin,
             winners: Vec<ValidatorIndex>,
@@ -2716,7 +2523,7 @@ decl_module! {
 
         // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
         /// System version of `payout_stakers()`. Only be called by the root origin.
-        #[weight = weight::weight_for_payout_stakers::<T>()]
+        #[weight = <T as Trait>::WeightInfo::payout_stakers(T::MaxNominatorRewardedPerValidator::get() as u32)]
         pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_root(origin)?;
@@ -2728,7 +2535,7 @@ decl_module! {
         /// # Arguments
         /// * origin - AccountId of root.
         /// * slashing_switch - Switch used to set the targets for slashing.
-        #[weight = 5_000_000 + T::DbWeight::get().reads_writes(2, 1)]
+        #[weight = <T as Trait>::WeightInfo::change_slashing_allowed_for()]
         pub fn change_slashing_allowed_for(origin, slashing_switch: SlashingSwitch) {
             // Ensure origin should be root.
             ensure_root(origin)?;
@@ -2742,7 +2549,7 @@ decl_module! {
         /// * origin which must be the required origin for adding a potential validator.
         /// * identity to add as a validator.
         /// * new_intended_count New value of intended count.
-        #[weight = 150_000_000]
+        #[weight = <T as Trait>::WeightInfo::update_permissioned_validator_intended_count()]
         pub fn update_permissioned_validator_intended_count(origin, identity: IdentityId, new_intended_count: u32) -> DispatchResult {
             T::RequiredAddOrigin::ensure_origin(origin)?;
             ensure!(Self::get_allowed_validator_count() > new_intended_count, Error::<T>::IntendedCountIsExceedingConsensusLimit);
@@ -3067,13 +2874,6 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResultWithPostInfo {
         // Do the basic checks. era, claimed score and window open.
         Self::pre_dispatch_checks(claimed_score, era)?;
-        // the weight that we will refund in case of a correct submission. We compute this now
-        // because the data needed for it will be consumed further down.
-        let adjusted_weight = weight::weight_for_correct_submit_solution::<T>(
-            &winners,
-            &compact_assignments,
-            &election_size,
-        );
 
         // Check that the number of presented winners is sane. Most often we have more candidates
         // than we need. Then it should be `Self::validator_count()`. Else it should be all the
@@ -3247,7 +3047,7 @@ impl<T: Trait> Module<T> {
         // emit event.
         Self::deposit_event(RawEvent::SolutionStored(compute));
 
-        Ok(Some(adjusted_weight).into())
+        Ok(None.into())
     }
 
     /// Start a session potentially starting an era.
