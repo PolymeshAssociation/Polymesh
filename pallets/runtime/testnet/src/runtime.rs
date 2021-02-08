@@ -44,7 +44,6 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     runtime::{GovernanceCommittee, VMO},
     traits::{identity::Trait as IdentityTrait, PermissionChecker},
-    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, Authorization, AuthorizationType, Balance, BlockNumber, IdentityId, Index, Moment,
@@ -489,25 +488,22 @@ impl IdentityTrait for Runtime {
 }
 
 parameter_types! {
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    // Contracts:
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
+
+    // Corporate Actions:
     pub const MaxTargetIds: u32 = 1000;
     pub const MaxDidWhts: u32 = 1000;
+
+    // Statistics:
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+
+    // Scheduler:
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
-impl polymesh_contracts::Trait for Runtime {
-    type Event = Event;
-    type NetworkShareInFee = NetworkShareInFee;
-    type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
-}
-
-impl pallet_corporate_actions::Trait for Runtime {
-    type Event = Event;
-    type MaxTargetIds = MaxTargetIds;
-    type MaxDidWhts = MaxDidWhts;
-    type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
-    type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
-    type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
-}
+polymesh_runtime_common::misc2!();
 
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
@@ -522,40 +518,8 @@ impl group::Trait<group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-parameter_types! {
-    pub const MaxTransferManagersPerAsset: u32 = 3;
-}
-impl pallet_statistics::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-    type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
-    type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
-}
-
-impl pallet_utility::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
-    type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
-}
-
 impl PermissionChecker for Runtime {
     type Checker = Identity;
-}
-
-parameter_types! {
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
-    pub const MaxScheduledPerBlock: u32 = 50;
-}
-
-impl pallet_scheduler::Trait for Runtime {
-    type Event = Event;
-    type Origin = Origin;
-    type PalletsOrigin = OriginCaller;
-    type Call = Call;
-    type MaximumWeight = MaximumSchedulerWeight;
-    type ScheduleOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
-    type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
 pub type AllModulesExported = AllModules;

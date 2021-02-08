@@ -101,13 +101,13 @@ macro_rules! misc1 {
             type CddHandler = CddHandler;
         }
 
-        impl CommonTrait for Runtime {
+        impl polymesh_common_utilities::traits::CommonTrait for Runtime {
             type Balance = polymesh_primitives::Balance;
             type AssetSubTraitTarget = Asset;
             type BlockRewardsReserve = balances::Module<Runtime>;
         }
 
-        impl balances::Trait for Runtime {
+        impl pallet_balances::Trait for Runtime {
             type MaxLocks = MaxLocks;
             type DustRemoval = ();
             type Event = Event;
@@ -117,7 +117,7 @@ macro_rules! misc1 {
             type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
         }
 
-        impl protocol_fee::Trait for Runtime {
+        impl pallet_protocol_fee::Trait for Runtime {
             type Event = Event;
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
@@ -210,3 +210,47 @@ macro_rules! misc1 {
 pub type VMO<Instance> = pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
 
 pub type GovernanceCommittee = pallet_committee::Instance1;
+
+#[macro_export]
+macro_rules! misc2 {
+    () => {
+        impl polymesh_contracts::Trait for Runtime {
+            type Event = Event;
+            type NetworkShareInFee = NetworkShareInFee;
+            type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
+        }
+
+        impl pallet_corporate_actions::Trait for Runtime {
+            type Event = Event;
+            type MaxTargetIds = MaxTargetIds;
+            type MaxDidWhts = MaxDidWhts;
+            type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
+            type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
+            type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
+        }
+
+        impl pallet_statistics::Trait for Runtime {
+            type Event = Event;
+            type Asset = Asset;
+            type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+            type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+        }
+
+        impl pallet_utility::Trait for Runtime {
+            type Event = Event;
+            type Call = Call;
+            type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
+        }
+
+        impl pallet_scheduler::Trait for Runtime {
+            type Event = Event;
+            type Origin = Origin;
+            type PalletsOrigin = OriginCaller;
+            type Call = Call;
+            type MaximumWeight = MaximumSchedulerWeight;
+            type ScheduleOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+            type MaxScheduledPerBlock = MaxScheduledPerBlock;
+            type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
+        }
+    }
+}
