@@ -146,10 +146,42 @@ parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
 
     // Contracts:
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
     pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
+
+    // Offences:
+    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
+
+    // I'm online:
+    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
+    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+
+    // Finality tracker:
+    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
+    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
+
+    // Assets:
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const AssetNameMaxLength: usize = 1024;
+    pub const FundingRoundNameMaxLength: usize = 1024;
+    pub const AllowedGasLimit: u64 = 13_000_000_000;
+
+    // Compliance manager:
+    pub const MaxConditionComplexity: u32 = 50;
+
+    // Corporate Actions:
+    pub const MaxTargetIds: u32 = 1000;
+    pub const MaxDidWhts: u32 = 1000;
+
+    // Statistics:
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+
+    // Scheduler:
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -251,42 +283,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-}
-
-parameter_types! {
-    // Offences:
-    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-
-    // I'm online:
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
-    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-
-    // Finality tracker:
-    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
-    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
-
-    // Assets:
-    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: usize = 1024;
-    pub const FundingRoundNameMaxLength: usize = 1024;
-    pub const AllowedGasLimit: u64 = 13_000_000_000;
-
-    // Compliance manager:
-    pub const MaxConditionComplexity: u32 = 50;
-
-    // Contracts:
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
-
-    // Corporate Actions:
-    pub const MaxTargetIds: u32 = 1000;
-    pub const MaxDidWhts: u32 = 1000;
-
-    // Statistics:
-    pub const MaxTransferManagersPerAsset: u32 = 3;
-
-    // Scheduler:
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
-    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 polymesh_runtime_common::misc2!();
