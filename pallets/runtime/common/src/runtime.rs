@@ -341,5 +341,39 @@ macro_rules! misc2 {
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
         }
+
+        impl pallet_offences::Trait for Runtime {
+            type Event = Event;
+            type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+            type OnOffenceHandler = Staking;
+            type WeightSoftLimit = OffencesWeightSoftLimit;
+        }
+
+        type GrandpaKey = (sp_core::crypto::KeyTypeId, GrandpaId);
+
+        impl pallet_im_online::Trait for Runtime {
+            type AuthorityId = pallet_im_online::sr25519::AuthorityId;
+            type Event = Event;
+            type UnsignedPriority = ImOnlineUnsignedPriority;
+            type ReportUnresponsiveness = Offences;
+            type SessionDuration = SessionDuration;
+            type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
+        }
+
+        impl pallet_grandpa::Trait for Runtime {
+            type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
+            type Event = Event;
+            type Call = Call;
+
+            type KeyOwnerProofSystem = Historical;
+
+            type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::Proof;
+
+            type KeyOwnerIdentification =
+                <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::IdentificationTuple;
+
+            type HandleEquivocation =
+                pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
+        }
     }
 }

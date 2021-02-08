@@ -24,7 +24,6 @@ use pallet_identity::{
     self as identity,
     types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_portfolio as portfolio;
@@ -54,7 +53,6 @@ use polymesh_runtime_common::{
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
-    crypto::KeyTypeId,
     u32_trait::{_1, _4},
     OpaqueMetadata,
 };
@@ -189,6 +187,8 @@ parameter_types! {
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
+    /// We prioritize im-online heartbeats over election solution submission.
+    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
 polymesh_runtime_common::misc1!();
@@ -314,52 +314,13 @@ impl sto::Trait for Runtime {
 }
 
 parameter_types! {
+    // Offences:
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-}
 
-impl pallet_offences::Trait for Runtime {
-    type Event = Event;
-    type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
-    type OnOffenceHandler = Staking;
-    type WeightSoftLimit = OffencesWeightSoftLimit;
-}
-
-parameter_types! {
+    // I'm online:
     pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-    /// We prioritize im-online heartbeats over election solution submission.
-    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-}
 
-impl pallet_im_online::Trait for Runtime {
-    type AuthorityId = ImOnlineId;
-    type Event = Event;
-    type UnsignedPriority = ImOnlineUnsignedPriority;
-    type ReportUnresponsiveness = Offences;
-    type SessionDuration = SessionDuration;
-    type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
-}
-
-impl pallet_grandpa::Trait for Runtime {
-    type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
-    type Event = Event;
-    type Call = Call;
-
-    type KeyOwnerProofSystem = Historical;
-
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        GrandpaId,
-    )>>::IdentificationTuple;
-
-    type HandleEquivocation =
-        pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
-}
-
-parameter_types! {
     // Finality tracker:
     pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
     pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
