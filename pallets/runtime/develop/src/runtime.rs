@@ -398,27 +398,12 @@ impl portfolio::Trait for Runtime {
 }
 
 parameter_types! {
+    // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 1024;
     pub const FundingRoundNameMaxLength: usize = 1024;
     pub const AllowedGasLimit: u64 = 13_000_000_000;
-}
 
-impl asset::Trait for Runtime {
-    type Event = Event;
-    type Currency = Balances;
-    type ComplianceManager = compliance_manager::Module<Runtime>;
-    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
-    type UnixTime = pallet_timestamp::Module<Runtime>;
-    type AssetNameMaxLength = AssetNameMaxLength;
-    type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
-    type AssetFn = Asset;
-    type AllowedGasLimit = AllowedGasLimit;
-    type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
-    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
-}
-
-parameter_types! {
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
 

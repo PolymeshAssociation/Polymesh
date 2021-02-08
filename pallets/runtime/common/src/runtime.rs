@@ -214,6 +214,20 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 #[macro_export]
 macro_rules! misc2 {
     () => {
+        impl pallet_asset::Trait for Runtime {
+            type Event = Event;
+            type Currency = Balances;
+            type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
+            type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+            type UnixTime = pallet_timestamp::Module<Runtime>;
+            type AssetNameMaxLength = AssetNameMaxLength;
+            type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+            type AssetFn = Asset;
+            type AllowedGasLimit = AllowedGasLimit;
+            type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+            type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
+        }
+
         impl polymesh_contracts::Trait for Runtime {
             type Event = Event;
             type NetworkShareInFee = NetworkShareInFee;
