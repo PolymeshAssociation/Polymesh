@@ -240,6 +240,9 @@ pub mod calendar;
 /// Runtime crypto tools.
 pub mod crypto;
 
+/// Asset type definitions.
+pub mod asset;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
