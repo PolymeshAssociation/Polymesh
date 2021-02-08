@@ -13,15 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
-use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
-    traits::asset::AssetType,
-};
-
 use frame_benchmarking::benchmarks;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_primitives::asset::AssetType;
 use sp_std::convert::TryFrom;
 
 const MAX_TICKER_LENGTH: u8 = 12;
@@ -34,7 +30,7 @@ fn make_ticker<T: Trait>(owner: &User<T>) -> Ticker {
         owner.origin().into(),
         sc_name,
         ticker.clone(),
-        1_000.into(),
+        1_000u32.into(),
         true,
         AssetType::default(),
         vec![],

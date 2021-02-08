@@ -13,13 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-
-use polymesh_common_utilities::{
-    benchs::{user, User},
-    MaybeBlock, SystematicIssuers, GC_DID,
-};
 
 use frame_benchmarking::benchmarks;
 use frame_support::{
@@ -28,6 +22,10 @@ use frame_support::{
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
+use polymesh_common_utilities::{
+    benchs::{user, User},
+    MaybeBlock, SystematicIssuers, GC_DID,
+};
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sp_std::{
@@ -95,7 +93,7 @@ fn cast_votes<T: Trait>(
 ) -> DispatchResult {
     for (_, origin, did) in voters {
         identity::CurrentDid::put(did);
-        Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1.into())?;
+        Module::<T>::vote(origin.clone().into(), id, aye_or_nay, 1u32.into())?;
     }
     Ok(())
 }
@@ -105,7 +103,7 @@ fn pips_and_votes_setup<T: Trait>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32)?;
-    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
+    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into())?;
     let (voters_a_num, voters_b_num) = if approve_only {
         (VOTERS_A_NUM + VOTERS_B_NUM, 0)
     } else {
@@ -127,7 +125,7 @@ fn pips_and_votes_setup<T: Trait>(
         Module::<T>::propose(
             proposer_origin.into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone()),
         )?;
@@ -188,7 +186,7 @@ benchmarks! {
 
     set_min_proposal_deposit {
         let origin = RawOrigin::Root;
-        let deposit = 42.into();
+        let deposit = 42u32.into();
     }: _(origin, deposit)
     verify {
         ensure!(deposit == MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
@@ -196,7 +194,7 @@ benchmarks! {
 
     set_default_enactment_period {
         let origin = RawOrigin::Root;
-        let period = 42.into();
+        let period = 42u32.into();
     }: _(origin, period)
     verify {
         ensure!(period == DefaultEnactmentPeriod::<T>::get(), "incorrect DefaultEnactmentPeriod");
@@ -204,7 +202,7 @@ benchmarks! {
 
     set_pending_pip_expiry {
         let origin = RawOrigin::Root;
-        let maybe_block = MaybeBlock::Some(42.into());
+        let maybe_block = MaybeBlock::Some(42u32.into());
     }: _(origin, maybe_block)
     verify {
         ensure!(maybe_block == PendingPipExpiry::<T>::get(), "incorrect PendingPipExpiry");
@@ -233,7 +231,7 @@ benchmarks! {
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let origin = user.origin();
-    }: propose(origin, proposal, 42.into(), some_url, some_desc)
+    }: propose(origin, proposal, 42u32.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description)?;
     }
@@ -244,10 +242,10 @@ benchmarks! {
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into())?;
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
-        let call = Call::<T>::propose(proposal, 0.into(), some_url, some_desc);
+        let call = Call::<T>::propose(proposal, 0u32.into(), some_url, some_desc);
     }: {
         call.dispatch_bypass_filter(origin)?;
     }
@@ -262,7 +260,7 @@ benchmarks! {
         Module::<T>::propose(
             proposer.origin().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url),
             Some(description)
         )?;
@@ -274,7 +272,7 @@ benchmarks! {
         // Cast an opposite vote.
         let voter = user::<T>("voter", 0);
         identity::CurrentDid::put(voter.did());
-        let voter_deposit = 43.into();
+        let voter_deposit = 43u32.into();
         // Cast an opposite vote.
         Module::<T>::vote(voter.origin().into(), 0, false, voter_deposit)?;
         let origin = voter.origin();
@@ -288,8 +286,8 @@ benchmarks! {
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0.into())?;
-        let propose_call = Call::<T>::propose(proposal, 0.into(), Some(url.clone()), Some(description.clone()));
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into())?;
+        let propose_call = Call::<T>::propose(proposal, 0u32.into(), Some(url.clone()), Some(description.clone()));
         propose_call.dispatch_bypass_filter(proposer_origin)?;
         let origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::approve_committee_proposal(0);
@@ -305,7 +303,7 @@ benchmarks! {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
-        let deposit = 42.into();
+        let deposit = 42u32.into();
         Module::<T>::propose(
             user.origin().into(),
             proposal,
@@ -331,7 +329,7 @@ benchmarks! {
         Module::<T>::propose(
             user.origin().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url),
             Some(description)
         )?;
@@ -354,7 +352,7 @@ benchmarks! {
         Module::<T>::propose(
             user.origin().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;
@@ -363,7 +361,7 @@ benchmarks! {
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
         enact_call.dispatch_bypass_filter(vmo_origin)?;
-        let future_block = frame_system::Module::<T>::block_number() + 100.into();
+        let future_block = frame_system::Module::<T>::block_number() + 100u32.into();
         let origin = user.origin();
     }: _(origin, 0, Some(future_block))
     verify {
@@ -377,7 +375,7 @@ benchmarks! {
         Module::<T>::propose(
             user.origin().into(),
             proposal,
-            42.into(),
+            42u32.into(),
             Some(url.clone()),
             Some(description.clone())
         )?;

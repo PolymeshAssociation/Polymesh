@@ -76,6 +76,7 @@
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 //! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the Compliance Manager.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(bool_to_option, or_patterns, const_option)]
@@ -103,7 +104,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::Counter;
 use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetName, AssetSubTrait, AssetType, FundingRoundName},
+    asset::{AssetFnTrait, AssetSubTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -111,10 +112,12 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
-    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
-    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    asset::{AssetName, AssetType, FundingRoundName},
+    calendar::CheckpointId,
+    migrate::MigrationError,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
+    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -188,6 +191,7 @@ pub trait Trait:
     type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
+    type CPWeightInfo: checkpoint::WeightInfo;
 }
 
 /// Ownership status of a ticker/token.
@@ -1839,7 +1843,7 @@ impl<T: Trait> Module<T> {
 
     /// Is `value` a multiple of "one unit"?
     fn is_unit_multiple(value: T::Balance) -> bool {
-        value % ONE_UNIT.into() == 0.into()
+        value % ONE_UNIT.into() == 0u32.into()
     }
 
     /// Accept and process a ticker transfer.
@@ -1942,7 +1946,7 @@ impl<T: Trait> Module<T> {
         let selector = hex!("D1140AC9");
         let balance = |did| {
             T::Balance::encode(&match did {
-                None => 0.into(),
+                None => 0u32.into(),
                 Some(did) => {
                     let scope_id = Self::scope_id_of(ticker, &did);
                     // Using aggregate balance instead of individual identity balance.
@@ -2015,7 +2019,7 @@ impl<T: Trait> Module<T> {
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> (ExecResult, Gas) {
-        <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data)
+        <pallet_contracts::Module<T>>::bare_call(from, dest, 0u32.into(), gas_limit, data)
     }
 
     /// RPC: Function allows external users to know wether the transfer extrinsic

@@ -1,5 +1,11 @@
 {
     "types": {
+        "AccountInfo": "AccountInfoWithRefCount",
+        "Address": "IndicesLookupSource",
+        "LookupSource": "IndicesLookupSource",
+        "ValidatorPrefsBlocked": {
+            "commission": "Compact<Perbill>"
+        },
         "IdentityId": "[u8; 32]",
         "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
@@ -881,10 +887,6 @@
                 "Exists": "",
                 "CddVerified": ""
             }
-        },
-        "IssueAssetItem": {
-            "identity_did": "IdentityId",
-            "value": "Balance"
         },
         "PortfolioName": "Text",
         "PortfolioNumber": "u64",

@@ -8,10 +8,10 @@ use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity as identity;
-use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AssetIdentifier, Claim, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId, Scope,
-    Ticker,
+    asset::AssetType, AssetIdentifier, Claim, IdentityId, InvestorUid, InvestorZKProofData,
+    PortfolioId, Scope, Ticker,
 };
 
 use core::convert::TryFrom;

@@ -29,15 +29,12 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    asset::{AssetType, FundingRoundName},
-    constants::*,
-    protocol_fee::ProtocolOp,
-    traits::balances::Memo,
-    traits::CddAndFeeDetails as _,
+    constants::*, protocol_fee::ProtocolOp, traits::balances::Memo, traits::CddAndFeeDetails as _,
     SystematicIssuers,
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
+    asset::{AssetType, FundingRoundName},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
@@ -2451,10 +2448,15 @@ fn classic_ticker_claim_works() {
             assert_eq!(alice_did, Tickers::<TestStorage>::get(ticker).owner);
             assert!(matches!(
                 &*System::events(),
-                [.., frame_system::EventRecord {
-                    event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
-                    ..
-                }]
+                [
+                    ..,
+                    frame_system::EventRecord {
+                        event: super::storage::EventTest::asset(
+                            pallet_asset::RawEvent::ClassicTickerClaimed(..)
+                        ),
+                        ..
+                    }
+                ]
             ));
         }
 
@@ -2463,7 +2465,8 @@ fn classic_ticker_claim_works() {
             let asset = name.try_into().unwrap();
             let ticker = ticker(name);
             let signer = Origin::signed(acc);
-            let ret = Asset::create_asset(signer, asset, ticker, 1, true, <_>::default(), vec![], None);
+            let ret =
+                Asset::create_asset(signer, asset, ticker, 1, true, <_>::default(), vec![], None);
             assert_balance(acc, bal_after, 0);
             ret
         };
@@ -2480,9 +2483,15 @@ fn classic_ticker_claim_works() {
         // Now `DELTA` has expired as well. Bob registers it, so its not classic anymore and fee is charged.
         let (bob_acc, _) = focus_user(AccountKeyring::Bob, 0);
         assert!(ClassicTickers::get(&ticker("DELTA")).is_some());
-        assert_ok!(Asset::register_ticker(Origin::signed(bob_acc), ticker("DELTA")));
+        assert_ok!(Asset::register_ticker(
+            Origin::signed(bob_acc),
+            ticker("DELTA")
+        ));
         assert_eq!(ClassicTickers::get(&ticker("DELTA")), None);
-        assert_noop!(create(bob_acc, "DELTA", 0), FeeError::InsufficientAccountBalance);
+        assert_noop!(
+            create(bob_acc, "DELTA", 0),
+            FeeError::InsufficientAccountBalance
+        );
 
         // Repeat for `EPSILON`, but directly `create_asset` instead.
         let (charlie_acc, charlie_did) = focus_user(AccountKeyring::Charlie, 2 * fee);
@@ -2501,7 +2510,10 @@ fn classic_ticker_claim_works() {
             AuthorizationData::TransferTicker(zeta),
             None,
         );
-        assert_ok!(Asset::accept_ticker_transfer(Origin::signed(charlie_acc), auth_id_alice));
+        assert_ok!(Asset::accept_ticker_transfer(
+            Origin::signed(charlie_acc),
+            auth_id_alice
+        ));
         assert_eq!(ClassicTickers::get(&zeta), None);
         assert_ok!(create(charlie_acc, "ZETA", 0 * fee));
         assert_eq!(ClassicTickers::get(&zeta), None);

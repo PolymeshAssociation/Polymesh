@@ -1,7 +1,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
-use pallet_asset::{self as asset, checkpoint};
+use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -375,7 +375,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
@@ -650,6 +650,7 @@ impl asset::Trait for Runtime {
     type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
 }
 
 parameter_types! {
@@ -856,7 +857,7 @@ construct_runtime!(
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
     }
 );
 
@@ -1277,6 +1278,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_sto, Sto);
+            add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
@@ -1295,6 +1297,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_staking, Staking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

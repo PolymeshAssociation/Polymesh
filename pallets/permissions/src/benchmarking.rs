@@ -1,9 +1,8 @@
 use crate::*;
 
-use polymesh_primitives::{DispatchableName, PalletName};
-
 use frame_benchmarking::benchmarks;
 use frame_support::ensure;
+use polymesh_primitives::{DispatchableName, PalletName};
 use sp_std::{iter, prelude::*};
 
 const MAX_PALLET_NAME_LENGTH: u32 = 512;

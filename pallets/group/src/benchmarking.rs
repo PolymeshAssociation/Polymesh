@@ -90,7 +90,7 @@ benchmarks_instance! {
     disable_member {
         let members = make_members::<T,I>(MAX_MEMBERS);
         let target = members.last().unwrap().clone();
-        let expiry_at = Some(200.into());
+        let expiry_at = Some(200u32.into());
     }: _(RawOrigin::Root, target, expiry_at, None)
     verify {
         assert_eq!( Module::<T,I>::get_members().contains(&target), false);

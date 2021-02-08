@@ -20,105 +20,93 @@
 
 use crate::Module as Staking;
 use crate::*;
-use polymesh_common_utilities::identity::IdentityFnTrait;
-use polymesh_primitives::InvestorUid;
-
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
 };
 use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
+use sp_runtime::DispatchError;
 
 const SEED: u32 = 0;
 
 /// Grab a funded user with the given balance.
-pub fn create_funded_user_with_balance<T: Trait>(
-    string: &'static str,
-    n: u32,
-    balance: BalanceOf<T>,
-) -> T::AccountId {
-    let user = account(string, n, SEED);
-    T::Currency::make_free_balance_be(&user, balance);
+pub fn create_funded_user<T: Trait>(string: &'static str, n: u32, balance: u32) -> User<T> {
+    let user = UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .generate_did()
+        .build(string);
     // ensure T::CurrencyToVote will work correctly.
-    T::Currency::issue(balance);
+    T::Currency::issue(balance.into());
     user
 }
 
-/// Grab a funded user.
-pub fn create_funded_user<T: Trait>(
-    string: &'static str,
+pub fn create_stash_controller_with_balance<T: Trait>(
     n: u32,
-    balance_factor: u32,
-) -> T::AccountId {
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
-    create_funded_user_with_balance::<T>(string, n, balance)
-}
-
-/// Grab a funded users with a given balance and its DID is also generated.
-pub fn create_funded_user_with_did<T: Trait>(
-    string: &'static str,
-    n: u32,
-    balance: BalanceOf<T>,
-) -> T::AccountId {
-    let user = create_funded_user_with_balance::<T>(string, n, balance.into());
-
-    let uid = InvestorUid::from(string);
-    T::IdentityFn::register_did(user.clone(), uid, vec![]).expect("Identity cannot be registered");
-    let did = T::IdentityFn::get_identity(&user).expect("Identity cannot be loaded");
-    PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
-
-    user
-}
-
-/// Create a stash and controller pair.
-pub fn create_stash_controller<T: Trait>(
-    n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
-    create_stash_controller_with_balance::<T>(n, amount)
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    let (s, c) = create_stash_controller::<T>(n, balance)?;
+    let _ = T::Balances::make_free_balance_be(&c.account(), balance.into());
+    T::Currency::issue(balance.into());
+    Ok((s, c))
 }
 
 /// Create a stash and controller pair.
 /// Both accounts are created with the given balance and with DID.
-pub fn create_stash_controller_with_balance<T: Trait>(
+pub fn create_stash_controller<T: Trait>(
     n: u32,
-    balance: BalanceOf<T>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user_with_did::<T>("stash", n, balance);
-    let controller = create_funded_user_with_did::<T>("controller", n, balance);
-    let controller_lookup: <T::Lookup as StaticLookup>::Source =
-        T::Lookup::unlookup(controller.clone());
-    let reward_destination = RewardDestination::Staked;
-    Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
-        controller_lookup,
-        balance.into(),
-        reward_destination,
-    )?;
-    return Ok((stash, controller));
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    _create_stash_controller::<T>(n, balance, RewardDestination::Staked, false)
 }
 
-/// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
-/// This is used to test worst case payout scenarios.
-pub fn create_stash_and_dead_controller<T: Trait>(
+pub fn create_stash_with_dead_controller<T: Trait>(
     n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    // controller has no funds
-    let controller = create_funded_user::<T>("controller", n, 0);
-    let controller_lookup: <T::Lookup as StaticLookup>::Source =
-        T::Lookup::unlookup(controller.clone());
-    let reward_destination = RewardDestination::Controller;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    balance: u32,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    _create_stash_controller::<T>(n, balance, RewardDestination::Controller, true)
+}
+
+fn _create_stash_controller<T: Trait>(
+    n: u32,
+    balance: u32,
+    reward_destination: RewardDestination<T::AccountId>,
+    dead: bool,
+) -> Result<(User<T>, User<T>), DispatchError> {
+    let stash = create_funded_user::<T>("stash", n, balance);
+    let controller = if dead {
+        let acc: T::AccountId = account("controller", n, 100);
+        User {
+            account: acc.clone(),
+            origin: RawOrigin::Signed(acc),
+            did: None,
+            secret: None,
+            uid: None,
+        }
+    } else {
+        UserBuilder::<T>::default()
+            .balance(balance)
+            .seed(n)
+            .build("controller")
+    };
+    // Attach the controller key as the secondary key to the stash.
+    let auth_id = <identity::Module<T>>::add_auth(
+        stash.did(),
+        Signatory::Account(controller.account()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    );
+    <identity::Module<T>>::join_identity_as_key(controller.origin().into(), auth_id)?;
+    let controller_lookup = controller.lookup();
     Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
+        stash.origin().into(),
         controller_lookup,
-        amount,
+        (balance / 10u32).into(),
         reward_destination,
     )?;
     return Ok((stash, controller));
@@ -130,16 +118,28 @@ pub fn create_validators<T: Trait>(
     balance_factor: u32,
 ) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
     let mut validators: Vec<<T::Lookup as StaticLookup>::Source> = Vec::with_capacity(max as usize);
+    emulate_validator_setup::<T>(1, 10, Perbill::from_percent(50));
     for i in 0..max {
         let (stash, controller) = create_stash_controller::<T>(i, balance_factor)?;
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
         };
-        Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
-        let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(stash);
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))
+            .expect("Failed to add permissioned validator");
+        Staking::<T>::validate(controller.origin().into(), validator_prefs)?;
+        let stash_lookup = stash.lookup();
         validators.push(stash_lookup);
     }
     Ok(validators)
+}
+
+pub fn emulate_validator_setup<T: Trait>(min_bond: u32, validator_count: u32, cap: Perbill) {
+    Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), min_bond.into())
+        .expect("Failed to set the min bond threshold");
+    Staking::<T>::set_validator_count(RawOrigin::Root.into(), validator_count)
+        .expect("Failed to set the validator count");
+    Staking::<T>::set_commission_cap(RawOrigin::Root.into(), cap)
+        .expect("Failed to set the validator commission cap");
 }
 
 /// This function generates validators and nominators who are randomly nominating
@@ -164,7 +164,7 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
     let mut validators_stash: Vec<<T::Lookup as StaticLookup>::Source> =
         Vec::with_capacity(validators as usize);
     let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
-
+    emulate_validator_setup::<T>(1, 10, Perbill::from_percent(50));
     // Create validators
     for i in 0..validators {
         let balance_factor = if randomize_stake {
@@ -176,13 +176,10 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
         };
-        Staking::<T>::validate(
-            RawOrigin::Signed(v_controller.clone()).into(),
-            validator_prefs,
-        )?;
-        let stash_lookup: <T::Lookup as StaticLookup>::Source =
-            T::Lookup::unlookup(v_stash.clone());
-        validators_stash.push(stash_lookup.clone());
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
+            .expect("Failed to add permissioned validator");
+        Staking::<T>::validate(v_controller.origin().into(), validator_prefs)?;
+        validators_stash.push(v_stash.lookup());
     }
 
     let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
@@ -208,10 +205,7 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
             let validator = available_validators.remove(selected);
             selected_validators.push(validator);
         }
-        Staking::<T>::nominate(
-            RawOrigin::Signed(n_controller.clone()).into(),
-            selected_validators,
-        )?;
+        Staking::<T>::nominate(n_controller.origin().into(), selected_validators)?;
     }
 
     ValidatorCount::put(validators);
