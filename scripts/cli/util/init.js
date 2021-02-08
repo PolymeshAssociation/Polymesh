@@ -488,8 +488,8 @@ async function sendTx(signer, tx) {
   let passed;
 
   try {
-  const result = await sendTransaction(tx, signer, nonceObj);
-   passed = result.findRecord("system", "ExtrinsicSuccess");
+    const result = await sendTransaction(tx, signer, nonceObj);
+    passed = result.findRecord("system", "ExtrinsicSuccess");
   } finally {
     nonces.set(signer.address, nonces.get(signer.address).addn(1));
   }

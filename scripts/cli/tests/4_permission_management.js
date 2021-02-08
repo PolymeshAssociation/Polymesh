@@ -11,86 +11,55 @@ process.exitCode = 1;
 async function main() {
 
   const api = await reqImports.createApi();
-
   const ticker = await reqImports.generateRandomTicker(api);
-
   const portfolioName = await reqImports.generateRandomTicker(api);
-
-  let primary_dev_seed = await reqImports.generateRandomKey(api);
-  
-  let secondary_dev_seed = await reqImports.generateRandomKey(api);
-
   const testEntities = await reqImports.initMain(api);
-
   const alice = testEntities[0];
 
-  let primary_keys = await reqImports.generateKeys(api, 1, primary_dev_seed );
-
-  let secondary_keys = await reqImports.generateKeys(api, 1, secondary_dev_seed );
-  
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+  let secondary_dev_seed = await reqImports.generateRandomKey(api);
+  let primary_keys = await reqImports.generateKeys(api, 1, primary_dev_seed);
+  let secondary_keys = await reqImports.generateKeys(api, 1, secondary_dev_seed);
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, alice);
-
   let extrinsics = [];
   let portfolios = [];
   let assets = [];
   let documents = [];
   
-  await reqImports.distributePolyBatch( api, [primary_keys[0]], reqImports.transfer_amount, alice );
-  
+  await reqImports.distributePolyBatch(api, [primary_keys[0]], reqImports.transfer_amount, alice);
   await reqImports.issueTokenPerDid(api, [primary_keys[0]], ticker, 1000000, null);
-  
-  await addSecondaryKeys( api, primary_keys, secondary_keys );
-  
-  await reqImports.authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys);
-  
-  await reqImports.distributePolyBatch( api, [secondary_keys[0]], reqImports.transfer_amount, alice );
+  await addSecondaryKeys(api, primary_keys, secondary_keys);
+  await reqImports.authorizeJoinToIdentities(api, primary_keys, issuer_dids, secondary_keys);
+  await reqImports.distributePolyBatch(api, [secondary_keys[0]], reqImports.transfer_amount, alice);
 
   let portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
-
   assert.equal(portfolioOutput, false);
 
   setExtrinsic(extrinsics, "Portfolio", "create_portfolio");
-
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
-
   portfolioOutput = await createPortfolio(api, portfolioName, secondary_keys[0]);
-
   assert.equal(portfolioOutput, true);
 
   setExtrinsic(extrinsics, "Portfolio", "move_portfolio_funds");
-
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
-
   let portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
-
   assert.equal(portfolioFundsOutput, false);
 
   await setPortfolio(api, portfolios, primary_keys[0], null);
-
   await setPortfolio(api, portfolios, secondary_keys[0], "user");
-
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
-
   portfolioFundsOutput = await movePortfolioFunds(api, primary_keys[0], secondary_keys[0], ticker, 100);
-
   assert.equal(portfolioFundsOutput, true);
 
   setExtrinsic(extrinsics, "Asset", "add_documents");
-  
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
-
   setDoc(documents, "www.google.com", 0, "google", null, null);
-
   let addDocsOutput = await addDocuments(api, ticker, documents, secondary_keys[0]);
-
   assert.equal(addDocsOutput, false);
 
   setAsset(ticker, assets);
-
   await setPermissionToSigner(api, primary_keys, secondary_keys, extrinsics, portfolios, assets);
-
   addDocsOutput = await addDocuments(api, ticker, documents, secondary_keys[0]);
-
   assert.equal(addDocsOutput, true);
 
   if (reqImports.fail_count > 0) {
@@ -124,13 +93,9 @@ async function addDocuments(api, ticker, docs, signer) {
 }
 
 async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amount) {
-  try {
-    
-    
+  try {   
     const primaryKeyDid = await reqImports.getDid(api, primary_key);
-    
     const secondaryKeyDid = await reqImports.getDid(api, secondary_key);
-    
     const portfolioNum = (await nextPortfolioNumber(api, secondaryKeyDid)) - 1;
 
     const from = {
@@ -151,9 +116,7 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
     ]
     
     const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
-    
     await reqImports.sendTx(secondary_key, transaction);
-    
     return true;
     } catch (err) {
       return false;
@@ -168,29 +131,21 @@ async function setPortfolio(api, portfolioArray, key, type) {
   let keyDid = await reqImports.getDid(api, key);
 
   switch(type) {
-
-    case 'user':
-      
+    case 'user': 
       const portfolioNum = (await nextPortfolioNumber(api, keyDid)) - 1;
-
       let userPortfolio = {
         did: keyDid,
         kind: {User: portfolioNum}
       };
-
       portfolioArray.push(userPortfolio);
     break;
-
     default:
-
       let defaultPortfolio = {
         did: keyDid,
         kind: 'Default'
       };
-
       portfolioArray.push(defaultPortfolio);
     break;
-
   }
 }
 
@@ -203,7 +158,6 @@ function setExtrinsic(extrinsicArray, palletName, dispatchName) {
 }
 
 async function setPermissionToSigner(api, accounts, secondary_accounts, extrinsic, portfolio, asset) {
-
   const permissions = {
     "asset": asset,
     "extrinsic": extrinsic,
@@ -220,7 +174,6 @@ async function setPermissionToSigner(api, accounts, secondary_accounts, extrinsi
 
 // Attach a secondary key to each DID
 async function addSecondaryKeys(api, accounts, secondary_accounts) {
-
   const emptyPermissions =
   {
     "asset": [],
@@ -230,7 +183,6 @@ async function addSecondaryKeys(api, accounts, secondary_accounts) {
 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Secondary Item to identity.
-
     const transaction = api.tx.identity.addAuthorization({ Account: secondary_accounts[i].publicKey }, { JoinIdentity: emptyPermissions }, null);
     let tx = await reqImports.sendTx(accounts[i], transaction);
     if(tx !== -1) reqImports.fail_count--;
@@ -238,10 +190,9 @@ async function addSecondaryKeys(api, accounts, secondary_accounts) {
 }
 
 async function createPortfolio(api, name, signer) {
-
   try {
-  const transaction = api.tx.portfolio.createPortfolio(name);
-  await reqImports.sendTx(signer, transaction);
+    const transaction = api.tx.portfolio.createPortfolio(name);
+    await reqImports.sendTx(signer, transaction);
   return true;
   } catch (err) {
     return false;
