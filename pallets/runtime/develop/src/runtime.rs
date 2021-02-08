@@ -148,6 +148,12 @@ parameter_types! {
     // TODO: Introduce some structure to tie these together to make it a bit less of a footgun.
     // This should be easy, since OneSessionHandler trait provides the `Key` as an associated type. #2858
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
+
+    // Contracts:
+    pub const TombstoneDeposit: Balance = 0;
+    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
+    pub const RentDepositOffset: Balance = 300 * DOLLARS;
+    pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -247,32 +253,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-}
-
-parameter_types! {
-    pub const TombstoneDeposit: Balance = 0;
-    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
-    pub const RentDepositOffset: Balance = 300 * DOLLARS;
-    pub const SurchargeReward: Balance = 150 * DOLLARS;
-}
-
-impl pallet_contracts::Trait for Runtime {
-    type Time = Timestamp;
-    type Randomness = RandomnessCollectiveFlip;
-    type Currency = Balances;
-    type Event = Event;
-    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
-    type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
-    type RentPayment = ();
-    type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
-    type TombstoneDeposit = TombstoneDeposit;
-    type StorageSizeOffset = pallet_contracts::DefaultStorageSizeOffset;
-    type RentByteFee = RentByteFee;
-    type RentDepositOffset = RentDepositOffset;
-    type SurchargeReward = SurchargeReward;
-    type MaxDepth = pallet_contracts::DefaultMaxDepth;
-    type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
-    type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
