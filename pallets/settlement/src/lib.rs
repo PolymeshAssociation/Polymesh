@@ -220,7 +220,7 @@ impl<BlockNumber> Default for SettlementType<BlockNumber> {
     }
 }
 
-/// Details about an instruction.
+/// Details of an instruction.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Instruction<Moment, BlockNumber> {
     /// Unique instruction id. It is an auto incrementing number.
@@ -239,40 +239,43 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Details of a leg including the leg id in the instruction.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum Leg<Balance> {
-    NonConfidentialLeg(NonConfidentialLeg<Balance>),
-    ConfidentialLeg(ConfidentialLeg),
-    Undefined,
-}
-
-impl<Balance> Default for Leg<Balance> {
-    fn default() -> Self {
-        Leg::Undefined
-    }
-}
-
-/// Details of a leg including the leg id in the instruction
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct NonConfidentialLeg<Balance> {
+/// A confidential or non-confidential leg together with its sender and receiver.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, PartialOrd, Ord)]
+pub struct Leg<Balance> {
     /// Portfolio of the sender.
     pub from: PortfolioId,
     /// Portfolio of the receiver.
     pub to: PortfolioId,
+    /// Part of the leg which depends on whether the leg is confidential or not.
+    pub kind: LegKind,
+}
+
+/// Information in a leg specific to whether the leg is confidential or not.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, PartialOrd, Ord)]
+pub enum LegKind {
+    NonConfidential(NonConfidentialLeg<Balance>),
+    Confidential(ConfidentialLeg),
+    Undefined,
+}
+
+impl<Balance> Default for LegKind<Balance> {
+    fn default() -> Self {
+        LegKind::Undefined
+    }
+}
+
+/// Details of a non-confidential leg.
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct NonConfidentialLeg<Balance> {
     /// Ticker of the asset being transferred.
     pub asset: Ticker,
     /// Amount being transferred.
     pub amount: Balance,
 }
 
-/// Details of a confidential leg including the leg id in the instruction.
+/// Details of a confidential leg.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ConfidentialLeg {
-    /// Portfolio of the sender.
-    pub from: PortfolioId,
-    /// Portfolio of the receiver.
-    pub to: PortfolioId,
     /// Portfolio of the mediator.
     pub mediator: PortfolioId,
     /// Mercat account id of the sender.
@@ -436,19 +439,6 @@ decl_event!(
 decl_error! {
     /// Errors for the Settlement module.
     pub enum Error for Module<T: Trait> {
-        /// Error during the decoding base64 values.
-        DecodeBase64Error,
-        /// We only support one confidential transfer per instruction at the moment.
-        MoreThanOneConfidentialLeg,
-        /// Certain transfer modes are not yet supported in confidential modes.
-        ConfidentialModeNotSupportedYet,
-        /// Transaction proof failed to verify.
-        /// Failed to maintain confidential transaction's ordering state.
-        InvalidMercatOrderingState,
-        /// Undefined leg type.
-        UndefinedLeg,
-        /// Confidential legs do not have asset and amounts.
-        ConfidentialLegDoesNotHaveAssetAndAmount,
         /// Venue does not exist.
         InvalidVenue,
         /// Sender does not have required permissions.
@@ -495,8 +485,25 @@ decl_error! {
         FailedToSchedule,
         /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
         LegCountTooSmall,
-        /// Only `Leg::NonConfidentialLeg` is allowed leg type for the receipt functionality.
-        InvalidLegType,
+        /// Error during the decoding base64 values.
+        DecodeBase64Error,
+        /// We only support one confidential transfer per instruction at the moment.
+        MoreThanOneConfidentialLeg,
+        /// Certain transfer modes are not yet supported in confidential modes.
+        ConfidentialModeNotSupportedYet,
+        /// Transaction proof failed to verify.
+        /// Failed to maintain confidential transaction's ordering state.
+        InvalidMercatOrderingState,
+        /// Undefined leg type.
+        UndefinedLegKind,
+        /// Confidential legs do not have assets or amounts.
+        ConfidentialLegHasNoAssetOrAmount,
+        /// Only `LegKind::NonConfidential` has receipt functionality.
+        InvalidLegKind,
+        /// The MERCAT transfer proof is invalid.
+        InvalidMercatTransferProof,
+        /// The number of MERCAT authorizations is insufficient.
+        InsufficientMercatAuthorizations,
     }
 }
 
@@ -707,7 +714,7 @@ decl_module! {
         /// * `data` - MERCAT payload to include for the instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to authorize for this instruction.
         #[weight = <T as Trait>::WeightInfo::affirm_confidential_instruction()]
-        pub fn affirm_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn affirm_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
@@ -922,7 +929,11 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn lock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
+        if let LegKind::NonConfidential(kind) = leg.kind {
+            T::Portfolio::lock_tokens(&leg.from, &kind.asset, &kind.amount)
+        } else {
+            Err(Error::<T>::InvalidLegKind.into())
+        }
     }
 
     fn unlock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
@@ -944,20 +955,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn leg_asset_and_amount(leg: &Leg<T::Balance>) -> Result<(Ticker, T::Balance), DispatchError> {
-        match leg {
-            Leg::NonConfidentialLeg(leg) => Ok((leg.asset, leg.amount)),
-            Leg::ConfidentialLeg(_) => {
-                Err(Error::<T>::ConfidentialLegDoesNotHaveAssetAndAmount.into())
-            }
-            Leg::Undefined => Err(Error::<T>::UndefinedLeg.into()),
-        }
-    }
-
-    fn leg_from_to(leg: &Leg<T::Balance>) -> Result<(PortfolioId, PortfolioId), DispatchError> {
-        match leg {
-            Leg::ConfidentialLeg(leg) => Ok((leg.from, leg.to)),
-            Leg::NonConfidentialLeg(leg) => Ok((leg.from, leg.to)),
-            Leg::Undefined => Err(Error::<T>::UndefinedLeg.into()),
+        match leg.kind {
+            LegKind::NonConfidential(kind) => Ok((kind.asset, kind.amount)),
+            LegKind::Confidential(_) => Err(Error::<T>::ConfidentialLegHasNoAssetOrAmount.into()),
+            LegKind::Undefined => Err(Error::<T>::UndefinedLegKind.into()),
         }
     }
 
@@ -993,19 +994,18 @@ impl<T: Trait> Module<T> {
         let mut tickers = BTreeSet::new();
         // This is done to create a list of unique CP and tickers involved in the instruction.
         for leg in &legs {
-            let (from, to) = Self::leg_from_to(&leg)?;
-            ensure!(from != to, Error::<T>::SameSenderReceiver);
-            counter_parties.insert(from);
-            counter_parties.insert(to);
-            match leg {
-                Leg::ConfidentialLeg(c_leg) => {
+            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
+            match leg.info {
+                LegKind::Confidential(c_leg) => {
                     // Mediator is added as a counter_party, so that we can wait for its authorization.
                     counter_parties.insert(c_leg.mediator);
                 }
-                Leg::NonConfidentialLeg(nc_leg) => {
+                LegKind::NonConfidential(nc_leg) => {
                     tickers.insert(nc_leg.asset);
                 }
-                Leg::Undefined => return Err(Error::<T>::UndefinedLeg.into()),
+                LegKind::Undefined => return Err(Error::<T>::UndefinedLegKind.into()),
             }
         }
 
@@ -1104,11 +1104,11 @@ impl<T: Trait> Module<T> {
                 }
                 LegStatus::ExecutionPending => {
                     // Tokens are unlocked, need to be unlocked.
-                    match leg_details {
-                        Leg::NonConfidentialLeg(_) => {
+                    match leg_details.kind {
+                        LegKind::NonConfidential(_) => {
                             Self::unlock_via_leg(&leg_details)?;
                         }
-                        Leg::ConfidentialLeg(leg) => {
+                        LegKind::Confidential(kind) => {
                             // Confidential legs do not need locking/unlocking.
                             // Transaction has failed update the sender's pending state.
                             let tx_data = &Self::mercat_tx_data(instruction_id)[0];
@@ -1123,7 +1123,7 @@ impl<T: Trait> Module<T> {
                                     if let Ok(init_tx) = tx {
                                         <ConfidentialAsset<T>>::add_failed_outgoing_balance(
                                             &leg.from.did,
-                                            &leg.from_account_id,
+                                            &kind.from_account_id,
                                             init_tx.memo.enc_amount_using_sender,
                                         )?;
                                     }
@@ -1131,7 +1131,7 @@ impl<T: Trait> Module<T> {
                                 _ => return Err(Error::<T>::InvalidMercatOrderingState.into()),
                             };
                         }
-                        Leg::Undefined => return Err(Error::<T>::UndefinedLeg.into()),
+                        LegKind::Undefined => return Err(Error::<T>::UndefinedLegKind.into()),
                     }
                 }
                 LegStatus::PendingTokenLock => {
@@ -1244,10 +1244,9 @@ impl<T: Trait> Module<T> {
             }
 
             enum FailureReason {
-                BaseTransfer,
                 BaseConfidentialTransfer,
                 InsufficientMercatAuthorizations,
-                UndefinedLeg,
+                UndefinedLegKind,
             }
 
             if result.is_ok() {
@@ -1256,20 +1255,17 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         matches!(status, LegStatus::ExecutionPending)
                     }) {
-                        match leg_details {
-                            Leg::NonConfidentialLeg(leg) => {
-                                if <Asset<T>>::base_transfer(
+                        match leg_details.kind {
+                            LegKind::NonConfidential(kind) => {
+                                <Asset<T>>::base_transfer(
                                     leg_details.from,
                                     leg_details.to,
-                                    &leg_details.asset,
-                                    leg_details.amount,
+                                    &kind.asset,
+                                    kind.amount,
                                 )
-                                .is_err()
-                                {
-                                    return Err(leg_id);
-                                }
+                                .map_err(|_| leg_id)?;
                             }
-                            Leg::ConfidentialLeg(leg) => {
+                            LegKind::Confidential(kind) => {
                                 let decoded_justified_tx = Self::get_mercat_tx_data(instruction_id)
                                     .map_err(|_| {
                                         (leg_id, FailureReason::InsufficientMercatAuthorizations)
@@ -1277,9 +1273,9 @@ impl<T: Trait> Module<T> {
 
                                 let result = <ConfidentialAsset<T>>::base_confidential_transfer(
                                     &leg.from.did,
-                                    &leg.from_account_id,
+                                    &kind.from_account_id,
                                     &leg.to.did,
-                                    &leg.to_account_id,
+                                    &kind.to_account_id,
                                     &decoded_justified_tx,
                                     instruction_id,
                                 );
@@ -1291,7 +1287,7 @@ impl<T: Trait> Module<T> {
                                 }
                             }
                             Leg::Undefined => {
-                                return Err((leg_id, FailureReason::UndefinedLeg));
+                                return Err((leg_id, FailureReason::UndefinedLegKind));
                             }
                         }
                     }
@@ -1303,7 +1299,7 @@ impl<T: Trait> Module<T> {
                             instruction_id,
                         ));
                     }
-                    Err((leg_id, _reason)) => {
+                    Err((leg_id, reason)) => {
                         Self::deposit_event(RawEvent::LegFailedExecution(
                             SettlementDID.as_id(),
                             instruction_id,
@@ -1315,15 +1311,15 @@ impl<T: Trait> Module<T> {
                         ));
                         // We need to unclaim receipts for the failed transaction so that they can be reused
                         Self::unsafe_unclaim_receipts(instruction_id, &legs);
-                        result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-                        // TODO (MESH-1330): Once latest develop has merged with the mercat branch, create new errors for these reasons,
-                        //       and set the result.
-                        // match reason {
-                        //     FailureReason::BaseTransfer => Err(DispatchError::from(Error::<T>::TODONewError)),
-                        //     FailureReason::ConfidentialTransfer => Err(DispatchError::from(Error::<T>::InvalidMercatTransferProof)),
-                        //     FailureReason::InsufficientMercatAuthorizations => Err(DispatchError::from(Error::<T>::TODONewError)),
-                        //     FailureReason::UndefinedLeg => Err(DispatchError::from(Error::<T>::UndefinedLeg)),
-                        // }
+                        result = Err(DispatchError::from(match reason {
+                            FailureReason::ConfidentialTransfer => {
+                                Error::<T>::InvalidMercatTransferProof
+                            }
+                            FailureReason::InsufficientMercatAuthorizations => {
+                                Error::<T>::InsufficientMercatAuthorizations
+                            }
+                            FailureReason::UndefinedLegKind => Error::<T>::UndefinedLegKind,
+                        }));
                     }
                 }
             }
@@ -1344,14 +1340,12 @@ impl<T: Trait> Module<T> {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in legs {
-            let mut push_to = |from, to| {
-                counter_parties.push(from);
-                counter_parties.push(to);
-            };
-            match leg {
-                Leg::NonConfidentialLeg(leg) => push_to(leg.from, leg.to),
-                Leg::ConfidentialLeg(leg) => push_to(leg.from, leg.to),
-                Leg::Undefined => {}
+            match leg.kind {
+                LegKind::NonConfidential(_) | LegKind::Confidential(_) => {
+                    counter_parties.push(leg.from);
+                    counter_parties.push(leg.to);
+                }
+                LegKind::Undefined => {}
             }
         }
         counter_parties.sort();
@@ -1380,17 +1374,17 @@ impl<T: Trait> Module<T> {
         let (total_leg_count, filtered_legs) =
             Self::filtered_legs(instruction_id, &portfolios, max_legs_count)?;
         with_transaction(|| {
-            for (leg_id, leg_details) in filter_legs {
-                match leg_details {
-                    Leg::NonConfidentialLeg(_) => {
+            for (leg_id, leg_details) in filtered_legs {
+                match leg_details.kind {
+                    LegKind::NonConfidential(_) => {
                         if let Err(_) = Self::lock_via_leg(&leg_details) {
                             // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                             return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
                         }
                     }
-                    Leg::ConfidentialLeg(_) => {}
-                    Leg::Undefined => {
-                        return Err(DispatchError::from(Error::<T>::UndefinedLeg));
+                    LegKind::Confidential(_) => {}
+                    LegKind::Undefined => {
+                        return Err(DispatchError::from(Error::<T>::UndefinedLegKind));
                     }
                 }
 
@@ -1451,7 +1445,6 @@ impl<T: Trait> Module<T> {
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
         let (asset, amount) = Self::leg_asset_and_amount(&leg)?;
-        let (from, to) = Self::leg_from_to(&leg)?;
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
@@ -1515,16 +1508,8 @@ impl<T: Trait> Module<T> {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
-                    // must've locked these tokens when instruction was authorized.
-                    match leg_details {
-                        Leg::NonConfidentialLeg(NonConfidentialLeg {
-                            from,
-                            asset,
-                            amount,
-                            ..
-                        }) => {
-                            T::Portfolio::unlock_tokens(from, asset, amount).ok();
-                        }
+                    // must've locked these tokens when instruction was affirmed.
+                    match leg_details.kind {
                         Leg::NonConfidentialLeg(_) => {
                             let _ = Self::unlock_via_leg(&leg_details);
                         }
@@ -1571,12 +1556,11 @@ impl<T: Trait> Module<T> {
 
     fn count_confidential_legs(legs: &Vec<Leg<T::Balance>>) -> usize {
         legs.iter()
-            .filter(|leg| match leg {
-                Leg::ConfidentialLeg(_) => true,
+            .filter(|leg| match leg.kind {
+                LegKind::Confidential(_) => true,
                 _ => false,
             })
-            .collect::<Vec<&Leg<T::Balance>>>()
-            .len()
+            .count()
     }
 
     pub fn base_affirm_with_receipts(
@@ -1623,28 +1607,28 @@ impl<T: Trait> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            if let Leg::NonConfidentialLeg(nc_leg) =
-                Self::instruction_legs(&instruction_id, &receipt.leg_id)
-            {
-                ensure!(
-                    portfolios_set.contains(&nc_leg.from),
-                    Error::<T>::PortfolioMismatch
-                );
+            let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
+            match leg.kind {
+                LegKind::NonConfidential(kind) => {
+                    ensure!(
+                        portfolios_set.contains(&leg.from),
+                        Error::<T>::PortfolioMismatch
+                    );
 
-                let msg = Receipt {
-                    receipt_uid: receipt.receipt_uid,
-                    from: nc_leg.from,
-                    to: nc_leg.to,
-                    asset: nc_leg.asset,
-                    amount: nc_leg.amount,
-                };
+                    let msg = Receipt {
+                        receipt_uid: receipt.receipt_uid,
+                        from: leg.from,
+                        to: leg.to,
+                        asset: kind.asset,
+                        amount: kind.amount,
+                    };
 
-                ensure!(
-                    receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-                    Error::<T>::InvalidSignature
-                );
-            } else {
-                return Err(Error::<T>::InvalidLegType.into());
+                    ensure!(
+                        receipt.signature.verify(&msg.encode()[..], &receipt.signer),
+                        Error::<T>::InvalidSignature
+                    );
+                }
+                _ => return Err(Error::<T>::InvalidLegKind.into()),
             }
         }
 
@@ -1653,7 +1637,7 @@ impl<T: Trait> Module<T> {
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
-                if let Leg::NonConfidentialLeg(leg) = leg_details {
+                if let LegKind::NonConfidential(_) = leg_details.kind {
                     // Receipt for the leg was provided
                     if let Some(receipt) = receipt_details
                         .iter()

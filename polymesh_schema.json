@@ -996,22 +996,23 @@
             }
         },
         "NonConfidentialLeg": {
-            "from": "PortfolioId",
-            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
         "ConfidentialLeg": {
-            "from": "PortfolioId",
-            "to": "PortfolioId",
             "mediator": "PortfolioId",
             "from_account_id": "MercatAccountId",
             "to_account_id": "MercatAccountId"
         },
         "Leg": {
+            "from": "PortfolioId",
+            "to": "PortfolioId",
+            "kind": "LegKind"
+        },
+        "LegKind": {
             "_enum": {
-                "NonConfidentialLeg": "NonConfidentialLeg",
-                "ConfidentialLeg": "ConfidentialLeg",
+                "NonConfidential": "NonConfidentialLeg",
+                "Confidential": "ConfidentialLeg",
                 "Undefined": ""
             }
         },
