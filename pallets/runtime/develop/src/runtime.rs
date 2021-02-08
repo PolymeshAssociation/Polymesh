@@ -37,9 +37,7 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
-    constants::currency::*,
-    protocol_fee::ProtocolOp,
-    traits::{identity::Trait as IdentityTrait, PermissionChecker},
+    constants::currency::*, protocol_fee::ProtocolOp, traits::PermissionChecker,
 };
 use polymesh_primitives::{
     AccountId, Authorization, AuthorizationType, Balance, BlockNumber, IdentityId, Index, Moment,
@@ -361,43 +359,11 @@ impl pallet_grandpa::Trait for Runtime {
         pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
 }
 
-impl pallet_authority_discovery::Trait for Runtime {}
-
 parameter_types! {
+    // Finality tracker:
     pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
     pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
-}
 
-impl pallet_finality_tracker::Trait for Runtime {
-    type OnFinalizationStalled = ();
-    type WindowSize = WindowSize;
-    type ReportLatency = ReportLatency;
-}
-
-impl pallet_sudo::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
-}
-
-impl multisig::Trait for Runtime {
-    type Event = Event;
-    type Scheduler = Scheduler;
-    type SchedulerCall = Call;
-    type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
-}
-
-impl bridge::Trait for Runtime {
-    type Event = Event;
-    type Proposal = Call;
-    type Scheduler = Scheduler;
-}
-
-impl portfolio::Trait for Runtime {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
-}
-
-parameter_types! {
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: usize = 1024;
@@ -420,25 +386,6 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-}
-
-impl IdentityTrait for Runtime {
-    type Event = Event;
-    type Proposal = Call;
-    type MultiSig = MultiSig;
-    type Portfolio = Portfolio;
-    type CddServiceProviders = CddServiceProviders;
-    type Balances = balances::Module<Runtime>;
-    type ChargeTxFeeTarget = TransactionPayment;
-    type CddHandler = CddHandler;
-    type Public = <MultiSignature as Verify>::Signer;
-    type OffChainSignature = MultiSignature;
-    type ProtocolFee = protocol_fee::Module<Runtime>;
-    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateAction;
-    type IdentityFn = identity::Module<Runtime>;
-    type SchedulerOrigin = OriginCaller;
 }
 
 polymesh_runtime_common::misc2!();

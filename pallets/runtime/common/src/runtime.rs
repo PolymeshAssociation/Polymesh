@@ -214,6 +214,56 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 #[macro_export]
 macro_rules! misc2 {
     () => {
+        impl pallet_authority_discovery::Trait for Runtime {}
+
+        impl pallet_finality_tracker::Trait for Runtime {
+            type OnFinalizationStalled = ();
+            type WindowSize = WindowSize;
+            type ReportLatency = ReportLatency;
+        }
+
+        impl pallet_sudo::Trait for Runtime {
+            type Event = Event;
+            type Call = Call;
+        }
+
+        impl pallet_multisig::Trait for Runtime {
+            type Event = Event;
+            type Scheduler = Scheduler;
+            type SchedulerCall = Call;
+            type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
+        }
+
+        impl pallet_bridge::Trait for Runtime {
+            type Event = Event;
+            type Proposal = Call;
+            type Scheduler = Scheduler;
+        }
+
+        impl pallet_portfolio::Trait for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
+        }
+
+        impl polymesh_common_utilities::traits::identity::Trait for Runtime {
+            type Event = Event;
+            type Proposal = Call;
+            type MultiSig = MultiSig;
+            type Portfolio = Portfolio;
+            type CddServiceProviders = CddServiceProviders;
+            type Balances = pallet_balances::Module<Runtime>;
+            type ChargeTxFeeTarget = TransactionPayment;
+            type CddHandler = CddHandler;
+            type Public = <MultiSignature as Verify>::Signer;
+            type OffChainSignature = MultiSignature;
+            type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
+            type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+            type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+            type CorporateAction = CorporateAction;
+            type IdentityFn = pallet_identity::Module<Runtime>;
+            type SchedulerOrigin = OriginCaller;
+        }
+
         impl pallet_asset::Trait for Runtime {
             type Event = Event;
             type Currency = Balances;
