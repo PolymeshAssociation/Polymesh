@@ -238,6 +238,13 @@ macro_rules! misc2 {
             type WeightPrice = pallet_transaction_payment::Module<Self>;
         }
 
+        impl pallet_compliance_manager::Trait for Runtime {
+            type Event = Event;
+            type Asset = Asset;
+            type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
+            type MaxConditionComplexity = MaxConditionComplexity;
+        }
+
         impl pallet_corporate_actions::Trait for Runtime {
             type Event = Event;
             type MaxTargetIds = MaxTargetIds;

@@ -435,14 +435,22 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
+    // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
-}
 
-impl compliance_manager::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
-    type MaxConditionComplexity = MaxConditionComplexity;
+    // Contracts:
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
+
+    // Corporate Actions:
+    pub const MaxTargetIds: u32 = 1000;
+    pub const MaxDidWhts: u32 = 1000;
+
+    // Statistics:
+    pub const MaxTransferManagersPerAsset: u32 = 3;
+
+    // Scheduler:
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 impl IdentityTrait for Runtime {
@@ -462,22 +470,6 @@ impl IdentityTrait for Runtime {
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
-}
-
-parameter_types! {
-    // Contracts:
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
-
-    // Corporate Actions:
-    pub const MaxTargetIds: u32 = 1000;
-    pub const MaxDidWhts: u32 = 1000;
-
-    // Statistics:
-    pub const MaxTransferManagersPerAsset: u32 = 3;
-
-    // Scheduler:
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
-    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 polymesh_runtime_common::misc2!();
