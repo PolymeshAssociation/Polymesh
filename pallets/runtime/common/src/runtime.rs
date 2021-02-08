@@ -207,7 +207,8 @@ macro_rules! misc1 {
 }
 
 /// Voting majority origin for `Instance`.
-pub type VMO<Instance> = pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
+pub type VMO<Instance> =
+    pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
 
 pub type GovernanceCommittee = pallet_committee::Instance1;
 
@@ -288,7 +289,8 @@ macro_rules! misc2 {
             type Randomness = RandomnessCollectiveFlip;
             type Currency = Balances;
             type Event = Event;
-            type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
+            type DetermineContractAddress =
+                polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
             type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
             type RentPayment = ();
             type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
@@ -367,7 +369,8 @@ macro_rules! misc2 {
 
             type KeyOwnerProofSystem = Historical;
 
-            type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::Proof;
+            type KeyOwnerProof =
+                <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::Proof;
 
             type KeyOwnerIdentification =
                 <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::IdentificationTuple;
@@ -403,7 +406,9 @@ macro_rules! misc2 {
         where
             Call: From<LocalCall>,
         {
-            fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+            fn create_transaction<
+                C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+            >(
                 call: Call,
                 public: <Signature as Verify>::Signer,
                 account: AccountId,
@@ -453,6 +458,354 @@ macro_rules! misc2 {
         {
             type Extrinsic = UncheckedExtrinsic;
             type OverarchingCall = Call;
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! runtime_apis {
+    ($($extra:item)*) => {
+        impl_runtime_apis! {
+            impl sp_api::Core<Block> for Runtime {
+                fn version() -> RuntimeVersion {
+                    VERSION
+                }
+
+                fn execute_block(block: Block) {
+                    Executive::execute_block(block)
+                }
+
+                fn initialize_block(header: &<Block as BlockT>::Header) {
+                    Executive::initialize_block(header)
+                }
+            }
+
+            impl sp_api::Metadata<Block> for Runtime {
+                fn metadata() -> OpaqueMetadata {
+                    Runtime::metadata().into()
+                }
+            }
+
+            impl sp_block_builder::BlockBuilder<Block> for Runtime {
+                fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+                    Executive::apply_extrinsic(extrinsic)
+                }
+
+                fn finalize_block() -> <Block as BlockT>::Header {
+                    Executive::finalize_block()
+                }
+
+                fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+                    data.create_extrinsics()
+                }
+
+                fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+                    data.check_extrinsics(&block)
+                }
+
+                fn random_seed() -> <Block as BlockT>::Hash {
+                    RandomnessCollectiveFlip::random_seed()
+                }
+            }
+
+            impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+                fn validate_transaction(
+                    source: TransactionSource,
+                    tx: <Block as BlockT>::Extrinsic,
+                ) -> TransactionValidity {
+                    Executive::validate_transaction(source, tx)
+                }
+            }
+
+            impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
+                fn offchain_worker(header: &<Block as BlockT>::Header) {
+                    Executive::offchain_worker(header)
+                }
+            }
+
+            impl fg_primitives::GrandpaApi<Block> for Runtime {
+                fn grandpa_authorities() -> GrandpaAuthorityList {
+                    Grandpa::grandpa_authorities()
+                }
+
+                fn submit_report_equivocation_unsigned_extrinsic(
+                    equivocation_proof: fg_primitives::EquivocationProof<
+                        <Block as BlockT>::Hash,
+                        NumberFor<Block>,
+                    >,
+                    key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+                ) -> Option<()> {
+                    let key_owner_proof = key_owner_proof.decode()?;
+
+                    Grandpa::submit_unsigned_equivocation_report(
+                        equivocation_proof,
+                        key_owner_proof,
+                    )
+                }
+
+                fn generate_key_ownership_proof(
+                    _set_id: fg_primitives::SetId,
+                    authority_id: GrandpaId,
+                ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+                    use codec::Encode;
+
+                    Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                        .map(|p| p.encode())
+                        .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+                }
+            }
+
+            impl sp_consensus_babe::BabeApi<Block> for Runtime {
+                fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
+                    // The choice of `c` parameter (where `1 - c` represents the
+                    // probability of a slot being empty), is done in accordance to the
+                    // slot duration and expected target block time, for safely
+                    // resisting network delays of maximum two seconds.
+                    // <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+                    sp_consensus_babe::BabeGenesisConfiguration {
+                        slot_duration: Babe::slot_duration(),
+                        epoch_length: EpochDuration::get(),
+                        c: PRIMARY_PROBABILITY,
+                        genesis_authorities: Babe::authorities(),
+                        randomness: Babe::randomness(),
+                        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+                    }
+                }
+
+                fn current_epoch_start() -> sp_consensus_babe::SlotNumber {
+                    Babe::current_epoch_start()
+                }
+
+                fn generate_key_ownership_proof(
+                    _slot_number: sp_consensus_babe::SlotNumber,
+                    authority_id: sp_consensus_babe::AuthorityId,
+                ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
+                    use codec::Encode;
+
+                    Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
+                        .map(|p| p.encode())
+                        .map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
+                }
+
+                fn submit_report_equivocation_unsigned_extrinsic(
+                    equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
+                    key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
+                ) -> Option<()> {
+                    let key_owner_proof = key_owner_proof.decode()?;
+
+                    Babe::submit_unsigned_equivocation_report(
+                        equivocation_proof,
+                        key_owner_proof,
+                    )
+                }
+            }
+
+            impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+                fn authorities() -> Vec<AuthorityDiscoveryId> {
+                    AuthorityDiscovery::authorities()
+                }
+            }
+
+            impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
+                fn account_nonce(account: AccountId) -> Index {
+                    System::account_nonce(account)
+                }
+            }
+
+            impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+                for Runtime
+            {
+                fn call(
+                    origin: AccountId,
+                    dest: AccountId,
+                    value: Balance,
+                    gas_limit: u64,
+                    input_data: Vec<u8>,
+                ) -> ContractExecResult {
+                    let (exec_result, gas_consumed) =
+                    BaseContracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+                    match exec_result {
+                        Ok(v) => ContractExecResult::Success {
+                            flags: v.flags.bits(),
+                            data: v.data,
+                            gas_consumed: gas_consumed,
+                        },
+                        Err(_) => ContractExecResult::Error,
+                    }
+                }
+
+                fn get_storage(
+                    address: AccountId,
+                    key: [u8; 32],
+                ) -> pallet_contracts_primitives::GetStorageResult {
+                    BaseContracts::get_storage(address, key)
+                }
+
+                fn rent_projection(
+                    address: AccountId,
+                ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
+                    BaseContracts::rent_projection(address)
+                }
+            }
+
+            impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
+                Block,
+                Balance,
+                UncheckedExtrinsic,
+            > for Runtime {
+                fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
+                    TransactionPayment::query_info(uxt, len)
+                }
+            }
+
+            impl sp_session::SessionKeys<Block> for Runtime {
+                fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+                    SessionKeys::generate(seed)
+                }
+
+                fn decode_session_keys(
+                    encoded: Vec<u8>,
+                ) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
+                    SessionKeys::decode_into_raw_public_keys(&encoded)
+                }
+            }
+
+            impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
+                fn get_curve() -> Vec<(Perbill, Perbill)> {
+                    Staking::get_curve()
+                }
+            }
+
+            impl node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+            for Runtime
+            {
+                /// Get vote count for a given proposal index
+                fn get_votes(index: u32) -> VoteCount<Balance> {
+                    Pips::get_votes(index)
+                }
+
+                /// Proposals voted by `address`
+                fn proposed_by(address: AccountId) -> Vec<u32> {
+                    Pips::proposed_by(pallet_pips::Proposer::Community(address))
+                }
+
+                /// Proposals `address` voted on
+                fn voted_on(address: AccountId) -> Vec<u32> {
+                    Pips::voted_on(address)
+                }
+
+                /// Retrieve PIPs voted on information by `address` account.
+                fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
+                    Pips::voting_history_by_address(address)
+
+                }
+
+                /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
+                fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
+                    Pips::voting_history_by_id(id)
+                }
+            }
+
+            impl pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
+                Block,
+            > for Runtime {
+                fn compute_fee(op: ProtocolOp) -> CappedFee {
+                    ProtocolFee::compute_fee(&[op]).into()
+                }
+            }
+
+            impl
+                node_rpc_runtime_api::identity::IdentityApi<
+                    Block,
+                    IdentityId,
+                    Ticker,
+                    AccountId,
+                    SecondaryKey<AccountId>,
+                    Signatory<AccountId>,
+                    Moment
+                > for Runtime
+            {
+                /// RPC call to know whether the given did has valid cdd claim or not
+                fn is_identity_has_valid_cdd(did: IdentityId, leeway: Option<u64>) -> CddStatus {
+                    Identity::fetch_cdd(did, leeway.unwrap_or_default())
+                        .ok_or_else(|| "Either cdd claim is expired or not yet provided to give identity".into())
+                }
+
+                /// RPC call to query the given ticker did
+                fn get_asset_did(ticker: Ticker) -> AssetDidResult {
+                    Identity::get_asset_did(ticker)
+                        .map_err(|_| "Error in computing the given ticker error".into())
+                }
+
+                /// Retrieve primary key and secondary keys for a given IdentityId
+                fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
+                    Identity::get_did_records(did)
+                }
+
+                /// Retrieve the status of the DIDs
+                fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+                    Identity::get_did_status(dids)
+                }
+
+                fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>> {
+                    Identity::get_key_identity_data(acc)
+                }
+
+                /// Retrieve list of a authorization for a given signatory
+                fn get_filtered_authorizations(
+                    signatory: Signatory<AccountId>,
+                    allow_expired: bool,
+                    auth_type: Option<AuthorizationType>
+                ) -> Vec<Authorization<AccountId, Moment>> {
+                    Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
+                }
+            }
+
+            impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
+                #[inline]
+                fn can_transfer(
+                    _sender: AccountId,
+                    from_custodian: Option<IdentityId>,
+                    from_portfolio: PortfolioId,
+                    to_custodian: Option<IdentityId>,
+                    to_portfolio: PortfolioId,
+                    ticker: &Ticker,
+                    value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
+                {
+                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                        .map_err(|msg| msg.as_bytes().to_vec())
+                }
+            }
+
+            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+                for Runtime
+            {
+                #[inline]
+                fn can_transfer(
+                    ticker: Ticker,
+                    from_did: Option<IdentityId>,
+                    to_did: Option<IdentityId>,
+                ) -> AssetComplianceResult
+                {
+                    ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+                }
+            }
+
+            impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+                fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+                    merge_active_and_inactive::<Block>(
+                        CddServiceProviders::active_members(),
+                        CddServiceProviders::inactive_members())
+                }
+
+                fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+                    merge_active_and_inactive::<Block>(
+                        CommitteeMembership::active_members(),
+                        CommitteeMembership::inactive_members())
+                }
+            }
+
+            $($extra)*
         }
     }
 }
