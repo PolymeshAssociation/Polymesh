@@ -20,9 +20,11 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_sto as sto;
+use pallet_testnet as testnet;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -680,6 +682,8 @@ impl IdentityTrait for Runtime {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateAction;
     type IdentityFn = identity::Module<Runtime>;
+    #[cfg(feature = "testnet")]
+    type TestnetFn = testnet::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
 }
 
@@ -774,6 +778,12 @@ impl pallet_scheduler::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
+impl testnet::Trait for Runtime {
+    type Event = Event;
+    #[cfg(feature = "testnet")]
+    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -858,6 +868,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        Testnet: testnet::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 
@@ -1297,6 +1308,8 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            #[cfg(feature = "testnet")]
+            add_benchmark!(params, batches, pallet_testnet, Testnet);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

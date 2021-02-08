@@ -4,6 +4,7 @@ use super::{
 };
 use pallet_balances as balances;
 use pallet_identity as identity;
+use pallet_testnet as testnet;
 use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
 use polymesh_runtime_develop::{runtime, Runtime};
 
@@ -45,10 +46,8 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.public();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::Identity(identity::Call::register_did(
-                InvestorUid::default(),
-                vec![],
-            ));
+            let call =
+                runtime::Call::Testnet(testnet::Call::register_did(InvestorUid::default(), vec![]));
 
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -83,10 +82,8 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(
-                InvestorUid::default(),
-                vec![],
-            ));
+            let call =
+                runtime::Call::Testnet(testnet::Call::register_did(InvestorUid::default(), vec![]));
             let len = 10;
             let alice_id = AccountKeyring::Alice.to_account_id();
             assert!(

@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 # Our pallets
 polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-common-utilities = { path = "../../pallets/common", default-features = false }
 pallet-compliance-manager = { path = "../../pallets/compliance-manager", default-features = false }
 pallet-pips = { path = "../../pallets/pips", default-features = false }
 pallet-portfolio = { path = "../../pallets/portfolio", default-features = false }
@@ -29,11 +30,13 @@ serde_json = "1.0.41"
 
 [features]
 default = ["std"]
+testnet = ["polymesh-common-utilities/testnet"]
 std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-compliance-manager/std",
+    "polymesh-common-utilities/std",
     "pallet-identity/std",
     "pallet-pips/std",
     "pallet-portfolio/std",

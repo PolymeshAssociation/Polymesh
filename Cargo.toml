@@ -47,6 +47,7 @@ members = [
     "pallets/treasury",
     "pallets/utility",
     "pallets/contracts",
+    "pallets/testnet",
     "node-rpc",
     "pallets/weights",
     "primitives",
@@ -144,15 +145,22 @@ serde = { version = "1.0.104", default-features = false }
 vergen = "3.1.0"
 
 [features]
-default = ["std"]
+default = ["std","testnet"]
 running-ci = [
     "polymesh-runtime-develop/running-ci"
 ]
 default_identity = [
-    "polymesh-common-utilities/default_identity"
+    "polymesh-common-utilities/default_identity",
+    "testnet"
 ]
 runtime-benchmarks = [
-    "polymesh-runtime-develop/runtime-benchmarks"
+    "polymesh-runtime-develop/runtime-benchmarks",
+    "testnet"
+]
+testnet = [
+    "polymesh-runtime-develop/testnet",
+    "polymesh-runtime-testnet/testnet",
+    "polymesh-common-utilities/testnet"
 ]
 std = [
     "serde/std",

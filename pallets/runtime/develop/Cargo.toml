@@ -40,6 +40,7 @@ pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
+pallet-testnet = { path = "../../testnet", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -99,6 +100,12 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
+testnet = [
+    "polymesh-common-utilities/testnet",
+    "pallet-staking/testnet",
+    "pallet-testnet/testnet",
+    "polymesh-weights/testnet",
+]
 no_std = [
     "pallet-confidential/no_std",
     "pallet-confidential/u64_backend",
@@ -152,6 +159,7 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
+    "pallet-testnet/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
@@ -205,6 +213,7 @@ runtime-benchmarks = [
     "pallet-timestamp/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
+    "pallet-testnet/runtime-benchmarks",
     "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
@@ -215,4 +224,5 @@ running-ci = [
     "pallet-statistics/running-ci",
     "pallet-pips/running-ci",
     "pallet-identity/running-ci",
+    "pallet-testnet/running-ci",
 ]

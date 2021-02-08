@@ -18,6 +18,8 @@ use crate::{runtime, Runtime};
 use pallet_bridge as bridge;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+#[cfg(feature = "testnet")]
+use pallet_testnet as testnet;
 
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
@@ -81,7 +83,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         match call {
             // Register did call. This should be removed before mainnet launch and
             // all did registration should go through CDD
-            Call::Identity(identity::Call::register_did(..)) => Ok(Some(caller.clone())),
+            #[cfg(feature = "testnet")]
+            Call::Testnet(testnet::Call::register_did(..)) => Ok(Some(caller.clone())),
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing multisig that has a valid CDD. The auth should be valid.
             Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
@@ -115,7 +118,6 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 bridge::Call::propose_bridge_tx(..) | bridge::Call::batch_propose_bridge_tx(..),
             ) => handle_multisig(&Bridge::controller_key(), caller),
             // All other calls.
-            //
             // The external account must directly be linked to an identity with valid CDD.
             _ => match Identity::get_identity(caller) {
                 Some(did) if Identity::has_valid_cdd(did) => {
@@ -140,7 +142,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         Context::set_current_payer::<Identity>(payer);
     }
 
-    /// Fetches fee payer for further payments (forwarded calls)
+    /// Fetches fee payer for further payements (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }

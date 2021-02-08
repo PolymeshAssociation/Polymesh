@@ -34,6 +34,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
+use pallet_testnet as testnet;
 use polymesh_common_utilities::{
     constants::currency::POLY,
     traits::{
@@ -221,6 +222,7 @@ impl_outer_event! {
         identity<T>,
         group Instance2<T>,
         pallet_scheduler<T>,
+        pallet_testnet<T>,
     }
 }
 
@@ -388,6 +390,7 @@ impl IdentityTrait for Test {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
+    type TestnetFn = testnet::Module<Test>;
     type SchedulerOrigin = OriginCaller;
 }
 
@@ -405,6 +408,11 @@ impl pallet_scheduler::Trait for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+}
+
+impl pallet_testnet::Trait for Test {
+    type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -999,6 +1007,7 @@ pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
 pub type Scheduler = pallet_scheduler::Module<Test>;
+pub type Testnet = pallet_testnet::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1621,7 +1630,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = Testnet::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

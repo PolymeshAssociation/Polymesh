@@ -7,14 +7,6 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl pallet_identity::WeightInfo for WeightInfo {
-    fn register_did(i: u32) -> Weight {
-        (1_314_848_000 as Weight)
-            .saturating_add((52_299_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-    }
     fn cdd_register_did(i: u32) -> Weight {
         (265_141_000 as Weight)
             .saturating_add((50_433_000 as Weight).saturating_mul(i as Weight))
@@ -22,11 +14,6 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
             .saturating_add(DbWeight::get().writes(3 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-    }
-    fn mock_cdd_register_did() -> Weight {
-        (1_208_967_000 as Weight)
-            .saturating_add(DbWeight::get().reads(17 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
     fn invalidate_cdd_claims() -> Weight {
         (149_596_000 as Weight)

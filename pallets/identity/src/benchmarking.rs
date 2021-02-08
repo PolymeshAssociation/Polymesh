@@ -18,7 +18,7 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{uid_from_name_and_idx, User, UserBuilder},
+    benchs::{User, UserBuilder},
     traits::identity::TargetIdAuthorization,
 };
 use polymesh_primitives::{
@@ -67,7 +67,7 @@ fn setup_investor_uniqueness_claim<T: Trait>(
     (user, conf_scope_claim, inv_proof)
 }
 
-fn generate_secondary_keys<T: Trait>(
+pub fn generate_secondary_keys<T: Trait>(
     n: usize,
 ) -> Vec<secondary_key::api::SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);
@@ -95,16 +95,6 @@ use limits::*;
 benchmarks! {
     _ {}
 
-    register_did {
-        // Number of secondary items.
-        let i in 0 .. MAX_SECONDARY_KEYS;
-
-        let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
-        let caller = UserBuilder::<T>::default().build("caller");
-        let uid = uid_from_name_and_idx("caller", SEED);
-        let secondary_keys = generate_secondary_keys::<T>(i as usize);
-    }: _(caller.origin, uid, secondary_keys)
-
     cdd_register_did {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
@@ -113,11 +103,6 @@ benchmarks! {
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
-
-    mock_cdd_register_did {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
-        let target: T::AccountId = account("target", SEED, SEED);
-    }: _(cdd.origin, target)
 
     invalidate_cdd_claims {
         // NB: This function loops over all cdd claims issued by the cdd provider.

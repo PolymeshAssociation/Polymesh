@@ -21,7 +21,8 @@
 use crate::Module as Staking;
 use crate::*;
 use polymesh_common_utilities::identity::IdentityFnTrait;
-use polymesh_primitives::InvestorUid;
+#[cfg(feature = "testnet")]
+use polymesh_common_utilities::TestnetFn;
 
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
@@ -65,8 +66,13 @@ pub fn create_funded_user_with_did<T: Trait>(
 ) -> T::AccountId {
     let user = create_funded_user_with_balance::<T>(string, n, balance.into());
 
-    let uid = InvestorUid::from(string);
-    T::IdentityFn::register_did(user.clone(), uid, vec![]).expect("Identity cannot be registered");
+    #[cfg(feature = "testnet")]
+    {
+        let uid = polymesh_primitives::InvestorUid::from(string);
+        T::TestnetFn::register_did(user.clone(), uid, vec![])
+            .expect("Identity cannot be registered");
+    }
+
     let did = T::IdentityFn::get_identity(&user).expect("Identity cannot be loaded");
     PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
 

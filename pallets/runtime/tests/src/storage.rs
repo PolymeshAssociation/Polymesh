@@ -33,8 +33,10 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_sto as sto;
+use pallet_testnet as testnet;
 use pallet_treasury as treasury;
 use pallet_utility;
+
 use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
@@ -139,6 +141,7 @@ impl_outer_event! {
         capital_distributions<T>,
         checkpoint<T>,
         statistics,
+        testnet<T>,
     }
 }
 
@@ -474,6 +477,7 @@ impl IdentityTrait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
+    type TestnetFn = testnet::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
 }
 
@@ -700,6 +704,11 @@ impl pallet_scheduler::Trait for TestStorage {
     type WeightInfo = ();
 }
 
+impl pallet_testnet::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -723,6 +732,7 @@ pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 pub type Settlement = pallet_settlement::Module<TestStorage>;
+pub type Testnet = pallet_testnet::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
@@ -794,7 +804,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = Testnet::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
