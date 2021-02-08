@@ -8,8 +8,7 @@ use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{
     self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier, MAX_TIERS,
 };
-use polymesh_common_utilities::asset::AssetType;
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{asset::AssetType, IdentityId, PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};

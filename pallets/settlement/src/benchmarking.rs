@@ -26,9 +26,10 @@ use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
     benchs::{self, generate_ticker, user, User, UserBuilder},
     constants::currency::POLY,
-    traits::asset::{AssetFnTrait, AssetName, AssetType},
+    traits::asset::AssetFnTrait,
 };
 use polymesh_primitives::{
+    asset::{AssetName, AssetType},
     Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
 };

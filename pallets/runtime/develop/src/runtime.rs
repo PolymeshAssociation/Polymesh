@@ -377,7 +377,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
@@ -1308,6 +1308,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_staking, Staking);
             #[cfg(feature = "testnet")]
             add_benchmark!(params, batches, pallet_testnet, Testnet);
 

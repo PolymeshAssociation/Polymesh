@@ -1,13 +1,13 @@
 use crate::{
     benchs::User,
     constants::currency::POLY,
-    traits::{
-        asset::{AssetFnTrait, AssetName, AssetType},
-        identity::Trait as IdentityTrait,
-    },
+    traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
 };
 
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{
+    asset::{AssetName, AssetType},
+    Ticker,
+};
 
 use frame_system::RawOrigin;
 use sp_std::{convert::TryFrom, prelude::*};
