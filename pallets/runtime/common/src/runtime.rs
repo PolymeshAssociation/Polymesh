@@ -375,5 +375,23 @@ macro_rules! misc2 {
             type HandleEquivocation =
                 pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
         }
+
+        impl pallet_treasury::Trait for Runtime {
+            type Event = Event;
+            type Currency = Balances;
+            type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
+        }
+
+        impl pallet_settlement::Trait for Runtime {
+            type Event = Event;
+            type MaxLegsInInstruction = MaxLegsInInstruction;
+            type Scheduler = Scheduler;
+            type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
+        }
+
+        impl pallet_sto::Trait for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
+        }
     }
 }

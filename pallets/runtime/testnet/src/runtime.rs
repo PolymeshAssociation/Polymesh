@@ -312,23 +312,6 @@ where
     type OverarchingCall = Call;
 }
 
-impl treasury::Trait for Runtime {
-    type Event = Event;
-    type Currency = Balances;
-    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
-}
-
-impl settlement::Trait for Runtime {
-    type Event = Event;
-    type Scheduler = Scheduler;
-    type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
-}
-
-impl sto::Trait for Runtime {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
-}
-
 parameter_types! {
     // Offences:
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
