@@ -497,7 +497,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
+            let did = Self::ensure_perms_pia(origin, &offering_asset)?.0.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
