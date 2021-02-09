@@ -6,10 +6,9 @@ use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{
-    self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
+    self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier, MAX_TIERS,
 };
-use polymesh_common_utilities::asset::AssetType;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{asset::AssetType, IdentityId, PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
@@ -52,6 +51,15 @@ fn zero_price_sto_ext() {
         .execute_with(zero_price_sto);
 }
 
+#[test]
+fn invalid_fundraiser_ext() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .set_max_legs_allowed(2)
+        .build()
+        .execute_with(invalid_fundraiser);
+}
+
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
     assert_ok!(Asset::create_asset(
         origin,
@@ -74,28 +82,70 @@ fn empty_compliance(origin: Origin, ticker: Ticker) {
     ));
 }
 
-fn raise_happy_path() {
+struct RaiseContext<O> {
+    alice_signed: O,
+    alice_did: IdentityId,
+    alice_portfolio: PortfolioId,
+    bob_signed: O,
+    bob_did: IdentityId,
+    bob_portfolio: PortfolioId,
+    offering_ticker: Ticker,
+    raise_ticker: Option<Ticker>,
+}
+
+fn init_raise_context(
+    offering_supply: u128,
+    raise_supply_opt: Option<u128>,
+) -> RaiseContext<Origin> {
     let (alice_signed, alice_did, alice_portfolio) =
         make_account_with_portfolio(AccountKeyring::Alice.public());
     let (bob_signed, bob_did, bob_portfolio) =
         make_account_with_portfolio(AccountKeyring::Bob.public());
+    let eve = AccountKeyring::Eve.public();
 
     // Register tokens
     let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
-    create_asset(alice_signed.clone(), offering_ticker, 1_000_000);
-    create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
-
-    // Provide scope claim to both the parties of the transaction.
-    let eve = AccountKeyring::Eve.public();
+    create_asset(alice_signed.clone(), offering_ticker, offering_supply);
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
-    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
+
+    let raise_ticker = raise_supply_opt.map(|raise_supply| {
+        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
+        create_asset(alice_signed.clone(), raise_ticker, raise_supply);
+        provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
+        raise_ticker
+    });
+
+    RaiseContext {
+        alice_signed,
+        alice_did,
+        alice_portfolio,
+        bob_signed,
+        bob_did,
+        bob_portfolio,
+        offering_ticker,
+        raise_ticker,
+    }
+}
+
+fn raise_happy_path() {
+    const RAISE_SUPPLY: u128 = 1_000_000;
+    let RaiseContext {
+        alice_signed,
+        alice_did,
+        alice_portfolio,
+        bob_signed,
+        bob_did,
+        bob_portfolio,
+        offering_ticker,
+        raise_ticker,
+    } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
+    let raise_ticker = raise_ticker.unwrap();
 
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        1_000_000
+        RAISE_SUPPLY
     ));
 
     empty_compliance(alice_signed.clone(), offering_ticker);
@@ -357,18 +407,17 @@ fn raise_unhappy_path() {
 }
 
 fn zero_price_sto() {
-    let (alice_signed, alice_did, alice_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Alice.public());
-    let (bob_signed, bob_did, bob_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Bob.public());
-
-    // Register token
-    let ticker = Ticker::try_from(&[b'A'][..]).unwrap();
-    create_asset(alice_signed.clone(), ticker, 1_000_000);
-
-    // Provide scope claim to both the parties of the transaction.
-    let eve = AccountKeyring::Eve.public();
-    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+    let RaiseContext {
+        alice_signed,
+        alice_did,
+        alice_portfolio,
+        bob_signed,
+        bob_did,
+        bob_portfolio,
+        offering_ticker,
+        ..
+    } = init_raise_context(1_000_000, None);
+    let ticker = offering_ticker;
 
     empty_compliance(alice_signed.clone(), ticker);
 
@@ -427,5 +476,74 @@ fn zero_price_sto() {
     assert_eq!(
         Asset::balance_of(&ticker, bob_did),
         bob_init_balance + amount
+    );
+}
+
+fn invalid_fundraiser() {
+    let RaiseContext {
+        alice_signed,
+        alice_portfolio,
+        offering_ticker,
+        raise_ticker,
+        ..
+    } = init_raise_context(1_000_000, Some(1_000_000));
+
+    let venue_counter = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        alice_signed.clone(),
+        VenueDetails::default(),
+        vec![AccountKeyring::Alice.public()],
+        VenueType::Sto
+    ));
+
+    let create_fundraiser_fn = |tiers| {
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            alice_portfolio,
+            offering_ticker,
+            alice_portfolio,
+            raise_ticker.unwrap(),
+            tiers,
+            venue_counter,
+            None,
+            None,
+            0,
+            FundraiserName::default(),
+        )
+    };
+
+    // No tiers
+    let zero_tiers = vec![];
+    assert_noop!(create_fundraiser_fn(zero_tiers), Error::InvalidPriceTiers);
+
+    // Max tiers
+    let max_tiers_pass = (0..MAX_TIERS + 1)
+        .map(|_i| PriceTier::default())
+        .collect::<Vec<_>>();
+    assert_noop!(
+        create_fundraiser_fn(max_tiers_pass),
+        Error::InvalidPriceTiers
+    );
+
+    // price_total = 0
+    let total_0_tiers = (0..MAX_TIERS)
+        .map(|_i| PriceTier::default())
+        .collect::<Vec<_>>();
+    assert_noop!(
+        create_fundraiser_fn(total_0_tiers),
+        Error::InvalidPriceTiers
+    );
+
+    // Total overflow
+    let total_overflow_tiers = vec![
+        PriceTier {
+            total: u128::MAX,
+            price: 1,
+        },
+        PriceTier { total: 1, price: 2 },
+    ];
+    assert_noop!(
+        create_fundraiser_fn(total_overflow_tiers),
+        Error::InvalidPriceTiers
     );
 }

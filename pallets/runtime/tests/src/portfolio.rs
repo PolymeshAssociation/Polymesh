@@ -5,10 +5,10 @@ use super::{
 use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_common_utilities::{asset::AssetType, portfolio::PortfolioSubTrait};
+use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
-    Signatory, Ticker,
+    asset::AssetType, AuthorizationData, AuthorizationError, IdentityId, PortfolioId,
+    PortfolioName, PortfolioNumber, Signatory, Ticker,
 };
 use std::convert::TryFrom;
 use test_client::AccountKeyring;

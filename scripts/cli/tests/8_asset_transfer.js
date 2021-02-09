@@ -22,7 +22,7 @@ async function main() {
 
   await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, primary_keys, ticker);
+  await reqImports.issueTokenPerDid( api, primary_keys, ticker, 1000000, null);
 
   // receiverRules Claim
   await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", { "Ticker": ticker }, null );

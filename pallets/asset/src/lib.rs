@@ -76,6 +76,7 @@
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 //! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the Compliance Manager.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(bool_to_option, or_patterns, const_option)]
@@ -103,7 +104,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::Counter;
 use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetName, AssetSubTrait, AssetType, FundingRoundName},
+    asset::{AssetFnTrait, AssetSubTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -111,10 +112,12 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, migrate::MigrationError, storage_migrate_on, storage_migration_ver,
-    AssetIdentifier, AuthorizationData, Document, DocumentId, IdentityId,
-    MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey, Signatory, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    asset::{AssetName, AssetType, FundingRoundName},
+    calendar::CheckpointId,
+    migrate::MigrationError,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
+    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -148,6 +151,7 @@ pub trait WeightInfo {
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn accept_primary_issuance_agent_transfer() -> Weight;
+    fn controller_transfer() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -187,6 +191,7 @@ pub trait Trait:
     type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
+    type CPWeightInfo: checkpoint::WeightInfo;
 }
 
 /// Ownership status of a ticker/token.
@@ -1053,6 +1058,29 @@ decl_module! {
             };
             ClassicTickers::insert(&classic_ticker_import.ticker, classic_ticker);
         }
+
+        /// Forces a transfer of token from `from_portfolio` to the PIA's default portfolio.
+        /// Only PIA is allowed to execute this.
+        ///
+        /// # Arguments
+        /// * `origin` Must be a PIA for a given ticker.
+        /// * `ticker` Ticker symbol of the asset.
+        /// * `value`  Amount of tokens need to force transfer.
+        /// * `from_portfolio` From whom portfolio tokens gets transferred.
+        #[weight = <T as Trait>::WeightInfo::controller_transfer()]
+        pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, from_portfolio: PortfolioId) {
+            // Ensure that `origin` is the PIA or the token owner.
+            let pia = Self::ensure_pia_with_custody_and_permissions(origin, ticker)?.primary_did;
+
+            // Transfer `value` of ticker tokens from `investor_did` to controller
+            Self::unsafe_transfer(
+                from_portfolio,
+                PortfolioId::default_portfolio(pia),
+                &ticker,
+                value,
+            )?;
+            Self::deposit_event(RawEvent::ControllerTransfer(pia, ticker, from_portfolio, value));
+        }
     }
 }
 
@@ -1072,9 +1100,6 @@ decl_event! {
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
-        /// Event for when a forced redemption takes place.
-        /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
-        ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
@@ -1134,6 +1159,9 @@ decl_event! {
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
+        /// Event for when a forced transfer takes place.
+        /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
+        ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
     }
 }
 
@@ -1211,15 +1239,6 @@ decl_error! {
 }
 
 impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
-    fn _mint_from_sto(
-        ticker: &Ticker,
-        caller: T::AccountId,
-        sender: IdentityId,
-        assets_purchased: T::Balance,
-    ) -> DispatchResult {
-        Self::_mint(ticker, caller, sender, assets_purchased, None)
-    }
-
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::_is_owner(ticker, did)
     }
@@ -1288,6 +1307,26 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     #[inline]
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::register_ticker(origin, ticker)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Adds an artificial IU claim for benchmarks
+    fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
+        Identity::<T>::base_add_claim(
+            did,
+            Claim::InvestorUniqueness(
+                Scope::Ticker(ticker),
+                did,
+                CddId::new(did, InvestorUid::from(did.to_bytes())),
+            ),
+            did,
+            None,
+        );
+        let current_balance = Self::balance_of(ticker, did);
+        <AggregateBalance<T>>::insert(ticker, &did, current_balance);
+        <BalanceOfAtScope<T>>::insert(did, did, current_balance);
+        <ScopeIdOf>::insert(ticker, did, did);
     }
 }
 
@@ -1845,7 +1884,7 @@ impl<T: Trait> Module<T> {
 
     /// Is `value` a multiple of "one unit"?
     fn is_unit_multiple(value: T::Balance) -> bool {
-        value % ONE_UNIT.into() == 0.into()
+        value % ONE_UNIT.into() == 0u32.into()
     }
 
     /// Accept and process a ticker transfer.
@@ -1901,27 +1940,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Forces a transfer between two DIDs.
-    pub fn controller_transfer(
-        origin: T::Origin,
-        ticker: Ticker,
-        value: T::Balance,
-        investor_portfolio_id: PortfolioId,
-    ) -> DispatchResult {
-        let pia = Identity::<T>::ensure_perms(origin)?;
-        // Ensure that `origin` is the PIA or the token owner.
-        Self::ensure_pia(&ticker, pia)?;
-
-        // transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(
-            investor_portfolio_id,
-            PortfolioId::default_portfolio(pia),
-            &ticker,
-            value,
-        )?;
-        Ok(())
-    }
-
     /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
@@ -1969,7 +1987,7 @@ impl<T: Trait> Module<T> {
         let selector = hex!("D1140AC9");
         let balance = |did| {
             T::Balance::encode(&match did {
-                None => 0.into(),
+                None => 0u32.into(),
                 Some(did) => {
                     let scope_id = Self::scope_id_of(ticker, &did);
                     // Using aggregate balance instead of individual identity balance.
@@ -2042,7 +2060,7 @@ impl<T: Trait> Module<T> {
         gas_limit: Gas,
         data: Vec<u8>,
     ) -> (ExecResult, Gas) {
-        <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data)
+        <pallet_contracts::Module<T>>::bare_call(from, dest, 0u32.into(), gas_limit, data)
     }
 
     /// RPC: Function allows external users to know wether the transfer extrinsic

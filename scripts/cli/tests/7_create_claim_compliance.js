@@ -24,7 +24,7 @@ async function main() {
 
   await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, primary_keys, ticker );
+  await reqImports.issueTokenPerDid( api, primary_keys, ticker, 1000000, null);
 
   await createClaimCompliance( api, primary_keys, issuer_dids, ticker );
 

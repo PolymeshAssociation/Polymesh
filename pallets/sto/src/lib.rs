@@ -30,7 +30,6 @@ use codec::{Decode, Encode};
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get,
 };
 use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -53,7 +52,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
-const MAX_TIERS: usize = 10;
+pub const MAX_TIERS: usize = 10;
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
@@ -149,7 +148,7 @@ pub struct FundraiserName(Vec<u8>);
 
 pub trait WeightInfo {
     fn create_fundraiser(i: u32) -> Weight;
-    fn invest(c: u32) -> Weight;
+    fn invest() -> Weight;
     fn freeze_fundraiser() -> Weight;
     fn unfreeze_fundraiser() -> Weight;
     fn modify_fundraiser_window() -> Weight;
@@ -276,14 +275,15 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(offering_portfolio, did, secondary_key.as_ref())?;
 
             ensure!(
-                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total > 0.into()),
+                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total > 0u32.into()),
                 Error::<T>::InvalidPriceTiers
             );
 
             let offering_amount: T::Balance = tiers
                 .iter()
                 .map(|t| t.total)
-                .fold(0.into(), |total, x| total + x);
+                .try_fold(0u32.into(), |total: T::Balance, x| total.checked_add(&x))
+                .ok_or(Error::<T>::InvalidPriceTiers)?;
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
             if let Some(end) = end {
@@ -325,7 +325,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::invest(T::MaxConditionComplexity::get())]
+        #[weight = <T as Trait>::WeightInfo::invest()]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
@@ -360,19 +360,19 @@ decl_module! {
             // Total cost to to fulfil the investment amount.
             // Primary use is to calculate the blended price (offering_token_amount / cost).
             // Blended price must be <= to max_price or the investment will fail.
-            let mut cost = T::Balance::from(0);
+            let mut cost = T::Balance::from(0u32);
 
             // Price is entered as a multiple of 1_000_000
             // i.e. a price of 1 unit is 1_000_000
             // a price of 1.5 units is 1_500_00
-            let price_divisor = T::Balance::from(1_000_000);
+            let price_divisor = T::Balance::from(1_000_000u32);
             // Individual purchases from each tier that accumulate to fulfil the investment amount.
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
 
-            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining > 0.into()) {
+            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining > 0u32.into()) {
                 // fulfilled the investment amount
-                if remaining == 0.into() {
+                if remaining == 0u32.into() {
                     break
                 }
 
@@ -395,7 +395,7 @@ decl_module! {
                     .ok_or(Error::<T>::Overflow)?;
             }
 
-            ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+            ensure!(remaining == 0u32.into(), Error::<T>::InsufficientTokensRemaining);
             ensure!(cost >= fundraiser.minimum_investment, Error::<T>::InvestmentAmountTooLow);
             ensure!(
                 max_price.map(|max_price| cost <= max_price.saturating_mul(purchase_amount) / price_divisor).unwrap_or(true),
@@ -529,7 +529,7 @@ decl_module! {
             let remaining_amount: T::Balance = fundraiser.tiers
                 .iter()
                 .map(|t| t.remaining)
-                .fold(0.into(), |remaining, x| remaining + x);
+                .fold(0u32.into(), |remaining, x| remaining + x);
 
             //TODO(Connor): Should we check portfolio perms here?
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;

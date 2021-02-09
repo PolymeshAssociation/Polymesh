@@ -20,10 +20,10 @@ use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
     ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
 };
-use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
-    Signatory, Ticker,
+    asset::AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
+    PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
@@ -299,7 +299,7 @@ fn create_and_affirm_instruction() {
             // If affirmation fails, the instruction should be rolled back.
             // i.e. this tx should be a no-op.
             assert_noop!(
-                add_and_affirm_tx(user_portfolio_vec(alice_did, 1.into())),
+                add_and_affirm_tx(user_portfolio_vec(alice_did, 1u64.into())),
                 Error::UnexpectedAffirmationStatus
             );
 
@@ -818,8 +818,9 @@ fn claiming_receipt() {
                 asset: ticker,
                 amount: amount,
             };
+            let signature = OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode()));
 
-            assert_noop!(
+            let claim_receipt = |signature, metadata| {
                 Settlement::claim_receipt(
                     alice_signed.clone(),
                     instruction_counter,
@@ -827,12 +828,14 @@ fn claiming_receipt() {
                         receipt_uid: 0,
                         leg_id: 0,
                         signer: AccountKeyring::Alice.public(),
-                        signature: OffChainSignature::from(
-                            AccountKeyring::Alice.sign(&msg.encode())
-                        ),
-                        metadata: ReceiptMetadata::default()
-                    }
-                ),
+                        signature,
+                        metadata,
+                    },
+                )
+            };
+
+            assert_noop!(
+                claim_receipt(signature.clone(), ReceiptMetadata::default()),
                 Error::LegNotPending
             );
             set_current_block_number(4);
@@ -900,37 +903,32 @@ fn claiming_receipt() {
                 asset: ticker,
                 amount: amount,
             };
+            let signature2 = OffChainSignature::from(AccountKeyring::Alice.sign(&msg2.encode()));
 
             assert_noop!(
-                Settlement::claim_receipt(
-                    alice_signed.clone(),
-                    instruction_counter,
-                    ReceiptDetails {
-                        receipt_uid: 0,
-                        leg_id: 0,
-                        signer: AccountKeyring::Alice.public(),
-                        signature: OffChainSignature::from(
-                            AccountKeyring::Alice.sign(&msg2.encode())
-                        ),
-                        metadata: ReceiptMetadata::default()
-                    }
-                ),
+                claim_receipt(signature2, ReceiptMetadata::default()),
                 Error::InvalidSignature
             );
 
             let metadata = ReceiptMetadata::from(vec![42u8]);
+
+            // Can not claim invalidated receipt
+            let change_receipt_validity = |validity| {
+                assert_ok!(Settlement::change_receipt_validity(
+                    alice_signed.clone(),
+                    0,
+                    validity
+                ));
+            };
+            change_receipt_validity(false);
+            assert_noop!(
+                claim_receipt(signature.clone(), metadata.clone()),
+                Error::ReceiptAlreadyClaimed
+            );
+            change_receipt_validity(true);
+
             // Claiming, unclaiming and claiming receipt
-            assert_ok!(Settlement::claim_receipt(
-                alice_signed.clone(),
-                instruction_counter,
-                ReceiptDetails {
-                    receipt_uid: 0,
-                    leg_id: 0,
-                    signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode())),
-                    metadata: metadata.clone()
-                }
-            ));
+            assert_ok!(claim_receipt(signature, metadata.clone()));
 
             assert_eq!(
                 Settlement::receipts_used(AccountKeyring::Alice.public(), 0),

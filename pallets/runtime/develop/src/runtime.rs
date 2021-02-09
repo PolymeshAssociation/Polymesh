@@ -1,10 +1,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use crate::{
-    constants::{fee::*, time::*},
-    fee_details::CddHandler,
-};
+use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
-use pallet_asset::{self as asset, checkpoint};
+use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
 use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
@@ -41,12 +38,13 @@ use polymesh_runtime_common::{
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, AvailableBlockRatio, BlockExecutionWeight, BlockHashCount,
     ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
+    TransactionByteFee, WeightToFee,
 };
 
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+    weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -91,8 +89,6 @@ pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-
-use smallvec::smallvec;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -241,26 +237,6 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
-pub struct WeightToFee;
-impl WeightToFeePolynomial for WeightToFee {
-    type Balance = Balance;
-
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        smallvec![WeightToFeeCoefficient {
-            degree: 1,
-            coeff_frac: Perbill::from_percent(3), // use only 3% of the exact weight value.
-            coeff_integer: 0u128,                 // Coefficient is zero.
-            negative: false,
-        }]
-    }
-}
-
-parameter_types! {
-    pub const TransactionByteFee: Balance = 100 * MILLICENTS;
-    // for a sane configuration, this should always be less than `AvailableBlockRatio`.
-    pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
-}
-
 impl pallet_transaction_payment::Trait for Runtime {
     type Currency = Balances;
     type OnTransactionPayment = DealWithFees;
@@ -399,7 +375,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
@@ -674,6 +650,7 @@ impl asset::Trait for Runtime {
     type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
 }
 
 parameter_types! {
@@ -804,33 +781,39 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        // Must be before session.
         Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
-
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+
+        // Balance: Genesis config dependencies: System.
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+
+        // TransactionPayment: Genesis config dependencies: Balance.
         TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
 
-        // Initialise identity earlier as other configs depend on it
+        // Identity: Genesis config deps: Timestamp.
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-
-        // Consensus frame_support.
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+
+        // CddServiceProviders: Genesis config deps: Identity
+        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+
+        // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
         Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+
+        // Session: Genesis config deps: System.
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
         FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 11,
         Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
         ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
-
         Historical: pallet_session_historical::{Module} = 16,
+
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-
         MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
@@ -840,22 +823,30 @@ construct_runtime!(
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Event<T>} = 21,
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
+
+        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
-
         TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
-        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
 
+        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
         UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+
+        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
         UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
+        ////////////
+
+        // Asset: Genesis config deps: Timestamp,
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+
+        // Bridge: Genesis config deps: Multisig, Identity,
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: sto::{Module, Call, Storage, Event<T>} = 37,
-        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: utility::{Module, Call, Storage, Event} = 41,
@@ -866,7 +857,7 @@ construct_runtime!(
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
     }
 );
 
@@ -1287,6 +1278,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_sto, Sto);
+            add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
@@ -1305,6 +1297,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_staking, Staking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
