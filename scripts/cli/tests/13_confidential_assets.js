@@ -13,7 +13,7 @@ const {
   Account,
   PubAccount,
   decrypt,
-} = require("../../../target/release/build/pkg/mercat_wasm");
+} = require("@polymathnetwork/mercat");
 // TODO This is based on my directory structure.
 //} = require("../../../../cryptography/mercat/wasm/pkg/mercat_wasm");
 
