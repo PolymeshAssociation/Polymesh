@@ -85,7 +85,8 @@ function setDoc(docArray, uri, contentHash, name, docType, filingDate) {
 async function addDocuments(api, ticker, docs, signer) {
   try {
     const transaction = api.tx.asset.addDocuments(docs, ticker);
-    await reqImports.sendTx(signer, transaction);
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
     return true;
   } catch(err) {
     return false;
@@ -116,7 +117,8 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
     ]
     
     const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
-    await reqImports.sendTx(secondary_key, transaction);
+    let tx = await reqImports.sendTx(secondary_key, transaction);
+    if(tx !== -1) reqImports.fail_count--;
     return true;
     } catch (err) {
       return false;
@@ -192,7 +194,8 @@ async function addSecondaryKeys(api, accounts, secondary_accounts) {
 async function createPortfolio(api, name, signer) {
   try {
     const transaction = api.tx.portfolio.createPortfolio(name);
-    await reqImports.sendTx(signer, transaction);
+    let tx = await reqImports.sendTx(signer, transaction);
+    if(tx !== -1) reqImports.fail_count--;
   return true;
   } catch (err) {
     return false;
