@@ -1500,8 +1500,6 @@ decl_module! {
                 StorageVersion::put(Releases::V6_0_0);
             }
 
-            ValidatorCount::put(666);
-
             1_000
         }
 

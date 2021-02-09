@@ -7,7 +7,7 @@ use std::{sync::Mutex, time::Instant};
 extern crate lazy_static;
 
 #[cfg(test)]
-mod staking_tests;
+mod two_five_zero;
 
 struct TestState;
 
