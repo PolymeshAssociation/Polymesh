@@ -182,7 +182,7 @@ decl_event!(
         FundraiserUnfrozen(IdentityId, u64),
         /// A fundraiser window has been modified.
         /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
-        FundraiserModifyWindow(
+        FundraiserWindowModified(
             IdentityId,
             u64,
             Moment,
