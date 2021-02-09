@@ -237,11 +237,7 @@ workflows:
       - benchmark-build
       - lint
       - coverage
-<<<<<<< HEAD
-      - benchmark
       - migration-tests
-=======
       - benchmark:
           requires:
             - benchmark-build
->>>>>>> origin/develop
