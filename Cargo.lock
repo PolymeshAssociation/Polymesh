@@ -4889,6 +4889,7 @@ dependencies = [
 name = "pallet-testnet"
 version = "0.1.0"
 dependencies = [
+ "confidential_identity",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

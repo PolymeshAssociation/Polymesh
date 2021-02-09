@@ -36,7 +36,6 @@ use pallet_sto as sto;
 use pallet_testnet as testnet;
 use pallet_treasury as treasury;
 use pallet_utility;
-
 use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,

@@ -51,5 +51,4 @@ benchmarks! {
         let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(cdd.origin, target)
-
 }

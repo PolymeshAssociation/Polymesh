@@ -1986,7 +1986,7 @@ impl<T: Trait> Module<T> {
     /// - `target_account` (primary key of the new Identity) can be linked to just one and only
     /// one identity.
     /// - External secondary keys can be linked to just one identity.
-    fn base_cdd_register_did(
+    pub fn base_cdd_register_did(
         caller_did: IdentityId,
         target_account: T::AccountId,
         secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,

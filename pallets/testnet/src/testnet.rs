@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_signed, RawOrigin};
-use sp_std::vec::Vec;
+use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -34,11 +34,15 @@ decl_event!(
     where
         AccountId = <T as frame_system::Trait>::AccountId,
     {
-        /// Mocked InvestorUid created.
+        /// A new mocked `InvestorUid` has been created for the given Identity.
+        /// (Target DID, New InvestorUi)
         MockInvestorUIDCreated(IdentityId, InvestorUid),
-        /// DID queried
+        /// Emits the `IdentityId` and the `AccountId` of the caller.
+        /// (Caller DID, Caller account)
         DidStatus(IdentityId, AccountId),
-        /// CDD queried
+        /// Shows the `DID` associated to the `AccountId`, and a flag indicates if that DID has a
+        /// valid CDD claim.
+        /// (Target DID, Target Account, a valid CDD claim exists)
         CddStatus(Option<IdentityId>, AccountId, bool),
     }
 );
@@ -57,8 +61,6 @@ decl_module! {
 
         type Error = Error<T>;
 
-        // Initializing events
-        // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
         /// Register a new did with a CDD claim for the caller.
@@ -94,19 +96,15 @@ decl_module! {
         /// `7_000_000_000
         #[weight = <T as Trait>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
-            /*
-            let cdd_id = Self::ensure_perms(origin)?;
-
-            let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
-
+            let cdd_id = Identity::<T>::ensure_perms(origin)?;
+            let target_did = Identity::<T>::base_cdd_register_did(cdd_id, target_account, vec![])?;
             let target_uid = confidential_identity::mocked::make_investor_uid(target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_uid.clone().into()));
-            Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
+            Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_id, None);
 
             Self::deposit_event(RawEvent::MockInvestorUIDCreated(target_did, target_uid.into()));
-            */
         }
 
         /// Emits an event with caller's identity.

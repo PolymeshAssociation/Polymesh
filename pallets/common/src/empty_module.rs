@@ -51,12 +51,13 @@
 //!         pub fn my_func( origin) {
 //!             // Some code...
 //!         }
-//!
 //! }
 //! ```
 //!
 use frame_support::{decl_event, decl_module, decl_storage};
 use frame_system::Trait as SystemTrait;
+
+use sp_std::marker::PhantomData;
 
 pub trait Trait: SystemTrait {
     type Event: From<Event<Self>> + Into<<Self as SystemTrait>::Event>;
@@ -79,6 +80,6 @@ decl_event!(
         AccountId = <T as SystemTrait>::AccountId,
     {
         /// Dummy event uses just for compatibility with optional modules.
-        Unused(AccountId),
+        Unused(PhantomData<AccountId>),
     }
 );

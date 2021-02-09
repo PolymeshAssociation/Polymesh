@@ -11,6 +11,8 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.1" }
+
 # Others
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -26,8 +28,18 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-
 
 [features]
 default = ["std"]
+
+# Backends
+u32_backend = [ "confidential_identity/u32_backend"]
+u64_backend = [ "confidential_identity/u64_backend"]
+avx2_backend = [ "confidential_identity/avx2_backend"]
+
 testnet = []
 running-ci = []
+
+no_std = [
+    "confidential_identity/no_std"
+]
 std = [
     "codec/std",
     "serde/std",
@@ -39,6 +51,7 @@ std = [
     "polymesh-primitives/std",
     "pallet-identity/std",
     "pallet-permissions/std",
+    "confidential_identity/std",
 ]
 
 runtime-benchmarks = [
