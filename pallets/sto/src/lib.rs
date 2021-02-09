@@ -508,7 +508,7 @@ decl_module! {
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
-                Self::deposit_event(RawEvent::FundraiserModifyWindow(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
+                Self::deposit_event(RawEvent::FundraiserWindowModified(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
                 fundraiser.start = start;
                 fundraiser.end = end;
                 Ok(())
