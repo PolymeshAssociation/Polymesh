@@ -21,10 +21,11 @@ use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{self, User, UserBuilder},
     constants::currency::POLY,
-    traits::asset::AssetName,
 };
 use polymesh_contracts::ExtensionInfo;
-use polymesh_primitives::{ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker};
+use polymesh_primitives::{
+    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker,
+};
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 

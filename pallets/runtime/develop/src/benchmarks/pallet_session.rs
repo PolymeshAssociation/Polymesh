@@ -23,9 +23,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
-use sp_std::vec;
-
+use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use frame_support::{
     storage::StorageMap,
@@ -36,6 +34,8 @@ use pallet_session::{Module as Session, *};
 use pallet_staking::{
     benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
 };
+use sp_std::prelude::*;
+use sp_std::vec;
 
 use polymesh_common_utilities::constants::currency::POLY;
 
@@ -64,7 +64,7 @@ impl<T: Trait> ValidatorInfo<T> {
             <T as frame_system::Trait>::AccountId,
         >>::Balance: From<u128>,
     {
-        let balance = (6_000_000 * POLY).into();
+        let balance: u32 = (4_000 * POLY).try_into().unwrap();
         let stash = create_validator_with_nominators_with_balance::<T>(
             nominators,
             MAX_NOMINATIONS as u32,
@@ -90,7 +90,7 @@ impl<T: Trait> ValidatorInfo<T> {
 benchmarks! {
     where_clause {
         where <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance: From<u128>
-   }
+    }
 
     _ {}
 

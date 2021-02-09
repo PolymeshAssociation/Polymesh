@@ -20,8 +20,9 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::{AssetFnTrait, AssetName};
+use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_primitives::{
+    asset::AssetName,
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
@@ -556,10 +557,10 @@ fn initiate_corporate_action_record_date() {
                 transfer(&ticker, owner, foo);
 
                 assert_eq!(
-                    Checkpoint::schedule_points((ticker, schedule_id)),
+                    Checkpoint::schedule_points(ticker, schedule_id),
                     vec![cp_id]
                 );
-                assert_eq!(date, Checkpoint::timestamps(cp_id));
+                assert_eq!(date, Checkpoint::timestamps(ticker, cp_id));
             }
         };
 
@@ -886,7 +887,7 @@ fn change_record_date_works() {
             assert_eq!(expect, get_ca(id).unwrap().record_date);
         };
         let assert_refs =
-            |sh_id, count| assert_eq!(Checkpoint::schedule_ref_count((ticker, sh_id)), count);
+            |sh_id, count| assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id), count);
         let assert_fresh = |sh_id| assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id);
 
         // Change for a CA that doesn't exist, and ensure failure.
@@ -939,7 +940,7 @@ fn change_record_date_works() {
             sh_id
         };
         let sh_id1 = change_ok_scheduled();
-        assert_eq!(Checkpoint::schedule_ref_count((ticker, sh_id1)), 1);
+        assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id1), 1);
 
         // Then use a distinct existing ID.
         let sh_id2 = change_ok_scheduled();
@@ -1030,8 +1031,7 @@ fn existing_schedule_ref_count() {
 
         let sh_id = next_schedule_id(ticker);
         let spec = Some(RecordDateSpec::ExistingSchedule(sh_id));
-        let assert_refs =
-            |count| assert_eq!(Checkpoint::schedule_ref_count((ticker, sh_id)), count);
+        let assert_refs = |count| assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id), count);
         let remove_ca = |id| CA::remove_ca(owner.origin(), id);
         let remove_sh = || Checkpoint::remove_schedule(owner.origin(), ticker, sh_id);
 
