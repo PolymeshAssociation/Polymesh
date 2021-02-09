@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 remote-externalities = { path = "remote-externalities" }
-frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 futures = "0.3"
 lazy_static = "1.4.0"
 

@@ -56,6 +56,7 @@ use polymesh_runtime_common::{
     ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance, RocksDbWeight,
     TransactionByteFee, WeightToFee,
 };
+
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
@@ -511,7 +512,7 @@ where
             frame_system::CheckGenesis::<Runtime>::new(),
             frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
             frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
+            polymesh_extensions::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_permissions::StoreCallMetadata::<Runtime>::new(),
         );
@@ -748,7 +749,6 @@ impl pallet_utility::Trait for Runtime {
 }
 
 impl PermissionChecker for Runtime {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -873,7 +873,7 @@ pub type SignedExtra = (
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
-    frame_system::CheckWeight<Runtime>,
+    polymesh_extensions::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_permissions::StoreCallMetadata<Runtime>,
 );
