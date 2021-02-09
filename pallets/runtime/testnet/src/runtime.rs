@@ -41,8 +41,6 @@ use pallet_testnet as testnet;
 #[cfg(not(feature = "testnet"))]
 pub use polymesh_common_utilities::empty_module as testnet;
 
-
-
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,

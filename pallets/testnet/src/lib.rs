@@ -15,7 +15,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, CddId, Claim, IdentityId, InvestorUid,
 };
-use sp_std::{vec, prelude::*};
+use sp_std::{prelude::*, vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
