@@ -7,7 +7,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, CddId, Claim, IdentityId, InvestorUid,
 };
-
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get,
     weights::Weight,
