@@ -285,8 +285,6 @@ impl pallet_pips::Trait for Runtime {
     type Scheduler = Scheduler;
 }
 
-polymesh_runtime_common::misc2!();
-
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;

@@ -1,3 +1,9 @@
+/// Voting majority origin for `Instance`.
+pub type VMO<Instance> =
+    pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
+
+pub type GovernanceCommittee = pallet_committee::Instance1;
+
 #[macro_export]
 macro_rules! misc1 {
     () => {
@@ -203,18 +209,7 @@ macro_rules! misc1 {
             type FixedYearlyReward = FixedYearlyReward;
             type PalletsOrigin = OriginCaller;
         }
-    };
-}
 
-/// Voting majority origin for `Instance`.
-pub type VMO<Instance> =
-    pallet_committee::EnsureThresholdMet<polymesh_primitives::AccountId, Instance>;
-
-pub type GovernanceCommittee = pallet_committee::Instance1;
-
-#[macro_export]
-macro_rules! misc2 {
-    () => {
         impl pallet_authority_discovery::Trait for Runtime {}
 
         impl pallet_finality_tracker::Trait for Runtime {
