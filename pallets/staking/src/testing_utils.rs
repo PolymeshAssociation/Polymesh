@@ -23,8 +23,6 @@ use crate::*;
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::benchs::{User, UserBuilder};
-#[cfg(feature = "testnet")]
-use polymesh_common_utilities::TestnetFn;
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},

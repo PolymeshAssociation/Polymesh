@@ -34,7 +34,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false, features = ["testnet"] }
+pallet-testnet = { path = "../../testnet", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC

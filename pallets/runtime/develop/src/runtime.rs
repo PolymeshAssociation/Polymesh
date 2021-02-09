@@ -20,10 +20,16 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_sto as sto;
-use pallet_testnet as testnet;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
+
+// Testnet is an optional pallet. It can be enabled by `testnet` feature.
+#[cfg(feature = "testnet")]
+use pallet_testnet as testnet;
+#[cfg(not(feature = "testnet"))]
+pub use polymesh_common_utilities::empty_module as testnet;
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,

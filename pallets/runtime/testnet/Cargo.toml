@@ -44,7 +44,7 @@ pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false } 
+pallet-testnet = { path = "../../testnet", default-features = false, optional = true } 
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -103,7 +103,7 @@ equalize = []
 testnet = [
     "polymesh-common-utilities/testnet",
     "pallet-staking/testnet",
-    "pallet-testnet/testnet",
+    "pallet-testnet",
     "polymesh-weights/testnet",
 ]
 no_std = [
@@ -156,7 +156,6 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-    "pallet-testnet/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",

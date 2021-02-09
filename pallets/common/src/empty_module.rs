@@ -25,33 +25,11 @@
 //!
 //! ```ignore
 //!
-//! #[cfg(not(feature = "enamble_my_mod"))]
-//! pub use polymesh_common_utilities::empty_module::*;
+//! #[cfg(feature = "enable_my_pallet_a")]
+//! use my_pallet_a as a;
 //!
-//! #[cfg(feature = "enamble_my_mod")]
-//! mod my_mod {
-//!     pub trait Trait: IdentityTrait {
-//!         type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-//!         type WeightInfo: WeightInfo;
-//!     }
-//!
-//!     decl_storage! {
-//!         trait Store for Module<T: Trait> as testnet {
-//!             // Some storage ...
-//!         }
-//!     }
-//!
-//!     decl_module! {
-//!         pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//!
-//!         type Error = Error<T>;
-//!
-//!         /// Some extrinsics
-//!         #[weight = <T as Trait>::WeightInfo::my_func()]
-//!         pub fn my_func( origin) {
-//!             // Some code...
-//!         }
-//! }
+//! #[cfg(not(feature = "enable_my_pallet_a"))]
+//! pub use polymesh_common_utilities::empty_module as a;
 //! ```
 use frame_support::{decl_event, decl_module, decl_storage};
 use frame_system::Trait as SystemTrait;

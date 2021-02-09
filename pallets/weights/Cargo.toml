@@ -42,10 +42,7 @@ polymesh-runtime-common = { path = "../runtime/common", default-features = false
 [features]
 default = ["std"]
 no_std = []
-testnet = [
-    "pallet-testnet",
-    "pallet-testnet/testnet",
-]
+testnet = ["pallet-testnet"]
 std = [
     "frame-system/std",
     "pallet-asset/std",
@@ -71,6 +68,5 @@ std = [
     "pallet-timestamp/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-    "pallet-testnet/std",
     "polymesh-contracts/std",
 ]

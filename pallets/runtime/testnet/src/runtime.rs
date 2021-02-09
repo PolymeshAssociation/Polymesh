@@ -32,10 +32,17 @@ use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
 use pallet_sto as sto;
-use pallet_testnet as testnet;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
+
+#[cfg(feature = "testnet")]
+use pallet_testnet as testnet;
+#[cfg(not(feature = "testnet"))]
+pub use polymesh_common_utilities::empty_module as testnet;
+
+
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -767,7 +774,7 @@ impl pallet_scheduler::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
 }
 
-impl pallet_testnet::Trait for Runtime {
+impl testnet::Trait for Runtime {
     type Event = Event;
     #[cfg(feature = "testnet")]
     type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
