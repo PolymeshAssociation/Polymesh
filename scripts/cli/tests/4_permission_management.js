@@ -120,9 +120,9 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
     let tx = await reqImports.sendTx(secondary_key, transaction);
     if(tx !== -1) reqImports.fail_count--;
     return true;
-    } catch (err) {
-      return false;
-    }
+  } catch (err) {
+    return false;
+  }
 }
 
 function setAsset(ticker, assetArray) {
