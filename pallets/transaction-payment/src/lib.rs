@@ -40,13 +40,14 @@ pub mod runtime_dispatch_info;
 pub use runtime_dispatch_info::RuntimeDispatchInfo;
 
 use codec::{Decode, Encode};
+use frame_support::ensure;
 use frame_support::{
     decl_module, decl_storage,
     dispatch::DispatchResult,
     traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
     weights::{
-        DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight, WeightToFeeCoefficient,
-        WeightToFeePolynomial,
+        DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
+        WeightToFeeCoefficient, WeightToFeePolynomial,
     },
 };
 use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
@@ -463,7 +464,7 @@ where
         info: &DispatchInfoOf<T::Call>,
         len: usize,
     ) -> Result<(BalanceOf<T>, Option<NegativeImbalanceOf<T>>), TransactionValidityError> {
-        let fee = Module::<T>::compute_fee(len as u32, info, 0u32.into());
+        let fee = Module::<T>::compute_fee(len as u32, info, self.0);
 
         // Only mess with balances if fee is not zero.
         if fee.is_zero() {
@@ -482,6 +483,23 @@ where
         .map_err(|_| InvalidTransaction::Payment)?;
         T::CddHandler::set_payer_context(Some(payer_key));
         Ok((fee, Some(imbalance)))
+    }
+
+    /// Tip in `DispatchClass::Normal` transactions MUST be zero.
+    fn ensure_valid_tip(
+        &self,
+        info: &DispatchInfoOf<T::Call>,
+    ) -> Result<BalanceOf<T>, TransactionValidityError> {
+        if let DispatchClass::Normal = info.class {
+            ensure!(
+                self.0 == Zero::zero(),
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                    TransactionError::ZeroTip as u8
+                )),
+            );
+        }
+
+        Ok(self.0)
     }
 }
 
@@ -523,16 +541,13 @@ where
         info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> TransactionValidity {
-        if self.0 != Zero::zero() {
-            // Tip must be set to zero.
-            // This is enforced to curb front running.
-            return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
-        }
-        let (fee, _) = self.withdraw_fee(call, who, info, len)?;
+        let tip = self.ensure_valid_tip(info)?;
+
+        let (_fee, _) = self.withdraw_fee(call, who, info, len)?;
         let mut r = ValidTransaction::default();
-        // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
-        // will be a bit more than setting the priority to tip. For now, this is enough.
-        r.priority = fee.saturated_into::<TransactionPriority>();
+        // NOTE: The priority of TX is just its `tip`, to ensure that operational one can be
+        // priorized and normal TX will follow the FIFO (defined by its `insertion_id`).
+        r.priority = tip.saturated_into::<TransactionPriority>();
         Ok(r)
     }
 
@@ -543,15 +558,9 @@ where
         info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        if self.0 != Zero::zero() {
-            // Tip must be set to zero.
-            // This is enforced to curb front running.
-            return Err(TransactionValidityError::Invalid(
-                InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
-            ));
-        }
+        let tip = self.ensure_valid_tip(info)?;
         let (fee, imbalance) = self.withdraw_fee(call, who, info, len)?;
-        Ok((Zero::zero(), who.clone(), imbalance, fee))
+        Ok((tip, who.clone(), imbalance, fee))
     }
 
     fn post_dispatch(

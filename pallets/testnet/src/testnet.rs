@@ -1,5 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get,
+    weights::Weight,
+};
+use frame_system::{ensure_signed, RawOrigin};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait,
@@ -7,11 +12,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, CddId, Claim, IdentityId, InvestorUid,
 };
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get,
-    weights::Weight,
-};
-use frame_system::{ensure_signed, RawOrigin};
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;

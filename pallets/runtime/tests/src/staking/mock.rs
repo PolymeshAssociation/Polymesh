@@ -561,7 +561,6 @@ impl CheckCdd<AccountId> for Test {
 }
 
 impl PermissionChecker for Test {
-    type Call = Call;
     type Checker = Identity;
 }
 
