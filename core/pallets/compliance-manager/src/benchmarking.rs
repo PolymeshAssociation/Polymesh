@@ -13,18 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
 
+use frame_benchmarking::benchmarks;
 use pallet_asset::SecurityToken;
 use polymesh_common_utilities::{
     asset::AssetType,
     benchs::{User, UserBuilder},
 };
 use polymesh_primitives::{TrustedFor, TrustedIssuer};
-
-use frame_benchmarking::benchmarks;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
@@ -79,7 +76,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         owner.origin.clone().into(),
         token.name.clone(),
         ticker.clone(),
-        token.total_supply.into(),
+        u128::try_from(token.total_supply).unwrap().into(),
         true,
         token.asset_type.clone(),
         vec![],

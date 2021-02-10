@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       VERBOSE: "1"
     steps:
@@ -15,7 +15,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -43,7 +43,7 @@ jobs:
             - "./target"
   benchmark:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -54,7 +54,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v1-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --release --features=runtime-benchmarks,running-ci || cargo build --release -j 1 --features=runtime-benchmarks,running-ci
@@ -64,13 +64,13 @@ jobs:
           command: ./target/release/polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
           no_output_timeout: 2h
       - save_cache:
-          key: v1-bb-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v1-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
   test:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -115,9 +115,35 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+  coverage:
+    docker:
+      - image: polymathnet/rust:debian-nightly-2021-01-25
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Install dependencies
+          command: rustup component add llvm-tools-preview && cargo install rustfilt cargo-binutils
+      - run:
+          name: Coverage
+          command: bash ./scripts/coverage.sh
+          no_output_timeout: 1h
+      - save_cache:
+          key: v3-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
   cli:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       VERBOSE: "1"
     steps:
@@ -158,7 +184,7 @@ jobs:
             - "./scripts/cli/node_modules"
   clippy:
     docker:
-      - image: polymathnet/rust:debian-nightly-2020-09-28
+      - image: polymathnet/rust:debian-nightly-2021-01-25
     environment:
       VERBOSE: "1"
     steps:
@@ -188,5 +214,5 @@ workflows:
   commit:
     jobs:
       - lint
-      - test
+      - coverage
       - benchmark

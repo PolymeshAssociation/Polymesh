@@ -563,6 +563,7 @@ impl asset::Trait for TestStorage {
     type AssetFn = Asset;
     type AllowedGasLimit = AllowedGasLimit;
     type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
+    type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
 }
 
 parameter_types! {
@@ -975,6 +976,10 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
     let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
     let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
     (cdd_id, uid)
+}
+
+pub fn make_remark_proposal() -> Call {
+    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
 }
 
 #[macro_export]

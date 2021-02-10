@@ -95,13 +95,13 @@ use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, parameter_types,
     storage::IterableStorageMap,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::Weight,
+    weights::{Weight, constants::WEIGHT_PER_SECOND},
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -146,7 +146,7 @@ pub trait WeightInfo {
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
     fn snapshot() -> Weight;
-    fn enact_snapshot_results() -> Weight;
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
 }
@@ -379,6 +379,12 @@ pub enum SnapshotResult {
 pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
+
+parameter_types! {
+    /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
+    /// `MaximumBlockWeight * AvailableBlockRatio`.
+    pub const PipsEnactSnapshotMaximumWeight: Weight = WEIGHT_PER_SECOND * 2 * 75 / 100;
+}
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -945,7 +951,7 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // 2. New value should be valid block number.
-            let next_block = <system::Module<T>>::block_number() + 1.into();
+            let next_block = <system::Module<T>>::block_number() + 1u32.into();
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
@@ -1021,7 +1027,22 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results()]
+        #[weight = {
+            use SnapshotResult::*;
+
+            let mut approves = 0;
+            let mut rejects = 0;
+            let mut skips = 0;
+            for r in results.iter().map(|result| result.1) {
+                match r {
+                    Approve => approves += 1,
+                    Reject => rejects += 1,
+                    Skip => skips += 1,
+                }
+            }
+            let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
+            weight.min(PipsEnactSnapshotMaximumWeight::get())
+        }]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1032,7 +1053,7 @@ decl_module! {
                 // Default after-first-push capacity is 4, we bump this slightly.
                 // Rationale: GC are humans sitting together and reaching conensus.
                 // This is time consuming, so considering 20 PIPs in total might take few hours.
-                let speculative_capacity = queue.len().max(10);
+                let speculative_capacity = queue.len().min(results.len()).min(10);
                 let mut to_reject = Vec::with_capacity(speculative_capacity);
                 let mut to_approve = Vec::with_capacity(speculative_capacity);
 
@@ -1091,7 +1112,7 @@ decl_module! {
 
         /// Internal dispatchable that handles execution of a PIP.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_pip()]
-        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
+        pub fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
             Self::execute_proposal(id)
@@ -1099,7 +1120,7 @@ decl_module! {
 
         /// Internal dispatchable that handles expiration of a PIP.
         #[weight = <T as Trait>::WeightInfo::expire_scheduled_pip()]
-        fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
+        pub fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
                 Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
@@ -1161,7 +1182,7 @@ impl<T: Trait> Module<T> {
     /// i.e., once run, refunding again will refund nothing.
     fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
-            <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
+            <Deposits<T>>::iter_prefix_values(id).fold(0u32.into(), |acc, depo_info| {
                 Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
                 depo_info.amount.saturating_add(acc)
             });
@@ -1232,6 +1253,8 @@ impl<T: Trait> Module<T> {
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
             let period = Self::default_enactment_period();
+            // The enactment period is at least 1 block. This is de to the fact that it's only
+            // possible to schedule calls for future blocks.
             let corrected_period = if period > Zero::zero() {
                 period
             } else {
@@ -1325,6 +1348,7 @@ impl<T: Trait> Module<T> {
     /// Decrement active proposal count if `state` signifies it is active.
     fn decrement_count_if_active(state: ProposalState) {
         if Self::is_active(state) {
+            // The performance impact of a saturating sub is negligible and caution is good.
             ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
     }

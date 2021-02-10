@@ -8,8 +8,9 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = { version = "=1.0.57", features = ["visit-mut"] }
+syn = { version = "1.0.58", features = ["visit-mut"] }
 quote = "1.0.7"
+proc-macro2 = "1.0.24"
 
 [features]
 default = ["std"]

@@ -13,21 +13,20 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 node-primitives = { package = "polymesh-primitives", path = "../../core/primitives" }
 node-runtime = { package = "polymesh-runtime-testnet", path = "../../core/runtime/testnet" }
 node-testing = { path = "../testing" }
-
-sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", features = ["wasmtime"] }
-sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-trie = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-finality-tracker = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sc-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
+sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1", features = ["wasmtime"] }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-trie = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-finality-tracker = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
 
 log = "0.4.8"
 serde = "1.0.101"
