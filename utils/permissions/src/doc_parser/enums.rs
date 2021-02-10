@@ -40,7 +40,7 @@ impl EnumDocParser {
             .collect()
     }
 
-    fn parse_variant(&self, all_divs: &Vec<ElementRef>, index: usize) -> Option<Variant> {
+    fn parse_variant(&self, all_divs: &[ElementRef], index: usize) -> Option<Variant> {
         let variant_div = all_divs[index];
         // Look for a variant div and parse the name
         let name = VARIANT_REGEX
