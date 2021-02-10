@@ -3722,6 +3722,7 @@ dependencies = [
 name = "migration-tests"
 version = "0.1.0"
 dependencies = [
+ "frame-support 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "futures 0.3.12",
  "lazy_static",
@@ -3731,7 +3732,10 @@ dependencies = [
  "polymesh-primitives 2.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "polymesh-runtime-testnet 0.1.0",
  "polymesh-runtime-testnet 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
- "remote-externalities",
+ "remote-externalities 0.1.0",
+ "remote-externalities 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=065ea0c243c7e6f6d665d769cf79647d2ecfca00)",
+ "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
+ "sp-state-machine 0.8.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
 ]
 
 [[package]]
@@ -7783,6 +7787,24 @@ dependencies = [
  "sc-rpc-api 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
+ "tokio 0.1.22",
+]
+
+[[package]]
+name = "remote-externalities"
+version = "0.1.0"
+source = "git+https://github.com/PolymathNetwork/Polymesh?rev=065ea0c243c7e6f6d665d769cf79647d2ecfca00#065ea0c243c7e6f6d665d769cf79647d2ecfca00"
+dependencies = [
+ "bincode",
+ "env_logger 0.8.2",
+ "futures 0.1.30",
+ "hex-literal 0.3.1",
+ "jsonrpc-core-client",
+ "log",
+ "sc-rpc 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
+ "sc-rpc-api 0.8.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
+ "sp-core 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
+ "sp-io 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "tokio 0.1.22",
 ]
 
