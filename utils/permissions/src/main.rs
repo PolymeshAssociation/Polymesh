@@ -13,7 +13,6 @@
 /// ```
 /// cargo run --package permissions --bin permissions
 /// ```
-
 use crate::doc_parser::enums::{EnumDoc, EnumDocParser};
 use regex::Regex;
 use scraper::{Html, Selector};
