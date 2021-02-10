@@ -16,7 +16,7 @@
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::weights::Weight;
+use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
@@ -47,6 +47,7 @@ use sp_runtime::MultiSignature;
 const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
+const MAX_LEGS_IN_INSTRUCTION: u32 = 25;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
@@ -572,7 +573,7 @@ benchmarks! {
 
     add_instruction {
 
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32; // Variation for the MAX leg count.
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION; // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -585,7 +586,7 @@ benchmarks! {
 
 
     add_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32; // Variation for the MAX leg count.
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION; // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -600,7 +601,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction {
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -613,7 +614,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Define settlement type.
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -685,7 +686,7 @@ benchmarks! {
     withdraw_affirmation {
         // Below setup is for the onchain affirmation.
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
@@ -706,7 +707,7 @@ benchmarks! {
     withdraw_affirmation_with_receipt {
         // Below setup is for the receipt based affirmation
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
@@ -748,7 +749,7 @@ benchmarks! {
 
     reject_instruction {
         // At least one portfolio needed
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add and affirm instruction.
@@ -765,7 +766,7 @@ benchmarks! {
 
     reject_instruction_with_no_pre_affirmations {
         // At least one portfolio needed
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true)?;
         // Add instruction
@@ -781,7 +782,7 @@ benchmarks! {
 
 
     affirm_instruction {
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let l in 0 .. MAX_LEGS_IN_INSTRUCTION; // At least 2 legs needed to achieve worst case.
         let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
@@ -820,7 +821,7 @@ benchmarks! {
 
     affirm_with_receipts {
         // Catalyst here is the length of receipts vector.
-        let r in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let r in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true)?;
         // Add instruction
@@ -856,7 +857,7 @@ benchmarks! {
         // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
         let s = T::MaxTransferManagersPerAsset::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
