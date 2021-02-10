@@ -6,7 +6,7 @@ description = "Substrate node implementation in Rust."
 edition = "2018"
 license = "Apache-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/PolymathNetwork/substrate/"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -18,13 +18,13 @@ pallet-confidential = { path = "../../core/pallets/confidential" }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.3.4" }
-sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1", features = ["wasmtime"] }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-trie = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+sc-executor = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", features = ["wasmtime"] }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-state-machine = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-trie = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 trie-root = "0.16.0"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 
 [dev-dependencies]
 node-testing = { path = "../testing" }
@@ -33,18 +33,18 @@ pallet-balances = { path = "../../core/pallets/balances" }
 pallet-im-online = { path = "../../core/pallets/im-online" }
 
 criterion = "0.3.0"
-frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-frame-system = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-session = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-externalities = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-substrate-test-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+pallet-treasury = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-application-crypto = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-externalities = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+substrate-test-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 wabt = "0.10.0"
 
 [features]

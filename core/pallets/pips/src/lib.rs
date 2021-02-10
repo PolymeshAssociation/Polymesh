@@ -101,7 +101,7 @@ use frame_support::{
         schedule::{DispatchTime, Named as ScheduleNamed, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::{Weight, constants::WEIGHT_PER_SECOND},
+    weights::{constants::WEIGHT_PER_SECOND, Weight},
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};

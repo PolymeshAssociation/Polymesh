@@ -375,7 +375,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = EnsureRoot<AccountId>;
@@ -510,7 +510,7 @@ where
             frame_system::CheckGenesis::<Runtime>::new(),
             frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
             frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
+            polymesh_extensions::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_permissions::StoreCallMetadata::<Runtime>::new(),
         );
@@ -741,7 +741,6 @@ impl confidential::Trait for Runtime {
 }
 
 impl PermissionChecker for Runtime {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -878,7 +877,7 @@ pub type SignedExtra = (
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
-    frame_system::CheckWeight<Runtime>,
+    polymesh_extensions::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_permissions::StoreCallMetadata<Runtime>,
 );
@@ -1297,6 +1296,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_staking, Staking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

@@ -10,19 +10,6 @@ cargo test --tests \
     --package pallet-transaction-payment \
     --package polymesh-runtime-tests \
     --package pallet-balances:0.1.0 \
-    --features default_identity || \
-RUSTFLAGS="-Zinstrument-coverage" \
-LLVM_PROFILE_FILE="json5format-%m.profraw" \
-BUILD_DUMMY_WASM_BINARY=1 \
-cargo test -j 1 --tests \
-    --package pallet-staking \
-    --package pallet-group \
-    --package pallet-sudo \
-    --package polymesh-primitives \
-    --package node-rpc-runtime-api \
-    --package pallet-transaction-payment \
-    --package polymesh-runtime-tests \
-    --package pallet-balances:0.1.0 \
     --features default_identity
 
 cargo profdata -- merge -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata

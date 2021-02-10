@@ -20,10 +20,10 @@ use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
     ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
 };
-use polymesh_common_utilities::{asset::AssetType, constants::ERC1400_TRANSFER_SUCCESS};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
-    Signatory, Ticker,
+    asset::AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
+    PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
