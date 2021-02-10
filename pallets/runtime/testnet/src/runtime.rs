@@ -196,7 +196,7 @@ impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
 /// PolymeshCommittee as an instance of group
 impl pallet_group::Trait<pallet_group::Instance1> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = Self::LimitOrigin;
     type RemoveOrigin = Self::LimitOrigin;
     type SwapOrigin = Self::LimitOrigin;
@@ -218,7 +218,7 @@ macro_rules! committee_config {
         impl pallet_group::Trait<pallet_group::$instance> for Runtime {
             type Event = Event;
             // Committee cannot alter its own active membership limit.
-            type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+            type LimitOrigin = polymesh_primitives::EnsureRoot;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<pallet_committee::$instance>;
             type RemoveOrigin = Self::AddOrigin;
@@ -249,11 +249,11 @@ impl pallet_pips::Trait for Runtime {
 /// CddProviders instance of group
 impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+    type LimitOrigin = polymesh_primitives::EnsureRoot;
+    type AddOrigin = polymesh_primitives::EnsureRoot;
+    type RemoveOrigin = polymesh_primitives::EnsureRoot;
+    type SwapOrigin = polymesh_primitives::EnsureRoot;
+    type ResetOrigin = polymesh_primitives::EnsureRoot;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;

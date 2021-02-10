@@ -7,8 +7,8 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 #[macro_export]
 macro_rules! misc1 {
     () => {
+        use sp_runtime::traits::{SaturatedConversion as _, Saturating as _};
         use sp_runtime::{generic, impl_opaque_keys, ApplyExtrinsicResult, MultiSignature};
-        use sp_runtime::traits::{Saturating as _, SaturatedConversion as _};
 
         impl frame_system::Trait for Runtime {
             /// The basic call filter to use in dispatchable.
@@ -190,7 +190,7 @@ macro_rules! misc1 {
             type SessionsPerEra = SessionsPerEra;
             type BondingDuration = BondingDuration;
             type SlashDeferDuration = SlashDeferDuration;
-            type SlashCancelOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+            type SlashCancelOrigin = polymesh_primitives::EnsureRoot;
             type SessionInterface = Self;
             type RewardCurve = RewardCurve;
             type NextNewSession = Session;
@@ -337,7 +337,7 @@ macro_rules! misc1 {
             type PalletsOrigin = OriginCaller;
             type Call = Call;
             type MaximumWeight = MaximumSchedulerWeight;
-            type ScheduleOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
+            type ScheduleOrigin = polymesh_primitives::EnsureRoot;
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
         }
