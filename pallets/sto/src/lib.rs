@@ -35,7 +35,7 @@ use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_portfolio::{self as portfolio, Trait as PortfolioTrait};
 use pallet_settlement::{
-    self as settlement, Leg, NonConfidentialLeg, ReceiptDetails, SettlementType,
+    self as settlement, Leg, LegKind, NonConfidentialLeg, ReceiptDetails, SettlementType,
     Trait as SettlementTrait, VenueInfo, VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
@@ -402,18 +402,22 @@ decl_module! {
             );
 
             let legs = vec![
-                Leg::NonConfidentialLeg(NonConfidentialLeg {
+                Leg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
-                    asset: fundraiser.offering_asset,
-                    amount: purchase_amount
-                }),
-                Leg::NonConfidentialLeg( NonConfidentialLeg {
+                    kind: LegKind::NonConfidential(NonConfidentialLeg {
+                        asset: fundraiser.offering_asset,
+                        amount: purchase_amount,
+                    }),
+                },
+                Leg {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
-                    asset: fundraiser.raising_asset,
-                    amount: cost
-                })
+                    kind: LegKind::NonConfidential(NonConfidentialLeg {
+                        asset: fundraiser.raising_asset,
+                        amount: cost,
+                    }),
+                },
             ];
 
             with_transaction(|| {
