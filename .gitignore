@@ -31,3 +31,6 @@ tmp/
 **/*.profraw
 *.profdata
 coverage.txt
+
+**/test_cache
+**/CACHE

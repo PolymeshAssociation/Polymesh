@@ -1,1 +1,1 @@
-SKIP_WASM_BUILD=true cargo check
+BUILD_DUMMY_WASM_BINARY=true cargo check
