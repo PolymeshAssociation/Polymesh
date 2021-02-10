@@ -70,6 +70,8 @@ pub enum FundraiserStatus {
     Frozen,
     /// Fundraiser has been stopped.
     Closed,
+    /// Fundraiser has been stopped before expiry.
+    ClosedEarly,
 }
 
 impl Default for FundraiserStatus {
@@ -106,6 +108,12 @@ pub struct Fundraiser<Balance, Moment> {
     pub status: FundraiserStatus,
     /// Minimum raising amount per invest transaction.
     pub minimum_investment: Balance,
+}
+
+impl<Balance, Moment> Fundraiser<Balance, Moment> {
+    pub fn is_closed(&self) -> bool {
+        self.status == FundraiserStatus::Closed || self.status == FundraiserStatus::ClosedEarly
+    }
 }
 
 /// Single tier of a tiered pricing model.
@@ -501,7 +509,7 @@ decl_module! {
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
-                ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
+                ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
                     ensure!(Timestamp::<T>::get() < end, Error::<T>::FundraiserExpired);
                 }
@@ -534,7 +542,7 @@ decl_module! {
                 Error::<T>::Unauthorized
             );
 
-            ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
+            ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
             let remaining_amount: T::Balance = fundraiser.tiers
                 .iter()
@@ -542,7 +550,10 @@ decl_module! {
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
-            fundraiser.status = FundraiserStatus::Closed;
+            fundraiser.status = match fundraiser.end {
+                Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
+                _ => FundraiserStatus::Closed,
+            };
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
             Self::deposit_event(RawEvent::FundraiserClosed(did, fundraiser_id));
         }
@@ -559,10 +570,7 @@ impl<T: Trait> Module<T> {
         let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
         let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
             .ok_or(Error::<T>::FundraiserNotFound)?;
-        ensure!(
-            fundraiser.status != FundraiserStatus::Closed,
-            Error::<T>::FundraiserClosed
-        );
+        ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
             Self::deposit_event(RawEvent::FundraiserFrozen(did, fundraiser_id));
