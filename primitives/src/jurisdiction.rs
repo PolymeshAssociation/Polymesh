@@ -16,7 +16,6 @@
 //! Data types and definitions of jurisdictions.
 
 use codec::{Decode, Encode};
-use core::str;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
