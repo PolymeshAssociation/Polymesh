@@ -18,7 +18,7 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
-use pallet_asset::{BalanceOf, SecurityToken, Tokens};
+use pallet_asset::{BalanceOf, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
@@ -29,7 +29,7 @@ use polymesh_common_utilities::{
     traits::asset::AssetFnTrait,
 };
 use polymesh_primitives::{
-    asset::{AssetName, AssetType},
+    asset::{AssetName, AssetType, SecurityToken},
     Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
 };
@@ -154,8 +154,10 @@ fn setup_leg_and_portfolio<T: Trait>(
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
-        asset: ticker,
-        amount: 100u32.into(),
+        kind: LegKind::NonConfidential(NonConfidentialLeg {
+            asset: ticker,
+            amount: 100u32.into(),
+        }),
     });
     receiver_portfolios.push(portfolio_to);
     sender_portfolios.push(portfolio_from);
@@ -192,8 +194,10 @@ fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Bal
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
-        asset: ticker,
-        amount: 100u32.into(),
+        kind: LegKind::NonConfidential(NonConfidentialLeg {
+            asset: ticker,
+            amount: 100u32.into(),
+        }),
     });
 }
 
@@ -307,8 +311,10 @@ fn emulate_portfolios<T: Trait>(
     legs.push(Leg {
         from: sender_portfolio,
         to: receiver_portfolio,
-        asset: ticker,
-        amount: transacted_amount.into(),
+        kind: LegKind::NonConfidential(NonConfidentialLeg {
+            asset: ticker,
+            amount: transacted_amount.into(),
+        }),
     })
 }
 
@@ -478,8 +484,7 @@ fn create_receipt_details<T: Trait>(
         receipt_uid: index as u64,
         from: leg.from,
         to: leg.to,
-        asset: leg.asset,
-        amount: leg.amount,
+        kind: leg.kind,
     };
     let origin = RawOrigin::Signed(account.clone());
     let creator = User {
@@ -865,7 +870,9 @@ benchmarks! {
         // Keep the portfolio asset balance before the instruction execution to verify it later.
         let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        // The first leg has to be non-confidential for the pre- and post-condition checks to pass.
+        let (first_leg_asset, first_leg_amount) = Module::<T>::leg_asset_and_amount(&first_leg)?;
+        let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg_asset);
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
         let origin = RawOrigin::Root;
@@ -893,9 +900,9 @@ benchmarks! {
     }: _(origin, instruction_id, l)
     verify {
         // Ensure that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg_asset);
         let traded_amount = before_transfer_balance - after_transfer_balance;
-        let expected_transfer_amount = first_leg.amount;
+        let expected_transfer_amount = first_leg_amount;
         ensure!(matches!(traded_amount, expected_transfer_amount),"Settlement: Failed to execute the instruction");
     }
 }

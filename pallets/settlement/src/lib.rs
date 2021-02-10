@@ -265,7 +265,7 @@ impl<Balance> Default for LegKind<Balance> {
 }
 
 /// Details of a non-confidential leg.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct NonConfidentialLeg<Balance> {
     /// Ticker of the asset being transferred.
     pub asset: Ticker,
@@ -328,10 +328,8 @@ pub struct Receipt<Balance> {
     pub from: PortfolioId,
     /// Identity of the receiver.
     pub to: PortfolioId,
-    /// Ticker of the asset being transferred.
-    pub asset: Ticker,
-    /// Amount being transferred.
-    pub amount: Balance,
+    /// The kind of leg: confidential or non-confidential.
+    pub kind: LegKind<Balance>,
 }
 
 /// A wrapper for VenueDetails
@@ -936,7 +934,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn lock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
-        if let LegKind::NonConfidential(kind) = leg.kind {
+        if let LegKind::NonConfidential(kind) = &leg.kind {
             T::Portfolio::lock_tokens(&leg.from, &kind.asset, &kind.amount)
         } else {
             Err(Error::<T>::InvalidLegKind.into())
@@ -944,7 +942,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn unlock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
-        if let LegKind::NonConfidential(kind) = leg.kind {
+        if let LegKind::NonConfidential(kind) = &leg.kind {
             T::Portfolio::unlock_tokens(&leg.from, &kind.asset, &kind.amount)
         } else {
             Err(Error::<T>::InvalidLegKind.into())
@@ -965,8 +963,10 @@ impl<T: Trait> Module<T> {
         Ok((primary_did, secondary_key))
     }
 
-    fn leg_asset_and_amount(leg: &Leg<T::Balance>) -> Result<(Ticker, T::Balance), DispatchError> {
-        match leg.kind {
+    pub fn leg_asset_and_amount(
+        leg: &Leg<T::Balance>,
+    ) -> Result<(Ticker, T::Balance), DispatchError> {
+        match &leg.kind {
             LegKind::NonConfidential(kind) => Ok((kind.asset, kind.amount)),
             LegKind::Confidential(_) => Err(Error::<T>::ConfidentialLegHasNoAssetOrAmount.into()),
             LegKind::Undefined => Err(Error::<T>::UndefinedLegKind.into()),
@@ -1008,7 +1008,7 @@ impl<T: Trait> Module<T> {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
-            match leg.kind {
+            match &leg.kind {
                 LegKind::Confidential(c_leg) => {
                     // Mediator is added as a counter_party, so that we can wait for its authorization.
                     counter_parties.insert(c_leg.mediator);
@@ -1237,7 +1237,7 @@ impl<T: Trait> Module<T> {
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs
                 .iter()
-                .filter_map(|(_, leg)| match leg.kind {
+                .filter_map(|(_, leg)| match &leg.kind {
                     LegKind::NonConfidential(non_conf_leg) => Some(non_conf_leg.asset),
                     _ => None,
                 })
@@ -1267,7 +1267,7 @@ impl<T: Trait> Module<T> {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
                         matches!(status, LegStatus::ExecutionPending)
                     }) {
-                        match leg.kind {
+                        match &leg.kind {
                             LegKind::NonConfidential(kind) => {
                                 <Asset<T>>::base_transfer(
                                     leg.from,
@@ -1454,13 +1454,11 @@ impl<T: Trait> Module<T> {
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
-        let (asset, amount) = Self::leg_asset_and_amount(&leg)?;
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
-            asset: leg.asset,
-            amount: leg.amount,
+            kind: leg.kind.clone(),
         };
 
         ensure!(
@@ -1520,7 +1518,7 @@ impl<T: Trait> Module<T> {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed.
                     match leg.kind {
-                        Leg::NonConfidential(_) => {
+                        LegKind::NonConfidential(_) => {
                             let _ = Self::unlock_via_leg(&leg);
                         }
                         _ => {}
@@ -1618,8 +1616,8 @@ impl<T: Trait> Module<T> {
             );
 
             let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
-            match leg.kind {
-                LegKind::NonConfidential(kind) => {
+            match &leg.kind {
+                LegKind::NonConfidential(_) => {
                     ensure!(
                         portfolios_set.contains(&leg.from),
                         Error::<T>::PortfolioMismatch
@@ -1629,8 +1627,7 @@ impl<T: Trait> Module<T> {
                         receipt_uid: receipt.receipt_uid,
                         from: leg.from,
                         to: leg.to,
-                        asset: kind.asset,
-                        amount: kind.amount,
+                        kind: leg.kind,
                     };
 
                     ensure!(

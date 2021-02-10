@@ -1026,8 +1026,7 @@
             "receipt_uid": "u64",
             "from": "PortfolioId",
             "to": "PortfolioId",
-            "asset": "Ticker",
-            "amount": "Balance"
+            "kind": "LegKind",
         },
         "ReceiptMetadata": "Text",
         "ReceiptDetails": {
