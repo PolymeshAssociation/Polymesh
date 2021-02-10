@@ -76,8 +76,34 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=1024
+          command: ./polymesh benchmark -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
           no_output_timeout: 1h
+  migration-tests:
+    docker:
+      - image: polymathnet/rust:debian-nightly-2021-01-25
+    resource_class: large
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - BUILD_DUMMY_WASM_BINARY: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v1-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Run migration tests
+          command:  cargo test -p migration-tests --lib -- --nocapture
+          no_output_timeout: 1h
+      - save_cache:
+          key: v1-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "/usr/local/cargo"
+            - "~/.cargo"
+            - "./target"
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
@@ -167,7 +193,7 @@ jobs:
           name: cli scripts install
           command: npm install
           working_directory: ./scripts/cli
-          no_output_timeout: 30m
+          no_output_timeout: 1h
       - run:
           name: cli scripts test
           command: npm test
@@ -211,6 +237,7 @@ workflows:
       - benchmark-build
       - lint
       - coverage
+      - migration-tests
       - benchmark:
           requires:
             - benchmark-build

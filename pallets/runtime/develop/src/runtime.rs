@@ -510,7 +510,7 @@ where
             frame_system::CheckGenesis::<Runtime>::new(),
             frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
             frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
+            polymesh_extensions::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_permissions::StoreCallMetadata::<Runtime>::new(),
         );
@@ -532,14 +532,8 @@ impl treasury::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
-parameter_types! {
-    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInInstruction: u32 = 10;
-}
-
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
@@ -741,7 +735,6 @@ impl confidential::Trait for Runtime {
 }
 
 impl PermissionChecker for Runtime {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -878,7 +871,7 @@ pub type SignedExtra = (
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
-    frame_system::CheckWeight<Runtime>,
+    polymesh_extensions::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_permissions::StoreCallMetadata<Runtime>,
 );
