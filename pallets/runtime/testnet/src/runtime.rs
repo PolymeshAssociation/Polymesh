@@ -11,77 +11,35 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::Weight,
 };
-use pallet_asset::{self as asset, checkpoint as pallet_checkpoint};
-use pallet_balances as balances;
-use pallet_bridge as bridge;
-use pallet_committee as committee;
-use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
-use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
-use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
-};
-use pallet_group as group;
-use pallet_identity::{
-    self as identity,
-    types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
-};
-use pallet_multisig as multisig;
-use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
-use pallet_portfolio as portfolio;
-use pallet_protocol_fee as protocol_fee;
-use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_settlement as settlement;
-use pallet_sto as sto;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use pallet_treasury as treasury;
-use pallet_utility as utility;
-use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, traits::PermissionChecker,
-};
-use polymesh_primitives::{
-    AccountId, Authorization, AuthorizationType, Balance, BlockNumber, IdentityId, Index, Moment,
-    PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
-};
+use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
-    cdd_check::CddChecker,
-    impls::{Author, CurrencyToVoteHandler},
+    impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, VMO},
-    AvailableBlockRatio, BlockHashCount, MaximumBlockWeight, NegativeImbalance, TransactionByteFee,
-    WeightToFee,
+    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
 };
-
-use sp_api::impl_runtime_apis;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::{
-    u32_trait::{_1, _4},
-    OpaqueMetadata,
-};
-use sp_inherents::{CheckInherentsResult, InherentData};
-use sp_runtime::transaction_validity::{
-    TransactionPriority, TransactionSource, TransactionValidity,
-};
+use sp_core::u32_trait::{_1, _4};
+use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
     create_runtime_str,
     curve::PiecewiseLinear,
-    generic, impl_opaque_keys,
-    traits::{
-        BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, SaturatedConversion, Saturating,
-        StaticLookup, Verify,
-    },
-    ApplyExtrinsicResult, MultiSignature, Perbill, Permill,
+    traits::{BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify},
+    Perbill, Permill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
 pub use frame_system::Call as SystemCall;
+pub use pallet_balances::Call as BalancesCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -228,7 +186,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc1!();
 
-impl committee::Trait<GovernanceCommittee> for Runtime {
+impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -236,7 +194,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
 }
 
 /// PolymeshCommittee as an instance of group
-impl group::Trait<group::Instance1> for Runtime {
+impl pallet_group::Trait<pallet_group::Instance1> for Runtime {
     type Event = Event;
     type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
     type AddOrigin = Self::LimitOrigin;
@@ -250,19 +208,19 @@ impl group::Trait<group::Instance1> for Runtime {
 
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
-        impl committee::Trait<committee::$instance> for Runtime {
+        impl pallet_committee::Trait<pallet_committee::$instance> for Runtime {
             // Can act upon itself.
-            type CommitteeOrigin = VMO<committee::$instance>;
+            type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
-        impl group::Trait<group::$instance> for Runtime {
+        impl pallet_group::Trait<pallet_group::$instance> for Runtime {
             type Event = Event;
             // Committee cannot alter its own active membership limit.
             type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
-            type AddOrigin = VMO<committee::$instance>;
+            type AddOrigin = VMO<pallet_committee::$instance>;
             type RemoveOrigin = Self::AddOrigin;
             type SwapOrigin = Self::AddOrigin;
             // ...but it cannot reset its own membership; GC needs to do that.
@@ -281,15 +239,15 @@ impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
-    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
-    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
+    type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
 }
 
 /// CddProviders instance of group
-impl group::Trait<group::Instance2> for Runtime {
+impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type Event = Event;
     type LimitOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
     type AddOrigin = frame_system::EnsureRoot<polymesh_primitives::AccountId>;
@@ -315,17 +273,17 @@ construct_runtime!(
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
 
         // Balance: Genesis config dependencies: System.
-        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
 
         // TransactionPayment: Genesis config dependencies: Balance.
         TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
 
         // Identity: Genesis config deps: Timestamp.
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
+        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
 
         // CddServiceProviders: Genesis config deps: Identity
-        CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
@@ -343,43 +301,43 @@ construct_runtime!(
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-        MultiSig: multisig::{Module, Call, Config, Storage, Event<T>} = 18,
+        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Event<T>} = 21,
-        PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
+        Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
+        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
 
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
+        CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
-        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
+        TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
 
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
-        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
+        UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
 
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
-        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
+        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
         ////////////
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
 
         // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
-        ComplianceManager: compliance_manager::{Module, Call, Storage, Event} = 32,
-        Settlement: settlement::{Module, Call, Storage, Event<T>, Config} = 36,
-        Sto: sto::{Module, Call, Storage, Event<T>} = 37,
+        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
+        ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
+        Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
+        Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
-        Utility: utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 42,
         Permissions: pallet_permissions::{Module} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,

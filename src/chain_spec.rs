@@ -439,17 +439,17 @@ fn general_testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(asset!()),
+        pallet_asset: Some(asset!()),
         pallet_checkpoint: Some(checkpoint!()),
-        identity: Some(GeneralConfig::IdentityConfig {
+        pallet_identity: Some(GeneralConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,
             ..Default::default()
         }),
-        balances: Some(GeneralConfig::BalancesConfig {
+        pallet_balances: Some(GeneralConfig::BalancesConfig {
             balances: balances(&initial_authorities, &endowed_accounts),
         }),
-        bridge: Some(GeneralConfig::BridgeConfig {
+        pallet_bridge: Some(GeneralConfig::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
             signatures_required: 1,
@@ -488,18 +488,18 @@ fn general_testnet_genesis(
             },
         }),
         // Governance Council:
-        group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
-        committee_Instance1: Some(committee!(6)),
-        group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
+        pallet_group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
+        pallet_committee_Instance1: Some(committee!(6)),
+        pallet_group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
         // Technical Committee:
-        group_Instance3: Some(committee_membership!(3)),
-        committee_Instance3: Some(committee!(3)),
+        pallet_group_Instance3: Some(committee_membership!(3)),
+        pallet_committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(4)),
-        committee_Instance4: Some(committee!(4)),
-        protocol_fee: Some(protocol_fee!()),
-        settlement: Some(Default::default()),
-        multisig: Some(MULTISIG),
+        pallet_group_Instance4: Some(committee_membership!(4)),
+        pallet_committee_Instance4: Some(committee!(4)),
+        pallet_protocol_fee: Some(protocol_fee!()),
+        pallet_settlement: Some(Default::default()),
+        pallet_multisig: Some(MULTISIG),
         pallet_corporate_actions: Some(corporate_actions!()),
     }
 }
@@ -627,17 +627,17 @@ fn alcyone_testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(asset!()),
+        pallet_asset: Some(asset!()),
         pallet_checkpoint: Some(checkpoint!()),
-        identity: Some(AlcyoneConfig::IdentityConfig {
+        pallet_identity: Some(AlcyoneConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,
             ..Default::default()
         }),
-        balances: Some(AlcyoneConfig::BalancesConfig {
+        pallet_balances: Some(AlcyoneConfig::BalancesConfig {
             balances: balances(&initial_authorities, &endowed_accounts),
         }),
-        bridge: Some(AlcyoneConfig::BridgeConfig {
+        pallet_bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: seeded_acc_id("polymath_1"),
             creator: seeded_acc_id("polymath_1"),
             signatures_required: 3,
@@ -672,19 +672,19 @@ fn alcyone_testnet_genesis(
             },
         }),
         // Governing council
-        group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
-        committee_Instance1: Some(committee!(3, (2, 3))),
+        pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+        pallet_committee_Instance1: Some(committee!(3, (2, 3))),
         // CDD providers
-        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+        pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
         // Technical Committee:
-        group_Instance3: Some(committee_membership!(3)), //admin
-        committee_Instance3: Some(committee!(3)),
+        pallet_group_Instance3: Some(committee_membership!(3)), //admin
+        pallet_committee_Instance3: Some(committee!(3)),
         // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(3)), //admin
-        committee_Instance4: Some(committee!(3)),
-        protocol_fee: Some(protocol_fee!()),
-        settlement: Some(Default::default()),
-        multisig: Some(MULTISIG),
+        pallet_group_Instance4: Some(committee_membership!(3)), //admin
+        pallet_committee_Instance4: Some(committee!(3)),
+        pallet_protocol_fee: Some(protocol_fee!()),
+        pallet_settlement: Some(Default::default()),
+        pallet_multisig: Some(MULTISIG),
         pallet_corporate_actions: Some(corporate_actions!()),
     }
 }

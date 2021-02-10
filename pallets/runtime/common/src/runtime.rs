@@ -7,6 +7,9 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 #[macro_export]
 macro_rules! misc1 {
     () => {
+        use sp_runtime::{generic, impl_opaque_keys, ApplyExtrinsicResult, MultiSignature};
+        use sp_runtime::traits::{Saturating as _, SaturatedConversion as _};
+
         impl frame_system::Trait for Runtime {
             /// The basic call filter to use in dispatchable.
             type BaseCallFilter = ();
@@ -101,8 +104,8 @@ macro_rules! misc1 {
         impl pallet_transaction_payment::Trait for Runtime {
             type Currency = Balances;
             type OnTransactionPayment = DealWithFees;
-            type TransactionByteFee = TransactionByteFee;
-            type WeightToFee = WeightToFee;
+            type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
+            type WeightToFee = polymesh_runtime_common::WeightToFee;
             type FeeMultiplierUpdate = ();
             type CddHandler = CddHandler;
         }
@@ -110,7 +113,7 @@ macro_rules! misc1 {
         impl polymesh_common_utilities::traits::CommonTrait for Runtime {
             type Balance = polymesh_primitives::Balance;
             type AssetSubTraitTarget = Asset;
-            type BlockRewardsReserve = balances::Module<Runtime>;
+            type BlockRewardsReserve = pallet_balances::Module<Runtime>;
         }
 
         impl pallet_balances::Trait for Runtime {
@@ -119,7 +122,7 @@ macro_rules! misc1 {
             type Event = Event;
             type ExistentialDeposit = ExistentialDeposit;
             type AccountStore = frame_system::Module<Runtime>;
-            type CddChecker = CddChecker<Runtime>;
+            type CddChecker = polymesh_runtime_common::cdd_check::CddChecker<Runtime>;
             type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
         }
 
@@ -179,7 +182,7 @@ macro_rules! misc1 {
         impl pallet_staking::Trait for Runtime {
             type Currency = Balances;
             type UnixTime = Timestamp;
-            type CurrencyToVote = CurrencyToVoteHandler<Self>;
+            type CurrencyToVote = polymesh_runtime_common::impls::CurrencyToVoteHandler<Self>;
             type RewardRemainder = ();
             type Event = Event;
             type Slash = Treasury; // send the slashed funds to the treasury.
@@ -346,7 +349,7 @@ macro_rules! misc1 {
             type WeightSoftLimit = OffencesWeightSoftLimit;
         }
 
-        type GrandpaKey = (sp_core::crypto::KeyTypeId, GrandpaId);
+        type GrandpaKey = (sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId);
 
         impl pallet_im_online::Trait for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
@@ -392,7 +395,7 @@ macro_rules! misc1 {
             type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
         }
 
-        impl PermissionChecker for Runtime {
+        impl polymesh_common_utilities::traits::PermissionChecker for Runtime {
             type Call = Call;
             type Checker = Identity;
         }
@@ -405,12 +408,12 @@ macro_rules! misc1 {
                 C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
             >(
                 call: Call,
-                public: <Signature as Verify>::Signer,
+                public: <polymesh_primitives::Signature as Verify>::Signer,
                 account: AccountId,
-                nonce: Index,
+                nonce: polymesh_primitives::Index,
             ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
                 // take the biggest period possible.
-                let period = BlockHashCount::get()
+                let period = polymesh_runtime_common::BlockHashCount::get()
                     .checked_next_power_of_two()
                     .map(|c| c / 2)
                     .unwrap_or(2) as u64;
@@ -443,8 +446,8 @@ macro_rules! misc1 {
         }
 
         impl frame_system::offchain::SigningTypes for Runtime {
-            type Public = <Signature as Verify>::Signer;
-            type Signature = Signature;
+            type Public = <polymesh_primitives::Signature as Verify>::Signer;
+            type Signature = polymesh_primitives::Signature;
         }
 
         impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -460,6 +463,14 @@ macro_rules! misc1 {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
+        use sp_inherents::{CheckInherentsResult, InherentData};
+        use pallet_compliance_manager::AssetComplianceResult;
+        use pallet_contracts_rpc_runtime_api::ContractExecResult;
+        use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
+        use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+        use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+        use polymesh_primitives::{IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
+
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
         /// Block header type as expected by this runtime.
@@ -482,7 +493,7 @@ macro_rules! runtime_apis {
             pallet_permissions::StoreCallMetadata<Runtime>,
         );
         /// Unchecked extrinsic type as expected by this runtime.
-        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, polymesh_primitives::Signature, SignedExtra>;
         /// The payload being signed in transactions.
         pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
         /// Extrinsic type that has already been checked.
@@ -496,7 +507,7 @@ macro_rules! runtime_apis {
             AllModules,
         >;
 
-        impl_runtime_apis! {
+        sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
                 fn version() -> RuntimeVersion {
                     VERSION
@@ -512,7 +523,7 @@ macro_rules! runtime_apis {
             }
 
             impl sp_api::Metadata<Block> for Runtime {
-                fn metadata() -> OpaqueMetadata {
+                fn metadata() -> sp_core::OpaqueMetadata {
                     Runtime::metadata().into()
                 }
             }
@@ -541,9 +552,9 @@ macro_rules! runtime_apis {
 
             impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
                 fn validate_transaction(
-                    source: TransactionSource,
+                    source: sp_runtime::transaction_validity::TransactionSource,
                     tx: <Block as BlockT>::Extrinsic,
-                ) -> TransactionValidity {
+                ) -> sp_runtime::transaction_validity::TransactionValidity {
                     Executive::validate_transaction(source, tx)
                 }
             }
@@ -554,17 +565,17 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl fg_primitives::GrandpaApi<Block> for Runtime {
-                fn grandpa_authorities() -> GrandpaAuthorityList {
+            impl pallet_grandpa::fg_primitives::GrandpaApi<Block> for Runtime {
+                fn grandpa_authorities() -> pallet_grandpa::fg_primitives::AuthorityList {
                     Grandpa::grandpa_authorities()
                 }
 
                 fn submit_report_equivocation_unsigned_extrinsic(
-                    equivocation_proof: fg_primitives::EquivocationProof<
+                    equivocation_proof: pallet_grandpa::fg_primitives::EquivocationProof<
                         <Block as BlockT>::Hash,
                         NumberFor<Block>,
                     >,
-                    key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+                    key_owner_proof: pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof,
                 ) -> Option<()> {
                     let key_owner_proof = key_owner_proof.decode()?;
 
@@ -575,14 +586,14 @@ macro_rules! runtime_apis {
                 }
 
                 fn generate_key_ownership_proof(
-                    _set_id: fg_primitives::SetId,
-                    authority_id: GrandpaId,
-                ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+                    _set_id: pallet_grandpa::fg_primitives::SetId,
+                    authority_id: pallet_grandpa::AuthorityId,
+                ) -> Option<pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof> {
                     use codec::Encode;
 
-                    Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                    Historical::prove((pallet_grandpa::fg_primitives::KEY_TYPE, authority_id))
                         .map(|p| p.encode())
-                        .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+                        .map(pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof::new)
                 }
             }
 
@@ -632,7 +643,7 @@ macro_rules! runtime_apis {
             }
 
             impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
-                fn authorities() -> Vec<AuthorityDiscoveryId> {
+                fn authorities() -> Vec<sp_authority_discovery::AuthorityId> {
                     AuthorityDiscovery::authorities()
                 }
             }
@@ -786,8 +797,8 @@ macro_rules! runtime_apis {
                 fn get_filtered_authorizations(
                     signatory: Signatory<AccountId>,
                     allow_expired: bool,
-                    auth_type: Option<AuthorizationType>
-                ) -> Vec<Authorization<AccountId, Moment>> {
+                    auth_type: Option<polymesh_primitives::AuthorizationType>
+                ) -> Vec<polymesh_primitives::Authorization<AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
                 }
             }
