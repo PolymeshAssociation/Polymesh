@@ -853,7 +853,7 @@ construct_runtime!(
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         // TODO: adjust the enum index before merging into develop.
-        ConfidentialAsset: confidential_asset::{Module, Call, Storage, Event<T>} = 50,
+        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Storage, Event<T>} = 50,
     }
 );
 
