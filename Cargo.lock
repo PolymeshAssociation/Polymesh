@@ -4300,7 +4300,6 @@ name = "pallet-confidential-asset"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mercat",
