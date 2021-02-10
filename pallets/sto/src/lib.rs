@@ -47,7 +47,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::{EventDid, IdentityId, PortfolioId, SecondaryKey, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -183,7 +183,7 @@ decl_event!(
         /// A fundraiser window has been modified.
         /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
         FundraiserWindowModified(
-            IdentityId,
+            EventDid,
             u64,
             Moment,
             Option<Moment>,
