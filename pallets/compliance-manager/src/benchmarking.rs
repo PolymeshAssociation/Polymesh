@@ -16,9 +16,11 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use pallet_asset::SecurityToken;
 use polymesh_common_utilities::benchs::{User, UserBuilder};
-use polymesh_primitives::{asset::AssetType, TrustedFor, TrustedIssuer};
+use polymesh_primitives::{
+    asset::{AssetType, SecurityToken},
+    TrustedFor, TrustedIssuer,
+};
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
