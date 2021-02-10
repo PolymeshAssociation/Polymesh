@@ -553,14 +553,8 @@ impl treasury::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
-parameter_types! {
-    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInInstruction: u32 = 10;
-}
-
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
