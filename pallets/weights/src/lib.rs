@@ -40,6 +40,7 @@ pub mod pallet_protocol_fee;
 pub mod pallet_scheduler;
 pub mod pallet_session;
 pub mod pallet_settlement;
+pub mod pallet_staking;
 pub mod pallet_statistics;
 pub mod pallet_sto;
 pub mod pallet_timestamp;
