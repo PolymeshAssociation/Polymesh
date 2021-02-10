@@ -7,6 +7,15 @@ pub type GovernanceCommittee = pallet_committee::Instance1;
 #[macro_export]
 macro_rules! misc1 {
     () => {
+        /// Native version.
+        #[cfg(any(feature = "std", test))]
+        pub fn native_version() -> NativeVersion {
+            NativeVersion {
+                runtime_version: VERSION,
+                can_author_with: Default::default(),
+            }
+        }
+
         use sp_runtime::traits::{SaturatedConversion as _, Saturating as _};
         use sp_runtime::{generic, impl_opaque_keys, ApplyExtrinsicResult, MultiSignature};
 

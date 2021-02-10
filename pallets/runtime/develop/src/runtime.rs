@@ -61,15 +61,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     transaction_version: 1,
 };
 
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-    NativeVersion {
-        runtime_version: VERSION,
-        can_author_with: Default::default(),
-    }
-}
-
 parameter_types! {
     /// Assume 10% of weight for average on_initialize calls.
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
