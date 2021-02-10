@@ -57,10 +57,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, storage,
-    traits::{
-        schedule::{DispatchTime, Named as ScheduleNamed},
-        Get,
-    },
+    traits::schedule::{DispatchTime, Named as ScheduleNamed},
     weights::Weight,
     IterableStorageDoubleMap, StorageHasher, Twox128,
 };
@@ -97,8 +94,6 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
@@ -416,8 +411,6 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Maximum numbers of legs in a instruction > `MaxLegsInInstruction`.
-        LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
@@ -479,8 +472,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
 
@@ -834,12 +825,6 @@ impl<T: Trait> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg<T::Balance>>,
     ) -> Result<u64, DispatchError> {
-        // Check whether the no. of legs within the limit or not.
-        ensure!(
-            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInInstruction::get(),
-            Error::<T>::LegsCountExceededMaxLimit
-        );
-
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {

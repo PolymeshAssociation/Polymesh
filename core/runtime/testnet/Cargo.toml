@@ -98,6 +98,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
+migration-dry-run = []
 no_std = [
     "pallet-confidential/no_std",
     "pallet-confidential/u64_backend",

@@ -15,6 +15,9 @@ pub use pallet_im_online::OfflineSlashingParams;
 #[cfg(feature = "std")]
 pub use runtime::{native_version, WASM_BINARY};
 
+#[cfg(feature = "migration-dry-run")]
+pub use runtime::DryRunRuntimeUpgrade;
+
 pub use runtime::{
     api, Asset, Authorship, Balances, BalancesCall, BaseContracts, Bridge, Call, CheckedExtrinsic,
     Contracts, MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, SystemCall,

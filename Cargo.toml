@@ -14,6 +14,8 @@ members = [
     "bin/bench",
     "bin/crypto-cli",
     "bin/testing",
+    "migration-tests",
+    "migration-tests/remote-externalities",
     "node-rpc",
     "core/primitives",
     "core/primitives_derive",
