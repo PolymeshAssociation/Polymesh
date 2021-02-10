@@ -247,12 +247,12 @@ pub struct Leg<Balance> {
     /// Portfolio of the receiver.
     pub to: PortfolioId,
     /// Part of the leg which depends on whether the leg is confidential or not.
-    pub kind: LegKind,
+    pub kind: LegKind<Balance>,
 }
 
 /// Information in a leg specific to whether the leg is confidential or not.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, PartialOrd, Ord)]
-pub enum LegKind {
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum LegKind<Balance> {
     NonConfidential(NonConfidentialLeg<Balance>),
     Confidential(ConfidentialLeg),
     Undefined,
@@ -714,12 +714,20 @@ decl_module! {
         /// * `data` - MERCAT payload to include for the instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to authorize for this instruction.
         #[weight = <T as Trait>::WeightInfo::affirm_confidential_instruction()]
-        pub fn affirm_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
+        pub fn affirm_confidential_instruction(
+            origin,
+            instruction_id: u64,
+            data: MercatTxData,
+            portfolios: Vec<PortfolioId>,
+            max_legs_count: u32,
+        ) -> DispatchResult {
             // Authorize the instruction.
-            Self::unsafe_affirm_instruction(did, instruction_id, portfolios_set)?;
+            let (legs_count, did) = Self::base_affirm_instruction(
+                origin,
+                instruction_id,
+                portfolios.into_iter(),
+                max_legs_count
+            )?;
 
             // Update the transaction sender's ordering state.
             if let MercatTxData::InitializedTransfer(tx_data) =  &data {
@@ -735,14 +743,13 @@ decl_module! {
             }
             MercatTxDataStorage::append(instruction_id, data);
 
-            // Execute the instruction if conditions are met.
-            let affirms_pending = Self::instruction_affirms_pending(instruction_id);
-            let weight_for_instruction_execution = Self::is_instruction_executed(affirms_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
-
-            match weight_for_instruction_execution {
-                Ok(post_info) => Ok(post_info.actual_weight.map(|w| w.saturating_add(weight_for::weight_for_affirmation_instruction::<T>())).into()),
-                Err(e) => Ok(e.post_info)
-            }
+            // Schedule the instruction if conditions are met
+            Self::maybe_schedule_instruction(
+                Self::instruction_affirms_pending(instruction_id),
+                instruction_id,
+                legs_count,
+            );
+            Ok(())
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -1702,19 +1709,19 @@ impl<T: Trait> Module<T> {
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
-    ) -> Result<u32, DispatchError> {
+    ) -> Result<(u32, IdentityId), DispatchError> {
         let (did, secondary_key) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
-
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(
+        let leg_count = Self::unsafe_affirm_instruction(
             did,
             instruction_id,
             portfolios_set,
             max_legs_count,
             secondary_key.as_ref(),
-        )
+        )?;
+        Ok((leg_count, did))
     }
 
     // It affirms the instruction and may schedule the instruction
@@ -1750,8 +1757,12 @@ impl<T: Trait> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> DispatchResult {
-        let legs_count =
-            Self::base_affirm_instruction(origin, instruction_id, portfolios, max_legs_count)?;
+        let (legs_count, _) = Self::base_affirm_instruction(
+            origin,
+            instruction_id,
+            portfolios,
+            max_legs_count,
+        )?;
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(
             Self::instruction_affirms_pending(instruction_id),
