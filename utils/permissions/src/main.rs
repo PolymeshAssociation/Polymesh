@@ -1,3 +1,19 @@
+/// # Overview
+/// The intended purpose of this script is to parse the permissions of individual extrinsics.
+/// Extrinsics are documented as variants of a `Call` enum located at the root of the pallet.
+/// The output is in CSV in the following format `<pallet>, <extrinsic>, <permission>, <permission>...`
+///
+/// # Usage
+/// Build a fresh version of the rustdoc
+/// ```
+/// cargo doc
+/// ```
+///
+/// Run the script
+/// ```
+/// cargo run --package permissions --bin permissions
+/// ```
+
 use crate::doc_parser::enums::{EnumDoc, EnumDocParser};
 use regex::Regex;
 use scraper::{Html, Selector};
