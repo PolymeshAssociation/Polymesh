@@ -5,18 +5,17 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-confidential-asset = { path = "../confidential-asset", default-features = false }
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-portfolio = { path = "../portfolio", default-features = false  }
-pallet-identity = { path = "../identity", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false  }
+pallet-balances = { path = "../balances", default-features = false  }
+pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
+pallet-confidential-asset = { path = "../confidential-asset", default-features = false }
+pallet-identity = { path = "../identity", default-features = false  }
+pallet-portfolio = { path = "../portfolio", default-features = false  }
+pallet-statistics = { path = "../statistics", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-contracts = { path = "../contracts", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
-polymesh-contracts = { path = "../contracts", default-features = false }
-pallet-statistics = { path = "../statistics", default-features = false }
-
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -45,25 +44,28 @@ base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 [features]
 equalize = []
 default = ["std", "equalize"]
-no_std = [ "mercat/no_std" ]
 only-staking = []
+no_std = [
+    "pallet-confidential-asset/no_std",
+]
 std = [
-    "hex/std",
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "hex/std",
     "mercat/std",
-    "pallet-contracts/std",
-    "polymesh-contracts/std",
-    "pallet-balances/std",
     "pallet-asset/std",
-    "pallet-identity/std",
-    "pallet-timestamp/std",
-    "pallet-statistics/std",
-    "polymesh-common-utilities/std",
+    "pallet-balances/std",
     "pallet-compliance-manager/std",
-    "polymesh-primitives/std",
+    "pallet-confidential-asset/std",
+    "pallet-contracts/std",
+    "pallet-identity/std",
+    "pallet-statistics/std",
+    "pallet-timestamp/std",
+    "polymesh-common-utilities/std",
+    "polymesh-contracts/std",
     "polymesh-primitives-derive/std",
+    "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
     "sp-api/std",

@@ -17,6 +17,7 @@ members = [
     "migration-tests",
     "migration-tests/remote-externalities",
     "node-rpc",
+    "node-rpc",
     "pallets/asset",
     "pallets/balances",
     "pallets/bridge",
@@ -24,6 +25,8 @@ members = [
     "pallets/common",
     "pallets/compliance-manager",
     "pallets/confidential",
+    "pallets/confidential-asset",
+    "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/group",
     "pallets/group/rpc",
@@ -36,8 +39,8 @@ members = [
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/runtime/common",
-    "pallets/runtime/extensions",
     "pallets/runtime/develop",
+    "pallets/runtime/extensions",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/settlement",
@@ -47,11 +50,8 @@ members = [
     "pallets/statistics",
     "pallets/sto",
     "pallets/transaction-payment",
-    "pallets/confidential-asset",
     "pallets/treasury",
     "pallets/utility",
-    "pallets/contracts",
-    "node-rpc",
     "pallets/weights",
     "primitives",
     "rpc",
@@ -63,7 +63,8 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-committee = { path = "pallets/committee", default-features = false }
-pallet-confidential = { path = "pallets/confidential" }
+pallet-confidential = { path = "pallets/confidential", default-features = false }
+pallet-confidential-asset = { path = "pallets/confidential-asset", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }

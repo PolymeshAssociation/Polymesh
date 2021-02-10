@@ -103,6 +103,7 @@ equalize = []
 migration-dry-run = []
 no_std = [
     "pallet-confidential/no_std",
+    "pallet-confidential-asset/no_std",
 ]
 std = [
     "codec/std",
@@ -115,10 +116,10 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
+    "pallet-confidential-asset/std",
     "pallet-confidential/std",
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
@@ -145,12 +146,14 @@ std = [
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
     "pallet-statistics/std",
+    "pallet-sto/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
     "polymesh-common-utilities/std",
+    "polymesh-contracts/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
@@ -170,8 +173,6 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "polymesh-contracts/std",
-    "pallet-confidential-asset/std"
 ]
 
 runtime-benchmarks = [

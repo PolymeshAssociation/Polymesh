@@ -22,6 +22,7 @@ pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
+pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
@@ -31,17 +32,16 @@ pallet-permissions = { path = "../../permissions", default-features = false  }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
-pallet-sto = { path = "../../sto", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
 pallet-statistics = { path = "../../statistics", default-features = false }
+pallet-sto = { path = "../../sto", default-features = false }
+pallet-sudo = { path = "../../sudo", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
-pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
-pallet-sudo = { path = "../../sudo", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -101,7 +101,10 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
-no_std = [ "pallet-confidential/no_std", ]
+no_std = [
+    "pallet-confidential/no_std",
+    "pallet-confidential-asset/no_std",
+]
 std = [
     "codec/std",
     "frame-benchmarking/std",
@@ -115,10 +118,10 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-sto/std",
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
+    "pallet-confidential-asset/std",
     "pallet-confidential/std",
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
@@ -146,15 +149,15 @@ std = [
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
     "pallet-statistics/std",
+    "pallet-sto/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-
-    # RPC
-    "pallet-confidential-asset/std",
     "polymesh-common-utilities/std",
+    "polymesh-contracts/std",
+    "polymesh-extensions/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "polymesh-weights/std",
@@ -174,8 +177,6 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "polymesh-contracts/std",
-    "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
