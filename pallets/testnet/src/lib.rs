@@ -37,7 +37,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// A new mocked `InvestorUid` has been created for the given Identity.
-        /// (Target DID, New InvestorUi)
+        /// (Target DID, New InvestorUid)
         MockInvestorUIDCreated(IdentityId, InvestorUid),
         /// Emits the `IdentityId` and the `AccountId` of the caller.
         /// (Caller DID, Caller account)
