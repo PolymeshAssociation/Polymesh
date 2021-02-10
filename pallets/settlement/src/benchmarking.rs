@@ -117,7 +117,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 
 // create asset
 fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchError> {
-    let ticker = Ticker::try_from(vec![b'A'; 8 as usize].as_slice()).unwrap();
+    let ticker = Ticker::try_from(generate_ticker(8u64).as_slice()).unwrap();
     let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
     let total_supply: T::Balance = 90000u32.into();
     let token = SecurityToken {
@@ -148,7 +148,7 @@ fn setup_leg_and_portfolio<T: Trait>(
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
     let variance = index + 1;
-    let ticker = Ticker::try_from(vec![b'A'; variance as usize].as_slice()).unwrap();
+    let ticker = Ticker::try_from(generate_ticker(variance.into()).as_slice()).unwrap();
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
@@ -189,7 +189,7 @@ fn generate_portfolio<T: Trait>(
 }
 
 fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Balance>>) {
-    let ticker = Ticker::try_from(vec![b'A'; index as usize].as_slice()).unwrap();
+    let ticker = Ticker::try_from(generate_ticker(index.into()).as_slice()).unwrap();
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
@@ -802,7 +802,7 @@ benchmarks! {
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
-        let ticker = Ticker::try_from(vec![b'A'; 1 as usize].as_slice()).unwrap();
+        let ticker = Ticker::try_from(generate_ticker(1u64).as_slice()).unwrap();
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
         let leg_id = 0;
         let amount = 100u128;
