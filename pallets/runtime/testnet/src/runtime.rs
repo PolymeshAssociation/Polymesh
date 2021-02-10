@@ -1,6 +1,10 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
+
+#[cfg(feature = "migration-dry-run")]
+use frame_support::traits::OnRuntimeUpgrade;
+
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
@@ -1241,5 +1245,20 @@ impl_runtime_apis! {
                 CommitteeMembership::active_members(),
                 CommitteeMembership::inactive_members())
         }
+    }
+}
+
+/// Trait for testing storage migrations.
+/// NB: Since this is defined outside the `impl_runtime_apis` macro, it is not callable in WASM.
+#[cfg(feature = "migration-dry-run")]
+pub trait DryRunRuntimeUpgrade {
+    /// dry-run runtime upgrades, returning the total weight consumed.
+    fn dry_run_runtime_upgrade() -> u64;
+}
+
+#[cfg(feature = "migration-dry-run")]
+impl DryRunRuntimeUpgrade for Runtime {
+    fn dry_run_runtime_upgrade() -> Weight {
+        <AllModules as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
 }
