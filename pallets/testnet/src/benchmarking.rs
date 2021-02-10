@@ -16,7 +16,7 @@
 use crate::*;
 
 use pallet_identity::benchmarking::generate_secondary_keys;
-use polymesh_common_utilities::benchs::{uid_from_name_and_idx, UserBuilder};
+use polymesh_common_utilities::benchs::{cdd_provider, uid_from_name_and_idx, user, UserBuilder};
 
 use frame_benchmarking::{account, benchmarks};
 use sp_std::prelude::*;
@@ -41,14 +41,31 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
 
-        let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let _cdd =  cdd_provider::<T>("cdd", SEED);
         let caller = UserBuilder::<T>::default().build("caller");
         let uid = uid_from_name_and_idx("caller", SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(caller.origin, uid, secondary_keys)
+    verify {
+
+    }
 
     mock_cdd_register_did {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let cdd =  cdd_provider::<T>("cdd", SEED);
         let target: T::AccountId = account("target", SEED, SEED);
     }: _(cdd.origin, target)
+    verify {
+    }
+
+    get_my_did {
+        let user = user::<T>("user", SEED);
+    }: _(user.origin)
+
+    get_cdd_of {
+        let cdd =  cdd_provider::<T>("cdd", SEED);
+        let user = UserBuilder::<T>::default().build("user");
+
+        Module::<T>::mock_cdd_register_did(cdd.origin().into(), user.account())
+            .expect("CDD provider cannot generate a DID for that user");
+    }: _(user.origin, user.account)
 }

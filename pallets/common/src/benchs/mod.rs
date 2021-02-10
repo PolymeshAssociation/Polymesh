@@ -29,3 +29,11 @@ pub fn user<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
         .seed(u)
         .build(prefix)
 }
+
+pub fn cdd_provider<T: Trait>(prefix: &'static str, u: u32) -> User<T> {
+    UserBuilder::<T>::default()
+        .generate_did()
+        .seed(u)
+        .become_cdd_provider()
+        .build(prefix)
+}

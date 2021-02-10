@@ -4,8 +4,7 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get,
-    weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, weights::Weight,
 };
 use frame_system::{ensure_signed, RawOrigin};
 use pallet_identity::PermissionedCallOriginData;
@@ -23,6 +22,8 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 pub trait WeightInfo {
     fn register_did(i: u32) -> Weight;
     fn mock_cdd_register_did() -> Weight;
+    fn get_my_did() -> Weight;
+    fn get_cdd_of() -> Weight;
 }
 
 pub trait Trait: IdentityTrait {
@@ -65,7 +66,16 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Register a new did with a CDD claim for the caller.
+        /// Generates a new `IdentityID` for the caller, and issues a self-generated CDD claim.
+        ///
+        /// The caller account will be the primary key of that identity.
+        /// For each account of `secondary_keys`, a new `JoinIdentity` authorization is created, so
+        /// each of them will need to accept it before become part of this new `IdentityID`.
+        ///
+        /// # Errors
+        /// - `AlreadyLinked` if the caller account or if any of the given `secondary_keys` has already linked to an `IdentityID`
+        /// - `SecondaryKeysContainPrimaryKey` if `secondary_keys` contains the caller account.
+        /// - `DidAlreadyExists` if auto-generated DID already exists.
         #[weight = <T as Trait>::WeightInfo::register_did(secondary_keys.len() as u32)]
         pub fn register_did(
             origin,
@@ -76,7 +86,7 @@ decl_module! {
             Identity::<T>::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
             // Add CDD claim
-            let did = Identity::<T>::get_identity(&sender).ok_or_else(|| "DID Self-register failed")?;
+            let did = Identity::<T>::get_identity(&sender).ok_or("DID Self-register failed")?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
             Identity::<T>::base_add_claim(did, cdd_claim, did, None);
         }
@@ -110,11 +120,7 @@ decl_module! {
         }
 
         /// Emits an event with caller's identity.
-        /// NB: The weight is a placeholder
-        #[weight =
-            (200_000_000 as Weight)
-                .saturating_add(T::DbWeight::get().reads(1 as Weight))
-        ]
+        #[weight = <T as Trait>::WeightInfo::get_my_did()]
         pub fn get_my_did(origin) {
             let PermissionedCallOriginData {
                 sender,
@@ -125,12 +131,7 @@ decl_module! {
         }
 
         /// Emits an event with caller's identity and CDD status.
-        ///
-        /// NB: The weight is a placeholder
-        #[weight =
-            (200_000_000 as Weight)
-                .saturating_add(T::DbWeight::get().reads(2 as Weight))
-        ]
+        #[weight = <T as Trait>::WeightInfo::get_cdd_of()]
         pub fn get_cdd_of(origin, of: T::AccountId) {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
