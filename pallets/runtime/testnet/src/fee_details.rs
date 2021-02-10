@@ -14,40 +14,16 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{runtime, Runtime};
-
-use pallet_bridge as bridge;
-use pallet_identity as identity;
-use pallet_multisig as multisig;
-
-use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
-use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
-use sp_runtime::transaction_validity::InvalidTransaction;
-
 use codec::{Decode, Encode};
 use frame_support::{StorageDoubleMap, StorageMap};
+use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
+use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
+use polymesh_runtime_common::fee_details::{cdd_required, missing_id, CallType, ValidPayerResult};
+use sp_runtime::transaction_validity::InvalidTransaction;
 
-type Identity = identity::Module<Runtime>;
-type Bridge = bridge::Module<Runtime>;
-
+type Identity = pallet_identity::Module<Runtime>;
+type Bridge = pallet_bridge::Module<Runtime>;
 type Call = runtime::Call;
-
-#[derive(Encode, Decode)]
-enum CallType {
-    AcceptMultiSigSigner,
-    AcceptIdentitySecondary,
-    AcceptIdentityPrimary,
-    /// Matches any call to `remove_authorization`,
-    /// where the authorization is available for `auth.authorized_by` payer redirection.
-    RemoveAuthorization,
-}
-
-type ValidPayerResult = Result<Option<AccountId>, InvalidTransaction>;
-
-fn cdd_required() -> ValidPayerResult {
-    Err(InvalidTransaction::Custom(
-        TransactionError::CddRequired as u8,
-    ))
-}
 
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct CddHandler;
@@ -61,15 +37,10 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
     /// However, this does not set the payer context since that is meant to remain constant
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(call: &Call, caller: &AccountId) -> ValidPayerResult {
-        let missing_id = || {
-            Err(InvalidTransaction::Custom(
-                TransactionError::MissingIdentity as u8,
-            ))
-        };
         let handle_multisig = |multisig, caller: &AccountId| {
             let sig = Signatory::Account(caller.clone());
-            if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, sig) {
-                let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
+            if <pallet_multisig::MultiSigSigners<Runtime>>::contains_key(multisig, sig) {
+                let did = <pallet_multisig::MultiSigToIdentity<Runtime>>::get(multisig);
                 check_cdd(&did)
             } else {
                 missing_id()
@@ -81,40 +52,42 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         match call {
             // Register did call. This should be removed before mainnet launch and
             // all did registration should go through CDD
-            Call::Identity(identity::Call::register_did(..)) => Ok(Some(caller.clone())),
+            Call::Identity(pallet_identity::Call::register_did(..)) => Ok(Some(caller.clone())),
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing multisig that has a valid CDD. The auth should be valid.
-            Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
+            Call::MultiSig(pallet_multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptMultiSigSigner)
             }
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(identity::Call::join_identity_as_key(auth_id, ..)) => {
+            Call::Identity(pallet_identity::Call::join_identity_as_key(auth_id, ..)) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptIdentitySecondary)
             }
             // Call made by a new Account key to accept invitation to become the primary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(identity::Call::accept_primary_key(rotation_auth_id, ..)) => {
+            Call::Identity(pallet_identity::Call::accept_primary_key(rotation_auth_id, ..)) => {
                 is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityPrimary)
             }
             // Call made by a new Account key to remove invitation for certain authorizations
             // in an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(identity::Call::remove_authorization(_, auth_id, true)) => {
+            Call::Identity(pallet_identity::Call::remove_authorization(_, auth_id, true)) => {
                 is_auth_valid(caller, auth_id, CallType::RemoveAuthorization)
             }
             // Call made by an Account key to propose or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::MultiSig(
-                multisig::Call::create_or_approve_proposal_as_key(multisig, ..)
-                | multisig::Call::create_proposal_as_key(multisig, ..)
-                | multisig::Call::approve_as_key(multisig, ..),
+                pallet_multisig::Call::create_or_approve_proposal_as_key(multisig, ..)
+                | pallet_multisig::Call::create_proposal_as_key(multisig, ..)
+                | pallet_multisig::Call::approve_as_key(multisig, ..),
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::Bridge(
-                bridge::Call::propose_bridge_tx(..) | bridge::Call::batch_propose_bridge_tx(..),
+                pallet_bridge::Call::propose_bridge_tx(..)
+                | pallet_bridge::Call::batch_propose_bridge_tx(..),
             ) => handle_multisig(&Bridge::controller_key(), caller),
             // All other calls.
+            //
             // The external account must directly be linked to an identity with valid CDD.
             _ => match Identity::get_identity(caller) {
                 Some(did) if Identity::has_valid_cdd(did) => {
@@ -139,7 +112,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         Context::set_current_payer::<Identity>(payer);
     }
 
-    /// Fetches fee payer for further payements (forwareded calls)
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
