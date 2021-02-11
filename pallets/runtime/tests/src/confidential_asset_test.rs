@@ -115,7 +115,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         ));
 
         // Since the total_supply is zero, the investor count should remain zero.
-        assert_eq!(Statistics::investor_count_per_asset(ticker), 0);
+        assert_eq!(Statistics::investor_count(ticker), 0);
 
         // A correct entry is added.
         let token_with_zero_supply = SecurityToken {
@@ -314,7 +314,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         // ------------------------- Ensuring that the asset details are set correctly
         // Check the update investor count for the newly created asset.
-        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
+        assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added.
         assert_eq!(Asset::token_details(ticker), token);

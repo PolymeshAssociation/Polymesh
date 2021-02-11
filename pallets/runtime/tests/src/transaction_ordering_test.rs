@@ -27,7 +27,8 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_settlement::{
-    self as settlement, ConfidentialLeg, Leg, MercatTxData, SettlementType, VenueDetails, VenueType,
+    self as settlement, ConfidentialLeg, Leg, LegKind, MercatTxData, SettlementType, VenueDetails,
+    VenueType,
 };
 use polymesh_primitives::{
     asset::{AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, SecurityToken},
@@ -271,13 +272,16 @@ fn initialize_transaction(
         venue_counter,
         SettlementType::SettleOnAffirmation,
         None,
-        vec![Leg::ConfidentialLeg(ConfidentialLeg {
+        None,
+        vec![Leg {
             from: PortfolioId::default_portfolio(sender_creds.did),
             to: PortfolioId::default_portfolio(receiver_creds.did),
-            mediator: PortfolioId::default_portfolio(mediator_creds.mediator_did),
-            from_account_id: sender_creds.account_id.clone(),
-            to_account_id: receiver_creds.account_id.clone(),
-        })]
+            kind: LegKind::Confidential(ConfidentialLeg {
+                mediator: PortfolioId::default_portfolio(mediator_creds.mediator_did),
+                from_account_id: sender_creds.account_id.clone(),
+                to_account_id: receiver_creds.account_id.clone(),
+            }),
+        }]
     ));
 
     // Sender authorizes.
@@ -303,6 +307,7 @@ fn initialize_transaction(
         instruction_counter,
         initialized_tx,
         default_portfolio_vec(sender_creds.did),
+        1
     ));
 
     // Receiver authorizes.
@@ -346,6 +351,7 @@ fn initialize_transaction(
         instruction_counter,
         finalized_tx,
         default_portfolio_vec(receiver_creds.did),
+        1
     ));
 
     (
@@ -421,6 +427,7 @@ fn finalize_transaction(
         instruction_counter,
         justified_tx,
         default_portfolio_vec(mediator_creds.mediator_did),
+        1
     ));
 
     // Instruction should've settled.
@@ -531,7 +538,6 @@ fn create_investor_account(
 fn settle_out_of_order() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -607,7 +613,6 @@ fn settle_out_of_order() {
 fn double_spending_fails() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -689,7 +694,6 @@ fn double_spending_fails() {
 fn mercat_whitepaper_scenario1() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -796,7 +800,8 @@ fn mercat_whitepaper_scenario1() {
             assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
-                default_portfolio_vec(alice_creds.did)
+                default_portfolio_vec(alice_creds.did),
+                1
             ));
 
             // Approve and process tx:1002.
@@ -817,7 +822,6 @@ fn mercat_whitepaper_scenario1() {
 fn mercat_whitepaper_scenario2() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -929,7 +933,8 @@ fn mercat_whitepaper_scenario2() {
             assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
-                default_portfolio_vec(alice_creds.did)
+                default_portfolio_vec(alice_creds.did),
+                1
             ));
 
             // Approve and process tx:1002.

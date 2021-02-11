@@ -105,6 +105,18 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
     };
 }
 
+macro_rules! assert_affirm_confidential_instruction {
+    ($signer:expr, $instruction_id:expr, $data:expr, $did:expr, $count:expr) => {
+        assert_ok!(Settlement::affirm_confidential_instruction(
+            $signer,
+            $instruction_id,
+            $data,
+            default_portfolio_vec($did),
+            $count
+        ));
+    };
+}
+
 fn init(token_name: &[u8], ticker: Ticker, keyring: Public) -> u64 {
     create_token(token_name, ticker, keyring);
     let venue_counter = Settlement::venue_counter();
@@ -768,7 +780,7 @@ fn claiming_receipt() {
                 Leg {
                     from: PortfolioId::default_portfolio(bob_did),
                     to: PortfolioId::default_portfolio(alice_did),
-                    knid: LegKind::NonConfidential(NonConfidentialLeg {
+                    kind: LegKind::NonConfidential(NonConfidentialLeg {
                         asset: ticker2,
                         amount: amount,
                     }),
@@ -3452,7 +3464,6 @@ pub fn create_account_and_mint_token(
 fn basic_confidential_settlement() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // The rest of rngs are built from it. Its initial value can be set using proptest.
@@ -3523,6 +3534,7 @@ fn basic_confidential_settlement() {
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
                 None,
+                None,
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
@@ -3570,12 +3582,13 @@ fn basic_confidential_settlement() {
             let initialized_tx =
                 MercatTxData::InitializedTransfer(Base64Vec::new(sender_data.encode()));
             // Sender authorizes the instruction and passes in the proofs.
-            assert_ok!(Settlement::affirm_confidential_instruction(
+            assert_affirm_confidential_instruction!(
                 Origin::signed(AccountKeyring::Alice.public()),
                 instruction_counter,
                 initialized_tx,
-                default_portfolio_vec(alice_did),
-            ));
+                alice_did,
+                1
+            );
 
             // ------ Receiver authorizes.
             // Receiver reads the sender's proof from the chain.
@@ -3613,12 +3626,13 @@ fn basic_confidential_settlement() {
             ));
 
             // Receiver submits the proof to the chain.
-            assert_ok!(Settlement::affirm_confidential_instruction(
+            assert_affirm_confidential_instruction!(
                 Origin::signed(AccountKeyring::Bob.public()),
                 instruction_counter,
                 finalized_tx,
-                default_portfolio_vec(bob_did),
-            ));
+                bob_did,
+                1
+            );
 
             // ------ Mediator authorizes.
             // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
@@ -3657,12 +3671,13 @@ fn basic_confidential_settlement() {
             ));
 
             println!("-------------> This should trigger the execution");
-            assert_ok!(Settlement::affirm_confidential_instruction(
+            assert_affirm_confidential_instruction!(
                 Origin::signed(charlie),
                 instruction_counter,
                 justified_tx,
-                default_portfolio_vec(charlie_did),
-            ));
+                charlie_did,
+                1
+            );
 
             // Instruction should've settled.
             // Verify by decrypting the new balance of both Alice and Bob.
