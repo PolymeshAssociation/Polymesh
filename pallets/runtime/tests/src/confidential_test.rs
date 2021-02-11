@@ -4,14 +4,15 @@ use super::{
 };
 
 use confidential_identity::{compute_cdd_id, compute_scope_id};
-use pallet_asset::{self as asset, SecurityToken};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity as identity;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AssetIdentifier, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    PortfolioId, Scope, Ticker,
+    asset::{AssetType, SecurityToken},
+    AssetIdentifier, Claim, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId, Scope,
+    Ticker,
 };
 
 use core::convert::TryFrom;

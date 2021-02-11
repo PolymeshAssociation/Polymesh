@@ -3,10 +3,13 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
-use pallet_asset::{self as asset, SecurityToken};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics::{self as statistics, TransferManager};
-use polymesh_primitives::{asset::AssetType, IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{
+    asset::{AssetType, SecurityToken},
+    IdentityId, PortfolioId, Ticker,
+};
 use sp_arithmetic::Permill;
 use sp_core::sr25519::Public;
 use sp_std::convert::TryFrom;

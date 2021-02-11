@@ -20,8 +20,7 @@ use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset,
     checkpoint::{ScheduleId, StoredSchedule},
-    AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers,
-    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerImport, ClassicTickerRegistration, ClassicTickers, ScopeIdOf, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -34,7 +33,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
-    asset::{AssetType, FundingRoundName},
+    asset::{
+        AssetOwnershipRelation, AssetType, FundingRoundName, SecurityToken, TickerRegistration,
+        TickerRegistrationConfig,
+    },
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },

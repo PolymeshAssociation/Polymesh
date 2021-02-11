@@ -3,7 +3,6 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
-use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{

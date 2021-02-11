@@ -27,7 +27,6 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 fn raise_happy_path_ext() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(2)
         .build()
         .execute_with(raise_happy_path);
 }
@@ -35,7 +34,6 @@ fn raise_happy_path_ext() {
 fn raise_unhappy_path_ext() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(2)
         .build()
         .execute_with(raise_unhappy_path);
 }
@@ -44,7 +42,6 @@ fn raise_unhappy_path_ext() {
 fn zero_price_sto_ext() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(2)
         .build()
         .execute_with(zero_price_sto);
 }
@@ -53,7 +50,6 @@ fn zero_price_sto_ext() {
 fn invalid_fundraiser_ext() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(2)
         .build()
         .execute_with(invalid_fundraiser);
 }
