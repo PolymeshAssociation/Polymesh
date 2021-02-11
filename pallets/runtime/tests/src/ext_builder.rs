@@ -87,8 +87,6 @@ pub struct ExtBuilder {
     network_fee_share: Perbill,
     /// Maximum number of transfer manager an asset can have.
     max_no_of_tm_allowed: u32,
-    /// Maximum number of legs a instruction can have.
-    max_no_of_legs: u32,
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
@@ -100,7 +98,6 @@ thread_local! {
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
     pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
-    pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
 }
 
 impl ExtBuilder {
@@ -181,12 +178,6 @@ impl ExtBuilder {
         self
     }
 
-    /// Set maximum no of legs an instruction can have.
-    pub fn set_max_legs_allowed(mut self, legs_count: u32) -> Self {
-        self.max_no_of_legs = legs_count;
-        self
-    }
-
     pub fn set_protocol_base_fees(mut self, fees: MockProtocolBaseFees) -> Self {
         self.protocol_base_fees = fees;
         self
@@ -215,7 +206,6 @@ impl ExtBuilder {
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
         NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
-        MAX_NO_OF_LEGS.with(|v| *v.borrow_mut() = self.max_no_of_legs);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {

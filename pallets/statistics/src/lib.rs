@@ -99,6 +99,8 @@ decl_module! {
         /// * `DuplicateTransferManager` if `new_transfer_manager` is already enabled for the ticker.
         /// * `TransferManagersLimitReached` if the `ticker` already has max TMs attached
         ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_transfer_manager()]
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -122,6 +124,8 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `TransferManagerMissing` if `asset_compliance` contains multiple entries with the same `requirement_id`.
         ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_transfer_manager()]
         pub fn remove_transfer_manager(origin, ticker: Ticker, transfer_manager: TransferManager) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -145,6 +149,8 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_exempted_entities(exempted_entities.len() as u32)]
         pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -166,6 +172,8 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_exempted_entities(entities.len() as u32)]
         pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;

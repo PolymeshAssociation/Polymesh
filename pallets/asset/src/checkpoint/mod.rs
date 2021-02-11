@@ -124,7 +124,7 @@ impl From<Moment> for ScheduleSpec {
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Trait> as Checkpoint {
@@ -134,13 +134,13 @@ decl_storage! {
         ///
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub TotalSupply get(fn total_supply_at):
-            map hasher(blake2_128_concat) (Ticker, CheckpointId) => T::Balance;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => T::Balance;
 
         /// Balance of a DID at a checkpoint.
         ///
         /// (ticker, did, checkpoint ID) -> Balance of a DID at a checkpoint
         pub Balance get(fn balance_at_checkpoint):
-            map hasher(blake2_128_concat) (Ticker, IdentityId, CheckpointId) => T::Balance;
+            double_map hasher(blake2_128_concat) (Ticker, CheckpointId), hasher(twox_64_concat) IdentityId => T::Balance;
 
         // ------------------------ Checkpoint storage -------------------------
 
@@ -154,16 +154,16 @@ decl_storage! {
         /// Checkpoints where a DID's balance was updated.
         /// (ticker, did) -> [checkpoint ID where user balance changed]
         pub BalanceUpdates get(fn balance_updates):
-            map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<CheckpointId>;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => Vec<CheckpointId>;
 
         /// Checkpoint timestamps.
         ///
         /// Every schedule-originated checkpoint maps its ID to its due time.
         /// Every checkpoint manually created maps its ID to the time of recording.
         ///
-        /// (checkpoint ID) -> checkpoint timestamp
+        /// (ticker) -> (checkpoint ID) -> checkpoint timestamp
         pub Timestamps get(fn timestamps):
-            map hasher(twox_64_concat) CheckpointId => Moment;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => Moment;
 
         // -------------------- Checkpoint Schedule storage --------------------
 
@@ -192,16 +192,16 @@ decl_storage! {
         ///
         /// (ticker, schedule ID) -> strong ref count
         pub ScheduleRefCount get(fn schedule_ref_count):
-            map hasher(blake2_128_concat) (Ticker, ScheduleId) => u32;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => u32;
 
         /// All the checkpoints a given schedule originated.
         ///
         /// (ticker, schedule ID) -> [checkpoint ID]
         pub SchedulePoints get(fn schedule_points):
-            map hasher(blake2_128_concat) (Ticker, ScheduleId) => Vec<CheckpointId>;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
 }
 
@@ -231,6 +231,24 @@ decl_module! {
                     ));
 
                 migrate_map::<StoredScheduleOld, _>(b"Checkpoint", b"Schedules", |_| Empty);
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                // We're making it into a double map due to a bug, nuke storage.
+                use polymesh_primitives::migrate::kill_item;
+                for item in &[
+                    b"TotalSupply" as &[_],
+                    b"Balance" as &[_],
+                    b"CheckpointIdSequence" as &[_],
+                    b"BalanceUpdates" as &[_],
+                    b"Timestamps" as &[_],
+                    b"ScheduleIdSequence" as &[_],
+                    b"Schedules" as &[_],
+                    b"ScheduleRefCount" as &[_],
+                    b"SchedulePoints" as &[_],
+                ] {
+                    kill_item(b"Checkpoint", item);
+                }
             });
 
             0
@@ -284,6 +302,9 @@ decl_module! {
         /// - `ScheduleOverflow` if the schedule ID counter would overflow.
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         /// - `FailedToComputeNextCheckpoint` if the next checkpoint for `schedule` is in the past.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = T::CPWeightInfo::create_schedule(1)]
         pub fn create_schedule(
             origin,
@@ -305,6 +326,9 @@ decl_module! {
         /// - `Unauthorized` if the caller doesn't own the asset.
         /// - `NoCheckpointSchedule` if `id` does not identify a schedule for this `ticker`.
         /// - `ScheduleNotRemovable` if `id` exists but is not removable.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = T::CPWeightInfo::remove_schedule(1)]
         pub fn remove_schedule(
             origin,
@@ -314,16 +338,15 @@ decl_module! {
             let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
 
             // If the ID matches and schedule is removable, it should be removed.
-            let schedule_id = (ticker, id);
             let schedule = Schedules::try_mutate(&ticker, |ss| {
-                ensure!(ScheduleRefCount::get(schedule_id) == 0, Error::<T>::ScheduleNotRemovable);
+                ensure!(ScheduleRefCount::get(ticker, id) == 0, Error::<T>::ScheduleNotRemovable);
                 // By definiton of `id` existing, `.remove(pos)` won't panic.
                 Self::ensure_schedule_exists(&ss, id).map(|pos| ss.remove(pos))
             })?;
 
             // Remove some additional data.
             // We don't remove historical points related to the schedule.
-            ScheduleRefCount::remove(schedule_id);
+            ScheduleRefCount::remove(ticker, id);
 
             // Emit event.
             Self::deposit_event(RawEvent::ScheduleRemoved(owner, ticker, schedule));
@@ -395,15 +418,14 @@ impl<T: Trait> Module<T> {
     /// N.B. in case of `None`, you likely want the current balance instead.
     /// To compute that, use `Asset::get_balance_at(ticker, did, cp)`, which calls into here.
     pub fn balance_at(ticker: Ticker, did: IdentityId, cp: CheckpointId) -> Option<T::Balance> {
-        let ticker_did = (ticker, did);
-        if Self::checkpoint_exists(&ticker, cp) && BalanceUpdates::contains_key(&ticker_did) {
+        if Self::checkpoint_exists(&ticker, cp) && BalanceUpdates::contains_key(ticker, did) {
             // Checkpoint exists and user has some part in that.
-            let balance_updates = BalanceUpdates::get(&ticker_did);
+            let balance_updates = BalanceUpdates::get(ticker, did);
             if cp <= balance_updates.last().copied().unwrap_or(CheckpointId(0)) {
                 // Use first checkpoint created after target checkpoint.
                 // The user has data for that checkpoint.
                 let id = *find_ceiling(&balance_updates, &cp);
-                return Some(Self::balance_at_checkpoint((ticker, did, id)));
+                return Some(Self::balance_at_checkpoint((ticker, id), did));
             }
             // User has not transacted after checkpoint creation.
             // This means their current balance = their balance at that cp.
@@ -433,10 +455,10 @@ impl<T: Trait> Module<T> {
             return;
         }
         for (did, balance) in updates {
-            let bal_key = (*ticker, did, last_cp);
-            if !<Balance<T>>::contains_key(bal_key) {
-                <Balance<T>>::insert(bal_key, balance);
-                BalanceUpdates::append((*ticker, did), last_cp);
+            let first_key = (ticker, last_cp);
+            if !<Balance<T>>::contains_key(first_key, did) {
+                <Balance<T>>::insert(first_key, did, balance);
+                BalanceUpdates::append(ticker, did, last_cp);
             }
         }
     }
@@ -519,7 +541,7 @@ impl<T: Trait> Module<T> {
         // Create all checkpoints we planned for.
         for ((at, id), cp_id) in create.into_iter().zip(id_seq) {
             Self::create_at(None, *ticker, cp_id, at);
-            SchedulePoints::append((*ticker, id), cp_id);
+            SchedulePoints::append(ticker, id, cp_id);
         }
 
         // Reschedule schedules we need to.
@@ -595,7 +617,7 @@ impl<T: Trait> Module<T> {
         // (1) Start is now, so create the checkpoint.
         if let Some(cp_id) = cp_id {
             CheckpointIdSequence::insert(ticker, cp_id);
-            SchedulePoints::append((ticker, id), cp_id);
+            SchedulePoints::append(ticker, id, cp_id);
             Self::create_at(Some(did), ticker, cp_id, now);
         }
 
@@ -616,7 +638,7 @@ impl<T: Trait> Module<T> {
             })
         }
 
-        ScheduleRefCount::insert((ticker, id), ref_count);
+        ScheduleRefCount::insert(ticker, id, ref_count);
         ScheduleIdSequence::insert(ticker, id);
         Self::deposit_event(RawEvent::ScheduleCreated(did, ticker, schedule));
         Ok(schedule)
@@ -645,10 +667,10 @@ impl<T: Trait> Module<T> {
     fn create_at(actor: Option<EventDid>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::token_details(ticker).total_supply;
-        <TotalSupply<T>>::insert(&(ticker, id), supply);
+        <TotalSupply<T>>::insert(ticker, id, supply);
 
-        // Relate ID -> time.
-        Timestamps::insert(id, at);
+        // Relate Ticker -> ID -> time.
+        Timestamps::insert(ticker, id, at);
 
         // Emit event & we're done.
         Self::deposit_event(RawEvent::CheckpointCreated(actor, ticker, id, supply, at));

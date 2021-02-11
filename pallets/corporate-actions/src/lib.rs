@@ -463,6 +463,9 @@ decl_module! {
         ///
         /// ## Errors
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
@@ -479,6 +482,9 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -502,6 +508,9 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -522,6 +531,9 @@ decl_module! {
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -569,6 +581,9 @@ decl_module! {
         /// - `TooManyTargetIds` if `targets.unwrap().identities.len() > T::MaxTargetIds::get()`.
         /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(
                 T::MaxDidWhts::get(),
                 T::MaxTargetIds::get(),
@@ -676,6 +691,9 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
@@ -705,6 +723,9 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
             .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
@@ -746,6 +767,9 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
             .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
@@ -905,7 +929,7 @@ impl<T: Trait> Module<T> {
         let ticker = ca_id.ticker;
         match cp {
             // CP exists, use it.
-            Some(cp_id) => <Checkpoint<T>>::total_supply_at((ticker, cp_id)),
+            Some(cp_id) => <Checkpoint<T>>::total_supply_at(ticker, cp_id),
             // Although record date has passed, no transfers have happened yet for `ticker`.
             // Thus, there is no checkpoint ID, and we must use current supply instead.
             None => <Asset<T>>::token_details(ticker).total_supply,
@@ -935,7 +959,7 @@ impl<T: Trait> Module<T> {
             // since you may attach a pre-existing and recurring schedule to it.
             // However, the record date stores the index for the CP,
             // assuming a transfer has happened since the record date.
-            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points((ticker, id))
+            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(ticker, id)
                 .get(idx as usize)
                 .copied(),
         }
@@ -955,7 +979,7 @@ impl<T: Trait> Module<T> {
         }) = record_date
         {
             // We've proven by getting here that `c > 0`, so `c - 1` cannot underflow.
-            ScheduleRefCount::mutate((ca_id.ticker, sh_id), |c| *c -= 1);
+            ScheduleRefCount::mutate(ca_id.ticker, sh_id, |c| *c -= 1);
         }
     }
 
@@ -982,9 +1006,8 @@ impl<T: Trait> Module<T> {
                 let schedule = schedules[<Checkpoint<T>>::ensure_schedule_exists(&schedules, id)?];
                 // Schedule cannot be removable, otherwise the CP module may remove it,
                 // so we increment the strong reference count of `id`.
-                let ticker_sh = (ticker, id);
-                ScheduleRefCount::mutate(ticker_sh, |c| *c += 1);
-                let cp_at_idx = SchedulePoints::decode_len(ticker_sh).unwrap_or(0) as u64;
+                ScheduleRefCount::mutate(ticker, id, |c| *c += 1);
+                let cp_at_idx = SchedulePoints::decode_len(ticker, id).unwrap_or(0) as u64;
                 (schedule.at, CACheckpoint::Scheduled(schedule.id, cp_at_idx))
             }
             RecordDateSpec::Existing(id) => {
@@ -993,7 +1016,10 @@ impl<T: Trait> Module<T> {
                     <Checkpoint<T>>::checkpoint_exists(&ticker, id),
                     Error::<T>::NoSuchCheckpointId
                 );
-                (<Checkpoint<T>>::timestamps(id), CACheckpoint::Existing(id))
+                (
+                    <Checkpoint<T>>::timestamps(ticker, id),
+                    CACheckpoint::Existing(id),
+                )
             }
         };
         Ok(RecordDate { date, checkpoint })

@@ -1,6 +1,6 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
-    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use confidential_identity::{compute_cdd_id, compute_scope_id};
@@ -330,13 +330,8 @@ impl multisig::Trait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
-parameter_types! {
-    pub MaxLegsInInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
-}
-
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
@@ -680,7 +675,6 @@ impl pallet_utility::Trait for TestStorage {
 }
 
 impl PermissionChecker for TestStorage {
-    type Call = Call;
     type Checker = Identity;
 }
 
