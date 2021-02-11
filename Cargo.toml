@@ -56,6 +56,7 @@ members = [
     "primitives",
     "rpc",
     "rpc/runtime-api",
+    "utils/permissions",
 ]
 
 [dependencies]
