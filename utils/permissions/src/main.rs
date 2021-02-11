@@ -89,6 +89,7 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
     let h2_selector = Selector::parse("h2").unwrap();
     let ul_selector = Selector::parse("ul").unwrap();
     let li_selector = Selector::parse("li").unwrap();
+    let is_heading = |child| h1_selector.matches(&child) || h2_selector.matches(&child);
 
     let mut permissions = Vec::new();
     doc.variants
@@ -110,7 +111,7 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
             children
                 .iter()
                 .enumerate()
-                .filter(|(_, child)| h1_selector.matches(child) || h2_selector.matches(child))
+                .filter(|(_, child)| is_heading(**child))
                 // Check if the heading is `Permissions`
                 .filter(|(_, child)| {
                     child
@@ -124,9 +125,7 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
                     children[i + 1..]
                         .iter()
                         // Stop once we hit another h1
-                        .take_while(|element| {
-                            !(h1_selector.matches(element) || h2_selector.matches(element))
-                        })
+                        .take_while(|element| !is_heading(**element))
                         .filter(|element| ul_selector.matches(element))
                         .next()
                         .map(|ul| {
