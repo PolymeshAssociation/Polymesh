@@ -53,6 +53,7 @@
     "crypto-random-string": "^3.3.0",
     "esm": "^3.2.25",
     "figlet": "^1.5.0",
+    "fp-ts": "^2.9.5",
     "inquirer": "^7.3.3",
     "minimist": "^1.2.5",
     "nodejs-fs-utils": "^1.2.5",
