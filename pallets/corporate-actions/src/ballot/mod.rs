@@ -285,7 +285,7 @@ decl_storage! {
         ///
         /// User must enter 0 vote weight if they don't want to vote for a choice.
         pub Votes get(fn votes):
-            double_map hasher(blake2_128_concat) CAId, hasher(identity) IdentityId =>
+            double_map hasher(blake2_128_concat) CAId, hasher(blake2_128_concat) IdentityId =>
                 Vec<BallotVote<T::Balance>>;
     }
 }

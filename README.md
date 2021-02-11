@@ -57,7 +57,9 @@ https://stats.polymesh.live/#list/Polymesh%20Alcyone%20Testnet
 The latest tagged commit for the public testnet can be found at:  
 https://github.com/PolymathNetwork/Polymesh/releases
 
-To join the Polymesh Alcyone Public Testnet, you can build against the latest Polymesh release.
+The latest release of Alcyone is 2.3.0.
+
+To join the Polymesh Alcyone Public Testnet, you can build against the latest Polymesh 2.3 release. 
 
 Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
 

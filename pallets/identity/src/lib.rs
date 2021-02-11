@@ -144,10 +144,10 @@ decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
+        pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord<T::AccountId>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
-        pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
+        pub IsDidFrozen get(fn is_did_frozen): map hasher(twox_64_concat) IdentityId => bool;
 
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
@@ -156,18 +156,18 @@ decl_storage! {
         pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
-            map hasher(twox_64_concat) T::AccountId => IdentityId;
+            map hasher(blake2_128_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(identity) IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
@@ -178,7 +178,7 @@ decl_storage! {
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(identity)
+        pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
             IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
         /// Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
