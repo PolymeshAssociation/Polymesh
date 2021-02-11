@@ -248,8 +248,9 @@ decl_module! {
         /// * `minimum_investment` - Minimum amount of `raising_asset` that an investor needs to spend to invest in this raise.
         /// * `fundraiser_name` - Fundraiser name, only used in the UIs.
         ///
-        /// # Weight
-        /// `800_000_000` placeholder
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::create_fundraiser(tiers.len() as u32)]
         pub fn create_fundraiser(
             origin,
@@ -322,8 +323,8 @@ decl_module! {
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
         ///
-        /// # Weight
-        /// `2_000_000_000` placeholder
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::invest()]
         pub fn invest(
             origin,
@@ -457,8 +458,8 @@ decl_module! {
         /// * `offering_asset` - Asset to freeze.
         /// * `fundraiser_id` - ID of the fundraiser to freeze.
         ///
-        /// # Weight
-        /// `1_000` placeholder
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::freeze_fundraiser()]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, true)
@@ -469,8 +470,8 @@ decl_module! {
         /// * `offering_asset` - Asset to unfreeze.
         /// * `fundraiser_id` - ID of the fundraiser to unfreeze.
         ///
-        /// # Weight
-        /// `1_000` placeholder
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::unfreeze_fundraiser()]
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, false)
@@ -483,8 +484,8 @@ decl_module! {
         /// * `start` - New start of the fundraiser.
         /// * `end` - New end of the fundraiser to modify.
         ///
-        /// # Weight
-        /// `1_000` placeholder
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             Self::ensure_perms_pia(origin, &offering_asset)?;
@@ -509,8 +510,8 @@ decl_module! {
         /// * `offering_asset` - Asset to stop.
         /// * `fundraiser_id` - ID of the fundraiser to stop.
         ///
-        /// # Weight
-        /// `1_000` placeholder
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
             let did = Self::ensure_perms(origin, &offering_asset)?.0;
@@ -530,6 +531,7 @@ decl_module! {
                 .map(|t| t.remaining)
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
+            //TODO(Connor): Should we check portfolio perms here?
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
             fundraiser.status = FundraiserStatus::Closed;
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);

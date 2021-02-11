@@ -176,6 +176,10 @@ decl_module! {
         /// - `UnauthorizedCustodian` if CAA is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
         #[weight = <T as Trait>::DistWeightInfo::distribute()]
         pub fn distribute(
             origin,
