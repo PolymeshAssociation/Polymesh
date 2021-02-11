@@ -1,0 +1,10 @@
+[package]
+name = "permissions"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+scraper = "0.12"
+regex = "1"
+lazy_static = "1"

@@ -1030,7 +1030,8 @@
             "_enum": [
                 "Live",
                 "Frozen",
-                "Closed"
+                "Closed",
+                "ClosedEarly"
             ]
         },
         "FundraiserTier": {
