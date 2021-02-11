@@ -18,6 +18,11 @@ use polymesh_runtime_testnet::{
     config::{self as AlcyoneConfig},
     constants::time as alcyoneTime,
 };
+use polymesh_runtime_mainnet::{
+    self as lacaille,
+    config::{self as LacailleConfig},
+    constants::time as lacailleTime,
+};
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
@@ -38,6 +43,7 @@ const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
 pub type AlcyoneChainSpec = sc_service::GenericChainSpec<AlcyoneConfig::GenesisConfig>;
 pub type GeneralChainSpec = sc_service::GenericChainSpec<GeneralConfig::GenesisConfig>;
+pub type LacailleChainSpec = sc_service::GenericChainSpec<LacailleConfig::GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -62,6 +68,20 @@ fn general_session_keys(
     authority_discovery: AuthorityDiscoveryId,
 ) -> general::SessionKeys {
     general::SessionKeys {
+        babe,
+        grandpa,
+        im_online,
+        authority_discovery,
+    }
+}
+
+fn lacaille_session_keys(
+    grandpa: GrandpaId,
+    babe: BabeId,
+    im_online: ImOnlineId,
+    authority_discovery: AuthorityDiscoveryId,
+) -> lacaille::SessionKeys {
+    lacaille::SessionKeys {
         babe,
         grandpa,
         im_online,
@@ -797,6 +817,208 @@ pub fn alcyone_local_testnet_config() -> AlcyoneChainSpec {
         "local_alcyone",
         ChainType::Local,
         alcyone_local_testnet_genesis,
+        boot_nodes,
+        None,
+        None,
+        Some(polymath_props()),
+        Default::default(),
+    )
+}
+
+fn lacaille_mainnet_genesis(
+    initial_authorities: Vec<InitialAuth>,
+    root_key: AccountId,
+    endowed_accounts: Vec<AccountId>,
+    enable_println: bool,
+) -> LacailleConfig::GenesisConfig {
+    let init_ids = [
+        // Service providers
+        cdd_provider(1),
+        cdd_provider(2),
+        // Governance committee members
+        polymath_mem(1),
+        polymath_mem(2),
+        polymath_mem(3),
+    ];
+    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+
+    LacailleConfig::GenesisConfig {
+        frame_system: Some(LacailleConfig::SystemConfig {
+            code: alcyone::WASM_BINARY
+                .expect("WASM binary was not generated")
+                .to_vec(),
+            changes_trie_config: Default::default(),
+        }),
+        pallet_asset: Some(asset!()),
+        pallet_checkpoint: Some(checkpoint!()),
+        pallet_identity: Some(LacailleConfig::IdentityConfig {
+            identities: all_identities,
+            secondary_keys,
+            ..Default::default()
+        }),
+        pallet_balances: Some(LacailleConfig::BalancesConfig {
+            balances: balances(&initial_authorities, &endowed_accounts),
+        }),
+        pallet_bridge: Some(LacailleConfig::BridgeConfig {
+            admin: seeded_acc_id("polymath_1"),
+            creator: seeded_acc_id("polymath_1"),
+            signatures_required: 3,
+            signers: bridge_signers(),
+            timelock: lacailleTime::MINUTES * 15,
+            bridge_limit: (30_000_000_000, lacailleTime::DAYS),
+        }),
+        pallet_indices: Some(LacailleConfig::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(LacailleConfig::SudoConfig { key: root_key }),
+        pallet_session: Some(session!(
+            LacailleConfig,
+            initial_authorities,
+            lacaille_session_keys
+        )),
+        pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
+        pallet_pips: Some(LacailleConfig::PipsConfig {
+            prune_historical_pips: false,
+            min_proposal_deposit: 0,
+            default_enactment_period: lacailleTime::DAYS * 7,
+            max_pip_skip_count: 1,
+            active_pip_limit: 1000,
+            pending_pip_expiry: <_>::default(),
+        }),
+        pallet_im_online: Some(im_online!()),
+        pallet_authority_discovery: Some(Default::default()),
+        pallet_babe: Some(Default::default()),
+        pallet_grandpa: Some(Default::default()),
+        pallet_contracts: Some(LacailleConfig::ContractsConfig {
+            current_schedule: contracts::Schedule {
+                enable_println, // this should only be enabled on development chains
+                ..Default::default()
+            },
+        }),
+        // Governing council
+        pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+        pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+        // CDD providers
+        pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+        // Technical Committee:
+        pallet_group_Instance3: Some(committee_membership!(3)), //admin
+        pallet_committee_Instance3: Some(committee!(3)),
+        // Upgrade Committee:
+        pallet_group_Instance4: Some(committee_membership!(3)), //admin
+        pallet_committee_Instance4: Some(committee!(3)),
+        pallet_protocol_fee: Some(protocol_fee!()),
+        pallet_settlement: Some(Default::default()),
+        pallet_multisig: Some(MULTISIG),
+        pallet_corporate_actions: Some(corporate_actions!()),
+    }
+}
+
+fn lacaille_live_mainnet_genesis() -> LacailleConfig::GenesisConfig {
+    lacaille_mainnet_genesis(
+        vec![
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+            get_authority_keys_from_seed("Charlie", false),
+        ],
+        seeded_acc_id("Alice"),
+        vec![
+            seeded_acc_id("cdd_provider_1"),
+            seeded_acc_id("cdd_provider_2"),
+            seeded_acc_id("polymath_1"),
+            seeded_acc_id("polymath_2"),
+            seeded_acc_id("polymath_3"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
+        ],
+        false,
+    )
+}
+
+pub fn lacaille_live_mainnet_config() -> LacailleChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![
+        "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
+        "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+    ];
+    LacailleChainSpec::from_genesis(
+        "Polymesh Buffron Testnet",
+        "buffron",
+        ChainType::Live,
+        lacaille_live_mainnet_genesis,
+        boot_nodes,
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Lacaille live telemetry url is valid; qed"),
+        ),
+        Some(&*"/polymath/buffron/1"),
+        Some(polymath_props()),
+        Default::default(),
+    )
+}
+
+fn lacaille_develop_mainnet_genesis() -> LacailleConfig::GenesisConfig {
+    lacaille_mainnet_genesis(
+        vec![get_authority_keys_from_seed("Alice", false)],
+        seeded_acc_id("Alice"),
+        vec![
+            seeded_acc_id("Bob"),
+            seeded_acc_id("Bob//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
+        ],
+        true,
+    )
+}
+
+pub fn lacaille_develop_mainnet_config() -> LacailleChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![];
+    LacailleChainSpec::from_genesis(
+        "Polymesh Lacaille Develop",
+        "dev_lacaille",
+        ChainType::Development,
+        lacaille_develop_mainnet_genesis,
+        boot_nodes,
+        None,
+        None,
+        Some(polymath_props()),
+        Default::default(),
+    )
+}
+
+fn lacaille_local_mainnet_genesis() -> LacailleConfig::GenesisConfig {
+    lacaille_mainnet_genesis(
+        vec![
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+        ],
+        seeded_acc_id("Alice"),
+        vec![
+            seeded_acc_id("Charlie"),
+            seeded_acc_id("Dave"),
+            seeded_acc_id("Charlie//stash"),
+            seeded_acc_id("relay_1"),
+            seeded_acc_id("relay_2"),
+            seeded_acc_id("relay_3"),
+            seeded_acc_id("relay_4"),
+            seeded_acc_id("relay_5"),
+        ],
+        true,
+    )
+}
+
+pub fn lacaille_local_mainnet_config() -> LacailleChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![];
+    LacailleChainSpec::from_genesis(
+        "Polymesh Lacaille Local",
+        "local_lacaille",
+        ChainType::Local,
+        lacaille_local_mainnet_genesis,
         boot_nodes,
         None,
         None,
