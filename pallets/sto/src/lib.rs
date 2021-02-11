@@ -47,7 +47,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::{EventDid, IdentityId, PortfolioId, SecondaryKey, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -70,6 +70,8 @@ pub enum FundraiserStatus {
     Frozen,
     /// Fundraiser has been stopped.
     Closed,
+    /// Fundraiser has been stopped before expiry.
+    ClosedEarly,
 }
 
 impl Default for FundraiserStatus {
@@ -106,6 +108,12 @@ pub struct Fundraiser<Balance, Moment> {
     pub status: FundraiserStatus,
     /// Minimum raising amount per invest transaction.
     pub minimum_investment: Balance,
+}
+
+impl<Balance, Moment> Fundraiser<Balance, Moment> {
+    pub fn is_closed(&self) -> bool {
+        self.status == FundraiserStatus::Closed || self.status == FundraiserStatus::ClosedEarly
+    }
 }
 
 /// Single tier of a tiered pricing model.
@@ -174,13 +182,23 @@ decl_event!(
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
-        /// An fundraiser has been frozen.
+        /// A fundraiser has been frozen.
         /// (primary issuance agent, fundraiser id)
         FundraiserFrozen(IdentityId, u64),
-        /// An fundraiser has been unfrozen.
+        /// A fundraiser has been unfrozen.
         /// (primary issuance agent, fundraiser id)
         FundraiserUnfrozen(IdentityId, u64),
-        /// An fundraiser has been stopped.
+        /// A fundraiser window has been modified.
+        /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
+        FundraiserWindowModified(
+            EventDid,
+            u64,
+            Moment,
+            Option<Moment>,
+            Moment,
+            Option<Moment>,
+        ),
+        /// A fundraiser has been stopped.
         /// (primary issuance agent, fundraiser id)
         FundraiserClosed(IdentityId, u64),
     }
@@ -488,17 +506,18 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            Self::ensure_perms_pia(origin, &offering_asset)?;
+            let did = Self::ensure_perms_pia(origin, &offering_asset)?.0.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
-                ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
+                ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
                     ensure!(Timestamp::<T>::get() < end, Error::<T>::FundraiserExpired);
                 }
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
+                Self::deposit_event(RawEvent::FundraiserWindowModified(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
                 fundraiser.start = start;
                 fundraiser.end = end;
                 Ok(())
@@ -524,7 +543,7 @@ decl_module! {
                 Error::<T>::Unauthorized
             );
 
-            ensure!(fundraiser.status != FundraiserStatus::Closed, Error::<T>::FundraiserClosed);
+            ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
             let remaining_amount: T::Balance = fundraiser.tiers
                 .iter()
@@ -533,8 +552,12 @@ decl_module! {
 
             //TODO(Connor): Should we check portfolio perms here?
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
-            fundraiser.status = FundraiserStatus::Closed;
+            fundraiser.status = match fundraiser.end {
+                Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
+                _ => FundraiserStatus::Closed,
+            };
             <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+            Self::deposit_event(RawEvent::FundraiserClosed(did, fundraiser_id));
         }
     }
 }
@@ -549,10 +572,7 @@ impl<T: Trait> Module<T> {
         let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
         let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
             .ok_or(Error::<T>::FundraiserNotFound)?;
-        ensure!(
-            fundraiser.status != FundraiserStatus::Closed,
-            Error::<T>::FundraiserClosed
-        );
+        ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
             Self::deposit_event(RawEvent::FundraiserFrozen(did, fundraiser_id));
