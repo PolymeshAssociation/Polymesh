@@ -86,6 +86,7 @@ fn main() {
 
 fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
     let h1_selector = Selector::parse("h1").unwrap();
+    let h2_selector = Selector::parse("h2").unwrap();
     let ul_selector = Selector::parse("ul").unwrap();
     let li_selector = Selector::parse("li").unwrap();
 
@@ -109,8 +110,8 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
             children
                 .iter()
                 .enumerate()
-                .filter(|(_, child)| h1_selector.matches(child))
-                // Check if the heading is `# Permissions`
+                .filter(|(_, child)| h1_selector.matches(child) || h2_selector.matches(child))
+                // Check if the heading is `Permissions`
                 .filter(|(_, child)| {
                     child
                         .value()
@@ -118,12 +119,14 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
                         .map(|s| s.starts_with("permissions"))
                         .unwrap_or(false)
                 })
-                // Look for a ul in the contents before the next h1
+                // Look for a ul in the contents before the next h1/h2
                 .for_each(|(i, _)| {
                     children[i + 1..]
                         .iter()
                         // Stop once we hit another h1
-                        .take_while(|element| !h1_selector.matches(element))
+                        .take_while(|element| {
+                            !(h1_selector.matches(element) || h2_selector.matches(element))
+                        })
                         .filter(|element| ul_selector.matches(element))
                         .next()
                         .map(|ul| {
