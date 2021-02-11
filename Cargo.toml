@@ -38,6 +38,7 @@ members = [
     "pallets/runtime/common",
     "pallets/runtime/extensions",
     "pallets/runtime/develop",
+    "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/settlement",
@@ -86,6 +87,7 @@ frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/subst
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
+polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
