@@ -201,6 +201,6 @@ benchmarks! {
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Closed, "stop");
+        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().is_closed(), "stop");
     }
 }
