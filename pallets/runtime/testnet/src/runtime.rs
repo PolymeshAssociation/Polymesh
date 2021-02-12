@@ -354,6 +354,7 @@ parameter_types! {
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MinimumBond: Balance = 1 * POLY;
 }
 
 impl pallet_staking::Trait for Runtime {
@@ -387,6 +388,7 @@ impl pallet_staking::Trait for Runtime {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
+    type MinimumBond = MinimumBond;
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
