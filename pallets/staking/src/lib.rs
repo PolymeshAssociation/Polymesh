@@ -1426,7 +1426,7 @@ decl_error! {
         /// When the intended number of validators to run is >= 2/3 of `validator_count`.
         IntendedCountIsExceedingConsensusLimit,
         /// When the amount to be bonded is less than `MinimumBond`
-        BondToSmall,
+        BondTooSmall,
     }
 }
 
@@ -1631,7 +1631,7 @@ decl_module! {
         ) {
             let stash = ensure_signed(origin)?;
             ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
-            ensure!(value > T::MinimumBond::get() , Error::<T>::BondToSmall);
+            ensure!(value >= T::MinimumBond::get() , Error::<T>::BondTooSmall);
 
             let controller = T::Lookup::lookup(controller)?;
             ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);
