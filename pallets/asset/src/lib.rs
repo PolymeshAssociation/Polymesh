@@ -88,6 +88,7 @@ pub mod benchmarking;
 pub mod checkpoint;
 pub mod ethereum;
 
+use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
@@ -449,7 +450,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) {
-            let identified_origin = Self::base_create_asset(
+            Self::base_create_asset(
                 origin,
                 name,
                 ticker,
@@ -459,10 +460,6 @@ decl_module! {
                 identifiers,
                 funding_round
             )?;
-            // Mint total supply to PIA
-            if total_supply > Zero::zero() {
-                Self::_mint(&ticker, identified_origin.account, identified_origin.did, total_supply, None)?;
-            }
         }
 
         /// Freezes transfers and minting of a given token.
@@ -2206,11 +2203,12 @@ impl<T: Trait> Module<T> {
         );
 
         let PermissionedCallOriginData {
-            primary_did,
             sender,
+            primary_did: did,
             secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
+        // Check total supply here to avoid any later failure
         Self::ensure_create_asset_parameters(&ticker, total_supply)?;
         ensure!(
             divisible || Self::is_unit_multiple(total_supply),
@@ -2218,7 +2216,7 @@ impl<T: Trait> Module<T> {
         );
 
         // Ensure its registered by DID or at least expired, thus available.
-        let available = match Self::is_ticker_available_or_registered_to(&ticker, primary_did) {
+        let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
             TickerRegistrationStatus::RegisteredByOther => {
                 return Err(Error::<T>::TickerAlreadyRegistered.into())
             }
@@ -2237,16 +2235,16 @@ impl<T: Trait> Module<T> {
         Identity::<T>::ensure_no_id_record(token_did)?;
 
         // Ensure that the caller has relevant portfolio permissions
-        let user_default_portfolio = PortfolioId::default_portfolio(primary_did);
+        let user_default_portfolio = PortfolioId::default_portfolio(did);
         Portfolio::<T>::ensure_portfolio_custody_and_permission(
             user_default_portfolio,
-            primary_did,
+            did,
             secondary_key.as_ref(),
         )?;
 
         // Charge protocol fees.
         T::ProtocolFee::charge_fees(&{
-            let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
+            let mut fees = ArrayVec::<[_; 2]>::new();
             if available {
                 fees.push(ProtocolOp::AssetRegisterTicker);
             }
@@ -2271,7 +2269,7 @@ impl<T: Trait> Module<T> {
         // Register the ticker or finish its registration.
         if available {
             // Ticker not registered by anyone (or registry expired), so register.
-            Self::_register_ticker(&ticker, primary_did, None);
+            Self::_register_ticker(&ticker, did, None);
         } else {
             // Ticker already registered by the user.
             <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
@@ -2279,26 +2277,25 @@ impl<T: Trait> Module<T> {
 
         let token = SecurityToken {
             name,
-            total_supply,
-            owner_did: primary_did,
+            total_supply: Zero::zero(),
+            owner_did: did,
             divisible,
             asset_type: asset_type.clone(),
             primary_issuance_agent: None,
         };
         <Tokens<T>>::insert(&ticker, token);
-
         // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever asset issuer/ primary issuance agent
         // have InvestorUniqueness claim. This also applies when issuing assets.
-        <AssetOwnershipRelations>::insert(primary_did, ticker, AssetOwnershipRelation::AssetOwned);
+        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            primary_did,
+            did,
             ticker,
             total_supply,
             divisible,
             asset_type,
-            primary_did,
+            did,
         ));
 
         let identifiers: Vec<AssetIdentifier> = identifiers
@@ -2306,19 +2303,20 @@ impl<T: Trait> Module<T> {
             .filter_map(|identifier| identifier.validate())
             .collect();
 
-        <Identifiers>::insert(ticker, identifiers.clone());
+        Identifiers::insert(ticker, identifiers.clone());
 
         // Add funding round name.
-        <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
+        FundingRound::insert(ticker, funding_round.unwrap_or_default());
 
-        Self::deposit_event(RawEvent::IdentifiersUpdated(
-            primary_did,
-            ticker,
-            identifiers,
-        ));
+        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+
+        // Mint total supply to PIA
+        if total_supply > Zero::zero() {
+            Self::_mint(&ticker, sender.clone(), did, total_supply, None)?;
+        }
 
         Ok(IdentifiedOriginData {
-            did: primary_did,
+            did,
             account: sender,
         })
     }
