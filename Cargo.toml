@@ -67,6 +67,7 @@ pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-confidential = { path = "pallets/confidential" }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
+pallet-multisig = { path = "pallets/multisig", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 polymesh-common-utilities = { path = "pallets/common", default-features = false }

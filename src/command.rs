@@ -58,19 +58,19 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
         Ok(match id {
-            "dev" => Box::new(chain_spec::general_development_testnet_config()),
-            "local" => Box::new(chain_spec::general_local_testnet_config()),
-            "live" => Box::new(chain_spec::general_live_testnet_config()),
-            "alcyone-dev" => Box::new(chain_spec::alcyone_develop_testnet_config()),
-            "alcyone-local" => Box::new(chain_spec::alcyone_local_testnet_config()),
-            "alcyone-live" => Box::new(chain_spec::alcyone_live_testnet_config()),
-            "Buffron" | "buffron" => Box::new(chain_spec::AlcyoneChainSpec::from_json_bytes(
+            "dev" => Box::new(chain_spec::general::develop_config()),
+            "local" => Box::new(chain_spec::general::local_config()),
+            "live" => Box::new(chain_spec::general::live_config()),
+            "alcyone-dev" => Box::new(chain_spec::alcyone_testnet::develop_config()),
+            "alcyone-local" => Box::new(chain_spec::alcyone_testnet::local_config()),
+            "alcyone-live" => Box::new(chain_spec::alcyone_testnet::live_config()),
+            "Buffron" | "buffron" => Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/buffron_raw.json")[..],
             )?),
-            "Alcyone" | "alcyone" | "" => Box::new(chain_spec::AlcyoneChainSpec::from_json_bytes(
+            "Alcyone" | "alcyone" | "" => Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/alcyone_raw.json")[..],
             )?),
-            path => Box::new(chain_spec::GeneralChainSpec::from_json_file(
+            path => Box::new(chain_spec::general::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
         })
