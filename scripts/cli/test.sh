@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 
 set -e
-schemaTest="schema_test "
-otherTests=$(ls -1 ./tests | sed -e 's/\.js$//' | sed '/^9_offchain_worker_test/d')
-echo $otherTests
-scriptsArray="$schemaTest$otherTests"
+scriptTests=$(ls -1 ./tests | sed -e 's/\.js$//' | sort -n | tr '\n' ' ' | sed 's/^/ schema_test /')
 
-for s in ${scriptsArray[@]}; do
+for s in ${scriptTests[@]}; do
     npm run $s
 
 done
