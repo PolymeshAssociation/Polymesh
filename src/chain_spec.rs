@@ -799,7 +799,7 @@ pub mod alcyone_testnet {
     }
 }
 
-pub mod lacaille_mainnet {
+pub mod polymesh_mainnet {
     use super::*;
     use polymesh_runtime_mainnet::{self as rt, config, constants::time};
 
@@ -929,16 +929,16 @@ pub mod lacaille_mainnet {
             "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
-            "Polymesh Buffron Testnet",
-            "buffron",
+            "Polymesh Mainnet",
+            "mainnet",
             ChainType::Live,
             live_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Lacaille live telemetry url is valid; qed"),
+                    .expect("Mainnet live telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/buffron/1"),
+            Some(&*"/polymath/mainnet/1"),
             Some(polymath_props()),
             Default::default(),
         )
@@ -965,8 +965,8 @@ pub mod lacaille_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Lacaille Develop",
-            "dev_lacaille",
+            "Polymesh Mainnet Develop",
+            "dev_mainnet",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
@@ -1002,8 +1002,8 @@ pub mod lacaille_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Lacaille Local",
-            "local_lacaille",
+            "Polymesh Mainnet Local",
+            "local_mainnet",
             ChainType::Local,
             local_genesis,
             boot_nodes,
