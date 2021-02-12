@@ -119,6 +119,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -146,7 +147,7 @@ pub trait WeightInfo {
     fn reschedule_execution() -> Weight;
     fn clear_snapshot() -> Weight;
     fn snapshot() -> Weight;
-    fn enact_snapshot_results() -> Weight;
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight;
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
 }
@@ -945,7 +946,7 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // 2. New value should be valid block number.
-            let next_block = <system::Module<T>>::block_number() + 1.into();
+            let next_block = <system::Module<T>>::block_number() + 1u32.into();
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
@@ -1021,7 +1022,22 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = <T as Trait>::WeightInfo::enact_snapshot_results()]
+        #[weight = {
+            use SnapshotResult::*;
+
+            let mut approves = 0;
+            let mut rejects = 0;
+            let mut skips = 0;
+            for r in results.iter().map(|result| result.1) {
+                match r {
+                    Approve => approves += 1,
+                    Reject => rejects += 1,
+                    Skip => skips += 1,
+                }
+            }
+            let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
+            weight.min(PipsEnactSnapshotMaximumWeight::get())
+        }]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1032,7 +1048,7 @@ decl_module! {
                 // Default after-first-push capacity is 4, we bump this slightly.
                 // Rationale: GC are humans sitting together and reaching conensus.
                 // This is time consuming, so considering 20 PIPs in total might take few hours.
-                let speculative_capacity = queue.len().max(10);
+                let speculative_capacity = queue.len().min(results.len()).min(10);
                 let mut to_reject = Vec::with_capacity(speculative_capacity);
                 let mut to_approve = Vec::with_capacity(speculative_capacity);
 
@@ -1091,7 +1107,7 @@ decl_module! {
 
         /// Internal dispatchable that handles execution of a PIP.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_pip()]
-        fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
+        pub fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
             Self::execute_proposal(id)
@@ -1099,7 +1115,7 @@ decl_module! {
 
         /// Internal dispatchable that handles expiration of a PIP.
         #[weight = <T as Trait>::WeightInfo::expire_scheduled_pip()]
-        fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
+        pub fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
                 Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
@@ -1161,7 +1177,7 @@ impl<T: Trait> Module<T> {
     /// i.e., once run, refunding again will refund nothing.
     fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
-            <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
+            <Deposits<T>>::iter_prefix_values(id).fold(0u32.into(), |acc, depo_info| {
                 Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
                 depo_info.amount.saturating_add(acc)
             });
@@ -1232,6 +1248,8 @@ impl<T: Trait> Module<T> {
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
             let period = Self::default_enactment_period();
+            // The enactment period is at least 1 block. This is de to the fact that it's only
+            // possible to schedule calls for future blocks.
             let corrected_period = if period > Zero::zero() {
                 period
             } else {
@@ -1325,6 +1343,7 @@ impl<T: Trait> Module<T> {
     /// Decrement active proposal count if `state` signifies it is active.
     fn decrement_count_if_active(state: ProposalState) {
         if Self::is_active(state) {
+            // The performance impact of a saturating sub is negligible and caution is good.
             ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
     }
@@ -1490,20 +1509,18 @@ impl<T: Trait> Module<T> {
     fn adjust_live_queue(id: PipId, old: SnapshottedPip<BalanceOf<T>>) {
         let new = Self::aggregate_result(id);
         <LiveQueue<T>>::mutate(|queue| {
-            let old_pos = queue.binary_search_by(|res| compare_spip(res, &old));
-            let new_pos = queue.binary_search_by(|res| compare_spip(res, &new));
-            match (old_pos, new_pos) {
-                // First time adding to queue, so insert.
-                (Err(_), Ok(pos) | Err(pos)) => queue.insert(pos, new),
-                // Already in queue. Swap positions.
-                (Ok(old_pos), Err(new_pos)) => {
-                    // Cannot underflow by definition of binary search finding an element.
-                    let new_pos = new_pos.min(queue.len() - 1);
-                    move_element(queue, old_pos, new_pos);
-                    queue[new_pos] = new;
-                }
-                // We have `old_res == new_res`. Queue state is already good.
-                (Ok(_), Ok(_)) => {}
+            // Remove the old element.
+            //
+            // Under normal conditions, we can assume its in the list and findable,
+            // as the list is sorted, updated, and old is taken before modification.
+            // However, we still prefer to be defensive here, and same below.
+            if let Ok(old_pos) = queue.binary_search_by(|res| compare_spip(res, &old)) {
+                queue.remove(old_pos);
+            }
+
+            // Insert the new element.
+            if let Err(new_pos) = queue.binary_search_by(|res| compare_spip(res, &new)) {
+                queue.insert(new_pos, new);
             }
         });
     }
@@ -1554,23 +1571,6 @@ impl<T: Trait> Module<T> {
         };
         proposal_data
     }
-}
-
-/// Move `slice[old]` to `slice[new]`, shifting other elements as necessary.
-///
-/// For example, given `let arr = [1, 2, 3, 4, 5];`,
-/// then `move_element(&mut arr, 1, 3);` would result in `[1, 3, 4, 2, 5]`
-/// whereas `move_element(&mut arr, 3, 1)` would yield `[1, 4, 2, 3, 5]`.
-fn move_element<T: Copy>(slice: &mut [T], old: usize, new: usize) {
-    let elem = slice[old];
-    if old < new {
-        // Left shift elements after `old` by one element.
-        slice.copy_within(old + 1..=new, old);
-    } else {
-        // Right shift elements from `new` by one element.
-        slice.copy_within(new..old, new + 1);
-    }
-    slice[new] = elem;
 }
 
 #[cfg(test)]

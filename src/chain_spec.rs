@@ -434,11 +434,13 @@ fn general_testnet_genesis(
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
-            code: general::WASM_BINARY.to_vec(),
+            code: general::WASM_BINARY
+                .expect("WASM binary was not generated")
+                .to_vec(),
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
-        checkpoint: Some(checkpoint!()),
+        pallet_checkpoint: Some(checkpoint!()),
         identity: Some(GeneralConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,
@@ -620,11 +622,13 @@ fn alcyone_testnet_genesis(
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
-            code: alcyone::WASM_BINARY.to_vec(),
+            code: alcyone::WASM_BINARY
+                .expect("WASM binary was not generated")
+                .to_vec(),
             changes_trie_config: Default::default(),
         }),
         asset: Some(asset!()),
-        checkpoint: Some(checkpoint!()),
+        pallet_checkpoint: Some(checkpoint!()),
         identity: Some(AlcyoneConfig::IdentityConfig {
             identities: all_identities,
             secondary_keys,

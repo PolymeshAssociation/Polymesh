@@ -25,7 +25,7 @@ async function main() {
   // Bob and Dave needs some funds to use.
   await reqImports.distributePolyBatch(api, [bob, dave], reqImports.transfer_amount, alice);
 
-  await sendTx(dave, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
+  await sendTx(dave, api.tx.staking.bond(bob.publicKey, 1000000, "Staked"));
   const setLimit = api.tx.pips.setActivePipLimit(42);
 
   let firstPipCount = await api.query.pips.pipIdSequence();

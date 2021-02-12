@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 
+use frame_benchmarking::{account, benchmarks};
+use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{uid_from_name_and_idx, User, UserBuilder},
     traits::identity::TargetIdAuthorization,
@@ -23,9 +24,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, Signatory,
 };
-
-use frame_benchmarking::{account, benchmarks};
-use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
@@ -47,7 +45,7 @@ fn setup_investor_uniqueness_claim<T: Trait>(
         191, 123, 156, 212, 20, 215, 87, 23, 42, 84, 181, 128, 73,
     ]);
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
+    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666u32.into()));
 
     let scope = Scope::Custom([228u8, 152, 116, 104, 5, 8, 30, 188, 143, 185, 10, 208].to_vec());
     let scope_did = IdentityId::from([
@@ -82,12 +80,24 @@ fn generate_secondary_keys<T: Trait>(
     secondary_keys
 }
 
+#[cfg(feature = "running-ci")]
+mod limits {
+    pub const MAX_SECONDARY_KEYS: u32 = 2;
+}
+
+#[cfg(not(feature = "running-ci"))]
+mod limits {
+    pub const MAX_SECONDARY_KEYS: u32 = 100;
+}
+
+use limits::*;
+
 benchmarks! {
     _ {}
 
     register_did {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let caller = UserBuilder::<T>::default().build("caller");
@@ -97,7 +107,7 @@ benchmarks! {
 
     cdd_register_did {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
         let target: T::AccountId = account("target", SEED, SEED);
@@ -116,11 +126,11 @@ benchmarks! {
 
         let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
 
-    }: _(RawOrigin::Root, cdd.did(), 0.into(), None)
+    }: _(RawOrigin::Root, cdd.did(), 0u32.into(), None)
 
     remove_secondary_keys {
         // Number of secondary items.
-        let i in 0 .. 50;
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
         let target = UserBuilder::<T>::default().generate_did().build("target");
 
@@ -155,7 +165,18 @@ benchmarks! {
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
-    change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
+    change_cdd_requirement_for_mk_rotation {
+        ensure!(
+            Module::<T>::cdd_auth_for_primary_key_rotation() == false,
+            "CDD auth for primary key rotation is enabled"
+        );
+    }: _(RawOrigin::Root, true)
+    verify {
+        ensure!(
+            Module::<T>::cdd_auth_for_primary_key_rotation() == true,
+            "CDD auth for primary key rotation did not change"
+        );
+    }
 
     join_identity_as_key {
         let target = UserBuilder::<T>::default().generate_did().build("target");
@@ -186,9 +207,22 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
+        let auth_id =  Module::<T>::add_auth(
+            target.did(),
+            signatory,
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            None,
+        );
+        Module::<T>::join_identity_as_key(key.origin().into(), auth_id)
+            .expect("Key cannot be joined to identity");
 
-    }: _(key.origin)
+    }: _(key.origin())
+    verify {
+        ensure!(
+            KeyToIdentityIds::<T>::contains_key(key.account) == false,
+            "Key was not removed from its identity"
+        );
+    }
 
     leave_identity_as_identity {
         let target = UserBuilder::<T>::default().generate_did().build("target");
@@ -204,7 +238,7 @@ benchmarks! {
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
-    }: _(caller.origin, target.did(), claim, Some(666.into()))
+    }: _(caller.origin, target.did(), claim, Some(666u32.into()))
 
     forwarded_call {
         // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
@@ -221,7 +255,7 @@ benchmarks! {
 
     revoke_claim {
         let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof, Some(666.into()))?;
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof, Some(666u32.into()))?;
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
@@ -245,7 +279,7 @@ benchmarks! {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
         let signatory = Signatory::Identity(caller.did());
         let auth_data = AuthorizationData::JoinIdentity(Permissions::default());
-    }: _(caller.origin, signatory, auth_data, Some(666.into()))
+    }: _(caller.origin, signatory, auth_data, Some(666u32.into()))
 
     remove_authorization {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
@@ -254,7 +288,7 @@ benchmarks! {
             caller.did(),
             signatory.clone(),
             AuthorizationData::JoinIdentity(Permissions::default()),
-            Some(666.into()),
+            Some(666u32.into()),
         );
     }: _(caller.origin, signatory, auth_id, true)
 
@@ -309,11 +343,11 @@ benchmarks! {
         let authorization = TargetIdAuthorization::<T::Moment> {
             target_id: caller.did(),
             nonce,
-            expires_at: 600.into(),
+            expires_at: 600u32.into(),
         };
     }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
         let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666.into()))
+    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666u32.into()))
 }

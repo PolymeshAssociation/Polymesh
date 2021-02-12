@@ -176,6 +176,10 @@ decl_module! {
         /// - `UnauthorizedCustodian` if CAA is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
         #[weight = <T as Trait>::DistWeightInfo::distribute()]
         pub fn distribute(
             origin,
@@ -329,7 +333,7 @@ decl_module! {
             Self::unlock(&dist, dist.remaining)?;
 
             // Zero `remaining` + note that we've reclaimed.
-            <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining: 0.into(), ..dist });
+            <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
 
             // Emit event.
             Self::deposit_event(Event::<T>::Reclaimed(did, ca_id, dist.remaining));

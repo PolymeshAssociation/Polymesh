@@ -13,18 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
-
-use pallet_contracts::PristineCode;
-use polymesh_common_utilities::benchs::UserBuilder;
-use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 
 use frame_benchmarking::benchmarks;
 use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
+use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;
+use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;
@@ -124,7 +121,7 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
     let meta_info = TemplateMetadata {
         url,
         se_type: SmartExtensionType::TransferManager,
-        usage_fee: 100.into(),
+        usage_fee: 100u32.into(),
         description,
         version: 5000,
     };
@@ -162,13 +159,13 @@ benchmarks! {
         let meta_info = TemplateMetadata {
             url,
             se_type: SmartExtensionType::TransferManager,
-            usage_fee: 100.into(),
+            usage_fee: 100u32.into(),
             description,
             version: 5000
         };
         let (wasm_blob, code_hash) = expanded_contract::<T>(l);
         let user = UserBuilder::<T>::default().generate_did().build("creator");
-    }: _(user.origin, meta_info, 1000.into(), wasm_blob)
+    }: _(user.origin, meta_info, 1000u32.into(), wasm_blob)
     verify {
         ensure!(matches!(Module::<T>::get_metadata_of(code_hash), meta_info), "Contracts_putCode: Meta info set incorrect");
         ensure!(PristineCode::<T>::get(code_hash).is_some(), "Contracts_putCode: Base contract doesn't get updated with given code hash");
@@ -181,7 +178,7 @@ benchmarks! {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(max_fee, creator.origin, "dummy")?;
         let deployer = UserBuilder::<T>::default().generate_did().build("deployer");
-    }: _(deployer.origin, 1_000_000.into(), Weight::max_value(), code_hash, data, max_fee.into())
+    }: _(deployer.origin, 1_000_000u32.into(), Weight::max_value(), code_hash, data, max_fee.into())
     verify {
         let (key, value) = ExtensionInfo::<T>::iter().next().unwrap();
         let attributes = Module::<T>::ext_details(&code_hash);
@@ -221,10 +218,10 @@ benchmarks! {
     change_template_fees {
         let creator = UserBuilder::<T>::default().generate_did().build("creator");
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "")?;
-    }: _(creator.origin, code_hash, Some(500.into()), Some(650.into()))
+    }: _(creator.origin, code_hash, Some(500u32.into()), Some(650u32.into()))
     verify {
-        ensure!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
-        ensure!(Module::<T>::get_metadata_of(code_hash).usage_fee == 650.into(), "Contracts_change_template_fees: Failed to change the usage fees");
+        ensure!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500u32.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
+        ensure!(Module::<T>::get_metadata_of(code_hash).usage_fee == 650u32.into(), "Contracts_change_template_fees: Failed to change the usage fees");
     }
 
     change_template_meta_url {
