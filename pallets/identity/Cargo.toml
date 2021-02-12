@@ -16,7 +16,7 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 either = { version = "1.6.1", default-features = false }
 
 # Cryptography
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate

@@ -40,7 +40,7 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }

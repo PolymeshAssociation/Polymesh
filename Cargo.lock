@@ -871,7 +871,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2#fd1e598e7a80e646e7ff59510ab572d6f282504c"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3#379db49a18884a43ff30ad77c142cf9c81c1ee8f"
 dependencies = [
  "blake2",
  "byteorder 1.4.2",
@@ -886,8 +886,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.8.2",
- "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
+ "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "zeroize",
 ]
 
@@ -1194,7 +1194,7 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 name = "crypto-cli"
 version = "1.0.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "hex",
  "parity-scale-codec",
  "polymesh-primitives 2.0.0",
@@ -1243,7 +1243,7 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2#fd1e598e7a80e646e7ff59510ab572d6f282504c"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3#379db49a18884a43ff30ad77c142cf9c81c1ee8f"
 dependencies = [
  "bulletproofs",
  "byteorder 1.4.2",
@@ -1256,7 +1256,7 @@ dependencies = [
  "rand_core 0.5.1",
  "serde",
  "sha3 0.8.2",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "zeroize",
 ]
 
@@ -4826,7 +4826,7 @@ dependencies = [
 name = "pallet-confidential"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -4983,7 +4983,7 @@ dependencies = [
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -5209,7 +5209,7 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "either",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -6888,7 +6888,7 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "hex",
@@ -7248,7 +7248,7 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
  "env_logger 0.7.1",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -10521,50 +10521,6 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "base58",
- "blake2-rfc",
- "byteorder 1.4.2",
- "derive_more",
- "dyn-clonable",
- "ed25519-dalek",
- "futures 0.3.12",
- "hash-db",
- "hash256-std-hasher",
- "hex",
- "impl-serde",
- "lazy_static",
- "libsecp256k1",
- "log",
- "merlin",
- "num-traits",
- "parity-scale-codec",
- "parity-util-mem",
- "parking_lot 0.10.2",
- "primitive-types",
- "rand 0.7.3",
- "regex",
- "schnorrkel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "secrecy",
- "serde",
- "sha2 0.8.2",
- "sp-debug-derive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-externalities 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-runtime-interface 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-storage 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "substrate-bip39",
- "tiny-bip39",
- "tiny-keccak",
- "twox-hash",
- "wasmi",
- "zeroize",
-]
-
-[[package]]
-name = "sp-core"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "base58",
@@ -10637,16 +10593,6 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "sp-debug-derive"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "proc-macro2",
@@ -10663,17 +10609,6 @@ dependencies = [
  "parity-scale-codec",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-storage 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.8.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-storage 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -10782,29 +10717,6 @@ dependencies = [
  "sp-tracing 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-trie 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-wasm-interface 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
- "tracing",
- "tracing-core",
-]
-
-[[package]]
-name = "sp-io"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "futures 0.3.12",
- "hash-db",
- "libsecp256k1",
- "log",
- "parity-scale-codec",
- "parking_lot 0.10.2",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-externalities 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-runtime-interface 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-state-machine 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-tracing 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-trie 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-wasm-interface 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "tracing",
  "tracing-core",
 ]
@@ -10932,15 +10844,6 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "backtrace",
- "log",
-]
-
-[[package]]
-name = "sp-panic-handler"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "backtrace",
@@ -11028,22 +10931,6 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "parity-scale-codec",
- "primitive-types",
- "sp-externalities 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-runtime-interface-proc-macro 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-storage 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-tracing 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-wasm-interface 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "parity-scale-codec",
@@ -11061,18 +10948,6 @@ dependencies = [
 name = "sp-runtime-interface-proc-macro"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b059817c3ebe12fc130cdd850d62"
-dependencies = [
- "Inflector",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
 dependencies = [
  "Inflector",
  "proc-macro-crate",
@@ -11207,27 +11082,6 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.8.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "hash-db",
- "log",
- "num-traits",
- "parity-scale-codec",
- "parking_lot 0.10.2",
- "rand 0.7.3",
- "smallvec 1.6.1",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-externalities 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-panic-handler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-trie 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "trie-db",
- "trie-root",
-]
-
-[[package]]
-name = "sp-state-machine"
-version = "0.8.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "hash-db",
@@ -11254,11 +11108,6 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b05
 [[package]]
 name = "sp-std"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-
-[[package]]
-name = "sp-std"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 
 [[package]]
@@ -11272,19 +11121,6 @@ dependencies = [
  "serde",
  "sp-debug-derive 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
-]
-
-[[package]]
-name = "sp-storage"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "impl-serde",
- "parity-scale-codec",
- "ref-cast",
- "serde",
- "sp-debug-derive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
 ]
 
 [[package]]
@@ -11336,19 +11172,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "sp-tracing"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "log",
- "parity-scale-codec",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -11414,20 +11237,6 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "hash-db",
- "memory-db",
- "parity-scale-codec",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
- "trie-db",
- "trie-root",
-]
-
-[[package]]
-name = "sp-trie"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 dependencies = [
  "hash-db",
@@ -11495,17 +11304,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
- "wasmi",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-dependencies = [
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "wasmi",
 ]
 

@@ -14,7 +14,7 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
 
