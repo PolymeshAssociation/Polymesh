@@ -450,16 +450,26 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) {
-            Self::base_create_asset(
+            let identified_origin = Self::base_create_asset(
                 origin,
                 name,
                 ticker,
                 total_supply,
                 divisible,
-                asset_type,
+                asset_type.clone(),
                 identifiers,
                 funding_round
             )?;
+            Self::deposit_event(RawEvent::AssetCreated(
+                identified_origin.did,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                identified_origin.did,
+            ));
+            // Mint total supply to PIA
+            Self::_mint(&ticker, identified_origin.account, identified_origin.did, total_supply, None)?;
         }
 
         /// Freezes transfers and minting of a given token.
@@ -2280,7 +2290,7 @@ impl<T: Trait> Module<T> {
             total_supply: Zero::zero(),
             owner_did: did,
             divisible,
-            asset_type: asset_type.clone(),
+            asset_type,
             primary_issuance_agent: None,
         };
         <Tokens<T>>::insert(&ticker, token);
@@ -2289,14 +2299,6 @@ impl<T: Trait> Module<T> {
         // those data points will get added in to the system whenever asset issuer/ primary issuance agent
         // have InvestorUniqueness claim. This also applies when issuing assets.
         <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
-        Self::deposit_event(RawEvent::AssetCreated(
-            did,
-            ticker,
-            total_supply,
-            divisible,
-            asset_type,
-            did,
-        ));
 
         let identifiers: Vec<AssetIdentifier> = identifiers
             .into_iter()
@@ -2309,11 +2311,6 @@ impl<T: Trait> Module<T> {
         FundingRound::insert(ticker, funding_round.unwrap_or_default());
 
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
-
-        // Mint total supply to PIA
-        if total_supply > Zero::zero() {
-            Self::_mint(&ticker, sender.clone(), did, total_supply, None)?;
-        }
 
         Ok(IdentifiedOriginData {
             did,
