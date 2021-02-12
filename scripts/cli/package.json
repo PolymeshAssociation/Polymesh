@@ -20,7 +20,7 @@
     "0_create_identities": "node ./tests/0_create_identities.js",
     "1_poly_transfer": "node ./tests/1_poly_transfer.js",
     "2_key_management": "node ./tests/2_key_management.js",
-    "3_auth_join_did": "node ./tests/3_auth_join_to_did.js",
+    "3_auth_join_did": "node ./tests/3_auth_join_did.js",
     "4_permission_management": "node ./tests/4_permission_management.js",
     "5_claim_management": "node ./tests/5_claim_management.js",
     "6_create_assets": "node ./tests/6_create_assets.js",
