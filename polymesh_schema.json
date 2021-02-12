@@ -3,7 +3,7 @@
         "AccountInfo": "AccountInfoWithRefCount",
         "Address": "IndicesLookupSource",
         "LookupSource": "IndicesLookupSource",
-        "ValidatorPrefsBlocked": {
+        "ValidatorPrefsWithBlocked": {
             "commission": "Compact<Perbill>"
         },
         "IdentityId": "[u8; 32]",
