@@ -1,11 +1,23 @@
-import {createApi, initMain, generateKeys, generateRandomKey, createIdentities} from "../util/init";
+import {
+  createApi,
+  initMain,
+  generateRandomKey,
+  generateKeys,
+  createIdentities,
+} from "../util/init";
 
-async function main (): Promise<void> {
-    const api = await createApi();
-    const testEntities = await initMain(api);
-    let primary_dev_seed = await generateRandomKey();
-    let keys = await generateKeys(api, 2, primary_dev_seed );
-    await createIdentities(api, keys, testEntities[0]);
+async function main(): Promise<void> {
+    try {
+        const api = await createApi();
+        const testEntities = await initMain(api.api);
+        const primary_dev_seed = await generateRandomKey();
+        const keys = await generateKeys(api.api, 2, primary_dev_seed);
+        await createIdentities(api.api, keys, testEntities[0]);
+        await api.ws_provider.disconnect();
+    }
+    catch(err) {
+        console.log(err);
+    }
 }
 
-main().catch(console.error);
+main();

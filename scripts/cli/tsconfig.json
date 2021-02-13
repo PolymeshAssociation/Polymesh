@@ -7,8 +7,9 @@
     "outDir": "./dist",                        
     "rootDir": "./src",                       
     "strict": true, 
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
   },
-  "include": ["src/**/*"],
+  "include": ["src/tests/*", "src/util/*", "src/types.ts"],
   "exclude": ["node_modules", "dist"]
 }
