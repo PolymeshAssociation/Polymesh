@@ -42,9 +42,6 @@
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `create_checkpoint` - Function used to create the checkpoint.
-//! - `create_checkpoint_schedule` - Creates a checkpoint schedule.
-//! - `remove_checkpoint_schedule` - Removes a checkpoint schedule.
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `redeem` - Redeems tokens from PIA's (Primary Issuance Agent) default portfolio.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
@@ -64,7 +61,7 @@
 //! - `token_details` - Returns details of the token.
 //! - `balance_of` - Returns the balance of the DID corresponds to the ticker.
 //! - `identifiers` - It provides the identifiers for a given ticker.
-//! - `total_checkpoints_of` - Returns the checkpoint Id.
+//! - `total_checkpoints_of` - cReturns the checkpoint Id.
 //! - `total_supply_at` - Returns the total supply at a given checkpoint.
 //! - `extension_details` - It provides the list of Smart extension added for the given tokens.
 //! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.
