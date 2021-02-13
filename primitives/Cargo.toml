@@ -72,4 +72,7 @@ std = [
     "sp-application-crypto/std"
 ]
 
-runtime-benchmarks = []
+runtime-benchmarks = [
+    "sp-io/disable_panic_handler",
+    "sp-io/disable_oom"
+]
