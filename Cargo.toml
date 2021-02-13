@@ -14,6 +14,8 @@ members = [
     "bin/bench",
     "bin/crypto-cli",
     "bin/testing",
+    "migration-tests",
+    "migration-tests/remote-externalities",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
@@ -53,6 +55,7 @@ members = [
     "primitives",
     "rpc",
     "rpc/runtime-api",
+    "utils/permissions",
 ]
 
 [dependencies]
