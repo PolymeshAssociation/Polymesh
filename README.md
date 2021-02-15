@@ -209,7 +209,7 @@ Reading symbols from ./target/debug/polymesh...
 Breakpoint 1 at 0x2b792d0: balances/src/lib.rs:390. (2 locations)
 
 (gdb) run --dev
-Starting program: /home/miguel/project/polymath/repos/Polymesh/target/debug/polymesh --dev
+Starting program: ./target/debug/polymesh --dev
 [Thread debugging using libthread_db enabled]
 Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 2020-02-26 12:48:37 Running in --dev mode, RPC CORS has been disabled.
