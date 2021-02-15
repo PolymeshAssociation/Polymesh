@@ -13,9 +13,7 @@ const {
   Account,
   PubAccount,
   decrypt,
-} = require("@polymathnetwork/mercat");
-// TODO This is based on my directory structure.
-//} = require("../../../../cryptography/mercat/wasm/pkg/mercat_wasm");
+} = require("@polymathnetwork/mercat/mercat_wasm");
 
 const {assert} = require("chai");
 
