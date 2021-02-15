@@ -285,5 +285,5 @@ country_codes! (
     [246, ZW, ZWE, 716, "zimbabwe"],
     [247, BQ, BES, 535, "bonaire", "saint eustatius and saba"],
     [248, CW, CUW, 531, "curaçao"],
-    [249, SX, SXM, 534, "saint maarten (dutch part)"],
+    [249, SX, SXM, 534, "sint maarten (dutch part)"],
 );
