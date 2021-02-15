@@ -96,7 +96,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -124,7 +124,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             total_supply: Zero::zero(),
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: token.primary_issuance_agent,
+            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_eq!(Asset::token_details(ticker), token_with_zero_supply);
@@ -158,7 +158,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             total_supply: token_with_zero_supply.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: Some(token.owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
@@ -177,7 +177,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let identifier_value1 = b"037833100";
@@ -201,7 +201,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             total_supply: Zero::zero(),
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: token.primary_issuance_agent,
+            primary_issuance_agent: None,
             ..Default::default()
         };
 
@@ -236,7 +236,6 @@ fn issuers_can_create_and_mint_tokens() {
         let owner = AccountKeyring::Alice.public();
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob = AccountKeyring::Bob.public();
-        let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
         let funding_round_name: FundingRoundName = b"round1".into();
 
         let token_names = [[b'A'], [b'B'], [b'C']];
@@ -255,7 +254,7 @@ fn issuers_can_create_and_mint_tokens() {
             total_supply,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: Some(owner_did),
+            primary_issuance_agent: None,
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -360,7 +359,6 @@ fn account_create_tx() {
         let alice = AccountKeyring::Alice.public();
         let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob = AccountKeyring::Bob.public();
-        let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
         let token_names = [[b'A'], [b'B'], [b'C']];
