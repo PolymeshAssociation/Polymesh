@@ -17,7 +17,7 @@ pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", default-features = false }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", default-features = false }
 pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
@@ -28,7 +28,7 @@ pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -41,7 +41,7 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -59,29 +59,29 @@ serde_json = '1.0.48'
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-staking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-npos-elections = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1"}
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-staking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-npos-elections = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2"}
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1", features = ["historical"] }
-pallet-randomness-collective-flip = { git = "https://github.com/PolymathNetwork/substrate/", default-features = false, tag = "v2.0.1-1" }
-pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2", features = ["historical"] }
+pallet-randomness-collective-flip = { git = "https://github.com/PolymathNetwork/substrate/", default-features = false, tag = "v2.0.1-2" }
+pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 
-frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
-substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
+substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 polymesh-weights = { path = "../../weights", default-features = false }
 
 [dev-dependencies]
