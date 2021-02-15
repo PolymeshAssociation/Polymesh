@@ -9,14 +9,15 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 # Whitepaper
 
-https://polymath.network/polymesh-whitepaper
+<https://polymath.network/polymesh-whitepaper>
 
 # Polymesh Alcyone Public Testnet
 
 We provide linux binaries for each Alcyone release.
 
 The latest release for the Polymesh Alcyone Public Testnet can be found at:
-https://github.com/PolymathNetwork/Polymesh/releases
+
+<https://github.com/PolymathNetwork/Polymesh/releases>
 
 Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
 
@@ -27,15 +28,18 @@ Specifying no chain at the command line defaults to the Polymesh Alcyone Public 
 # Operators
 
 A guide to running an operator node can be found at:
-https://github.com/PolymathNetwork/polymesh-tools/tree/main/docs/operator
+
+<https://github.com/PolymathNetwork/polymesh-tools/tree/main/docs/operator>
 
 # Documentation
 
 Further details on Polymesh concepts and networks can be found at:
-https://developers.polymesh.live/
+
+<https://developers.polymesh.live/>
 
 Code documentation can be found at:
-https://docs.polymesh.live/
+
+<https://docs.polymesh.live/>
 
 # Build
 
@@ -49,12 +53,6 @@ Install required tools:
 
 ```bash
 ./scripts/init.sh
-```
-
-The Polymesh repo includes submodules that link to other Github repos. To ensure these are synced out before building you can execute:
-
-```bash
-git submodule update --init --recursive
 ```
 
 Build Wasm and native code:
@@ -71,10 +69,10 @@ Run unit tests:
 
 # Branches
 
- - The `develop` branch is the working branch with the latest code changes.
- - The `alcyone` branch tracks code deployed to the Polymesh Alcyone Public Testnet.
- - The `staging` branch tracks Alcyone except during a release cycle where it is upgraded ahead of Alcyone.
- - The `tooling` branch tracks the next candidate release for Alcyone.
+- The `develop` branch is the working branch with the latest code changes.
+- The `alcyone` branch tracks code deployed to the Polymesh Alcyone Public Testnet.
+- The `staging` branch tracks Alcyone except during a release cycle where it is upgraded ahead of Alcyone.
+- The `tooling` branch tracks the next candidate release for Alcyone.
 
 # Development
 
@@ -122,6 +120,7 @@ To stop the chain you can use:
 ```
 
 and to display log files you can use:
+
 ```bash
 ./log.sh
 ```
@@ -158,7 +157,7 @@ extrinsic to be benchmarked, for example:
 
 ```bash
 cargo run --release --features runtime-benchmarks -- \
-    benchmark --pallet asset --extrinsic register_asset
+    benchmark -p="*" -e="*"
 ```
 
 Note that the CLI binary should be built in release mode and that the feature flag
