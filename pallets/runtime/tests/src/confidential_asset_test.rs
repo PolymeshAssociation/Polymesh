@@ -91,7 +91,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -172,7 +172,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Add another STO.
         // Expected token entry.
         let token = SecurityToken {
-            name: vec![0x02].into(),
+            name: vec![b'B'].into(),
             owner_did,
             total_supply: 1_000_000,
             divisible: true,
@@ -235,22 +235,24 @@ fn issuers_can_create_and_mint_tokens() {
         // Alice is the owner of the token in this test.
         let owner = AccountKeyring::Alice.public();
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob = AccountKeyring::Bob.public();
+        let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
         let funding_round_name: FundingRoundName = b"round1".into();
 
-        let token_names = [[2u8], [1u8], [5u8]];
+        let token_names = [[b'A'], [b'B'], [b'C']];
         for token_name in token_names.iter() {
             create_confidential_token(
                 &token_name[..],
                 Ticker::try_from(&token_name[..]).unwrap(),
-                AccountKeyring::Bob.public(), // Alice does not own any of these tokens.
+                bob, // Alice does not own any of these tokens.
             );
         }
         let total_supply: u128 = 10_000_000;
         // Expected token entry
         let token = SecurityToken {
-            name: vec![0x07].into(),
+            name: vec![b'D'].into(),
             owner_did,
-            total_supply: total_supply,
+            total_supply,
             divisible: true,
             asset_type: AssetType::default(),
             primary_issuance_agent: Some(owner_did),
@@ -355,23 +357,24 @@ fn issuers_can_create_and_mint_tokens() {
 #[test]
 fn account_create_tx() {
     ExtBuilder::default().build().execute_with(|| {
+        let alice = AccountKeyring::Alice.public();
+        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob = AccountKeyring::Bob.public();
+        let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
-        let token_names = [[2u8], [1u8], [5u8]];
+        let token_names = [[b'A'], [b'B'], [b'C']];
         for token_name in token_names.iter() {
             create_confidential_token(
                 &token_name[..],
                 Ticker::try_from(&token_name[..]).unwrap(),
-                AccountKeyring::Bob.public(),
+                bob,
             );
         }
 
         let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
-        let alice = AccountKeyring::Alice.public();
-        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-
         let (secret_account, mercat_account_tx) =
             gen_account([10u8; 32], &token_names[1][..], valid_asset_ids);
         // ------------- END: Computations that will happen in the Wallet ----------
