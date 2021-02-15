@@ -117,7 +117,6 @@ use polymesh_primitives::{
     asset::{
         AssetName, AssetOwnershipRelation, AssetType, FundingRoundName, RestrictionResult,
         SecurityToken, TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
-        TransactionError,
     },
     calendar::CheckpointId,
     migrate::MigrationError,
