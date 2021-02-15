@@ -2,9 +2,9 @@
 require = require("esm")(module /*, options*/);
 const {assert} = require("chai");
 const BN = require("bn.js");
-module.exports = require("../util/init.js");
+module.exports = require("./init.js");
 
-let { reqImports } = require("../util/init.js");
+let { reqImports } = require("./init.js");
 
 async function main() {
     // Schema path
