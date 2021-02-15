@@ -28,6 +28,8 @@ import {
 	NonceObject,
 	AssetCompliance,
 } from "../types";
+// May remove
+import { createIdentities } from "../helpers/identity_helper";
 
 // TODO: Split file into separate files for functions relating to each specific test
 // 		the functions that are general use would remain here.
@@ -45,7 +47,7 @@ let synced_block = 0;
 let synced_block_ts = 0;
 
 // Amount to seed each key with
-export const transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
+export const transferAmount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
 function senderConditions1(trusted_did: IdentityId, data: Partial<Scope>) {
 	return [
@@ -202,73 +204,6 @@ export async function blockTillPoolEmpty(api: ApiPromise) {
 	}
 }
 
-export async function createIdentities(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	alice: KeyringPair
-) {
-	return await createIdentitiesWithExpiry(api, accounts, alice, []);
-}
-
-async function createIdentitiesWithExpiry(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	alice: KeyringPair,
-	expiries: Moment[]
-) {
-	let dids = [];
-
-	for (let i = 0; i < accounts.length; i++) {
-		let account_did = await keyToIdentityIds(api, accounts[i].publicKey);
-
-		if (account_did == 0) {
-			console.log(
-				`>>>> [Register CDD Claim] acc: ${accounts[i].address}`
-			);
-			const transaction = api.tx.identity.cddRegisterDid(
-				accounts[i].address,
-				[]
-			);
-			await sendTx(alice, transaction);
-		} else {
-			console.log("Identity Already Linked.");
-		}
-	}
-	//await blockTillPoolEmpty(api);
-
-	for (let i = 0; i < accounts.length; i++) {
-		const d = await api.query.identity.keyToIdentityIds(
-			accounts[i].publicKey
-		);
-		dids.push(d.toHuman());
-		console.log(
-			`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`
-		);
-	}
-
-	// Add CDD Claim with CDD_ID
-	for (let i = 0; i < dids.length; i++) {
-		const cdd_id_byte = (i + 1).toString(16).padStart(2, "0");
-		const claim = {
-			CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`,
-		};
-		const expiry = expiries.length == 0 ? null : expiries[i];
-
-		console.log(
-			`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(
-				claim
-			)}`
-		);
-		await api.tx.identity
-			.addClaim(dids[i], claim, expiry)
-			.signAndSend(alice, { nonce: nonces.get(alice.address) });
-
-		nonces.set(alice.address, nonces.get(alice.address).addn(1));
-	}
-
-	return dids;
-}
-
 // Fetches DID that belongs to the Account Key
 export async function keyToIdentityIds(
 	api: ApiPromise,
@@ -276,30 +211,6 @@ export async function keyToIdentityIds(
 ) {
 	let account_did = await api.query.identity.keyToIdentityIds(accountKey);
 	return account_did.toHuman();
-}
-
-// Sends transfer_amount to accounts[] from alice
-export async function distributePoly(
-	api: ApiPromise,
-	to: KeyringPair,
-	amount: Balance,
-	from: KeyringPair
-) {
-	// Perform the transfers
-	const transaction = api.tx.balances.transfer(to.address, amount);
-	await sendTx(from, transaction);
-}
-
-export async function distributePolyBatch(
-	api: ApiPromise,
-	to: KeyringPair[],
-	amount: Balance,
-	from: KeyringPair
-) {
-	// Perform the transfers
-	for (let i = 0; i < to.length; i++) {
-		await distributePoly(api, to[i], amount, from);
-	}
 }
 
 // Attach a secondary key to each DID

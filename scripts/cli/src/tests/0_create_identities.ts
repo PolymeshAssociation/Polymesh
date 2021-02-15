@@ -3,8 +3,8 @@ import {
   initMain,
   generateRandomKey,
   generateKeys,
-  createIdentities,
 } from "../util/init";
+import { createIdentities } from "../helpers/identity_helper";
 
 async function main(): Promise<void> {
     try {
