@@ -1,12 +1,11 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_asset::TickerRegistrationConfig;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
-    Ticker,
+    asset::TickerRegistrationConfig, AccountId, IdentityId, InvestorUid, Moment, PosRatio,
+    Signatory, Signature, SmartExtensionType, Ticker,
 };
 use polymesh_runtime_develop::{
     self as general,

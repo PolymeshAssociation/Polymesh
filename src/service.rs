@@ -7,8 +7,8 @@ use futures::stream::StreamExt;
 use grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
-    crypto::native_schnorrkel, AccountId, Balance, Block, BlockNumber, Hash, IdentityId,
-    Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
+    crypto::native_schnorrkel, rng::native_rng, AccountId, Balance, Block, BlockNumber, Hash,
+    IdentityId, Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet;
@@ -49,7 +49,7 @@ native_executor_instance!(
     pub AlcyoneExecutor,
     polymesh_runtime_testnet::api::dispatch,
     polymesh_runtime_testnet::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, rng::native_rng::HostFunctions)
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 // Our native executor instance.
