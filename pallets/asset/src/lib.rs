@@ -61,7 +61,7 @@
 //! - `token_details` - Returns details of the token.
 //! - `balance_of` - Returns the balance of the DID corresponds to the ticker.
 //! - `identifiers` - It provides the identifiers for a given ticker.
-//! - `total_checkpoints_of` - cReturns the checkpoint Id.
+//! - `total_checkpoints_of` - Returns the checkpoint Id.
 //! - `total_supply_at` - Returns the total supply at a given checkpoint.
 //! - `extension_details` - It provides the list of Smart extension added for the given tokens.
 //! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.

@@ -15,7 +15,7 @@ https://polymath.network/polymesh-whitepaper
 
 We provide linux binaries for each Alcyone release.
 
-The latest release for the Polymesh Alcyone Public Testnet can be found at:  
+The latest release for the Polymesh Alcyone Public Testnet can be found at:
 https://github.com/PolymathNetwork/Polymesh/releases
 
 Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
@@ -26,15 +26,15 @@ Specifying no chain at the command line defaults to the Polymesh Alcyone Public 
 
 # Operators
 
-A guide to running an operator node can be found at:  
+A guide to running an operator node can be found at:
 https://github.com/PolymathNetwork/polymesh-tools/tree/main/docs/operator
 
 # Documentation
 
-Further details on Polymesh concepts and networks can be found at:  
+Further details on Polymesh concepts and networks can be found at:
 https://developers.polymesh.live/
 
-Code documentation can be found at:  
+Code documentation can be found at:
 https://docs.polymesh.live/
 
 # Build
@@ -51,7 +51,7 @@ Install required tools:
 ./scripts/init.sh
 ```
 
-The Polymesh repo includes submodules that link to other Github repos. To ensure these are synced out before building you can execute:  
+The Polymesh repo includes submodules that link to other Github repos. To ensure these are synced out before building you can execute:
 
 ```bash
 git submodule update --init --recursive
@@ -86,14 +86,14 @@ You can start a development chain with:
 ./target/release/polymesh --dev
 ```
 
-Detailed logs may be shown by running the node with the following environment variables set:  
+Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev`.
 
 [Web Interface]: https://app.polymesh.live/#/explorer
 
 To access the Polymesh Chain using the [Web Interface] do the following:
 
-1. Click on the Polymeth logo in the top-left corner of the UI. You can then select "Local Node" under the Development section.
+1. Click on the Polymesh logo in the top-left corner of the UI. You can then select "Local Node" under the Development section.
 
    > Note: if the `polymesh` node above is on a different machine than your browser (e.g., a server on your local network), you'll need to use a *"custom endpoint"*, e.g., `ws://192.168.0.100:9944/`.
    > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`. You'll also need to use `http://httpapp.polymesh.live/` instead of [Web Interface]. Otherwise, you'll have problems with mixed-content blocking (https vs. http).
@@ -172,7 +172,7 @@ Install GDB for your distribution.
 
 ## Build
 
-Binary should be built in *debug mode*, using `cargo build` without `--release` parameter:  
+Binary should be built in *debug mode*, using `cargo build` without `--release` parameter:
 
 ```bash
 cargo build
