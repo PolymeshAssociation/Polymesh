@@ -445,7 +445,7 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
-        ) {
+        ) -> DispatchResult {
             let identified_origin = Self::base_create_asset(
                 origin,
                 name,
