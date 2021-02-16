@@ -332,6 +332,11 @@
     "@types/websocket" "^1.0.1"
     websocket "^1.0.32"
 
+"@polymathnetwork/mercat-nodejs@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@polymathnetwork/mercat-nodejs/-/mercat-nodejs-0.1.0.tgz#71f067a65475ed4780ed4df68c5b2bb9421c4553"
+  integrity sha512-DeT9S5/JeFi9J9WbwD+TxAnQF7o7ExBjSyEpu1D7KzITNA4v5CMQ4IS7239VCARt4zhOesyPHWG/BmSIpMpanw==
+
 "@polymathnetwork/mercat@^0.1.1":
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/@polymathnetwork/mercat/-/mercat-0.1.1.tgz#745f59a7e09967bb30a05709ea1fb4f1f4b71f92"

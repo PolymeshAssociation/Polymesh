@@ -13,7 +13,7 @@ const {
   Account,
   PubAccount,
   decrypt,
-} = require("@polymathnetwork/mercat/mercat_wasm");
+} = require("@polymathnetwork/mercat-nodejs");
 
 const {assert} = require("chai");
 
@@ -187,7 +187,7 @@ async function displayBalance(api, did, mercatAccountInfo, message) {
     // Get encrypted balance
     const accountEncryptedBalance = await getEncryptedBalance(api, did, mercatAccountInfo.account_id);
     // Decrypt balance
-    const accountBalance = await decryptBalances(accountEncryptedBalance, mercatAccountInfo);
+    const accountBalance = decryptBalances(accountEncryptedBalance, mercatAccountInfo);
     console.log(`${message}: ${accountBalance}`);
 
     return accountEncryptedBalance;
@@ -205,7 +205,7 @@ async function mintTokens(api, signer, tickerHex, amount, mercatAccountInfo) {
 }
 
 async function getEncryptedBalance(api, did, mercatAccountID){
-    return await api.query.confidentialAsset.mercatAccountBalance(did, mercatAccountID);
+    return String(await api.query.confidentialAsset.mercatAccountBalance(did, mercatAccountID));
 }
 
 function decryptBalances(encryptedBalance, mercatAccountInfo) {
