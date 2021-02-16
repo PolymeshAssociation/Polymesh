@@ -501,7 +501,7 @@ fn chain_set_up(
         mediator_key: AccountKeyring::Charlie,
         mediator_did: charlie_did,
         mediator_public_account: charlie_public_account,
-        ticker: ticker,
+        ticker,
     };
 
     (
@@ -525,10 +525,10 @@ fn create_investor_account(
         init_account(&mut rng, token_name, key.public(), did);
 
     let creds = AccountCredentials {
-        key: key,
-        did: did,
-        account_id: account_id,
-        public_account: public_account,
+        key,
+        did,
+        account_id,
+        public_account,
     };
 
     (secret_account, creds, init_balance)

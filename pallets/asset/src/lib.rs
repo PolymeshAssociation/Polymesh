@@ -465,7 +465,7 @@ decl_module! {
                 identified_origin.did,
             ));
             // Mint total supply to PIA
-            Self::_mint(&ticker, identified_origin.account, identified_origin.did, total_supply, None)?;
+            Self::_mint(&ticker, identified_origin.account, identified_origin.did, total_supply, None)
         }
 
         /// Freezes transfers and minting of a given token.
