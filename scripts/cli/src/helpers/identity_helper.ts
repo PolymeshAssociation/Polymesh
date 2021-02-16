@@ -2,35 +2,35 @@ import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { Moment } from "@polkadot/types/interfaces/runtime";
 import { sendTx, keyToIdentityIds } from "../util/init";
-import { AnyJson } from "@polkadot/types/types";
+import { IdentityId } from "../types";
 
 /**
  * @description Creates an Identity for KeyringPairs.
  * @param {ApiPromise}  api - ApiPromise 
  * @param {KeyringPair[]} accounts - An array of KeyringPairs
- * @param {KeyringPair} alice - KeyringPair 
- * @return {Promise<AnyJson[]>} Creates Json object with identity data
+ * @param {KeyringPair} signer - KeyringPair 
+ * @return {Promise<IdentityId[]>} Creates an array of identities
  */
 export async function createIdentities(
 	api: ApiPromise,
 	accounts: KeyringPair[],
-	alice: KeyringPair
-): Promise<AnyJson[]> {
-	return await createIdentitiesWithExpiry(api, accounts, alice, []);
+	signer: KeyringPair
+): Promise<IdentityId[]> {
+	return await createIdentitiesWithExpiry(api, accounts, signer, []);
 }
 
 async function createIdentitiesWithExpiry(
 	api: ApiPromise,
 	accounts: KeyringPair[],
-	alice: KeyringPair,
+	signer: KeyringPair,
 	expiries: Moment[]
-) {
-	let dids = [];
+): Promise<IdentityId[]> {
+	let dids: IdentityId[] = [];
 
 	for (let account of accounts) {
-		let account_did = await keyToIdentityIds(api, account.publicKey);
-
-		if (account_did == 0) {
+		let account_did = (await keyToIdentityIds(api, account.publicKey)).toString();
+		
+		if (parseInt(account_did) == 0) {
 			console.log(
 				`>>>> [Register CDD Claim] acc: ${account.address}`
 			);
@@ -38,7 +38,7 @@ async function createIdentitiesWithExpiry(
 				account.address,
 				[]
 			);
-			await sendTx(alice, transaction);
+			await sendTx(signer, transaction);
 		} else {
 			console.log("Identity Already Linked.");
 		}
@@ -67,7 +67,7 @@ async function createIdentitiesWithExpiry(
 			)}`
 		);
 		const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
-		await sendTx(alice, transaction);	
+		await sendTx(signer, transaction);	
 	}
 
 	return dids;

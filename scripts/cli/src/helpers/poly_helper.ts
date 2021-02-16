@@ -1,12 +1,11 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { Balance } from "@polkadot/types/interfaces/runtime";
 import { sendTx } from "../util/init";
 
 /**
  * @description Transfers Poly to KeyringPair
  * @param {ApiPromise}  api - ApiPromise 
- * @param {KeyringPair[]} receiver - KeyringPair
+ * @param {KeyringPair} receiver - KeyringPair
  * @param {number} amount - Transfer amount
  * @param {KeyringPair} sender - KeyringPair 
  * @return {Promise<void>} 

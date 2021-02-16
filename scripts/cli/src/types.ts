@@ -1,85 +1,94 @@
-import { u8, u32, u64 } from "@polkadot/types/primitive";
-import { AccountId, Moment } from "@polkadot/types/interfaces/runtime";
+import { AccountId } from "@polkadot/types/interfaces/runtime";
 import { Option } from "fp-ts/lib/Option";
-
+//import type { Option, Vec } from '@polkadot/types/codec';
+export interface Scope {
+	Identity?: IdentityId;
+	Ticker?: Ticker;
+	Custom?: number[];
+};
+export interface Signatory {
+	Identity?: IdentityId;
+	Account?: AccountId;
+}
 export interface PortfolioKind {
-	Default: string;
-	User: PortfolioNumber;
+	Default?: string;
+	User?: PortfolioNumber;
 }
 
 export interface TargetIdentity {
-	PrimaryIssuanceAgent: string;
-	Specific: IdentityId;
+	PrimaryIssuanceAgent?: string;
+	Specific?: IdentityId;
 }
 
 export interface Claim {
-	Accredited: Partial<Scope>;
-	Affiliate: Partial<Scope>;
-	BuyLockup: Partial<Scope>;
-	SellLockup: Partial<Scope>;
-	CustomerDueDiligence: CddId;
-	KnowYourCustomer: Partial<Scope>;
-	Jurisdiction: [CountryCode, Partial<Scope>];
-	Exempted: Partial<Scope>;
-	Blocked: Partial<Scope>;
-	InvestorUniqueness: [Partial<Scope>, ScopeId, CddId];
-	NoData: string;
+	Accredited?: Scope;
+	Affiliate?: Scope;
+	BuyLockup?: Scope;
+	SellLockup?: Scope;
+	CustomerDueDiligence?: CddId;
+	KnowYourCustomer?: Scope;
+	Jurisdiction?: [CountryCode, Scope];
+	Exempted?: Scope;
+	Blocked?: Scope;
+	InvestorUniqueness?: [Scope, ScopeId, CddId];
+	NoData?: string;
 }
 
 export interface ClaimType {
-	Accredited: string;
-	Affiliate: string;
-	BuyLockup: string;
-	SellLockup: string;
-	CustomerDueDiligence: string;
-	KnowYourCustomer: string;
-	Jurisdiction: string;
-	Exempted: string;
-	Blocked: string;
-	InvestorUniqueness: string;
-	NoData: string;
+	Accredited?: string;
+	Affiliate?: string;
+	BuyLockup?: string;
+	SellLockup?: string;
+	CustomerDueDiligence?: string;
+	KnowYourCustomer?: string;
+	Jurisdiction?: string;
+	Exempted?: string;
+	Blocked?: string;
+	InvestorUniqueness?: string;
+	NoData?: string;
 }
 
 export interface AuthorizationData {
-	AttestPrimaryKeyRotation: IdentityId;
-	RotatePrimaryKey: IdentityId;
-	TransferTicker: Ticker;
-	TransferPrimaryIssuanceAgent: Ticker;
-	AddMultiSigSigner: AccountId;
-	TransferAssetOwnership: Ticker;
-	JoinIdentity: Permissions;
-	PortfolioCustody: PortfolioId;
-	Custom: Ticker;
-	NoData: string;
-	TransferCorporateActionAgent: Ticker;
+	AttestPrimaryKeyRotation?: IdentityId;
+	RotatePrimaryKey?: IdentityId;
+	TransferTicker?: Ticker;
+	TransferPrimaryIssuanceAgent?: Ticker;
+	AddMultiSigSigner?: AccountId;
+	TransferAssetOwnership?: Ticker;
+	JoinIdentity?: Permissions;
+	PortfolioCustody?: PortfolioId;
+	Custom?: Ticker;
+	NoData?: string;
+	TransferCorporateActionAgent?: Ticker;
 }
 
 export interface ConditionType {
-	IsPresent: Partial<Claim>;
-	IsAbsent: Partial<Claim>;
-	IsAnyOf: Partial<Claim>[];
-	IsNoneOf: Partial<Claim>[];
-	IsIdentity: Partial<TargetIdentity>;
+	IsPresent?: Claim;
+	IsAbsent?: Claim;
+	IsAnyOf?: Claim[];
+	IsNoneOf?: Claim[];
+	IsIdentity?: TargetIdentity;
 }
 
 export interface TrustedFor {
-	Any: string;
-	Specific: Partial<ClaimType>[];
+	Any?: string;
+	Specific?: ClaimType[];
 }
 
-export type IdentityId = [u8: 32];
-export type Ticker = [u8, 12];
+export type IdentityId = number;
+export type Ticker = string;
 export type NonceObject = { nonce: string };
-export type PortfolioNumber = u64;
-export type ScopeId = [u8, 32];
-export type CddId = [u8, 32];
+export type PortfolioNumber = number;
+export type ScopeId = string;
+export type CddId = string;
 export type PalletName = string;
 export type DispatchableName = string;
+export type Expiry = number | undefined;
 
 export type Permissions = {
-	asset: Option<Ticker[]>;
-	extrinsic: Option<PalletPermissions[]>;
-	portfolio: Option<PortfolioId[]>;
+	asset?: Ticker[];
+	extrinsic?: PalletPermissions[];
+	portfolio?: PortfolioId[];
 };
 
 export type PalletPermissions = {
@@ -89,40 +98,35 @@ export type PalletPermissions = {
 
 export type PortfolioId = {
 	did: IdentityId;
-	kind: Partial<PortfolioKind>;
+	kind: PortfolioKind;
 };
 
 export type TickerRegistration = {
 	owner: IdentityId;
-	expiry: Option<Moment>;
+	expiry: Expiry;
 };
 
 export type Authorization = {
-	authorization_data: Partial<AuthorizationData>;
+	authorization_data: AuthorizationData;
 	authorized_by: IdentityId;
-	expiry: Option<Moment>;
-	auth_id: u64;
-};
-export type Scope = {
-	Identity: IdentityId;
-	Ticker: Ticker;
-	Custom: u8[];
-};
+	expiry: Expiry;
+	auth_id: number;
+}
 
 export type TrustedIssuer = {
 	issuer: IdentityId;
-	trusted_for: Partial<TrustedFor>;
+	trusted_for: TrustedFor;
 };
 
 export type Condition = {
-	condition_type: Partial<ConditionType>;
+	condition_type: ConditionType;
 	issuers: TrustedIssuer[];
 };
 
 export type ComplianceRequirement = {
 	sender_conditions: Condition[];
 	receiver_conditions: Condition[];
-	id: u32;
+	id: number;
 };
 
 export type AssetCompliance = {

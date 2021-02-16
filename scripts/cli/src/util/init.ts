@@ -27,6 +27,8 @@ import {
 	TickerRegistration,
 	NonceObject,
 	AssetCompliance,
+	Signatory,
+	Expiry,
 } from "../types";
 // May remove
 import { createIdentities } from "../helpers/identity_helper";
@@ -35,11 +37,7 @@ import { createIdentities } from "../helpers/identity_helper";
 // 		the functions that are general use would remain here.
 
 let nonces = new Map();
-let totalPermissions: Permissions = {
-	asset: some([]),
-	extrinsic: some([]),
-	portfolio: some([]),
-};
+
 
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
@@ -49,7 +47,7 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 export const transferAmount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-function senderConditions1(trusted_did: IdentityId, data: Partial<Scope>) {
+function senderConditions1(trusted_did: IdentityId, data: Scope) {
 	return [
 		{
 			condition_type: {
@@ -208,26 +206,9 @@ export async function blockTillPoolEmpty(api: ApiPromise) {
 export async function keyToIdentityIds(
 	api: ApiPromise,
 	accountKey: AccountId | KeyringPair["publicKey"]
-) {
+):Promise<IdentityId> {
 	let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-	return account_did.toHuman();
-}
-
-// Attach a secondary key to each DID
-export async function addSecondaryKeys(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	secondary_accounts: KeyringPair[]
-) {
-	for (let i = 0; i < accounts.length; i++) {
-		// 1. Add Secondary Item to identity.
-		const transaction = api.tx.identity.addAuthorization(
-			{ Account: secondary_accounts[i].publicKey },
-			{ JoinIdentity: totalPermissions },
-			null
-		);
-		await sendTx(accounts[i], transaction);
-	}
+	return account_did.toHuman() as IdentityId;
 }
 
 // Authorizes the join of secondary keys to a DID
@@ -244,8 +225,8 @@ export async function authorizeJoinToIdentities(
 		})) as unknown) as Authorization[][];
 		let last_auth_id = 0;
 		for (let i = 0; i < auths.length; i++) {
-			if (auths[i][1].auth_id.toNumber() > last_auth_id) {
-				last_auth_id = auths[i][1].auth_id.toNumber();
+			if (auths[i][1].auth_id > last_auth_id) {
+				last_auth_id = auths[i][1].auth_id;
 			}
 		}
 
@@ -269,7 +250,7 @@ export async function issueTokenPerDid(
 		ticker
 	)) as unknown) as TickerRegistration;
 
-	if (tickerExist.owner == [0]) {
+	if (tickerExist.owner == 0) {
 		const transaction = api.tx.asset.createAsset(
 			ticker,
 			ticker,
@@ -323,13 +304,11 @@ export async function addClaimsToDids(
 	accounts: KeyringPair[],
 	did: IdentityId,
 	claimType: string,
-	claimValue: Partial<Scope>,
-	expiry: Option<Moment>
+	claimValue: Scope,
+	expiry: Expiry
 ) {
 	// Receieving Conditions Claim
 	let claim = { [claimType]: claimValue };
-
-	some(expiry) ? null : expiry;
 	const transaction = api.tx.identity.addClaim(did, claim, expiry);
 	await sendTx(accounts[1], transaction);
 }
@@ -456,25 +435,11 @@ export async function signatory(
 	entity: KeyringPair,
 	signer: KeyringPair
 ) {
-	let entityKey = entity.publicKey;
-	let entityDid = await createIdentities(api, [entity], signer);
-
-	let signatoryObj = {
-		Identity: entityDid,
-		Account: entityKey,
+	let entityDid = (await createIdentities(api, [entity], signer))[0];
+	let signatoryObj: Signatory = {
+		Identity: entityDid
 	};
 	return signatoryObj;
-}
-
-// Creates a multiSig Key
-export async function createMultiSig(
-	api: ApiPromise,
-	signer: KeyringPair,
-	dids: IdentityId[],
-	numOfSigners: u8
-) {
-	const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
-	await sendTx(signer, transaction);
 }
 
 export async function mintingAsset(
