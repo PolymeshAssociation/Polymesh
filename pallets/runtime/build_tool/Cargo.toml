@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1"}
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2"}
 
 [features]
 default = ["std"]
