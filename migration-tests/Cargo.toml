@@ -15,8 +15,8 @@ sp-state-machine-old = { package = "sp-state-machine", git = "https://github.com
 
 # New migration helpers
 remote-externalities = { path = "remote-externalities" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 
 # Old pallets
 polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }

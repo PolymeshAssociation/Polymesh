@@ -17,18 +17,18 @@ pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 # Crypto
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 # Only in STD
-# frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1", optional = true }
+# frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2", optional = true }
 
 [features]
 equalize = []

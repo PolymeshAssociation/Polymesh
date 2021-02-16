@@ -23,22 +23,22 @@ codec = { package = "parity-scale-codec", version = "1.1.0", default-features = 
 hex-literal = "0.2.1"
 hex = { version = "0.4.2", optional = true }
 
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-serializer = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-serializer = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 # Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 [features]
