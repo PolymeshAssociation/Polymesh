@@ -40,7 +40,6 @@ pub mod runtime_dispatch_info;
 pub use runtime_dispatch_info::RuntimeDispatchInfo;
 
 use codec::{Decode, Encode};
-use frame_support::ensure;
 use frame_support::{
     decl_module, decl_storage,
     dispatch::DispatchResult,
@@ -50,7 +49,11 @@ use frame_support::{
         WeightToFeeCoefficient, WeightToFeePolynomial,
     },
 };
-use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+use polymesh_common_utilities::traits::{
+    group::GroupTrait,
+    identity::IdentityFnTrait,
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+};
 use polymesh_primitives::TransactionError;
 use sp_runtime::{
     traits::{
@@ -216,7 +219,7 @@ where
     }
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
 
@@ -235,6 +238,15 @@ pub trait Trait: frame_system::Trait {
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
     type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+
+    /// CDD providers group.
+    type CddProviders: GroupTrait<Self::Moment>;
+
+    /// Governance committee.
+    type GovernanceCommittee: GroupTrait<Self::Moment>;
+
+    /// Identity functionality.
+    type Identity: IdentityFnTrait<Self::AccountId>;
 }
 
 decl_storage! {
@@ -485,21 +497,33 @@ where
         Ok((fee, Some(imbalance)))
     }
 
-    /// Tip in `DispatchClass::Normal` transactions MUST be zero.
+    /// Returns true if `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
+    fn is_gc_or_cdd_member(who: &T::AccountId) -> bool {
+        T::Identity::get_identity(who)
+            .map(|did| T::GovernanceCommittee::is_member(&did) || T::CddProviders::is_member(&did))
+            .unwrap_or(false)
+    }
+
+    /// We only allow tip != 0 if the transaction is `DispatchClass::Operational` and it was
+    /// created by a Governance or CDD Provider member.
+    /// A `DispatchClass::Mandatory` transaction is going to be included in the block, so adding a
+    /// tip does not matter.
     fn ensure_valid_tip(
         &self,
+        who: &T::AccountId,
         info: &DispatchInfoOf<T::Call>,
     ) -> Result<BalanceOf<T>, TransactionValidityError> {
-        if let DispatchClass::Normal = info.class {
-            ensure!(
-                self.0 == Zero::zero(),
-                TransactionValidityError::Invalid(InvalidTransaction::Custom(
-                    TransactionError::ZeroTip as u8
-                )),
-            );
-        }
+        let is_valid_tip = match info.class {
+            DispatchClass::Normal => self.0 == Zero::zero(),
+            DispatchClass::Operational => self.0 == Zero::zero() || Self::is_gc_or_cdd_member(who),
+            DispatchClass::Mandatory => true,
+        };
 
-        Ok(self.0)
+        is_valid_tip
+            .then(|| self.0)
+            .ok_or(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
+            ))
     }
 }
 
@@ -541,7 +565,7 @@ where
         info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> TransactionValidity {
-        let tip = self.ensure_valid_tip(info)?;
+        let tip = self.ensure_valid_tip(who, info)?;
 
         let (_fee, _) = self.withdraw_fee(call, who, info, len)?;
         let mut r = ValidTransaction::default();
@@ -558,7 +582,7 @@ where
         info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let tip = self.ensure_valid_tip(info)?;
+        let tip = self.ensure_valid_tip(who, info)?;
         let (fee, imbalance) = self.withdraw_fee(call, who, info, len)?;
         Ok((tip, who.clone(), imbalance, fee))
     }

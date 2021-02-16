@@ -67,7 +67,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
-    weights::{GetDispatchInfo, Weight},
+    weights::{DispatchClass, GetDispatchInfo, Weight},
 };
 use frame_system::{self as system};
 use pallet_identity as identity;
@@ -312,7 +312,10 @@ decl_module! {
         /// # Arguments
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = <T as Trait<I>>::WeightInfo::set_vote_threshold()]
+        #[weight = (
+            <T as Trait<I>>::WeightInfo::set_vote_threshold(),
+            DispatchClass::Operational
+        )]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::VoteThresholdOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
@@ -328,7 +331,10 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotAMember`, If the new coordinator `id` is not part of the committee.
-        #[weight = <T as Trait<I>>::WeightInfo::set_release_coordinator()]
+        #[weight = (
+            <T as Trait<I>>::WeightInfo::set_release_coordinator(),
+            DispatchClass::Operational
+        )]
         pub fn set_release_coordinator(origin, id: IdentityId) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::ensure_did_is_member(&id)?;
@@ -340,7 +346,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `expiry` - The new expiry time.
-        #[weight = <T as Trait<I>>::WeightInfo::set_expires_after()]
+        #[weight = (
+            <T as Trait<I>>::WeightInfo::set_expires_after(),
+            DispatchClass::Operational
+        )]
         pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
@@ -364,8 +373,10 @@ decl_module! {
         /// # Errors
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[weight = <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() +
-          call.get_dispatch_info().weight]
+        #[weight = (
+            <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
+            DispatchClass::Operational,
+        )]
         pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);

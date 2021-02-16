@@ -9,6 +9,7 @@ use frame_support::{
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
+use sp_core::sr25519::Public;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
@@ -509,26 +510,41 @@ fn normal_tx_with_tip_ext() {
 
 #[test]
 fn operational_tx_with_tip() {
+    let cdd_provider = AccountKeyring::Bob.public();
+    let gc_member = AccountKeyring::Charlie.public();
+
     ExtBuilder::default()
         .monied(true)
+        .cdd_providers(vec![cdd_provider])
+        .governance_committee(vec![gc_member])
         .build()
-        .execute_with(operational_tx_with_tip_ext);
+        .execute_with(|| operational_tx_with_tip_ext(cdd_provider, gc_member));
 }
 
-fn operational_tx_with_tip_ext() {
+fn operational_tx_with_tip_ext(cdd: Public, gc: Public) {
     let len = 10;
     let tip = 42;
     let user = AccountKeyring::Alice.public();
     let call = call();
     let operational_info = operational_info_from_weight(100);
 
-    // Valid operational tx with tip.
-    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+    // Valid operational tx with `tip == 0`.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(0)
         .pre_dispatch(&user, &call, &operational_info, len)
         .is_ok());
 
-    // Valid operational tx.
-    assert!(ChargeTransactionPayment::<TestStorage>::from(0)
+    // Valid operational tx with tip. Only CDD and Governance members can tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
         .pre_dispatch(&user, &call, &operational_info, len)
+        .is_err());
+
+    // Governance can tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&gc, &call, &operational_info, len)
+        .is_ok());
+
+    // CDD can also tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&cdd, &call, &operational_info, len)
         .is_ok());
 }
