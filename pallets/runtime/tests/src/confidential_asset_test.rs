@@ -236,6 +236,7 @@ fn issuers_can_create_and_mint_tokens() {
         let owner = AccountKeyring::Alice.public();
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob = AccountKeyring::Bob.public();
+        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let funding_round_name: FundingRoundName = b"round1".into();
 
         let token_names = [[b'A'], [b'B'], [b'C']];
@@ -359,6 +360,7 @@ fn account_create_tx() {
         let alice = AccountKeyring::Alice.public();
         let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob = AccountKeyring::Bob.public();
+        let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
         let token_names = [[b'A'], [b'B'], [b'C']];
