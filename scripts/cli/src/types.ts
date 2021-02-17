@@ -1,5 +1,5 @@
 import { AccountId } from "@polkadot/types/interfaces/runtime";
-import { Option } from "fp-ts/lib/Option";
+//import { Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
 export interface Scope {
 	Identity?: IdentityId;
@@ -93,8 +93,14 @@ export type Permissions = {
 
 export type PalletPermissions = {
 	pallet_name: PalletName;
-	dispatchable_names: Option<DispatchableName[]>;
+	dispatchable_names?: DispatchableName[];
 };
+
+export type LegacyPalletPermissions = {
+	pallet_name: PalletName,
+	total: Boolean,
+	dispatchable_names: DispatchableName[]
+}
 
 export type PortfolioId = {
 	did: IdentityId;

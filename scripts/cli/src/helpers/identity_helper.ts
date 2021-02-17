@@ -2,7 +2,41 @@ import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { Moment } from "@polkadot/types/interfaces/runtime";
 import { sendTx, keyToIdentityIds } from "../util/init";
-import { IdentityId } from "../types";
+import { IdentityId, Authorization } from "../types";
+
+// Authorizes the join of secondary keys to a DID
+/**
+ * @description Creates an Identity for KeyringPairs.
+ * @param {ApiPromise}  api - ApiPromise 
+ * @param {KeyringPair[]} primaryKeys - An array of KeyringPairs
+ * @param {IdentityId[]} dids - An array of IdentityIds
+ * @param {KeyringPair[]} secondaryKeys - An array of KeyringPairs
+ * @return {Promise<IdentityId[]>} Creates an array of identities
+ */
+export async function authorizeJoinToIdentities(
+	api: ApiPromise,
+	primaryKeys: KeyringPair[],
+	dids: IdentityId[],
+	secondaryKeys: KeyringPair[]
+): Promise<IdentityId[]> {
+	for (let i in primaryKeys) {
+		// 1. Authorize
+		const auths = ((await api.query.identity.authorizations.entries({
+			Account: secondaryKeys[i].publicKey,
+		})) as unknown) as Authorization[][];
+		let last_auth_id = 0;
+		for (let j in auths) {
+			if (auths[j][1].auth_id > last_auth_id) {
+				last_auth_id = auths[j][1].auth_id;
+			}
+		}
+
+		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+		await sendTx(secondaryKeys[i], transaction);
+	}
+
+	return dids;
+}
 
 /**
  * @description Creates an Identity for KeyringPairs.

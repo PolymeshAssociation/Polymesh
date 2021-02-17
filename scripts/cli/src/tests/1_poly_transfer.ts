@@ -12,10 +12,11 @@ import {
       try {
           const api = await createApi();
           const testEntities = await initMain(api.api);
-          const primary_dev_seed = await generateRandomKey();
-          const keys = await generateKeys(api.api, 2, primary_dev_seed);
-          await createIdentities(api.api, keys, testEntities[0]);
-          await distributePolyBatch(api.api, keys, transferAmount.toNumber(), testEntities[0]);
+          const alice = testEntities[0];
+          const primaryDevSeed = await generateRandomKey();
+          const keys = await generateKeys(api.api, 2, primaryDevSeed);
+          await createIdentities(api.api, keys, alice);
+          await distributePolyBatch(api.api, keys, transferAmount.toNumber(), alice);
           await api.ws_provider.disconnect();     
       }
       catch(err) {

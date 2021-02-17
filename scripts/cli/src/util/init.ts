@@ -15,7 +15,7 @@ import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { ISubmittableResult } from "@polkadot/types/types";
 import { u8, u64 } from "@polkadot/types/primitive";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { some, none, ap, Option } from "fp-ts/lib/Option";
+//import { some, none, ap, Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
 import type { DispatchError } from "@polkadot/types/interfaces";
 import {
@@ -209,32 +209,6 @@ export async function keyToIdentityIds(
 ):Promise<IdentityId> {
 	let account_did = await api.query.identity.keyToIdentityIds(accountKey);
 	return account_did.toHuman() as IdentityId;
-}
-
-// Authorizes the join of secondary keys to a DID
-export async function authorizeJoinToIdentities(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	dids: IdentityId[],
-	secondary_accounts: KeyringPair[]
-) {
-	for (let i = 0; i < accounts.length; i++) {
-		// 1. Authorize
-		const auths = ((await api.query.identity.authorizations.entries({
-			Account: secondary_accounts[i].publicKey,
-		})) as unknown) as Authorization[][];
-		let last_auth_id = 0;
-		for (let i = 0; i < auths.length; i++) {
-			if (auths[i][1].auth_id > last_auth_id) {
-				last_auth_id = auths[i][1].auth_id;
-			}
-		}
-
-		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-		await sendTx(secondary_accounts[i], transaction);
-	}
-
-	return dids;
 }
 
 // Creates a token for a did
