@@ -209,7 +209,6 @@ macro_rules! misc1 {
             type MinSolutionScoreBump = MinSolutionScoreBump;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
             type UnsignedPriority = StakingUnsignedPriority;
-            type WeightInfo = ();
             type RequiredAddOrigin = Self::SlashCancelOrigin;
             type RequiredRemoveOrigin = Self::SlashCancelOrigin;
             type RequiredComplianceOrigin = Self::SlashCancelOrigin;
@@ -220,6 +219,8 @@ macro_rules! misc1 {
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
             type FixedYearlyReward = FixedYearlyReward;
             type PalletsOrigin = OriginCaller;
+            type MinimumBond = MinimumBond;
+            type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
         }
 
         impl pallet_authority_discovery::Trait for Runtime {}
@@ -394,7 +395,6 @@ macro_rules! misc1 {
 
         impl pallet_settlement::Trait for Runtime {
             type Event = Event;
-            type MaxLegsInInstruction = MaxLegsInInstruction;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
         }
@@ -405,7 +405,6 @@ macro_rules! misc1 {
         }
 
         impl polymesh_common_utilities::traits::PermissionChecker for Runtime {
-            type Call = Call;
             type Checker = Identity;
         }
 
@@ -438,7 +437,7 @@ macro_rules! misc1 {
                     frame_system::CheckGenesis::new(),
                     frame_system::CheckEra::from(generic::Era::mortal(period, current_block)),
                     frame_system::CheckNonce::from(nonce),
-                    frame_system::CheckWeight::new(),
+                    polymesh_extensions::CheckWeight::new(),
                     pallet_transaction_payment::ChargeTransactionPayment::from(tip),
                     pallet_permissions::StoreCallMetadata::new(),
                 );
@@ -497,7 +496,7 @@ macro_rules! runtime_apis {
             frame_system::CheckGenesis<Runtime>,
             frame_system::CheckEra<Runtime>,
             frame_system::CheckNonce<Runtime>,
-            polymesh_extensions::CheckWeight<Runtime>
+            polymesh_extensions::CheckWeight<Runtime>,
             pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
             pallet_permissions::StoreCallMetadata<Runtime>,
         );
