@@ -369,6 +369,8 @@ fn finalize_transaction(
     mediator_secret_account: SecAccount,
     expected_sender_balance: EncryptedAmount,
     expected_receiver_balance: EncryptedAmount,
+    sender_secret_account: Option<SecAccount>,
+    receiver_secret_account: Option<SecAccount>,
     validation_failure_expected: bool,
 ) {
     // The rest of rngs are built from it.
@@ -440,6 +442,21 @@ fn finalize_transaction(
             .to_mercat::<TestStorage>()
             .unwrap();
 
+    if let Some(secret_account) = sender_secret_account {
+        // Invoked for debugging
+        let new_balance_plain = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&new_sender_balance)
+            .unwrap();
+        let expected_balance_plain = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&expected_sender_balance)
+            .unwrap();
+        assert_eq!(new_balance_plain, expected_balance_plain, "Sender side");
+    }
+
     assert_eq!(new_sender_balance, expected_sender_balance);
 
     let new_receiver_balance =
@@ -447,6 +464,20 @@ fn finalize_transaction(
             .to_mercat::<TestStorage>()
             .unwrap();
 
+    if let Some(secret_account) = receiver_secret_account {
+        // Invoked for debugging
+        let new_balance_plain = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&new_receiver_balance)
+            .unwrap();
+        let expected_balance_plain = secret_account
+            .enc_keys
+            .secret
+            .decrypt(&expected_receiver_balance)
+            .unwrap();
+        assert_eq!(new_balance_plain, expected_balance_plain, "Receiver side");
+    }
     assert_eq!(new_receiver_balance, expected_receiver_balance);
 }
 
@@ -595,6 +626,8 @@ fn settle_out_of_order() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001,
                 bob_init_balance + bob_received_amount_1001,
+                None,
+                None,
                 false,
             );
 
@@ -607,6 +640,8 @@ fn settle_out_of_order() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001 - alice_sent_amount_1000,
                 bob_init_balance + bob_received_amount_1001 + bob_received_amount_1000,
+                None,
+                None,
                 false,
             );
         });
@@ -676,6 +711,8 @@ fn double_spending_fails() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001,
                 dave_init_balance + dave_received_amount_1001,
+                None,
+                None,
                 true, // Validation failure expected.
             );
 
@@ -688,6 +725,8 @@ fn double_spending_fails() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1000,
                 bob_init_balance + bob_received_amount_1000,
+                None,
+                None,
                 false,
             );
         });
@@ -737,6 +776,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_999,
                 dave_init_balance + dave_received_amount_999,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
             // Reset Dave's pending state.
@@ -796,6 +837,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
                 alice_init_balance + alice_received_amount_1001,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
 
@@ -816,6 +859,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
         });
@@ -866,6 +911,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_999,
                 dave_init_balance + dave_received_amount_999,
+                None,
+                None,
                 false,
             );
             // Reset Dave's pending state.
@@ -929,6 +976,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
                 alice_init_balance + alice_received_amount_1001,
+                None,
+                None,
                 false,
             );
 
@@ -949,6 +998,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
+                None,
+                None,
                 false,
             );
 
@@ -1002,6 +1053,8 @@ fn mercat_whitepaper_scenario2() {
                 dave_init_balance - dave_sent_amount_1001
                     + dave_received_amount_1002
                     + dave_received_amount_1004,
+                None,
+                None,
                 false,
             );
 
@@ -1014,6 +1067,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1004 - alice_sent_amount_1003,
                 bob_init_balance + bob_received_amount_1003,
+                None,
+                None,
                 false,
             );
         });
