@@ -1,5 +1,5 @@
 use super::{
-    storage::{default_portfolio_vec, register_keyring_account, TestStorage},
+    storage::{default_portfolio_vec, next_block, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use codec::{Decode, Encode};
@@ -429,6 +429,9 @@ fn finalize_transaction(
         default_portfolio_vec(mediator_creds.mediator_did),
         1
     ));
+
+    // Execute affirmed and scheduled instructions.
+    next_block();
 
     // Instruction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.

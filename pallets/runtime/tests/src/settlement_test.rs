@@ -1,8 +1,8 @@
 use super::{
     storage::{
-        default_portfolio_vec, make_account, make_account_without_cdd,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
-        TestStorage,
+        default_portfolio_vec, make_account, make_account_without_cdd, next_block,
+        provide_scope_claim_to_multiple_parties, register_keyring_account,
+        set_current_block_number, user_portfolio_vec, TestStorage,
     },
     ExtBuilder,
 };
@@ -11,9 +11,7 @@ use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
 use core::convert::{TryFrom, TryInto};
-use frame_support::{
-    assert_noop, assert_ok, traits::OnInitialize, IterableStorageDoubleMap, StorageMap,
-};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageMap};
 use mercat::{
     account::{convert_asset_ids, AccountCreator},
     asset::AssetIssuer,
@@ -146,16 +144,6 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
         vec![],
         vec![]
     ));
-}
-
-pub fn next_block() {
-    let block_number = System::block_number() + 1;
-    set_current_block_number(block_number);
-    let _ = Scheduler::on_initialize(block_number);
-}
-
-pub fn set_current_block_number(block: u64) {
-    System::set_block_number(block);
 }
 
 #[test]
@@ -1415,6 +1403,7 @@ fn settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
+            // Execute affirmed and scheduled instructions.
             next_block();
 
             // Instruction should've settled
@@ -3678,6 +3667,8 @@ fn basic_confidential_settlement() {
                 charlie_did,
                 1
             );
+
+            next_block();
 
             // Instruction should've settled.
             // Verify by decrypting the new balance of both Alice and Bob.

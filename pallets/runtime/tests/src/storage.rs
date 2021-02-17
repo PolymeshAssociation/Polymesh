@@ -875,6 +875,16 @@ pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + System::block_number());
 }
 
+pub fn next_block() {
+    let block_number = System::block_number() + 1;
+    set_current_block_number(block_number);
+    let _ = Scheduler::on_initialize(block_number);
+}
+
+pub fn set_current_block_number(block: u64) {
+    System::set_block_number(block);
+}
+
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
 // order. However, we need the latest `auth_id`. Which is why we search for the claim
 // with the highest `auth_id`.
