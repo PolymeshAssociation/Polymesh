@@ -48,7 +48,7 @@ impl IsNetwork for dyn ChainSpec {
     }
 
     fn is_mainnet_network(&self) -> bool {
-        self.name().starts_with("Polymesh Alcyone")
+        self.name().starts_with("Polymesh Mainnet")
     }
 }
 
