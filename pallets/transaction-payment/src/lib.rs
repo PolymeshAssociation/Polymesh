@@ -497,7 +497,7 @@ where
         Ok((fee, Some(imbalance)))
     }
 
-    /// Returns true if `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
+    /// Returns `true` iff `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
     fn is_gc_or_cdd_member(who: &T::AccountId) -> bool {
         T::Identity::get_identity(who)
             .map(|did| T::GovernanceCommittee::is_member(&did) || T::CddProviders::is_member(&did))

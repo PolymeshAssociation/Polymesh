@@ -398,11 +398,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotAMember`, if the `origin` is not a member of this committee.
-        #[weight = if *approve {
-            <T as Trait<I>>::WeightInfo::vote_aye()
-        } else {
-            <T as Trait<I>>::WeightInfo::vote_nay()
-        }]
+        #[weight = vote::<T,I>(*approve)]
         pub fn vote(
             origin,
             proposal: T::Hash,
@@ -747,4 +743,14 @@ where
     fn successful_origin() -> O {
         O::from(RawOrigin::Endorsed(PhantomData))
     }
+}
+
+fn vote<T: Trait<I>, I: Instance>(approve: bool) -> (Weight, DispatchClass) {
+    let weight = if approve {
+        <T as Trait<I>>::WeightInfo::vote_aye()
+    } else {
+        <T as Trait<I>>::WeightInfo::vote_nay()
+    };
+
+    (weight, DispatchClass::Operational)
 }

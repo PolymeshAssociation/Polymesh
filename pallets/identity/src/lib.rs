@@ -93,7 +93,10 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
-    weights::{DispatchClass::Operational, GetDispatchInfo, Pays, Weight},
+    weights::{
+        DispatchClass::{Normal, Operational},
+        GetDispatchInfo, Pays, Weight,
+    },
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -540,7 +543,7 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked.
-        #[weight = weight_helper::revoke_claim::<T>(&claim)]
+        #[weight = revoke_claim::<T>(&claim)]
         pub fn revoke_claim(origin, target: IdentityId, claim: Claim) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             let claim_type = claim.claim_type();
@@ -2278,18 +2281,13 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     }
 }
 
-mod weight_helper {
-    use super::{Claim, Trait, Weight, WeightInfo};
-    use frame_support::weights::DispatchClass;
+/// A `revoke_claim` transaction is operational iff `claim` is a `Claim::CustomerDueDiligence`.
+/// Otherwise, it will be a normal transaction.
+fn revoke_claim<T: Trait>(claim: &Claim) -> (Weight, frame_support::weights::DispatchClass) {
+    let class = match claim {
+        Claim::CustomerDueDiligence(..) => Operational,
+        _ => Normal,
+    };
 
-    /// A `revoke_claim` transaction is operational if `claim` is a `Claim::CustomerDueDiligence`.
-    /// Otherwise, it will be a normal transaction.
-    pub fn revoke_claim<T: Trait>(claim: &Claim) -> (Weight, DispatchClass) {
-        let class = match claim {
-            Claim::CustomerDueDiligence(..) => DispatchClass::Operational,
-            _ => DispatchClass::Normal,
-        };
-
-        (<T as Trait>::WeightInfo::revoke_claim(), class)
-    }
+    (<T as Trait>::WeightInfo::revoke_claim(), class)
 }
