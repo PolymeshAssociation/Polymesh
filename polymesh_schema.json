@@ -1029,7 +1029,7 @@
             "receipt_uid": "u64",
             "from": "PortfolioId",
             "to": "PortfolioId",
-            "kind": "LegKind",
+            "kind": "LegKind"
         },
         "ReceiptMetadata": "Text",
         "ReceiptDetails": {
