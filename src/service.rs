@@ -1,6 +1,8 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-pub use crate::chain_spec::{alcyone_testnet::ChainSpec as AlcyoneChainSpec, polymesh_mainnet::ChainSpec as GeneralChainSpec};
+pub use crate::chain_spec::{
+    alcyone_testnet::ChainSpec as AlcyoneChainSpec, polymesh_mainnet::ChainSpec as GeneralChainSpec,
+};
 pub use codec::Codec;
 use core::marker::PhantomData;
 use futures::stream::StreamExt;

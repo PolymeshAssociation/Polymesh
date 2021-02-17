@@ -17,8 +17,8 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, alcyone_chain_ops, general_chain_ops, mainnet_chain_ops, new_full_base, MainnetExecutor, AlcyoneExecutor,
-    GeneralExecutor, IsNetwork, NewChainOps, NewFullBase,
+    self, alcyone_chain_ops, general_chain_ops, mainnet_chain_ops, new_full_base, AlcyoneExecutor,
+    GeneralExecutor, IsNetwork, MainnetExecutor, NewChainOps, NewFullBase,
 };
 use core::future::Future;
 use log::info;
