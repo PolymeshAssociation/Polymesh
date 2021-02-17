@@ -248,7 +248,7 @@ benchmarks! {
 
     set_put_code_flag {
         ensure!(Module::<T>::is_put_code_enabled() == false, "Contracts_set_put_code_flag: Unexpected initial state");
-    }: _(RawOrigin::Root, true) 
+    }: _(RawOrigin::Root, true)
     verify {
         ensure!(Module::<T>::is_put_code_enabled() == true, "Contracts_set_put_code_flag: Failed to change the flag");
     }
