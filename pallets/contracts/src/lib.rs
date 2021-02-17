@@ -31,6 +31,7 @@ use frame_support::{
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
+    group::GroupTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction,
@@ -99,6 +100,8 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     type NetworkShareInFee: Get<Perbill>;
     /// Weight information for extrinsic in this pallet.
     type WeightInfo: WeightInfo;
+    /// Governance committee.
+    type GovernanceCommittee: GroupTrait<Self::Moment>;
 }
 
 decl_storage! {
@@ -112,6 +115,8 @@ decl_storage! {
         /// Nonce for the smart extension account id generation.
         /// Using explicit nonce as in batch transaction accounts nonce doesn't get incremented.
         pub ExtensionNonce get(fn extension_nonce): u64;
+        /// Store if `put_code` extrinsic is enabled or disabled.
+        pub EnablePutCode get(fn is_put_code_enabled) config(enable_put_code): bool;
     }
 }
 
@@ -131,6 +136,8 @@ decl_error! {
         NewOwnerIsNotCDD,
         /// Insufficient max_fee provided by the user to instantiate the SE.
         InsufficientMaxFee,
+        /// `put_code` extrinsic is disabled. See `set_put_code_flag` extrinsic.
+        PutCodeIsNotAllowed
     }
 }
 
@@ -161,6 +168,9 @@ decl_event! {
         /// Emitted when the template meta url get changed.
         /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
         TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
+        /// The flag that enable/disable the `put_code` extrinsic has changed.
+        /// (Identity of the caller, new flag state)
+        PutCodeFlagChanged(IdentityId, bool),
     }
 }
 
@@ -183,11 +193,23 @@ decl_module! {
             <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
+        /// Enable or disable the extrinsic `put_code` in this module.
+        ///
+        /// ## Erros
+        /// - `UnAuthorizedOrigin` if caller is not member of `T::GovernanceCommittee`.
+        #[weight = 1_000_000]
+        pub fn set_put_code_flag(origin, is_enabled: bool) -> DispatchResult {
+            Self::base_set_put_code_flag(origin, is_enabled)
+        }
+
         /// Simply forwards to the `put_code` function in the Contract module.
         ///
         /// # Additional functionality
         /// 1. Allow origin to pass some meta-details related to template code.
         /// 2. Charge protocol fee for deploying the template.
+        ///
+        /// # Errors
+        /// - `PutCodeIsNotAllowed` if the `put_code` flag is false. See `set_put_code_flag()`.
         #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.to_vec()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
@@ -195,6 +217,7 @@ decl_module! {
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
         ) {
+            ensure!(Self::is_put_code_enabled(), Error::<T>::PutCodeIsNotAllowed);
             let did = Identity::<T>::ensure_perms(origin.clone())?;
 
             // Save metadata related to the SE template
@@ -429,5 +452,18 @@ impl<T: Trait> Module<T> {
             usage_fee: meta_info.usage_fee,
             version: meta_info.version,
         }
+    }
+
+    fn base_set_put_code_flag(origin: T::Origin, is_enabled: bool) -> DispatchResult {
+        let did = Identity::<T>::ensure_perms(origin.clone())?;
+        ensure!(
+            T::GovernanceCommittee::is_member(&did),
+            Error::<T>::UnAuthorizedOrigin
+        );
+
+        EnablePutCode::put(is_enabled);
+
+        Self::deposit_event(RawEvent::PutCodeFlagChanged(did, is_enabled));
+        Ok(())
     }
 }

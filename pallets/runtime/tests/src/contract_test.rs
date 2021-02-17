@@ -1,5 +1,7 @@
 use frame_support::{
-    assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::GetDispatchInfo,
+    assert_err, assert_ok,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    weights::GetDispatchInfo,
     StorageMap,
 };
 use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
@@ -22,6 +24,7 @@ use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
     IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
+use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
 const GAS_LIMIT: Gas = 10_000_000_000;
@@ -163,6 +166,7 @@ fn check_put_code_functionality() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(0))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.public();
@@ -204,6 +208,7 @@ fn check_instantiation_functionality() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(0))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let input_data = hex!("0222FF18");
@@ -280,6 +285,7 @@ fn allow_network_share_deduction() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(25))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -333,6 +339,7 @@ fn check_behavior_when_instantiation_fee_changes() {
 
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -442,6 +449,7 @@ fn check_freeze_unfreeze_functionality() {
 
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -520,6 +528,7 @@ fn validate_transfer_template_ownership_functionality() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
         .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -580,6 +589,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -625,6 +635,7 @@ fn check_transaction_rollback_functionality_for_instantiation() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let input_data = hex!("0222FF18");
@@ -670,6 +681,7 @@ fn check_meta_url_functionality() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
         .set_protocol_base_fees(protocol_fee)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 10000000000;
@@ -693,4 +705,46 @@ fn check_meta_url_functionality() {
                 Some("http://www.google.com".into())
             ));
         });
+}
+
+#[test]
+fn check_put_code_flag() {
+    let gc = AccountKeyring::Bob.public();
+    let user = AccountKeyring::Charlie.public();
+
+    ExtBuilder::default()
+        .governance_committee(vec![gc])
+        .regular_users(vec![user])
+        .build()
+        .execute_with(|| check_put_code_flag_ext(gc, user))
+}
+
+fn check_put_code_flag_ext(gc_member: Public, user: Public) {
+    let (wasm, _) = compile_module::<TestStorage>("flipper").unwrap();
+    assert!(user != gc_member);
+
+    let put_code = |acc: Public| -> DispatchResult {
+        WrapperContracts::put_code(
+            Origin::signed(acc),
+            TemplateMetadata::default(),
+            0u128,
+            wasm.clone(),
+        )
+    };
+    let enable_put_code = |acc: Public| -> DispatchResult {
+        WrapperContracts::set_put_code_flag(Origin::signed(acc), true)
+    };
+
+    // Flag is disable, so `put_code` should fail.
+    assert_err!(put_code(user), WrapperContractsError::PutCodeIsNotAllowed);
+
+    // Non GC member cannot update the flag.
+    assert_err!(
+        enable_put_code(user),
+        WrapperContractsError::UnAuthorizedOrigin
+    );
+
+    // Enable and check that anyone now can put code.
+    assert_ok!(enable_put_code(gc_member));
+    assert_ok!(put_code(user));
 }
