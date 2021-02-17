@@ -361,6 +361,10 @@ fn initialize_transaction(
     )
 }
 
+fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> u32 {
+    secret_account.enc_keys.secret.decrypt(balance).unwrap()
+}
+
 fn finalize_transaction(
     instruction_counter: u64,
     sender_creds: AccountCredentials,
@@ -444,19 +448,10 @@ fn finalize_transaction(
 
     if let Some(secret_account) = sender_secret_account {
         // Invoked for debugging
-        let new_balance_plain = secret_account
-            .enc_keys
-            .secret
-            .decrypt(&new_sender_balance)
-            .unwrap();
-        let expected_balance_plain = secret_account
-            .enc_keys
-            .secret
-            .decrypt(&expected_sender_balance)
-            .unwrap();
+        let new_balance_plain = decrypt_balance(&secret_account, &new_sender_balance);
+        let expected_balance_plain = decrypt_balance(&secret_account, &expected_sender_balance);
         assert_eq!(new_balance_plain, expected_balance_plain, "Sender side");
     }
-
     assert_eq!(new_sender_balance, expected_sender_balance);
 
     let new_receiver_balance =
@@ -466,16 +461,8 @@ fn finalize_transaction(
 
     if let Some(secret_account) = receiver_secret_account {
         // Invoked for debugging
-        let new_balance_plain = secret_account
-            .enc_keys
-            .secret
-            .decrypt(&new_receiver_balance)
-            .unwrap();
-        let expected_balance_plain = secret_account
-            .enc_keys
-            .secret
-            .decrypt(&expected_receiver_balance)
-            .unwrap();
+        let new_balance_plain = decrypt_balance(&secret_account, &new_receiver_balance);
+        let expected_balance_plain = decrypt_balance(&secret_account, &expected_receiver_balance);
         assert_eq!(new_balance_plain, expected_balance_plain, "Receiver side");
     }
     assert_eq!(new_receiver_balance, expected_receiver_balance);
