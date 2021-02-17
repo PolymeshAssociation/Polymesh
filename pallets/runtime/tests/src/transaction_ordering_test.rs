@@ -837,6 +837,9 @@ fn mercat_whitepaper_scenario1() {
                 1
             ));
 
+            // Execute affirmed and scheduled instructions.
+            next_block();
+
             // Approve and process tx:1002.
             finalize_transaction(
                 instruction_counter1002,
@@ -975,6 +978,9 @@ fn mercat_whitepaper_scenario2() {
                 default_portfolio_vec(alice_creds.did),
                 1
             ));
+
+            // Execute affirmed and scheduled instructions.
+            next_block();
 
             // Approve and process tx:1002.
             finalize_transaction(
