@@ -4,8 +4,9 @@ pub type VMO<Instance> =
 
 pub type GovernanceCommittee = pallet_committee::Instance1;
 
+/// Provides miscellaneous and common pallet-`Trait` implementations for a `Runtime`.
 #[macro_export]
-macro_rules! misc1 {
+macro_rules! misc_pallet_impls {
     () => {
         /// Native version.
         #[cfg(any(feature = "std", test))]
@@ -468,6 +469,7 @@ macro_rules! misc1 {
     };
 }
 
+/// Defines API implementations, e.g., for RPCs, and type aliases, for a `Runtime`.
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {

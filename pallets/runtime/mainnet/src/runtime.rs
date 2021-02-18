@@ -174,7 +174,7 @@ parameter_types! {
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
-polymesh_runtime_common::misc1!();
+polymesh_runtime_common::misc_pallet_impls!();
 
 impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
