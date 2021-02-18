@@ -23,12 +23,10 @@ use codec::Encode;
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{
-        DispatchClass::Operational, DispatchError, DispatchResult, DispatchResultWithPostInfo,
-    },
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
-    weights::Weight,
+    weights::{DispatchClass::Operational, Weight},
 };
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
@@ -93,6 +91,7 @@ pub trait WeightInfo {
     fn change_template_fees() -> Weight;
     fn change_template_meta_url(u: u32) -> Weight;
     fn update_schedule() -> Weight;
+    fn set_put_code_flag() -> Weight;
 }
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
