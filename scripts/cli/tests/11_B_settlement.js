@@ -157,7 +157,9 @@ async function addGroupInstruction(
   let leg1 = {
     from: group[1],
     to: group[0],
-    kind: nonConfidentialKind1,
+    kind: {
+      "NonConfidential": nonConfidentialKind1,
+    },
   };
 
   let nonConfidentialKind2 = {
@@ -167,7 +169,9 @@ async function addGroupInstruction(
   let leg2 = {
     from: group[0],
     to: group[1],
-    kind: nonConfidentialKind2,
+    kind: {
+      "NonConfidential": nonConfidentialKind2,
+    },
   };
 
   let leg3 = {

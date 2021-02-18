@@ -128,7 +128,9 @@ async function addInstruction(
   let leg = {
     from: getDefaultPortfolio(sender_did),
     to: getDefaultPortfolio(receiver_did),
-    kind: nonConfidentialKind,
+    kind: {
+      "NonConfidential": nonConfidentialKind,
+    },
   };
 
   transaction = await api.tx.settlement.addInstruction(
