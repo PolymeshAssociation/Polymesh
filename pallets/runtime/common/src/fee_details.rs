@@ -14,14 +14,14 @@ pub enum CallType {
 
 pub type ValidPayerResult = Result<Option<AccountId>, InvalidTransaction>;
 
-pub fn cdd_required() -> ValidPayerResult {
-    Err(InvalidTransaction::Custom(
-        TransactionError::CddRequired as u8,
-    ))
-}
+pub const CDD_REQUIRED: ValidPayerResult = Err(InvalidTransaction::Custom(
+    TransactionError::CddRequired as u8,
+));
 
-pub fn missing_id() -> ValidPayerResult {
-    Err(InvalidTransaction::Custom(
-        TransactionError::MissingIdentity as u8,
-    ))
-}
+pub const MISSING_ID: ValidPayerResult = Err(InvalidTransaction::Custom(
+    TransactionError::MissingIdentity as u8,
+));
+
+pub const INVALID_AUTH: ValidPayerResult = Err(InvalidTransaction::Custom(
+    TransactionError::InvalidAuthorization as u8,
+));

@@ -17,9 +17,10 @@ use crate::{runtime, Runtime};
 use codec::{Decode, Encode};
 use frame_support::{StorageDoubleMap, StorageMap};
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
-use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
-use polymesh_runtime_common::fee_details::{cdd_required, missing_id, CallType, ValidPayerResult};
-use sp_runtime::transaction_validity::InvalidTransaction;
+use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory};
+use polymesh_runtime_common::fee_details::{
+    CallType, ValidPayerResult, CDD_REQUIRED, INVALID_AUTH, MISSING_ID,
+};
 
 type Identity = pallet_identity::Module<Runtime>;
 type Bridge = pallet_bridge::Module<Runtime>;
@@ -40,10 +41,11 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         let handle_multisig = |multisig, caller: &AccountId| {
             let sig = Signatory::Account(caller.clone());
             if <pallet_multisig::MultiSigSigners<Runtime>>::contains_key(multisig, sig) {
-                let did = <pallet_multisig::MultiSigToIdentity<Runtime>>::get(multisig);
-                check_cdd(&did)
+                check_cdd(&<pallet_multisig::MultiSigToIdentity<Runtime>>::get(
+                    multisig,
+                ))
             } else {
-                missing_id()
+                MISSING_ID
             }
         };
 
@@ -94,9 +96,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     Context::set_current_identity::<Identity>(Some(did));
                     Ok(Some(caller.clone()))
                 }
-                Some(_) => cdd_required(),
+                Some(_) => CDD_REQUIRED,
                 // Return if there's no DID.
-                None => missing_id(),
+                None => MISSING_ID,
             },
         }
     }
@@ -140,9 +142,7 @@ fn is_auth_valid(acc: &AccountId, auth_id: &u64, call_type: CallType) -> ValidPa
             | (_, CallType::RemoveAuthorization),
         )) => check_cdd(&by),
         // None of the above apply, so error.
-        _ => Err(InvalidTransaction::Custom(
-            TransactionError::InvalidAuthorization as u8,
-        )),
+        _ => INVALID_AUTH,
     }
 }
 
@@ -150,9 +150,8 @@ fn is_auth_valid(acc: &AccountId, auth_id: &u64, call_type: CallType) -> ValidPa
 fn check_cdd(did: &IdentityId) -> ValidPayerResult {
     if Identity::has_valid_cdd(*did) {
         Context::set_current_identity::<Identity>(Some(*did));
-        let primary_key = Identity::did_records(&did).primary_key;
-        Ok(Some(primary_key))
+        Ok(Some(Identity::did_records(&did).primary_key))
     } else {
-        cdd_required()
+        CDD_REQUIRED
     }
 }
