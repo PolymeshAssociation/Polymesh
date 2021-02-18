@@ -177,19 +177,25 @@ async function addGroupInstruction(
   let leg3 = {
     from: group[0],
     to: group[2],
-    kind: nonConfidentialKind2,
+    kind: {
+      "NonConfidential": nonConfidentialKind2,
+    },
   };
 
   let leg4 = {
     from: group[0],
     to: group[3],
-    kind: nonConfidentialKind2,
+    kind: {
+      "NonConfidential": nonConfidentialKind2,
+    },
   };
 
   let leg5 = {
     from: group[0],
     to: group[4],
-    kind: nonConfidentialKind2,
+    kind: {
+      "NonConfidential": nonConfidentialKind2,
+    },
   };
 
   transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, null, [
