@@ -25,7 +25,9 @@ async function main() {
   const tickerHex = reqImports.stringToHex(ticker);
   const ticker2Hex = reqImports.stringToHex(ticker2); 
   const tickerHexSubStr = tickerHex.substr(2);
+  console.log(`ticker: ${tickerHexSubStr}`);
   const ticker2HexSubStr = ticker2Hex.substr(2);
+  console.log(`ticker2: ${ticker2HexSubStr}`);
   const tickerHexList = [tickerHexSubStr, ticker2HexSubStr];
   const testEntities = await reqImports.initMain(api);
 
@@ -58,6 +60,9 @@ async function main() {
   console.log("-----------> Creating confidential assets.");
   await createConfidentialAsset(api, tickerHex, dave);
   await createConfidentialAsset(api, ticker2Hex, dave);
+
+  let tickers =  await api.query.confidentialAsset.confidentialTickers();
+  console.log(`BN number to Hex(le): ${tickers[0].toArrayLike(Buffer,'le', 12).toString('hex')}`);
 
   // Dave and Bob create their Mercat account locally and submit the proof to the chain
   console.log("-----------> Creating Dave and Bob's mercat accounts.");
