@@ -51,4 +51,9 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn set_put_code_flag() -> Weight {
+        (81_871_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

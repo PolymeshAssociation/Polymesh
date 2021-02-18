@@ -134,7 +134,7 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
             load_module!("ptm")
         }
     };
-    Module::<T>::set_put_code_flag(RawOrigin::Root.into(), true)?;
+    Module::<T>::set_put_code_flag(gc_origin::<T>().into(), true)?;
     Module::<T>::put_code(
         origin.into(),
         meta_info,
@@ -142,6 +142,14 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
         wasm_blob,
     )?;
     Ok(code_hash)
+}
+
+fn gc_origin<T: Trait>() -> RawOrigin<T::AccountId> {
+    T::GovernanceCommittee::get_members()
+        .into_iter()
+        .next()
+        .map(|did| RawOrigin::Signed(pallet_identity::Module::<T>::did_records(did).primary_key))
+        .expect("Empty Governance committee group")
 }
 
 benchmarks! {
@@ -166,7 +174,7 @@ benchmarks! {
         };
         let (wasm_blob, code_hash) = expanded_contract::<T>(l);
         let user = UserBuilder::<T>::default().generate_did().build("creator");
-        Module::<T>::set_put_code_flag(RawOrigin::Root.into(), true)?;
+        Module::<T>::set_put_code_flag(gc_origin::<T>().into(), true)?;
 
     }: _(user.origin, meta_info, 1000u32.into(), wasm_blob)
     verify {
@@ -247,8 +255,9 @@ benchmarks! {
     }: _(RawOrigin::Root, schedule)
 
     set_put_code_flag {
+        let origin = gc_origin::<T>();
         ensure!(Module::<T>::is_put_code_enabled() == false, "Contracts_set_put_code_flag: Unexpected initial state");
-    }: _(RawOrigin::Root, true)
+    }: _( origin, true)
     verify {
         ensure!(Module::<T>::is_put_code_enabled() == true, "Contracts_set_put_code_flag: Failed to change the flag");
     }

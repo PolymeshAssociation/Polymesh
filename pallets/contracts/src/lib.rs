@@ -23,7 +23,9 @@ use codec::Encode;
 use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchClass::Operational, DispatchError, DispatchResult, DispatchResultWithPostInfo,
+    },
     ensure,
     traits::Get,
     weights::Weight,
@@ -197,7 +199,7 @@ decl_module! {
         ///
         /// ## Erros
         /// - `UnAuthorizedOrigin` if caller is not member of `T::GovernanceCommittee`.
-        #[weight = 1_000_000]
+        #[weight = (<T as Trait>::WeightInfo::set_put_code_flag(), Operational)]
         pub fn set_put_code_flag(origin, is_enabled: bool) -> DispatchResult {
             Self::base_set_put_code_flag(origin, is_enabled)
         }
@@ -455,7 +457,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn base_set_put_code_flag(origin: T::Origin, is_enabled: bool) -> DispatchResult {
-        let did = Identity::<T>::ensure_perms(origin.clone())?;
+        let did = Identity::<T>::ensure_perms(origin)?;
         ensure!(
             T::GovernanceCommittee::is_member(&did),
             Error::<T>::UnAuthorizedOrigin
