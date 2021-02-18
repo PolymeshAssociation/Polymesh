@@ -141,19 +141,20 @@ const generateRandomKey = async function (api) {
 }
 
 const blockTillPoolEmpty = async function (api) {
-  let prev_block_pending = 0;
-  let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async (header) => {
+    let pool = await api.rpc.author.pendingExtrinsics();
+    if (pool.length == 0) {
+      unsub();
+      done = true;
+      return;
+    }
     let last_synced_block = synced_block;
     if (header.number > last_synced_block) {
       for (let i = last_synced_block + 1; i <= header.number; i++) {
         let block_hash = await api.rpc.chain.getBlockHash(i);
         let block = await api.rpc.chain.getBlock(block_hash);
         block_sizes[i] = block["block"]["extrinsics"].length;
-        if (block_sizes[i] > 2) {
-          done_something = true;
-        }
         let timestamp_extrinsic = block["block"]["extrinsics"][0];
         let new_block_ts = parseInt(
           JSON.stringify(timestamp_extrinsic["method"].args[0].now)
@@ -161,12 +162,11 @@ const blockTillPoolEmpty = async function (api) {
         block_times[i] = new_block_ts - synced_block_ts;
         synced_block_ts = new_block_ts;
         synced_block = i;
+        if (block_sizes[i] > 2) {
+          unsub();
+          done = true;
+        }
       }
-    }
-    let pool = await api.rpc.author.pendingExtrinsics();
-    if (done_something && pool.length == 0) {
-      unsub();
-      done = true;
     }
   });
   // Should use a mutex here...
@@ -292,19 +292,19 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 
 // Creates a token for a did
 async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
-  
+
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
   let tickerExist = await api.query.asset.tickers(ticker);
-  
+
   if (tickerExist.owner == 0) {
 
-    
+
     const transaction = api.tx.asset.createAsset(
       ticker, ticker, amount, true, 0, [], fundingRound
     );
-    
+
     await sendTx(accounts[0], transaction);
-    
+
   } else {
     console.log("ticker exists already");
   }
@@ -493,9 +493,9 @@ async function sendTx(signer, tx) {
   } finally {
     nonces.set(signer.address, nonces.get(signer.address).addn(1));
   }
-  
+
   if (!passed) return -1;
-  
+
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
