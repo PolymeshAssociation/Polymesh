@@ -1,13 +1,54 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { Moment } from "@polkadot/types/interfaces/runtime";
+import { AccountId } from "@polkadot/types/interfaces";
 import { sendTx, keyToIdentityIds } from "../util/init";
-import { IdentityId, Authorization } from "../types";
+import {
+	IdentityId,
+	Authorization,
+	LegacyPalletPermissions,
+	PortfolioId,
+	Ticker,
+	Permissions,
+	Signatory,
+} from "../types";
 
-// Authorizes the join of secondary keys to a DID
 /**
- * @description Creates an Identity for KeyringPairs.
- * @param {ApiPromise}  api - ApiPromise 
+ * @description Sets permission to signer key
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {KeyringPair[]} primaryKeys - An array of KeyringPairs
+ * @param {KeyringPair[]} secondaryKeys - An array of KeyringPairs
+ * @param {LegacyPalletPermissions[]} extrinsic - An array of LegacyPalletPermissions
+ * @param {PortfolioId[]} portfolio - An array of PortfolioIds
+ * @param {Ticker[]} asset - An array of Tickers
+ * @return {Promise<void>}
+ */
+export async function setPermissionToSigner(
+	api: ApiPromise,
+	primaryKeys: KeyringPair[],
+	secondaryKeys: KeyringPair[],
+	extrinsic: LegacyPalletPermissions[],
+	portfolio: PortfolioId[],
+	asset: Ticker[]
+): Promise<void> {
+	const permissions: Permissions = {
+		asset,
+		extrinsic,
+		portfolio,
+	};
+
+	for (let i in primaryKeys) {
+		let signer: Signatory = {
+			Account: secondaryKeys[i].publicKey as AccountId,
+		};
+		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
+		await sendTx(primaryKeys[i], transaction);
+	}
+}
+
+/**
+ * @description Authorizes the joining of secondary keys to a DID
+ * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair[]} primaryKeys - An array of KeyringPairs
  * @param {IdentityId[]} dids - An array of IdentityIds
  * @param {KeyringPair[]} secondaryKeys - An array of KeyringPairs
@@ -30,19 +71,17 @@ export async function authorizeJoinToIdentities(
 				last_auth_id = auths[j][1].auth_id;
 			}
 		}
-
 		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
 		await sendTx(secondaryKeys[i], transaction);
 	}
-
 	return dids;
 }
 
 /**
  * @description Creates an Identity for KeyringPairs.
- * @param {ApiPromise}  api - ApiPromise 
+ * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair[]} accounts - An array of KeyringPairs
- * @param {KeyringPair} signer - KeyringPair 
+ * @param {KeyringPair} signer - KeyringPair
  * @return {Promise<IdentityId[]>} Creates an array of identities
  */
 export async function createIdentities(
@@ -63,15 +102,10 @@ async function createIdentitiesWithExpiry(
 
 	for (let account of accounts) {
 		let account_did = (await keyToIdentityIds(api, account.publicKey)).toString();
-		
+
 		if (parseInt(account_did) == 0) {
-			console.log(
-				`>>>> [Register CDD Claim] acc: ${account.address}`
-			);
-			const transaction = api.tx.identity.cddRegisterDid(
-				account.address,
-				[]
-			);
+			console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
+			const transaction = api.tx.identity.cddRegisterDid(account.address, []);
 			await sendTx(signer, transaction);
 		} else {
 			console.log("Identity Already Linked.");
@@ -82,9 +116,7 @@ async function createIdentitiesWithExpiry(
 	for (let i in accounts) {
 		const d = await keyToIdentityIds(api, accounts[i].publicKey);
 		dids.push(d);
-		console.log(
-			`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`
-		);
+		console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
 	}
 
 	// Add CDD Claim with CDD_ID
@@ -95,14 +127,9 @@ async function createIdentitiesWithExpiry(
 		};
 		const expiry = expiries.length == 0 ? null : expiries[i];
 
-		console.log(
-			`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(
-				claim
-			)}`
-		);
+		console.log(`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`);
 		const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
-		await sendTx(signer, transaction);	
+		await sendTx(signer, transaction);
 	}
-
 	return dids;
 }

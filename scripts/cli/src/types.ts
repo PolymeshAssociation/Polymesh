@@ -1,11 +1,30 @@
 import { AccountId } from "@polkadot/types/interfaces/runtime";
 //import { Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
+
+export interface Document {
+	uri: DocumentUri;
+	content_hash: DocumentHash;
+	name: DocumentName;
+	doc_type?: string;
+	filing_date?: number;
+}
+export interface DocumentHash {
+	None?: string;
+	H512?: [Uint8Array, 64];
+	H384?: [Uint8Array, 48];
+	H320?: [Uint8Array, 40];
+	H256?: [Uint8Array, 32];
+	H224?: [Uint8Array, 28];
+	H192?: [Uint8Array, 24];
+	H160?: [Uint8Array, 20];
+	H128?: [Uint8Array, 16];
+}
 export interface Scope {
 	Identity?: IdentityId;
 	Ticker?: Ticker;
 	Custom?: number[];
-};
+}
 export interface Signatory {
 	Identity?: IdentityId;
 	Account?: AccountId;
@@ -84,10 +103,17 @@ export type CddId = string;
 export type PalletName = string;
 export type DispatchableName = string;
 export type Expiry = number | undefined;
+export type DocumentName = string;
+export type DocumentUri = string;
+
+export type MovePortfolioItem = {
+	ticker: Ticker;
+	amount: number;
+};
 
 export type Permissions = {
 	asset?: Ticker[];
-	extrinsic?: PalletPermissions[];
+	extrinsic?: PalletPermissions[] | LegacyPalletPermissions[];
 	portfolio?: PortfolioId[];
 };
 
@@ -97,10 +123,10 @@ export type PalletPermissions = {
 };
 
 export type LegacyPalletPermissions = {
-	pallet_name: PalletName,
-	total: Boolean,
-	dispatchable_names: DispatchableName[]
-}
+	pallet_name: PalletName;
+	total: Boolean;
+	dispatchable_names: DispatchableName[];
+};
 
 export type PortfolioId = {
 	did: IdentityId;
@@ -117,7 +143,7 @@ export type Authorization = {
 	authorized_by: IdentityId;
 	expiry: Expiry;
 	auth_id: number;
-}
+};
 
 export type TrustedIssuer = {
 	issuer: IdentityId;
