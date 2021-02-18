@@ -1033,7 +1033,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = enact_snapshot_results::<T>(&results)]
+        #[weight = (enact_snapshot_results::<T>(&results), Operational)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1567,9 +1567,7 @@ impl<T: Trait> Module<T> {
 
 /// Returns the `Weight` based on the number of approves, rejects, and skips from `results`.
 /// The `enact_snapshot_results` is always a `DispatchClass::Operational` transaction.
-pub fn enact_snapshot_results<T: Trait>(
-    results: &[(PipId, SnapshotResult)],
-) -> (Weight, frame_support::weights::DispatchClass) {
+pub fn enact_snapshot_results<T: Trait>(results: &[(PipId, SnapshotResult)]) -> Weight {
     let mut approves = 0;
     let mut rejects = 0;
     let mut skips = 0;
@@ -1581,11 +1579,8 @@ pub fn enact_snapshot_results<T: Trait>(
         }
     }
 
-    let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
-    (
-        weight.min(PipsEnactSnapshotMaximumWeight::get()),
-        Operational,
-    )
+    <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips)
+        .min(PipsEnactSnapshotMaximumWeight::get())
 }
 
 #[cfg(test)]
