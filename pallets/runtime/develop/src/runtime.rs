@@ -251,6 +251,9 @@ impl pallet_transaction_payment::Trait for Runtime {
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
+    type GovernanceCommittee = PolymeshCommittee;
+    type CddProviders = CddServiceProviders;
+    type Identity = Identity;
 }
 
 impl CommonTrait for Runtime {
