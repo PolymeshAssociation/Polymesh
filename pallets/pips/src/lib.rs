@@ -1033,7 +1033,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = weight_helper::enact_snapshot_results::<T>(&results)]
+        #[weight = enact_snapshot_results::<T>(&results)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
@@ -1565,32 +1565,27 @@ impl<T: Trait> Module<T> {
     }
 }
 
-mod weight_helper {
-    use super::*;
-    use frame_support::weights::DispatchClass;
-
-    /// Returns the `Weight` based on the number of approves, rejects, and skips from `results`.
-    /// The `enact_snapshot_results` is always a `DispatchClass::Operational` transaction.
-    pub fn enact_snapshot_results<T: Trait>(
-        results: &[(PipId, SnapshotResult)],
-    ) -> (Weight, DispatchClass) {
-        let mut approves = 0;
-        let mut rejects = 0;
-        let mut skips = 0;
-        for r in results.iter().map(|result| result.1) {
-            match r {
-                SnapshotResult::Approve => approves += 1,
-                SnapshotResult::Reject => rejects += 1,
-                SnapshotResult::Skip => skips += 1,
-            }
+/// Returns the `Weight` based on the number of approves, rejects, and skips from `results`.
+/// The `enact_snapshot_results` is always a `DispatchClass::Operational` transaction.
+pub fn enact_snapshot_results<T: Trait>(
+    results: &[(PipId, SnapshotResult)],
+) -> (Weight, frame_support::weights::DispatchClass) {
+    let mut approves = 0;
+    let mut rejects = 0;
+    let mut skips = 0;
+    for r in results.iter().map(|result| result.1) {
+        match r {
+            SnapshotResult::Approve => approves += 1,
+            SnapshotResult::Reject => rejects += 1,
+            SnapshotResult::Skip => skips += 1,
         }
-
-        let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
-        (
-            weight.min(PipsEnactSnapshotMaximumWeight::get()),
-            Operational,
-        )
     }
+
+    let weight = <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips);
+    (
+        weight.min(PipsEnactSnapshotMaximumWeight::get()),
+        Operational,
+    )
 }
 
 #[cfg(test)]
