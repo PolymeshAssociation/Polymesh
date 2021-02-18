@@ -121,23 +121,26 @@ async function addInstruction(
 
   let instructionCounter = await api.query.settlement.instructionCounter();
 
-  let NonConfidentialLeg = {
-    from: getDefaultPortfolio(sender_did),
-    to: getDefaultPortfolio(receiver_did),
+  let nonConfidentialKind = {
     asset: ticker,
     amount: amount,
   };
+  let leg = {
+    from: getDefaultPortfolio(sender_did),
+    to: getDefaultPortfolio(receiver_did),
+    kind: nonConfidentialKind,
+  };
 
-    transaction = await api.tx.settlement.addInstruction(
-      venueCounter,
-      0,
-      null,
-      null,
-      [{"NonConfidentialLeg": NonConfidentialLeg}]
-    );
+  transaction = await api.tx.settlement.addInstruction(
+    venueCounter,
+    0,
+    null,
+    null,
+    [leg]
+  );
 
-    let tx = await reqImports.sendTx(sender, transaction);
-    if(tx !== -1) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(sender, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
   return instructionCounter;
 }

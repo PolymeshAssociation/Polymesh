@@ -150,49 +150,51 @@ async function addGroupInstruction(
   amount
 ) {
   let instructionCounter = await api.query.settlement.instructionCounter();
-  let NonConfidentialLeg = {
-    from: group[1],
-    to: group[0],
+  let nonConfidentialKind1 = {
     asset: ticker2,
     amount: amount,
   };
+  let leg1 = {
+    from: group[1],
+    to: group[0],
+    kind: nonConfidentialKind1,
+  };
 
-  let NonConfidentialLeg2 = {
+  let nonConfidentialKind2 = {
+    asset: ticker,
+    amount: amount,
+  };
+  let leg2 = {
     from: group[0],
     to: group[1],
-    asset: ticker,
-    amount: amount,
+    kind: nonConfidentialKind2,
   };
 
-  let NonConfidentialLeg3 = {
+  let leg3 = {
     from: group[0],
     to: group[2],
-    asset: ticker,
-    amount: amount,
+    kind: nonConfidentialKind2,
   };
 
-  let NonConfidentialLeg4 = {
+  let leg4 = {
     from: group[0],
     to: group[3],
-    asset: ticker,
-    amount: amount,
+    kind: nonConfidentialKind2,
   };
 
-  let NonConfidentialLeg5 = {
+  let leg5 = {
     from: group[0],
     to: group[4],
-    asset: ticker,
-    amount: amount,
+    kind: nonConfidentialKind2,
   };
 
   transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, null, [
-    {"NonConfidentialLeg": NonConfidentialLeg},
-    {"NonConfidentialLeg": NonConfidentialLeg2},
-    {"NonConfidentialLeg": NonConfidentialLeg3},
-    {"NonConfidentialLeg": NonConfidentialLeg4},
-    {"NonConfidentialLeg": NonConfidentialLeg5}
-  ]
-  );
+    leg1,
+    leg2,
+    leg3,
+    leg4,
+    leg5,
+  ]);
 
   let tx = await reqImports.sendTx(sender, transaction);
   if (tx !== -1) reqImports.fail_count--;
