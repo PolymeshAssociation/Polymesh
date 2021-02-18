@@ -504,6 +504,8 @@ where
             .unwrap_or(false)
     }
 
+    /// Ensures that the transaction tip is valid.
+    ///
     /// We only allow tip != 0 if the transaction is `DispatchClass::Operational` and it was
     /// created by a Governance or CDD Provider member.
     /// A `DispatchClass::Mandatory` transaction is going to be included in the block, so adding a
