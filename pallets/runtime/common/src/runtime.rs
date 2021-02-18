@@ -169,7 +169,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_session::Trait for Runtime {
             type Event = Event;
-            type ValidatorId = <Self as frame_system::Trait>::AccountId;
+            type ValidatorId = polymesh_primitives::AccountId;
             type ValidatorIdOf = pallet_staking::StashOf<Self>;
             type ShouldEndSession = Babe;
             type NextSessionRotation = Babe;
@@ -418,7 +418,7 @@ macro_rules! misc_pallet_impls {
             >(
                 call: Call,
                 public: <polymesh_primitives::Signature as Verify>::Signer,
-                account: AccountId,
+                account: polymesh_primitives::AccountId,
                 nonce: polymesh_primitives::Index,
             ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
                 // take the biggest period possible.
@@ -507,7 +507,7 @@ macro_rules! runtime_apis {
         /// The payload being signed in transactions.
         pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
         /// Extrinsic type that has already been checked.
-        pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+        pub type CheckedExtrinsic = generic::CheckedExtrinsic<polymesh_primitives::AccountId, Call, SignedExtra>;
         /// Executive: handles dispatch to the various modules.
         pub type Executive = pallet_executive::Executive<
             Runtime,
@@ -658,18 +658,18 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-                fn account_nonce(account: AccountId) -> Index {
+            impl frame_system_rpc_runtime_api::AccountNonceApi<Block, polymesh_primitives::AccountId, Index> for Runtime {
+                fn account_nonce(account: polymesh_primitives::AccountId) -> Index {
                     System::account_nonce(account)
                 }
             }
 
-            impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+            impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, polymesh_primitives::AccountId, Balance, BlockNumber>
                 for Runtime
             {
                 fn call(
-                    origin: AccountId,
-                    dest: AccountId,
+                    origin: polymesh_primitives::AccountId,
+                    dest: polymesh_primitives::AccountId,
                     value: Balance,
                     gas_limit: u64,
                     input_data: Vec<u8>,
@@ -687,14 +687,14 @@ macro_rules! runtime_apis {
                 }
 
                 fn get_storage(
-                    address: AccountId,
+                    address: polymesh_primitives::AccountId,
                     key: [u8; 32],
                 ) -> pallet_contracts_primitives::GetStorageResult {
                     BaseContracts::get_storage(address, key)
                 }
 
                 fn rent_projection(
-                    address: AccountId,
+                    address: polymesh_primitives::AccountId,
                 ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
                     BaseContracts::rent_projection(address)
                 }
@@ -728,7 +728,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+            impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId, Balance>
             for Runtime
             {
                 /// Get vote count for a given proposal index
@@ -737,23 +737,23 @@ macro_rules! runtime_apis {
                 }
 
                 /// Proposals voted by `address`
-                fn proposed_by(address: AccountId) -> Vec<u32> {
+                fn proposed_by(address: polymesh_primitives::AccountId) -> Vec<u32> {
                     Pips::proposed_by(pallet_pips::Proposer::Community(address))
                 }
 
                 /// Proposals `address` voted on
-                fn voted_on(address: AccountId) -> Vec<u32> {
+                fn voted_on(address: polymesh_primitives::AccountId) -> Vec<u32> {
                     Pips::voted_on(address)
                 }
 
                 /// Retrieve PIPs voted on information by `address` account.
-                fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
+                fn voting_history_by_address(address: polymesh_primitives::AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
                     Pips::voting_history_by_address(address)
 
                 }
 
                 /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
-                fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
+                fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<polymesh_primitives::AccountId, Vote<Balance>> {
                     Pips::voting_history_by_id(id)
                 }
             }
@@ -771,9 +771,9 @@ macro_rules! runtime_apis {
                     Block,
                     IdentityId,
                     Ticker,
-                    AccountId,
-                    SecondaryKey<AccountId>,
-                    Signatory<AccountId>,
+                    polymesh_primitives::AccountId,
+                    SecondaryKey<polymesh_primitives::AccountId>,
+                    Signatory<polymesh_primitives::AccountId>,
                     Moment
                 > for Runtime
             {
@@ -790,7 +790,7 @@ macro_rules! runtime_apis {
                 }
 
                 /// Retrieve primary key and secondary keys for a given IdentityId
-                fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
+                fn get_did_records(did: IdentityId) -> DidRecords<polymesh_primitives::AccountId, SecondaryKey<polymesh_primitives::AccountId>> {
                     Identity::get_did_records(did)
                 }
 
@@ -799,24 +799,24 @@ macro_rules! runtime_apis {
                     Identity::get_did_status(dids)
                 }
 
-                fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>> {
+                fn get_key_identity_data(acc: polymesh_primitives::AccountId) -> Option<KeyIdentityData<IdentityId>> {
                     Identity::get_key_identity_data(acc)
                 }
 
                 /// Retrieve list of a authorization for a given signatory
                 fn get_filtered_authorizations(
-                    signatory: Signatory<AccountId>,
+                    signatory: Signatory<polymesh_primitives::AccountId>,
                     allow_expired: bool,
                     auth_type: Option<polymesh_primitives::AuthorizationType>
-                ) -> Vec<polymesh_primitives::Authorization<AccountId, Moment>> {
+                ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
                 }
             }
 
-            impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
+            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
                 #[inline]
                 fn can_transfer(
-                    _sender: AccountId,
+                    _sender: polymesh_primitives::AccountId,
                     from_custodian: Option<IdentityId>,
                     from_portfolio: PortfolioId,
                     to_custodian: Option<IdentityId>,
@@ -829,7 +829,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId, Balance>
                 for Runtime
             {
                 #[inline]

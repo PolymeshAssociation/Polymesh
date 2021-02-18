@@ -271,7 +271,7 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
 
 macro_rules! frame {
     () => {
-        config::SystemConfig {
+        frame_system::GenesisConfig {
             code: rt::WASM_BINARY
                 .expect("WASM binary was not generated")
                 .to_vec(),
@@ -281,8 +281,8 @@ macro_rules! frame {
 }
 
 macro_rules! session {
-    ($module:ident, $inits:expr, $build:expr) => {
-        $module::SessionConfig {
+    ($inits:expr, $build:expr) => {
+        pallet_session::GenesisConfig {
             keys: $inits
                 .iter()
                 .map(|x| {
@@ -383,9 +383,9 @@ macro_rules! protocol_fee {
 
 pub mod general {
     use super::*;
-    use polymesh_runtime_develop::{self as rt, config, constants::time};
+    use polymesh_runtime_develop::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<config::GenesisConfig>;
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
     fn session_keys(
         grandpa: GrandpaId,
@@ -406,7 +406,7 @@ pub mod general {
         root_key: AccountId,
         endowed_accounts: Vec<AccountId>,
         enable_println: bool,
-    ) -> config::GenesisConfig {
+    ) -> rt::runtime::GenesisConfig {
         let init_ids = [
             // Service providers
             cdd_provider(1),
@@ -418,19 +418,19 @@ pub mod general {
         ];
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
-        config::GenesisConfig {
+        rt::runtime::GenesisConfig {
             frame_system: Some(frame!()),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(config::IdentityConfig {
+            pallet_identity: Some(pallet_identity::GenesisConfig {
                 identities: all_identities,
                 secondary_keys,
                 ..Default::default()
             }),
-            pallet_balances: Some(config::BalancesConfig {
+            pallet_balances: Some(pallet_balances::GenesisConfig {
                 balances: balances(&initial_authorities, &endowed_accounts),
             }),
-            pallet_bridge: Some(config::BridgeConfig {
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: initial_authorities[0].1.clone(),
                 creator: initial_authorities[0].1.clone(),
                 signatures_required: 1,
@@ -438,15 +438,15 @@ pub mod general {
                 timelock: 10,
                 bridge_limit: (100_000_000 * POLY, 1000),
             }),
-            pallet_indices: Some(config::IndicesConfig { indices: vec![] }),
-            pallet_sudo: Some(config::SudoConfig { key: root_key }),
-            pallet_session: Some(session!(config, initial_authorities, session_keys)),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(
                 initial_authorities,
                 stakers,
                 PerThing::from_rational_approximation(1u64, 4u64)
             )),
-            pallet_pips: Some(config::PipsConfig {
+            pallet_pips: Some(pallet_pips::GenesisConfig {
                 prune_historical_pips: false,
                 min_proposal_deposit: 0,
                 default_enactment_period: time::MINUTES,
@@ -458,8 +458,8 @@ pub mod general {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
-            pallet_contracts: Some(config::ContractsConfig {
-                current_schedule: contracts::Schedule {
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
@@ -483,7 +483,7 @@ pub mod general {
         }
     }
 
-    fn develop_genesis() -> config::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
@@ -503,7 +503,7 @@ pub mod general {
         name: &str,
         id: &str,
         ctype: ChainType,
-        genesis: impl 'static + Sync + Send + Fn() -> config::GenesisConfig,
+        genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
     ) -> ChainSpec {
         let props = Some(polymath_props());
         ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
@@ -518,7 +518,7 @@ pub mod general {
         )
     }
 
-    fn local_genesis() -> config::GenesisConfig {
+    fn local_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -548,7 +548,7 @@ pub mod general {
         )
     }
 
-    fn live_genesis() -> config::GenesisConfig {
+    fn live_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -585,9 +585,9 @@ pub mod general {
 
 pub mod alcyone_testnet {
     use super::*;
-    use polymesh_runtime_testnet::{self as rt, config, constants::time};
+    use polymesh_runtime_testnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<config::GenesisConfig>;
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
     fn session_keys(
         grandpa: GrandpaId,
@@ -608,7 +608,7 @@ pub mod alcyone_testnet {
         root_key: AccountId,
         endowed_accounts: Vec<AccountId>,
         enable_println: bool,
-    ) -> config::GenesisConfig {
+    ) -> rt::runtime::GenesisConfig {
         let init_ids = [
             // Service providers
             cdd_provider(1),
@@ -620,19 +620,19 @@ pub mod alcyone_testnet {
         ];
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
-        config::GenesisConfig {
+        rt::runtime::GenesisConfig {
             frame_system: Some(frame!()),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(config::IdentityConfig {
+            pallet_identity: Some(pallet_identity::GenesisConfig {
                 identities: all_identities,
                 secondary_keys,
                 ..Default::default()
             }),
-            pallet_balances: Some(config::BalancesConfig {
+            pallet_balances: Some(pallet_balances::GenesisConfig {
                 balances: balances(&initial_authorities, &endowed_accounts),
             }),
-            pallet_bridge: Some(config::BridgeConfig {
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: seeded_acc_id("polymath_1"),
                 creator: seeded_acc_id("polymath_1"),
                 signatures_required: 3,
@@ -640,11 +640,11 @@ pub mod alcyone_testnet {
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
             }),
-            pallet_indices: Some(config::IndicesConfig { indices: vec![] }),
-            pallet_sudo: Some(config::SudoConfig { key: root_key }),
-            pallet_session: Some(session!(config, initial_authorities, session_keys)),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(config::PipsConfig {
+            pallet_pips: Some(pallet_pips::GenesisConfig {
                 prune_historical_pips: false,
                 min_proposal_deposit: 0,
                 default_enactment_period: time::DAYS * 7,
@@ -656,8 +656,8 @@ pub mod alcyone_testnet {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
-            pallet_contracts: Some(config::ContractsConfig {
-                current_schedule: contracts::Schedule {
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
@@ -682,7 +682,7 @@ pub mod alcyone_testnet {
         }
     }
 
-    fn live_genesis() -> config::GenesisConfig {
+    fn live_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -728,7 +728,7 @@ pub mod alcyone_testnet {
         )
     }
 
-    fn develop_genesis() -> config::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
@@ -761,7 +761,7 @@ pub mod alcyone_testnet {
         )
     }
 
-    fn local_genesis() -> config::GenesisConfig {
+    fn local_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -801,9 +801,9 @@ pub mod alcyone_testnet {
 
 pub mod polymesh_mainnet {
     use super::*;
-    use polymesh_runtime_mainnet::{self as rt, config, constants::time};
+    use polymesh_runtime_mainnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<config::GenesisConfig>;
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
     fn session_keys(
         grandpa: GrandpaId,
@@ -824,7 +824,7 @@ pub mod polymesh_mainnet {
         root_key: AccountId,
         endowed_accounts: Vec<AccountId>,
         enable_println: bool,
-    ) -> config::GenesisConfig {
+    ) -> rt::runtime::GenesisConfig {
         let init_ids = [
             // Service providers
             cdd_provider(1),
@@ -836,19 +836,19 @@ pub mod polymesh_mainnet {
         ];
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
-        config::GenesisConfig {
+        rt::runtime::GenesisConfig {
             frame_system: Some(frame!()),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(config::IdentityConfig {
+            pallet_identity: Some(pallet_identity::GenesisConfig {
                 identities: all_identities,
                 secondary_keys,
                 ..Default::default()
             }),
-            pallet_balances: Some(config::BalancesConfig {
+            pallet_balances: Some(pallet_balances::GenesisConfig {
                 balances: balances(&initial_authorities, &endowed_accounts),
             }),
-            pallet_bridge: Some(config::BridgeConfig {
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: seeded_acc_id("polymath_1"),
                 creator: seeded_acc_id("polymath_1"),
                 signatures_required: 3,
@@ -856,11 +856,11 @@ pub mod polymesh_mainnet {
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
             }),
-            pallet_indices: Some(config::IndicesConfig { indices: vec![] }),
-            pallet_sudo: Some(config::SudoConfig { key: root_key }),
-            pallet_session: Some(session!(config, initial_authorities, session_keys)),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(config::PipsConfig {
+            pallet_pips: Some(pallet_pips::GenesisConfig {
                 prune_historical_pips: false,
                 min_proposal_deposit: 0,
                 default_enactment_period: time::DAYS * 7,
@@ -872,8 +872,8 @@ pub mod polymesh_mainnet {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
-            pallet_contracts: Some(config::ContractsConfig {
-                current_schedule: contracts::Schedule {
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
@@ -898,7 +898,7 @@ pub mod polymesh_mainnet {
         }
     }
 
-    fn live_genesis() -> config::GenesisConfig {
+    fn live_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -944,7 +944,7 @@ pub mod polymesh_mainnet {
         )
     }
 
-    fn develop_genesis() -> config::GenesisConfig {
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
@@ -977,7 +977,7 @@ pub mod polymesh_mainnet {
         )
     }
 
-    fn local_genesis() -> config::GenesisConfig {
+    fn local_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
