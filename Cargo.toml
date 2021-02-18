@@ -29,7 +29,6 @@ members = [
     "pallets/group/rpc",
     "pallets/group/rpc/runtime-api",
     "pallets/identity",
-    "pallets/im-online",
     "pallets/multisig",
     "pallets/pips",
     "pallets/protocol-fee",
@@ -59,7 +58,6 @@ members = [
 ]
 
 [dependencies]
-im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-committee = { path = "pallets/committee", default-features = false }

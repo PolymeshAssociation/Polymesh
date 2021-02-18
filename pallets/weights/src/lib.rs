@@ -31,7 +31,6 @@ pub mod pallet_corporate_ballot;
 pub mod pallet_grandpa;
 pub mod pallet_group;
 pub mod pallet_identity;
-pub mod pallet_im_online;
 pub mod pallet_indices;
 pub mod pallet_multisig;
 pub mod pallet_pips;

@@ -4116,7 +4116,7 @@ dependencies = [
  "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-grandpa 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "pallet-im-online 2.0.0",
+ "pallet-im-online 2.0.1",
  "pallet-indices 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -5259,25 +5259,6 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "2.0.0"
-dependencies = [
- "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "parity-scale-codec",
- "serde",
- "sp-application-crypto 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-staking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
-]
-
-[[package]]
-name = "pallet-im-online"
-version = "2.0.0"
 source = "git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172#14951c75b778d5ee75c8ecdc02b70b6eb6d7b172"
 dependencies = [
  "frame-support 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
@@ -5292,6 +5273,26 @@ dependencies = [
  "sp-runtime 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-staking 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
+]
+
+[[package]]
+name = "pallet-im-online"
+version = "2.0.1"
+source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
+dependencies = [
+ "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-staking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
 ]
 
 [[package]]
@@ -6683,7 +6684,6 @@ dependencies = [
  "pallet-group 0.1.0",
  "pallet-group-rpc",
  "pallet-group-rpc-runtime-api 2.0.0",
- "pallet-im-online 2.0.0",
  "pallet-protocol-fee 0.1.0",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api 0.1.0",
@@ -7038,7 +7038,7 @@ dependencies = [
  "pallet-group 0.1.0",
  "pallet-group-rpc-runtime-api 2.0.0",
  "pallet-identity 0.1.0",
- "pallet-im-online 2.0.0",
+ "pallet-im-online 2.0.1",
  "pallet-indices 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-multisig 0.1.0",
  "pallet-offences 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7115,7 +7115,7 @@ dependencies = [
  "pallet-group 0.1.0",
  "pallet-group-rpc-runtime-api 2.0.0",
  "pallet-identity 0.1.0",
- "pallet-im-online 2.0.0",
+ "pallet-im-online 2.0.1",
  "pallet-indices 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-multisig 0.1.0",
  "pallet-offences 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7195,7 +7195,7 @@ dependencies = [
  "pallet-group 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-group-rpc-runtime-api 2.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-identity 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
- "pallet-im-online 2.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
+ "pallet-im-online 2.0.0",
  "pallet-indices 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-multisig 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-offences 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
@@ -7330,7 +7330,7 @@ dependencies = [
  "pallet-grandpa 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-group 0.1.0",
  "pallet-identity 0.1.0",
- "pallet-im-online 2.0.0",
+ "pallet-im-online 2.0.1",
  "pallet-indices 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-multisig 0.1.0",
  "pallet-pips 0.1.0",
@@ -7365,7 +7365,7 @@ dependencies = [
  "pallet-grandpa 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-group 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-identity 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
- "pallet-im-online 2.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
+ "pallet-im-online 2.0.0",
  "pallet-indices 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-multisig 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-pips 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
