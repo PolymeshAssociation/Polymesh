@@ -392,6 +392,9 @@ impl pallet_transaction_payment::Trait for TestStorage {
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = TestStorage;
+    type GovernanceCommittee = Committee;
+    type CddProviders = CddServiceProvider;
+    type Identity = identity::Module<TestStorage>;
 }
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
