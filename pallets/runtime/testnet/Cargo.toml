@@ -22,7 +22,6 @@ pallet-sto = { path = "../../sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
 pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1"}
 pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
@@ -99,10 +98,7 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
-no_std = [
-    "pallet-confidential/no_std",
-    "pallet-confidential/u64_backend",
-]
+no_std = []
 std = [
     "codec/std",
     "frame-support/std",
@@ -118,7 +114,6 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-confidential/std",
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",

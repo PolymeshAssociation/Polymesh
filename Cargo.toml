@@ -21,7 +21,6 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
-    "pallets/confidential",
     "pallets/corporate-actions",
     "pallets/group",
     "pallets/group/rpc",
@@ -60,7 +59,6 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-committee = { path = "pallets/committee", default-features = false }
-pallet-confidential = { path = "pallets/confidential" }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }

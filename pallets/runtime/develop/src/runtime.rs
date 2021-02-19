@@ -6,7 +6,6 @@ use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
-use pallet_confidential as confidential;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_group as group;
@@ -734,12 +733,6 @@ impl pallet_utility::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
 }
 
-impl confidential::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
-}
-
 impl PermissionChecker for Runtime {
     type Checker = Identity;
 }
@@ -850,7 +843,7 @@ construct_runtime!(
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: utility::{Module, Call, Storage, Event} = 41,
         Portfolio: portfolio::{Module, Call, Storage, Event<T>} = 42,
-        Confidential: confidential::{Module, Call, Storage, Event} = 43,
+        // Removed pallet Confidential = 43,
         Permissions: pallet_permissions::{Module, Storage} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,

@@ -33,7 +33,6 @@ substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/subs
 
 # Benchmarks
 frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
@@ -63,5 +62,4 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"schnorrkel",
 ]

@@ -20,7 +20,6 @@ use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
-use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_corporate_actions::distribution as capital_distributions;
@@ -131,7 +130,6 @@ impl_outer_event! {
         sto<T>,
         pallet_utility,
         portfolio<T>,
-        confidential,
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
@@ -665,12 +663,6 @@ impl pips::Trait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
-}
-
-impl confidential::Trait for TestStorage {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl pallet_utility::Trait for TestStorage {

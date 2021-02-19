@@ -3764,7 +3764,6 @@ dependencies = [
  "frame-system",
  "node-testing",
  "pallet-balances 0.1.0",
- "pallet-confidential",
  "pallet-contracts",
  "pallet-grandpa",
  "pallet-im-online",
@@ -4248,32 +4247,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
-]
-
-[[package]]
-name = "pallet-confidential"
-version = "0.1.0"
-dependencies = [
- "cryptography_core",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-asset",
- "pallet-identity",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "polymesh-primitives-derive",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "sp-api",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-runtime-interface",
- "sp-std",
 ]
 
 [[package]]
@@ -5407,7 +5380,6 @@ dependencies = [
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-committee",
- "pallet-confidential",
  "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
@@ -5483,7 +5455,6 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-primitives-derive",
- "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
  "serde_derive",
  "sp-api",
@@ -5628,6 +5599,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
+ "cryptography_core",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -5644,7 +5616,6 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -5721,7 +5692,6 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -5788,6 +5758,7 @@ version = "1.0.0"
 dependencies = [
  "chrono",
  "confidential_identity",
+ "cryptography_core",
  "env_logger",
  "frame-benchmarking",
  "frame-support",
@@ -5803,7 +5774,6 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential",
  "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-group",
@@ -5863,7 +5833,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential",
  "pallet-corporate-actions",
  "pallet-grandpa",
  "pallet-group",
@@ -9411,7 +9380,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.7.3",
+ "rand 0.3.23",
  "static_assertions",
 ]
 
