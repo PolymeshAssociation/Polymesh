@@ -67,7 +67,7 @@ impl SubstrateCli for Cli {
             "mainnet-dev" => Box::new(chain_spec::polymesh_mainnet::develop_config()),
             "mainnet-local" => Box::new(chain_spec::polymesh_mainnet::local_config()),
             "mainnet-live" => Box::new(chain_spec::polymesh_mainnet::live_config()),
-            "Mainnet" | "mainnet" => {
+            "Mainnet" | "mainnet" | "" => {
                 Box::new(chain_spec::polymesh_mainnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/mainnet_raw.json")[..],
                 )?)
@@ -77,7 +77,7 @@ impl SubstrateCli for Cli {
                     &include_bytes!("./chain_specs/buffron_raw.json")[..],
                 )?)
             }
-            "Alcyone" | "alcyone" | "" => {
+            "Alcyone" | "alcyone" => {
                 Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/alcyone_raw.json")[..],
                 )?)
