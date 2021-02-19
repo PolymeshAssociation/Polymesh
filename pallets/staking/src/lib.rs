@@ -1267,7 +1267,7 @@ decl_storage! {
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
-                ).unwrap();
+                ).expect("Unable to bond");
                 let _ = match status {
                     StakerStatus::Validator => {
                         if <Module<T>>::permissioned_identity(&did).is_none() {
