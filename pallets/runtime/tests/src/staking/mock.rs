@@ -604,7 +604,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
-    pub const MinimumBond: Balance = 0u128;
+    pub const MinimumBond: Balance = 10u128;
 }
 
 thread_local! {
@@ -894,7 +894,7 @@ impl ExtBuilder {
             let stake_31 = if self.validator_pool {
                 balance_factor * 1000
             } else {
-                1
+                MinimumBond::get()
             };
             let status_41 = if self.validator_pool {
                 StakerStatus::<AccountId>::Validator
