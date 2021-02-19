@@ -17,8 +17,11 @@ macro_rules! misc_pallet_impls {
             }
         }
 
-        use sp_runtime::traits::{SaturatedConversion as _, Saturating as _};
-        use sp_runtime::{generic, impl_opaque_keys, ApplyExtrinsicResult, MultiSignature};
+        use sp_runtime::{
+            generic, impl_opaque_keys,
+            traits::{SaturatedConversion as _, Saturating as _},
+            ApplyExtrinsicResult, MultiSignature,
+        };
 
         impl frame_system::Trait for Runtime {
             /// The basic call filter to use in dispatchable.
