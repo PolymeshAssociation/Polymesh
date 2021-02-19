@@ -3,7 +3,7 @@
         "AccountInfo": "AccountInfoWithRefCount",
         "Address": "IndicesLookupSource",
         "LookupSource": "IndicesLookupSource",
-        "ValidatorPrefsBlocked": {
+        "ValidatorPrefsWithBlocked": {
             "commission": "Compact<Perbill>"
         },
         "IdentityId": "[u8; 32]",
@@ -387,7 +387,10 @@
                 "EH",
                 "YE",
                 "ZM",
-                "ZW"
+                "ZW",
+                "BQ",
+                "CW",
+                "SX"
             ]
         },
         "Scope": {
@@ -1030,7 +1033,8 @@
             "_enum": [
                 "Live",
                 "Frozen",
-                "Closed"
+                "Closed",
+                "ClosedEarly"
             ]
         },
         "FundraiserTier": {

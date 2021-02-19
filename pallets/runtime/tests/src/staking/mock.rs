@@ -604,6 +604,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MinimumBond: Balance = 10u128;
 }
 
 thread_local! {
@@ -665,6 +666,7 @@ impl Trait for Test {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
+    type MinimumBond = MinimumBond;
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
@@ -892,7 +894,7 @@ impl ExtBuilder {
             let stake_31 = if self.validator_pool {
                 balance_factor * 1000
             } else {
-                1
+                MinimumBond::get()
             };
             let status_41 = if self.validator_pool {
                 StakerStatus::<AccountId>::Validator

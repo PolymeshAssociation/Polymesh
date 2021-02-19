@@ -278,9 +278,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
       }
     }
 
-    let nonceObj = { nonce: nonces.get(secondary_accounts[i].address) };
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, secondary_accounts[i], nonceObj);
+    await sendTx(secondary_accounts[i], transaction);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
@@ -299,13 +298,12 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
   
   if (tickerExist.owner == 0) {
 
-    let nonceObj = { nonce: nonces.get(accounts[0].address) };
+    
     const transaction = api.tx.asset.createAsset(
       ticker, ticker, amount, true, 0, [], fundingRound
     );
-    await sendTransaction(transaction, accounts[0], nonceObj);
-
-    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    
+    await sendTx(accounts[0], transaction);
     
   } else {
     console.log("ticker exists already");
@@ -487,10 +485,17 @@ async function mintingAsset(api, minter, did, ticker) {
 
 async function sendTx(signer, tx) {
   let nonceObj = { nonce: nonces.get(signer.address) };
-  const result = await sendTransaction(tx, signer, nonceObj);
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  let passed;
+
+  try {
+    const result = await sendTransaction(tx, signer, nonceObj);
+    passed = result.findRecord("system", "ExtrinsicSuccess");
+  } finally {
+    nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  }
+  
   if (!passed) return -1;
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
@@ -637,6 +642,10 @@ async function claimReceipt(
   await sendTx(sender, transaction);
 }
 
+async function getDid(api, account) {
+  return await api.query.identity.keyToIdentityIds(account.address);
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -685,6 +694,7 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
+  getDid,
   getDefaultPortfolio,
 };
 

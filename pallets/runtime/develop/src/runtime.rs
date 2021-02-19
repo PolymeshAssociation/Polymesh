@@ -243,6 +243,9 @@ impl pallet_transaction_payment::Trait for Runtime {
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
+    type GovernanceCommittee = PolymeshCommittee;
+    type CddProviders = CddServiceProviders;
+    type Identity = Identity;
 }
 
 impl CommonTrait for Runtime {
@@ -351,6 +354,7 @@ parameter_types! {
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MinimumBond: Balance = 1 * POLY;
 }
 
 impl pallet_staking::Trait for Runtime {
@@ -384,6 +388,7 @@ impl pallet_staking::Trait for Runtime {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
+    type MinimumBond = MinimumBond;
     type PalletsOrigin = OriginCaller;
 }
 
@@ -531,14 +536,8 @@ impl treasury::Trait for Runtime {
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
-parameter_types! {
-    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInInstruction: u32 = 10;
-}
-
 impl settlement::Trait for Runtime {
     type Event = Event;
-    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
     type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
