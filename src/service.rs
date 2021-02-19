@@ -37,18 +37,27 @@ pub use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
+/// Known networks based on name.
+pub enum Network {
+    Mainnet,
+    Testnet,
+    Other,
+}
+
 pub trait IsNetwork {
-    fn is_alcyone_network(&self) -> bool;
-    fn is_mainnet_network(&self) -> bool;
+    fn network(&self) -> Network;
 }
 
 impl IsNetwork for dyn ChainSpec {
-    fn is_alcyone_network(&self) -> bool {
-        self.name().starts_with("Polymesh Alcyone")
-    }
-
-    fn is_mainnet_network(&self) -> bool {
-        self.name().starts_with("Polymesh Mainnet")
+    fn network(&self) -> Network {
+        let name = self.name();
+        if name.starts_with("Polymesh Mainnet") {
+            Network::Mainnet
+        } else if name.starts_with("Polymesh Alcyone") {
+            Network::Testnet
+        } else {
+            Network::Other
+        }
     }
 }
 
