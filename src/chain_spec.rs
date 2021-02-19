@@ -77,6 +77,24 @@ fn polymath_props() -> Properties {
         .clone()
 }
 
+macro_rules! session_keys {
+    () => {
+        fn session_keys(
+            grandpa: GrandpaId,
+            babe: BabeId,
+            im_online: ImOnlineId,
+            authority_discovery: AuthorityDiscoveryId,
+        ) -> rt::SessionKeys {
+            rt::SessionKeys {
+                babe,
+                grandpa,
+                im_online,
+                authority_discovery,
+            }
+        }
+    };
+}
+
 macro_rules! asset {
     () => {
         pallet_asset::GenesisConfig {
@@ -383,19 +401,7 @@ pub mod general {
 
     pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-    fn session_keys(
-        grandpa: GrandpaId,
-        babe: BabeId,
-        im_online: ImOnlineId,
-        authority_discovery: AuthorityDiscoveryId,
-    ) -> rt::SessionKeys {
-        rt::SessionKeys {
-            babe,
-            grandpa,
-            im_online,
-            authority_discovery,
-        }
-    }
+    session_keys!();
 
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
@@ -585,19 +591,7 @@ pub mod alcyone_testnet {
 
     pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-    fn session_keys(
-        grandpa: GrandpaId,
-        babe: BabeId,
-        im_online: ImOnlineId,
-        authority_discovery: AuthorityDiscoveryId,
-    ) -> rt::SessionKeys {
-        rt::SessionKeys {
-            babe,
-            grandpa,
-            im_online,
-            authority_discovery,
-        }
-    }
+    session_keys!();
 
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
@@ -801,19 +795,7 @@ pub mod polymesh_mainnet {
 
     pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-    fn session_keys(
-        grandpa: GrandpaId,
-        babe: BabeId,
-        im_online: ImOnlineId,
-        authority_discovery: AuthorityDiscoveryId,
-    ) -> rt::SessionKeys {
-        rt::SessionKeys {
-            babe,
-            grandpa,
-            im_online,
-            authority_discovery,
-        }
-    }
+    session_keys!();
 
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
