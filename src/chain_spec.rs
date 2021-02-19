@@ -269,15 +269,11 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
     ]
 }
 
-macro_rules! frame {
-    () => {
-        frame_system::GenesisConfig {
-            code: rt::WASM_BINARY
-                .expect("WASM binary was not generated")
-                .to_vec(),
-            changes_trie_config: Default::default(),
-        }
-    };
+fn frame(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig {
+    frame_system::GenesisConfig {
+        code: wasm_binary.expect("WASM binary was not generated").to_vec(),
+        changes_trie_config: Default::default(),
+    }
 }
 
 macro_rules! session {
@@ -419,7 +415,7 @@ pub mod general {
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame!()),
+            frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
@@ -621,7 +617,7 @@ pub mod alcyone_testnet {
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame!()),
+            frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
@@ -837,7 +833,7 @@ pub mod polymesh_mainnet {
         let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame!()),
+            frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
