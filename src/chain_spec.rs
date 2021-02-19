@@ -323,6 +323,19 @@ macro_rules! staking {
     };
 }
 
+macro_rules! pips {
+    ($period:expr, $limit: expr) => {
+        pallet_pips::GenesisConfig {
+            prune_historical_pips: false,
+            min_proposal_deposit: 0,
+            default_enactment_period: $period,
+            max_pip_skip_count: 1,
+            active_pip_limit: $limit,
+            pending_pip_expiry: <_>::default(),
+        }
+    };
+}
+
 macro_rules! im_online {
     () => {
         im_online::GenesisConfig {
@@ -448,14 +461,7 @@ pub mod general {
                 stakers,
                 PerThing::from_rational_approximation(1u64, 4u64)
             )),
-            pallet_pips: Some(pallet_pips::GenesisConfig {
-                prune_historical_pips: false,
-                min_proposal_deposit: 0,
-                default_enactment_period: time::MINUTES,
-                max_pip_skip_count: 1,
-                active_pip_limit: 25,
-                pending_pip_expiry: <_>::default(),
-            }),
+            pallet_pips: Some(pips!(time::MINUTES, 25)),
             pallet_im_online: Some(im_online!()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -634,14 +640,7 @@ pub mod alcyone_testnet {
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pallet_pips::GenesisConfig {
-                prune_historical_pips: false,
-                min_proposal_deposit: 0,
-                default_enactment_period: time::DAYS * 7,
-                max_pip_skip_count: 1,
-                active_pip_limit: 1000,
-                pending_pip_expiry: <_>::default(),
-            }),
+            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
             pallet_im_online: Some(im_online!()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -838,14 +837,7 @@ pub mod polymesh_mainnet {
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pallet_pips::GenesisConfig {
-                prune_historical_pips: false,
-                min_proposal_deposit: 0,
-                default_enactment_period: time::DAYS * 7,
-                max_pip_skip_count: 1,
-                active_pip_limit: 1000,
-                pending_pip_expiry: <_>::default(),
-            }),
+            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
             pallet_im_online: Some(im_online!()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
