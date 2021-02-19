@@ -50,6 +50,8 @@ pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", p
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
+# Crypto
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
 
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
@@ -98,9 +100,15 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
+
+# Backends
+u64_backend = ["cryptography_core/u64_backend"]
+avx2_backend = ["cryptography_core/avx2_backend"]
+
 migration-dry-run = []
-no_std = []
+no_std = ["u64_backend"]
 std = [
+    "avx2_backend",
     "codec/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",

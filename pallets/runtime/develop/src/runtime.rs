@@ -1277,7 +1277,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
-            add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);

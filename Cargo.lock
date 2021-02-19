@@ -7072,6 +7072,7 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
