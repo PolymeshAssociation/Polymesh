@@ -18,7 +18,7 @@ use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
     self, alcyone_chain_ops, general_chain_ops, mainnet_chain_ops, new_full_base, AlcyoneExecutor,
-    GeneralExecutor, IsNetwork, MainnetExecutor, NewChainOps, NewFullBase, Network,
+    GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps, NewFullBase,
 };
 use core::future::Future;
 use log::info;
@@ -131,27 +131,69 @@ pub fn run() -> Result<()> {
         Some(Subcommand::BuildSyncSpec(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             match runner.config().chain_spec.network() {
-                Network::Mainnet => runner.async_run(|config| {
-                    let chain_spec = config.chain_spec.cloned_box();
-                    let network_config = config.network.clone();
-                    let NewFullBase { task_manager, client, network_status_sinks, .. }
-                        = new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())?;
-                    Ok((cmd.run(chain_spec, network_config, client, network_status_sinks), task_manager))
-                }),
-                Network::Testnet => runner.async_run(|config| {
-                    let chain_spec = config.chain_spec.cloned_box();
-                    let network_config = config.network.clone();
-                    let NewFullBase { task_manager, client, network_status_sinks, .. }
-                        = new_full_base::<polymesh_runtime_testnet::RuntimeApi, AlcyoneExecutor, _, _>(config, |_, _| ())?;
-                    Ok((cmd.run(chain_spec, network_config, client, network_status_sinks), task_manager))
-                }),
-                Network::Other => runner.async_run(|config| {
-                    let chain_spec = config.chain_spec.cloned_box();
-                    let network_config = config.network.clone();
-                    let NewFullBase { task_manager, client, network_status_sinks, .. }
-                        = new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _, _>(config, |_, _| ())?;
-                    Ok((cmd.run(chain_spec, network_config, client, network_status_sinks), task_manager))
-                }),
+                Network::Mainnet => {
+                    runner.async_run(|config| {
+                        let chain_spec = config.chain_spec.cloned_box();
+                        let network_config = config.network.clone();
+                        let NewFullBase {
+                            task_manager,
+                            client,
+                            network_status_sinks,
+                            ..
+                        } = new_full_base::<
+                            polymesh_runtime_mainnet::RuntimeApi,
+                            MainnetExecutor,
+                            _,
+                            _,
+                        >(config, |_, _| ())?;
+                        Ok((
+                            cmd.run(chain_spec, network_config, client, network_status_sinks),
+                            task_manager,
+                        ))
+                    })
+                }
+                Network::Testnet => {
+                    runner.async_run(|config| {
+                        let chain_spec = config.chain_spec.cloned_box();
+                        let network_config = config.network.clone();
+                        let NewFullBase {
+                            task_manager,
+                            client,
+                            network_status_sinks,
+                            ..
+                        } = new_full_base::<
+                            polymesh_runtime_testnet::RuntimeApi,
+                            AlcyoneExecutor,
+                            _,
+                            _,
+                        >(config, |_, _| ())?;
+                        Ok((
+                            cmd.run(chain_spec, network_config, client, network_status_sinks),
+                            task_manager,
+                        ))
+                    })
+                }
+                Network::Other => {
+                    runner.async_run(|config| {
+                        let chain_spec = config.chain_spec.cloned_box();
+                        let network_config = config.network.clone();
+                        let NewFullBase {
+                            task_manager,
+                            client,
+                            network_status_sinks,
+                            ..
+                        } = new_full_base::<
+                            polymesh_runtime_develop::RuntimeApi,
+                            GeneralExecutor,
+                            _,
+                            _,
+                        >(config, |_, _| ())?;
+                        Ok((
+                            cmd.run(chain_spec, network_config, client, network_status_sinks),
+                            task_manager,
+                        ))
+                    })
+                }
             }
         }
         Some(Subcommand::CheckBlock(cmd)) => async_run(
@@ -199,9 +241,15 @@ pub fn run() -> Result<()> {
                 let chain_spec = &runner.config().chain_spec;
 
                 match chain_spec.network() {
-                    Network::Mainnet => runner.sync_run(|config| cmd.run::<Block, service::MainnetExecutor>(config)),
-                    Network::Testnet => runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config)),
-                    Network::Other => runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config)),
+                    Network::Mainnet => {
+                        runner.sync_run(|config| cmd.run::<Block, service::MainnetExecutor>(config))
+                    }
+                    Network::Testnet => {
+                        runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                    }
+                    Network::Other => {
+                        runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
+                    }
                 }
             } else {
                 Err("Benchmarking wasn't enabled when building the node. \
@@ -235,8 +283,14 @@ where
 {
     let runner = cli.create_runner(cmd)?;
     match runner.config().chain_spec.network() {
-        Network::Mainnet => runner.async_run(|mut config| mainnet(mainnet_chain_ops(&mut config)?, config)),
-        Network::Testnet => runner.async_run(|mut config| alcyone(alcyone_chain_ops(&mut config)?, config)),
-        Network::Other => runner.async_run(|mut config| general(general_chain_ops(&mut config)?, config)),
+        Network::Mainnet => {
+            runner.async_run(|mut config| mainnet(mainnet_chain_ops(&mut config)?, config))
+        }
+        Network::Testnet => {
+            runner.async_run(|mut config| alcyone(alcyone_chain_ops(&mut config)?, config))
+        }
+        Network::Other => {
+            runner.async_run(|mut config| general(general_chain_ops(&mut config)?, config))
+        }
     }
 }
