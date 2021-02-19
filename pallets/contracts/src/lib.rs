@@ -28,10 +28,10 @@ use frame_support::{
     traits::Get,
     weights::{DispatchClass::Operational, Weight},
 };
+use frame_system::ensure_root;
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    group::GroupTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction,
@@ -101,8 +101,6 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     type NetworkShareInFee: Get<Perbill>;
     /// Weight information for extrinsic in this pallet.
     type WeightInfo: WeightInfo;
-    /// Governance committee.
-    type GovernanceCommittee: GroupTrait<Self::Moment>;
 }
 
 decl_storage! {
@@ -138,7 +136,7 @@ decl_error! {
         /// Insufficient max_fee provided by the user to instantiate the SE.
         InsufficientMaxFee,
         /// `put_code` extrinsic is disabled. See `set_put_code_flag` extrinsic.
-        PutCodeIsNotAllowed
+        PutCodeIsNotAllowed,
     }
 }
 
@@ -169,9 +167,9 @@ decl_event! {
         /// Emitted when the template meta url get changed.
         /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
         TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
-        /// The flag that enable/disable the `put_code` extrinsic has changed.
-        /// (Identity of the caller, new flag state)
-        PutCodeFlagChanged(IdentityId, bool),
+        /// Executing `put_code` has been enabled or disabled.
+        /// (new flag state)
+        PutCodeFlagChanged(bool),
     }
 }
 
@@ -196,8 +194,15 @@ decl_module! {
 
         /// Enable or disable the extrinsic `put_code` in this module.
         ///
-        /// ## Erros
-        /// - `UnAuthorizedOrigin` if caller is not member of `T::GovernanceCommittee`.
+        /// ## Arguments
+        /// - `origin` which must be root.
+        /// - `is_enabled` is the new value for this flag.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if caller is not root.
+        ///
+        /// ## Permissions
+        /// None
         #[weight = (<T as Trait>::WeightInfo::set_put_code_flag(), Operational)]
         pub fn set_put_code_flag(origin, is_enabled: bool) -> DispatchResult {
             Self::base_set_put_code_flag(origin, is_enabled)
@@ -456,15 +461,9 @@ impl<T: Trait> Module<T> {
     }
 
     fn base_set_put_code_flag(origin: T::Origin, is_enabled: bool) -> DispatchResult {
-        let did = Identity::<T>::ensure_perms(origin)?;
-        ensure!(
-            T::GovernanceCommittee::is_member(&did),
-            Error::<T>::UnAuthorizedOrigin
-        );
-
+        ensure_root(origin)?;
         EnablePutCode::put(is_enabled);
-
-        Self::deposit_event(RawEvent::PutCodeFlagChanged(did, is_enabled));
+        Self::deposit_event(RawEvent::PutCodeFlagChanged(is_enabled));
         Ok(())
     }
 }

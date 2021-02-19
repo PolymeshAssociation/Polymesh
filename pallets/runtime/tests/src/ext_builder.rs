@@ -304,18 +304,12 @@ impl ExtBuilder {
         system_accounts.dedup();
 
         let (sys_identities, sys_links) = Self::make_identities(system_accounts.as_slice(), 0);
-        let (user_identities, user_links) =
-            Self::make_identities(self.regular_users.as_slice(), sys_identities.len());
 
         // New identities are just `system users` + `regular users`.
-        let new_identities = user_identities
-            .into_iter()
-            .chain(sys_identities.clone().into_iter())
-            .collect::<Vec<_>>();
-        let new_links = user_links
-            .into_iter()
-            .chain(sys_links.into_iter())
-            .collect::<Vec<_>>();
+        let (mut new_identities, mut new_links) =
+            Self::make_identities(self.regular_users.as_slice(), sys_identities.len());
+        new_identities.extend(sys_identities.iter().cloned());
+        new_links.extend(sys_links.iter().cloned());
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
