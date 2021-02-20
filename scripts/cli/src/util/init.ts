@@ -189,21 +189,6 @@ export async function createClaimCompliance(
 	await sendTx(accounts[0], transaction);
 }
 
-// TODO Refactor function to deal with all the possible claim types and their values
-export async function addClaimsToDids(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	did: IdentityId,
-	claimType: string,
-	claimValue: Scope,
-	expiry: Expiry
-) {
-	// Receieving Conditions Claim
-	let claim = { [claimType]: claimValue };
-	const transaction = api.tx.identity.addClaim(did, claim, expiry);
-	await sendTx(accounts[1], transaction);
-}
-
 export async function generateStashKeys(api: ApiPromise, accounts: KeyringPair[]) {
 	let keys = [];
 	await cryptoWaitReady();

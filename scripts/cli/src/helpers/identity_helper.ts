@@ -11,7 +11,35 @@ import {
 	Ticker,
 	Permissions,
 	Signatory,
+	Scope,
+	Expiry
 } from "../types";
+
+
+// TODO Refactor function to deal with all the possible claim types and their values
+/**
+ * @description Adds a Claim to an Identity 
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {KeyringPair} signer - KeyringPair
+ * @param {IdentityId} did - IdentityId
+ * @param {string} claimType - Type of Claim
+ * @param {Scope} claimValue - Claim value
+ * @param {Expiry=} expiry - 
+ * @return {Promise<void>}
+ */
+export async function addClaimsToDids(
+	api: ApiPromise,
+	signer: KeyringPair,
+	did: IdentityId,
+	claimType: string,
+	claimValue: Scope,
+	expiry?: Expiry
+): Promise<void> {
+	// Receieving Conditions Claim
+	let claim = { [claimType]: claimValue };
+	const transaction = api.tx.identity.addClaim(did, claim, expiry);
+	await sendTx(signer, transaction);
+}
 
 /**
  * @description Sets permission to signer key
