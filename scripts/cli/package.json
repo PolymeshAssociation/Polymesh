@@ -25,7 +25,7 @@
     "5_claim_management": "node ./tests/5_claim_management.js",
     "6_create_assets": "node ./tests/6_create_assets.js",
     "7_create_claim_compliance": "node ./tests/7_create_claim_compliance.js",
-    "8_asset_transfer": "node ./tests/8_asset_transfer.js",
+    "8_asset_minting": "node ./tests/8_asset_minting.js",
     "9_bridge_transfer": "node ./tests/9_bridge_transfer.js",
     "10_governance_management": "node ./tests/10_governance_management.js",
     "11_A_settlement": "node ./tests/11_A_settlement.js",

@@ -2,15 +2,13 @@ import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { sendTx } from "../util/init";
 import { assert } from "chai";
-import { IdentityId, Ticker, AssetCompliance } from "../types";
+import { IdentityId, Ticker, AssetCompliance, Scope } from "../types";
 
-const senderConditions1 = function (trusted_did: IdentityId) {
+const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {
 		condition_type: {
 			IsPresent: {
-				Exempted: {
-					Identity: trusted_did,
-				},
+				Exempted: data,
 			},
 		},
 		issuers: [
@@ -40,8 +38,8 @@ export async function createClaimCompliance(
 ): Promise<void> {
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-	let senderConditions = senderConditions1(did);
-	let receiverConditions = receiverConditions1(did);
+	let senderConditions = senderConditions1(did, {Ticker: ticker});
+	let receiverConditions = receiverConditions1(did, {Ticker: ticker});
 
 	const transaction = api.tx.complianceManager.addComplianceRequirement(
 		ticker,
