@@ -26,21 +26,6 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 export const transferAmount = new BN(25000).mul(new BN(10).pow(new BN(6))).toNumber();
 
-function senderConditions1(trusted_did: IdentityId, data: Scope) {
-	return [
-		{
-			condition_type: {
-				IsPresent: {
-					Exempted: data,
-				},
-			},
-			issuers: [{ issuer: trusted_did, trusted_for: { Any: "" } }],
-		},
-	];
-}
-
-const receiverConditions1 = senderConditions1;
-
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 export async function initMain(api: ApiPromise) {
 	let entities = [];
@@ -173,22 +158,6 @@ export function tickerToDid(ticker: Ticker) {
 	return blake2AsHex(u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(tickerUintArray, 96, true)));
 }
 
-// Creates claim compliance for an asset
-export async function createClaimCompliance(
-	api: ApiPromise,
-	accounts: KeyringPair[],
-	dids: IdentityId[],
-	ticker: Ticker
-) {
-	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-
-	let senderConditions = senderConditions1(dids[1], { Ticker: ticker });
-	let receiverConditions = receiverConditions1(dids[1], { Ticker: ticker });
-
-	const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, senderConditions, receiverConditions);
-	await sendTx(accounts[0], transaction);
-}
-
 export async function generateStashKeys(api: ApiPromise, accounts: KeyringPair[]) {
 	let keys = [];
 	await cryptoWaitReady();
@@ -297,18 +266,6 @@ export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"prom
 		nonces.set(signer.address, nonces.get(signer.address).addn(1));
 	}
 	if (!passed) return -1;
-}
-
-export async function addComplianceRequirement(api: ApiPromise, sender: KeyringPair, ticker: Ticker) {
-	let assetCompliance = ((await api.query.complianceManager.assetCompliances(ticker)) as unknown) as AssetCompliance;
-
-	if (assetCompliance.requirements.length == 0) {
-		const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, [], []);
-
-		await sendTx(sender, transaction);
-	} else {
-		console.log("Asset already has compliance.");
-	}
 }
 
 export async function createVenue(api: ApiPromise, sender: KeyringPair) {
