@@ -68,6 +68,18 @@ where
     }
 }
 
+impl<T: Migrate> Migrate for Option<T> {
+    type Into = Option<T::Into>;
+    type Context = T::Context;
+
+    fn migrate(self, context: Self::Context) -> Option<Self::Into> {
+        match self {
+            None => None,
+            Some(val) => Some(val.migrate(context)),
+        }
+    }
+}
+
 /// Migrate the values with old type `T` in `module::item` to `T::Into`.
 ///
 /// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
