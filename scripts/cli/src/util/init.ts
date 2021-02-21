@@ -26,6 +26,10 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 export const transferAmount = new BN(25000).mul(new BN(10).pow(new BN(6))).toNumber();
 
+export async function sleep(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 export async function initMain(api: ApiPromise) {
 	let entities = [];
