@@ -216,6 +216,13 @@ decl_module! {
         ///
         /// # Errors
         /// - `PutCodeIsNotAllowed` if the `put_code` flag is false. See `set_put_code_flag()`.
+        /// - `frame_system::BadOrigin` if `origin` is not signed.
+        /// - `pallet_permission::Error::<T>::UnAutorizedCaller` if `origin` does not have a valid
+        /// IdentityId.
+        /// - `pallet_contrats::Error::<T>::CodeTooLarge` if `code` length is grater than the chain
+        /// setting for `pallet_contrats::max_code_size`.
+        /// - Before `code` is inserted, some checks are performed on it, and them could raise up
+        /// some errors. Please see `pallet_contracts::wasm::prepare_contract` for details.
         #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.to_vec()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
