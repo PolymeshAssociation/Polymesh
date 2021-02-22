@@ -10,6 +10,7 @@ polymesh-primitives = { path = "../../../primitives", default-features = false }
 
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
+pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
