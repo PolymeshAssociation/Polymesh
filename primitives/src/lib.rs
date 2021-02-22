@@ -47,6 +47,9 @@ pub type Signature = MultiSignature;
 /// Alias to an sr25519 or ed25519 key.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
+/// Alias for `EnsureRoot<AccountId>`.
+pub type EnsureRoot = frame_system::EnsureRoot<AccountId>;
+
 /// The type for looking up accounts. We don't expect more than 4 billion of them.
 pub type AccountIndex = u32;
 

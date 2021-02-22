@@ -18,7 +18,9 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
+pub mod fee_details;
 pub mod impls;
+pub mod runtime;
 
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
