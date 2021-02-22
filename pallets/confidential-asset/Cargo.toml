@@ -27,9 +27,6 @@ frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-
 sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
-# Only in STD
-# frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2", optional = true }
-
 [features]
 equalize = []
 default = ["std", "equalize", "u64_backend"]
@@ -55,6 +52,3 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
 ]
-# runtime-benchmarks = [
-#     "frame-benchmarking",
-# ]
