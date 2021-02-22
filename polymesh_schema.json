@@ -1,5 +1,11 @@
 {
     "types": {
+        "AccountInfo": "AccountInfoWithRefCount",
+        "Address": "IndicesLookupSource",
+        "LookupSource": "IndicesLookupSource",
+        "ValidatorPrefsWithBlocked": {
+            "commission": "Compact<Perbill>"
+        },
         "IdentityId": "[u8; 32]",
         "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
@@ -381,7 +387,10 @@
                 "EH",
                 "YE",
                 "ZM",
-                "ZW"
+                "ZW",
+                "BQ",
+                "CW",
+                "SX"
             ]
         },
         "Scope": {
@@ -882,10 +891,6 @@
                 "CddVerified": ""
             }
         },
-        "IssueAssetItem": {
-            "identity_did": "IdentityId",
-            "value": "Balance"
-        },
         "PortfolioName": "Text",
         "PortfolioNumber": "u64",
         "PortfolioKind": {
@@ -932,11 +937,13 @@
         "StoredSchedule": {
             "schedule": "CheckpointSchedule",
             "id": "ScheduleId",
-            "at": "Moment"
+            "at": "Moment",
+            "remaining": "u32"
         },
         "ScheduleSpec": {
             "start": "Option<Moment>",
-            "period": "CalendarPeriod"
+            "period": "CalendarPeriod",
+            "remaining": "u32"
         },
         "InstructionStatus": {
             "_enum": {
@@ -1026,7 +1033,8 @@
             "_enum": [
                 "Live",
                 "Frozen",
-                "Closed"
+                "Closed",
+                "ClosedEarly"
             ]
         },
         "FundraiserTier": {
@@ -1087,7 +1095,7 @@
         "CADetails": "Text",
         "CACheckpoint": {
             "_enum": {
-                "Scheduled": "ScheduleId",
+                "Scheduled": "(ScheduleId, u64)",
                 "Existing": "CheckpointId"
             }
         },

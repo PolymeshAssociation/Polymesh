@@ -20,8 +20,9 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::{AssetFnTrait, AssetName};
+use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_primitives::{
+    asset::AssetName,
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
@@ -548,18 +549,18 @@ fn initiate_corporate_action_record_date() {
 
                 assert_eq!(date, rd.date);
                 match rd.checkpoint {
-                    CACheckpoint::Scheduled(id) => assert_eq!(schedule_id, id),
-                    CACheckpoint::Existing(_) => panic!(),
+                    CACheckpoint::Scheduled(id, 0) => assert_eq!(schedule_id, id),
+                    _ => panic!(),
                 }
 
                 Timestamp::set_timestamp(date);
                 transfer(&ticker, owner, foo);
 
                 assert_eq!(
-                    Checkpoint::schedule_points((ticker, schedule_id)),
+                    Checkpoint::schedule_points(ticker, schedule_id),
                     vec![cp_id]
                 );
-                assert_eq!(date, Checkpoint::timestamps(cp_id));
+                assert_eq!(date, Checkpoint::timestamps(ticker, cp_id));
             }
         };
 
@@ -885,6 +886,9 @@ fn change_record_date_works() {
             assert_ok!(change(id, date));
             assert_eq!(expect, get_ca(id).unwrap().record_date);
         };
+        let assert_refs =
+            |sh_id, count| assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id), count);
+        let assert_fresh = |sh_id| assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id);
 
         // Change for a CA that doesn't exist, and ensure failure.
         let id = next_ca_id(ticker);
@@ -898,7 +902,7 @@ fn change_record_date_works() {
             Some(RecordDate { date, checkpoint })
         };
         let rd_ts = |date, id| {
-            let checkpoint = CACheckpoint::Scheduled(id);
+            let checkpoint = CACheckpoint::Scheduled(id, 0);
             Some(RecordDate { date, checkpoint })
         };
 
@@ -913,39 +917,63 @@ fn change_record_date_works() {
         // Trigger `NoSuchSchedule`.
         assert_noop!(change(id, spec_sh(ScheduleId(42))), CPError::NoSuchSchedule);
 
-        // Successfully use a schedule which exists.
-        let sh_id = next_schedule_id(ticker);
-        change_ok(id, spec_ts(1000), rd_ts(1000, sh_id));
-        assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id);
-        assert!(!Checkpoint::schedule_removable((ticker, sh_id)));
+        // Successfully use a schedule which exists (the same one as before).
         let mk_schedule = |at, id| {
             let period = <_>::default();
             let schedule = CheckpointSchedule { start: at, period };
-            StoredSchedule { at, id, schedule }
+            StoredSchedule {
+                at,
+                id,
+                schedule,
+                remaining: 0,
+            }
         };
-        assert_eq!(
-            Checkpoint::schedules(ticker),
-            vec![mk_schedule(1000, sh_id)]
-        );
-        change_ok(id, spec_sh(sh_id), rd_ts(1000, sh_id));
+        let mut all_schedules = vec![];
+        let mut change_ok_scheduled = || {
+            let sh_id = next_schedule_id(ticker);
+            change_ok(id, spec_ts(1000), rd_ts(1000, sh_id));
+            assert_fresh(sh_id);
+            assert_refs(sh_id, 1);
+            all_schedules.push(mk_schedule(1000, sh_id));
+            assert_eq!(Checkpoint::schedules(ticker), all_schedules);
+            change_ok(id, spec_sh(sh_id), rd_ts(1000, sh_id));
+            sh_id
+        };
+        let sh_id1 = change_ok_scheduled();
+        assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id1), 1);
 
-        // Use a removable schedule. Should fail.
-        let sh_id2 = next_schedule_id(ticker);
+        // Then use a distinct existing ID.
+        let sh_id2 = change_ok_scheduled();
+        assert_refs(sh_id1, 0);
+        assert_refs(sh_id2, 1);
+
+        // Use a removable schedule. Should increment strong ref count.
+        let sh_id3 = next_schedule_id(ticker);
         assert_ok!(Checkpoint::create_schedule(
             owner.origin(),
             ticker,
             2000.into()
         ));
-        assert_eq!(Checkpoint::schedule_id_sequence(ticker), sh_id2);
-        assert!(Checkpoint::schedule_removable((ticker, sh_id2)));
+        assert_fresh(sh_id3);
+        assert_refs(sh_id3, 0);
         assert_eq!(
             Checkpoint::schedules(ticker),
-            vec![mk_schedule(1000, sh_id), mk_schedule(2000, sh_id2)]
+            vec![
+                mk_schedule(1000, sh_id1),
+                mk_schedule(1000, sh_id2),
+                mk_schedule(2000, sh_id3)
+            ]
         );
-        assert_noop!(
-            change(id, spec_sh(sh_id2)),
-            Error::ExistingScheduleRemovable
-        );
+        change_ok(id, spec_sh(sh_id3), rd_ts(2000, sh_id3));
+        assert_refs(sh_id3, 1);
+
+        // While at it, let's create a bunch of CAs and use the last schedule.
+        for _ in 0..10 {
+            let id = next_ca_id(ticker);
+            ca(CAKind::IssuerNotice, Some(1000));
+            change_ok(id, spec_sh(sh_id3), rd_ts(2000, sh_id3));
+        }
+        assert_refs(sh_id3, 11);
 
         // No need to test `RecordDateSpec::Scheduled` branch beyond what we have here.
         // To do so would replicate tests in the checkpoint module.
@@ -961,11 +989,7 @@ fn change_record_date_works() {
         assert_ok!(Ballot::attach_ballot(owner.origin(), id, time, meta, true));
         let test_branch = |id, error: DispatchError| {
             let change_ok = |spec, expect| {
-                change_ok(
-                    id,
-                    dbg!(spec_ts(spec)),
-                    dbg!(rd_ts(expect, dbg!(next_schedule_id(ticker)))),
-                )
+                change_ok(id, spec_ts(spec), rd_ts(expect, next_schedule_id(ticker)))
             };
             Timestamp::set_timestamp(3000);
             change_ok(4999, 4000); // floor(4999 / 1000) * 1000 == 4000
@@ -997,6 +1021,56 @@ fn change_record_date_works() {
             None,
         ));
         test_branch(id, DistError::DistributionStarted.into());
+    });
+}
+
+#[test]
+fn existing_schedule_ref_count() {
+    test(|ticker, [owner, ..]| {
+        set_schedule_complexity();
+
+        let sh_id = next_schedule_id(ticker);
+        let spec = Some(RecordDateSpec::ExistingSchedule(sh_id));
+        let assert_refs = |count| assert_eq!(Checkpoint::schedule_ref_count(ticker, sh_id), count);
+        let remove_ca = |id| CA::remove_ca(owner.origin(), id);
+        let remove_sh = || Checkpoint::remove_schedule(owner.origin(), ticker, sh_id);
+
+        // No schedule yet, but count is 0 by default.
+        assert_refs(0);
+
+        // Schedule made, count still 0 as no CAs attached.
+        assert_ok!(Checkpoint::create_schedule(
+            owner.origin(),
+            ticker,
+            1000.into()
+        ));
+        assert_refs(0);
+
+        // Attach some CAs, bumping the count by that many.
+        let mut ids = (0..5)
+            .map(|_| {
+                let ca_id = next_ca_id(ticker);
+                assert_ok!(dated_ca(owner, ticker, CAKind::IssuerNotice, spec));
+                ca_id
+            })
+            .collect::<Vec<_>>();
+        assert_refs(5);
+
+        // Remove all of them, except for one, with the count going back to 1.
+        let stashed_id = ids.pop().unwrap();
+        for id in ids {
+            assert_ok!(remove_ca(id));
+        }
+        assert_refs(1);
+
+        // Trying to remove the checkpoint, but we're blocked from doing so.
+        assert_noop!(remove_sh(), CPError::ScheduleNotRemovable);
+
+        // Remove the last one.. Ref count -> 0.
+        assert_ok!(remove_ca(stashed_id));
+
+        // Bow we're able to remove the schedule.
+        assert_ok!(remove_sh());
     });
 }
 

@@ -8,6 +8,7 @@ edition = "2018"
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 polymesh-common-utilities = { path = "../../common", default-features = false  }
+polymesh-runtime-common = { path = "../../runtime/common", default-features = false }
 
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
@@ -20,20 +21,22 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-system = { package = "frame-system", git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 # Benchmarking
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
+rand = { version = "0.8.2", default-features = false, optional = true }
+rand_chacha = { version = "0.3.0", default-features = false, optional = true }
 pallet-committee = { path = "../committee", default-features = false, optional = true }
 
 [features]
@@ -64,5 +67,7 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "rand",
+    "rand_chacha",
     "pallet-committee",
 ]

@@ -1,11 +1,9 @@
 use crate::*;
+use frame_benchmarking::benchmarks;
 use pallet_balances::{self as balances, Call as BalancesCall};
 use polymesh_common_utilities::benchs::{User, UserBuilder};
-
-use frame_benchmarking::benchmarks;
-use sp_runtime::traits::StaticLookup;
-
 use sp_core::sr25519::Signature;
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::MultiSignature;
 
 const MAX_CALLS: u32 = 30;
@@ -35,11 +33,11 @@ fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128)
 
 fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
     let alice = UserBuilder::<T>::default()
-        .balance(1_000_000)
+        .balance(1_000_000u32)
         .generate_did()
         .build("Caller");
     let bob = UserBuilder::<T>::default()
-        .balance(1_000_000)
+        .balance(1_000_000u32)
         .generate_did()
         .build("Target");
 
@@ -107,8 +105,8 @@ benchmarks! {
     batch_transfer {
         let c in 0..MAX_CALLS;
 
-        let sender = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("SENDER");
-        let receiver = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("RECEIVER");
+        let sender = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("SENDER");
+        let receiver = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("RECEIVER");
 
         let transfer_calls = make_transfer_calls::<T>(c, receiver.account(), 500);
     }: batch(sender.origin, transfer_calls)
@@ -130,8 +128,8 @@ benchmarks! {
     batch_atomic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("ALICE");
-        let bob = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("BOB");
+        let alice = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_atomic(alice.origin, calls)
@@ -154,8 +152,8 @@ benchmarks! {
     batch_optimistic_transfer {
         let c in 0..MAX_CALLS;
 
-        let alice = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("ALICE");
-        let bob = UserBuilder::<T>::default().balance(1_000_000).generate_did().build("BOB");
+        let alice = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("ALICE");
+        let bob = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("BOB");
         let calls = make_transfer_calls::<T>(c, bob.account(), 100);
 
     }: batch_optimistic(alice.origin, calls)

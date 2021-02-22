@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
 use frame_benchmarking::benchmarks_instance;
 use frame_support::{
@@ -154,7 +152,7 @@ benchmarks_instance! {
     }
 
     set_expires_after {
-        let maybe_block = MaybeBlock::Some(1.into());
+        let maybe_block = MaybeBlock::Some(1u32.into());
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_expires_after(maybe_block);
     }: {
@@ -223,18 +221,5 @@ benchmarks_instance! {
     }: vote(origin, hash, first_proposal_num, false)
     verify {
         vote_verify::<T, I>(&did, hash, first_proposal_num, false)?;
-    }
-
-    close {
-        let members = make_members_and_proposals::<T, I>()?;
-        let first_proposal_num = 0;
-        let hash = make_proposal::<T, I>(first_proposal_num).1;
-        let member = &members[0];
-        let origin = member.origin.clone();
-        let did = member.did();
-        identity::CurrentDid::put(did);
-    }: _(origin, hash, first_proposal_num)
-    verify {
-        ensure!(!Proposals::<T, I>::get().contains(&hash), "closed proposal is not removed");
     }
 }

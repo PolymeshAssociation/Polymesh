@@ -278,9 +278,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
       }
     }
 
-    let nonceObj = { nonce: nonces.get(secondary_accounts[i].address) };
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, secondary_accounts[i], nonceObj);
+    await sendTx(secondary_accounts[i], transaction);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
@@ -292,17 +291,24 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, ticker) {
-
+async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
+  
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  let tickerExist = await api.query.asset.tickers(ticker);
+  
+  if (tickerExist.owner == 0) {
 
-  let nonceObj = { nonce: nonces.get(accounts[0].address) };
-  const transaction = api.tx.asset.createAsset(
-    ticker, ticker, 1000000, true, 0, [], "abc"
-  );
-  await sendTransaction(transaction, accounts[0], nonceObj);
+    
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, amount, true, 0, [], fundingRound
+    );
+    
+    await sendTx(accounts[0], transaction);
+    
+  } else {
+    console.log("ticker exists already");
+  }
 
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Returns the asset did
@@ -479,20 +485,34 @@ async function mintingAsset(api, minter, did, ticker) {
 
 async function sendTx(signer, tx) {
   let nonceObj = { nonce: nonces.get(signer.address) };
-  const result = await sendTransaction(tx, signer, nonceObj);
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  let passed;
+
+  try {
+    const result = await sendTransaction(tx, signer, nonceObj);
+    passed = result.findRecord("system", "ExtrinsicSuccess");
+  } finally {
+    nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  }
+  
   if (!passed) return -1;
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addComplianceRequirement(
-    ticker,
-    [],
-    []
-  );
 
-  await sendTx(sender, transaction);
+  let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
+
+  if (assetCompliance.requirements.length == 0) {
+    const transaction = await api.tx.complianceManager.addComplianceRequirement(
+      ticker,
+      [],
+      []
+    );
+
+    await sendTx(sender, transaction);
+  } else {
+    console.log("Asset already has compliance.");
+  }
 }
 
 async function createVenue(api, sender) {
@@ -512,10 +532,11 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function affirmInstruction(api, sender, instructionCounter, did) {
+async function affirmInstruction(api, sender, instructionCounter, did, leg_counts) {
   const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
-    [getDefaultPortfolio(did)]
+    [getDefaultPortfolio(did)],
+    leg_counts
   );
 
   await sendTx(sender, transaction);
@@ -621,6 +642,10 @@ async function claimReceipt(
   await sendTx(sender, transaction);
 }
 
+async function getDid(api, account) {
+  return await api.query.identity.keyToIdentityIds(account.address);
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -669,6 +694,8 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
+  getDid,
+  getDefaultPortfolio,
 };
 
 export { reqImports };

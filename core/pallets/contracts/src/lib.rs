@@ -239,7 +239,7 @@ decl_module! {
         /// # Errors
         /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
         /// InsufficientMaxFee - Provided max_fee is less than required.
-        #[weight = <T as Trait>::WeightInfo::instantiate() + *gas_limit]
+        #[weight = <T as Trait>::WeightInfo::instantiate().saturating_add(*gas_limit)]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,
@@ -277,7 +277,7 @@ decl_module! {
             <ExtensionInfo<T>>::insert(contract_address, Self::ext_details(&code_hash));
 
             // Update the actual weight of the extrinsic.
-            Ok(actual_weight.map(|w| w + 500_000_000).into())
+            Ok(actual_weight.map(|w| w.saturating_add(500_000_000)).into())
         }
 
         /// Allows a smart extension template owner to freeze the instantiation.

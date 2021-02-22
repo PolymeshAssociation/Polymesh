@@ -223,7 +223,6 @@ fn motions_revoting_works_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -238,7 +237,6 @@ fn motions_revoting_works_we() {
             index: 0,
             ayes: vec![],
             nays: vec![alice_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -282,7 +280,7 @@ fn changing_vote_threshold_works() {
 
 /// Constructs an origin for the governance council voting majority.
 pub fn gc_vmo() -> Origin {
-    pallet_committee::Origin::<TestStorage, committee::Instance1>::Members(0, 0).into()
+    pallet_committee::Origin::<TestStorage, committee::Instance1>::Endorsed(<_>::default()).into()
 }
 
 fn changing_vote_threshold_works_we() {
@@ -355,7 +353,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![bob_did],
             nays: vec![charlie_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -368,7 +365,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![charlie_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -381,7 +377,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -398,7 +393,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![bob_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -409,7 +403,6 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![bob_did],
-            end: System::block_number(),
             expiry: <_>::default(),
         })
     );
@@ -581,7 +574,6 @@ fn mesh_1065_regression_test() {
                     index: 0,
                     ayes,
                     nays: vec![],
-                    end: System::block_number(),
                     expiry: <_>::default(),
                 })
             );

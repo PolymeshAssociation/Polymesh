@@ -16,7 +16,6 @@
 //! Data types and definitions of jurisdictions.
 
 use codec::{Decode, Encode};
-use core::str;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -284,4 +283,7 @@ country_codes! (
     [244, YE, YEM, 887, "yemen"],
     [245, ZM, ZMB, 894, "zambia"],
     [246, ZW, ZWE, 716, "zimbabwe"],
+    [247, BQ, BES, 535, "bonaire", "saint eustatius and saba"],
+    [248, CW, CUW, 531, "curaçao"],
+    [249, SX, SXM, 534, "sint maarten (dutch part)"],
 );

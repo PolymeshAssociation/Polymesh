@@ -197,6 +197,7 @@ where
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
+        config.role.is_authority().into(),
         config.prometheus_registry(),
         task_manager.spawn_handle(),
         client.clone(),
@@ -412,7 +413,7 @@ where
     }
 
     // Spawn authority discovery module.
-    if matches!(role, Role::Authority{..} | Role::Sentry {..}) {
+    if matches!(role, Role::Authority { .. } | Role::Sentry { .. }) {
         let (sentries, authority_discovery_role) = match role {
             sc_service::config::Role::Authority { ref sentry_nodes } => (
                 sentry_nodes.clone(),

@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use crate::*;
 use core::convert::TryFrom;
 use core::iter;
@@ -37,7 +35,7 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // Therefore, in general, we'll be using the owner as the CAA.
 
 fn setup<T: Trait>() -> (User<T>, Ticker) {
-    <pallet_timestamp::Now<T>>::set(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
     let ticker =
@@ -92,7 +90,7 @@ fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Documen
 crate fn setup_ca<T: Trait>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
 
-    <pallet_timestamp::Now<T>>::set(1000.into());
+    <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let origin: T::Origin = owner.origin().into();
     <Module<T>>::initiate_corporate_action(
@@ -139,7 +137,7 @@ crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
         owner.origin().into(),
         currency.as_slice().into(),
         currency,
-        1_000_000.into(),
+        1_000_000u32.into(),
         true,
         <_>::default(),
         vec![],
@@ -156,7 +154,7 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
         ca_id,
         None,
         currency,
-        1000.into(),
+        1000u32.into(),
         4000,
         None,
     )
@@ -214,10 +212,10 @@ benchmarks! {
     }
 
     set_default_targets {
-        let i in 0..MAX_TARGET_IDENTITIES;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
-        let targets = target_ids::<T>(i, TargetTreatment::Exclude);
+        let targets = target_ids::<T>(t, TargetTreatment::Exclude);
         let targets2 = targets.clone();
     }: _(owner.origin(), ticker, targets)
     verify {
@@ -232,11 +230,11 @@ benchmarks! {
     }
 
     set_did_withholding_tax {
-        let i in 0..(MAX_DID_WHT_IDS - 1);
+        let w in 0..(MAX_DID_WHT_IDS - 1);
 
         let (owner, ticker) = setup::<T>();
-        let mut whts = init_did_whts::<T>(ticker, i);
-        let last = target::<T>(i + 1);
+        let mut whts = init_did_whts::<T>(ticker, w);
+        let last = target::<T>(w + 1);
     }: _(owner.origin(), ticker, last, Some(TAX))
     verify {
         whts.push((last, TAX));
@@ -245,13 +243,13 @@ benchmarks! {
     }
 
     initiate_corporate_action_use_defaults {
-        let j in 0..MAX_DID_WHT_IDS;
-        let k in 0..MAX_TARGET_IDENTITIES;
+        let w in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
         let details = details(DETAILS_LEN);
-        let whts = init_did_whts::<T>(ticker, j);
-        let targets = target_ids::<T>(k, TargetTreatment::Exclude).dedup();
+        let whts = init_did_whts::<T>(ticker, w);
+        let targets = target_ids::<T>(t, TargetTreatment::Exclude).dedup();
         DefaultTargetIdentities::insert(ticker, targets);
     }: initiate_corporate_action(
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, None, None, None
@@ -261,13 +259,13 @@ benchmarks! {
     }
 
     initiate_corporate_action_provided {
-        let j in 0..MAX_DID_WHT_IDS;
-        let k in 0..MAX_TARGET_IDENTITIES;
+        let w in 0..MAX_DID_WHT_IDS;
+        let t in 0..MAX_TARGET_IDENTITIES;
 
         let (owner, ticker) = setup::<T>();
         let details = details(DETAILS_LEN);
-        let whts = Some(did_whts::<T>(j));
-        let targets = Some(target_ids::<T>(k, TargetTreatment::Exclude));
+        let whts = Some(did_whts::<T>(w));
+        let targets = Some(target_ids::<T>(t, TargetTreatment::Exclude));
     }: initiate_corporate_action(
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
@@ -276,11 +274,11 @@ benchmarks! {
     }
 
     link_ca_doc {
-        let i in 0..MAX_DOCS;
+        let d in 0..MAX_DOCS;
 
         let (owner, ticker) = setup::<T>();
         let origin: T::Origin = owner.origin().into();
-        let ids = add_docs::<T>(&origin, ticker, i);
+        let ids = add_docs::<T>(&origin, ticker, d);
         let ids2 = ids.clone();
         <Module<T>>::initiate_corporate_action(
             origin, ticker, CAKind::Other, 1000, None, "".into(), None, None, None
