@@ -788,7 +788,7 @@ pub mod polymesh_mainnet {
         }
     }
 
-    fn live_genesis() -> rt::runtime::GenesisConfig {
+    fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -812,7 +812,7 @@ pub mod polymesh_mainnet {
         )
     }
 
-    pub fn live_config() -> ChainSpec {
+    pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
             "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
@@ -822,11 +822,11 @@ pub mod polymesh_mainnet {
             "Polymesh Mainnet",
             "mainnet",
             ChainType::Live,
-            live_genesis,
+            bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Mainnet live telemetry url is valid; qed"),
+                    .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymath/mainnet/1"),
             Some(polymath_props()),
