@@ -1,4 +1,4 @@
-use syn::export::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned as _;
 use syn::{

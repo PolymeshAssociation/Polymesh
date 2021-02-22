@@ -22,13 +22,10 @@ async function main() {
 
   const ticker = await reqImports.generateRandomTicker(api);
   const ticker2 = await reqImports.generateRandomTicker(api);
-  const tickerHex = reqImports.stringToHex(ticker);
-  const ticker2Hex = reqImports.stringToHex(ticker2); 
-  const tickerHexSubStr = tickerHex.substr(2);
-  console.log(`ticker: ${tickerHexSubStr}`);
-  const ticker2HexSubStr = ticker2Hex.substr(2);
-  console.log(`ticker2: ${ticker2HexSubStr}`);
-  const tickerHexList = [tickerHexSubStr, ticker2HexSubStr];
+  const tickersList = [ticker, ticker2];
+  const tickerHex = Buffer.from(ticker, 'utf8').toString('hex');
+  const ticker2Hex = Buffer.from(ticker2, 'utf8').toString('hex');
+  const tickersHexList = [tickerHex, ticker2Hex];
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -55,19 +52,18 @@ async function main() {
   console.log("Charlie: ", charlie_did);
   console.log("Dave: ", dave_did);
 
-  
-  // Dave creates Confidential Assets 
+
+  // Dave creates Confidential Assets
   console.log("-----------> Creating confidential assets.");
-  await createConfidentialAsset(api, tickerHex, dave);
-  await createConfidentialAsset(api, ticker2Hex, dave);
+  await createConfidentialAsset(api, ticker, dave);
+  await createConfidentialAsset(api, ticker2, dave);
 
   let tickers =  await api.query.confidentialAsset.confidentialTickers();
-  console.log(`BN number to Hex(le): ${tickers[0].toArrayLike(Buffer,'le', 12).toString('hex')}`);
 
   // Dave and Bob create their Mercat account locally and submit the proof to the chain
   console.log("-----------> Creating Dave and Bob's mercat accounts.");
-  const daveMercatInfo = create_account(tickerHexList, tickerHexList[0]);
-  const bobMercatInfo = create_account(tickerHexList, tickerHexList[0]);
+  const daveMercatInfo = create_account(tickersHexList, tickerHex);
+  const bobMercatInfo = create_account(tickersHexList, tickerHex);
 
   // Validate Dave and Bob's Mercat Accounts
   console.log("-----------> Submitting dave mercat account proofs.");
@@ -75,29 +71,29 @@ async function main() {
   console.log("-----------> Submitting bob mercat account proofs.");
   await validateMercatAccount(api, bob, bobMercatInfo.account_tx);
 
-  // Charlie creates his mediator Mercat Account 
+  // Charlie creates his mediator Mercat Account
   console.log("-----------> Creating Charlie's account.");
   const charlieMercatAccount = createMercatMediatorAccount();
   const charliePublicKey = charlieMercatAccount.public_key;
   const charlieAccount = charlieMercatAccount.secret_account;
 
-  // Validate Charlie's Mercat Account 
+  // Validate Charlie's Mercat Account
   console.log("-----------> Submitting Charlie's account.");
   await addMediatorMercatAccount(api, charlie, charliePublicKey);
 
   await displayBalance(api, dave_did, daveMercatInfo, "Dave initial balance");
   await displayBalance(api, bob_did, bobMercatInfo, "Bob initial balance");
-  
-  // Mint Tokens 
+
+  // Mint Tokens
   console.log("-----------> Minting assets.");
-  await mintTokens(api, dave, tickerHex, 1000, daveMercatInfo);
+  await mintTokens(api, dave, ticker, 1000, daveMercatInfo);
 
   await displayBalance(api, dave_did, daveMercatInfo, "Dave balance after minting");
 
   // Create Venue
   console.log("-----------> Creating venue.");
   const venueCounter = await reqImports.createVenue(api, charlie);
- 
+
   // Create Confidential Instruction
   console.log("-----------> Creating confidential instruction.");
   const instructionCounter = await reqImports.addConfidentialInstruction(
@@ -110,7 +106,7 @@ async function main() {
     daveMercatInfo.account_id,
     bobMercatInfo.account_id
   );
-  
+
   console.log("-----------> Initializing confidential transaction.");
   let bobPublicAccount = new PubAccount(bobMercatInfo.account_id, bobMercatInfo.public_key);
   let daveEncryptedBalance = await getEncryptedBalance(api, dave_did, daveMercatInfo.account_id);
@@ -139,8 +135,8 @@ async function main() {
   const davePublicAccount = new PubAccount(daveMercatInfo.account_id, daveMercatInfo.public_key);
 
   console.log("-----------> Justifying confidential transaction.");
-  const justifiedTransactionProof = (justify_transaction(finalizeTransactionProof, charlieAccount, davePublicAccount, daveEncryptedBalance, bobPublicAccount, tickerHexSubStr)).justified_tx;
-  
+  const justifiedTransactionProof = (justify_transaction(finalizeTransactionProof, charlieAccount, davePublicAccount, daveEncryptedBalance, bobPublicAccount, tickerHex)).justified_tx;
+
   console.log("-----------> Submitting justify confidential transaction proof.");
   await affirmConfidentialInstruction(api, instructionCounter, {JustifiedTransfer: justifiedTransactionProof}, charlie, charlie_did);
 
@@ -198,13 +194,13 @@ async function displayBalance(api, did, mercatAccountInfo, message) {
     return accountEncryptedBalance;
 }
 
-async function mintTokens(api, signer, tickerHex, amount, mercatAccountInfo) {
+async function mintTokens(api, signer, ticker, amount, mercatAccountInfo) {
   const publicAccount = new PubAccount(mercatAccountInfo.account_id,  mercatAccountInfo.public_key);
   const account = new Account(mercatAccountInfo.secret_account, publicAccount);
   const mintTxInfo = new mint_asset(amount, account);
   const mintProof = mintTxInfo.asset_tx;
 
-  const transaction = await api.tx.confidentialAsset.mintConfidentialAsset(tickerHex, amount, mintProof);
+  const transaction = await api.tx.confidentialAsset.mintConfidentialAsset(ticker, amount, mintProof);
   let tx = await reqImports.sendTx(signer, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
@@ -222,21 +218,21 @@ function decryptBalances(encryptedBalance, mercatAccountInfo) {
 
 async function addMediatorMercatAccount(api, signer, public_key) {
     const transaction = await api.tx.confidentialAsset.addMediatorMercatAccount(public_key);
-    
+
     let tx = await reqImports.sendTx(signer, transaction);
     if(tx !== -1) reqImports.fail_count--;
 }
 
 async function validateMercatAccount(api, signer, proof) {
     const transaction = await api.tx.confidentialAsset.validateMercatAccount(proof);
-    
+
     let tx = await reqImports.sendTx(signer, transaction);
     if(tx !== -1) reqImports.fail_count--;
 }
 
 function createMercatMediatorAccount() {
   const charlieMercatInfo = create_mediator_account();
-  
+
   return charlieMercatInfo;
 }
 
@@ -250,7 +246,7 @@ async function createConfidentialAsset(api, ticker, signer) {
         [],
         null
       );
-    
+
       let tx = await reqImports.sendTx(signer, transaction);
       if(tx !== -1) reqImports.fail_count--;
 }
