@@ -22,10 +22,7 @@ async function main() {
 
   const ticker = await reqImports.generateRandomTicker(api);
   const ticker2 = await reqImports.generateRandomTicker(api);
-  const tickersList = [ticker, ticker2];
   const tickerHex = Buffer.from(ticker, 'utf8').toString('hex');
-  const ticker2Hex = Buffer.from(ticker2, 'utf8').toString('hex');
-  const tickersHexList = [tickerHex, ticker2Hex];
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -59,6 +56,7 @@ async function main() {
   await createConfidentialAsset(api, ticker2, dave);
 
   let tickers =  await api.query.confidentialAsset.confidentialTickers();
+  let tickersHexList = createSubStr(tickers);
 
   // Dave and Bob create their Mercat account locally and submit the proof to the chain
   console.log("-----------> Creating Dave and Bob's mercat accounts.");
@@ -157,6 +155,13 @@ async function main() {
   }
 
   process.exit();
+}
+
+function createSubStr(tickers) {
+  let newArray = [];
+  for(let i =0; i < tickers.length; i++) 
+    newArray.push(String(tickers[i]).substr(2)); 
+  return newArray;
 }
 
 function finalizeTransaction(amount, initializeProof, receiverMercatAccountInfo) {
