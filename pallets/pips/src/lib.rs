@@ -86,6 +86,7 @@
 #![feature(const_option)]
 #![feature(or_patterns)]
 #![feature(bool_to_option)]
+#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -106,7 +107,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
     identity::Trait as IdentityTrait,
@@ -394,12 +394,13 @@ type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
-    frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
+    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
+    + pallet_timestamp::Trait
+    + IdentityTrait
+    + CommonTrait
 {
     /// Currency type for this module.
-    // TODO(centril): Remove `ReservableCurrency` bound once `on_runtime_upgrade` is nixed.
-    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
-        + frame_support::traits::ReservableCurrency<Self::AccountId>;
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
@@ -413,8 +414,6 @@ pub trait Trait:
     /// Voting majority origin for Upgrade Committee.
     type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
 
-    type Treasury: TreasuryTrait<<Self as CommonTrait>::Balance>;
-
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
@@ -425,10 +424,11 @@ pub trait Trait:
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
     /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
     /// different.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+    type Scheduler: ScheduleNamed<
+        Self::BlockNumber,
+        <Self as frame_system::Trait>::Call,
+        Self::SchedulerOrigin,
+    >;
 }
 
 // This module's storage items.

@@ -43,10 +43,11 @@
 //! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
 //! - `disallow_venues` - Revokes permission given to venues for creating instructions involving a particular asset.
-//!
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(const_option)]
+#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -85,7 +86,7 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait
+    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + CommonTrait
     + IdentityTrait
     + pallet_timestamp::Trait
@@ -95,9 +96,11 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Scheduler of settlement instructions.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+    type Scheduler: ScheduleNamed<
+        Self::BlockNumber,
+        <Self as frame_system::Trait>::Call,
+        Self::SchedulerOrigin,
+    >;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }

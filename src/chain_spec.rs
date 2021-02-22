@@ -8,16 +8,6 @@ use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
     Ticker,
 };
-use polymesh_runtime_develop::{
-    self as general,
-    config::{self as GeneralConfig},
-    constants::time as generalTime,
-};
-use polymesh_runtime_testnet::{
-    self as alcyone,
-    config::{self as AlcyoneConfig},
-    constants::time as alcyoneTime,
-};
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
@@ -36,38 +26,7 @@ use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
-pub type AlcyoneChainSpec = sc_service::GenericChainSpec<AlcyoneConfig::GenesisConfig>;
-pub type GeneralChainSpec = sc_service::GenericChainSpec<GeneralConfig::GenesisConfig>;
-
 type AccountPublic = <Signature as Verify>::Signer;
-
-fn alcyone_session_keys(
-    grandpa: GrandpaId,
-    babe: BabeId,
-    im_online: ImOnlineId,
-    authority_discovery: AuthorityDiscoveryId,
-) -> alcyone::SessionKeys {
-    alcyone::SessionKeys {
-        babe,
-        grandpa,
-        im_online,
-        authority_discovery,
-    }
-}
-
-fn general_session_keys(
-    grandpa: GrandpaId,
-    babe: BabeId,
-    im_online: ImOnlineId,
-    authority_discovery: AuthorityDiscoveryId,
-) -> general::SessionKeys {
-    general::SessionKeys {
-        babe,
-        grandpa,
-        im_online,
-        authority_discovery,
-    }
-}
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -116,6 +75,24 @@ fn polymath_props() -> Properties {
         .as_object()
         .unwrap()
         .clone()
+}
+
+macro_rules! session_keys {
+    () => {
+        fn session_keys(
+            grandpa: GrandpaId,
+            babe: BabeId,
+            im_online: ImOnlineId,
+            authority_discovery: AuthorityDiscoveryId,
+        ) -> rt::SessionKeys {
+            rt::SessionKeys {
+                babe,
+                grandpa,
+                im_online,
+                authority_discovery,
+            }
+        }
+    };
 }
 
 macro_rules! asset {
@@ -281,7 +258,7 @@ fn identities(
                 x.0.clone(),
                 x.1.clone(),
                 STASH,
-                general::StakerStatus::Validator,
+                pallet_staking::StakerStatus::Validator,
             )
         })
         .collect::<Vec<_>>();
@@ -310,9 +287,16 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
     ]
 }
 
+fn frame(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig {
+    frame_system::GenesisConfig {
+        code: wasm_binary.expect("WASM binary was not generated").to_vec(),
+        changes_trie_config: Default::default(),
+    }
+}
+
 macro_rules! session {
-    ($module:ident, $inits:expr, $build:expr) => {
-        $module::SessionConfig {
+    ($inits:expr, $build:expr) => {
+        pallet_session::GenesisConfig {
             keys: $inits
                 .iter()
                 .map(|x| {
@@ -332,9 +316,22 @@ macro_rules! staking {
             validator_commission_cap: $cap,
             stakers: $stakers,
             invulnerables: $auths.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: general::Perbill::from_percent(10),
+            slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
+        }
+    };
+}
+
+macro_rules! pips {
+    ($period:expr, $limit: expr) => {
+        pallet_pips::GenesisConfig {
+            prune_historical_pips: false,
+            min_proposal_deposit: 0,
+            default_enactment_period: $period,
+            max_pip_skip_count: 1,
+            active_pip_limit: $limit,
+            pending_pip_expiry: <_>::default(),
         }
     };
 }
@@ -398,396 +395,579 @@ macro_rules! protocol_fee {
     };
 }
 
-const MULTISIG: GeneralConfig::MultiSigConfig = GeneralConfig::MultiSigConfig {
-    transaction_version: 1,
-};
+pub mod general {
+    use super::*;
+    use polymesh_runtime_develop::{self as rt, constants::time};
 
-fn general_testnet_genesis(
-    initial_authorities: Vec<InitialAuth>,
-    root_key: AccountId,
-    endowed_accounts: Vec<AccountId>,
-    enable_println: bool,
-) -> GeneralConfig::GenesisConfig {
-    let init_ids = [
-        // Service providers
-        cdd_provider(1),
-        cdd_provider(2),
-        // Governance committee members
-        gc_mem(1),
-        gc_mem(2),
-        gc_mem(3),
-    ];
-    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-    GeneralConfig::GenesisConfig {
-        frame_system: Some(GeneralConfig::SystemConfig {
-            code: general::WASM_BINARY
-                .expect("WASM binary was not generated")
-                .to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        asset: Some(asset!()),
-        pallet_checkpoint: Some(checkpoint!()),
-        identity: Some(GeneralConfig::IdentityConfig {
-            identities: all_identities,
-            secondary_keys,
-            ..Default::default()
-        }),
-        balances: Some(GeneralConfig::BalancesConfig {
-            balances: balances(&initial_authorities, &endowed_accounts),
-        }),
-        bridge: Some(GeneralConfig::BridgeConfig {
-            admin: initial_authorities[0].1.clone(),
-            creator: initial_authorities[0].1.clone(),
-            signatures_required: 1,
-            signers: bridge_signers(),
-            timelock: 10,
-            bridge_limit: (100_000_000 * POLY, 1000),
-        }),
-        pallet_indices: Some(GeneralConfig::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(GeneralConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(session!(
-            GeneralConfig,
-            initial_authorities,
-            general_session_keys
-        )),
-        pallet_staking: Some(staking!(
-            initial_authorities,
-            stakers,
-            PerThing::from_rational_approximation(1u64, 4u64)
-        )),
-        pallet_pips: Some(GeneralConfig::PipsConfig {
-            prune_historical_pips: false,
-            min_proposal_deposit: 0,
-            default_enactment_period: generalTime::MINUTES,
-            max_pip_skip_count: 1,
-            active_pip_limit: 25,
-            pending_pip_expiry: <_>::default(),
-        }),
-        pallet_im_online: Some(Default::default()),
-        pallet_authority_discovery: Some(Default::default()),
-        pallet_babe: Some(Default::default()),
-        pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(GeneralConfig::ContractsConfig {
-            current_schedule: contracts::Schedule {
-                enable_println, // this should only be enabled on development chains
+    session_keys!();
+
+    fn genesis(
+        initial_authorities: Vec<InitialAuth>,
+        root_key: AccountId,
+        endowed_accounts: Vec<AccountId>,
+        enable_println: bool,
+    ) -> rt::runtime::GenesisConfig {
+        let init_ids = [
+            // Service providers
+            cdd_provider(1),
+            cdd_provider(2),
+            // Governance committee members
+            gc_mem(1),
+            gc_mem(2),
+            gc_mem(3),
+        ];
+        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+
+        rt::runtime::GenesisConfig {
+            frame_system: Some(frame(rt::WASM_BINARY)),
+            pallet_asset: Some(asset!()),
+            pallet_checkpoint: Some(checkpoint!()),
+            pallet_identity: Some(pallet_identity::GenesisConfig {
+                identities: all_identities,
+                secondary_keys,
                 ..Default::default()
-            },
-        }),
-        // Governance Council:
-        group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
-        committee_Instance1: Some(committee!(6)),
-        group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
-        // Technical Committee:
-        group_Instance3: Some(committee_membership!(3)),
-        committee_Instance3: Some(committee!(3)),
-        // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(4)),
-        committee_Instance4: Some(committee!(4)),
-        protocol_fee: Some(protocol_fee!()),
-        settlement: Some(Default::default()),
-        multisig: Some(MULTISIG),
-        pallet_corporate_actions: Some(corporate_actions!()),
+            }),
+            pallet_balances: Some(pallet_balances::GenesisConfig {
+                balances: balances(&initial_authorities, &endowed_accounts),
+            }),
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+                admin: initial_authorities[0].1.clone(),
+                creator: initial_authorities[0].1.clone(),
+                signatures_required: 1,
+                signers: bridge_signers(),
+                timelock: 10,
+                bridge_limit: (100_000_000 * POLY, 1000),
+            }),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
+            pallet_staking: Some(staking!(
+                initial_authorities,
+                stakers,
+                PerThing::from_rational_approximation(1u64, 4u64)
+            )),
+            pallet_pips: Some(pips!(time::MINUTES, 25)),
+            pallet_im_online: Some(Default::default()),
+            pallet_authority_discovery: Some(Default::default()),
+            pallet_babe: Some(Default::default()),
+            pallet_grandpa: Some(Default::default()),
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
+                    enable_println, // this should only be enabled on development chains
+                    ..Default::default()
+                },
+            }),
+            // Governance Council:
+            pallet_group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
+            pallet_committee_Instance1: Some(committee!(6)),
+            pallet_group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
+            // Technical Committee:
+            pallet_group_Instance3: Some(committee_membership!(3)),
+            pallet_committee_Instance3: Some(committee!(3)),
+            // Upgrade Committee:
+            pallet_group_Instance4: Some(committee_membership!(4)),
+            pallet_committee_Instance4: Some(committee!(4)),
+            pallet_protocol_fee: Some(protocol_fee!()),
+            pallet_settlement: Some(Default::default()),
+            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+                transaction_version: 1,
+            }),
+            pallet_corporate_actions: Some(corporate_actions!()),
+        }
+    }
+
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![get_authority_keys_from_seed("Alice", false)],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Bob"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    fn config(
+        name: &str,
+        id: &str,
+        ctype: ChainType,
+        genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
+    ) -> ChainSpec {
+        let props = Some(polymath_props());
+        ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
+    }
+
+    pub fn develop_config() -> ChainSpec {
+        config(
+            "Development",
+            "dev",
+            ChainType::Development,
+            develop_genesis,
+        )
+    }
+
+    fn local_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Charlie"),
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Charlie//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    pub fn local_config() -> ChainSpec {
+        config(
+            "Local Development",
+            "local_dev",
+            ChainType::Local,
+            local_genesis,
+        )
+    }
+
+    fn live_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Eve"),
+                seeded_acc_id("Ferdie"),
+                seeded_acc_id("Dave//stash"),
+                seeded_acc_id("Eve//stash"),
+                seeded_acc_id("Ferdie//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            false,
+        )
+    }
+
+    pub fn live_config() -> ChainSpec {
+        config(
+            "Live Development",
+            "live_dev",
+            ChainType::Live,
+            live_genesis,
+        )
     }
 }
 
-fn general_development_genesis() -> GeneralConfig::GenesisConfig {
-    general_testnet_genesis(
-        vec![get_authority_keys_from_seed("Alice", false)],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("Bob"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        true,
-    )
-}
+pub mod alcyone_testnet {
+    use super::*;
+    use polymesh_runtime_testnet::{self as rt, constants::time};
 
-fn general_config(
-    name: &str,
-    id: &str,
-    ctype: ChainType,
-    genesis: impl 'static + Sync + Send + Fn() -> GeneralConfig::GenesisConfig,
-) -> GeneralChainSpec {
-    let props = Some(polymath_props());
-    GeneralChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
-}
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-pub fn general_development_testnet_config() -> GeneralChainSpec {
-    general_config(
-        "Development",
-        "dev",
-        ChainType::Development,
-        general_development_genesis,
-    )
-}
+    session_keys!();
 
-fn general_local_genesis() -> GeneralConfig::GenesisConfig {
-    general_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("Alice", false),
-            get_authority_keys_from_seed("Bob", false),
-        ],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("Charlie"),
-            seeded_acc_id("Dave"),
-            seeded_acc_id("Charlie//stash"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        true,
-    )
-}
+    fn genesis(
+        initial_authorities: Vec<InitialAuth>,
+        root_key: AccountId,
+        endowed_accounts: Vec<AccountId>,
+        enable_println: bool,
+    ) -> rt::runtime::GenesisConfig {
+        let init_ids = [
+            // Service providers
+            cdd_provider(1),
+            cdd_provider(2),
+            // Governance committee members
+            polymath_mem(1),
+            polymath_mem(2),
+            polymath_mem(3),
+        ];
+        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
-pub fn general_local_testnet_config() -> GeneralChainSpec {
-    general_config(
-        "Local Development",
-        "local_dev",
-        ChainType::Local,
-        general_local_genesis,
-    )
-}
-
-fn general_live_genesis() -> GeneralConfig::GenesisConfig {
-    general_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("Alice", false),
-            get_authority_keys_from_seed("Bob", false),
-            get_authority_keys_from_seed("Charlie", false),
-        ],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("Dave"),
-            seeded_acc_id("Eve"),
-            seeded_acc_id("Ferdie"),
-            seeded_acc_id("Dave//stash"),
-            seeded_acc_id("Eve//stash"),
-            seeded_acc_id("Ferdie//stash"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        false,
-    )
-}
-
-pub fn general_live_testnet_config() -> GeneralChainSpec {
-    general_config(
-        "Live Development",
-        "live_dev",
-        ChainType::Live,
-        general_live_genesis,
-    )
-}
-
-fn alcyone_testnet_genesis(
-    initial_authorities: Vec<InitialAuth>,
-    root_key: AccountId,
-    endowed_accounts: Vec<AccountId>,
-    enable_println: bool,
-) -> AlcyoneConfig::GenesisConfig {
-    let init_ids = [
-        // Service providers
-        cdd_provider(1),
-        cdd_provider(2),
-        // Governance committee members
-        polymath_mem(1),
-        polymath_mem(2),
-        polymath_mem(3),
-    ];
-    let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
-
-    AlcyoneConfig::GenesisConfig {
-        frame_system: Some(AlcyoneConfig::SystemConfig {
-            code: alcyone::WASM_BINARY
-                .expect("WASM binary was not generated")
-                .to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        asset: Some(asset!()),
-        pallet_checkpoint: Some(checkpoint!()),
-        identity: Some(AlcyoneConfig::IdentityConfig {
-            identities: all_identities,
-            secondary_keys,
-            ..Default::default()
-        }),
-        balances: Some(AlcyoneConfig::BalancesConfig {
-            balances: balances(&initial_authorities, &endowed_accounts),
-        }),
-        bridge: Some(AlcyoneConfig::BridgeConfig {
-            admin: seeded_acc_id("polymath_1"),
-            creator: seeded_acc_id("polymath_1"),
-            signatures_required: 3,
-            signers: bridge_signers(),
-            timelock: alcyoneTime::MINUTES * 15,
-            bridge_limit: (30_000_000_000, alcyoneTime::DAYS),
-        }),
-        pallet_indices: Some(AlcyoneConfig::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(AlcyoneConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(session!(
-            AlcyoneConfig,
-            initial_authorities,
-            alcyone_session_keys
-        )),
-        pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-        pallet_pips: Some(AlcyoneConfig::PipsConfig {
-            prune_historical_pips: false,
-            min_proposal_deposit: 0,
-            default_enactment_period: alcyoneTime::DAYS * 7,
-            max_pip_skip_count: 1,
-            active_pip_limit: 1000,
-            pending_pip_expiry: <_>::default(),
-        }),
-        pallet_im_online: Some(Default::default()),
-        pallet_authority_discovery: Some(Default::default()),
-        pallet_babe: Some(Default::default()),
-        pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(AlcyoneConfig::ContractsConfig {
-            current_schedule: contracts::Schedule {
-                enable_println, // this should only be enabled on development chains
+        rt::runtime::GenesisConfig {
+            frame_system: Some(frame(rt::WASM_BINARY)),
+            pallet_asset: Some(asset!()),
+            pallet_checkpoint: Some(checkpoint!()),
+            pallet_identity: Some(pallet_identity::GenesisConfig {
+                identities: all_identities,
+                secondary_keys,
                 ..Default::default()
-            },
-        }),
-        // Governing council
-        group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
-        committee_Instance1: Some(committee!(3, (2, 3))),
-        // CDD providers
-        group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
-        // Technical Committee:
-        group_Instance3: Some(committee_membership!(3)), //admin
-        committee_Instance3: Some(committee!(3)),
-        // Upgrade Committee:
-        group_Instance4: Some(committee_membership!(3)), //admin
-        committee_Instance4: Some(committee!(3)),
-        protocol_fee: Some(protocol_fee!()),
-        settlement: Some(Default::default()),
-        multisig: Some(MULTISIG),
-        pallet_corporate_actions: Some(corporate_actions!()),
+            }),
+            pallet_balances: Some(pallet_balances::GenesisConfig {
+                balances: balances(&initial_authorities, &endowed_accounts),
+            }),
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+                admin: seeded_acc_id("polymath_1"),
+                creator: seeded_acc_id("polymath_1"),
+                signatures_required: 3,
+                signers: bridge_signers(),
+                timelock: time::MINUTES * 15,
+                bridge_limit: (30_000_000_000, time::DAYS),
+            }),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
+            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
+            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
+            pallet_im_online: Some(Default::default()),
+            pallet_authority_discovery: Some(Default::default()),
+            pallet_babe: Some(Default::default()),
+            pallet_grandpa: Some(Default::default()),
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
+                    enable_println, // this should only be enabled on development chains
+                    ..Default::default()
+                },
+            }),
+            // Governing council
+            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+            pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+            // CDD providers
+            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            // Technical Committee:
+            pallet_group_Instance3: Some(committee_membership!(3)), //admin
+            pallet_committee_Instance3: Some(committee!(3)),
+            // Upgrade Committee:
+            pallet_group_Instance4: Some(committee_membership!(3)), //admin
+            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_protocol_fee: Some(protocol_fee!()),
+            pallet_settlement: Some(Default::default()),
+            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+                transaction_version: 1,
+            }),
+            pallet_corporate_actions: Some(corporate_actions!()),
+        }
+    }
+
+    fn live_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("cdd_provider_1"),
+                seeded_acc_id("cdd_provider_2"),
+                seeded_acc_id("polymath_1"),
+                seeded_acc_id("polymath_2"),
+                seeded_acc_id("polymath_3"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            false,
+        )
+    }
+
+    pub fn live_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![
+            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
+            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+        ];
+        ChainSpec::from_genesis(
+            "Polymesh Buffron Testnet",
+            "buffron",
+            ChainType::Live,
+            live_genesis,
+            boot_nodes,
+            Some(
+                TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                    .expect("Alcyone live telemetry url is valid; qed"),
+            ),
+            Some(&*"/polymath/buffron/1"),
+            Some(polymath_props()),
+            Default::default(),
+        )
+    }
+
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![get_authority_keys_from_seed("Alice", false)],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Bob"),
+                seeded_acc_id("Bob//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    pub fn develop_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![];
+        ChainSpec::from_genesis(
+            "Polymesh Alcyone Develop",
+            "dev_alcyone",
+            ChainType::Development,
+            develop_genesis,
+            boot_nodes,
+            None,
+            None,
+            Some(polymath_props()),
+            Default::default(),
+        )
+    }
+
+    fn local_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Charlie"),
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Charlie//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    pub fn local_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![];
+        ChainSpec::from_genesis(
+            "Polymesh Alcyone Local",
+            "local_alcyone",
+            ChainType::Local,
+            local_genesis,
+            boot_nodes,
+            None,
+            None,
+            Some(polymath_props()),
+            Default::default(),
+        )
     }
 }
 
-fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
-    alcyone_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("Alice", false),
-            get_authority_keys_from_seed("Bob", false),
-            get_authority_keys_from_seed("Charlie", false),
-        ],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("cdd_provider_1"),
-            seeded_acc_id("cdd_provider_2"),
-            seeded_acc_id("polymath_1"),
-            seeded_acc_id("polymath_2"),
-            seeded_acc_id("polymath_3"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        false,
-    )
-}
+pub mod polymesh_mainnet {
+    use super::*;
+    use polymesh_runtime_mainnet::{self as rt, constants::time};
 
-pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![
-        "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
-        "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
-    ];
-    AlcyoneChainSpec::from_genesis(
-        "Polymesh Buffron Testnet",
-        "buffron",
-        ChainType::Live,
-        alcyone_live_testnet_genesis,
-        boot_nodes,
-        Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                .expect("Alcyone live telemetry url is valid; qed"),
-        ),
-        Some(&*"/polymath/buffron/1"),
-        Some(polymath_props()),
-        Default::default(),
-    )
-}
+    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
-fn alcyone_develop_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
-    alcyone_testnet_genesis(
-        vec![get_authority_keys_from_seed("Alice", false)],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("Bob"),
-            seeded_acc_id("Bob//stash"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        true,
-    )
-}
+    session_keys!();
 
-pub fn alcyone_develop_testnet_config() -> AlcyoneChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![];
-    AlcyoneChainSpec::from_genesis(
-        "Polymesh Alcyone Develop",
-        "dev_alcyone",
-        ChainType::Development,
-        alcyone_develop_testnet_genesis,
-        boot_nodes,
-        None,
-        None,
-        Some(polymath_props()),
-        Default::default(),
-    )
-}
+    fn genesis(
+        initial_authorities: Vec<InitialAuth>,
+        root_key: AccountId,
+        endowed_accounts: Vec<AccountId>,
+        enable_println: bool,
+    ) -> rt::runtime::GenesisConfig {
+        let init_ids = [
+            // Service providers
+            cdd_provider(1),
+            cdd_provider(2),
+            // Governance committee members
+            polymath_mem(1),
+            polymath_mem(2),
+            polymath_mem(3),
+        ];
+        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
 
-fn alcyone_local_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
-    alcyone_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("Alice", false),
-            get_authority_keys_from_seed("Bob", false),
-        ],
-        seeded_acc_id("Alice"),
-        vec![
-            seeded_acc_id("Charlie"),
-            seeded_acc_id("Dave"),
-            seeded_acc_id("Charlie//stash"),
-            seeded_acc_id("relay_1"),
-            seeded_acc_id("relay_2"),
-            seeded_acc_id("relay_3"),
-            seeded_acc_id("relay_4"),
-            seeded_acc_id("relay_5"),
-        ],
-        true,
-    )
-}
+        rt::runtime::GenesisConfig {
+            frame_system: Some(frame(rt::WASM_BINARY)),
+            pallet_asset: Some(asset!()),
+            pallet_checkpoint: Some(checkpoint!()),
+            pallet_identity: Some(pallet_identity::GenesisConfig {
+                identities: all_identities,
+                secondary_keys,
+                ..Default::default()
+            }),
+            pallet_balances: Some(pallet_balances::GenesisConfig {
+                balances: balances(&initial_authorities, &endowed_accounts),
+            }),
+            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+                admin: seeded_acc_id("polymath_1"),
+                creator: seeded_acc_id("polymath_1"),
+                signatures_required: 3,
+                signers: bridge_signers(),
+                timelock: time::MINUTES * 15,
+                bridge_limit: (30_000_000_000, time::DAYS),
+            }),
+            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
+            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
+            pallet_session: Some(session!(initial_authorities, session_keys)),
+            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
+            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
+            pallet_im_online: Some(Default::default()),
+            pallet_authority_discovery: Some(Default::default()),
+            pallet_babe: Some(Default::default()),
+            pallet_grandpa: Some(Default::default()),
+            pallet_contracts: Some(pallet_contracts::GenesisConfig {
+                current_schedule: pallet_contracts::Schedule {
+                    enable_println, // this should only be enabled on development chains
+                    ..Default::default()
+                },
+            }),
+            // Governing council
+            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+            pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+            // CDD providers
+            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            // Technical Committee:
+            pallet_group_Instance3: Some(committee_membership!(3)), //admin
+            pallet_committee_Instance3: Some(committee!(3)),
+            // Upgrade Committee:
+            pallet_group_Instance4: Some(committee_membership!(3)), //admin
+            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_protocol_fee: Some(protocol_fee!()),
+            pallet_settlement: Some(Default::default()),
+            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+                transaction_version: 1,
+            }),
+            pallet_corporate_actions: Some(corporate_actions!()),
+        }
+    }
 
-pub fn alcyone_local_testnet_config() -> AlcyoneChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![];
-    AlcyoneChainSpec::from_genesis(
-        "Polymesh Alcyone Local",
-        "local_alcyone",
-        ChainType::Local,
-        alcyone_local_testnet_genesis,
-        boot_nodes,
-        None,
-        None,
-        Some(polymath_props()),
-        Default::default(),
-    )
+    fn live_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("cdd_provider_1"),
+                seeded_acc_id("cdd_provider_2"),
+                seeded_acc_id("polymath_1"),
+                seeded_acc_id("polymath_2"),
+                seeded_acc_id("polymath_3"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            false,
+        )
+    }
+
+    pub fn live_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![
+            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
+            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+        ];
+        ChainSpec::from_genesis(
+            "Polymesh Mainnet",
+            "mainnet",
+            ChainType::Live,
+            live_genesis,
+            boot_nodes,
+            Some(
+                TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                    .expect("Mainnet live telemetry url is valid; qed"),
+            ),
+            Some(&*"/polymath/mainnet/1"),
+            Some(polymath_props()),
+            Default::default(),
+        )
+    }
+
+    fn develop_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![get_authority_keys_from_seed("Alice", false)],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Bob"),
+                seeded_acc_id("Bob//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    pub fn develop_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![];
+        ChainSpec::from_genesis(
+            "Polymesh Mainnet Develop",
+            "dev_mainnet",
+            ChainType::Development,
+            develop_genesis,
+            boot_nodes,
+            None,
+            None,
+            Some(polymath_props()),
+            Default::default(),
+        )
+    }
+
+    fn local_genesis() -> rt::runtime::GenesisConfig {
+        genesis(
+            vec![
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+            ],
+            seeded_acc_id("Alice"),
+            vec![
+                seeded_acc_id("Charlie"),
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Charlie//stash"),
+                seeded_acc_id("relay_1"),
+                seeded_acc_id("relay_2"),
+                seeded_acc_id("relay_3"),
+                seeded_acc_id("relay_4"),
+                seeded_acc_id("relay_5"),
+            ],
+            true,
+        )
+    }
+
+    pub fn local_config() -> ChainSpec {
+        // provide boot nodes
+        let boot_nodes = vec![];
+        ChainSpec::from_genesis(
+            "Polymesh Mainnet Local",
+            "local_mainnet",
+            ChainType::Local,
+            local_genesis,
+            boot_nodes,
+            None,
+            None,
+            Some(polymath_props()),
+            Default::default(),
+        )
+    }
 }
