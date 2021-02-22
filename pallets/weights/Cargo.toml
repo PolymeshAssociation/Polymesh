@@ -10,6 +10,7 @@ frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
@@ -24,7 +25,6 @@ pallet-compliance-manager = { path = "../compliance-manager", default-features =
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
-pallet-im-online = { path = "../im-online", default-features = false }
 pallet-multisig = { path = "../multisig", default-features = false  }
 pallet-pips = { path = "../pips", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false  }

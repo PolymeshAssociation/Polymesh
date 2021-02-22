@@ -14,7 +14,6 @@ pub mod benchmarks;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 
-pub use pallet_im_online::OfflineSlashingParams;
 #[cfg(feature = "std")]
 pub use runtime::{native_version, WASM_BINARY};
 

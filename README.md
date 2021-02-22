@@ -133,7 +133,6 @@ Unit tests are packaged with the Rust code. To run these, you can execute:
 cargo test --package polymesh-runtime-tests  --features default_identity
 cargo test --package pallet-staking
 cargo test --package pallet-balances
-cargo test --package pallet-im-online
 cargo test --package polymesh-primitives
 cargo test --package pallet-pips-rpc
 cargo test --package pallet-transaction-payment

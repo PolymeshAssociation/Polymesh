@@ -17,25 +17,25 @@ members = [
     "migration-tests",
     "migration-tests/remote-externalities",
     "node-rpc",
+    "node-rpc",
     "pallets/asset",
     "pallets/balances",
     "pallets/bridge",
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
+    "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/group",
     "pallets/group/rpc",
     "pallets/group/rpc/runtime-api",
     "pallets/identity",
-    "pallets/im-online",
     "pallets/multisig",
     "pallets/pips",
     "pallets/protocol-fee",
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/runtime/common",
-    "pallets/runtime/extensions",
     "pallets/runtime/develop",
     "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
@@ -49,8 +49,6 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
-    "pallets/contracts",
-    "node-rpc",
     "pallets/weights",
     "primitives",
     "rpc",
@@ -59,7 +57,6 @@ members = [
 ]
 
 [dependencies]
-im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-bridge = { path = "pallets/bridge", default-features = false }
@@ -77,16 +74,16 @@ polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
 
 # RPC
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 node-rpc = { path = "rpc" }
 node-rpc-runtime-api = { path = "rpc/runtime-api" }
-pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api" }
 pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
-pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
 pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api" }
+pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
+pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api" }
+pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 polymesh-node-rpc = { path = "node-rpc" }
-frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
@@ -94,55 +91,51 @@ polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
+chrono = "0.4.11"
 ed25519-dalek = "1.0.0"
-log = "0.4.8"
 futures = "0.3.4"
 jsonrpc-core = "15.0.0"
+log = "0.4.8"
 serde_json = '1.0.48'
 structopt = "0.3.15"
-chrono = "0.4.11"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-offchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-session = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-
-pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-
-sc-service = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
-sc-chain-spec = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-executor = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
-sc-network = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-cli = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
-sc-telemetry = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-consensus = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-rpc = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-sc-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 grandpa = { package = "sc-finality-grandpa", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sc-basic-authorship = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sc-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-
-sc-light = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-chain-spec = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-cli = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
+sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sc-client-db = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-consensus = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-executor = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
+sc-light = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-network = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-rpc = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-service = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
+sc-telemetry = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-offchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-session = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
@@ -166,6 +159,6 @@ runtime-benchmarks = [
     "polymesh-runtime-develop/runtime-benchmarks"
 ]
 std = [
-    "serde/std",
-    "polymesh-common-utilities/std"
+    "polymesh-common-utilities/std",
+    "serde/std"
 ]
