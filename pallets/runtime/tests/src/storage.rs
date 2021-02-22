@@ -333,7 +333,6 @@ impl multisig::Trait for TestStorage {
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
@@ -439,8 +438,6 @@ pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 impl committee::Trait<committee::Instance1> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -448,8 +445,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -658,11 +653,9 @@ impl pips::Trait for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Treasury = treasury::Module<Self>;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
 }
 
 impl confidential::Trait for TestStorage {

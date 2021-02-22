@@ -324,11 +324,9 @@ impl pallet_pips::Trait for Test {
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
 }
 
 impl pallet_treasury::Trait for Test {

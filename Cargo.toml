@@ -38,6 +38,7 @@ members = [
     "pallets/runtime/common",
     "pallets/runtime/extensions",
     "pallets/runtime/develop",
+    "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/settlement",
@@ -62,12 +63,17 @@ members = [
 im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
+pallet-bridge = { path = "pallets/bridge", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-confidential = { path = "pallets/confidential" }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
+pallet-identity = { path = "pallets/identity", default-features = false }
+pallet-multisig = { path = "pallets/multisig", default-features = false }
+pallet-pips = { path = "pallets/pips", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
+pallet-sudo = { path = "pallets/sudo", default-features = false }
 polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }
@@ -86,6 +92,7 @@ frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/subst
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
+polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
@@ -102,6 +109,7 @@ codec = { version = "1.2.0", package = "parity-scale-codec" }
 sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 sp-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-offchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
@@ -114,7 +122,9 @@ sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.c
 sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 
-contracts = { package = "pallet-contracts", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 sc-service = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
 sc-chain-spec = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
