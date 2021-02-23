@@ -24,7 +24,6 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
-    "pallets/confidential",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/group",
@@ -62,7 +61,6 @@ pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-bridge = { path = "pallets/bridge", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
-pallet-confidential = { path = "pallets/confidential" }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
 pallet-identity = { path = "pallets/identity", default-features = false }

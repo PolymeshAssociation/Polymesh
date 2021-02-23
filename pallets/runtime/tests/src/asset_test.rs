@@ -1071,6 +1071,7 @@ fn adding_removing_documents() {
 fn add_extension_successfully() {
     ExtBuilder::default()
         .set_max_tms_allowed(2)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1139,6 +1140,7 @@ fn add_extension_successfully() {
 fn add_same_extension_should_fail() {
     ExtBuilder::default()
         .set_max_tms_allowed(10)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1213,6 +1215,7 @@ fn add_same_extension_should_fail() {
 fn should_successfully_archive_extension() {
     ExtBuilder::default()
         .set_max_tms_allowed(10)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1292,6 +1295,7 @@ fn should_successfully_archive_extension() {
 fn should_fail_to_archive_an_already_archived_extension() {
     ExtBuilder::default()
         .set_max_tms_allowed(10)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1421,6 +1425,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 fn should_successfuly_unarchive_an_extension() {
     ExtBuilder::default()
         .set_max_tms_allowed(10)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1510,6 +1515,7 @@ fn should_successfuly_unarchive_an_extension() {
 fn should_fail_to_unarchive_an_already_unarchived_extension() {
     ExtBuilder::default()
         .set_max_tms_allowed(10)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let dave = AccountKeyring::Dave.public();
@@ -1917,6 +1923,7 @@ fn can_set_primary_issuance_agent_we() {
 fn check_functionality_of_remove_extension() {
     ExtBuilder::default()
         .set_max_tms_allowed(5)
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.public();

@@ -1,7 +1,10 @@
 use frame_support::{
-    assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::GetDispatchInfo,
+    assert_err, assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    weights::GetDispatchInfo,
     StorageMap,
 };
+use frame_system::RawOrigin;
 use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
 use sp_runtime::{traits::Hash, Perbill};
 
@@ -22,6 +25,7 @@ use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
     IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
+use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
 const GAS_LIMIT: Gas = 10_000_000_000;
@@ -154,17 +158,35 @@ where
     T::Hashing::hash(&b"abc".encode())
 }
 
+/// Executes `f` on a created `TestExternalities` using the given `network_fee_share` and `protocol_base_fees`.
+///
+/// It also enables the `put_code` extrinsics.
+fn execute_externalities_with_wasm<T, F>(
+    network_fee_share: Perbill,
+    protocol_base_fees: MockProtocolBaseFees,
+    f: F,
+) where
+    F: FnOnce(Vec<u8>, <T::Hashing as Hash>::Output) -> (),
+    T: frame_system::Trait,
+{
+    let (wasm, code_hash) = compile_module::<T>("flipper").unwrap();
+    ExtBuilder::default()
+        .network_fee_share(network_fee_share)
+        .set_protocol_base_fees(protocol_base_fees)
+        .set_contracts_put_code(true)
+        .build()
+        .execute_with(|| f(wasm, code_hash))
+}
+
 #[test]
 fn check_put_code_functionality() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(0);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(0))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
             let (_, alice_did) = make_account_without_cdd(alice).unwrap();
@@ -192,20 +214,19 @@ fn check_put_code_functionality() {
 
             // Free up the context.
             TestStorage::set_payer_context(None);
-        });
+        },
+    );
 }
 
 #[test]
 fn check_instantiation_functionality() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(0);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(0))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let input_data = hex!("0222FF18");
             let extrinsic_wrapper_weight = 500_000_000;
             let instantiation_fee = 99999;
@@ -268,20 +289,19 @@ fn check_instantiation_functionality() {
 
             // verify that contract address is different.
             assert!(flipper_address_1 != flipper_address_2);
-        });
+        },
+    );
 }
 
 #[test]
 fn allow_network_share_deduction() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(25);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(25))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let instantiation_fee = 5000;
             let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
@@ -323,18 +343,19 @@ fn allow_network_share_deduction() {
                 fee_collector_balance.saturating_add(Perbill::from_percent(25) * instantiation_fee),
                 new_fee_collector_balance
             );
-        });
+        },
+    );
 }
 
 #[test]
 fn check_behavior_when_instantiation_fee_changes() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(30);
+    let protocol_fee = MockProtocolBaseFees::default();
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(30))
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let instantiation_fee = 5000;
             let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
@@ -432,18 +453,19 @@ fn check_behavior_when_instantiation_fee_changes() {
                     .saturating_add(Perbill::from_percent(30) * new_instantiation_fee),
                 new_fee_collector_balance
             );
-        });
+        },
+    );
 }
 
 #[test]
 fn check_freeze_unfreeze_functionality() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(30);
+    let protocol_fee = MockProtocolBaseFees::default();
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(30))
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let instantiation_fee = 5000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
@@ -509,7 +531,8 @@ fn check_freeze_unfreeze_functionality() {
                 instantiation_fee,
                 false
             ));
-        });
+        },
+    );
 }
 
 #[test]
@@ -520,6 +543,7 @@ fn validate_transfer_template_ownership_functionality() {
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
         .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
@@ -574,14 +598,13 @@ fn validate_transfer_template_ownership_functionality() {
 #[test]
 fn check_transaction_rollback_functionality_for_put_code() {
     // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(30);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 900000000)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(30))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let instantiation_fee = 5000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
@@ -613,20 +636,19 @@ fn check_transaction_rollback_functionality_for_put_code() {
             // Verify that storage doesn't change.
             assert!(!MetadataOfTemplate::<TestStorage>::contains_key(code_hash));
             assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_none())
-        });
+        },
+    );
 }
 
 #[test]
 fn check_transaction_rollback_functionality_for_instantiation() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(30);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(30))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let input_data = hex!("0222FF18");
             let instantiation_fee = 10000000000;
             let alice = AccountKeyring::Alice.public();
@@ -658,20 +680,19 @@ fn check_transaction_rollback_functionality_for_instantiation() {
             assert!(!ContractInfoOf::<TestStorage>::contains_key(
                 flipper_address_1
             ));
-        });
+        },
+    );
 }
 
 #[test]
 fn check_meta_url_functionality() {
-    // Build wasm and get code_hash
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let network_fee_share = Perbill::from_percent(30);
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    ExtBuilder::default()
-        .network_fee_share(Perbill::from_percent(30))
-        .set_protocol_base_fees(protocol_fee)
-        .build()
-        .execute_with(|| {
+    execute_externalities_with_wasm::<TestStorage, _>(
+        network_fee_share,
+        protocol_fee,
+        |wasm, code_hash| {
             let instantiation_fee = 10000000000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
@@ -692,5 +713,43 @@ fn check_meta_url_functionality() {
                 code_hash,
                 Some("http://www.google.com".into())
             ));
-        });
+        },
+    );
+}
+
+#[test]
+fn check_put_code_flag() {
+    let user = AccountKeyring::Charlie.public();
+
+    ExtBuilder::default()
+        .regular_users(vec![user])
+        .build()
+        .execute_with(|| check_put_code_flag_ext(user))
+}
+
+fn check_put_code_flag_ext(user: Public) {
+    let (wasm, _) = compile_module::<TestStorage>("flipper").unwrap();
+
+    let put_code = |acc: Public| -> DispatchResult {
+        WrapperContracts::put_code(
+            Origin::signed(acc),
+            TemplateMetadata::default(),
+            0u128,
+            wasm.clone(),
+        )
+    };
+
+    // Flag is disable, so `put_code` should fail.
+    assert_noop!(put_code(user), WrapperContractsError::PutCodeIsNotAllowed);
+
+    // Non GC member cannot update the flag.
+    assert_noop!(
+        WrapperContracts::set_put_code_flag(Origin::signed(user), true),
+        DispatchError::BadOrigin
+    );
+
+    // Enable and check that anyone now can put code.
+    let root = Origin::from(RawOrigin::Root);
+    assert_ok!(WrapperContracts::set_put_code_flag(root, true));
+    assert_ok!(put_code(user));
 }
