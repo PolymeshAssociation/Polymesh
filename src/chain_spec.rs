@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
-use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
@@ -336,19 +336,6 @@ macro_rules! pips {
     };
 }
 
-macro_rules! im_online {
-    () => {
-        im_online::GenesisConfig {
-            slashing_params: im_online::OfflineSlashingParams {
-                max_offline_percent: 10u32,
-                constant: 3u32,
-                max_slash_percent: 7u32,
-            },
-            ..Default::default()
-        }
-    };
-}
-
 macro_rules! cdd_membership {
     ($($member:expr),*) => {
         pallet_group::GenesisConfig {
@@ -462,7 +449,7 @@ pub mod general {
                 PerThing::from_rational_approximation(1u64, 4u64)
             )),
             pallet_pips: Some(pips!(time::MINUTES, 25)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
@@ -607,7 +594,7 @@ pub mod alcyone_testnet {
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
             pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
@@ -758,7 +745,7 @@ pub mod polymesh_mainnet {
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
             pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
