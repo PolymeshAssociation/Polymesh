@@ -1755,12 +1755,6 @@ fn dist_distribute_works() {
             Some(6)
         ));
 
-        // Start before now.
-        assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 4, None),
-            DistError::NowAfterPayment
-        );
-
         // Distribution already exists.
         assert_noop!(
             Dist::distribute(owner.origin(), id, None, currency, 0, 5, None),
