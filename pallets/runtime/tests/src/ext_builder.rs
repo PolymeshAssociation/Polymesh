@@ -77,9 +77,14 @@ pub struct ExtBuilder {
     /// When `false`, no balances will be initialized on genesis.
     monied: bool,
     vesting: bool,
+    /// CDD Service provides. Their DID will be generated.
     cdd_providers: Vec<Public>,
+    /// Governance committee members. Their DID will be generated.
     governance_committee_members: Vec<Public>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
+    /// Regular users. Their DID will be generated.
+    regular_users: Vec<Public>,
+
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
     /// Percentage fee share of a network (treasury + validators) in instantiation fee
@@ -90,6 +95,8 @@ pub struct ExtBuilder {
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
+    /// Enable `put_code` in contracts pallet
+    enable_contracts_put_code: bool,
 }
 
 thread_local! {
@@ -172,6 +179,12 @@ impl ExtBuilder {
         self
     }
 
+    /// Adds DID to `users` accounts.
+    pub fn regular_users(mut self, users: Vec<Public>) -> Self {
+        self.regular_users = users;
+        self
+    }
+
     /// Set maximum of tms allowed for an asset
     pub fn set_max_tms_allowed(mut self, tm_count: u32) -> Self {
         self.max_no_of_tm_allowed = tm_count;
@@ -197,6 +210,13 @@ impl ExtBuilder {
     /// Provide a closure `with` to run on the storage for final adjustments.
     pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
         self.adjust = Some(with);
+        self
+    }
+
+    /// Enables `contracts::put_code` at genesis if `enable` is `true`.
+    /// By default, it is disabled.
+    pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
+        self.enable_contracts_put_code = enable;
         self
     }
 
@@ -233,6 +253,7 @@ impl ExtBuilder {
     /// Please note that generated DIDs start from 1.
     fn make_identities(
         accounts: &[Public],
+        did_offset: usize,
     ) -> (
         Vec<(IdentityId, Identity<AccountId>)>,
         Vec<(AccountId, IdentityId)>,
@@ -240,12 +261,18 @@ impl ExtBuilder {
         let identities = accounts
             .iter()
             .enumerate()
-            .map(|(idx, key)| (IdentityId::from((idx + 1) as u128), Identity::from(*key)))
+            .map(|(idx, key)| {
+                (
+                    IdentityId::from((idx + did_offset + 1) as u128),
+                    Identity::from(*key),
+                )
+            })
             .collect::<Vec<_>>();
+
         let key_links = accounts
             .into_iter()
             .enumerate()
-            .map(|(idx, key)| (*key, IdentityId::from((idx + 1) as u128)))
+            .map(|(idx, key)| (*key, IdentityId::from((idx + did_offset + 1) as u128)))
             .collect::<Vec<_>>();
 
         (identities, key_links)
@@ -276,12 +303,18 @@ impl ExtBuilder {
         system_accounts.sort();
         system_accounts.dedup();
 
-        let (system_identities, system_links) = Self::make_identities(system_accounts.as_slice());
+        let (sys_identities, sys_links) = Self::make_identities(system_accounts.as_slice(), 0);
+
+        // New identities are just `system users` + `regular users`.
+        let (mut new_identities, mut new_links) =
+            Self::make_identities(self.regular_users.as_slice(), sys_identities.len());
+        new_identities.extend(sys_identities.iter().cloned());
+        new_links.extend(sys_links.iter().cloned());
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
-            did_records: system_identities.clone(),
-            secondary_keys: system_links,
+            did_records: new_identities,
+            secondary_keys: new_links,
             identities: vec![],
             ..Default::default()
         }
@@ -320,7 +353,7 @@ impl ExtBuilder {
             .cdd_providers
             .iter()
             .map(|key| {
-                let (id, _) = system_identities
+                let (id, _) = sys_identities
                     .iter()
                     .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
@@ -343,7 +376,7 @@ impl ExtBuilder {
             .governance_committee_members
             .iter()
             .map(|key| {
-                let (id, _) = system_identities
+                let (id, _) = sys_identities
                     .iter()
                     .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
@@ -387,6 +420,13 @@ impl ExtBuilder {
             max_pip_skip_count: 1,
             active_pip_limit: 5,
             pending_pip_expiry: <_>::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        polymesh_contracts::GenesisConfig {
+            enable_put_code: self.enable_contracts_put_code,
+            ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();
