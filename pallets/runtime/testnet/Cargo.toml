@@ -22,7 +22,6 @@ pallet-sto = { path = "../../sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
@@ -48,6 +47,8 @@ pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", p
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
+# Crypto
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
 
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
@@ -106,11 +107,9 @@ testnet = [
     "pallet-testnet",
     "polymesh-weights/testnet",
 ]
-no_std = [
-    "pallet-confidential/no_std",
-    "pallet-confidential/u64_backend",
-]
+no_std = ["u64_backend"]
 std = [
+    "avx2_backend",
     "codec/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
@@ -125,7 +124,6 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-confidential/std",
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",

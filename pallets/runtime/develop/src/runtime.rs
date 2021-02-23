@@ -256,12 +256,6 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl pallet_confidential::Trait for Runtime {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
-}
-
 impl testnet::Trait for Runtime {
     type Event = Event;
     #[cfg(feature = "testnet")]
@@ -345,7 +339,7 @@ construct_runtime!(
         ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
         Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 42,
-        Confidential: pallet_confidential::{Module, Call, Storage, Event} = 43,
+        // Removed pallet Confidential = 43,
         Permissions: pallet_permissions::{Module, Storage} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
@@ -406,7 +400,6 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
-            add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);

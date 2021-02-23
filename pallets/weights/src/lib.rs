@@ -25,7 +25,6 @@ pub mod pallet_capital_distribution;
 pub mod pallet_checkpoint;
 pub mod pallet_committee;
 pub mod pallet_compliance_manager;
-pub mod pallet_confidential;
 pub mod pallet_corporate_actions;
 pub mod pallet_corporate_ballot;
 pub mod pallet_grandpa;

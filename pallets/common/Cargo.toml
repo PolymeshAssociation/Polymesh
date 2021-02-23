@@ -39,10 +39,16 @@ schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch
 lazy_static = { version = "1.4.0", default-features = false }
 
 [features]
-equalize = []
 default = ["std", "equalize"]
+
+# Backends
+u32_backend = [ "schnorrkel/u32_backend"]
+u64_backend = [ "schnorrkel/u64_backend"]
+avx2_backend = [ "schnorrkel/avx2_backend"]
+
+equalize = []
 default_identity = []
-no_std = []
+no_std = ["u64_backend"]
 only-staking = []
 testnet = []
 std = [
@@ -61,6 +67,7 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
+	"avx2_backend"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
