@@ -1,6 +1,6 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { Ticker, Document, TickerRegistration } from "../types";
+import { Ticker, Document, TickerRegistration, IdentityId } from "../types";
 import { sendTx } from "../util/init";
 import { assert } from "chai";
 
@@ -52,4 +52,27 @@ export async function issueTokenToDid(
 	} else {
 		console.log("ticker exists already");
 	}
+}
+
+/**
+ * @description Mints an Asset
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {KeyringPair} minter - KeyringPair
+ * @param {Ticker} ticker - Ticker
+ * @return {Promise<void>}
+ */
+export async function mintingAsset(api: ApiPromise, minter: KeyringPair, ticker: Ticker): Promise<void> {
+	const transaction = api.tx.asset.issue(ticker, 100);
+	await sendTx(minter, transaction);
+}
+
+/**
+ * @description Gets the Asset balance
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {Ticker} ticker - Ticker
+ * @param {IdentityId} did - Token amount
+ * @return {Promise<number>}
+ */
+export async function assetBalance(api: ApiPromise, ticker: Ticker, did: IdentityId): Promise<number> {
+	return ((await api.query.asset.balanceOf(ticker, did)) as unknown) as number;
 }

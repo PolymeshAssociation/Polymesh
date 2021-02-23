@@ -255,11 +255,6 @@ export async function signatory(api: ApiPromise, entity: KeyringPair, signer: Ke
 	return signatoryObj;
 }
 
-export async function mintingAsset(api: ApiPromise, minter: KeyringPair, ticker: Ticker) {
-	const transaction = api.tx.asset.issue(ticker, 100);
-	await sendTx(minter, transaction);
-}
-
 export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"promise">) {
 	let nonceObj = { nonce: nonces.get(signer.address) };
 	let passed: EventRecord | undefined;
@@ -272,53 +267,8 @@ export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"prom
 	if (!passed) return -1;
 }
 
-export async function createVenue(api: ApiPromise, sender: KeyringPair) {
-	let venueCounter = await api.query.settlement.venueCounter();
-	let venueDetails = [0];
-
-	const transaction = api.tx.settlement.createVenue(venueDetails, [sender.address], 0);
-
-	await sendTx(sender, transaction);
-
-	return venueCounter;
-}
-
 export function getDefaultPortfolio(did: IdentityId) {
 	return { did: did, kind: "Default" };
-}
-
-export async function affirmInstruction(
-	api: ApiPromise,
-	sender: KeyringPair,
-	instructionCounter: u64,
-	did: IdentityId,
-	leg_counts: u64
-) {
-	const transaction = api.tx.settlement.affirmInstruction(instructionCounter, [getDefaultPortfolio(did)], leg_counts);
-
-	await sendTx(sender, transaction);
-}
-
-export async function withdrawInstruction(
-	api: ApiPromise,
-	sender: KeyringPair,
-	instructionCounter: u64,
-	did: IdentityId
-) {
-	const transaction = api.tx.settlement.withdrawInstruction(instructionCounter, [getDefaultPortfolio(did)]);
-
-	await sendTx(sender, transaction);
-}
-
-export async function rejectInstruction(
-	api: ApiPromise,
-	sender: KeyringPair,
-	instructionCounter: u64,
-	did: IdentityId
-) {
-	const transaction = api.tx.settlement.rejectInstruction(instructionCounter, [getDefaultPortfolio(did)]);
-
-	await sendTx(sender, transaction);
 }
 
 export async function addInstruction(

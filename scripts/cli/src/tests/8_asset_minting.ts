@@ -5,11 +5,10 @@ import {
 	generateKeys,
 	generateRandomTicker,
 	transferAmount,
-	mintingAsset,
 } from "../util/init";
 import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
-import { issueTokenToDid } from "../helpers/asset_helper";
+import { issueTokenToDid, mintingAsset } from "../helpers/asset_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 
 async function main(): Promise<void> {
