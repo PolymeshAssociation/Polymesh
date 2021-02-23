@@ -22,7 +22,6 @@ sp-state-machine = { git = "https://github.com/PolymathNetwork/substrate", tag =
 sp-trie = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 trie-root = "0.16.0"
 frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-pallet-confidential = { path = "../../pallets/confidential" }
 
 [dev-dependencies]
 node-testing = { path = "../testing" }
