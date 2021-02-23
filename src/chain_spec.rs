@@ -542,40 +542,6 @@ pub mod general {
             local_genesis,
         )
     }
-
-    fn live_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
-            ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Eve"),
-                seeded_acc_id("Ferdie"),
-                seeded_acc_id("Dave//stash"),
-                seeded_acc_id("Eve//stash"),
-                seeded_acc_id("Ferdie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
-            false,
-        )
-    }
-
-    pub fn live_config() -> ChainSpec {
-        config(
-            "Live Development",
-            "live_dev",
-            ChainType::Live,
-            live_genesis,
-        )
-    }
 }
 
 pub mod alcyone_testnet {
@@ -656,52 +622,6 @@ pub mod alcyone_testnet {
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
         }
-    }
-
-    fn live_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
-            ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("cdd_provider_1"),
-                seeded_acc_id("cdd_provider_2"),
-                seeded_acc_id("polymath_1"),
-                seeded_acc_id("polymath_2"),
-                seeded_acc_id("polymath_3"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
-            false,
-        )
-    }
-
-    pub fn live_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![
-            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
-            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
-        ];
-        ChainSpec::from_genesis(
-            "Polymesh Buffron Testnet",
-            "buffron",
-            ChainType::Live,
-            live_genesis,
-            boot_nodes,
-            Some(
-                TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Alcyone live telemetry url is valid; qed"),
-            ),
-            Some(&*"/polymath/buffron/1"),
-            Some(polymath_props()),
-            Default::default(),
-        )
     }
 
     fn develop_genesis() -> rt::runtime::GenesisConfig {
@@ -855,7 +775,7 @@ pub mod polymesh_mainnet {
         }
     }
 
-    fn live_genesis() -> rt::runtime::GenesisConfig {
+    fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -879,7 +799,7 @@ pub mod polymesh_mainnet {
         )
     }
 
-    pub fn live_config() -> ChainSpec {
+    pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
             "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
@@ -889,11 +809,11 @@ pub mod polymesh_mainnet {
             "Polymesh Mainnet",
             "mainnet",
             ChainType::Live,
-            live_genesis,
+            bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Mainnet live telemetry url is valid; qed"),
+                    .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymath/mainnet/1"),
             Some(polymath_props()),
