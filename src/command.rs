@@ -60,13 +60,11 @@ impl SubstrateCli for Cli {
         Ok(match id {
             "dev" => Box::new(chain_spec::general::develop_config()),
             "local" => Box::new(chain_spec::general::local_config()),
-            "live" => Box::new(chain_spec::general::live_config()),
             "alcyone-dev" => Box::new(chain_spec::alcyone_testnet::develop_config()),
             "alcyone-local" => Box::new(chain_spec::alcyone_testnet::local_config()),
-            "alcyone-live" => Box::new(chain_spec::alcyone_testnet::live_config()),
             "mainnet-dev" => Box::new(chain_spec::polymesh_mainnet::develop_config()),
             "mainnet-local" => Box::new(chain_spec::polymesh_mainnet::local_config()),
-            "mainnet-live" => Box::new(chain_spec::polymesh_mainnet::live_config()),
+            "mainnet-bootstrap" => Box::new(chain_spec::polymesh_mainnet::bootstrap_config()),
             "Mainnet" | "mainnet" | "" => {
                 Box::new(chain_spec::polymesh_mainnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/mainnet_raw.json")[..],
