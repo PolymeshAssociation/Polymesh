@@ -22,8 +22,6 @@ mod committee_test;
 #[cfg(test)]
 mod compliance_manager_test;
 #[cfg(test)]
-mod confidential_test;
-#[cfg(test)]
 mod contract_test;
 #[cfg(test)]
 mod corporate_actions_test;
