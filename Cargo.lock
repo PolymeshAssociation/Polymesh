@@ -1238,7 +1238,7 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3#379db49a18884a43ff30ad77c142cf9c81c1ee8f"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2#fd1e598e7a80e646e7ff59510ab572d6f282504c"
 dependencies = [
  "bulletproofs",
  "byteorder 1.4.2",
@@ -1251,7 +1251,7 @@ dependencies = [
  "rand_core 0.5.1",
  "serde",
  "sha3 0.8.2",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
  "zeroize",
 ]
 
@@ -4132,7 +4132,6 @@ dependencies = [
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "node-testing",
  "pallet-balances 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-grandpa 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-im-online 2.0.1",
@@ -4839,32 +4838,6 @@ dependencies = [
  "sp-runtime 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-std 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "sp-version 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
-]
-
-[[package]]
-name = "pallet-confidential"
-version = "0.1.0"
-dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
- "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "pallet-asset 0.1.0",
- "pallet-identity 0.1.0",
- "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "parity-scale-codec",
- "polymesh-common-utilities 0.1.0",
- "polymesh-primitives 2.0.0",
- "polymesh-primitives-derive 0.1.0",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "sp-api 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-arithmetic 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-runtime-interface 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
 ]
 
 [[package]]
@@ -6707,7 +6680,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-rpc-runtime-api 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-corporate-actions 0.1.0",
@@ -7050,6 +7022,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7066,7 +7039,6 @@ dependencies = [
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-primitives 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-rpc-runtime-api 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7129,6 +7101,7 @@ dependencies = [
 name = "polymesh-runtime-mainnet"
 version = "0.1.0"
 dependencies = [
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7143,7 +7116,6 @@ dependencies = [
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-primitives 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-rpc-runtime-api 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7208,6 +7180,7 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7222,7 +7195,6 @@ dependencies = [
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-primitives 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-contracts-rpc-runtime-api 0.8.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7302,7 +7274,7 @@ dependencies = [
  "pallet-bridge 1.0.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-committee 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-compliance-manager 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
- "pallet-confidential 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
+ "pallet-confidential",
  "pallet-contracts 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-contracts-primitives 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-contracts-rpc-runtime-api 0.8.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
@@ -7367,6 +7339,7 @@ version = "1.0.0"
 dependencies = [
  "chrono",
  "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
  "env_logger 0.7.1",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7382,7 +7355,6 @@ dependencies = [
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-corporate-actions 0.1.0",
  "pallet-group 0.1.0",
@@ -7442,7 +7414,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
- "pallet-confidential 0.1.0",
  "pallet-corporate-actions 0.1.0",
  "pallet-grandpa 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-group 0.1.0",
@@ -7477,7 +7448,7 @@ dependencies = [
  "pallet-balances 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-committee 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-compliance-manager 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
- "pallet-confidential 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
+ "pallet-confidential",
  "pallet-corporate-actions 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
  "pallet-grandpa 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "pallet-group 0.1.0 (git+https://github.com/PolymathNetwork/Polymesh?rev=14951c75b778d5ee75c8ecdc02b70b6eb6d7b172)",
@@ -11255,6 +11226,11 @@ dependencies = [
 name = "sp-std"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b059817c3ebe12fc130cdd850d62"
+
+[[package]]
+name = "sp-std"
+version = "2.0.1"
+source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
 
 [[package]]
 name = "sp-std"
