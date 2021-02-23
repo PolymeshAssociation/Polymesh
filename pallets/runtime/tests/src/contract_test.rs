@@ -1,13 +1,13 @@
 use crate::{
     ext_builder::MockProtocolBaseFees,
     storage::{
-        account_from, make_account_with_uid, make_account_without_cdd, AccountId, TestStorage,
+        account_from, make_account_with_uid, make_account_without_cdd, AccountId, TestStorage, User,
     },
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
+    assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     weights::GetDispatchInfo,
     StorageMap,
@@ -167,6 +167,10 @@ fn execute_externalities_with_wasm(
         .execute_with(|| f(wasm, code_hash))
 }
 
+fn free(acc: AccountId) -> u128 {
+    System::account(acc).data.free
+}
+
 #[test]
 fn check_put_code_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
@@ -176,26 +180,24 @@ fn check_put_code_functionality() {
         // Create Alice account & the identity for her.
         let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
-        // Get the balance of the Alice
-        let alice_balance = System::account(alice).data.free;
+        // Get the balance of the Alice.
+        let alice_balance = free(alice);
 
         create_se_template(alice, alice_did, 0, code_hash, wasm);
 
-        // Check the storage of the base pallet
+        // Check the storage of the base pallet.
         assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
 
-        // Check for fee
+        // Check for fee.
         let fee_deducted = <pallet_protocol_fee::Module<TestStorage>>::compute_fee(&[
             ProtocolOp::ContractsPutCode,
         ]);
 
-        // Check for protocol fee deduction
-        let current_alice_balance = System::account(alice).data.free;
-        assert_eq!(current_alice_balance, alice_balance - fee_deducted);
+        // Check for protocol fee deduction.
+        assert_eq!(free(alice), alice_balance - fee_deducted);
 
         // Balance of fee collector
-        let balance_of_gainer = System::account(account_from(5000)).data.free;
-        assert_eq!(balance_of_gainer, fee_deducted);
+        assert_eq!(free(account_from(5000)), fee_deducted);
 
         // Free up the context.
         TestStorage::set_payer_context(None);
@@ -211,60 +213,48 @@ fn check_instantiation_functionality() {
         let extrinsic_wrapper_weight = 500_000_000;
         let instantiation_fee = 99999;
 
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
-        // Get the balance of the Alice
-        let alice_balance = System::account(alice).data.free;
+        // Get the balance of the Alice.
+        let alice_balance = free(alice.acc());
 
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        let (_, _) = make_account_without_cdd(bob).unwrap();
+        // Get the balance of the Bob.
+        let bob_balance = free(bob.acc());
 
-        // Get the balance of the Bob
-        let bob_balance = System::account(bob).data.free;
-
-        // create instance of contract
-        let result = create_contract_instance(bob, code_hash, instantiation_fee, false);
-
-        assert_ok!(result);
+        // Create instance of contract.
+        let result = create_contract_instance(bob.acc(), code_hash, instantiation_fee, false);
         // Verify the actual weight of the extrinsic.
         assert!(result.unwrap().actual_weight.unwrap() > extrinsic_wrapper_weight);
 
         // Verify whether the instantiation fee deducted properly or not.
         // Alice balance should increased by `instantiation_fee` and Bob balance should be decreased by the same amount.
-        let new_alice_balance = System::account(alice).data.free;
-        let new_bob_balance = System::account(bob).data.free;
-
-        assert_eq!(bob_balance - new_bob_balance, instantiation_fee + 100); // 100 for instantiation.
-        assert_eq!(alice_balance + instantiation_fee, new_alice_balance);
+        assert_eq!(bob_balance - free(bob.acc()), instantiation_fee + 100); // 100 for instantiation.
+        assert_eq!(alice_balance + instantiation_fee, free(alice.acc()));
 
         // Generate the contract address.
-        let flipper_address_1 = NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-            &code_hash,
-            &input_data.to_vec(),
-            &bob,
-        );
+        let addr_for = || {
+            NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
+                &code_hash,
+                &input_data.to_vec(),
+                &bob.acc(),
+            )
+        };
+        let flipper_address_1 = addr_for();
 
         // Check whether the contract creation allowed or not with same constructor data.
         // It should be as contract creation is depend on the nonce of the account.
+        assert_ok!(create_contract_instance(
+            bob.acc(),
+            code_hash,
+            instantiation_fee,
+            false
+        ));
 
-        let result = create_contract_instance(bob, code_hash, instantiation_fee, false);
-        assert_ok!(result);
-
-        // Generate the contract address.
-        let flipper_address_2 = NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-            &code_hash,
-            &input_data.to_vec(),
-            &bob,
-        );
-
-        // verify that contract address is different.
-        assert!(flipper_address_1 != flipper_address_2);
+        // Verify that contract address is different.
+        assert!(flipper_address_1 != addr_for());
     });
 }
 
@@ -273,46 +263,39 @@ fn allow_network_share_deduction() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
     execute_externalities_with_wasm(25, protocol_fee, |wasm, code_hash| {
-        let instantiation_fee = 5000;
+        let inst_fee = 5000;
         let fee_collector = account_from(5000);
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        make_account_without_cdd(bob).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        // Create template of se
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        // Create template of SE:
+        create_se_template(alice.acc(), alice.did, inst_fee, code_hash, wasm);
 
-        // Get the balance of Alice
-        let alice_balance = System::account(alice).data.free;
-        // Get Network fee collector balance
-        let fee_collector_balance = System::account(fee_collector).data.free;
+        // Get the balance of Alice.
+        let alice_balance = free(alice.acc());
+        // Get Network fee collector balance.
+        let fee_collector_balance = free(fee_collector);
 
-        // create instance of contract
+        // Create instance of contract.
         assert_ok!(create_contract_instance(
-            bob,
+            bob.acc(),
             code_hash,
-            instantiation_fee,
+            inst_fee,
             false
         ));
 
-        // check the fee division
+        // Check the fee division.
         // 25 % of fee should be consumed by the network and 75% should be transferred to template owner.
-        let new_alice_balance = System::account(alice).data.free;
-        let new_fee_collector_balance = System::account(fee_collector).data.free;
         // 75% check
         assert_eq!(
-            alice_balance.saturating_add(Perbill::from_percent(75) * instantiation_fee),
-            new_alice_balance
+            alice_balance.saturating_add(Perbill::from_percent(75) * inst_fee),
+            free(alice.acc())
         );
         // 25% check
         assert_eq!(
-            fee_collector_balance.saturating_add(Perbill::from_percent(25) * instantiation_fee),
-            new_fee_collector_balance
+            fee_collector_balance.saturating_add(Perbill::from_percent(25) * inst_fee),
+            free(fee_collector)
         );
     });
 }
@@ -322,25 +305,20 @@ fn check_behavior_when_instantiation_fee_changes() {
     execute_externalities_with_wasm(30, <_>::default(), |wasm, code_hash| {
         let instantiation_fee = 5000;
         let fee_collector = account_from(5000);
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        make_account_without_cdd(bob).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        // Create template of se
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        // Create template of SE.
+        create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
         let new_instantiation_fee = 8000;
 
         // Change instantiation fee of the template
         // Should fail because provide hash doesn't exists
-        assert_err!(
+        assert_noop!(
             WrapperContracts::change_template_fees(
-                Origin::signed(alice),
+                alice.origin(),
                 get_wrong_code_hash(),
                 Some(new_instantiation_fee),
                 None,
@@ -349,9 +327,9 @@ fn check_behavior_when_instantiation_fee_changes() {
         );
 
         // Should fail as sender is not the template owner
-        assert_err!(
+        assert_noop!(
             WrapperContracts::change_template_fees(
-                Origin::signed(AccountKeyring::Bob.public()),
+                bob.origin(),
                 code_hash,
                 Some(new_instantiation_fee),
                 None,
@@ -363,7 +341,7 @@ fn check_behavior_when_instantiation_fee_changes() {
 
         // No change when None is passed.
         assert_ok!(WrapperContracts::change_template_fees(
-            Origin::signed(alice),
+            alice.origin(),
             code_hash,
             None,
             None,
@@ -376,7 +354,7 @@ fn check_behavior_when_instantiation_fee_changes() {
 
         // Should success fully change the instantiation fee
         assert_ok!(WrapperContracts::change_template_fees(
-            Origin::signed(alice),
+            alice.origin(),
             code_hash,
             Some(new_instantiation_fee),
             None,
@@ -388,32 +366,30 @@ fn check_behavior_when_instantiation_fee_changes() {
             new_instantiation_fee
         );
 
-        // Get the balance of Alice
-        let alice_balance = System::account(alice).data.free;
-        // Get Network fee collector balance
-        let fee_collector_balance = System::account(fee_collector).data.free;
+        // Get the balance of Alice.
+        let alice_balance = free(alice.acc());
+        // Get Network fee collector balance.
+        let fee_collector_balance = free(fee_collector);
 
         // create instance of contract
         assert_ok!(create_contract_instance(
-            bob,
+            bob.acc(),
             code_hash,
             new_instantiation_fee,
             false
         ));
 
-        // check the fee division
+        // Check the fee division.
         // 30 % of fee should be consumed by the network and 70% should be transferred to template owner.
-        let new_alice_balance = System::account(alice).data.free;
-        let new_fee_collector_balance = System::account(fee_collector).data.free;
         // 70% check
         assert_eq!(
             alice_balance.saturating_add(Perbill::from_percent(70) * new_instantiation_fee),
-            new_alice_balance
+            free(alice.acc())
         );
         // 30% check
         assert_eq!(
             fee_collector_balance.saturating_add(Perbill::from_percent(30) * new_instantiation_fee),
-            new_fee_collector_balance
+            free(fee_collector)
         );
     });
 }
@@ -422,70 +398,49 @@ fn check_behavior_when_instantiation_fee_changes() {
 fn check_freeze_unfreeze_functionality() {
     execute_externalities_with_wasm(30, <_>::default(), |wasm, code_hash| {
         let instantiation_fee = 5000;
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        make_account_without_cdd(bob).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        // Create template of se
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        // Create template of SE.
+        create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
+
+        let freeze = || WrapperContracts::freeze_instantiation(alice.origin(), code_hash);
+        let unfreeze = || WrapperContracts::unfreeze_instantiation(alice.origin(), code_hash);
+        let frozen = || WrapperContracts::get_template_details(code_hash).frozen;
 
         // Check whether freeze functionality is working or not
-        // successfully freeze the instantiation of the SE template
-        assert_ok!(WrapperContracts::freeze_instantiation(
-            alice_signed.clone(),
-            code_hash
-        ));
-
-        // Verify the storage
-        assert!(WrapperContracts::get_template_details(code_hash).frozen);
+        // successfully freeze the instantiation of the SE template.
+        assert_ok!(freeze());
+        assert!(frozen());
 
         // Should fail when trying to freeze the template again
-        assert_err!(
-            WrapperContracts::freeze_instantiation(alice_signed.clone(), code_hash),
-            WrapperContractsError::InstantiationAlreadyFrozen
-        );
+        assert_noop!(freeze(), WrapperContractsError::InstantiationAlreadyFrozen);
 
-        // Instantiation should fail
-        assert_err!(
-            create_contract_instance(bob, code_hash, instantiation_fee, true),
+        // Instantiation should fail.
+        let create = |fee, fail| create_contract_instance(bob.acc(), code_hash, fee, fail);
+        assert_noop!(
+            create(instantiation_fee, true),
             WrapperContractsError::InstantiationIsNotAllowed
         );
 
-        // check unfreeze functionality
+        // Check unfreeze functionality.
 
-        // successfully unfreeze the instantiation of the SE template
-        assert_ok!(WrapperContracts::unfreeze_instantiation(
-            alice_signed.clone(),
-            code_hash
-        ));
-
-        // Verify the storage
-        assert!(!WrapperContracts::get_template_details(code_hash).frozen);
+        // Successfully unfreeze the instantiation of the SE template.
+        assert_ok!(unfreeze());
+        assert!(!frozen());
 
         // Should fail when trying to unfreeze the template again
-        assert_err!(
-            WrapperContracts::unfreeze_instantiation(alice_signed, code_hash),
+        assert_noop!(
+            unfreeze(),
             WrapperContractsError::InstantiationAlreadyUnFrozen
         );
 
         // Instantiation should fail if we max_fee is less than the instantiation fee.
-        assert_err!(
-            create_contract_instance(bob, code_hash, 500, true),
-            WrapperContractsError::InsufficientMaxFee
-        );
+        assert_noop!(create(500, true), WrapperContractsError::InsufficientMaxFee);
 
         // Instantiation should passed
-        assert_ok!(create_contract_instance(
-            bob,
-            code_hash,
-            instantiation_fee,
-            false
-        ));
+        assert_ok!(create(instantiation_fee, false));
     });
 }
 
@@ -501,24 +456,22 @@ fn validate_transfer_template_ownership_functionality() {
         .build()
         .execute_with(|| {
             let instantiation_fee = 5000;
-            let alice = AccountKeyring::Alice.public();
-            // Create Alice account & the identity for her.
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
-            // Bob will create a instance of it.
-            let bob = AccountKeyring::Bob.public();
+            let alice = User::new(AccountKeyring::Alice);
+
             // Create Bob account & the identity for her.
+            let bob = AccountKeyring::Bob.public();
             let bob_uid = InvestorUid::from("bob_take_1");
             let (_, bob_did) = make_account_with_uid(bob, bob_uid).unwrap();
 
             // Create template of se
-            create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+            create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
             // Call the transfer ownership functionality
             // Should fail because provided identityId doesn't has the CDD
-            assert_err!(
+            assert_noop!(
                 WrapperContracts::transfer_template_ownership(
-                    alice_signed.clone(),
+                    alice.origin(),
                     code_hash,
                     IdentityId::from(2)
                 ),
@@ -526,7 +479,7 @@ fn validate_transfer_template_ownership_functionality() {
             );
 
             // Not a valid sender.
-            assert_err!(
+            assert_noop!(
                 WrapperContracts::transfer_template_ownership(
                     Origin::signed(account_from(45)),
                     code_hash,
@@ -537,7 +490,7 @@ fn validate_transfer_template_ownership_functionality() {
 
             // Successfully transfer ownership to the other DID.
             assert_ok!(WrapperContracts::transfer_template_ownership(
-                alice_signed,
+                alice.origin(),
                 code_hash,
                 bob_did
             ));
@@ -555,12 +508,10 @@ fn check_transaction_rollback_functionality_for_put_code() {
 
     execute_externalities_with_wasm(30, protocol_fee, |wasm, code_hash| {
         let instantiation_fee = 5000;
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
 
         // Set payer in context
-        TestStorage::set_payer_context(Some(alice));
+        TestStorage::set_payer_context(Some(alice.acc()));
 
         // Create smart extension metadata
         let se_meta_data = TemplateMetadata {
@@ -572,8 +523,13 @@ fn check_transaction_rollback_functionality_for_put_code() {
         };
 
         // Execute `put_code`
-        assert_err!(
-            WrapperContracts::put_code(alice_signed, se_meta_data.clone(), instantiation_fee, wasm),
+        assert_noop!(
+            WrapperContracts::put_code(
+                alice.origin(),
+                se_meta_data.clone(),
+                instantiation_fee,
+                wasm
+            ),
             ProtocolFeeError::InsufficientAccountBalance
         );
 
@@ -590,21 +546,15 @@ fn check_transaction_rollback_functionality_for_instantiation() {
     execute_externalities_with_wasm(30, protocol_fee, |wasm, code_hash| {
         let input_data = hex!("0222FF18");
         let instantiation_fee = 10000000000;
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
-
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        make_account_without_cdd(bob).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
         // Create template of se
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
         // create instance of contract
-        assert_err!(
-            create_contract_instance(bob, code_hash, instantiation_fee, true),
+        assert_noop!(
+            create_contract_instance(bob.acc(), code_hash, instantiation_fee, true),
             ProtocolFeeError::InsufficientAccountBalance
         );
 
@@ -612,7 +562,7 @@ fn check_transaction_rollback_functionality_for_instantiation() {
         let flipper_address_1 = NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
             &code_hash,
             &input_data.to_vec(),
-            &bob,
+            &bob.acc(),
         );
 
         assert!(!ContractInfoOf::<TestStorage>::contains_key(
@@ -627,22 +577,14 @@ fn check_meta_url_functionality() {
 
     execute_externalities_with_wasm(30, protocol_fee, |wasm, code_hash| {
         let instantiation_fee = 10000000000;
-        let alice = AccountKeyring::Alice.public();
-        // Create Alice account & the identity for her.
-        let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
 
-        // Bob will create a instance of it.
-        let bob = AccountKeyring::Bob.public();
-        // Create Alice account & the identity for her.
-        make_account_without_cdd(bob).unwrap();
-
-        // Create template of se
-        create_se_template(alice, alice_did, instantiation_fee, code_hash, wasm);
+        // Create template of SE.
+        create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
         // Change the meta url.
-
         assert_ok!(WrapperContracts::change_template_meta_url(
-            alice_signed,
+            alice.origin(),
             code_hash,
             Some("http://www.google.com".into())
         ));
