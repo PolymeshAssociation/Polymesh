@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
-use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
@@ -336,19 +336,6 @@ macro_rules! pips {
     };
 }
 
-macro_rules! im_online {
-    () => {
-        im_online::GenesisConfig {
-            slashing_params: im_online::OfflineSlashingParams {
-                max_offline_percent: 10u32,
-                constant: 3u32,
-                max_slash_percent: 7u32,
-            },
-            ..Default::default()
-        }
-    };
-}
-
 macro_rules! cdd_membership {
     ($($member:expr),*) => {
         pallet_group::GenesisConfig {
@@ -462,7 +449,7 @@ pub mod general {
                 PerThing::from_rational_approximation(1u64, 4u64)
             )),
             pallet_pips: Some(pips!(time::MINUTES, 25)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
@@ -555,40 +542,6 @@ pub mod general {
             local_genesis,
         )
     }
-
-    fn live_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
-            ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Eve"),
-                seeded_acc_id("Ferdie"),
-                seeded_acc_id("Dave//stash"),
-                seeded_acc_id("Eve//stash"),
-                seeded_acc_id("Ferdie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
-            false,
-        )
-    }
-
-    pub fn live_config() -> ChainSpec {
-        config(
-            "Live Development",
-            "live_dev",
-            ChainType::Live,
-            live_genesis,
-        )
-    }
 }
 
 pub mod alcyone_testnet {
@@ -641,7 +594,7 @@ pub mod alcyone_testnet {
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
             pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
@@ -669,52 +622,6 @@ pub mod alcyone_testnet {
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
         }
-    }
-
-    fn live_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
-            ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("cdd_provider_1"),
-                seeded_acc_id("cdd_provider_2"),
-                seeded_acc_id("polymath_1"),
-                seeded_acc_id("polymath_2"),
-                seeded_acc_id("polymath_3"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
-            false,
-        )
-    }
-
-    pub fn live_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![
-            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
-            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
-        ];
-        ChainSpec::from_genesis(
-            "Polymesh Buffron Testnet",
-            "buffron",
-            ChainType::Live,
-            live_genesis,
-            boot_nodes,
-            Some(
-                TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Alcyone live telemetry url is valid; qed"),
-            ),
-            Some(&*"/polymath/buffron/1"),
-            Some(polymath_props()),
-            Default::default(),
-        )
     }
 
     fn develop_genesis() -> rt::runtime::GenesisConfig {
@@ -838,7 +745,7 @@ pub mod polymesh_mainnet {
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
             pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
-            pallet_im_online: Some(im_online!()),
+            pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
@@ -868,7 +775,7 @@ pub mod polymesh_mainnet {
         }
     }
 
-    fn live_genesis() -> rt::runtime::GenesisConfig {
+    fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
                 get_authority_keys_from_seed("Alice", false),
@@ -892,7 +799,7 @@ pub mod polymesh_mainnet {
         )
     }
 
-    pub fn live_config() -> ChainSpec {
+    pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
             "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
@@ -902,11 +809,11 @@ pub mod polymesh_mainnet {
             "Polymesh Mainnet",
             "mainnet",
             ChainType::Live,
-            live_genesis,
+            bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Mainnet live telemetry url is valid; qed"),
+                    .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymath/mainnet/1"),
             Some(polymath_props()),

@@ -22,19 +22,18 @@ sp-state-machine = { git = "https://github.com/PolymathNetwork/substrate", tag =
 sp-trie = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 trie-root = "0.16.0"
 frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-pallet-confidential = { path = "../../pallets/confidential" }
 
 [dev-dependencies]
 node-testing = { path = "../testing" }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
 pallet-balances = { path = "../../pallets/balances" }
-pallet-im-online = { path = "../../pallets/im-online" }
 
 criterion = "0.3.0"
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 pallet-session = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }

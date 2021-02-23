@@ -7,7 +7,6 @@ pub use codec::Codec;
 use core::marker::PhantomData;
 use futures::stream::StreamExt;
 use grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
-pub use pallet_confidential::native_rng;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
     crypto::native_schnorrkel, AccountId, Balance, Block, BlockNumber, Hash, IdentityId,
@@ -66,7 +65,7 @@ native_executor_instance!(
     pub MainnetExecutor,
     polymesh_runtime_mainnet::api::dispatch,
     polymesh_runtime_mainnet::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
+    frame_benchmarking::benchmarking::HostFunctions
 );
 
 // Our native executor instance.
@@ -74,7 +73,7 @@ native_executor_instance!(
     pub AlcyoneExecutor,
     polymesh_runtime_testnet::api::dispatch,
     polymesh_runtime_testnet::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
+    frame_benchmarking::benchmarking::HostFunctions,
 );
 
 // Our native executor instance.
@@ -82,7 +81,7 @@ native_executor_instance!(
     pub GeneralExecutor,
     polymesh_runtime_develop::api::dispatch,
     polymesh_runtime_develop::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions, native_schnorrkel::HostFunctions)
+    (frame_benchmarking::benchmarking::HostFunctions, native_schnorrkel::HostFunctions)
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
@@ -90,7 +89,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
     + sp_consensus_babe::BabeApi<Block>
-    + grandpa_primitives::GrandpaApi<Block>
+    + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
     + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
@@ -124,7 +123,7 @@ where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
         + sp_consensus_babe::BabeApi<Block>
-        + grandpa_primitives::GrandpaApi<Block>
+        + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
         + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>

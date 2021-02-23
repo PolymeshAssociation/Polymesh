@@ -26,8 +26,9 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
-    weights::Weight,
+    weights::{DispatchClass::Operational, Weight},
 };
+use frame_system::ensure_root;
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -90,6 +91,7 @@ pub trait WeightInfo {
     fn change_template_fees() -> Weight;
     fn change_template_meta_url(u: u32) -> Weight;
     fn update_schedule() -> Weight;
+    fn set_put_code_flag() -> Weight;
 }
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
@@ -112,6 +114,8 @@ decl_storage! {
         /// Nonce for the smart extension account id generation.
         /// Using explicit nonce as in batch transaction accounts nonce doesn't get incremented.
         pub ExtensionNonce get(fn extension_nonce): u64;
+        /// Store if `put_code` extrinsic is enabled or disabled.
+        pub EnablePutCode get(fn is_put_code_enabled) config(enable_put_code): bool;
     }
 }
 
@@ -131,6 +135,8 @@ decl_error! {
         NewOwnerIsNotCDD,
         /// Insufficient max_fee provided by the user to instantiate the SE.
         InsufficientMaxFee,
+        /// `put_code` extrinsic is disabled. See `set_put_code_flag` extrinsic.
+        PutCodeIsNotAllowed,
     }
 }
 
@@ -161,6 +167,9 @@ decl_event! {
         /// Emitted when the template meta url get changed.
         /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
         TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
+        /// Executing `put_code` has been enabled or disabled.
+        /// (new flag state)
+        PutCodeFlagChanged(bool),
     }
 }
 
@@ -183,11 +192,37 @@ decl_module! {
             <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
+        /// Enable or disable the extrinsic `put_code` in this module.
+        ///
+        /// ## Arguments
+        /// - `origin` which must be root.
+        /// - `is_enabled` is the new value for this flag.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if caller is not root.
+        ///
+        /// ## Permissions
+        /// None
+        #[weight = (<T as Trait>::WeightInfo::set_put_code_flag(), Operational)]
+        pub fn set_put_code_flag(origin, is_enabled: bool) -> DispatchResult {
+            Self::base_set_put_code_flag(origin, is_enabled)
+        }
+
         /// Simply forwards to the `put_code` function in the Contract module.
         ///
         /// # Additional functionality
         /// 1. Allow origin to pass some meta-details related to template code.
         /// 2. Charge protocol fee for deploying the template.
+        ///
+        /// # Errors
+        /// - `PutCodeIsNotAllowed` if the `put_code` flag is false. See `set_put_code_flag()`.
+        /// - `frame_system::BadOrigin` if `origin` is not signed.
+        /// - `pallet_permission::Error::<T>::UnAutorizedCaller` if `origin` does not have a valid
+        /// IdentityId.
+        /// - `pallet_contrats::Error::<T>::CodeTooLarge` if `code` length is grater than the chain
+        /// setting for `pallet_contrats::max_code_size`.
+        /// - Before `code` is inserted, some checks are performed on it, and them could raise up
+        /// some errors. Please see `pallet_contracts::wasm::prepare_contract` for details.
         #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.to_vec()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
@@ -195,6 +230,7 @@ decl_module! {
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
         ) {
+            ensure!(Self::is_put_code_enabled(), Error::<T>::PutCodeIsNotAllowed);
             let did = Identity::<T>::ensure_perms(origin.clone())?;
 
             // Save metadata related to the SE template
@@ -429,5 +465,12 @@ impl<T: Trait> Module<T> {
             usage_fee: meta_info.usage_fee,
             version: meta_info.version,
         }
+    }
+
+    fn base_set_put_code_flag(origin: T::Origin, is_enabled: bool) -> DispatchResult {
+        ensure_root(origin)?;
+        EnablePutCode::put(is_enabled);
+        Self::deposit_event(RawEvent::PutCodeFlagChanged(is_enabled));
+        Ok(())
     }
 }
