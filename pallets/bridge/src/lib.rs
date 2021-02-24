@@ -322,6 +322,7 @@ decl_storage! {
         BridgeTxDetails get(fn bridge_tx_details) build(|config: &GenesisConfig<T>| {
             // Record the transactions in genesis.
             config.complete_txs.iter().map(|tx| {
+                let recipient = tx.recipient.clone();
                 let detail = BridgeTxDetail {
                     amount: tx.amount,
                     status: BridgeTxStatus::Handled,
@@ -330,11 +331,12 @@ decl_storage! {
                 };
                 debug::info!(
                     "Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
-                    tx.recipient,
+                    recipient,
                     tx.nonce,
                     tx.amount
                 );
-                (tx.recipient.clone(), tx.nonce, detail)
+                Module::<T>::issue(&recipient, &tx.amount).expect("Minting failed");
+                (recipient, tx.nonce, detail)
             }).collect::<Vec<_>>()
         }): double_map
                 hasher(blake2_128_concat) T::AccountId,
