@@ -20,7 +20,6 @@ use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
-use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_corporate_actions::distribution as capital_distributions;
@@ -131,7 +130,6 @@ impl_outer_event! {
         sto<T>,
         pallet_utility,
         portfolio<T>,
-        confidential,
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
@@ -333,7 +331,6 @@ impl multisig::Trait for TestStorage {
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
@@ -439,8 +436,6 @@ pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 impl committee::Trait<committee::Instance1> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -448,8 +443,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -658,17 +651,9 @@ impl pips::Trait for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Treasury = treasury::Module<Self>;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
-}
-
-impl confidential::Trait for TestStorage {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl pallet_utility::Trait for TestStorage {

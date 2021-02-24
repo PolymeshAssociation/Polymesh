@@ -21,11 +21,9 @@ pallet-balances = { path = "../../balances", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-corporate-actions = { path = "../../corporate-actions", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
-pallet-im-online = { path = "../../im-online", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-permissions = { path = "../../permissions", default-features = false  }
 pallet-pips = { path = "../../pips", default-features = false }
@@ -69,6 +67,7 @@ pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substr
 pallet-executive = { package = "frame-executive", git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-finality-tracker = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-offences = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
@@ -80,6 +79,9 @@ pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", defau
 
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+
+# Crypto
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
 
 # RPC
 frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
@@ -100,11 +102,18 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
+
+# Backends
+u64_backend = ["cryptography_core/u64_backend"]
+avx2_backend = ["cryptography_core/avx2_backend"]
+
 no_std = [
-    "pallet-confidential/no_std",
-    "pallet-confidential/u64_backend",
+    "cryptography_core/no_std",
+    "u64_backend"
 ]
+
 std = [
+    "avx2_backend",
     "codec/std",
     "frame-benchmarking/std",
     "frame-support/std",
@@ -112,6 +121,7 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
+    "cryptography_core/std",
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",
@@ -121,7 +131,6 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-confidential/std",
     "pallet-contracts-primitives/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",
@@ -190,7 +199,6 @@ runtime-benchmarks = [
     "pallet-balances/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
-    "pallet-confidential/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-group/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
