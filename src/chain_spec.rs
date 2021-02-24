@@ -439,6 +439,7 @@ pub mod general {
                 signers: bridge_signers(),
                 timelock: 10,
                 bridge_limit: (100_000_000 * POLY, 1000),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -588,6 +589,7 @@ pub mod alcyone_testnet {
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -739,6 +741,7 @@ pub mod polymesh_mainnet {
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
