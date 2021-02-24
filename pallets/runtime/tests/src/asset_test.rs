@@ -2286,19 +2286,25 @@ fn classic_ticker_register_works() {
 
 #[test]
 fn classic_ticker_no_such_classic_ticker() {
+    let user = AccountKeyring::Alice.public();
+    let ticker_acme = ticker("ACME");
+    let ticker_emca = ticker("EMCA");
+
     with_asset_genesis(AssetGenesis {
         classic_migration_tconfig: default_reg_config(),
         // There is a classic ticker, but not the one we're claiming.
         classic_migration_tickers: vec![ClassicTickerImport {
-            ticker: ticker("ACME"),
+            ticker: ticker_acme,
             ..default_classic()
         }],
         ..<_>::default()
     })
+    .regular_users(vec![user])
     .build()
     .execute_with(|| {
+        let signer = Origin::signed(user);
         assert_noop!(
-            Asset::claim_classic_ticker(root(), ticker("EMCA"), ethereum::EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(signer, ticker_emca, ethereum::EcdsaSignature([0; 65])),
             AssetError::NoSuchClassicTicker
         );
     });
@@ -2306,7 +2312,9 @@ fn classic_ticker_no_such_classic_ticker() {
 
 #[test]
 fn classic_ticker_registered_by_other() {
+    let user = AccountKeyring::Alice.public();
     let ticker = ticker("ACME");
+
     with_asset_genesis(AssetGenesis {
         classic_migration_tconfig: default_reg_config(),
         // There is a classic ticker, but its not owned by sys DID.
@@ -2317,10 +2325,12 @@ fn classic_ticker_registered_by_other() {
         }],
         ..<_>::default()
     })
+    .regular_users(vec![user])
     .build()
     .execute_with(|| {
+        let signer = Origin::signed(user);
         assert_noop!(
-            Asset::claim_classic_ticker(root(), ticker, ethereum::EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerAlreadyRegistered
         );
     });
@@ -2329,6 +2339,8 @@ fn classic_ticker_registered_by_other() {
 #[test]
 fn classic_ticker_expired_thus_available() {
     let ticker = ticker("ACME");
+    let user = AccountKeyring::Dave.public();
+
     with_asset_genesis(AssetGenesis {
         classic_migration_tconfig: TickerRegistrationConfig {
             registration_length: Some(0),
@@ -2340,12 +2352,13 @@ fn classic_ticker_expired_thus_available() {
         }],
         ..<_>::default()
     })
+    .regular_users(vec![user])
     .build()
     .execute_with(|| {
-        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        let signer = Origin::signed(user);
         Timestamp::set_timestamp(1);
         assert_noop!(
-            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerRegistrationExpired
         );
     });
