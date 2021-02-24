@@ -29,11 +29,7 @@ where
     }
 
     fn get_key_cdd_did(key: &<R as frame_system::Trait>::AccountId) -> Option<IdentityId> {
-        if let Some(did) = identity::Module::<R>::get_identity(key) {
-            if identity::Module::<R>::has_valid_cdd(did) {
-                return Some(did);
-            }
-        }
-        None
+        identity::Module::<R>::get_identity(key)
+            .filter(|&did| identity::Module::<R>::has_valid_cdd(did))
     }
 }

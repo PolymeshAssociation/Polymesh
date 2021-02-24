@@ -13,18 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    self as polymesh_primitives, DispatchableName, IdentityId, PalletName, PortfolioNumber,
-    SubsetRestriction, Ticker,
-};
+use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     iter,
-    prelude::Vec,
 };
 
 /// Asset permissions.
@@ -71,7 +66,7 @@ impl PalletPermissions {
 pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 
 /// Portfolio permissions.
-pub type PortfolioPermissions = SubsetRestriction<PortfolioNumber>;
+pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 
 /// Signing key permissions.
 ///
@@ -207,13 +202,12 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId: Encode + Decode> {
     /// The account or identity that is the signatory of this key.
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
-    #[migrate_from(Vec<runtime_upgrade::Permission>)]
     pub permissions: Permissions,
 }
 
@@ -267,7 +261,7 @@ where
     }
 
     /// Checks if the given key has permission to access all given portfolios.
-    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioNumber>) -> bool {
+    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
 }
@@ -325,56 +319,22 @@ where
     }
 }
 
-/// Runtime upgrade definitions.
-#[allow(missing_docs)]
-pub mod runtime_upgrade {
-    use crate::migrate::{Empty, Migrate};
-    use codec::Decode;
-    use sp_std::vec::Vec;
-
-    /// Old permission type for runtime upgrade purposes.
-    #[derive(Decode, PartialEq)]
-    pub enum Permission {
-        Full,
-        Admin,
-        Operator,
-        SpendFunds,
-        Custom(u8),
-    }
-
-    impl Migrate for Vec<Permission> {
-        type Into = super::Permissions;
-        type Context = Empty;
-
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            Some(if self.contains(&Permission::Full) {
-                super::Permissions::default()
-            } else {
-                super::Permissions::empty()
-            })
-        }
-    }
-}
-
-/// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
+/// Hacks to workaround substrate and Polkadot.js restrictions/bugs.
 pub mod api {
-    use crate::{
-        DispatchableName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker,
+    use super::{
+        AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions,
+        PortfolioPermissions,
     };
+    use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
     use sp_std::vec::Vec;
 
-    /// Asset permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct AssetPermissions(pub Option<Vec<Ticker>>);
-
     /// A permission to call functions within a given pallet.
     #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PalletPermissions {
+    pub struct LegacyPalletPermissions {
         /// The name of a pallet.
         pub pallet_name: PalletName,
         /// A workaround for https://github.com/polkadot-js/apps/issues/3632.
@@ -392,37 +352,34 @@ pub mod api {
     /// Extrinsic permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct ExtrinsicPermissions(pub Option<Vec<PalletPermissions>>);
-
-    /// Portfolio permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct PortfolioPermissions(pub Option<Vec<PortfolioNumber>>);
+    pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
 
     /// Signing key permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct Permissions {
+    pub struct LegacyPermissions {
         /// The subset of assets under management.
         pub asset: AssetPermissions,
         /// The subset of callable extrinsics.
-        pub extrinsic: ExtrinsicPermissions,
+        pub extrinsic: LegacyExtrinsicPermissions,
         /// The subset of portfolios management.
         pub portfolio: PortfolioPermissions,
     }
 
-    impl Permissions {
+    impl LegacyPermissions {
         /// The empty permissions.
         pub fn empty() -> Self {
             Self {
-                asset: AssetPermissions(Some(Vec::new())),
-                extrinsic: ExtrinsicPermissions(Some(Vec::new())),
-                portfolio: PortfolioPermissions(Some(Vec::new())),
+                asset: SubsetRestriction::empty(),
+                extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
+                portfolio: SubsetRestriction::empty(),
             }
         }
     }
 
-    /// A secondary key is a signatory with defined permissions.
+    /// The same secondary key object without the extra trait constraints.
+    /// It is needed because it's not possible to define `decl_event!`
+    /// with the required restrictions on `AccountId`
     #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct SecondaryKey<AccountId> {
@@ -432,15 +389,9 @@ pub mod api {
         pub permissions: Permissions,
     }
 
-    impl From<super::AssetPermissions> for AssetPermissions {
-        fn from(p: super::AssetPermissions) -> AssetPermissions {
-            AssetPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::PalletPermissions> for PalletPermissions {
-        fn from(p: super::PalletPermissions) -> PalletPermissions {
-            PalletPermissions {
+    impl From<PalletPermissions> for LegacyPalletPermissions {
+        fn from(p: PalletPermissions) -> LegacyPalletPermissions {
+            LegacyPalletPermissions {
                 pallet_name: p.pallet_name,
                 total: p.dispatchable_names.0.is_none(),
                 dispatchable_names: if let Some(elems) = p.dispatchable_names.0 {
@@ -452,24 +403,20 @@ pub mod api {
         }
     }
 
-    impl From<super::ExtrinsicPermissions> for ExtrinsicPermissions {
-        fn from(p: super::ExtrinsicPermissions) -> ExtrinsicPermissions {
-            ExtrinsicPermissions(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
+    impl From<ExtrinsicPermissions> for LegacyExtrinsicPermissions {
+        fn from(p: ExtrinsicPermissions) -> LegacyExtrinsicPermissions {
+            LegacyExtrinsicPermissions(
+                p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()),
+            )
         }
     }
 
-    impl From<super::PortfolioPermissions> for PortfolioPermissions {
-        fn from(p: super::PortfolioPermissions) -> PortfolioPermissions {
-            PortfolioPermissions(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<super::Permissions> for Permissions {
-        fn from(p: super::Permissions) -> Permissions {
-            Permissions {
-                asset: p.asset.into(),
+    impl From<Permissions> for LegacyPermissions {
+        fn from(p: Permissions) -> LegacyPermissions {
+            LegacyPermissions {
+                asset: p.asset,
                 extrinsic: p.extrinsic.into(),
-                portfolio: p.portfolio.into(),
+                portfolio: p.portfolio,
             }
         }
     }
@@ -481,20 +428,14 @@ pub mod api {
         fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
             SecondaryKey {
                 signer: k.signer,
-                permissions: k.permissions.into(),
+                permissions: k.permissions,
             }
         }
     }
 
-    impl From<AssetPermissions> for super::AssetPermissions {
-        fn from(p: AssetPermissions) -> super::AssetPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<PalletPermissions> for super::PalletPermissions {
-        fn from(p: PalletPermissions) -> super::PalletPermissions {
-            super::PalletPermissions {
+    impl From<LegacyPalletPermissions> for PalletPermissions {
+        fn from(p: LegacyPalletPermissions) -> PalletPermissions {
+            PalletPermissions {
                 pallet_name: p.pallet_name,
                 dispatchable_names: SubsetRestriction(if !p.total {
                     Some(p.dispatchable_names.into_iter().collect())
@@ -505,21 +446,15 @@ pub mod api {
         }
     }
 
-    impl From<ExtrinsicPermissions> for super::ExtrinsicPermissions {
-        fn from(p: ExtrinsicPermissions) -> super::ExtrinsicPermissions {
+    impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
+        fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
             SubsetRestriction(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
         }
     }
 
-    impl From<PortfolioPermissions> for super::PortfolioPermissions {
-        fn from(p: PortfolioPermissions) -> super::PortfolioPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
-        }
-    }
-
-    impl From<Permissions> for super::Permissions {
-        fn from(p: Permissions) -> super::Permissions {
-            super::Permissions {
+    impl From<LegacyPermissions> for Permissions {
+        fn from(p: LegacyPermissions) -> Permissions {
+            Permissions {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
@@ -534,7 +469,7 @@ pub mod api {
         fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
             super::SecondaryKey {
                 signer: k.signer,
-                permissions: k.permissions.into(),
+                permissions: k.permissions,
             }
         }
     }
@@ -542,7 +477,7 @@ pub mod api {
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, SecondaryKey, Signatory, SubsetRestriction};
+    use super::{Permissions, PortfolioId, SecondaryKey, Signatory, SubsetRestriction};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -557,7 +492,9 @@ mod tests {
         let rk3_permissions = Permissions {
             asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1.into()),
+            portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
+                1u128,
+            ))),
         };
         let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -581,21 +518,25 @@ mod tests {
         let key = Public::from_raw([b'A'; 32]);
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
+        let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
+        let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),
             extrinsic: SubsetRestriction(None),
-            portfolio: SubsetRestriction::elem(1.into()),
+            portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(free_key.has_portfolio_permission(vec![2.into()]));
+        assert!(free_key.has_portfolio_permission(vec![portfolio1]));
+        assert!(restricted_key.has_asset_permission(ticker1));
         assert!(!restricted_key.has_asset_permission(ticker2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(!restricted_key.has_portfolio_permission(vec![2.into()]));
+        assert!(restricted_key.has_portfolio_permission(vec![portfolio1]));
+        assert!(!restricted_key.has_portfolio_permission(vec![portfolio2]));
     }
 
     #[test]

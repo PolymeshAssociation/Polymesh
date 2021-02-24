@@ -92,6 +92,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
 #![feature(crate_visibility_modifier)]
+#![feature(const_option)]
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 pub mod ballot;
 pub mod distribution;
@@ -102,12 +106,13 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
     weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_asset::{
     self as asset,
-    checkpoint::{self, ScheduleId},
+    checkpoint::{self, ScheduleId, SchedulePoints, ScheduleRefCount},
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -116,9 +121,10 @@ use polymesh_common_utilities::{
     with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, AuthorizationData, DocumentId, EventDid, IdentityId, Moment, Ticker,
+    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AuthorizationData,
+    DocumentId, EventDid, IdentityId, Moment, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -208,7 +214,7 @@ pub enum CAKind {
 
 impl CAKind {
     /// Is this some sort of benefit CA?
-    fn is_benefit(&self) -> bool {
+    pub fn is_benefit(&self) -> bool {
         matches!(self, Self::PredictableBenefit | Self::UnpredictableBenefit)
     }
 }
@@ -219,11 +225,15 @@ pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
     /// Checkpoint ID will be taken after the record date.
-    Scheduled(ScheduleId),
+    ///
+    /// Since a schedule can be recurring,
+    /// the `u64` stores the number of checkpoints before the CA was made.
+    /// This allows indexing into the list of CPs, getting exactly the right one.
+    Scheduled(ScheduleId, #[migrate_with(0)] u64),
     /// CA uses an existing checkpoint ID which was recorded in the past.
     Existing(CheckpointId),
 }
@@ -231,11 +241,12 @@ pub enum CACheckpoint {
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
     pub date: Moment,
     /// Info used to determine the `CheckpointId` once `date` has passed.
+    #[migrate]
     pub checkpoint: CACheckpoint,
 }
 
@@ -255,11 +266,14 @@ pub enum RecordDateSpec {
 /// Details of a generic CA.
 /// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
+    /// When the CA was declared off-chain.
+    pub decl_date: Moment,
     /// Date at which any impact, if any, should be calculated.
+    #[migrate(RecordDate)]
     pub record_date: Option<RecordDate>,
     /// Free-form text up to a limit.
     pub details: CADetails,
@@ -303,16 +317,17 @@ pub struct CAId {
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
     fn set_max_details_length() -> Weight;
-
     fn reset_caa() -> Weight;
-    fn set_default_targets(num_targets: u32) -> Weight;
+    fn set_default_targets(i: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
-    fn set_did_withholding_tax() -> Weight;
-
-    fn initiate_corporate_action() -> Weight;
-    fn link_ca_doc(num_docs: u32) -> Weight;
-    fn remove_ca() -> Weight;
-    fn change_record_date() -> Weight;
+    fn set_did_withholding_tax(existing_overrides: u32) -> Weight;
+    fn initiate_corporate_action_use_defaults(whts: u32, target_ids: u32) -> Weight;
+    fn initiate_corporate_action_provided(whts: u32, target_ids: u32) -> Weight;
+    fn link_ca_doc(docs: u32) -> Weight;
+    fn remove_ca_with_ballot() -> Weight;
+    fn remove_ca_with_dist() -> Weight;
+    fn change_record_date_with_ballot() -> Weight;
+    fn change_record_date_with_dist() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -323,8 +338,20 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
         + From<distribution::Event<Self>>
         + Into<<Self as frame_system::Trait>::Event>;
 
+    /// Max number of DID specified in `TargetIdentities`.
+    type MaxTargetIds: Get<u32>;
+
+    /// Max number of per-DID withholding tax overrides.
+    type MaxDidWhts: Get<u32>;
+
     /// Weight information for extrinsics in the corporate actions pallet.
     type WeightInfo: WeightInfo;
+
+    /// Weight information for extrinsics in the corporate ballot pallet.
+    type BallotWeightInfo: ballot::WeightInfo;
+
+    /// Weight information for extrinsics in the capital distribution pallet.
+    type DistWeightInfo: distribution::WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -386,7 +413,7 @@ decl_storage! {
         ///
         /// (ticker => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
         /// (CAId => [DocumentId])
@@ -394,8 +421,13 @@ decl_storage! {
         /// The `CorporateActions` map stores `Ticker => LocalId => The CA`,
         /// so we can infer `Ticker => CAId`. Therefore, we don't need a double map.
         pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
+
+storage_migration_ver!(1);
 
 // Public interface for this runtime module.
 decl_module! {
@@ -404,6 +436,15 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                use polymesh_primitives::migrate::{Empty, migrate_map};
+                migrate_map::<CorporateActionOld, _>(b"CorporateActions", b"CorporateActions", |_| Empty);
+            });
+
+            0
+        }
 
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.
@@ -422,9 +463,12 @@ decl_module! {
         ///
         /// ## Errors
         /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
             Self::change_ca_agent(did, ticker, None);
         }
 
@@ -437,11 +481,17 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
 
-            // Dedup any DIDs in `targets` to optimize iteration later.
+            Self::ensure_target_ids_limited(&targets)?;
+
+            // Dedup + sort any DIDs in `targets` for `O(log n)` containment check later.
             let new = targets.dedup();
 
             // Commit + emit event.
@@ -458,6 +508,9 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -477,19 +530,27 @@ decl_module! {
         ///
         /// ## Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
-        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
+        /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            DidWithholdingTax::mutate(ticker, |whts| {
+            DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
                 match (tax, whts.binary_search_by_key(&taxed_did, |(did, _)| *did)) {
                     (Some(tax), Ok(idx)) => whts[idx] = (taxed_did, tax),
-                    (Some(tax), Err(idx)) => whts.insert(idx, (taxed_did, tax)),
+                    (Some(tax), Err(idx)) => {
+                        Self::ensure_did_whts_limited(whts.len() + 1)?;
+                        whts.insert(idx, (taxed_did, tax))
+                    }
                     (None, Ok(idx)) => drop(whts.remove(idx)),
                     (None, Err(_)) => {}
                 }
-            });
+                Ok(())
+            })?;
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
         }
 
@@ -499,6 +560,7 @@ decl_module! {
         /// - `origin` which must be a signer for the CAA of `ca_id`.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
+        /// - `decl_date` of CA bring initialized.
         /// - `record_date`, if any, to calculate the impact of this CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
         /// - `details` of the CA in free-text form, up to a certain number of bytes in length.
@@ -514,13 +576,28 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
+        /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
+        /// - `TooManyTargetIds` if `targets.unwrap().identities.len() > T::MaxTargetIds::get()`.
+        /// - `DeclDateInFuture` if the declaration date is not in the past.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(
+                T::MaxDidWhts::get(),
+                T::MaxTargetIds::get(),
+            )
+            .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+            ))
+        ]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
             kind: CAKind,
+            decl_date: Moment,
             record_date: Option<RecordDateSpec>,
             details: CADetails,
             targets: Option<TargetIdentities>,
@@ -543,18 +620,32 @@ decl_module! {
             let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
             let id = CAId { ticker, local_id };
 
-            // Ensure there are no duplicates in withholding tax overrides.
+            // Ensure there are no duplicates in withholding tax overrides
+            // and that we're within the limit.
             let mut withholding_tax = withholding_tax;
             if let Some(wt) = &mut withholding_tax {
                 let before = wt.len();
+                Self::ensure_did_whts_limited(before)?;
                 wt.sort_unstable_by_key(|&(did, _)| did);
                 wt.dedup_by_key(|&mut (did, _)| did);
                 ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
             }
 
+            // Ensure target ids are limited in number if provided.
+            if let Some(ref targets) = targets {
+                Self::ensure_target_ids_limited(targets)?;
+            }
+
+            // Declaration date must be <= now.
+            ensure!(decl_date <= <Checkpoint<T>>::now_unix(), Error::<T>::DeclDateInFuture);
+
             // If provided, either use the existing CP ID or schedule one to be made.
             let record_date = record_date
-                .map(|date| Self::handle_record_date(caa, ticker, date))
+                .map(|date| with_transaction(|| -> Result<_, DispatchError> {
+                    let rd = Self::handle_record_date(caa, ticker, date)?;
+                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
+                    Ok(rd)
+                }))
                 .transpose()?;
 
             // Commit the next local CA ID.
@@ -572,6 +663,7 @@ decl_module! {
             // Commit CA to storage.
             let ca = CorporateAction {
                 kind,
+                decl_date,
                 record_date,
                 details,
                 targets,
@@ -599,6 +691,9 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
@@ -614,8 +709,12 @@ decl_module! {
         }
 
         /// Removes the CA identified by `ca_id`.
+        ///
         /// Associated data, such as document links, ballots,
         /// and capital distributions are also removed.
+        ///
+        /// Any schedule associated with the record date will see
+        /// `strong_ref_count(schedule_id)` decremented.
         ///
         /// ## Arguments
         /// - `origin` which must be a signer for the CAA of `ca_id`.
@@ -624,7 +723,11 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
-        #[weight = <T as Trait>::WeightInfo::remove_ca()]
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
+            .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -645,7 +748,8 @@ decl_module! {
                 }
             }
 
-            // Remove + emit event.
+            // Decrement, Remove, and Emit event.
+            Self::dec_strong_ref_count(ca_id, ca.record_date);
             CorporateActions::remove(ca_id.ticker, ca_id.local_id);
             CADocLink::remove(ca_id);
             Self::deposit_event(Event::CARemoved(caa, ca_id));
@@ -663,7 +767,11 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
-        #[weight = <T as Trait>::WeightInfo::change_record_date()]
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
+            .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
             let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -671,6 +779,7 @@ decl_module! {
 
             with_transaction(|| -> DispatchResult {
                 // If provided, either use the existing CP ID or schedule one to be made.
+                Self::dec_strong_ref_count(ca_id, ca.record_date);
                 ca.record_date = record_date
                     .map(|date| Self::handle_record_date(caa, ca_id.ticker, date))
                     .transpose()?;
@@ -746,6 +855,10 @@ decl_error! {
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,
+        /// Too many withholding tax overrides were specified.
+        TooManyDidTaxes,
+        /// Too many identities in `TargetIdentities` were specified.
+        TooManyTargetIds,
         /// On CA creation, a checkpoint ID was provided which doesn't exist.
         NoSuchCheckpointId,
         /// A CA with the given `CAId` did not exist.
@@ -756,12 +869,12 @@ decl_error! {
         /// where "start" is context dependent.
         /// For example, it could be the start of a ballot, or the start-of-payment in capital distribution.
         RecordDateAfterStart,
+        /// A CA's declaration date was strictly after its record date.
+        DeclDateAfterRecordDate,
+        /// A CA's declaration date occurs in the future.
+        DeclDateInFuture,
         /// CA does not target the DID.
         NotTargetedByCA,
-        /// CA cannot be removed.
-        CannotRemoveCA,
-        /// An existing schedule was used for a new CA that was removable, and that is not allowed.
-        ExistingScheduleRemovable,
     }
 }
 
@@ -781,6 +894,24 @@ impl<T: Trait> IdentityToCorporateAction for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure number of identities in `TargetIdentities` are limited.
+    fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
+        ensure!(
+            targets.identities.len() <= T::MaxTargetIds::get() as usize,
+            Error::<T>::TooManyTargetIds
+        );
+        Ok(())
+    }
+
+    /// Ensure number of per-DID withholding tax overrides are limited.
+    fn ensure_did_whts_limited(len: usize) -> DispatchResult {
+        ensure!(
+            len <= T::MaxDidWhts::get() as usize,
+            Error::<T>::TooManyDidTaxes
+        );
+        Ok(())
+    }
+
     // Ensure that `record_date <= start`.
     crate fn ensure_record_date_before_start(
         ca: &CorporateAction,
@@ -798,7 +929,7 @@ impl<T: Trait> Module<T> {
         let ticker = ca_id.ticker;
         match cp {
             // CP exists, use it.
-            Some(cp_id) => <Checkpoint<T>>::total_supply_at((ticker, cp_id)),
+            Some(cp_id) => <Checkpoint<T>>::total_supply_at(ticker, cp_id),
             // Although record date has passed, no transfers have happened yet for `ticker`.
             // Thus, there is no checkpoint ID, and we must use current supply instead.
             None => <Asset<T>>::token_details(ticker).total_supply,
@@ -824,9 +955,13 @@ impl<T: Trait> Module<T> {
         let ticker = ca_id.ticker;
         match ca.record_date.unwrap().checkpoint {
             CACheckpoint::Existing(id) => Some(id),
-            // For CAs, there will ever be at most one CP.
-            // And assuming transfers have happened since the record date, there's exactly one CP.
-            CACheckpoint::Scheduled(id) => <Checkpoint<T>>::schedule_points((ticker, id)).pop(),
+            // For CAs, there can be more than one CP,
+            // since you may attach a pre-existing and recurring schedule to it.
+            // However, the record date stores the index for the CP,
+            // assuming a transfer has happened since the record date.
+            CACheckpoint::Scheduled(id, idx) => <Checkpoint<T>>::schedule_points(ticker, id)
+                .get(idx as usize)
+                .copied(),
         }
     }
 
@@ -834,6 +969,18 @@ impl<T: Trait> Module<T> {
     crate fn ensure_ca_targets(ca: &CorporateAction, did: &IdentityId) -> DispatchResult {
         ensure!(ca.targets.targets(did), Error::<T>::NotTargetedByCA);
         Ok(())
+    }
+
+    /// Decrement the strong reference count of any schedule used in the `record_date` of `ca_id`.
+    fn dec_strong_ref_count(ca_id: CAId, record_date: Option<RecordDate>) {
+        if let Some(RecordDate {
+            checkpoint: CACheckpoint::Scheduled(sh_id, _),
+            ..
+        }) = record_date
+        {
+            // We've proven by getting here that `c > 0`, so `c - 1` cannot underflow.
+            ScheduleRefCount::mutate(ca_id.ticker, sh_id, |c| *c -= 1);
+        }
     }
 
     /// Translate record date to a format we can store.
@@ -846,21 +993,22 @@ impl<T: Trait> Module<T> {
         let (date, checkpoint) = match date {
             RecordDateSpec::Scheduled(date) => {
                 // Create the schedule and extract the date + id.
+                // We set initial `strong_ref_count(id) <- 1`.
                 let date = date.into();
-                let schedule = <Checkpoint<T>>::create_schedule_base(caa, ticker, date, false)?;
-                (schedule.at, CACheckpoint::Scheduled(schedule.id))
+                let schedule = <Checkpoint<T>>::create_schedule_base(caa, ticker, date, 1)?;
+                // It might be the case that the CP was instantly created ^--.
+                // Or it might not have. In either case, it will end up at index 0.
+                (schedule.at, CACheckpoint::Scheduled(schedule.id, 0))
             }
             RecordDateSpec::ExistingSchedule(id) => {
-                // Schedule cannot be removable, otherwise the CP module may remove it,
-                // resulting a "dangling reference", figuratively speaking.
-                ensure!(
-                    !<Checkpoint<T>>::schedule_removable((ticker, id)),
-                    Error::<T>::ExistingScheduleRemovable,
-                );
                 // Ensure the schedule exists and extract the record date.
                 let schedules = <Checkpoint<T>>::schedules(ticker);
                 let schedule = schedules[<Checkpoint<T>>::ensure_schedule_exists(&schedules, id)?];
-                (schedule.at, CACheckpoint::Scheduled(schedule.id))
+                // Schedule cannot be removable, otherwise the CP module may remove it,
+                // so we increment the strong reference count of `id`.
+                ScheduleRefCount::mutate(ticker, id, |c| *c += 1);
+                let cp_at_idx = SchedulePoints::decode_len(ticker, id).unwrap_or(0) as u64;
+                (schedule.at, CACheckpoint::Scheduled(schedule.id, cp_at_idx))
             }
             RecordDateSpec::Existing(id) => {
                 // Ensure the CP exists.
@@ -868,7 +1016,10 @@ impl<T: Trait> Module<T> {
                     <Checkpoint<T>>::checkpoint_exists(&ticker, id),
                     Error::<T>::NoSuchCheckpointId
                 );
-                (<Checkpoint<T>>::timestamps(id), CACheckpoint::Existing(id))
+                (
+                    <Checkpoint<T>>::timestamps(ticker, id),
+                    CACheckpoint::Existing(id),
+                )
             }
         };
         Ok(RecordDate { date, checkpoint })
@@ -892,6 +1043,7 @@ impl<T: Trait> Module<T> {
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
+    /// If the caller is a secondary key, it should have the relevant asset permission.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
         Self::ensure_ca_agent_with_perms(origin, ticker).map(|x| x.primary_did)
     }
@@ -910,6 +1062,7 @@ impl<T: Trait> Module<T> {
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
             Error::<T>::UnauthorizedAsAgent
         );
+        <Asset<T>>::ensure_asset_perms(data.secondary_key.as_ref(), &ticker)?;
         Ok(data)
     }
 }

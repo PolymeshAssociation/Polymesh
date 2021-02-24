@@ -7,8 +7,8 @@ use futures::stream::StreamExt;
 use grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
-    rng, AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
-    SecondaryKey, Signatory, Ticker,
+    crypto::native_schnorrkel, rng::native_rng, AccountId, Balance, Block, BlockNumber, Hash,
+    IdentityId, Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet;
@@ -49,7 +49,7 @@ native_executor_instance!(
     pub AlcyoneExecutor,
     polymesh_runtime_testnet::api::dispatch,
     polymesh_runtime_testnet::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, rng::native_rng::HostFunctions)
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 // Our native executor instance.
@@ -57,7 +57,7 @@ native_executor_instance!(
     pub GeneralExecutor,
     polymesh_runtime_develop::api::dispatch,
     polymesh_runtime_develop::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, rng::native_rng::HostFunctions)
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions, native_schnorrkel::HostFunctions)
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
@@ -196,6 +196,7 @@ where
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
+        config.role.is_authority().into(),
         config.prometheus_registry(),
         task_manager.spawn_handle(),
         client.clone(),
@@ -411,7 +412,7 @@ where
     }
 
     // Spawn authority discovery module.
-    if matches!(role, Role::Authority{..} | Role::Sentry {..}) {
+    if matches!(role, Role::Authority { .. } | Role::Sentry { .. }) {
         let (sentries, authority_discovery_role) = match role {
             sc_service::config::Role::Authority { ref sentry_nodes } => (
                 sentry_nodes.clone(),
@@ -556,7 +557,7 @@ pub fn general_chain_ops(
 }
 
 type LightStorage = sc_client_db::light::LightStorage<Block>;
-type LightBackend = sc_light::backend::Backend<LightStorage, polymesh_primitives::BlakeTwo256>;
+type LightBackend = sc_light::backend::Backend<LightStorage, BlakeTwo256>;
 type LightClient<R, E> = sc_service::TLightClient<Block, R, E>;
 type LightStateBackend = sc_client_api::StateBackendFor<LightBackend, Block>;
 type LightPool<R, E> =

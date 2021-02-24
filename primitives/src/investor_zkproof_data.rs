@@ -1,11 +1,9 @@
 use crate::{IdentityId, InvestorUid, Ticker};
+use blake2::{Blake2s, Digest};
+use codec::{Decode, Encode, Error as CodecError, Input, Output};
 use confidential_identity::{
     build_scope_claim_proof_data, schnorrkel::Signature, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
-
-use blake2::{Blake2s, Digest};
-
-use codec::{Decode, Encode, Error as CodecError, Input, Output};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 

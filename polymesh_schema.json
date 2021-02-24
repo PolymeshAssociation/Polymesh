@@ -1,5 +1,11 @@
 {
     "types": {
+        "AccountInfo": "AccountInfoWithRefCount",
+        "Address": "IndicesLookupSource",
+        "LookupSource": "IndicesLookupSource",
+        "ValidatorPrefsWithBlocked": {
+            "commission": "Compact<Perbill>"
+        },
         "IdentityId": "[u8; 32]",
         "EventDid": "IdentityId",
         "InvestorUid": "[u8; 16]",
@@ -10,10 +16,26 @@
         "DocumentId": "u32",
         "DocumentName": "Text",
         "DocumentUri": "Text",
-        "DocumentHash": "Text",
+        "DocumentHash": {
+            "_enum": {
+                "None": "",
+                "H512": "[u8; 64]",
+                "H384": "[u8; 48]",
+                "H320": "[u8; 40]",
+                "H256": "[u8; 32]",
+                "H224": "[u8; 28]",
+                "H192": "[u8; 24]",
+                "H160": "[u8; 20]",
+                "H128": "[u8; 16]"
+            }
+        },
+        "DocumentType": "Text",
         "Document": {
             "uri": "DocumentUri",
-            "content_hash": "DocumentHash"
+            "content_hash": "DocumentHash",
+            "name": "DocumentName",
+            "doc_type": "Option<DocumentType>",
+            "filing_date": "Option<Moment>"
         },
         "EncryptedAssetIdWrapper": "Text",
         "EncryptedBalanceWrapper": "Text",
@@ -25,6 +47,7 @@
         },
         "InitializedAssetTxWrapper": "Text",
         "PubAccountTxWrapper": "Text",
+        "Version": "u8",
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -69,13 +92,22 @@
         "DispatchableName": "Text",
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "total": "bool",
-            "dispatchable_names": "Vec<DispatchableName>"
+            "dispatchable_names": "Option<Vec<DispatchableName>>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
             "extrinsic": "Option<Vec<PalletPermissions>>",
-            "portfolio": "Option<Vec<PortfolioNumber>>"
+            "portfolio": "Option<Vec<PortfolioId>>"
+        },
+        "LegacyPalletPermissions": {
+            "pallet_name": "PalletName",
+            "total": "bool",
+            "dispatchable_names": "Vec<DispatchableName>"
+        },
+        "LegacyPermissions": {
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<LegacyPalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioId>>"
         },
         "Signatory": {
             "_enum": {
@@ -365,7 +397,10 @@
                 "EH",
                 "YE",
                 "ZM",
-                "ZW"
+                "ZW",
+                "BQ",
+                "CW",
+                "SX"
             ]
         },
         "Scope": {
@@ -375,7 +410,7 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "InvestorZKProofData": "[u8;64]",
+        "InvestorZKProofData": "Signature",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -455,35 +490,12 @@
             "condition": "Condition",
             "result": "bool"
         },
-        "STO": {
-            "beneficiary_did": "IdentityId",
-            "cap": "Balance",
-            "sold": "Balance",
-            "rate": "u64",
-            "start_date": "Moment",
-            "end_date": "Moment",
-            "active": "bool"
-        },
-        "Investment": {
-            "investor_did": "IdentityId",
-            "amount_paid": "Balance",
-            "assets_purchased": "Balance",
-            "last_purchase_date": "Moment"
-        },
         "SimpleTokenRecord": {
             "ticker": "Ticker",
             "total_supply": "Balance",
             "owner_did": "IdentityId"
         },
         "FeeOf": "Balance",
-        "Dividend": {
-            "amount": "Balance",
-            "active": "bool",
-            "matures_at": "Option<Moment>",
-            "expires_at": "Option<Moment>",
-            "payout_currency": "Option<Ticker>",
-            "checkpoint_id": "u64"
-        },
         "TargetIdAuthorization": {
             "target_id": "IdentityId",
             "nonce": "u64",
@@ -501,6 +513,12 @@
             "eth_owner": "EthereumAddress",
             "is_created": "bool"
         },
+        "ClassicTickerImport": {
+            "eth_owner": "EthereumAddress",
+            "ticker": "Ticker",
+            "is_contract": "bool",
+            "is_created": "bool"
+        },
         "EthereumAddress": "[u8; 20]",
         "EcdsaSignature": "[u8; 65]",
         "MotionTitle": "Text",
@@ -510,12 +528,6 @@
             "title": "MotionTitle",
             "info_link": "MotionInfoLink",
             "choices": "Vec<ChoiceTitle>"
-        },
-        "Ballot": {
-            "checkpoint_id": "u64",
-            "voting_start": "Moment",
-            "voting_end": "Moment",
-            "motions": "Vec<Motion>"
         },
         "BallotTitle": "Text",
         "BallotMeta": {
@@ -595,7 +607,6 @@
         "ProposalState": {
             "_enum": [
                 "Pending",
-                "Cancelled",
                 "Rejected",
                 "Scheduled",
                 "Failed",
@@ -603,40 +614,17 @@
                 "Expired"
             ]
         },
-        "ReferendumState": {
-            "_enum": [
-                "Pending",
-                "Scheduled",
-                "Rejected",
-                "Failed",
-                "Executed"
-            ]
-        },
-        "ReferendumType": {
-            "_enum": [
-                "FastTracked",
-                "Emergency",
-                "Community"
-            ]
-        },
         "Pip": {
             "id": "PipId",
             "proposal": "Call",
             "state": "ProposalState",
-            "proposer": "Proposer",
-            "cool_off_until": "u32"
+            "proposer": "Proposer"
         },
         "ProposalData": {
             "_enum": {
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
             }
-        },
-        "Referendum": {
-            "id": "PipId",
-            "state": "ReferendumState",
-            "referendum_type": "ReferendumType",
-            "enactment_period": "u32"
         },
         "TickerTransferApproval": {
             "authorized_by": "IdentityId",
@@ -714,10 +702,11 @@
         },
         "AuthorizationNonce": "u64",
         "Counter": "u64",
-        "Commission": {
+        "Percentage": "Permill",
+        "TransferManager": {
             "_enum": {
-                "Individual": "",
-                "Global": "u32"
+                "CountTransferManager": "Counter",
+                "PercentageTransferManager": "Percentage"
             }
         },
         "RestrictionResult": {
@@ -791,8 +780,8 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCheckpoint",
                 "AssetCreateAsset",
+                "AssetCreateCheckpointSchedule",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
@@ -801,7 +790,10 @@
                 "IdentitySetPrimaryKey",
                 "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
-                "VotingAddBallot"
+                "VotingAddBallot",
+                "ContractsPutCode",
+                "BallotAttachBallot",
+                "DistributionDistribute"
             ]
         },
         "CddStatus": {
@@ -909,10 +901,6 @@
                 "CddVerified": ""
             }
         },
-        "IssueAssetItem": {
-            "identity_did": "IdentityId",
-            "value": "Balance"
-        },
         "PortfolioName": "Text",
         "PortfolioNumber": "u64",
         "PortfolioKind": {
@@ -948,7 +936,7 @@
         },
         "CalendarPeriod": {
             "unit": "CalendarUnit",
-            "amount": "Option<NonZeroU64>"
+            "amount": "u64"
         },
         "CheckpointSchedule": {
             "start": "Moment",
@@ -959,11 +947,13 @@
         "StoredSchedule": {
             "schedule": "CheckpointSchedule",
             "id": "ScheduleId",
-            "at": "Moment"
+            "at": "Moment",
+            "remaining": "u32"
         },
         "ScheduleSpec": {
             "start": "Option<Moment>",
-            "period": "CalendarPeriod"
+            "period": "CalendarPeriod",
+            "remaining": "u32"
         },
         "InstructionStatus": {
             "_enum": {
@@ -998,7 +988,8 @@
             "status": "InstructionStatus",
             "settlement_type": "SettlementType",
             "created_at": "Option<Moment>",
-            "valid_from": "Option<Moment>"
+            "trade_date": "Option<Moment>",
+            "value_date": "Option<Moment>"
         },
         "MercatTxData": {
             "_enum": {
@@ -1008,22 +999,23 @@
             }
         },
         "NonConfidentialLeg": {
-            "from": "PortfolioId",
-            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
         "ConfidentialLeg": {
-            "from": "PortfolioId",
-            "to": "PortfolioId",
             "mediator": "PortfolioId",
             "from_account_id": "MercatAccountId",
             "to_account_id": "MercatAccountId"
         },
         "Leg": {
+            "from": "PortfolioId",
+            "to": "PortfolioId",
+            "kind": "LegKind"
+        },
+        "LegKind": {
             "_enum": {
-                "NonConfidentialLeg": "NonConfidentialLeg",
-                "ConfidentialLeg": "ConfidentialLeg",
+                "NonConfidential": "NonConfidentialLeg",
+                "Confidential": "ConfidentialLeg",
                 "Undefined": ""
             }
         },
@@ -1037,14 +1029,15 @@
             "receipt_uid": "u64",
             "from": "PortfolioId",
             "to": "PortfolioId",
-            "asset": "Ticker",
-            "amount": "Balance"
+            "kind": "LegKind"
         },
+        "ReceiptMetadata": "Text",
         "ReceiptDetails": {
             "receipt_uid": "u64",
             "leg_id": "u64",
             "signer": "AccountId",
-            "signature": "OffChainSignature"
+            "signature": "OffChainSignature",
+            "metadata": "ReceiptMetadata"
         },
         "UniqueCall": {
             "nonce": "u64",
@@ -1066,11 +1059,32 @@
                 "Specific": "IdentityId"
             }
         },
+        "FundraiserName": "Text",
+        "FundraiserStatus": {
+            "_enum": [
+                "Live",
+                "Frozen",
+                "Closed",
+                "ClosedEarly"
+            ]
+        },
+        "FundraiserTier": {
+            "total": "Balance",
+            "price": "Balance",
+            "remaining": "Balance"
+        },
         "Fundraiser": {
-            "raise_token": "Ticker",
-            "remaining_amount": "Balance",
-            "price_per_token": "Balance",
-            "venue_id": "u64"
+            "creator": "IdentityId",
+            "offering_portfolio": "PortfolioId",
+            "offering_asset": "Ticker",
+            "raising_portfolio": "PortfolioId",
+            "raising_asset": "Ticker",
+            "tiers": "Vec<FundraiserTier>",
+            "venue_id": "u64",
+            "start": "Moment",
+            "end": "Option<Moment>",
+            "status": "FundraiserStatus",
+            "minimum_investment": "Balance"
         },
         "VenueType": {
             "_enum": [
@@ -1091,7 +1105,7 @@
         },
         "Tax": "Permill",
         "TargetIdentities": {
-            "identities": "Vec<IdentitityId>",
+            "identities": "Vec<IdentityId>",
             "treatment": "TargetTreatment"
         },
         "TargetTreatment": {
@@ -1103,7 +1117,7 @@
         "CAKind": {
             "_enum": [
                 "PredictableBenefit",
-                "UnpredictableBenfit",
+                "UnpredictableBenefit",
                 "IssuerNotice",
                 "Reorganization",
                 "Other"
@@ -1112,7 +1126,7 @@
         "CADetails": "Text",
         "CACheckpoint": {
             "_enum": {
-                "Scheduled": "ScheduleId",
+                "Scheduled": "(ScheduleId, u64)",
                 "Existing": "CheckpointId"
             }
         },
@@ -1123,13 +1137,15 @@
         "RecordDateSpec": {
             "_enum": {
                 "Scheduled": "Moment",
+                "ExistingSchedule": "ScheduleId",
                 "Existing": "CheckpointId"
             }
         },
         "CorporateAction": {
             "kind": "CAKind",
+            "decl_date": "Moment",
             "record_date": "Option<RecordDate>",
-            "details": "String",
+            "details": "Text",
             "targets": "TargetIdentities",
             "default_withholding_tax": "Tax",
             "withholding_tax": "Vec<(IdentityId, Tax)>"
@@ -1158,6 +1174,21 @@
         "PriceTier": {
             "total": "Balance",
             "price": "Balance"
+        },
+        "AssetMigrationError": {
+            "_enum": {
+                "AssetDocumentFail": "(Ticker, DocumentId)"
+            }
+        },
+        "MigrationError": {
+            "_enum": {
+                "DecodeKey": "Vec<u8>",
+                "Map": "AssetMigrationError"
+            }
+        },
+        "PermissionedIdentityPrefs": {
+            "intended_count": "u32",
+            "running_count": "u32"
         }
     },
     "rpc": {
@@ -1365,7 +1396,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVoting"
+                "type": "HistoricalVotingByAddress"
             },
             "votingHistoryById": {
                 "description": "Retrieve historical voting of `id` identity",
@@ -1381,7 +1412,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "HistoricalVotingByAddress"
+                "type": "HistoricalVotingById"
             }
         },
         "protocolFee": {
@@ -1461,30 +1492,6 @@
                     }
                 ],
                 "type": "CanTransferResult"
-            }
-        },
-        "portfolio": {
-            "getPortfolios": {
-                "description": "Gets all user-defined portfolio names of an identity",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfoliosResult"
-            },
-            "getPortfolioAssets": {
-                "description": "Gets the balances of all assets in a given portfolio",
-                "params": [
-                    {
-                        "name": "portfolio_id",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    }
-                ],
-                "type": "GetPortfolioAssetsResult"
             }
         }
     }

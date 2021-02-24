@@ -76,7 +76,7 @@
 //!     NB - The steps 4-7 must be performed sequentially by each party since they all need information
 //!          from the chain that is only available after the previous party authorizes the
 //!          instruction.
-//!     
+//!
 //!
 //! ### Goals
 //!
@@ -122,11 +122,12 @@ use mercat::{
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, constants::currency::ONE_UNIT, identity::Trait as IdentityTrait,
-    CommonTrait, Context,
+    asset::AssetFnTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{
-    rng, AssetIdentifier, AssetName, AssetType, Base64Vec, FundingRoundName, IdentityId, Ticker,
+    asset::{AssetName, AssetType, Base64Vec, FundingRoundName},
+    rng, AssetIdentifier, IdentityId, Ticker,
 };
 use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
@@ -135,9 +136,15 @@ use sp_std::{
 };
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + statistics::Trait {
+    /// Pallet's events.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
+    /// Non-confidential asset methods.
+    type NonConfidentialAsset: AssetFnTrait<
+        Self::Balance,
+        <Self as frame_system::Trait>::AccountId,
+        <Self as frame_system::Trait>::Origin,
+    >;
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
@@ -319,7 +326,7 @@ decl_storage! {
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         /// Initialize the default event for this module
         fn deposit_event() = default;
 
@@ -412,10 +419,16 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let primary_owner = ensure_signed(origin)?;
-            let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
-
-            T::NonConfidentialAsset::base_create_asset(primary_owner_did, name, ticker, Zero::zero(), divisible, asset_type.clone(), identifiers, funding_round, true)?;
+            let primary_owner_did = T::NonConfidentialAsset::base_create_asset(
+                origin,
+                name,
+                ticker,
+                Zero::zero(),
+                divisible,
+                asset_type.clone(),
+                identifiers,
+                funding_round
+            )?.did;
 
             // Append the ticker to the list of confidential tickers.
             <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
@@ -491,7 +504,7 @@ decl_module! {
             if !T::NonConfidentialAsset::is_divisible(ticker) {
                 ensure!(
                     // Non-divisible asset amounts must maintain a 6 decimal places of precision.
-                    total_supply % ONE_UNIT.into() == 0.into(),
+                    total_supply % ONE_UNIT.into() == 0u32.into(),
                     Error::<T>::InvalidTotalSupply
                 );
             }

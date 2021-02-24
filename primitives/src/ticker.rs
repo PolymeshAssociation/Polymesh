@@ -20,7 +20,8 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
 
 use sp_std::convert::TryFrom;
 
-const TICKER_LEN: usize = 12;
+/// Ticker length.
+pub const TICKER_LEN: usize = 12;
 
 /// Ticker symbol.
 ///
@@ -37,6 +38,12 @@ pub struct Ticker([u8; TICKER_LEN]);
 impl Default for Ticker {
     fn default() -> Self {
         Ticker([0u8; TICKER_LEN])
+    }
+}
+
+impl AsRef<[u8]> for Ticker {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }
 
@@ -103,6 +110,18 @@ impl Ticker {
     #[inline]
     pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
         self.0.iter()
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Ticker {
+    /// Create ticker by repeating `b` for `TICKER_LEN`
+    pub const fn repeating(b: u8) -> Ticker {
+        // TODO: replace with u8::to_ascii_uppercase when it's const
+        const fn to_ascii_uppercase(b: u8) -> u8 {
+            b & !((b.is_ascii_lowercase() as u8) << 5)
+        }
+        Self([to_ascii_uppercase(b); TICKER_LEN])
     }
 }
 

@@ -1,23 +1,26 @@
 use super::{
+    assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
-    storage::{register_keyring_account_with_balance, Call, EventTest, TestStorage},
+    storage::{
+        add_secondary_key, register_keyring_account_with_balance, Call, EventTest, Identity,
+        Origin, Portfolio, System, TestStorage, User, Utility,
+    },
     ExtBuilder,
 };
-use pallet_balances::{self as balances, Call as BalancesCall};
-use pallet_utility::{self as utility, Event};
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
-use pallet_utility::UniqueCall;
+use frame_system::EventRecord;
+use pallet_balances::Call as BalancesCall;
+use pallet_portfolio::Call as PortfolioCall;
+use pallet_utility::{self as utility, Event, UniqueCall};
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_primitives::{
+    PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory, SubsetRestriction,
+};
 use sp_core::sr25519::{Public, Signature};
 use test_client::AccountKeyring;
 
-type Balances = balances::Module<TestStorage>;
-type Utility = utility::Module<TestStorage>;
 type Error = utility::Error<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
-type System = frame_system::Module<TestStorage>;
 
 fn transfer(to: Public, amount: u128) -> Call {
     Call::Balances(BalancesCall::transfer(to, amount))
@@ -227,4 +230,92 @@ fn _relay_unhappy_cases() {
         ),
         Error::InvalidNonce
     );
+}
+
+#[test]
+fn batch_secondary_with_permissions_works() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(batch_secondary_with_permissions);
+}
+
+fn batch_secondary_with_permissions() {
+    System::set_block_number(1);
+    let alice = User::new(AccountKeyring::Alice).balance(1_000);
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_origin = Origin::signed(bob_key);
+    let bob_signer = Signatory::Account(bob_key);
+    let check_name = |name| {
+        assert_eq!(Portfolio::portfolios(&alice.did, &PortfolioNumber(1)), name);
+    };
+
+    // Add Bob.
+    add_secondary_key(alice.did, bob_signer);
+    let low_risk_name: PortfolioName = b"low risk".into();
+    assert_ok!(Portfolio::create_portfolio(
+        bob_origin.clone(),
+        low_risk_name.clone()
+    ));
+    assert_last_event!(EventTest::portfolio(
+        pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)
+    ));
+    check_name(low_risk_name.clone());
+
+    // Set and check Bob's permissions.
+    let bob_pallet_permissions = vec![
+        PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
+        PalletPermissions::new(
+            b"Portfolio".into(),
+            SubsetRestriction::elems(vec![
+                b"move_portfolio_funds".into(),
+                b"rename_portfolio".into(),
+            ]),
+        ),
+    ];
+    let bob_permissions = Permissions {
+        extrinsic: SubsetRestriction(Some(bob_pallet_permissions.into_iter().collect())),
+        ..Permissions::default()
+    };
+    assert_ok!(Identity::set_permission_to_signer(
+        alice.origin(),
+        bob_signer,
+        bob_permissions,
+    ));
+    let bob_secondary_key = &Identity::did_records(&alice.did).secondary_keys[0];
+    let check_permission = |name: &[u8], t| {
+        assert_eq!(
+            t,
+            bob_secondary_key.has_extrinsic_permission(&b"Portfolio".into(), &name.into())
+        );
+    };
+    check_permission(b"rename_portfolio", true);
+    check_permission(b"create_portfolio", false);
+
+    // Call a disallowed extrinsic.
+    let high_risk_name: PortfolioName = b"high risk".into();
+    assert_err!(
+        Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+    );
+
+    // Call one disallowed and one allowed extrinsic in a batch.
+    let calls = vec![
+        Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
+        Call::Portfolio(PortfolioCall::rename_portfolio(
+            1u64.into(),
+            high_risk_name.clone(),
+        )),
+    ];
+    assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
+    assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
+    assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(0, _)));
+    check_name(low_risk_name);
+
+    // Call the same extrinsics optimistically.
+    assert_ok!(Utility::batch_optimistic(bob_origin, calls));
+    assert_event_exists!(
+        EventTest::pallet_utility(Event::BatchOptimisticFailed(errors)),
+        errors.len() == 1 && errors[0].0 == 0
+    );
+    check_name(high_risk_name);
 }

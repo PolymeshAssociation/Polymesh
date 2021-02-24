@@ -1,2 +1,1 @@
-./scripts/fmt.sh
-BUILD_DUMMY_WASM_BINARY=true cargo test --package polymesh-runtime-tests --features default_identity
+BUILD_DUMMY_WASM_BINARY=1 cargo test --package polymesh-runtime-tests --features default_identity

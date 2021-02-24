@@ -1,26 +1,29 @@
 use super::{
-    storage::{provide_scope_claim_to_multiple_parties, register_keyring_account, TestStorage},
+    storage::{
+        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties,
+        register_keyring_account, TestStorage,
+    },
     ExtBuilder,
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use pallet_asset as asset;
+use pallet_asset::{self as asset, Error as AssetError};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
     ComplianceRequirementResult, Error as CMError,
 };
 use pallet_group as group;
-use pallet_identity::{self as identity};
+use pallet_identity as identity;
 use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
     traits::compliance_manager::Trait as ComplianceManagerTrait,
     Context,
 };
 use polymesh_primitives::{
-    AssetName, AssetType, AuthorizationData, Claim, ClaimType, Condition, ConditionType,
-    CountryCode, IdentityId, PortfolioId, Scope, SecurityToken, Signatory, TargetIdentity, Ticker,
-    TrustedFor, TrustedIssuer,
+    asset::{AssetName, AssetType, SecurityToken},
+    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
+    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -39,12 +42,10 @@ macro_rules! assert_invalid_transfer {
         assert_ne!(
             Asset::_is_valid_transfer(
                 &$ticker,
-                AccountKeyring::Alice.public(),
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
                 $amount
-            )
-            .map(|(a, _)| a),
+            ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -55,12 +56,10 @@ macro_rules! assert_valid_transfer {
         assert_eq!(
             Asset::_is_valid_transfer(
                 &$ticker,
-                AccountKeyring::Alice.public(),
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
                 $amount
-            )
-            .map(|(a, _)| a),
+            ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -120,7 +119,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -335,7 +334,7 @@ fn should_replace_asset_compliance_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -403,7 +402,7 @@ fn should_reset_asset_compliance_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -462,7 +461,7 @@ fn pause_resume_asset_compliance_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -561,7 +560,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -625,27 +624,54 @@ fn should_successfully_add_and_use_default_issuers_we() {
         ComplianceManager::trusted_claim_issuer(ticker),
         trusted_issuers
     );
-
+    let (cdd_id, _) = create_cdd_id(
+        receiver_did,
+        Ticker::default(),
+        create_investor_uid(Identity::did_records(receiver_did).primary_key),
+    );
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         receiver_did.clone(),
-        Claim::make_cdd_wildcard(),
+        Claim::CustomerDueDiligence(cdd_id),
         Some(u64::MAX),
     ));
 
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_condition = ConditionType::IsPresent(Claim::make_cdd_wildcard()).into();
-    let receiver_condition1 = ConditionType::IsPresent(Claim::make_cdd_wildcard()).into();
-    let receiver_condition2 =
-        ConditionType::IsPresent(Claim::Accredited(token_owner_did.into())).into();
+    let claim_need_to_posses_1 = Claim::Affiliate(token_owner_did.into());
+    let claim_need_to_posses_2 = Claim::Accredited(token_owner_did.into());
+    let sender_condition: Condition =
+        ConditionType::IsPresent(claim_need_to_posses_1.clone()).into();
+    let receiver_condition1 = sender_condition.clone();
+    let receiver_condition2 = ConditionType::IsPresent(claim_need_to_posses_2.clone()).into();
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![sender_condition],
         vec![receiver_condition1, receiver_condition2]
     ));
+
+    let provide_affiliated_claim = |claim_for| {
+        assert_ok!(Identity::add_claim(
+            eve_signed.clone(),
+            claim_for,
+            claim_need_to_posses_1.clone(),
+            Some(u64::MAX),
+        ));
+    };
+
+    let provide_accredited_claim = |claim_by| {
+        assert_ok!(Identity::add_claim(
+            claim_by,
+            receiver_did,
+            claim_need_to_posses_2.clone(),
+            Some(u64::MAX),
+        ));
+    };
+
+    provide_affiliated_claim(receiver_did);
+    provide_affiliated_claim(token_owner_did);
 
     // fail when token owner doesn't has the valid claim
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
@@ -658,21 +684,13 @@ fn should_successfully_add_and_use_default_issuers_we() {
     );
 
     // Right claim, but Eve not trusted for this asset.
-    assert_ok!(Identity::add_claim(
-        eve_signed,
-        receiver_did.clone(),
-        Claim::Accredited(token_owner_did.into()),
-        Some(u64::MAX),
-    ));
+    provide_accredited_claim(eve_signed);
+
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
 
     // Right claim, and Ferdie is trusted for this asset.
-    assert_ok!(Identity::add_claim(
-        ferdie_signed,
-        receiver_did.clone(),
-        Claim::Accredited(token_owner_did.into()),
-        Some(u64::MAX),
-    ));
+    provide_accredited_claim(ferdie_signed);
+
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
 }
 
@@ -703,7 +721,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -742,47 +760,44 @@ fn should_modify_vector_of_trusted_issuer_we() {
         vec![trusted_issuer_did_1.into(), trusted_issuer_did_2.into()]
     );
 
-    // adding claim by trusted issuer 1
-    assert_ok!(Identity::add_claim(
-        trusted_issuer_signed_1.clone(),
-        receiver_did.clone(),
-        Claim::make_cdd_wildcard(),
-        None,
-    ));
+    let accredited_claim = Claim::Accredited(Scope::Custom(vec![b't']));
+
+    let provide_claim = |claim_for, claim_by, claim| {
+        assert_ok!(Identity::add_claim(claim_for, claim_by, claim, None,));
+    };
 
     // adding claim by trusted issuer 1
-    assert_ok!(Identity::add_claim(
+    provide_claim(
         trusted_issuer_signed_1.clone(),
-        receiver_did.clone(),
-        Claim::NoData,
-        None,
-    ));
+        receiver_did,
+        accredited_claim.clone(),
+    );
+
+    // adding claim by trusted issuer 1
+    provide_claim(trusted_issuer_signed_1.clone(), receiver_did, Claim::NoData);
 
     // adding claim by trusted issuer 2
-    assert_ok!(Identity::add_claim(
+    provide_claim(
         trusted_issuer_signed_2.clone(),
-        token_owner_did.clone(),
-        Claim::make_cdd_wildcard(),
-        None,
-    ));
+        token_owner_did,
+        accredited_claim.clone(),
+    );
 
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_condition = Condition {
-        issuers: vec![],
-        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+    let create_condition = |claim| -> Condition {
+        Condition {
+            issuers: vec![],
+            condition_type: ConditionType::IsPresent(claim),
+        }
     };
 
-    let receiver_condition_1 = Condition {
-        issuers: vec![],
-        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
-    };
+    let sender_condition = create_condition(accredited_claim.clone());
 
-    let receiver_condition_2 = Condition {
-        issuers: vec![],
-        condition_type: ConditionType::IsPresent(Claim::NoData),
-    };
+    let receiver_condition_1 = sender_condition.clone();
+
+    let receiver_condition_2 = create_condition(Claim::NoData);
 
     let x = vec![sender_condition.clone()];
     let y = vec![receiver_condition_1, receiver_condition_2];
@@ -807,7 +822,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        trusted_issuer_did_1.into()
+        trusted_issuer_did_1
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
@@ -822,7 +837,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     // Change the compliance requirement to all the transfer happen again
 
     let receiver_condition_1 = Condition::from_dids(
-        ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        ConditionType::IsPresent(accredited_claim.clone()),
         &[trusted_issuer_did_1],
     );
 
@@ -847,7 +862,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             compliance_requirement.clone()
         ),
-        CMError::<TestStorage>::Unauthorized
+        AssetError::<TestStorage>::Unauthorized
     );
 
     let compliance_requirement_failure = ComplianceRequirement {
@@ -893,7 +908,7 @@ fn jurisdiction_asset_compliance_we() {
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_id.clone(),
         total_supply: 1_000_000,
         divisible: true,
@@ -975,7 +990,7 @@ fn scope_asset_compliance_we() {
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(owner, vec![b'A'].into());
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
@@ -1024,7 +1039,7 @@ fn cm_test_case_9_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![Condition::from_dids(
@@ -1122,7 +1137,7 @@ fn cm_test_case_11_we() {
     let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1234,7 +1249,7 @@ fn cm_test_case_13_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1358,7 +1373,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let issuer = AccountKeyring::Bob.public();
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let token_name: AssetName = vec![0x01].into();
+    let token_name: AssetName = vec![b'A'].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
         owner_origin.clone(),
@@ -1391,14 +1406,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            None,
-            Some(issuer_id),
-            amount,
-            Some(issuer_id)
-        )
-        .map(|(a, _)| a),
+        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount, issuer_id),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1423,9 +1431,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             Some(random_guy_id),
             amount,
-            Some(issuer_id)
-        )
-        .map(|(a, _)| a),
+            issuer_id
+        ),
         ERC1400_TRANSFER_SUCCESS
     );
 
@@ -1436,9 +1443,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             Some(owner_id),
             amount,
-            Some(issuer_id)
-        )
-        .map(|(a, _)| a),
+            issuer_id
+        ),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1449,9 +1455,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(random_guy_id),
             Some(issuer_id),
             amount,
-            Some(issuer_id)
-        )
-        .map(|(a, _)| a),
+            issuer_id
+        ),
         ERC1400_TRANSFER_FAILURE
     );
 }
@@ -1470,7 +1475,7 @@ fn should_limit_compliance_requirements_complexity_we() {
 
     // A token representing 1M shares
     let token = SecurityToken {
-        name: vec![0x01].into(),
+        name: vec![b'A'].into(),
         owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -1550,7 +1555,7 @@ fn check_new_return_type_of_rpc() {
 
         // 1. A token representing 1M shares
         let token = SecurityToken {
-            name: vec![0x01].into(),
+            name: vec![b'A'].into(),
             owner_did: token_owner_did.clone(),
             total_supply: 1_000_000,
             divisible: true,

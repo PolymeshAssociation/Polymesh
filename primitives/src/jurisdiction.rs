@@ -15,28 +15,10 @@
 
 //! Data types and definitions of jurisdictions.
 
-use crate::migrate::{Empty, Migrate};
 use codec::{Decode, Encode};
-use core::str;
-use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
-
-/// A wrapper for Jurisdiction name.
-///
-/// The old form of storage; deprecated.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped, Debug)]
-pub struct JurisdictionName(pub Vec<u8>);
-
-impl Migrate for JurisdictionName {
-    type Into = CountryCode;
-    type Context = Empty;
-    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-        str::from_utf8(&self.0).ok().and_then(CountryCode::by_any)
-    }
-}
 
 macro_rules! country_codes {
     ( $([$discr:expr,$alpha2:ident, $alpha3:ident, $un:literal, $($extra:expr),*]),* $(,)? ) => {
@@ -48,67 +30,6 @@ macro_rules! country_codes {
         pub enum CountryCode {
             $($alpha2 = $discr),*
         }
-
-        impl CountryCode {
-            /// Convert from `alpha-2` codes to a country code.
-            pub fn by_alpha2(value: &str) -> Option<Self> {
-                Some(match value {
-                    $(stringify!($alpha2) => Self::$alpha2,)*
-                    _ => return None,
-                })
-            }
-
-            /// Convert from `alpha-3` codes to a country code.
-            pub fn by_alpha3(value: &str) -> Option<Self> {
-                Some(match value {
-                    $(stringify!($alpha3) => Self::$alpha2,)*
-                    _ => return None,
-                })
-            }
-
-            /// Convert from UN codes codes to a country code.
-            pub fn by_un_code(value: &str) -> Option<Self> {
-                Some(match value {
-                    $(stringify!($un) => Self::$alpha2,)*
-                    _ => return None,
-                })
-            }
-
-            /// Convert from some common names to a country code.
-            /// Common names are expected to be in lower-case.
-            pub fn by_common(value: &str) -> Option<Self> {
-                Some(match value {
-                    $($($extra => Self::$alpha2,)*)*
-                    _ => return None,
-                })
-            }
-        }
-    }
-}
-
-impl CountryCode {
-    /// Using heuristics, convert from a string to a country code.
-    pub fn by_any(value: &str) -> Option<Self> {
-        use core::str::from_utf8;
-
-        match value.as_bytes() {
-            [b'0'..=b'9', ..] => return Self::by_un_code(&value),
-            [x0, x1, tail @ ..] => {
-                let x0 = x0.to_ascii_uppercase();
-                let x1 = x1.to_ascii_uppercase();
-                match tail {
-                    // Might be alpha2 (e.g., `US`) or with subdivisions, e.g., `US-FL`.
-                    [] | [b'-'] => from_utf8(&[x0, x1]).ok().and_then(Self::by_alpha2),
-                    [x2] => {
-                        let x2 = x2.to_ascii_uppercase();
-                        from_utf8(&[x0, x1, x2]).ok().and_then(Self::by_alpha3)
-                    }
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
-        .or_else(|| Self::by_common(&value.to_lowercase()))
     }
 }
 
@@ -362,16 +283,7 @@ country_codes! (
     [244, YE, YEM, 887, "yemen"],
     [245, ZM, ZMB, 894, "zambia"],
     [246, ZW, ZWE, 716, "zimbabwe"],
+    [247, BQ, BES, 535, "bonaire", "saint eustatius and saba"],
+    [248, CW, CUW, 531, "curaçao"],
+    [249, SX, SXM, 534, "sint maarten (dutch part)"],
 );
-
-#[cfg(test)]
-#[test]
-fn by_any_works() {
-    const US: Option<CountryCode> = Some(CountryCode::US);
-    assert_eq!(US, CountryCode::by_any("us"));
-    assert_eq!(US, CountryCode::by_any("us-"));
-    assert_eq!(US, CountryCode::by_any("USA"));
-    assert_eq!(US, CountryCode::by_any("840"));
-    assert_eq!(US, CountryCode::by_any("america"));
-    assert_eq!(None, CountryCode::by_any("neverland"));
-}

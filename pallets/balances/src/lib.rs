@@ -181,12 +181,11 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+pub use polymesh_common_utilities::traits::balances::WeightInfo;
 use polymesh_common_utilities::{
     traits::{
-        balances::{
-            AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons, WeightInfo as _,
-        },
-        identity::IdentityTrait,
+        balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
+        identity::IdentityFnTrait,
         NegativeImbalance, PositiveImbalance,
     },
     Context, SystematicIssuers, GC_DID,
@@ -216,14 +215,8 @@ decl_error! {
         InsufficientBalance,
         /// Value too low to create account due to existential deposit
         ExistentialDeposit,
-        /// Transfer/payment would kill account
-        KeepAlive,
-        /// AccountId is not attached with Identity
-        UnAuthorized,
         /// Receiver does not have a valid CDD
         ReceiverCddMissing,
-        /// Un handled imbalances
-        UnHandledImbalances
     }
 }
 
@@ -274,7 +267,7 @@ decl_module! {
         // Polymesh modified code. Existential Deposit requirements are zero in Polymesh.
         /// This is no longer needed but kept for compatibility reasons
         /// The minimum amount required to keep an account open.
-        const ExistentialDeposit: T::Balance = 0.into();
+        const ExistentialDeposit: T::Balance = 0u32.into();
 
         fn deposit_event() = default;
 
@@ -300,7 +293,7 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = T::WeightInfo::transfer()]
+        #[weight = <T as Trait>::WeightInfo::transfer()]
         pub fn transfer(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -321,7 +314,7 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = T::WeightInfo::transfer_with_memo()]
+        #[weight = <T as Trait>::WeightInfo::transfer_with_memo()]
         pub fn transfer_with_memo(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -335,7 +328,7 @@ decl_module! {
 
         // Polymesh specific change. New function to transfer balance to BRR.
         /// Move some POLYX from balance of self to balance of BRR.
-        #[weight = T::WeightInfo::deposit_block_reward_reserve_balance()]
+        #[weight = <T as Trait>::WeightInfo::deposit_block_reward_reserve_balance()]
         pub fn deposit_block_reward_reserve_balance(
             origin,
             #[compact] value: T::Balance
@@ -352,19 +345,7 @@ decl_module! {
         /// also decrease the total issuance of the system (`TotalIssuance`).
         ///
         /// The dispatch origin for this call is `root`.
-        ///
-        /// # <weight>
-        /// - Independent of the arguments.
-        /// - Contains a limited number of reads and writes.
-        /// ---------------------
-        /// - Base Weight:
-        ///     - Creating: 27.56 µs
-        ///     - Killing: 35.11 µs
-        /// - DB Weight: 1 Read, 1 Write to `who`
-        /// # </weight>
-        #[weight = T::WeightInfo::set_balance_creating() // Creates a new account.
-            .max(T::WeightInfo::set_balance_killing()) // Kills an existing account.
-        ]
+        #[weight = <T as Trait>::WeightInfo::set_balance()]
         fn set_balance(
             origin,
             who: <T::Lookup as StaticLookup>::Source,
@@ -373,7 +354,7 @@ decl_module! {
         ) {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&who)
+            let caller_id = Context::current_identity_or::<T::IdentityFn>(&who)
                 .unwrap_or(GC_DID);
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
@@ -404,7 +385,7 @@ decl_module! {
         /// - Same as transfer, but additional read and write because the source account is
         ///   not assumed to be in the overlay.
         /// # </weight>
-        #[weight = T::WeightInfo::force_transfer()]
+        #[weight = <T as Trait>::WeightInfo::force_transfer()]
         pub fn force_transfer(
             origin,
             source: <T::Lookup as StaticLookup>::Source,
@@ -419,11 +400,11 @@ decl_module! {
 
         // Polymesh modified code. New dispatchable function that anyone can call to burn their balance.
         /// Burns the given amount of tokens from the caller's free, unlocked balance.
-        #[weight = T::WeightInfo::burn_account_balance()]
+        #[weight = <T as Trait>::WeightInfo::burn_account_balance()]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&who)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&who)?;
+            let caller_id = Context::current_identity_or::<T::IdentityFn>(&who)?;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(
                 &who,
@@ -529,7 +510,7 @@ impl<T: Trait> Module<T> {
         .map(|(maybe_endowed, result)| {
             if let Some(endowed) = maybe_endowed {
                 // Polymesh-note: Modified the code in the favour of Polymesh code base
-                let who_id = T::Identity::get_identity(who);
+                let who_id = T::IdentityFn::get_identity(who);
                 Self::deposit_event(RawEvent::Endowed(who_id, who.clone(), endowed));
             }
             result
@@ -541,7 +522,7 @@ impl<T: Trait> Module<T> {
         if locks.len() as u32 > T::MaxLocks::get() {
             frame_support::debug::warn!(
                 "Warning: A user has more currency locks than expected. \
-				A runtime configuration adjustment may be needed."
+                A runtime configuration adjustment may be needed."
             );
         }
 
@@ -634,8 +615,8 @@ impl<T: Trait> Module<T> {
             })
         })?;
 
-        let transactor_id = T::Identity::get_identity(transactor);
-        let dest_id = T::Identity::get_identity(dest);
+        let transactor_id = T::IdentityFn::get_identity(transactor);
+        let dest_id = T::IdentityFn::get_identity(dest);
 
         Self::deposit_event(RawEvent::Transfer(
             transactor_id,

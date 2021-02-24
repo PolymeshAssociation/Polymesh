@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![feature(proc_macro_hygiene)]
+#![feature(crate_visibility_modifier)]
 
 pub mod storage;
 pub use storage::{
@@ -30,8 +30,6 @@ mod contract_test;
 #[cfg(test)]
 mod corporate_actions_test;
 #[cfg(test)]
-mod dividend_test;
-#[cfg(test)]
 mod fee_details;
 #[cfg(test)]
 mod group_test;
@@ -48,6 +46,8 @@ mod protocol_fee;
 #[cfg(test)]
 mod settlement_test;
 #[cfg(test)]
+mod signed_extra;
+#[cfg(test)]
 mod staking;
 #[cfg(test)]
 mod statistics_test;
@@ -61,5 +61,3 @@ mod transaction_payment_test;
 mod treasury_test;
 #[cfg(test)]
 mod utility_test;
-#[cfg(test)]
-mod voting_test;
