@@ -101,7 +101,8 @@ macro_rules! asset {
             ticker_registration_config: ticker_registration_config(),
             classic_migration_tconfig: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                registration_length: Some(15_480_000_000),
+                // Reservations will expire at end of 2021
+                registration_length: Some(1640995199999),
             },
             versions: vec![
                 (SmartExtensionType::TransferManager, 5000),
@@ -140,7 +141,11 @@ fn currency_codes() -> Vec<Ticker> {
         .collect()
 }
 
+#[allow(unreachable_code)]
 fn classic_reserved_tickers() -> Vec<ClassicTickerImport> {
+    #[cfg(feature = "runtime-benchmarks")]
+    return Vec::new();
+
     let reserved_tickers_file = include_str!("data/reserved_classic_tickers.json");
     let tickers_data: Vec<ClassicTickerImport> =
         serde_json::from_str(&reserved_tickers_file).unwrap();
