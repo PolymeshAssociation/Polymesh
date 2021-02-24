@@ -788,3 +788,40 @@ fn do_force_mint() {
         BridgeTxStatus::Handled
     );
 }
+
+#[test]
+fn genesis_txs() {
+    let alice = AccountKeyring::Alice.public();
+    let bob = AccountKeyring::Bob.public();
+    let one_amount = 111;
+    let two_amount = 222;
+    ExtBuilder::default()
+        .regular_users(vec![alice, bob])
+        .bridge_txs(vec![
+            BridgeTx {
+                nonce: 1,
+                recipient: alice,
+                amount: one_amount,
+                tx_hash: Default::default(),
+            },
+            BridgeTx {
+                nonce: 2,
+                recipient: bob,
+                amount: two_amount,
+                tx_hash: Default::default(),
+            },
+        ])
+        .build()
+        .execute_with(|| do_genesis_txs(one_amount, two_amount));
+}
+
+fn do_genesis_txs(one_amount: u128, two_amount: u128) {
+    assert_eq!(
+        one_amount,
+        Balances::total_balance(&AccountKeyring::Alice.public())
+    );
+    assert_eq!(
+        two_amount,
+        Balances::total_balance(&AccountKeyring::Bob.public())
+    );
+}
