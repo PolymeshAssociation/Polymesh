@@ -107,3 +107,104 @@ export async function rejectInstruction(
 	const transaction = api.tx.settlement.rejectInstruction(instructionCounter, [getDefaultPortfolio(did)]);
 	await sendTx(sender, transaction);
 }
+
+/**
+ * @description Adds a group Instruction
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {number} venueCounter - number
+ * @param {KeyringPair} sender - KeyringPair
+ * @param {IdentityId[]} group - IdentityId[]
+ * @param {Ticker} ticker - Ticker
+ * @param {Ticker} ticker2 - Ticker
+ * @param {number} amount - number
+ * @return {Promise<number>}
+ */
+export async function addGroupInstruction(
+	api: ApiPromise,
+	venueCounter: number,
+	sender: KeyringPair,
+	group: IdentityId[],
+	ticker: Ticker,
+	ticker2: Ticker,
+	amount: number
+): Promise<number> {
+	let instructionCounter = ((await api.query.settlement.instructionCounter()) as unknown) as number;
+	let leg = {
+		from: group[1],
+		to: group[0],
+		asset: ticker2,
+		amount: amount,
+	};
+
+	let leg2 = {
+		from: group[0],
+		to: group[1],
+		asset: ticker,
+		amount: amount,
+	};
+
+	let leg3 = {
+		from: group[0],
+		to: group[2],
+		asset: ticker,
+		amount: amount,
+	};
+
+	let leg4 = {
+		from: group[0],
+		to: group[3],
+		asset: ticker,
+		amount: amount,
+	};
+
+	let leg5 = {
+		from: group[0],
+		to: group[4],
+		asset: ticker,
+		amount: amount,
+	};
+
+	const transaction = api.tx.settlement.addInstruction(venueCounter, 0, null, null, [leg, leg2, leg3, leg4, leg5]);
+
+	await sendTx(sender, transaction);
+	return instructionCounter;
+}
+
+/**
+ * @description Creates a Claim Receipt
+ * @param {ApiPromise}  api - ApiPromise
+ * @param {KeyringPair} sender - KeyringPair
+ * @param {IdentityId} sender_did - IdentityId
+ * @param {IdentityId} receiver_did - IdentityId
+ * @param {Ticker} ticker - Ticker
+ * @param {Ticker} amount - number
+ * @param {number} instructionCounter - number
+ * @return {Promise<void>}
+ */
+async function claimReceipt(
+	api: ApiPromise,
+	sender: KeyringPair,
+	sender_did: IdentityId,
+	receiver_did: IdentityId,
+	ticker: Ticker,
+	amount: number,
+	instructionCounter: number
+): Promise<void> {
+	let msg = {
+		receipt_uid: 0,
+		from: sender_did,
+		to: receiver_did,
+		asset: ticker,
+		amount: amount,
+	};
+
+	let receiptDetails = {
+		receipt_uid: 0,
+		leg_id: 0,
+		signer: sender.address,
+		signature: 1,
+	};
+
+	const transaction = api.tx.settlement.claimReceipt(instructionCounter, receiptDetails);
+	await sendTx(sender, transaction);
+}
