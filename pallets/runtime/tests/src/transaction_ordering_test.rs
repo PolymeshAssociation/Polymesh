@@ -1,5 +1,5 @@
 use super::{
-    storage::{default_portfolio_vec, register_keyring_account, TestStorage},
+    storage::{default_portfolio_vec, next_block, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use codec::{Decode, Encode};
@@ -27,11 +27,12 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_settlement::{
-    self as settlement, ConfidentialLeg, Leg, MercatTxData, SettlementType, VenueDetails, VenueType,
+    self as settlement, ConfidentialLeg, Leg, LegKind, MercatTxData, SettlementType, VenueDetails,
+    VenueType,
 };
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, IdentityId, PortfolioId,
-    SecurityToken, Ticker,
+    asset::{AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, SecurityToken},
+    IdentityId, PortfolioId, Ticker,
 };
 use rand::prelude::*;
 use sp_core::sr25519::Public;
@@ -271,13 +272,16 @@ fn initialize_transaction(
         venue_counter,
         SettlementType::SettleOnAffirmation,
         None,
-        vec![Leg::ConfidentialLeg(ConfidentialLeg {
+        None,
+        vec![Leg {
             from: PortfolioId::default_portfolio(sender_creds.did),
             to: PortfolioId::default_portfolio(receiver_creds.did),
-            mediator: PortfolioId::default_portfolio(mediator_creds.mediator_did),
-            from_account_id: sender_creds.account_id.clone(),
-            to_account_id: receiver_creds.account_id.clone(),
-        })]
+            kind: LegKind::Confidential(ConfidentialLeg {
+                mediator: PortfolioId::default_portfolio(mediator_creds.mediator_did),
+                from_account_id: sender_creds.account_id.clone(),
+                to_account_id: receiver_creds.account_id.clone(),
+            }),
+        }]
     ));
 
     // Sender authorizes.
@@ -303,6 +307,7 @@ fn initialize_transaction(
         instruction_counter,
         initialized_tx,
         default_portfolio_vec(sender_creds.did),
+        1
     ));
 
     // Receiver authorizes.
@@ -346,6 +351,7 @@ fn initialize_transaction(
         instruction_counter,
         finalized_tx,
         default_portfolio_vec(receiver_creds.did),
+        1
     ));
 
     (
@@ -353,6 +359,10 @@ fn initialize_transaction(
         sender_encrypted_transfer_amount,
         receiver_encrypted_transfer_amount,
     )
+}
+
+fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> u32 {
+    secret_account.enc_keys.secret.decrypt(balance).unwrap()
 }
 
 fn finalize_transaction(
@@ -363,6 +373,8 @@ fn finalize_transaction(
     mediator_secret_account: SecAccount,
     expected_sender_balance: EncryptedAmount,
     expected_receiver_balance: EncryptedAmount,
+    sender_secret_account: Option<SecAccount>,
+    receiver_secret_account: Option<SecAccount>,
     validation_failure_expected: bool,
 ) {
     // The rest of rngs are built from it.
@@ -421,7 +433,11 @@ fn finalize_transaction(
         instruction_counter,
         justified_tx,
         default_portfolio_vec(mediator_creds.mediator_did),
+        1
     ));
+
+    // Execute affirmed and scheduled instructions.
+    next_block();
 
     // Instruction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.
@@ -430,6 +446,12 @@ fn finalize_transaction(
             .to_mercat::<TestStorage>()
             .unwrap();
 
+    if let Some(secret_account) = sender_secret_account {
+        // Invoked for debugging
+        let new_balance_plain = decrypt_balance(&secret_account, &new_sender_balance);
+        let expected_balance_plain = decrypt_balance(&secret_account, &expected_sender_balance);
+        assert_eq!(new_balance_plain, expected_balance_plain, "Sender side");
+    }
     assert_eq!(new_sender_balance, expected_sender_balance);
 
     let new_receiver_balance =
@@ -437,6 +459,12 @@ fn finalize_transaction(
             .to_mercat::<TestStorage>()
             .unwrap();
 
+    if let Some(secret_account) = receiver_secret_account {
+        // Invoked for debugging
+        let new_balance_plain = decrypt_balance(&secret_account, &new_receiver_balance);
+        let expected_balance_plain = decrypt_balance(&secret_account, &expected_receiver_balance);
+        assert_eq!(new_balance_plain, expected_balance_plain, "Receiver side");
+    }
     assert_eq!(new_receiver_balance, expected_receiver_balance);
 }
 
@@ -494,7 +522,7 @@ fn chain_set_up(
         mediator_key: AccountKeyring::Charlie,
         mediator_did: charlie_did,
         mediator_public_account: charlie_public_account,
-        ticker: ticker,
+        ticker,
     };
 
     (
@@ -518,10 +546,10 @@ fn create_investor_account(
         init_account(&mut rng, token_name, key.public(), did);
 
     let creds = AccountCredentials {
-        key: key,
-        did: did,
-        account_id: account_id,
-        public_account: public_account,
+        key,
+        did,
+        account_id,
+        public_account,
     };
 
     (secret_account, creds, init_balance)
@@ -531,7 +559,6 @@ fn create_investor_account(
 fn settle_out_of_order() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -586,6 +613,8 @@ fn settle_out_of_order() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001,
                 bob_init_balance + bob_received_amount_1001,
+                None,
+                None,
                 false,
             );
 
@@ -598,6 +627,8 @@ fn settle_out_of_order() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001 - alice_sent_amount_1000,
                 bob_init_balance + bob_received_amount_1001 + bob_received_amount_1000,
+                None,
+                None,
                 false,
             );
         });
@@ -607,7 +638,6 @@ fn settle_out_of_order() {
 fn double_spending_fails() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -668,6 +698,8 @@ fn double_spending_fails() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1001,
                 dave_init_balance + dave_received_amount_1001,
+                None,
+                None,
                 true, // Validation failure expected.
             );
 
@@ -680,6 +712,8 @@ fn double_spending_fails() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1000,
                 bob_init_balance + bob_received_amount_1000,
+                None,
+                None,
                 false,
             );
         });
@@ -689,7 +723,6 @@ fn double_spending_fails() {
 fn mercat_whitepaper_scenario1() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -730,6 +763,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_999,
                 dave_init_balance + dave_received_amount_999,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
             // Reset Dave's pending state.
@@ -789,6 +824,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
                 alice_init_balance + alice_received_amount_1001,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
 
@@ -796,8 +833,12 @@ fn mercat_whitepaper_scenario1() {
             assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
-                default_portfolio_vec(alice_creds.did)
+                default_portfolio_vec(alice_creds.did),
+                1
             ));
+
+            // Execute affirmed and scheduled instructions.
+            next_block();
 
             // Approve and process tx:1002.
             finalize_transaction(
@@ -808,6 +849,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
+                Some(alice_secret_account.clone()),
+                Some(bob_secret_account.clone()),
                 false,
             );
         });
@@ -817,7 +860,6 @@ fn mercat_whitepaper_scenario1() {
 fn mercat_whitepaper_scenario2() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
             // Setting:
@@ -859,6 +901,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_999,
                 dave_init_balance + dave_received_amount_999,
+                None,
+                None,
                 false,
             );
             // Reset Dave's pending state.
@@ -922,6 +966,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
                 alice_init_balance + alice_received_amount_1001,
+                None,
+                None,
                 false,
             );
 
@@ -929,8 +975,12 @@ fn mercat_whitepaper_scenario2() {
             assert_ok!(Settlement::reject_instruction(
                 Origin::signed(alice_creds.key.public()),
                 instruction_counter1000,
-                default_portfolio_vec(alice_creds.did)
+                default_portfolio_vec(alice_creds.did),
+                1
             ));
+
+            // Execute affirmed and scheduled instructions.
+            next_block();
 
             // Approve and process tx:1002.
             finalize_transaction(
@@ -941,6 +991,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
+                None,
+                None,
                 false,
             );
 
@@ -994,6 +1046,8 @@ fn mercat_whitepaper_scenario2() {
                 dave_init_balance - dave_sent_amount_1001
                     + dave_received_amount_1002
                     + dave_received_amount_1004,
+                None,
+                None,
                 false,
             );
 
@@ -1006,6 +1060,8 @@ fn mercat_whitepaper_scenario2() {
                 charlie_secret_account.clone(),
                 alice_init_balance - alice_sent_amount_1004 - alice_sent_amount_1003,
                 bob_init_balance + bob_received_amount_1003,
+                None,
+                None,
                 false,
             );
         });
