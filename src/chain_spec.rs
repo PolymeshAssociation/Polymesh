@@ -147,9 +147,7 @@ fn classic_reserved_tickers() -> Vec<ClassicTickerImport> {
     return Vec::new();
 
     let reserved_tickers_file = include_str!("data/reserved_classic_tickers.json");
-    let tickers_data: Vec<ClassicTickerImport> =
-        serde_json::from_str(&reserved_tickers_file).unwrap();
-    tickers_data
+    serde_json::from_str(&reserved_tickers_file).unwrap()
 }
 
 macro_rules! checkpoint {
