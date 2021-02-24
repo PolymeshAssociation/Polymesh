@@ -169,7 +169,6 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `DistributingAsset` if `ca_id.ticker == currency`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
-        /// - `NowAfterPayment` if `payment_at < now`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
         /// - `RecordDateAfterStart` if CA's record date > payment_at.
@@ -195,9 +194,6 @@ decl_module! {
 
             // Ensure that any expiry date doesn't come before the payment date.
             ensure!(!expired(expires_at, payment_at), Error::<T>::ExpiryBeforePayment);
-
-            // Ensure `now <= payment_at`.
-            ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
             // Ensure CA doesn't have a distribution yet.
             ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
@@ -349,7 +345,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
-        /// - `DistributionStarted` if `payment_at >= now`.
+        /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -396,8 +392,6 @@ decl_error! {
         /// A distributions provided expiry date was strictly before its payment date.
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,
-        /// Start-of-payment date is in the past, since it is strictly before now.
-        NowAfterPayment,
         /// Currency that is distributed is the same as the CA's ticker.
         /// CAA is attempting a form of stock split, which is not what the extrinsic is for.
         DistributingAsset,
