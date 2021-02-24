@@ -108,6 +108,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
+use polymesh_primitives::asset::GranularCanTransferResult;
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName},
     calendar::CheckpointId,
@@ -1610,39 +1611,15 @@ impl<T: Trait> Module<T> {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
 
-        if !Identity::<T>::verify_iu_claims_for_transfer(
-            *ticker,
-            to_portfolio.did,
-            from_portfolio.did,
-        ) {
+        if Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did) {
             return Ok(SCOPE_CLAIM_MISSING);
         }
 
-        if Portfolio::<T>::ensure_portfolio_transfer_validity(
-            &from_portfolio,
-            &to_portfolio,
-            ticker,
-            &value,
-        )
-        .is_err()
-        {
+        if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value) {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
-        let token = <Tokens<T>>::get(ticker);
-        if Statistics::<T>::verify_tm_restrictions(
-            ticker,
-            from_scope_id,
-            to_scope_id,
-            value,
-            Self::aggregate_balance_of(ticker, &from_scope_id),
-            Self::aggregate_balance_of(ticker, &to_scope_id),
-            token.total_supply,
-        )
-        .is_err()
-        {
+        if Self::statistics_failure(&from_portfolio, &to_portfolio, ticker, value) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
@@ -2070,39 +2047,27 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        Ok(if !Self::check_granularity(&ticker, value) {
+        Ok(if Self::invalid_granularity(ticker, value) {
             // Granularity check
             INVALID_GRANULARITY
-        } else if from_portfolio.did == to_portfolio.did {
+        } else if Self::invalid_receiver(&from_portfolio, &to_portfolio) {
             INVALID_RECEIVER_DID
-        } else if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
+        } else if Self::invalid_cdd(from_portfolio.did) {
             INVALID_SENDER_DID
-        } else if !Identity::<T>::verify_iu_claims_for_transfer(
-            *ticker,
-            to_portfolio.did,
-            from_portfolio.did,
-        ) {
+        } else if Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did) {
             SCOPE_CLAIM_MISSING
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_custody(
+        } else if Self::custodian_error(
             from_portfolio,
             from_custodian.unwrap_or(from_portfolio.did),
         ) {
             CUSTODIAN_ERROR
-        } else if !Identity::<T>::has_valid_cdd(to_portfolio.did) {
+        } else if Self::invalid_cdd(to_portfolio.did) {
             INVALID_RECEIVER_DID
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_custody(
-            to_portfolio,
-            to_custodian.unwrap_or(to_portfolio.did),
-        ) {
+        } else if Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did)) {
             CUSTODIAN_ERROR
-        } else if Self::balance_of(&ticker, from_portfolio.did) < value {
+        } else if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
             ERC1400_INSUFFICIENT_BALANCE
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_transfer_validity(
-            &from_portfolio,
-            &to_portfolio,
-            ticker,
-            &value,
-        ) {
+        } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value) {
             PORTFOLIO_FAILURE
         } else {
             // Compliance manager & Smart Extension check
@@ -2258,5 +2223,128 @@ impl<T: Trait> Module<T> {
             Error::<T>::NoSuchSmartExtension
         );
         Ok(did)
+    }
+
+    pub fn unsafe_can_transfer_granular(
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> GranularCanTransferResult {
+        let invalid_granularity = Self::invalid_granularity(ticker, value);
+        let invalid_receiver_did = Self::invalid_receiver(&from_portfolio, &to_portfolio);
+        let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
+        let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
+        let missing_scope_claim =
+            Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did);
+        let receiver_custodian_error =
+            Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did));
+        let sender_custodian_error =
+            Self::custodian_error(from_portfolio, from_custodian.unwrap_or(from_portfolio.did));
+        let sender_insufficient_balance =
+            Self::insufficient_balance(&ticker, from_portfolio.did, value);
+        let portfolio_error =
+            Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value);
+        let asset_frozen = Self::frozen(ticker);
+        let statistics_failure =
+            Self::statistics_failure(&from_portfolio, &to_portfolio, ticker, value);
+        let compliance_failure = T::ComplianceManager::verify_restriction(
+            ticker,
+            Some(from_portfolio.did),
+            Some(to_portfolio.did),
+            value,
+            Self::primary_issuance_agent_or_owner(&ticker),
+        )
+        .map(|status| status != ERC1400_TRANSFER_SUCCESS)
+        .unwrap_or(true);
+
+        GranularCanTransferResult {
+            invalid_granularity,
+            invalid_receiver_did,
+            invalid_receiver_cdd,
+            invalid_sender_cdd,
+            missing_scope_claim,
+            receiver_custodian_error,
+            sender_custodian_error,
+            sender_insufficient_balance,
+            portfolio_error,
+            asset_frozen,
+            statistics_failure,
+            compliance_failure,
+            final_result: !invalid_granularity
+                && !invalid_receiver_did
+                && !invalid_receiver_cdd
+                && !invalid_sender_cdd
+                && !missing_scope_claim
+                && !receiver_custodian_error
+                && !sender_custodian_error
+                && !sender_insufficient_balance
+                && !portfolio_error
+                && !asset_frozen
+                && !statistics_failure
+                && !compliance_failure,
+        }
+    }
+
+    fn invalid_granularity(ticker: &Ticker, value: T::Balance) -> bool {
+        !Self::check_granularity(&ticker, value)
+    }
+
+    fn invalid_receiver(from: &PortfolioId, to: &PortfolioId) -> bool {
+        from.did == to.did
+    }
+
+    fn invalid_cdd(did: IdentityId) -> bool {
+        !Identity::<T>::has_valid_cdd(did)
+    }
+
+    fn missing_scope_claim(ticker: &Ticker, from: IdentityId, to: IdentityId) -> bool {
+        !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to, from)
+    }
+
+    fn custodian_error(from: PortfolioId, custodian: IdentityId) -> bool {
+        Portfolio::<T>::ensure_portfolio_custody(from, custodian).is_err()
+    }
+
+    fn insufficient_balance(ticker: &Ticker, did: IdentityId, value: T::Balance) -> bool {
+        Self::balance_of(&ticker, did) < value
+    }
+
+    fn portfolio_failure(
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        value: &T::Balance,
+    ) -> bool {
+        Portfolio::<T>::ensure_portfolio_transfer_validity(
+            from_portfolio,
+            to_portfolio,
+            ticker,
+            value,
+        )
+        .is_err()
+    }
+
+    fn statistics_failure(
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> bool {
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+        let token = <Tokens<T>>::get(ticker);
+        Statistics::<T>::verify_tm_restrictions(
+            ticker,
+            from_scope_id,
+            to_scope_id,
+            value,
+            Self::aggregate_balance_of(ticker, &from_scope_id),
+            Self::aggregate_balance_of(ticker, &to_scope_id),
+            token.total_supply,
+        )
+        .is_err()
     }
 }

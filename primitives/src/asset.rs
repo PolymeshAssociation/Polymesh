@@ -17,6 +17,9 @@ use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 /// A wrapper for a token name.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
@@ -70,3 +73,21 @@ impl Default for AssetType {
     Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
 )]
 pub struct FundingRoundName(pub Vec<u8>);
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct GranularCanTransferResult {
+    pub invalid_granularity: bool,
+    pub invalid_receiver_did: bool,
+    pub invalid_receiver_cdd: bool,
+    pub invalid_sender_cdd: bool,
+    pub missing_scope_claim: bool,
+    pub receiver_custodian_error: bool,
+    pub sender_custodian_error: bool,
+    pub sender_insufficient_balance: bool,
+    pub portfolio_error: bool,
+    pub asset_frozen: bool,
+    pub statistics_failure: bool,
+    pub compliance_failure: bool,
+    pub final_result: bool,
+}

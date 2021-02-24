@@ -1205,6 +1205,19 @@ impl_runtime_apis! {
             Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
+
+        #[inline]
+        fn can_transfer_granular(
+            _sender: AccountId,
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance) -> polymesh_primitives::asset::GranularCanTransferResult
+        {
+            Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+        }
     }
 
     impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>

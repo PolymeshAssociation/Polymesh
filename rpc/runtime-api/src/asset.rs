@@ -61,5 +61,16 @@ sp_api::decl_runtime_apis! {
             ticker: &Ticker,
             value: Balance
         ) -> CanTransferResult;
+
+         /// TODO
+        fn can_transfer_granular(
+            sender: AccountId,
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance
+        ) -> polymesh_primitives::asset::GranularCanTransferResult;
     }
 }
