@@ -144,19 +144,20 @@ const generateRandomKey = async function (api) {
 }
 
 const blockTillPoolEmpty = async function (api) {
-  let prev_block_pending = 0;
-  let done_something = false;
   let done = false;
   const unsub = await api.rpc.chain.subscribeNewHeads(async (header) => {
+    let pool = await api.rpc.author.pendingExtrinsics();
+    if (pool.length == 0) {
+      unsub();
+      done = true;
+      return;
+    }
     let last_synced_block = synced_block;
     if (header.number > last_synced_block) {
       for (let i = last_synced_block + 1; i <= header.number; i++) {
         let block_hash = await api.rpc.chain.getBlockHash(i);
         let block = await api.rpc.chain.getBlock(block_hash);
         block_sizes[i] = block["block"]["extrinsics"].length;
-        if (block_sizes[i] > 2) {
-          done_something = true;
-        }
         let timestamp_extrinsic = block["block"]["extrinsics"][0];
         let new_block_ts = parseInt(
           JSON.stringify(timestamp_extrinsic["method"].args[0].now)
@@ -164,12 +165,11 @@ const blockTillPoolEmpty = async function (api) {
         block_times[i] = new_block_ts - synced_block_ts;
         synced_block_ts = new_block_ts;
         synced_block = i;
+        if (block_sizes[i] > 2) {
+          unsub();
+          done = true;
+        }
       }
-    }
-    let pool = await api.rpc.author.pendingExtrinsics();
-    if (done_something && pool.length == 0) {
-      unsub();
-      done = true;
     }
   });
   // Should use a mutex here...
@@ -292,9 +292,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
       }
     }
 
-    let nonceObj = { nonce: nonces.get(secondary_accounts[i].address) };
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, secondary_accounts[i], nonceObj);
+    await sendTx(secondary_accounts[i], transaction);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
@@ -306,17 +305,24 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, ticker) {
+async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
 
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  let tickerExist = await api.query.asset.tickers(ticker);
 
-  let nonceObj = { nonce: nonces.get(accounts[0].address) };
-  const transaction = api.tx.asset.createAsset(
-    ticker, ticker, 1000000, true, 0, [], "abc"
-  );
-  await sendTransaction(transaction, accounts[0], nonceObj);
+  if (tickerExist.owner == 0) {
 
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, amount, true, 0, [], fundingRound
+    );
+
+    await sendTx(accounts[0], transaction);
+
+  } else {
+    console.log("ticker exists already");
+  }
+
 }
 
 // Returns the asset did
@@ -500,20 +506,34 @@ async function mintingAsset(api, minter, did, ticker) {
 
 async function sendTx(signer, tx) {
   let nonceObj = { nonce: nonces.get(signer.address) };
-  const result = await sendTransaction(tx, signer, nonceObj);
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  let passed;
+
+  try {
+    const result = await sendTransaction(tx, signer, nonceObj);
+    passed = result.findRecord("system", "ExtrinsicSuccess");
+  } finally {
+    nonces.set(signer.address, nonces.get(signer.address).addn(1));
+  }
+
   if (!passed) return -1;
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+
 }
 
 async function addComplianceRequirement(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addComplianceRequirement(
-    ticker,
-    [],
-    []
-  );
 
-  await sendTx(sender, transaction);
+  let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
+
+  if (assetCompliance.requirements.length == 0) {
+    const transaction = await api.tx.complianceManager.addComplianceRequirement(
+      ticker,
+      [],
+      []
+    );
+
+    await sendTx(sender, transaction);
+  } else {
+    console.log("Asset already has compliance.");
+  }
 }
 
 async function createVenue(api, sender) {
@@ -533,10 +553,11 @@ function getDefaultPortfolio(did) {
   return { "did": did, "kind": "Default" };
 }
 
-async function affirmInstruction(api, sender, instructionCounter, did) {
+async function affirmInstruction(api, sender, instructionCounter, did, leg_counts) {
   const transaction = await api.tx.settlement.affirmInstruction(
     instructionCounter,
-    [getDefaultPortfolio(did)]
+    [getDefaultPortfolio(did)],
+    leg_counts
   );
 
   await sendTx(sender, transaction);
@@ -591,12 +612,14 @@ async function addInstruction(
       venueCounter,
       0,
       null,
+      null,
       [leg]
     );
   } else {
     transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
+      null,
       null,
       [leg, leg2]
     );
@@ -673,6 +696,10 @@ async function claimReceipt(
   await sendTx(sender, transaction);
 }
 
+async function getDid(api, account) {
+  return await api.query.identity.keyToIdentityIds(account.address);
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -722,9 +749,8 @@ let reqImports = {
   generateRandomEntity,
   generateRandomTicker,
   generateRandomKey,
-  addConfidentialInstruction,
+  getDid,
   getDefaultPortfolio,
-  getLastAuth,
 };
 
 export { reqImports };

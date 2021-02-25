@@ -16,6 +16,9 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::Encode;
 use core::mem;
 use frame_support::{
@@ -23,6 +26,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
+    weights::Weight,
 };
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
@@ -77,11 +81,24 @@ where
     }
 }
 
+pub trait WeightInfo {
+    fn put_code(l: u32, u: u32, d: u32) -> Weight;
+    fn instantiate() -> Weight;
+    fn freeze_instantiation() -> Weight;
+    fn unfreeze_instantiation() -> Weight;
+    fn transfer_template_ownership() -> Weight;
+    fn change_template_fees() -> Weight;
+    fn change_template_meta_url(u: u32) -> Weight;
+    fn update_schedule() -> Weight;
+}
+
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     /// Event type
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
     type NetworkShareInFee: Get<Perbill>;
+    /// Weight information for extrinsic in this pallet.
+    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -100,8 +117,6 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
         /// Instantiation is not allowed.
         InstantiationIsNotAllowed,
         /// Smart extension template not exist in the storage.
@@ -112,10 +127,6 @@ decl_error! {
         InstantiationAlreadyUnFrozen,
         /// When un-authorized personnel try to access the un-authorized extrinsic.
         UnAuthorizedOrigin,
-        /// User is not able to pay the protocol fee because of insufficient funds or because of something else.
-        FailedToPayProtocolFee,
-        /// Failed To charge the instantiation fee for the smart extension.
-        FailedToPayInstantiationFee,
         /// Given identityId is not CDD.
         NewOwnerIsNotCDD,
         /// Insufficient max_fee provided by the user to instantiate the SE.
@@ -183,8 +194,8 @@ decl_module! {
             meta_info: TemplateMetadata<BalanceOf<T>>,
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
-        ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
 
             // Save metadata related to the SE template
             // Generate the code_hash here as well because there is no way
@@ -205,7 +216,6 @@ decl_module! {
                 // Charge the protocol fee
                 T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
-            Ok(())
         }
 
         // Simply forwards to the `call` function in the Contract module.
@@ -229,7 +239,7 @@ decl_module! {
         /// # Errors
         /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
         /// InsufficientMaxFee - Provided max_fee is less than required.
-        #[weight = 500_000_000 + *gas_limit]
+        #[weight = <T as Trait>::WeightInfo::instantiate().saturating_add(*gas_limit)]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,
@@ -267,7 +277,7 @@ decl_module! {
             <ExtensionInfo<T>>::insert(contract_address, Self::ext_details(&code_hash));
 
             // Update the actual weight of the extrinsic.
-            Ok(actual_weight.map(|w| w + 500_000_000).into())
+            Ok(actual_weight.map(|w| w.saturating_add(500_000_000)).into())
         }
 
         /// Allows a smart extension template owner to freeze the instantiation.
@@ -275,7 +285,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Only owner of the template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::freeze_instantiation()]
         pub fn freeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -295,7 +305,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Only owner of the template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Trait>::WeightInfo::unfreeze_instantiation()]
         pub fn unfreeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -317,7 +327,7 @@ decl_module! {
         /// * origin Owner of the provided code_hash.
         /// * code_hash Unique identifer of the template.
         /// * new_owner Identity that will be the new owner of the provided code_hash.
-        #[weight = 1_600_000_000]
+        #[weight = <T as Trait>::WeightInfo::transfer_template_ownership()]
         pub fn transfer_template_ownership(origin, code_hash: CodeHash<T>, new_owner: IdentityId) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -341,7 +351,7 @@ decl_module! {
         /// * code_hash - Unique hash of the smart extension template.
         /// * new_instantiation_fee - New value of instantiation fee for the smart extension template.
         /// * new_usage_fee - New value of usage fee for the smart extension template.
-        #[weight = 1000_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_template_fees()]
         pub fn change_template_fees(origin, code_hash: CodeHash<T>, new_instantiation_fee: Option<BalanceOf<T>>, new_usage_fee: Option<BalanceOf<T>>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -369,7 +379,7 @@ decl_module! {
         /// * origin - Only owner of template is allowed to execute the dispatchable.
         /// * code_hash - Unique hash of the smart extension template.
         /// * new_url - New meta url that need to replace with old url.
-        #[weight = 400_000_000]
+        #[weight = <T as Trait>::WeightInfo::change_template_meta_url(new_url.as_ref().map_or(0, |u| u.0.len()) as u32 )]
         pub fn change_template_meta_url(origin, code_hash: CodeHash<T>, new_url: Option<MetaUrl>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
@@ -391,7 +401,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<(IdentityId, TemplateDetails<BalanceOf<T>>), DispatchError> {
         // Ensure the transaction is signed and ensure `origin` has the required permission to
         // execute the dispatchable.
-        let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
+        let did = Identity::<T>::ensure_perms(origin)?;
         // Validate whether the template exists or not for a given code_hash.
         ensure!(
             <TemplateInfo<T>>::contains_key(code_hash),

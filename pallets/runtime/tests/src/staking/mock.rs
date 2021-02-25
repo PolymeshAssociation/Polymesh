@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Test utilities
+use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
@@ -33,19 +34,22 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-use polymesh_common_utilities::traits::{
-    asset::AssetSubTrait,
-    balances::{AccountData, CheckCdd},
-    group::{GroupTrait, InactiveMember},
-    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
-    multisig::MultiSigSubTrait,
-    portfolio::PortfolioSubTrait,
-    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait, PermissionChecker,
+use polymesh_common_utilities::{
+    constants::currency::POLY,
+    traits::{
+        asset::AssetSubTrait,
+        balances::{AccountData, CheckCdd},
+        group::{GroupTrait, InactiveMember},
+        identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+        multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        CommonTrait, PermissionChecker,
+    },
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
-    PortfolioId, ScopeId, Signatory, Ticker,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -57,7 +61,7 @@ use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId, Perbill,
+    KeyTypeId, Perbill, Permill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -281,9 +285,8 @@ impl balances::Trait for Test {
     type Event = MetaEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type Identity = identity::Module<Test>;
     type CddChecker = Test;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
     type MaxLocks = MaxLocks;
 }
 
@@ -317,17 +320,21 @@ impl pallet_session::historical::Trait for Test {
 
 impl pallet_pips::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
+
 impl pallet_treasury::Trait for Test {
     type Event = MetaEvent;
     type Currency = pallet_balances::Module<Self>;
+    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
 impl pallet_authorship::Trait for Test {
@@ -355,6 +362,7 @@ impl group::Trait<group::Instance2> for Test {
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
+    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
 impl protocol_fee::Trait for Test {
@@ -379,6 +387,24 @@ impl IdentityTrait for Test {
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
+    type IdentityFn = identity::Module<Test>;
+    type SchedulerOrigin = OriginCaller;
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Test {
+    type Event = MetaEvent;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -452,7 +478,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AssetSubTrait for Test {
+impl AssetSubTrait<Balance> for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -464,6 +490,9 @@ impl AssetSubTrait for Test {
     }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
+    }
+    fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
+        0
     }
 }
 
@@ -489,7 +518,7 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
-impl PortfolioSubTrait<Balance> for Test {
+impl PortfolioSubTrait<Balance, AccountId> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
@@ -504,6 +533,14 @@ impl PortfolioSubTrait<Balance> for Test {
     fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
+
+    fn ensure_portfolio_custody_and_permission(
+        _: PortfolioId,
+        _: IdentityId,
+        _: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
 }
 
 impl CheckCdd<AccountId> for Test {
@@ -516,7 +553,6 @@ impl CheckCdd<AccountId> for Test {
 }
 
 impl PermissionChecker for Test {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -565,6 +601,10 @@ parameter_types! {
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
+    pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MinimumBond: Balance = 0u128;
 }
 
 thread_local! {
@@ -623,23 +663,11 @@ impl Trait for Test {
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
-    pub const MaxScheduledPerBlock: u32 = 50;
-}
-
-impl pallet_scheduler::Trait for Test {
-    type Event = MetaEvent;
-    type Origin = Origin;
-    type PalletsOrigin = OriginCaller;
-    type Call = Call;
-    type MaximumWeight = MaximumSchedulerWeight;
-    type ScheduleOrigin = EnsureRoot<AccountId>;
-    type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
+    type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
+    type FixedYearlyReward = FixedYearlyReward;
+    type MinimumBond = MinimumBond;
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -1012,8 +1040,9 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
         "Error in registering the DID"
     );
     let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert!(
-        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        Identity::add_claim(cdd.clone(), did, Claim::CustomerDueDiligence(cdd_id), None).is_ok(),
         "Error CDD Claim cannot be added to DID"
     );
     true
@@ -1124,27 +1153,43 @@ fn assert_ledger_consistent(ctrl: AccountId) {
 }
 
 pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
-    provide_did_to_user(stash);
-    add_secondary_key(stash, ctrl);
-    assert_ok!(Staking::bond(
-        Origin::signed(stash),
-        ctrl,
-        val,
-        RewardDestination::Controller,
-    ));
+    bond_validator_with_intended_count(stash, ctrl, val, None)
+}
+
+pub fn bond_validator_with_intended_count(
+    stash: AccountId,
+    ctrl: AccountId,
+    val: Balance,
+    i_count: Option<u32>,
+) {
+    bond(stash, ctrl, val);
     let entity_id = Identity::get_identity(&stash).unwrap();
-    if !Staking::permissioned_identity(entity_id) {
+    if Staking::permissioned_identity(entity_id).is_none() {
         assert_ok!(Staking::add_permissioned_validator(
             frame_system::RawOrigin::Root.into(),
-            entity_id
+            entity_id,
+            i_count
         ));
     }
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
     ));
+}
+
+pub fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
+    let _ = Balances::make_free_balance_be(&stash, val);
+    let _ = Balances::make_free_balance_be(&ctrl, val);
+    provide_did_to_user(stash);
+    add_secondary_key(stash, ctrl);
+    if Staking::bonded(&stash).is_none() {
+        assert_ok!(Staking::bond(
+            Origin::signed(stash),
+            ctrl,
+            val,
+            RewardDestination::Controller,
+        ));
+    }
 }
 
 pub(crate) fn bond_nominator(
@@ -1219,6 +1264,8 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
         Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance(),
         duration,
+        MaxVariableInflationTotalIssuance::get(),
+        FixedYearlyReward::get(),
     )
     .0
 }
@@ -1548,21 +1595,38 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000)
+    make_account_with_balance(id, 1_000_000, None)
 }
 
 /// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
     balance: <Test as CommonTrait>::Balance,
+    expiry: Option<Moment>,
 ) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
-
-    let uid = InvestorUid::from(format!("{}", id).as_str());
-    Identity::register_did(signed_id.clone(), uid, vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&id).unwrap();
-
+    let uid = create_investor_uid(id);
+    // If we have CDD providers, first of them executes the registration.
+    let cdd_providers = Group::get_members();
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
+            let did = Identity::get_identity(&id).unwrap();
+            let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
+            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, expiry)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
+    };
     Ok((signed_id, did))
 }
 
@@ -1578,25 +1642,37 @@ pub fn add_nominator_claim_with_expiry(
     expiry: u64,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         identity_id,
-        Claim::make_cdd_wildcard(),
+        Claim::CustomerDueDiligence(cdd_id),
         Some(expiry.into()),
     ));
 }
 
+pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
+    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
+    (cdd_id, uid)
+}
+
+pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
+    InvestorUid::from(format!("{}", acc).as_str())
+}
+
 pub fn add_nominator_claim(
     _claim_issuer: IdentityId,
-    idendity_id: IdentityId,
+    identity_id: IdentityId,
     claim_issuer_account_id: AccountId,
 ) {
     let signed_claim_issuer_id = Origin::signed(claim_issuer_account_id);
     let now = Utc::now();
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(identity_id);
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
-        idendity_id,
-        Claim::make_cdd_wildcard(),
+        identity_id,
+        Claim::CustomerDueDiligence(cdd_id),
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -1625,10 +1701,11 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         vec![]
     ));
     let did = Identity::get_identity(&stash).unwrap();
+    let (cdd_id, _) = create_cdd_id_and_investor_uid(did);
     assert_ok!(Identity::add_claim(
         Origin::signed(1005),
         did,
-        Claim::make_cdd_wildcard(),
+        Claim::CustomerDueDiligence(cdd_id),
         Some(expiry.into())
     ));
 }

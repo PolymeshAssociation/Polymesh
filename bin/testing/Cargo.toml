@@ -7,7 +7,7 @@ description = "Test utilities for Substrate node."
 edition = "2018"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/PolymathNetwork/substrate/"
 publish = true
 
 [package.metadata.docs.rs]
@@ -23,33 +23,33 @@ pallet-staking = { path = "../../pallets/staking" }
 pallet-balances = { path = "../../pallets/balances" }
 node-executor = { path = "../executor", features = ["wasmtime"] }
 
-sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", features = ["test-helpers", "db", "wasmtime"] }
-sc-client-db = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", features = ["kvdb-rocksdb", "parity-db"] }
-sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
+sc-service = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["test-helpers", "db", "wasmtime"] }
+sc-client-db = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["kvdb-rocksdb", "parity-db"] }
+sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 codec = { package = "parity-scale-codec", version = "1.3.4" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-pallet-session = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", features = ["wasmtime"] }
-sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-substrate-test-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-keyring = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-executor = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }
+sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+substrate-test-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+pallet-treasury = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 wabt = "0.10.0"
-sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-finality-tracker = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sc-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-finality-tracker = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sc-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 log = "0.4.8"
 tempfile = "3.1.0"
 fs_extra = "1"
@@ -57,4 +57,4 @@ futures = "0.3.1"
 
 [dev-dependencies]
 criterion = "0.3.0"
-sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", features = ["wasmtime"] }
+sc-cli = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", features = ["wasmtime"] }

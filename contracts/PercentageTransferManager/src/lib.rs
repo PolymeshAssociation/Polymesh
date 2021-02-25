@@ -3,7 +3,7 @@
 use ink_lang as ink;
 
 mod custom_types {
-    use ink_core::storage::traits::{PackedLayout, SpreadLayout};
+    use ink_storage::traits::{PackedLayout, SpreadLayout};
     use scale::{Decode, Encode};
     #[cfg(feature = "std")]
     use scale_info::TypeInfo;
@@ -24,7 +24,7 @@ mod custom_types {
     )]
     #[cfg_attr(
         feature = "std",
-        derive(TypeInfo, Debug, ink_core::storage::traits::StorageLayout)
+        derive(TypeInfo, Debug, ink_storage::traits::StorageLayout)
     )]
     pub struct IdentityId([u8; 32]);
 
@@ -50,8 +50,9 @@ mod custom_types {
 #[ink::contract]
 mod percentage_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
-    use ink_core::storage::collections::HashMap as StorageHashMap;
     use ink_prelude::vec::Vec;
+    #[cfg(not(feature = "ink-as-dependency"))]
+    use ink_storage::collections::HashMap as StorageHashMap;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
@@ -138,7 +139,7 @@ mod percentage_transfer_manager {
             _current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && self.allow_primary_issuance
-                || self.is_exempted_or_not(&(to.unwrap_or_default()))
+                || to.map_or(false, |to| self.is_exempted(&to))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
                     <= self.max_allowed_percentage
             {
@@ -191,7 +192,7 @@ mod percentage_transfer_manager {
         pub fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
             self.ensure_owner(self.env().caller());
             assert!(
-                self.is_exempted_or_not(&identity) != is_exempted,
+                self.is_exempted(&identity) != is_exempted,
                 "Must change setting"
             );
             self.exemption_list.insert(identity, is_exempted);
@@ -247,10 +248,20 @@ mod percentage_transfer_manager {
         /// Function to know whether given Identity is exempted or not
         #[ink(message)]
         pub fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
-            self.is_exempted_or_not(&of)
+            self.is_exempted(&of)
         }
 
-        fn is_exempted_or_not(&self, of: &IdentityId) -> bool {
+        /// Return all exempted identities.
+        #[ink(message)]
+        pub fn get_all_exempted_identities(&self) -> Vec<IdentityId> {
+            self.exemption_list
+                .iter()
+                .filter(|(_, status)| **status)
+                .map(|(id, _)| *id)
+                .collect()
+        }
+
+        fn is_exempted(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
         }
 
@@ -266,12 +277,12 @@ mod percentage_transfer_manager {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-        use ink_core::env::{call, test};
-        type Accounts = test::DefaultAccounts<EnvTypes>;
+        use ink_env::{call, test};
+        type Accounts = test::DefaultAccounts<ink_env::DefaultEnvironment>;
         const CALLEE: [u8; 32] = [7; 32];
 
         fn set_sender(sender: AccountId) {
-            test::push_execution_context::<EnvTypes>(
+            test::push_execution_context::<ink_env::DefaultEnvironment>(
                 sender,
                 CALLEE.into(),
                 1000000,
@@ -464,7 +475,6 @@ mod percentage_transfer_manager {
             let from = IdentityId::from(1);
             let to = IdentityId::from(2);
             let multiplier: u128 = 1000000;
-            let default_accounts = default_accounts();
 
             // Should fail if the transfer value is more than the restriction
             assert_eq!(
@@ -503,9 +513,6 @@ mod percentage_transfer_manager {
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
-            let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
             //Should fail to change the allowed percentage because no change in the allowed percentage value
             percentage_transfer_manager.change_allowed_percentage(200000u128);
         }
@@ -517,9 +524,6 @@ mod percentage_transfer_manager {
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
-            let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
 
             // Should fail to call change_allowed_percentage when ownership changes
             percentage_transfer_manager.transfer_ownership(default_accounts.bob);
@@ -534,9 +538,7 @@ mod percentage_transfer_manager {
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
             let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
 
             percentage_transfer_manager.transfer_ownership(default_accounts.bob);
             assert_eq!(percentage_transfer_manager.owner(), default_accounts.bob);
@@ -546,13 +548,10 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Must change setting")]
         fn should_panic_when_calling_modify_exemption_list_when_same_value_passed() {
-            let default_accounts = default_accounts();
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
             let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
 
             percentage_transfer_manager.modify_exemption_list(to, true);
             // Should fail to call modify_exemption_list with same exemption state
@@ -566,9 +565,6 @@ mod percentage_transfer_manager {
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
-            let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
 
             percentage_transfer_manager.transfer_ownership(default_accounts.bob);
             assert_eq!(percentage_transfer_manager.owner(), default_accounts.bob);
@@ -578,13 +574,9 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Must change setting")]
         fn should_panic_when_calling_change_primary_issuance_when_same_value_passed() {
-            let default_accounts = default_accounts();
             set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
-            let from = IdentityId::from(1);
-            let to = IdentityId::from(2);
-            let multiplier: u128 = 1000000;
 
             // Should fail to call change_primary_issuance with same issuance state
             percentage_transfer_manager.change_primary_issuance(false);
@@ -600,8 +592,13 @@ mod percentage_transfer_manager {
                 (IdentityId::from(2), true),
                 (IdentityId::from(3), true),
             ];
-            percentage_transfer_manager.modify_exemption_list_batch(exempted_identities.clone());
-
+            let exempt_to = exempted_identities
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>();
+            percentage_transfer_manager.modify_exemption_list_batch(exempted_identities);
+            let exempt_id = percentage_transfer_manager.get_all_exempted_identities();
+            assert!(exempt_id == exempt_to);
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(1)));
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(2)));
             assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(3)));

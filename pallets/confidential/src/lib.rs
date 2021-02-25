@@ -12,26 +12,27 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(box_syntax)]
 
-use polymesh_common_utilities::identity::Trait as IdentityTrait;
-use polymesh_primitives::{rng, IdentityId, Ticker};
-use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
-
-use pallet_identity as identity;
-
+use codec::{Decode, Encode};
 use cryptography_core::{
     asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
     bulletproofs::RangeProof,
-    curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar},
+    CompressedRistretto, Scalar,
 };
-
-use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
+    weights::Weight,
 };
+use pallet_identity as identity;
+use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
+use polymesh_primitives::{rng, IdentityId, Ticker};
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use sp_std::prelude::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
@@ -48,8 +49,16 @@ pub struct TickerRangeProof {
     pub max_two_exp: u32,
 }
 
+pub trait WeightInfo {
+    fn add_range_proof() -> Weight;
+    fn add_verify_range_proof() -> Weight;
+}
+
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+
+    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type WeightInfo: WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -63,9 +72,9 @@ pub struct ProverTickerKey {
 decl_storage! {
     trait Store for Module<T: Trait> as Confidential {
         /// Number of investor per asset.
-        pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
+        pub RangeProofs get(fn range_proof): double_map hasher(identity) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
-        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
+        pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(identity) IdentityId => bool;
     }
 }
 
@@ -75,14 +84,9 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = 8_000_000_000]
-        pub fn add_range_proof(origin,
-            target_id: IdentityId,
-            ticker: Ticker,
-            secret_value: u64,
-        ) -> DispatchResult
-        {
-            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+        #[weight = <T as Trait>::WeightInfo::add_range_proof()]
+        pub fn add_range_proof(origin, target_id: IdentityId, ticker: Ticker, secret_value: u64) {
+            let prover = Identity::<T>::ensure_perms(origin)?;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -99,29 +103,20 @@ decl_module! {
                 max_two_exp: 32,
             };
             let prover_ticker_key = ProverTickerKey { prover, ticker };
-            <RangeProofs>::insert(&target_id, &prover_ticker_key, ticker_range_proof);
-            Ok(())
+            RangeProofs::insert(&target_id, &prover_ticker_key, ticker_range_proof);
         }
 
-        #[weight = 6_000_000_000]
-        pub fn add_verify_range_proof(origin,
-            target: IdentityId,
-            prover: IdentityId,
-            ticker: Ticker) -> DispatchResult
-        {
-            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
+        #[weight = <T as Trait>::WeightInfo::add_verify_range_proof()]
+        pub fn add_verify_range_proof(origin, target: IdentityId, prover: IdentityId, ticker: Ticker) {
+            let verifier_id = Identity::<T>::ensure_perms(origin)?;
             Self::verify_range_proof(target, prover, ticker)?;
-
-            <RangeProofVerifications>::insert((target, ticker), verifier_id, true);
-            Ok(())
+            RangeProofVerifications::insert((target, ticker), verifier_id, true);
         }
     }
 }
 
 decl_event! {
-    pub enum Event
-    {
+    pub enum Event {
         RangeProofAdded(IdentityId, Ticker, TickerRangeProof),
         RangeProofVerified(IdentityId, IdentityId, Ticker),
     }

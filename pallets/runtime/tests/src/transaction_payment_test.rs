@@ -1,5 +1,7 @@
 use super::ext_builder::ExtBuilder;
 use super::storage::{Call, MaximumBlockWeight, TestStorage};
+use polymesh_primitives::TransactionError;
+
 use codec::Encode;
 use frame_support::{
     traits::Currency,
@@ -7,7 +9,13 @@ use frame_support::{
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
-use sp_runtime::{testing::TestXt, traits::SignedExtension, FixedPointNumber};
+use sp_core::sr25519::Public;
+use sp_runtime::{
+    testing::TestXt,
+    traits::SignedExtension,
+    transaction_validity::{InvalidTransaction, TransactionValidityError},
+    FixedPointNumber,
+};
 use test_client::AccountKeyring;
 
 fn call() -> <TestStorage as frame_system::Trait>::Call {
@@ -23,6 +31,14 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
     // pays_fee: Pays::Yes -- class: DispatchClass::Normal
     DispatchInfo {
         weight: w,
+        ..Default::default()
+    }
+}
+
+fn operational_info_from_weight(w: Weight) -> DispatchInfo {
+    DispatchInfo {
+        weight: w,
+        class: DispatchClass::Operational,
         ..Default::default()
     }
 }
@@ -459,4 +475,76 @@ fn refund_consistent_with_actual_weight() {
             assert_eq!(actual_fee, 7 + 10 + (33 * 5 / 4) + tip);
             assert_eq!(refund_based_fee, actual_fee);
         });
+}
+
+#[test]
+fn normal_tx_with_tip() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(normal_tx_with_tip_ext);
+}
+
+fn normal_tx_with_tip_ext() {
+    let len = 10;
+    let tip = 42;
+    let user = AccountKeyring::Alice.public();
+    let call = call();
+    let normal_info = info_from_weight(100);
+
+    // Invalid normal tx with tip.
+    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
+        TransactionError::ZeroTip as u8,
+    ));
+    let pre_err = ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&user, &call, &normal_info, len)
+        .map(|_| ())
+        .unwrap_err();
+    assert!(pre_err == expected_err);
+
+    // Valid normal tx.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(0)
+        .pre_dispatch(&user, &call, &normal_info, len)
+        .is_ok());
+}
+
+#[test]
+fn operational_tx_with_tip() {
+    let cdd_provider = AccountKeyring::Bob.public();
+    let gc_member = AccountKeyring::Charlie.public();
+
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![cdd_provider])
+        .governance_committee(vec![gc_member])
+        .build()
+        .execute_with(|| operational_tx_with_tip_ext(cdd_provider, gc_member));
+}
+
+fn operational_tx_with_tip_ext(cdd: Public, gc: Public) {
+    let len = 10;
+    let tip = 42;
+    let user = AccountKeyring::Alice.public();
+    let call = call();
+    let operational_info = operational_info_from_weight(100);
+
+    // Valid operational tx with `tip == 0`.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(0)
+        .pre_dispatch(&user, &call, &operational_info, len)
+        .is_ok());
+
+    // Valid operational tx with tip. Only CDD and Governance members can tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&user, &call, &operational_info, len)
+        .is_err());
+
+    // Governance can tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&gc, &call, &operational_info, len)
+        .is_ok());
+
+    // CDD can also tip.
+    assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
+        .pre_dispatch(&cdd, &call, &operational_info, len)
+        .is_ok());
 }

@@ -22,6 +22,7 @@ use frame_support::{
     decl_event,
     dispatch::DispatchResult,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
+    weights::Weight,
 };
 use sp_std::{
     cmp::{Eq, Ordering, PartialEq},
@@ -79,6 +80,16 @@ impl<M: Default> From<IdentityId> for InactiveMember<M> {
     }
 }
 
+pub trait WeightInfo {
+    fn set_active_members_limit() -> Weight;
+    fn add_member() -> Weight;
+    fn remove_member() -> Weight;
+    fn disable_member() -> Weight;
+    fn swap_member() -> Weight;
+    fn reset_members(new_members_len: u32) -> Weight;
+    fn abdicate_membership() -> Weight;
+}
+
 pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
@@ -107,6 +118,9 @@ pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrai
 
     /// The receiver of the signal for when the membership has changed.
     type MembershipChanged: ChangeMembers<IdentityId>;
+
+    /// Weight information for extrinsics in this pallet.
+    type WeightInfo: WeightInfo;
 }
 
 decl_event!(
