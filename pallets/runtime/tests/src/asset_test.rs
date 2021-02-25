@@ -956,32 +956,54 @@ fn update_identifiers() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
+        let ident_bad = AssetIdentifier::CUSIP(*b"aaaa_aaaa");
         let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
+        let mut identifiers = vec![
+            AssetIdentifier::cusip(*identifier_value1).unwrap(),
+            ident_bad,
+        ];
 
-        // A correct entry was added
+        let create = |idents| {
+            Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                idents,
+                None,
+            )
+        };
+        let update = |idents| Asset::update_identifiers(owner_signed.clone(), ticker, idents);
+
+        // Create: A bad entry was rejected.
+        assert_noop!(
+            update(identifiers.clone()),
+            AssetError::InvalidAssetIdentifier
+        );
+        identifiers.pop().unwrap();
+
+        // Create: A correct entry was added.
+        assert_ok!(create(identifiers.clone()));
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(Asset::identifiers(ticker), identifiers);
+
+        // Update: A bad entry was rejected.
         let identifier_value2 = b"US0378331005";
-        let updated_identifiers = vec![
+        let mut updated_identifiers = vec![
             AssetIdentifier::cusip(*b"17275R102").unwrap(),
             AssetIdentifier::isin(*identifier_value2).unwrap(),
+            AssetIdentifier::CUSIP(*b"aaaa_aaaa"),
         ];
-        assert_ok!(Asset::update_identifiers(
-            owner_signed.clone(),
-            ticker,
-            updated_identifiers.clone(),
-        ));
+        assert_noop!(
+            update(updated_identifiers.clone()),
+            AssetError::InvalidAssetIdentifier
+        );
+
+        // Update: A correct entry was added.
+        updated_identifiers.pop().unwrap();
+        assert_ok!(update(updated_identifiers.clone()));
         assert_eq!(Asset::identifiers(ticker), updated_identifiers);
     });
 }
