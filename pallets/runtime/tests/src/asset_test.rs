@@ -123,31 +123,27 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        assert_noop!(
+
+        let create = |supply| {
             Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
                 ticker,
-                1_000_000_000_000_000_000_000_000, // Total supply over the limit
+                supply,
                 true,
                 token.asset_type.clone(),
                 Vec::new(),
                 Some(funding_round_name.clone()),
-            ),
+            )
+        };
+
+        assert_noop!(
+            create(1_000_000_000_000_000_000_000_000), // Total supply over the limit.
             AssetError::TotalSupplyAboveLimit
         );
 
-        // Issuance is successful
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            Vec::new(),
-            Some(funding_round_name.clone()),
-        ));
+        // Issuance is successful.
+        assert_ok!(create(token.total_supply));
 
         // Check the update investor count for the newly created asset
         assert_eq!(Statistics::investor_count(ticker), 1);
