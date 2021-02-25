@@ -78,7 +78,9 @@ polymesh-runtime-common = { path = "core/runtime/common" }
 # RPC
 node-rpc = { path = "rpc" }
 node-rpc-runtime-api = { path = "rpc/runtime-api" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 polymesh-node-rpc = { path = "node-rpc" }
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
 pallet-protocol-fee-rpc-runtime-api = { path = "core/pallets/protocol-fee/rpc/runtime-api" }
 pallet-staking-rpc-runtime-api = { path = "core/pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "core/pallets/protocol-fee/rpc" }
@@ -115,8 +117,6 @@ sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2
 sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 
 contracts = { package = "pallet-contracts", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 

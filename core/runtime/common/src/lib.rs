@@ -73,9 +73,6 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
-    /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
-    /// `MaximumBlockWeight * AvailableBlockRatio`.
-    pub const PipsEnactSnapshotMaximumWeight: Weight = WEIGHT_PER_SECOND * 2 * 75 / 100;
 }
 
 /// Converts Weight to Fee

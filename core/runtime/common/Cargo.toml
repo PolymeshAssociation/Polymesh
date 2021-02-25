@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
 pallet-asset = { path = "../../pallets/asset", default-features = false }
 pallet-balances = { path = "../../pallets/balances", default-features = false  }

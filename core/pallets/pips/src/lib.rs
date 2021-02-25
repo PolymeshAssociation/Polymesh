@@ -95,13 +95,13 @@ use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, parameter_types,
     storage::IterableStorageMap,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed, Priority, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::{DispatchClass::Operational, Weight},
+    weights::{DispatchClass::Operational, Weight, constants::WEIGHT_PER_SECOND},
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -119,7 +119,6 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
-use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -391,6 +390,12 @@ pub enum SnapshotResult {
 pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
+
+parameter_types! {
+    /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
+    /// `MaximumBlockWeight * AvailableBlockRatio`.
+    pub const PipsEnactSnapshotMaximumWeight: Weight = WEIGHT_PER_SECOND * 2 * 75 / 100;
+}
 
 /// The module's configuration trait.
 pub trait Trait:

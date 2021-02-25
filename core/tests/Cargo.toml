@@ -82,8 +82,6 @@ ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", de
 
 # Benchmarking
 frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
-
-# Test
 test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 

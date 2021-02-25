@@ -18,7 +18,6 @@ pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default
 # our pallets
 pallet-asset = { path = "../pallets/asset", default-features = false }
 pallet-balances = { path = "../pallets/balances", default-features = false }
-pallet-staking = { path = "../pallets/staking", default-features = false }
 pallet-committee = { path = "../pallets/committee", default-features = false }
 pallet-compliance-manager = { path = "../pallets/compliance-manager", default-features = false  }
 pallet-confidential = { path = "../pallets/confidential", default-features = false }
@@ -26,6 +25,7 @@ pallet-corporate-actions = { path = "../pallets/corporate-actions", default-feat
 pallet-group = { path = "../pallets/group", default-features = false }
 pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-im-online = { path = "../pallets/im-online", default-features = false }
+pallet-staking = { path = "../pallets/staking", default-features = false }
 pallet-multisig = { path = "../pallets/multisig", default-features = false  }
 pallet-pips = { path = "../pallets/pips", default-features = false }
 pallet-portfolio = { path = "../pallets/portfolio", default-features = false  }

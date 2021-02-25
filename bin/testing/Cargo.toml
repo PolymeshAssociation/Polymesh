@@ -51,7 +51,6 @@ sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag =
 sc-block-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
-
 wabt = "0.10.0"
 log = "0.4.8"
 tempfile = "3.1.0"
