@@ -63,7 +63,7 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Statistics {
+    trait Store for Module<T: Trait> as statistics {
         /// Transfer managers currently enabled for an Asset.
         pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
         /// Number of current investors in an asset.
