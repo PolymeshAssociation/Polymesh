@@ -63,25 +63,38 @@ type System = frame_system::Module<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 
+fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+    let name = b"A" as &[_];
+    let ticker = Ticker::try_from(name).unwrap();
+    let token = SecurityToken {
+        name: name.into(),
+        owner_did,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        primary_issuance_agent: None,
+        ..Default::default()
+    };
+    (ticker, token)
+}
+
 fn setup_se_template(
     creator: AccountId,
     creator_did: IdentityId,
     create_instance: bool,
 ) -> AccountId {
     let (code_hash, wasm) = flipper();
-    let input_data = hex!("0222FF18");
 
+    // Create SE template.
     if create_instance {
-        // Create SE template.
         create_se_template(creator, creator_did, 0, code_hash, wasm);
     }
-
     // Create SE instance.
     assert_ok!(create_contract_instance(creator, code_hash, 0, false));
 
     NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
         &code_hash,
-        &input_data.to_vec(),
+        &hex!("0222FF18"),
         &creator,
     )
 }
@@ -106,22 +119,11 @@ fn issuers_can_create_and_rename_tokens() {
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
         let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
-        let token = SecurityToken {
-            name: vec![b'A'].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            primary_issuance_agent: None,
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let (ticker, token) = a_token(owner_did);
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = Vec::new();
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert_err!(
+        assert_noop!(
             Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
@@ -129,7 +131,7 @@ fn issuers_can_create_and_rename_tokens() {
                 1_000_000_000_000_000_000_000_000, // Total supply over the limit
                 true,
                 token.asset_type.clone(),
-                identifiers.clone(),
+                Vec::new(),
                 Some(funding_round_name.clone()),
             ),
             AssetError::TotalSupplyAboveLimit
@@ -143,7 +145,7 @@ fn issuers_can_create_and_rename_tokens() {
             token.total_supply,
             true,
             token.asset_type.clone(),
-            identifiers.clone(),
+            Vec::new(),
             Some(funding_round_name.clone()),
         ));
 
@@ -203,15 +205,7 @@ fn valid_transfers_pass() {
             let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
             let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
@@ -244,22 +238,16 @@ fn valid_transfers_pass() {
             ));
 
             // Should fail as sender matches receiver
-            assert_noop!(
+            let transfer = |from, to| {
                 Asset::base_transfer(
-                    PortfolioId::default_portfolio(owner_did),
-                    PortfolioId::default_portfolio(owner_did),
+                    PortfolioId::default_portfolio(from),
+                    PortfolioId::default_portfolio(to),
                     &ticker,
-                    500
-                ),
-                AssetError::InvalidTransfer
-            );
-
-            assert_ok!(Asset::base_transfer(
-                PortfolioId::default_portfolio(owner_did),
-                PortfolioId::default_portfolio(alice_did),
-                &ticker,
-                500
-            ));
+                    500,
+                )
+            };
+            assert_noop!(transfer(owner_did, owner_did), AssetError::InvalidTransfer);
+            assert_ok!(transfer(owner_did, alice_did));
 
             let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
             let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
@@ -283,15 +271,7 @@ fn issuers_can_redeem_tokens() {
             let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                primary_issuance_agent: None,
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(
@@ -362,15 +342,7 @@ fn checkpoints_fuzz_test() {
             let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
             // Issuance is successful
@@ -436,16 +408,8 @@ fn register_ticker() {
         let owner_signed = Origin::signed(AccountKeyring::Dave.public());
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        let token = SecurityToken {
-            name: vec![b'A'].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+        let (ticker, token) = a_token(owner_did);
         let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Issuance is successful
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
@@ -645,15 +609,7 @@ fn controller_transfer() {
             let owner_did = register_keyring_account_without_cdd(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
             let alice_did = register_keyring_account_without_cdd(AccountKeyring::Alice).unwrap();
             let eve = AccountKeyring::Eve.public();
 
@@ -734,15 +690,7 @@ fn transfer_primary_issuance_agent() {
         let primary_issuance_signed = Origin::signed(AccountKeyring::Bob.public());
         let primary_issuance_agent = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
-        let token = SecurityToken {
-            name: ticker.as_slice().into(),
-            total_supply: 1_000_000,
-            owner_did,
-            divisible: true,
-            asset_type: Default::default(),
-            primary_issuance_agent: None,
-        };
+        let (ticker, token) = a_token(owner_did);
 
         assert_ok!(Asset::create_asset(
             owner_signed,
@@ -943,17 +891,8 @@ fn update_identifiers() {
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            primary_issuance_agent: None,
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
+        let (ticker, token) = a_token(owner_did);
+        assert!(!DidRecords::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let ident_bad = AssetIdentifier::CUSIP(*b"aaaa_aaaa");
@@ -1014,16 +953,7 @@ fn adding_removing_documents() {
         let owner_signed = Origin::signed(AccountKeyring::Dave.public());
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        let token = SecurityToken {
-            name: vec![b'A'].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let (ticker, token) = a_token(owner_did);
 
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
@@ -1095,14 +1025,7 @@ fn add_extension_successfully() {
             let (owner_signed, dave_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(dave_did);
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
@@ -1163,16 +1086,7 @@ fn add_same_extension_should_fail() {
             let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
@@ -1238,16 +1152,7 @@ fn should_successfully_archive_extension() {
             let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(owner_did);
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
@@ -1318,17 +1223,8 @@ fn should_fail_to_archive_an_already_archived_extension() {
             let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            assert!(!<DidRecords>::contains_key(
+            let (ticker, token) = a_token(owner_did);
+            assert!(!DidRecords::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
@@ -1402,17 +1298,8 @@ fn should_fail_to_archive_a_non_existent_extension() {
             let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            assert!(!<DidRecords>::contains_key(
+            let (ticker, token) = a_token(owner_did);
+            assert!(!DidRecords::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
@@ -1448,17 +1335,8 @@ fn should_successfuly_unarchive_an_extension() {
             let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            assert!(!<DidRecords>::contains_key(
+            let (ticker, token) = a_token(owner_did);
+            assert!(!DidRecords::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
@@ -1538,17 +1416,8 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
-            let token = SecurityToken {
-                name: b"TEST".into(),
-                owner_did,
-                total_supply: 1_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                ..Default::default()
-            };
-
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            assert!(!<DidRecords>::contains_key(
+            let (ticker, token) = a_token(owner_did);
+            assert!(!DidRecords::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
@@ -1710,16 +1579,7 @@ fn frozen_secondary_keys_create_asset_we() {
     ));
 
     // 2. Bob can create token
-    let token_1 = SecurityToken {
-        name: vec![b'A'].into(),
-        owner_did: alice_id,
-        total_supply: 1_000_000,
-        divisible: true,
-        asset_type: AssetType::default(),
-        primary_issuance_agent: None,
-        ..Default::default()
-    };
-    let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
+    let (ticker_1, token_1) = a_token(alice_id);
     assert_ok!(Asset::create_asset(
         Origin::signed(bob),
         token_1.name.clone(),
@@ -1736,15 +1596,7 @@ fn frozen_secondary_keys_create_asset_we() {
     assert_ok!(Identity::freeze_secondary_keys(Origin::signed(alice)));
 
     // 4. Bob cannot create a token.
-    let token_2 = SecurityToken {
-        name: vec![b'A'].into(),
-        owner_did: alice_id,
-        total_supply: 1_000_000,
-        divisible: true,
-        asset_type: AssetType::default(),
-        ..Default::default()
-    };
-    let _ticker_2 = Ticker::try_from(token_2.name.as_slice()).unwrap();
+    let (_ticker_2, _token_2) = a_token(alice_id);
     // commenting this because `default_identity` feature is not allowing to access None identity.
     // let create_token_result = Asset::create_asset(
     //     Origin::signed(bob),
@@ -1895,16 +1747,8 @@ fn can_set_primary_issuance_agent_we() {
         1_000,
         Some(Memo::from("Bob funding"))
     ));
-    let mut token = SecurityToken {
-        name: vec![b'A'].into(),
-        owner_did: alice_id,
-        total_supply: 1_000_000,
-        divisible: true,
-        asset_type: AssetType::default(),
-        primary_issuance_agent: Some(bob_id),
-        ..Default::default()
-    };
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+    let (ticker, mut token) = a_token(alice_id);
+    token.primary_issuance_agent = Some(bob_id);
 
     assert_ok!(Asset::create_asset(
         Origin::signed(alice),
@@ -1945,16 +1789,7 @@ fn check_functionality_of_remove_extension() {
             let alice = AccountKeyring::Alice.public();
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did: alice_did,
-                total_supply: 1_000_000_000,
-                divisible: true,
-                asset_type: AssetType::default(),
-                primary_issuance_agent: None,
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, token) = a_token(alice_did);
 
             assert_ok!(Asset::create_asset(
                 alice_signed.clone(),
@@ -2571,16 +2406,8 @@ fn check_unique_investor_count() {
 
             let total_supply = 1_000_000_000;
 
-            let token = SecurityToken {
-                name: vec![b'A'].into(),
-                owner_did: alice_did,
-                total_supply: total_supply,
-                divisible: true,
-                asset_type: AssetType::default(),
-                primary_issuance_agent: None,
-                ..Default::default()
-            };
-            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let (ticker, mut token) = a_token(alice_did);
+            token.total_supply = total_supply;
 
             assert_ok!(Asset::create_asset(
                 alice_signed.clone(),
