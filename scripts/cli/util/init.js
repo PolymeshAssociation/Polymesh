@@ -641,7 +641,6 @@ async function addConfidentialInstruction(
   toAccountId
 ) {
   let instructionCounter = await api.query.settlement.instructionCounter();
-  let transaction;
 
   let ConfidentialLeg = {
     from: getDefaultPortfolio(sender_did),
@@ -651,9 +650,10 @@ async function addConfidentialInstruction(
     to_account_id: toAccountId
   };
 
-    transaction = await api.tx.settlement.addInstruction(
+    const transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
+      null,
       null,
       [{"ConfidentialLeg": ConfidentialLeg}]
     );
@@ -751,6 +751,7 @@ let reqImports = {
   generateRandomKey,
   getDid,
   getDefaultPortfolio,
+  addConfidentialInstruction,
 };
 
 export { reqImports };
