@@ -120,10 +120,11 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
-    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
-    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
-    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    identity_id::GenesisIdentityRecord, secondary_key, storage_migrate_on, storage_migration_ver,
+    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
+    ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
+    InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -196,7 +197,7 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
-        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
+        config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
 
