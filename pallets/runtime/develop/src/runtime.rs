@@ -3,12 +3,6 @@
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
 
-// Testnet is an optional pallet. It can be enabled by `testnet` feature.
-#[cfg(feature = "testnet")]
-use pallet_testnet as testnet;
-#[cfg(not(feature = "testnet"))]
-pub use polymesh_common_utilities::empty_module as testnet;
-
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
@@ -238,8 +232,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    #[cfg(feature = "testnet")]
-    type TestnetFn = testnet::Module<Runtime>;
 }
 
 /// CddProviders instance of group
@@ -254,12 +246,6 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
-}
-
-impl testnet::Trait for Runtime {
-    type Event = Event;
-    #[cfg(feature = "testnet")]
-    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
 }
 
 construct_runtime!(
@@ -346,7 +332,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
-        Testnet: testnet::{Module, Call, Storage, Event<T> } = 50,
+        Testnet: pallet_testnet::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 
@@ -411,7 +397,6 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
             add_benchmark!(params, batches, pallet_staking, Staking);
-            #[cfg(feature = "testnet")]
             add_benchmark!(params, batches, pallet_testnet, Testnet);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }

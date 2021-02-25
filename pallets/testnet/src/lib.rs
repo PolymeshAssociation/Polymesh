@@ -103,9 +103,6 @@ decl_module! {
         /// claims.
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
-        ///
-        /// # Weight
-        /// `7_000_000_000
         #[weight = <T as Trait>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
             let cdd_id = Identity::<T>::ensure_perms(origin)?;

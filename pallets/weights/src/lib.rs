@@ -42,7 +42,6 @@ pub mod pallet_settlement;
 pub mod pallet_staking;
 pub mod pallet_statistics;
 pub mod pallet_sto;
-#[cfg(feature = "testnet")]
 pub mod pallet_testnet;
 pub mod pallet_timestamp;
 pub mod pallet_treasury;

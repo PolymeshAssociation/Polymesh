@@ -277,6 +277,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
             type CorporateAction = CorporateAction;
             type IdentityFn = pallet_identity::Module<Runtime>;
+            type TestnetFn = pallet_testnet::Module<Runtime>;
             type SchedulerOrigin = OriginCaller;
         }
 
@@ -413,6 +414,11 @@ macro_rules! misc_pallet_impls {
 
         impl polymesh_common_utilities::traits::PermissionChecker for Runtime {
             type Checker = Identity;
+        }
+
+        impl pallet_testnet::Trait for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
         }
 
         impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

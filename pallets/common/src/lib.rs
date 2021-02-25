@@ -32,8 +32,6 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
 
-pub mod empty_module;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchs;
 
@@ -177,10 +175,8 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
     }
 }
 
-#[cfg(feature = "testnet")]
 use polymesh_primitives::{secondary_key::api::SecondaryKey, InvestorUid};
 
-#[cfg(feature = "testnet")]
 pub trait TestnetFn<AccountId> {
     /// Creates a new did and attaches a CDD claim to it.
     fn register_did(

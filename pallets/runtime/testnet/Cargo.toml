@@ -39,7 +39,7 @@ pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false, optional = true } 
+pallet-testnet = { path = "../../testnet", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -101,12 +101,12 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 [features]
 default = ["std", "equalize"]
 equalize = []
-testnet = [
-    "polymesh-common-utilities/testnet",
-    "pallet-staking/testnet",
-    "pallet-testnet",
-    "polymesh-weights/testnet",
-]
+
+# Backends
+u64_backend = ["cryptography_core/u64_backend"]
+avx2_backend = ["cryptography_core/avx2_backend"]
+
+migration-dry-run = []
 no_std = ["u64_backend"]
 std = [
     "avx2_backend",
@@ -150,6 +150,7 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
+    "pallet-testnet/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",

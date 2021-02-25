@@ -28,7 +28,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, StaticLookup, Verify},
     Perbill, Permill,
 };
-use sp_std::prelude::*;
+use sp_std::{convert::TryInto, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -175,6 +175,23 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+/// NB It is needed beacuse `pallet_testnet` is not part of `construct_runtime`.
+impl From<pallet_testnet::Event<Runtime>> for Event {
+    fn from(_: pallet_testnet::Event<Runtime>) -> Self {
+        let mapped_event = pallet_identity::Event::<Runtime>::UnexpectedError(None);
+        Event::pallet_identity(mapped_event)
+    }
+}
+
+/// NB It is needed beacuse `pallet_testnet` is not part of `construct_runtime`.
+impl TryInto<pallet_testnet::Event<Runtime>> for Event {
+    type Error = ();
+
+    fn try_into(self) -> Result<pallet_testnet::Event<Runtime>, Self::Error> {
+        Err(())
+    }
+}
 
 impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;

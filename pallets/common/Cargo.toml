@@ -50,7 +50,6 @@ equalize = []
 default_identity = []
 no_std = ["u64_backend"]
 only-staking = []
-testnet = []
 std = [
 	"substrate-test-runtime-client",
 	"serde_derive",

@@ -16,7 +16,6 @@ use crate::{
     benchs::{SecretKey, User},
     traits::{group::GroupTrait, identity::Trait},
 };
-#[cfg(feature = "testnet")]
 use crate::{traits::identity::IdentityFnTrait, TestnetFn};
 
 use schnorrkel::{ExpansionMode, MiniSecretKey};
@@ -65,13 +64,10 @@ impl<T: Trait> UserBuilder<T> {
             .uid
             .unwrap_or_else(|| uid_from_name_and_idx(name, self.seed));
 
-        #[cfg(feature = "testnet")]
         let did = self.did.or_else(|| {
             self.generate_did
                 .then(|| Self::make_did(account.clone(), uid.clone()))
         });
-        #[cfg(not(feature = "testnet"))]
-        let did = self.did;
 
         // Become a CDD provider.
         self.as_cdd_provider.then(|| {
@@ -136,7 +132,6 @@ impl<T: Trait> UserBuilder<T> {
     }
 
     /// Create a DID for account `acc` using the specified investor ID.
-    #[cfg(feature = "testnet")]
     fn make_did(acc: T::AccountId, uid: InvestorUid) -> IdentityId {
         let _ = T::TestnetFn::register_did(acc.clone(), uid, vec![]);
         T::IdentityFn::get_identity(&acc).unwrap()

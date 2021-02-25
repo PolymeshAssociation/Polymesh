@@ -39,7 +39,6 @@ pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substr
 [features]
 default = ["std"]
 no_std = []
-testnet = []
 std = [
 	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",

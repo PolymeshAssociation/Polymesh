@@ -34,12 +34,12 @@ pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-statistics = { path = "../../statistics", default-features = false }
+pallet-testnet = { path = "../../testnet", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false, optional = true }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -108,12 +108,6 @@ equalize = []
 u64_backend = ["cryptography_core/u64_backend"]
 avx2_backend = ["cryptography_core/avx2_backend"]
 
-testnet = [
-    "polymesh-common-utilities/testnet",
-    "pallet-staking/testnet",
-    "pallet-testnet",
-    "polymesh-weights/testnet",
-]
 no_std = [
     "cryptography_core/no_std",
     "u64_backend"
@@ -165,6 +159,7 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
+    "pallet-testnet/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",

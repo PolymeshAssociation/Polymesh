@@ -18,12 +18,6 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
 use polymesh_primitives::{Balance, BlockNumber, Moment};
-
-#[cfg(feature = "testnet")]
-use pallet_testnet as testnet;
-#[cfg(not(feature = "testnet"))]
-pub use polymesh_common_utilities::empty_module as testnet;
-
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
@@ -241,8 +235,6 @@ impl pallet_pips::Trait for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    #[cfg(feature = "testnet")]
-    type TestnetFn = testnet::Module<Runtime>;
 }
 
 /// CddProviders instance of group
@@ -258,11 +250,7 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl testnet::Trait for Runtime {
-    type Event = Event;
-    #[cfg(feature = "testnet")]
-    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
-}
+pub type AllModulesExported = AllModules;
 
 construct_runtime!(
     pub enum Runtime where
@@ -347,7 +335,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
-        Testnet: testnet::{Module, Call, Storage, Event<T> } = 50,
+        Testnet: pallet_testnet::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 
