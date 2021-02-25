@@ -2,7 +2,6 @@
 
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
-
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
@@ -71,7 +70,6 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
-
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
 
