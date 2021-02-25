@@ -621,6 +621,39 @@ async function addInstruction(
   return instructionCounter;
 }
 
+async function addConfidentialInstruction(
+  api,
+  venueCounter,
+  signer,
+  sender_did,
+  receiver_did,
+  mediator_did,
+  fromAccountId,
+  toAccountId
+) {
+  let instructionCounter = await api.query.settlement.instructionCounter();
+
+  let ConfidentialLeg = {
+    from: getDefaultPortfolio(sender_did),
+    to: getDefaultPortfolio(receiver_did),
+    mediator: getDefaultPortfolio(mediator_did),
+    from_account_id: fromAccountId,
+    to_account_id: toAccountId
+  };
+
+    const transaction = await api.tx.settlement.addInstruction(
+      venueCounter,
+      0,
+      null,
+      null,
+      [{"ConfidentialLeg": ConfidentialLeg}]
+    );
+
+  await sendTx(signer, transaction);
+
+  return instructionCounter;
+}
+
 async function claimReceipt(
   api,
   sender,
@@ -708,6 +741,7 @@ let reqImports = {
   generateRandomKey,
   getDid,
   getDefaultPortfolio,
+  addConfidentialInstruction,
 };
 
 export { reqImports };
