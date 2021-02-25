@@ -12,14 +12,12 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-#![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
 
-use polymesh_common_utilities::benchs::UserBuilder;
-
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::UserBuilder;
 use sp_std::vec::Vec;
 
 const MAX_BENEFICIARIES: u32 = 128;
@@ -32,14 +30,14 @@ benchmarks! {
         let b in 1..MAX_BENEFICIARIES;
 
         // Refill treasury
-        let refiller = UserBuilder::<T>::default().balance(200 + REWARD * b).generate_did().build("refiller");
+        let refiller = UserBuilder::<T>::default().balance(200u32 + REWARD * b).generate_did().build("refiller");
         Module::<T>::reimbursement( refiller.origin().into(), (100 + (REWARD * b)).into())
             .expect("Tresury cannot be refill");
 
         // Create beneficiaries
         let beneficiaries = (0..b).map( |idx| {
             let user = UserBuilder::<T>::default()
-                .balance(100)
+                .balance(100u32)
                 .seed(idx)
                 .generate_did()
                 .build("beneficiary")
@@ -50,14 +48,14 @@ benchmarks! {
 
     }: _(RawOrigin::Root, beneficiaries)
     verify {
-        assert_eq!(Module::<T>::balance(), 100.into());
+        assert_eq!(Module::<T>::balance(), 100u32.into());
     }
 
     reimbursement {
-        let caller = UserBuilder::<T>::default().balance(1_000).generate_did().build("caller");
-        let amount = 500.into();
+        let caller = UserBuilder::<T>::default().balance(1_000u32).generate_did().build("caller");
+        let amount = 500u32.into();
     }: _(caller.origin(), amount)
     verify {
-        assert_eq!(Module::<T>::balance(), 500.into());
+        assert_eq!(Module::<T>::balance(), 500u32.into());
     }
 }

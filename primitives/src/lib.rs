@@ -62,7 +62,7 @@ pub type Index = u32;
 /// App-specific crypto used for reporting equivocation/misbehavior in BABE and
 /// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
 /// account.
-// #[cfg(feature = "std")]
+#[cfg(feature = "std")]
 pub mod report {
     use super::{Signature, Verify};
     use frame_system::offchain::AppCrypto;
@@ -240,6 +240,9 @@ pub mod calendar;
 /// Runtime crypto tools.
 pub mod crypto;
 
+/// Asset type definitions.
+pub mod asset;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
@@ -317,11 +320,11 @@ macro_rules! storage_migration_ver {
 /// It also updates `StorageVersion` in the current pallet to `$ver`.
 #[macro_export]
 macro_rules! storage_migrate_on {
-    ($curr: expr, $ver:literal, $body: block) => {{
+    ($curr: expr, $ver:literal, $([$($targ:ty),*])? $body: block) => {{
         const TARGET_VERSION: Version = Version::new($ver).unwrap();
         if $curr < TARGET_VERSION {
             $body;
-            StorageVersion::put(TARGET_VERSION);
+            StorageVersion::< $($($targ),*)? >::put(TARGET_VERSION);
         }
     }};
 }

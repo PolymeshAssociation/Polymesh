@@ -116,7 +116,7 @@ decl_module! {
             ensure_root(origin)?;
 
             // Ensure treasury has enough balance.
-            let total_amount = beneficiaries.iter().fold( 0.into(), |acc,b| b.amount.saturating_add(acc));
+            let total_amount = beneficiaries.iter().fold(0u32.into(), |acc,b| b.amount.saturating_add(acc));
             ensure!(
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance

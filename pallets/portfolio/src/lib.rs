@@ -35,8 +35,6 @@
 //! - `default_portfolio_balance`: Returns the ticker balance of the identity's default portfolio.
 //! - `user_portfolio_balance`: Returns the ticker balance of an identity's user portfolio.
 //! - `set_default_portfolio_balance`: Sets the ticker balance of the identity's default portfolio.
-//! - `rpc_get_portfolios`: An RPC function that lists all user-defined portfolio number-name pairs.
-//! - `rpc_get_portfolio_assets`: Ensures that there is no portfolio with the desired name yet.
 //! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
@@ -240,6 +238,9 @@ decl_module! {
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) {
             let PermissionedCallOriginData {
@@ -268,6 +269,9 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
@@ -316,6 +320,9 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,
@@ -370,18 +377,6 @@ impl<T: Trait> Module<T> {
     /// Returns the next portfolio number of a given identity and increments the stored number.
     fn get_next_portfolio_number(did: &IdentityId) -> PortfolioNumber {
         NextPortfolioNumber::mutate(did, |num| mem::replace(num, PortfolioNumber(num.0 + 1)))
-    }
-
-    /// An RPC function that lists all user-defined portfolio number-name pairs.
-    pub fn rpc_get_portfolios(did: IdentityId) -> Vec<(PortfolioNumber, PortfolioName)> {
-        Portfolios::iter_prefix(&did).collect()
-    }
-
-    /// An RPC function that lists all token-balance pairs of a portfolio.
-    pub fn rpc_get_portfolio_assets(
-        portfolio_id: PortfolioId,
-    ) -> Vec<(Ticker, <T as CommonTrait>::Balance)> {
-        <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect()
     }
 
     /// Ensures that there is no portfolio with the desired `name` yet.

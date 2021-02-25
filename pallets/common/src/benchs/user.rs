@@ -22,6 +22,7 @@ use sp_runtime::traits::StaticLookup;
 pub use schnorrkel::keys::{PublicKey, SecretKey};
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct User<T: Trait> {
     pub account: T::AccountId,
     pub secret: Option<SecretKey>,
@@ -31,23 +32,23 @@ pub struct User<T: Trait> {
 }
 
 impl<T: Trait> User<T> {
-    pub fn did(self: &Self) -> IdentityId {
-        self.did.clone().expect("User without DID")
+    pub fn did(&self) -> IdentityId {
+        self.did.expect("User without DID")
     }
 
-    pub fn uid(self: &Self) -> InvestorUid {
-        self.uid.clone().expect("User without UID")
+    pub fn uid(&self) -> InvestorUid {
+        self.uid.expect("User without UID")
     }
 
-    pub fn account(self: &Self) -> T::AccountId {
+    pub fn account(&self) -> T::AccountId {
         self.account.clone()
     }
 
-    pub fn origin(self: &Self) -> RawOrigin<T::AccountId> {
+    pub fn origin(&self) -> RawOrigin<T::AccountId> {
         self.origin.clone()
     }
 
-    pub fn lookup(self: &Self) -> <T::Lookup as StaticLookup>::Source {
+    pub fn lookup(&self) -> <T::Lookup as StaticLookup>::Source {
         T::Lookup::unlookup(self.account.clone())
     }
 

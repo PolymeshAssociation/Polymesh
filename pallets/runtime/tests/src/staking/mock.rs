@@ -553,7 +553,6 @@ impl CheckCdd<AccountId> for Test {
 }
 
 impl PermissionChecker for Test {
-    type Call = Call;
     type Checker = Identity;
 }
 
@@ -605,6 +604,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const MinimumBond: Balance = 0u128;
 }
 
 thread_local! {
@@ -666,7 +666,8 @@ impl Trait for Test {
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
-    type WeightInfo = ();
+    type MinimumBond = MinimumBond;
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
