@@ -4,8 +4,8 @@ use crate::{
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
-        provide_scope_claim_to_multiple_parties, register_keyring_account,
-        root, AccountId, Checkpoint, TestStorage, User,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, root, AccountId,
+        Checkpoint, TestStorage, User,
     },
 };
 use chrono::prelude::Utc;
@@ -265,11 +265,7 @@ fn issuers_can_redeem_tokens() {
             let (ticker, token) = a_token(owner.did);
 
             // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(
-                &[owner.did],
-                ticker,
-                alice,
-            );
+            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
 
             // Issuance is successful
             assert_ok!(Asset::create_asset(
@@ -295,11 +291,7 @@ fn issuers_can_redeem_tokens() {
                 PortfolioError::InsufficientPortfolioBalance
             );
 
-            assert_ok!(Asset::redeem(
-                owner.origin(),
-                ticker,
-                token.total_supply
-            ));
+            assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
             assert_eq!(Asset::token_details(&ticker).total_supply, 0);
@@ -414,7 +406,8 @@ fn register_ticker() {
         let stored_token = Asset::token_details(&ticker);
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
-        assert_err!(register(Ticker::try_from(&[b'A'][..]).unwrap()),
+        assert_err!(
+            register(Ticker::try_from(&[b'A'][..]).unwrap()),
             AssetError::AssetAlreadyCreated
         );
 
@@ -461,9 +454,7 @@ fn register_ticker() {
             );
         }
 
-        assert_ok!(register(
-            Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()
-        ));
+        assert_ok!(register(Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()));
     })
 }
 
@@ -510,10 +501,7 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_ok!(Asset::accept_ticker_transfer(
-            alice.origin(),
-            auth_id_alice
-        ));
+        assert_ok!(Asset::accept_ticker_transfer(alice.origin(), auth_id_alice));
 
         assert_eq!(
             Asset::asset_ownership_relation(owner.did, ticker),
@@ -970,10 +958,7 @@ fn adding_removing_documents() {
             ticker
         ));
 
-        assert_eq!(
-            asset::AssetDocuments::iter_prefix_values(ticker).count(),
-            0
-        );
+        assert_eq!(asset::AssetDocuments::iter_prefix_values(ticker).count(), 0);
     });
 }
 
@@ -1190,7 +1175,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
-                extension_name:  b"STO".into(),
+                extension_name: b"STO".into(),
                 extension_id: extension_id.clone(),
                 is_archive: false,
             };
@@ -1473,10 +1458,7 @@ fn freeze_unfreeze_asset() {
         ));
 
         assert_ok!(Asset::unfreeze(bob.origin(), ticker));
-        assert_err!(
-            Asset::unfreeze(bob.origin(), ticker),
-            AssetError::NotFrozen
-        );
+        assert_err!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });
 }
 #[test]
@@ -1685,10 +1667,7 @@ fn can_set_primary_issuance_agent_we() {
         auth_id
     ));
     assert_eq!(Asset::token_details(ticker), token);
-    assert_ok!(Asset::remove_primary_issuance_agent(
-        owner.origin(),
-        ticker
-    ));
+    assert_ok!(Asset::remove_primary_issuance_agent(owner.origin(), ticker));
     token.primary_issuance_agent = None;
     assert_eq!(Asset::token_details(ticker), token);
 }
@@ -1721,13 +1700,9 @@ fn check_functionality_of_remove_extension() {
                 extension_type: SmartExtensionType::TransferManager,
                 extension_name: b"ABC".into(),
                 extension_id: extension_id,
-                is_archive: false
+                is_archive: false,
             };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension
-            ));
+            assert_ok!(Asset::add_extension(owner.origin(), ticker, extension));
 
             // Verify storage.
             assert_eq!(
@@ -2211,7 +2186,11 @@ fn classic_ticker_claim_works() {
         let alice = focus_user(AccountKeyring::Alice, init_bal);
         let eth_sig = ethereum::eth_msg(alice.did, b"classic_claim", &alice_secret_key());
         for ClassicTickerImport { ticker, .. } in tickers {
-            assert_ok!(Asset::claim_classic_ticker(alice.origin(), ticker, eth_sig.clone()));
+            assert_ok!(Asset::claim_classic_ticker(
+                alice.origin(),
+                ticker,
+                eth_sig.clone()
+            ));
             assert_eq!(alice.did, Tickers::<TestStorage>::get(ticker).owner);
             assert!(matches!(
                 &*System::events(),
@@ -2231,8 +2210,16 @@ fn classic_ticker_claim_works() {
         let create = |user: User, name: &str, bal_after| {
             let asset = name.try_into().unwrap();
             let ticker = ticker(name);
-            let ret =
-                Asset::create_asset(user.origin(), asset, ticker, 1, true, <_>::default(), vec![], None);
+            let ret = Asset::create_asset(
+                user.origin(),
+                asset,
+                ticker,
+                1,
+                true,
+                <_>::default(),
+                vec![],
+                None,
+            );
             assert_balance(user.acc(), bal_after, 0);
             ret
         };
@@ -2249,10 +2236,7 @@ fn classic_ticker_claim_works() {
         // Now `DELTA` has expired as well. Bob registers it, so its not classic anymore and fee is charged.
         let bob = focus_user(AccountKeyring::Bob, 0);
         assert!(ClassicTickers::get(&ticker("DELTA")).is_some());
-        assert_ok!(Asset::register_ticker(
-            bob.origin(),
-            ticker("DELTA")
-        ));
+        assert_ok!(Asset::register_ticker(bob.origin(), ticker("DELTA")));
         assert_eq!(ClassicTickers::get(&ticker("DELTA")), None);
         assert_noop!(
             create(bob, "DELTA", 0),
@@ -2466,7 +2450,11 @@ fn next_checkpoint_is_updated_we() {
         root(),
         period.complexity()
     ));
-    assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, schedule));
+    assert_ok!(Checkpoint::create_schedule(
+        owner.origin(),
+        ticker,
+        schedule
+    ));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
@@ -2543,7 +2531,11 @@ fn non_recurring_schedule_works_we() {
         root(),
         period.complexity()
     ));
-    assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, schedule));
+    assert_ok!(Checkpoint::create_schedule(
+        owner.origin(),
+        ticker,
+        schedule
+    ));
     let id = CheckpointId(1);
     assert_eq!(id, Checkpoint::checkpoint_id_sequence(&ticker));
     assert_eq!(start, Checkpoint::timestamps(ticker, id));
