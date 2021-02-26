@@ -1,8 +1,9 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { IdentityId, Ticker, AssetCompliance, Scope } from "../types";
 import { sendTx } from "../util/init";
 import { assert } from "chai";
-import { IdentityId, Ticker, AssetCompliance, Scope } from "../types";
+
 
 const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {

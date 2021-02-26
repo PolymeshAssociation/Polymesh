@@ -1,6 +1,6 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { IdentityId, PortfolioId, PortfolioNumber, Ticker, MovePortfolioItem } from "../types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { IdentityId, PortfolioId, PortfolioNumber, Ticker, MovePortfolioItem } from "../types";
 import { sendTx, keyToIdentityIds } from "../util/init";
 
 /**

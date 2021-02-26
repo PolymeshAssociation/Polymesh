@@ -1,7 +1,7 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { IdentityId, Ticker } from "../types";
 import { sendTx, getDefaultPortfolio } from "../util/init";
-import { IdentityId, Ticker } from "../types";
 
 /**
  * @description Creates a Venue

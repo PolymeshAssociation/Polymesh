@@ -1,7 +1,7 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { AccountId } from "@polkadot/types/interfaces";
-import { AuthorizationData, Expiry, Permissions, Signatory } from "../types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { AccountId } from "@polkadot/types/interfaces";
+import type { AuthorizationData, Expiry, Permissions, Signatory } from "../types";
 import { sendTx } from "../util/init";
 
 /**

@@ -1,6 +1,6 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { PortfolioId, Ticker, DocumentHash, DocumentName, Document, LegacyPalletPermissions } from "../types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { PortfolioId, Ticker, DocumentHash, DocumentName, Document, LegacyPalletPermissions } from "../types";
 import { keyToIdentityIds } from "../util/init";
 import { nextPortfolioNumber } from "../helpers/portfolio_helper";
 

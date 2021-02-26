@@ -1,4 +1,4 @@
-import { AccountId } from "@polkadot/types/interfaces/runtime";
+import type { AccountId } from "@polkadot/types/interfaces/runtime";
 //import { Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
 

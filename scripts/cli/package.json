@@ -12,11 +12,11 @@
     "build": "npm run clean:some && tsc -p .",
     "clean:some": "rm -rf ./dist ./docs",
     "clean:all": "rm -rf ./node_modules ./yarn.lock ./dist ./docs",
-    "tscov": "tscov --min-coverage 90",
-    "tscov:d": "tscov --details",
+    "tscov": "type-coverage --at-least 95",
+    "tscov:d": "type-coverage --detail",
     "refresh": "npm run clean:all && yarn install",
     "publish-package": "npm run build && npm publish",
-    "docs": "typedoc --out docs ./src",
+    "docs": "typedoc src/tests src/helpers src/util --out dist/docs ",
     "0_create_identities": "node ./tests/0_create_identities.js",
     "1_poly_transfer": "node ./tests/1_poly_transfer.js",
     "2_key_management": "node ./tests/2_key_management.js",
@@ -37,7 +37,6 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@liftr/tscov": "^2.0.0",
     "@polkadot/api": "^3.7.1",
     "@polkadot/util": "^5.5.1",
     "@polkadot/util-crypto": "^5.5.1",
@@ -66,6 +65,8 @@
     "@types/node": "^14.14.22",
     "nodemon": "^2.0.7",
     "ts-node": "^9.1.1",
+    "type-coverage": "^2.16.3",
+    "typedoc": "^0.20.28",
     "typescript": "^4.1.3"
   }
 }

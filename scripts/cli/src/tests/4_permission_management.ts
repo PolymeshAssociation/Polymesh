@@ -1,11 +1,4 @@
-import {
-	createApi,
-	initMain,
-	generateRandomKey,
-	generateKeys,
-	generateRandomTicker,
-	transferAmount,
-} from "../util/init";
+import * as init from "../util/init";
 import { createIdentities, authorizeJoinToIdentities, setPermissionToSigner } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import { addSecondaryKeys } from "../helpers/key_management_helper";
@@ -17,26 +10,26 @@ import { assert } from "chai";
 
 async function main(): Promise<void> {
 	try {
-		const api = await createApi();
-		const ticker = await generateRandomTicker();
-		const portfolioName = await generateRandomTicker();
-		const testEntities = await initMain(api.api);
+		const api = await init.createApi();
+		const ticker = await init.generateRandomTicker();
+		const portfolioName = await init.generateRandomTicker();
+		const testEntities = await init.initMain(api.api);
 		const alice = testEntities[0];
-		const primaryDevSeed = await generateRandomKey();
-		const secondaryDevSeed = await generateRandomKey();
-		const primaryKeys = await generateKeys(api.api, 1, primaryDevSeed);
-		const secondaryKeys = await generateKeys(api.api, 1, secondaryDevSeed);
+		const primaryDevSeed = await init.generateRandomKey();
+		const secondaryDevSeed = await init.generateRandomKey();
+		const primaryKeys = await init.generateKeys(api.api, 1, primaryDevSeed);
+		const secondaryKeys = await init.generateKeys(api.api, 1, secondaryDevSeed);
 		const issuerDids = await createIdentities(api.api, primaryKeys, alice);
 		let extrinsics: LegacyPalletPermissions[] = [];
 		let portfolios: PortfolioId[] = [];
 		let assets: Ticker[] = [];
 		let documents: Document[] = [];
 
-		await distributePolyBatch(api.api, [primaryKeys[0]], transferAmount, alice);
+		await distributePolyBatch(api.api, [primaryKeys[0]], init.transferAmount, alice);
 		await issueTokenToDid(api.api, primaryKeys[0], ticker, 1000000);
 		await addSecondaryKeys(api.api, secondaryKeys, primaryKeys);
 		await authorizeJoinToIdentities(api.api, primaryKeys, issuerDids, secondaryKeys);
-		await distributePolyBatch(api.api, [secondaryKeys[0]], transferAmount, alice);
+		await distributePolyBatch(api.api, [secondaryKeys[0]], init.transferAmount, alice);
 
 		let portfolioOutput = await createPortfolio(api.api, portfolioName, secondaryKeys[0]);
 		assert.equal(portfolioOutput, false);
@@ -59,7 +52,7 @@ async function main(): Promise<void> {
 
 		setExtrinsic(extrinsics, "Asset", "add_documents");
 		await setPermissionToSigner(api.api, primaryKeys, secondaryKeys, extrinsics, portfolios, assets);
-		setDoc(documents, "www.google.com", { None: "" }, "google");
+		setDoc(documents, "www.google.com", {None: ""}, "google");
 		let addDocsOutput = await addDocuments(api.api, ticker, documents, secondaryKeys[0]);
 		assert.equal(addDocsOutput, false);
 

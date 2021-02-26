@@ -1,6 +1,6 @@
-import { ApiPromise } from "@polkadot/api";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
 import { u8aToHex, numberToU8a } from "@polkadot/util";
-import { KeyringPair } from "@polkadot/keyring/types";
 import { sendTx } from "../util/init";
 
 /**

@@ -1,6 +1,6 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { Ticker, Document, TickerRegistration, IdentityId } from "../types";
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { Ticker, Document, TickerRegistration, IdentityId } from "../types";
 import { sendTx } from "../util/init";
 import { assert } from "chai";
 

@@ -1,9 +1,8 @@
-import { ApiPromise } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { Moment } from "@polkadot/types/interfaces/runtime";
-import { AccountId } from "@polkadot/types/interfaces";
-import { sendTx, keyToIdentityIds } from "../util/init";
-import {
+import type { ApiPromise } from "@polkadot/api";
+import type { KeyringPair } from "@polkadot/keyring/types";
+import type { Moment } from "@polkadot/types/interfaces/runtime";
+import type { AccountId } from "@polkadot/types/interfaces";
+import type {
 	IdentityId,
 	Authorization,
 	LegacyPalletPermissions,
@@ -14,6 +13,8 @@ import {
 	Scope,
 	Expiry
 } from "../types";
+import { sendTx, keyToIdentityIds } from "../util/init";
+
 
 
 // TODO Refactor function to deal with all the possible claim types and their values
