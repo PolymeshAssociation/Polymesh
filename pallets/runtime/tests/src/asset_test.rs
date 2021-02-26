@@ -78,6 +78,10 @@ fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     (ticker, token)
 }
 
+fn has_ticker_record(ticker: Ticker) -> bool {
+    DidRecords::contains_key(Identity::get_token_did(&ticker).unwrap())
+}
+
 fn allow_all_transfers(ticker: Ticker, owner: User) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
@@ -126,13 +130,11 @@ fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
-        let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
         let (ticker, token) = a_token(owner.did);
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
+        assert!(!has_ticker_record(ticker));
 
+        let funding_round_name: FundingRoundName = b"round1".into();
         let create = |supply| {
             Asset::create_asset(
                 owner.origin(),
@@ -163,9 +165,7 @@ fn issuers_can_create_and_rename_tokens() {
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned
         );
-        assert!(<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
+        assert!(has_ticker_record(ticker));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
@@ -845,9 +845,7 @@ fn update_identifiers() {
 
         // Expected token entry
         let (ticker, token) = a_token(owner.did);
-        assert!(!DidRecords::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
+        assert!(!has_ticker_record(ticker));
         let ident_bad = AssetIdentifier::CUSIP(*b"aaaa_aaaa");
         let identifier_value1 = b"037833100";
         let mut identifiers = vec![
@@ -906,12 +904,7 @@ fn adding_removing_documents() {
         let owner = User::new(AccountKeyring::Dave);
 
         let (ticker, token) = a_token(owner.did);
-
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-
-        Identity::get_token_did(&ticker).unwrap();
+        assert!(!has_ticker_record(ticker));
 
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -973,9 +966,7 @@ fn add_extension_successfully() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             let identifier_value1 = b"037833100";
             let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
             assert_ok!(Asset::create_asset(
@@ -1030,9 +1021,7 @@ fn add_same_extension_should_fail() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
@@ -1091,9 +1080,7 @@ fn should_successfully_archive_extension() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
@@ -1157,9 +1144,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
 
             // Expected token entry.
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
@@ -1227,9 +1212,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
@@ -1261,9 +1244,7 @@ fn should_successfuly_unarchive_an_extension() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
@@ -1337,9 +1318,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
 
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
-            assert!(!DidRecords::contains_key(
-                Identity::get_token_did(&ticker).unwrap()
-            ));
+            assert!(!has_ticker_record(ticker));
             assert_ok!(Asset::create_asset(
                 owner.origin(),
                 token.name.clone(),
