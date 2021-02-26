@@ -10,8 +10,9 @@ use crate::{
 };
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchError, IterableStorageMap, StorageDoubleMap,
-    StorageMap,
+    assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResult},
+    IterableStorageMap, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -117,6 +118,15 @@ fn setup_se_template(
         &code_hash,
         &hex!("0222FF18"),
         &creator,
+    )
+}
+
+fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
+    Asset::base_transfer(
+        PortfolioId::default_portfolio(from.did),
+        PortfolioId::default_portfolio(to.did),
+        &ticker,
+        amount,
     )
 }
 
@@ -237,21 +247,12 @@ fn valid_transfers_pass() {
             allow_all_transfers(ticker, owner);
 
             // Should fail as sender matches receiver
-            let transfer = |from, to| {
-                Asset::base_transfer(
-                    PortfolioId::default_portfolio(from),
-                    PortfolioId::default_portfolio(to),
-                    &ticker,
-                    500,
-                )
-            };
-            assert_noop!(transfer(owner.did, owner.did), AssetError::InvalidTransfer);
-            assert_ok!(transfer(owner.did, alice.did));
+            let transfer = |from, to| transfer(ticker, from, to, 500);
+            assert_noop!(transfer(owner, owner), AssetError::InvalidTransfer);
+            assert_ok!(transfer(owner, alice));
 
-            let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice.did);
-            let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner.did);
-            assert_eq!(balance_owner, 1_000_000 - 500);
-            assert_eq!(balance_alice, 500);
+            assert_eq!(Asset::balance_of(&ticker, &owner.did), 1_000_000 - 500);
+            assert_eq!(Asset::balance_of(&ticker, &alice.did), 500);
         })
 }
 
@@ -309,12 +310,12 @@ fn issuers_can_redeem_tokens() {
         })
 }
 
-fn default_transfer(from: IdentityId, to: IdentityId, ticker: Ticker, val: u128) {
+fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
     assert_ok!(Asset::unsafe_transfer(
-        PortfolioId::default_portfolio(from),
-        PortfolioId::default_portfolio(to),
+        PortfolioId::default_portfolio(from.did),
+        PortfolioId::default_portfolio(to.did),
         &ticker,
-        val
+        val,
     ));
 }
 
@@ -360,7 +361,7 @@ fn checkpoints_fuzz_test() {
                     }
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
-                    default_transfer(owner.did, bob.did, ticker, 1);
+                    default_transfer(owner, bob, ticker, 1);
                 }
                 assert_ok!(Checkpoint::create_checkpoint(owner.origin(), ticker));
                 let bal_at = |id, did| Asset::get_balance_at(ticker, did, CheckpointId(id));
@@ -604,21 +605,11 @@ fn controller_transfer() {
 
             // Should fail as sender matches receiver
             assert_noop!(
-                Asset::base_transfer(
-                    PortfolioId::default_portfolio(owner.did),
-                    PortfolioId::default_portfolio(owner.did),
-                    &ticker,
-                    500
-                ),
+                transfer(ticker, owner, owner, 500),
                 AssetError::InvalidTransfer
             );
 
-            assert_ok!(Asset::base_transfer(
-                PortfolioId::default_portfolio(owner.did),
-                PortfolioId::default_portfolio(alice.did),
-                &ticker,
-                500
-            ));
+            assert_ok!(transfer(ticker, owner, alice, 500));
 
             let balance_alice = Asset::balance_of(&ticker, &alice.did);
             let balance_owner = Asset::balance_of(&ticker, &owner.did);
@@ -2303,10 +2294,8 @@ fn check_unique_investor_count() {
 
             // 1b). Should fail when transferring funds to bob_1.did because it doesn't posses scope_claim.
             // portfolio Id -
-            let sender_portfolio = PortfolioId::default_portfolio(alice.did);
-            let receiver_portfolio = PortfolioId::default_portfolio(bob_1.did);
             assert_noop!(
-                Asset::base_transfer(sender_portfolio, receiver_portfolio, &ticker, 1000),
+                transfer(ticker, alice, bob_1, 1000),
                 AssetError::InvalidTransfer
             );
 
@@ -2334,12 +2323,7 @@ fn check_unique_investor_count() {
             );
 
             // 1e). successfully transfer funds.
-            assert_ok!(Asset::base_transfer(
-                sender_portfolio,
-                receiver_portfolio,
-                &ticker,
-                1000
-            ));
+            assert_ok!(transfer(ticker, alice, bob_1, 1000));
 
             // validate the storage changes for Bob.
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
@@ -2363,12 +2347,7 @@ fn check_unique_investor_count() {
             provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider);
 
             // 1f). successfully transfer funds.
-            assert_ok!(Asset::base_transfer(
-                sender_portfolio,
-                PortfolioId::default_portfolio(bob_2.did),
-                &ticker,
-                1000
-            ));
+            assert_ok!(transfer(ticker, alice, bob_2, 1000));
 
             // validate the storage changes for Bob.
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
@@ -2445,7 +2424,7 @@ fn next_checkpoint_is_updated_we() {
 
     let transfer = |at| {
         Timestamp::set_timestamp(at);
-        default_transfer(owner.did, bob.did, ticker, total_supply / 2);
+        default_transfer(owner, bob, ticker, total_supply / 2);
     };
 
     // Make a transaction before the next timestamp.
@@ -2563,7 +2542,7 @@ fn schedule_remaining_works() {
 
         let transfer = |at: Moment| {
             Timestamp::set_timestamp(at * 1_000);
-            default_transfer(owner.did, bob.did, ticker, 1);
+            default_transfer(owner, bob, ticker, 1);
         };
         let collect_ts = |sh_id| {
             Checkpoint::schedule_points(ticker, sh_id)
