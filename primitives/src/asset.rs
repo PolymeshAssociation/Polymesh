@@ -74,20 +74,34 @@ impl Default for AssetType {
 )]
 pub struct FundingRoundName(pub Vec<u8>);
 
+/// Result of a granular can transfer
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct GranularCanTransferResult {
+    /// Granularity check failed
     pub invalid_granularity: bool,
+    /// Receiver is invalid
     pub invalid_receiver_did: bool,
+    /// Receiver is missing cdd
     pub invalid_receiver_cdd: bool,
+    /// Sender is missing cdd
     pub invalid_sender_cdd: bool,
+    /// Scope claim is missing
     pub missing_scope_claim: bool,
+    /// Receiver had a custodian error
     pub receiver_custodian_error: bool,
+    /// Sender had a custodian error
     pub sender_custodian_error: bool,
+    /// Sender had an insufficient balance
     pub sender_insufficient_balance: bool,
+    /// Portfolio error
     pub portfolio_error: bool,
+    /// Asset is frozen
     pub asset_frozen: bool,
+    /// Statistics check failed
     pub statistics_failure: bool,
+    /// Compliance check failed
     pub compliance_failure: bool,
+    // Is `true` if the transfer would have been successful
     pub final_result: bool,
 }
