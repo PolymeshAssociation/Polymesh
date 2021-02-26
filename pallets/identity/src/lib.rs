@@ -144,7 +144,7 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 storage_migration_ver!(3);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Identity {
+    trait Store for Module<T: Trait> as identity {
 
         /// DID -> identity info
         pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
