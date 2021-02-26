@@ -1729,25 +1729,28 @@ fn dist_distribute_works() {
             Error::NoSuchCA
         );
 
-        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        let id1 = dist_ca(owner, ticker, Some(1)).unwrap();
+
+        Timestamp::set_timestamp(2);
+        let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
 
         // Test same-asset logic.
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, ticker, 0, 0, None),
+            Dist::distribute(owner.origin(), id2, None, ticker, 0, 0, None),
             DistError::DistributingAsset
         );
 
         // Test expiry.
         for &(pay, expiry) in &[(5, 5), (6, 5)] {
             assert_noop!(
-                Dist::distribute(owner.origin(), id, None, currency, 0, pay, Some(expiry)),
+                Dist::distribute(owner.origin(), id2, None, currency, 0, pay, Some(expiry)),
                 DistError::ExpiryBeforePayment
             );
         }
         Timestamp::set_timestamp(5);
         assert_ok!(Dist::distribute(
             owner.origin(),
-            id,
+            id2,
             None,
             currency,
             0,
@@ -1755,17 +1758,22 @@ fn dist_distribute_works() {
             Some(6)
         ));
 
-        // Start before now.
-        assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 4, None),
-            DistError::NowAfterPayment
-        );
-
         // Distribution already exists.
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 5, None),
+            Dist::distribute(owner.origin(), id2, None, currency, 0, 5, None),
             DistError::AlreadyExists
         );
+
+        // Start before now.
+        assert_ok!(Dist::distribute(
+            owner.origin(),
+            id1,
+            None,
+            currency,
+            0,
+            4,
+            None
+        ));
 
         // Portfolio doesn't exist.
         let id = dist_ca(owner, ticker, Some(5)).unwrap();
