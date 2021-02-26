@@ -63,6 +63,14 @@ type System = frame_system::Module<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 
+fn now() -> u64 {
+    Utc::now().timestamp() as _
+}
+
+fn set_time_to_now() {
+    Timestamp::set_timestamp(now());
+}
+
 fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     let name = b"A" as &[_];
     let ticker = Ticker::try_from(name).unwrap();
@@ -198,8 +206,7 @@ fn valid_transfers_pass() {
         .cdd_providers(vec![eve])
         .build()
         .execute_with(|| {
-            let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_time_to_now();
 
             let owner = User::new(AccountKeyring::Dave);
             let alice = User::new(AccountKeyring::Alice);
@@ -255,8 +262,7 @@ fn issuers_can_redeem_tokens() {
         .cdd_providers(vec![alice])
         .build()
         .execute_with(|| {
-            let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_time_to_now();
 
             let owner = User::new(AccountKeyring::Dave);
             let bob = User::new(AccountKeyring::Bob);
@@ -318,8 +324,7 @@ fn checkpoints_fuzz_test() {
     for _ in 0..10 {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
         ExtBuilder::default().build().execute_with(|| {
-            let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_time_to_now();
 
             let owner = User::new(AccountKeyring::Dave);
             let bob = User::new(AccountKeyring::Bob);
@@ -379,8 +384,7 @@ fn checkpoints_fuzz_test() {
 #[test]
 fn register_ticker() {
     ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+        set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
@@ -438,7 +442,7 @@ fn register_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        Timestamp::set_timestamp(now.timestamp() as u64 + 10001);
+        Timestamp::set_timestamp(now() + 10001);
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), true);
@@ -461,8 +465,7 @@ fn register_ticker() {
 #[test]
 fn transfer_ticker() {
     ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+        set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
@@ -526,7 +529,7 @@ fn transfer_ticker() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
-            Some(now.timestamp() as u64 - 100),
+            Some(now() - 100),
         );
 
         assert_err!(
@@ -538,7 +541,7 @@ fn transfer_ticker() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::Custom(ticker),
-            Some(now.timestamp() as u64 + 100),
+            Some(now() + 100),
         );
 
         assert_err!(
@@ -550,7 +553,7 @@ fn transfer_ticker() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferTicker(ticker),
-            Some(now.timestamp() as u64 + 100),
+            Some(now() + 100),
         );
 
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
@@ -569,8 +572,7 @@ fn controller_transfer() {
         .cdd_providers(vec![eve])
         .build()
         .execute_with(|| {
-            let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_time_to_now();
 
             let owner = User::new(AccountKeyring::Dave);
             let alice = User::new(AccountKeyring::Alice);
@@ -641,8 +643,7 @@ fn controller_transfer() {
 #[test]
 fn transfer_primary_issuance_agent() {
     ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+        set_time_to_now();
 
         let owner = User::new(AccountKeyring::Alice);
         let pia = User::new(AccountKeyring::Bob);
@@ -667,7 +668,7 @@ fn transfer_primary_issuance_agent() {
             owner.did,
             Signatory::from(pia.did),
             AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            Some(now.timestamp() as u64 - 100),
+            Some(now() - 100),
         );
 
         assert_err!(
@@ -722,8 +723,7 @@ fn transfer_primary_issuance_agent() {
 #[test]
 fn transfer_token_ownership() {
     ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+        set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
         let alice = User::new(AccountKeyring::Alice);
@@ -791,7 +791,7 @@ fn transfer_token_ownership() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
-            Some(now.timestamp() as u64 - 100),
+            Some(now() - 100),
         );
 
         assert_err!(
@@ -803,7 +803,7 @@ fn transfer_token_ownership() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::Custom(ticker),
-            Some(now.timestamp() as u64 + 100),
+            Some(now() + 100),
         );
 
         assert_err!(
@@ -815,7 +815,7 @@ fn transfer_token_ownership() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(Ticker::try_from(&[0x50][..]).unwrap()),
-            Some(now.timestamp() as u64 + 100),
+            Some(now() + 100),
         );
 
         assert_err!(
@@ -827,7 +827,7 @@ fn transfer_token_ownership() {
             alice.did,
             Signatory::from(bob.did),
             AuthorizationData::TransferAssetOwnership(ticker),
-            Some(now.timestamp() as u64 + 100),
+            Some(now() + 100),
         );
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
@@ -1389,8 +1389,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
 #[test]
 fn freeze_unfreeze_asset() {
     ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+        set_time_to_now();
 
         let owner = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
