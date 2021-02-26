@@ -102,6 +102,6 @@ pub struct GranularCanTransferResult {
     pub statistics_failure: bool,
     /// Compliance check failed
     pub compliance_failure: bool,
-    // Is `true` if the transfer would have been successful
+    /// Is `true` if the transfer would have been successful
     pub final_result: bool,
 }
