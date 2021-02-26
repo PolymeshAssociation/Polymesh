@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
-use pallet_asset::TickerRegistrationConfig;
+use pallet_asset::{ClassicTickerImport, TickerRegistrationConfig};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
@@ -99,7 +99,11 @@ macro_rules! asset {
     () => {
         pallet_asset::GenesisConfig {
             ticker_registration_config: ticker_registration_config(),
-            classic_migration_tconfig: ticker_registration_config(),
+            classic_migration_tconfig: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                // Reservations will expire at end of 2021
+                registration_length: Some(1640995199999),
+            },
             versions: vec![
                 (SmartExtensionType::TransferManager, 5000),
                 (SmartExtensionType::Offerings, 5000),
@@ -107,7 +111,7 @@ macro_rules! asset {
             ],
             // Always use the first id, whomever that may be.
             classic_migration_contract_did: IdentityId::from(1),
-            classic_migration_tickers: vec![],
+            classic_migration_tickers: classic_reserved_tickers(),
             reserved_country_currency_codes: currency_codes(),
         }
     };
@@ -135,6 +139,15 @@ fn currency_codes() -> Vec<Ticker> {
         .into_iter()
         .map(|y| y.as_bytes().try_into().unwrap())
         .collect()
+}
+
+#[allow(unreachable_code)]
+fn classic_reserved_tickers() -> Vec<ClassicTickerImport> {
+    #[cfg(feature = "runtime-benchmarks")]
+    return Vec::new();
+
+    let reserved_tickers_file = include_str!("data/reserved_classic_tickers.json");
+    serde_json::from_str(&reserved_tickers_file).unwrap()
 }
 
 macro_rules! checkpoint {
