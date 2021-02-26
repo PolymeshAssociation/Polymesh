@@ -78,6 +78,15 @@ fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     (ticker, token)
 }
 
+fn allow_all_transfers(ticker: Ticker, owner: User) {
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        owner.origin(),
+        ticker,
+        vec![],
+        vec![]
+    ));
+}
+
 fn setup_se_template(
     creator: AccountId,
     creator_did: IdentityId,
@@ -218,13 +227,7 @@ fn valid_transfers_pass() {
                 token.total_supply
             );
 
-            // Allow all transfers
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                owner.origin(),
-                ticker,
-                vec![],
-                vec![]
-            ));
+            allow_all_transfers(ticker, owner);
 
             // Should fail as sender matches receiver
             let transfer = |from, to| {
@@ -344,13 +347,8 @@ fn checkpoints_fuzz_test() {
                 None,
             ));
 
-            // Allow all transfers
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                owner.origin(),
-                ticker,
-                vec![],
-                vec![]
-            ));
+            allow_all_transfers(ticker, owner);
+
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
@@ -612,13 +610,7 @@ fn controller_transfer() {
                 token.total_supply
             );
 
-            // Allow all transfers
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                owner.origin(),
-                ticker,
-                vec![],
-                vec![]
-            ));
+            allow_all_transfers(ticker, owner);
 
             // Should fail as sender matches receiver
             assert_noop!(
@@ -1451,13 +1443,8 @@ fn freeze_unfreeze_asset() {
             None,
         ));
 
-        // Allow all transfers.
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner.origin(),
-            ticker,
-            vec![],
-            vec![]
-        ));
+        allow_all_transfers(ticker, owner);
+
         assert_err!(
             Asset::freeze(bob.origin(), ticker),
             AssetError::Unauthorized
@@ -1649,14 +1636,7 @@ fn test_can_transfer_rpc() {
             assert_ok!(Asset::unfreeze(owner.origin(), ticker));
 
             // Case 7: when transaction get success by the compliance_manager
-            // Allow all transfers.
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                owner.origin(),
-                ticker,
-                vec![],
-                vec![]
-            ));
-
+            allow_all_transfers(ticker, owner);
             assert_eq!(
                 unsafe_can_transfer_result(owner.did, bob.did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFER_SUCCESS
@@ -2357,12 +2337,7 @@ fn check_unique_investor_count() {
             // 1. Transfer some funds to bob_1.did.
 
             // 1a). Add empty compliance requirement.
-            assert_ok!(ComplianceManager::add_compliance_requirement(
-                alice.origin(),
-                ticker,
-                vec![],
-                vec![]
-            ));
+            allow_all_transfers(ticker, alice);
 
             // 1b). Should fail when transferring funds to bob_1.did because it doesn't posses scope_claim.
             // portfolio Id -
