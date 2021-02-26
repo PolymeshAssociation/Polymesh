@@ -81,8 +81,11 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, CommonTrait,
 };
-use polymesh_primitives::{EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber, Ticker};
-use sp_runtime::traits::{CheckedDiv, CheckedMul};
+use polymesh_primitives::{
+    storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, PortfolioId,
+    PortfolioNumber, Ticker,
+};
+use sp_runtime::traits::CheckedMul as _;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -103,7 +106,10 @@ pub struct Distribution<Balance> {
     pub from: PortfolioId,
     /// The currency that payouts happen in.
     pub currency: Ticker,
-    /// Total amount to be distributed.
+    /// Amount per share to pay out, in per-million,
+    /// i.e. `1 / 10^6`th of one `currency` token.
+    pub per_share: Balance,
+    /// Total amount to be distributed at most.
     pub amount: Balance,
     /// Amount left to distribute.
     pub remaining: Balance,
@@ -140,14 +146,33 @@ decl_storage! {
         ///
         /// (CAId, DID) -> Was DID paid in the CAId?
         HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
+
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
+
+storage_migration_ver!(1);
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                use polymesh_primitives::migrate::kill_item;
+                for item in &[
+                    b"Distributions" as &[_],
+                    b"HolderPaid" as &[_],
+                ] {
+                    kill_item(b"CapitalDistribution", item);
+                }
+            });
+
+            0
+        }
 
         /// Start and attach a capital distribution, to the CA identified by `ca_id`,
         /// with `amount` funds in `currency` withdrawn from `portfolio` belonging to `origin`'s DID.
@@ -160,7 +185,9 @@ decl_module! {
         /// - `ca_id` identifies the CA to start a capital distribution for.
         /// - `portfolio` specifies the portfolio number of the CAA to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
-        /// - `amount` of `currency` to withdraw and distribute.
+        /// - `per_share` amount of `currency` to withdraw and distribute.
+        ///    Specified as a per-million, i.e. `1 / 10^6`th of one `currency` token.
+        /// - `amount` of `currency` to withdraw and distribute at most.
         /// - `payment_at` specifies when benefits may first be pushed or claimed.
         /// - `expires_at` specifies, if provided, when remaining benefits are forfeit
         ///    and may be reclaimed by `origin`.
@@ -185,6 +212,7 @@ decl_module! {
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
             currency: Ticker,
+            per_share: T::Balance,
             amount: T::Balance,
             payment_at: Moment,
             expires_at: Option<Moment>,
@@ -234,6 +262,7 @@ decl_module! {
             let distribution = Distribution {
                 from,
                 currency,
+                per_share,
                 amount,
                 remaining: amount,
                 reclaimed: false,
@@ -403,10 +432,8 @@ decl_error! {
         CannotClaimBeforeStart,
         /// Distribution's expiry has passed. DID cannot claim anymore and has forfeited the benefits.
         CannotClaimAfterExpiry,
-        /// Multiplication of the balance with the total payout amount overflowed.
-        BalanceAmountProductOverflowed,
-        /// A failed division of the balance amount product by the total supply.
-        BalanceAmountProductSupplyDivisionFailed,
+        /// Multiplication of the balance with the per share payout amount overflowed.
+        BalancePerShareProductOverflowed,
         /// DID is not the one who created the distribution.
         NotDistributionCreator,
         /// DID who created the distribution already did reclaim.
@@ -463,11 +490,10 @@ impl<T: Trait> Module<T> {
 
         // Extract CP + total supply at the record date.
         let cp_id = <CA<T>>::record_date_cp(&ca, ca_id);
-        let supply = <CA<T>>::supply_at_cp(ca_id, cp_id);
 
         // Compute `balance * amount / supply`, i.e. DID's benefit.
         let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
-        let benefit = Self::benefit_of(balance, dist.amount, supply)?;
+        let benefit = Self::benefit_of(balance, dist.per_share)?;
 
         // Compute withholding tax + gain.
         let tax = ca.tax_of(&holder);
@@ -503,17 +529,13 @@ impl<T: Trait> Module<T> {
         <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &amount)
     }
 
-    // Compute `balance * amount / supply`, i.e. DID's benefit.
-    fn benefit_of(
-        balance: T::Balance,
-        amount: T::Balance,
-        supply: T::Balance,
-    ) -> Result<T::Balance, DispatchError> {
+    // Compute `balance * per_share`, i.e. DID's benefit.
+    fn benefit_of(balance: T::Balance, per_share: T::Balance) -> Result<T::Balance, DispatchError> {
         balance
-            .checked_mul(&amount)
-            .ok_or(Error::<T>::BalanceAmountProductOverflowed)?
-            .checked_div(&supply)
-            .ok_or_else(|| Error::<T>::BalanceAmountProductSupplyDivisionFailed.into())
+            .checked_mul(&per_share)
+            // `per_share` was entered as a multiple of 1_000_000.
+            .map(|v| v / T::Balance::from(1_000_000u32))
+            .ok_or_else(|| Error::<T>::BalancePerShareProductOverflowed.into())
     }
 
     /// Ensure `ca_id` has some distribution and return it.
