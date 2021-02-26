@@ -10,8 +10,8 @@ use crate::{
 };
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, dispatch::DispatchError, IterableStorageMap,
-    StorageDoubleMap, StorageMap,
+    assert_noop, assert_ok, dispatch::DispatchError, IterableStorageMap, StorageDoubleMap,
+    StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -178,7 +178,7 @@ fn issuers_can_create_and_rename_tokens() {
 
         // Unauthorized identities cannot rename the token.
         let eve = User::new(AccountKeyring::Eve);
-        assert_err!(
+        assert_noop!(
             Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
             AssetError::Unauthorized
         );
@@ -410,12 +410,12 @@ fn register_ticker() {
         let stored_token = Asset::token_details(&ticker);
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
-        assert_err!(
+        assert_noop!(
             register(Ticker::try_from(&[b'A'][..]).unwrap()),
             AssetError::AssetAlreadyCreated
         );
 
-        assert_err!(
+        assert_noop!(
             register(
                 Ticker::try_from(&[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..])
                     .unwrap()
@@ -434,7 +434,7 @@ fn register_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::register_ticker(alice.origin(), ticker),
             AssetError::TickerAlreadyRegistered
         );
@@ -494,7 +494,7 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_ticker_transfer(alice.origin(), auth_id_alice + 1),
             "Authorization does not exist"
         );
@@ -520,7 +520,7 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
             "Illegal use of Authorization"
         );
@@ -532,7 +532,7 @@ fn transfer_ticker() {
             Some(now() - 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
             "Authorization expired"
         );
@@ -544,7 +544,7 @@ fn transfer_ticker() {
             Some(now() + 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
             AssetError::NoTickerTransferAuth
         );
@@ -671,7 +671,7 @@ fn transfer_primary_issuance_agent() {
             Some(now() - 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
             "Authorization expired"
         );
@@ -684,7 +684,7 @@ fn transfer_primary_issuance_agent() {
             None,
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
             "Authorization does not exist"
         );
@@ -697,7 +697,7 @@ fn transfer_primary_issuance_agent() {
             None,
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
             "Illegal use of Authorization"
         );
@@ -758,7 +758,7 @@ fn transfer_token_ownership() {
 
         assert_eq!(Asset::token_details(&ticker).owner_did, owner.did);
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
             "Authorization does not exist"
         );
@@ -782,7 +782,7 @@ fn transfer_token_ownership() {
             AssetOwnershipRelation::AssetOwned
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
             "Illegal use of Authorization"
         );
@@ -794,7 +794,7 @@ fn transfer_token_ownership() {
             Some(now() - 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
             "Authorization expired"
         );
@@ -806,7 +806,7 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
             AssetError::NotTickerOwnershipTransferAuth
         );
@@ -818,7 +818,7 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_err!(
+        assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
             AssetError::NoSuchAsset
         );
@@ -1062,7 +1062,7 @@ fn add_same_extension_should_fail() {
                 extension_id
             );
 
-            assert_err!(
+            assert_noop!(
                 Asset::add_extension(owner.origin(), ticker, extension_details),
                 AssetError::ExtensionAlreadyPresent
             );
@@ -1195,7 +1195,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
                 true
             );
 
-            assert_err!(
+            assert_noop!(
                 Asset::archive_extension(owner.origin(), ticker, extension_id),
                 AssetError::AlreadyArchived
             );
@@ -1226,7 +1226,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
 
             // Add smart extension.
             let extension_id = AccountKeyring::Bob.public();
-            assert_err!(
+            assert_noop!(
                 Asset::archive_extension(owner.origin(), ticker, extension_id),
                 AssetError::NoSuchSmartExtension
             );
@@ -1379,7 +1379,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
                 false
             );
 
-            assert_err!(
+            assert_noop!(
                 Asset::unarchive_extension(owner.origin(), ticker, extension_id),
                 AssetError::AlreadyUnArchived
             );
@@ -1408,16 +1408,16 @@ fn freeze_unfreeze_asset() {
 
         allow_all_transfers(ticker, owner);
 
-        assert_err!(
+        assert_noop!(
             Asset::freeze(bob.origin(), ticker),
             AssetError::Unauthorized
         );
-        assert_err!(
+        assert_noop!(
             Asset::unfreeze(owner.origin(), ticker),
             AssetError::NotFrozen
         );
         assert_ok!(Asset::freeze(owner.origin(), ticker));
-        assert_err!(
+        assert_noop!(
             Asset::freeze(owner.origin(), ticker),
             AssetError::AlreadyFrozen
         );
@@ -1436,7 +1436,7 @@ fn freeze_unfreeze_asset() {
         ));
 
         assert_ok!(Asset::unfreeze(bob.origin(), ticker));
-        assert_err!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
+        assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });
 }
 #[test]
@@ -1493,7 +1493,7 @@ fn frozen_secondary_keys_create_asset_we() {
     //     vec![],
     //     None,
     // );
-    // assert_err!(
+    // assert_noop!(
     //     create_token_result,
     //     DispatchError::Other("Current identity is none and key is not linked to any identity")
     // );
@@ -1701,7 +1701,7 @@ fn check_functionality_of_remove_extension() {
             );
 
             // Removing the same extension gives the error.
-            assert_err!(
+            assert_noop!(
                 Asset::remove_smart_extension(owner.origin(), ticker, extension_id),
                 AssetError::NoSuchSmartExtension
             );
@@ -2305,7 +2305,7 @@ fn check_unique_investor_count() {
             // portfolio Id -
             let sender_portfolio = PortfolioId::default_portfolio(alice.did);
             let receiver_portfolio = PortfolioId::default_portfolio(bob_1.did);
-            assert_err!(
+            assert_noop!(
                 Asset::base_transfer(sender_portfolio, receiver_portfolio, &ticker, 1000),
                 AssetError::InvalidTransfer
             );
