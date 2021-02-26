@@ -235,9 +235,7 @@ workflows:
   commit:
     jobs:
       - benchmark-build
-      - lint
       - coverage
-      - migration-tests
       - benchmark:
           requires:
             - benchmark-build
