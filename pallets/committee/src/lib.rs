@@ -55,6 +55,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
+#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -107,16 +108,14 @@ pub trait WeightInfo {
 pub type ProposalIndex = u32;
 
 /// The committee trait.
-pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
-    /// The outer origin type.
-    type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
-
-    /// The outer call dispatch type.
-    type Proposal: Parameter
-        + Dispatchable<Origin = <Self as Trait<I>>::Origin>
-        + GetDispatchInfo
-        + From<frame_system::Call<Self>>;
-
+pub trait Trait<I>:
+    frame_system::Trait<
+        Call: Parameter
+                  + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+                  + GetDispatchInfo,
+        Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>,
+    > + IdentityModuleTrait
+{
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
@@ -199,7 +198,7 @@ decl_storage! {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as frame_system::Trait>::Call>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
         pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
         /// Proposals so far.
@@ -377,7 +376,7 @@ decl_module! {
             <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
             DispatchClass::Operational,
         )]
-        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
+        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as frame_system::Trait>::Call>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
             match Self::voting(hash) {
@@ -590,7 +589,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(did: IdentityId, proposal: <T as Trait<I>>::Proposal, hash: T::Hash) {
+    fn execute(did: IdentityId, proposal: <T as frame_system::Trait>::Call, hash: T::Hash) {
         let origin = RawOrigin::Endorsed(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
@@ -602,7 +601,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// * `proposal` - A dispatchable call.
     fn propose(
         origin: <T as frame_system::Trait>::Origin,
-        proposal: <T as Trait<I>>::Proposal,
+        proposal: <T as frame_system::Trait>::Call,
     ) -> DispatchResult {
         // 1. Ensure `origin` is a committee member.
         let did = Self::ensure_is_member(origin)?;
