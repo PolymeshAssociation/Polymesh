@@ -306,10 +306,12 @@ impl ExtBuilder {
 
         let sys_identities = Self::make_identities(system_accounts.as_slice(), 0);
 
-        // New identities are just `system users` + `regular users`.
-        let mut identities =
-            Self::make_identities(self.regular_users.as_slice(), sys_identities.len());
-        identities.extend(sys_identities.iter().cloned());
+        // Genesis identities are system users and regular users.
+        let mut identities = sys_identities.clone();
+        identities.extend(Self::make_identities(
+            self.regular_users.as_slice(),
+            identities.len(),
+        ));
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {

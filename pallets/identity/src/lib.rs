@@ -197,10 +197,11 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
+        // Identities at genesis.
         config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
+        // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-
             SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()

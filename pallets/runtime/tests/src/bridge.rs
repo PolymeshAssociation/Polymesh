@@ -812,10 +812,10 @@ fn genesis_txs() {
             },
         ])
         .build()
-        .execute_with(|| do_genesis_txs(one_amount, two_amount));
+        .execute_with(|| check_genesis_txs(one_amount, two_amount));
 }
 
-fn do_genesis_txs(one_amount: u128, two_amount: u128) {
+fn check_genesis_txs(one_amount: u128, two_amount: u128) {
     assert_eq!(
         one_amount,
         Balances::total_balance(&AccountKeyring::Alice.public())
