@@ -3,7 +3,9 @@
 use crate::{constants::time::*, fee_details::CddHandler};
 use codec::Encode;
 use frame_support::{
-    construct_runtime, debug, parameter_types,
+    construct_runtime, debug,
+    dispatch::DispatchResult,
+    parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::Weight,
 };
@@ -12,8 +14,8 @@ use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp, TestnetFn};
+use polymesh_primitives::{AccountId, Balance, BlockNumber, InvestorUid, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
@@ -70,6 +72,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
 
@@ -244,6 +247,22 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+}
+
+impl pallet_testnet::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+}
+
+/// NB It is needed by benchmarks, in order to use `UserBuilder`.
+impl TestnetFn<AccountId> for Runtime {
+    fn register_did(
+        target: AccountId,
+        investor: InvestorUid,
+        secondary_keys: Vec<polymesh_primitives::secondary_key::api::SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
+        <Testnet as TestnetFn<AccountId>>::register_did(target, investor, secondary_keys)
+    }
 }
 
 construct_runtime!(

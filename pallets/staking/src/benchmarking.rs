@@ -23,7 +23,10 @@ use testing_utils::*;
 
 pub use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, UserBuilder},
+    TestnetFn,
+};
 use sp_runtime::traits::One;
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
@@ -57,7 +60,7 @@ fn add_perm_validator<T: Trait>(id: IdentityId, intended_count: Option<u32>) {
 
 // This function generates one validator being nominated by n nominators, and returns the validator
 // stash account. It also starts an era and creates pending payouts.
-pub fn create_validator_with_nominators<T: Trait>(
+pub fn create_validator_with_nominators<T: Trait + TestnetFn<AccountIdOf<T>>>(
     n: u32,
     upper_bound: u32,
     dead: bool,
@@ -68,7 +71,7 @@ pub fn create_validator_with_nominators<T: Trait>(
 // This function generates one validator being nominated by n nominators, and returns the validator
 // stash account. It also starts an era and creates pending payouts.
 // The balance is added to controller and stash accounts.
-pub fn create_validator_with_nominators_with_balance<T: Trait>(
+pub fn create_validator_with_nominators_with_balance<T: Trait + TestnetFn<AccountIdOf<T>>>(
     n: u32,
     upper_bound: u32,
     balance: u32,
@@ -133,7 +136,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait>(
     Ok(v_stash.account())
 }
 
-fn payout_stakers_<T: Trait>(
+fn payout_stakers_<T: Trait + TestnetFn<AccountIdOf<T>>>(
     alive: bool,
     n: u32,
 ) -> Result<(RawOrigin<T::AccountId>, T::AccountId, u32, BalanceOf<T>), DispatchError> {
@@ -159,6 +162,8 @@ fn payout_stakers_<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _{
         // User account seed
         let u in 0 .. 1000 => ();

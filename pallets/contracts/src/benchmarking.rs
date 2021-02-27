@@ -20,7 +20,10 @@ use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;
-use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, UserBuilder},
+    TestnetFn,
+};
 use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 use sp_runtime::traits::Hash;
 
@@ -145,6 +148,8 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _{}
 
     put_code {

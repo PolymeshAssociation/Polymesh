@@ -1,3 +1,46 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+//! # Testnet module
+//!
+//! This module contains helpers or mocked functionality.
+//!
+//! ## Overview
+//!
+//! Testnet pallet is used to cover functionality that is not yet implemented or required external
+//! entities to carry on some processes.
+//! The main idea is that it mocks that functionality and allow generating development or testnet
+//! networks.
+//!
+//! ### DID generation and CDD claims.
+//!
+//! DID generation requires a CDD service provider involved in the process. In this module, you can
+//! find some extrinsics allow to generate those DID by yourself.
+//!
+//! ### Getting information using events.
+//!
+//! It also contains some extrinsics to generate events containing specific information. Those
+//! events are used in web application to extract easily information from the chain.
+//!
+//! ## Dispatchable Functions.
+//!
+//! - `register_did` - Register a new did with a CDD claim for the caller.
+//! - `cdd_register_did` - Registers a new did for the target and attaches a CDD claim to it.
+//! - `get_my_did` - Generates an event containing the DID of the caller.
+//! - `get_cdd_of` -> Generates an event containing the CDD claim of the target account.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -9,7 +52,7 @@ use frame_support::{
 use frame_system::{ensure_signed, RawOrigin};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait,
+    protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait, TestnetFn,
 };
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, CddId, Claim, IdentityId, InvestorUid,
@@ -99,7 +142,7 @@ decl_module! {
         /// - [RFC 4122: UUID](https://tools.ietf.org/html/rfc4122)
         ///
         /// # Failure
-        /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
+        /// - `origin` has to be an active CDD provider. Inactive CDD providers cannot add new
         /// claims.
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
@@ -140,7 +183,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> polymesh_common_utilities::TestnetFn<T::AccountId> for Module<T> {
+impl<T: Trait> TestnetFn<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,

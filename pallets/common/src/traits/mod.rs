@@ -15,10 +15,13 @@
 
 use codec::{Codec, Decode, Encode};
 use frame_support::{
+    dispatch::DispatchResult,
     traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use polymesh_primitives::{
+    secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
+};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
@@ -69,3 +72,12 @@ pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
+
+pub trait TestnetFn<AccountId> {
+    /// Creates a new did and attaches a CDD claim to it.
+    fn register_did(
+        target: AccountId,
+        investor: InvestorUid,
+        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
+    ) -> DispatchResult;
+}

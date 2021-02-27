@@ -21,7 +21,7 @@ pub mod constants;
 pub mod traits;
 pub use traits::{
     asset, balances, compliance_manager, governance_group, group, identity, multisig, pip,
-    portfolio, transaction_payment, CommonTrait,
+    portfolio, transaction_payment, CommonTrait, TestnetFn,
 };
 pub mod context;
 pub use context::Context;
@@ -173,15 +173,4 @@ impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
             MaybeBlock::None => MaybeBlock::None,
         }
     }
-}
-
-use polymesh_primitives::{secondary_key::api::SecondaryKey, InvestorUid};
-
-pub trait TestnetFn<AccountId> {
-    /// Creates a new did and attaches a CDD claim to it.
-    fn register_did(
-        target: AccountId,
-        investor: InvestorUid,
-        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
-    ) -> DispatchResult;
 }

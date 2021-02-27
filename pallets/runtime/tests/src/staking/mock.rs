@@ -34,7 +34,6 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-use pallet_testnet as testnet;
 use polymesh_common_utilities::{
     constants::currency::POLY,
     traits::{
@@ -388,7 +387,6 @@ impl IdentityTrait for Test {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
-    type TestnetFn = testnet::Module<Test>;
     type SchedulerOrigin = OriginCaller;
 }
 

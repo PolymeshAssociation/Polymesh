@@ -16,7 +16,10 @@
 use crate::*;
 
 use pallet_identity::benchmarking::generate_secondary_keys;
-use polymesh_common_utilities::benchs::{cdd_provider, uid_from_name_and_idx, user, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{cdd_provider, uid_from_name_and_idx, user, AccountIdOf, UserBuilder},
+    TestnetFn,
+};
 
 use frame_benchmarking::{account, benchmarks};
 use sp_std::prelude::*;
@@ -35,6 +38,8 @@ mod limits {
 use limits::*;
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _ {}
 
     register_did {

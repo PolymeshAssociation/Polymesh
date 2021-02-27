@@ -1,7 +1,10 @@
 use crate::*;
 use core::convert::TryFrom;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    traits::TestnetFn,
+};
 use polymesh_primitives::asset::AssetType;
 use sp_std::prelude::*;
 
@@ -24,13 +27,13 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     ticker
 }
 
-fn init_ticker<T: Trait>() -> (User<T>, Ticker) {
+fn init_ticker<T: Trait + TestnetFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
     let ticker = make_token::<T>(&owner, b"1".to_vec());
     (owner, ticker)
 }
 
-fn init_ctm<T: Trait>(
+fn init_ctm<T: Trait + TestnetFn<AccountIdOf<T>>>(
     max_transfer_manager_per_asset: u32,
 ) -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
@@ -52,6 +55,8 @@ mod limits {
 }
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _ {}
 
     add_transfer_manager {

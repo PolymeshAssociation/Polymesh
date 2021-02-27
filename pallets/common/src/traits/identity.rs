@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::TestnetFn;
 use crate::{
     traits::{
         group::GroupTrait,
@@ -141,9 +140,6 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait {
 
     /// Identity functions
     type IdentityFn: IdentityFnTrait<Self::AccountId>;
-
-    /// Testnet functions.
-    type TestnetFn: TestnetFn<Self::AccountId>;
 
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;

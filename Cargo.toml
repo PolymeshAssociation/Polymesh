@@ -154,10 +154,10 @@ running-ci = [
     "polymesh-runtime-develop/running-ci"
 ]
 default_identity = [
-    "polymesh-common-utilities/default_identity",
+    "polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
-    "polymesh-runtime-develop/runtime-benchmarks",
+    "polymesh-runtime-develop/runtime-benchmarks"
 ]
 std = [
     "polymesh-common-utilities/std",

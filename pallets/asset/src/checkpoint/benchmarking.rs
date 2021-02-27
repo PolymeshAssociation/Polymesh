@@ -17,15 +17,18 @@ use super::*;
 use crate::benchmarking::owned_ticker;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::{benchs::AccountIdOf, TestnetFn};
 use polymesh_primitives::calendar::CalendarUnit;
 
-fn init<T: Trait>() -> (RawOrigin<T::AccountId>, Ticker) {
+fn init<T: Trait + TestnetFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
     let (owner, ticker) = owned_ticker::<T>();
     (owner.origin(), ticker)
 }
 
-fn init_with_existing<T: Trait>(existing: u32) -> (RawOrigin<T::AccountId>, Ticker) {
+fn init_with_existing<T: Trait + TestnetFn<AccountIdOf<T>>>(
+    existing: u32,
+) -> (RawOrigin<T::AccountId>, Ticker) {
     let (owner, ticker) = init::<T>();
 
     // First create some schedules. To make sorting more expensive, we'll make em all equal.
@@ -42,6 +45,8 @@ fn init_with_existing<T: Trait>(existing: u32) -> (RawOrigin<T::AccountId>, Tick
 }
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _ {}
 
     set_schedules_max_complexity {}: _(RawOrigin::Root, 7)

@@ -17,13 +17,18 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, UserBuilder},
+    TestnetFn,
+};
 use sp_std::vec::Vec;
 
 const MAX_BENEFICIARIES: u32 = 128;
 const REWARD: u32 = 10;
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _ {}
 
     disbursement {

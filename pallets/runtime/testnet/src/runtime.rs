@@ -250,6 +250,11 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
+impl pallet_testnet::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+}
+
 pub type AllModulesExported = AllModules;
 
 construct_runtime!(

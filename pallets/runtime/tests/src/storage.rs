@@ -467,7 +467,6 @@ impl IdentityTrait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
-    type TestnetFn = testnet::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
 }
 

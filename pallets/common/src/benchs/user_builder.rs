@@ -14,10 +14,12 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 use crate::{
     benchs::{SecretKey, User},
-    traits::{group::GroupTrait, identity::Trait},
+    traits::{
+        group::GroupTrait,
+        identity::{IdentityFnTrait, Trait},
+        TestnetFn,
+    },
 };
-use crate::{traits::identity::IdentityFnTrait, TestnetFn};
-
 use schnorrkel::{ExpansionMode, MiniSecretKey};
 
 use codec::{Decode, Encode};
@@ -30,6 +32,8 @@ use sp_std::prelude::*;
 pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
+
+pub type AccountIdOf<T> = <T as frame_system::Trait>::AccountId;
 
 pub struct UserBuilder<T: Trait> {
     account: Option<T::AccountId>,
@@ -49,7 +53,7 @@ macro_rules! self_update {
     }};
 }
 
-impl<T: Trait> UserBuilder<T> {
+impl<T: Trait + TestnetFn<AccountIdOf<T>>> UserBuilder<T> {
     /// Create an account based on the builder configuration.
     pub fn build(self, name: &'static str) -> User<T> {
         let (account, secret) = self
@@ -84,6 +88,14 @@ impl<T: Trait> UserBuilder<T> {
         }
     }
 
+    /// Create a DID for account `acc` using the specified investor ID.
+    fn make_did(acc: T::AccountId, uid: InvestorUid) -> IdentityId {
+        let _ = T::register_did(acc.clone(), uid, vec![]);
+        T::IdentityFn::get_identity(&acc).unwrap()
+    }
+}
+
+impl<T: Trait> UserBuilder<T> {
     pub fn generate_did(self) -> Self {
         assert!(self.did.is_none());
         self_update!(self, generate_did, true)
@@ -129,12 +141,6 @@ impl<T: Trait> UserBuilder<T> {
         let id = T::AccountId::decode(&mut &public[..]).unwrap();
 
         (id, Some(keypair.secret.clone()))
-    }
-
-    /// Create a DID for account `acc` using the specified investor ID.
-    fn make_did(acc: T::AccountId, uid: InvestorUid) -> IdentityId {
-        let _ = T::TestnetFn::register_did(acc.clone(), uid, vec![]);
-        T::IdentityFn::get_identity(&acc).unwrap()
     }
 }
 

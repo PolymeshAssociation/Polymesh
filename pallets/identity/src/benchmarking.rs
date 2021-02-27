@@ -18,8 +18,8 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{User, UserBuilder},
-    traits::identity::TargetIdAuthorization,
+    benchs::{AccountIdOf, User, UserBuilder},
+    traits::{identity::TargetIdAuthorization, TestnetFn},
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, Signatory,
@@ -28,7 +28,7 @@ use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
-fn setup_investor_uniqueness_claim<T: Trait>(
+fn setup_investor_uniqueness_claim<T: Trait + TestnetFn<AccountIdOf<T>>>(
     name: &'static str,
 ) -> (User<T>, Claim, InvestorZKProofData) {
     let mut user = UserBuilder::<T>::default().build(name);
@@ -93,6 +93,8 @@ mod limits {
 use limits::*;
 
 benchmarks! {
+    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+
     _ {}
 
     cdd_register_did {
