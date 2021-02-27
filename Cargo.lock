@@ -7134,7 +7134,6 @@ dependencies = [
  "pallet-statistics 0.1.0",
  "pallet-sto 0.1.0",
  "pallet-sudo 2.0.0",
- "pallet-testnet",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-transaction-payment 2.0.0",
  "pallet-treasury 0.1.0",

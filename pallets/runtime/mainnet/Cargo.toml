@@ -35,7 +35,6 @@ pallet-staking = { path = "../../staking", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
@@ -151,7 +150,6 @@ std = [
     "pallet-statistics/std",
     "pallet-sto/std",
     "pallet-sudo/std",
-    "pallet-testnet/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
