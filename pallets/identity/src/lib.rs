@@ -120,7 +120,8 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
-    secondary_key, storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
+    secondary_key::{self, api::LegacyPermissions},
+    storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
     AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
     Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
     Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
@@ -272,7 +273,7 @@ decl_module! {
         pub fn register_did(
             origin,
             uid: InvestorUid,
-            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) {
             let sender = ensure_signed(origin)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
@@ -298,7 +299,7 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>
         ) {
             let cdd_id = Self::ensure_perms(origin)?;
             Self::base_cdd_register_did(cdd_id, target_account, secondary_keys)?;
@@ -578,7 +579,7 @@ decl_module! {
         pub fn legacy_set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: secondary_key::api::LegacyPermissions
+            permissions: LegacyPermissions
         ) -> DispatchResult {
             Self::set_permission_to_signer(origin, signer, permissions.into())
         }
@@ -1559,7 +1560,7 @@ impl<T: Trait> Module<T> {
     /// Registers a did without adding a CDD claim for it.
     pub fn _register_did(
         sender: T::AccountId,
-        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
@@ -1620,7 +1621,14 @@ impl<T: Trait> Module<T> {
         };
         <DidRecords<T>>::insert(&did, record);
 
-        Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys));
+        Self::deposit_event(RawEvent::DidCreated(
+            did,
+            sender,
+            secondary_keys
+                .iter()
+                .map(|sk| secondary_key::api::SecondaryKey::from(sk.clone()))
+                .collect(),
+        ));
         Ok(did)
     }
 
@@ -2076,7 +2084,7 @@ impl<T: Trait> Module<T> {
     fn base_cdd_register_did(
         caller_did: IdentityId,
         target_account: T::AccountId,
-        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) -> Result<IdentityId, DispatchError> {
         // Sender has to be part of CDDProviders
         Self::ensure_authorized_cdd_provider(caller_did)?;
@@ -2186,7 +2194,7 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,
-        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
     }
