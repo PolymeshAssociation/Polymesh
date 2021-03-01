@@ -13,10 +13,9 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_balances as balances;
-use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxDetails, BridgeTxStatus};
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
-use std::vec;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
@@ -844,8 +843,11 @@ fn check_genesis_txs(txs: impl Iterator<Item = (AccountId, BridgeTx<AccountId, u
         })
         .collect();
     txs.sort();
-    for tx in txs {
+    for tx in &txs {
         assert_eq!(tx.2.amount, Balances::total_balance(&tx.0));
     }
-    assert_eq!(BridgeTxDetails::get().iter().collect::<Vec<_>>(), txs);
+    assert_eq!(
+        <bridge::BridgeTxDetails<TestStorage>>::iter().collect::<Vec<_>>(),
+        txs
+    );
 }
