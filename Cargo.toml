@@ -49,7 +49,7 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
-    "pallets/testnet",
+    "pallets/test-utils",
     "pallets/weights",
     "primitives",
     "rpc",

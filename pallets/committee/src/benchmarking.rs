@@ -22,7 +22,7 @@ use frame_support::{
 };
 use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
-    MaybeBlock, TestnetFn,
+    MaybeBlock, TestUtilsFn,
 };
 use sp_std::prelude::*;
 
@@ -85,7 +85,7 @@ where
 fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
-    T: Trait<I> + TestnetFn<AccountIdOf<T>>,
+    T: Trait<I> + TestUtilsFn<AccountIdOf<T>>,
     <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
 {
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
@@ -128,7 +128,7 @@ where
 benchmarks_instance! {
     where_clause {
         where
-            T: TestnetFn<AccountIdOf<T>>,
+            T: TestUtilsFn<AccountIdOf<T>>,
             <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
     }
 

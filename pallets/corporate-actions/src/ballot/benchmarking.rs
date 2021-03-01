@@ -19,7 +19,7 @@ use core::iter;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User},
-    TestnetFn,
+    TestUtilsFn,
 };
 
 const MAX_CHOICES: u32 = 1000;
@@ -43,7 +43,10 @@ fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
     }
 }
 
-fn attach<T: Trait + TestnetFn<AccountIdOf<T>>>(n_motions: u32, n_choices: u32) -> (User<T>, CAId) {
+fn attach<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+    n_motions: u32,
+    n_choices: u32,
+) -> (User<T>, CAId) {
     let meta = meta(n_motions, n_choices);
     let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     <Module<T>>::attach_ballot(owner.origin().into(), ca_id, RANGE, meta, true).unwrap();
@@ -51,7 +54,7 @@ fn attach<T: Trait + TestnetFn<AccountIdOf<T>>>(n_motions: u32, n_choices: u32) 
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

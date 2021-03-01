@@ -21,7 +21,7 @@ use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{self, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
-    TestnetFn,
+    TestUtilsFn,
 };
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
@@ -84,7 +84,7 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
         .expect("`reserve_classic_ticker` failed");
 }
 
-fn make_extension<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn make_extension<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> SmartExtension<T::AccountId> {
     // Simulate that extension was added.
@@ -109,7 +109,7 @@ fn make_extension<T: Trait + TestnetFn<AccountIdOf<T>>>(
     extension_details
 }
 
-fn add_ext<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> (User<T>, Ticker, T::AccountId) {
     let owner = owner::<T>();
@@ -139,11 +139,11 @@ fn emulate_controller_transfer<T: Trait>(
     mock_storage(pia, 5000u32.into());
 }
 
-fn owner<T: Trait + TestnetFn<AccountIdOf<T>>>() -> User<T> {
+fn owner<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
     UserBuilder::<T>::default().generate_did().build("owner")
 }
 
-pub fn owned_ticker<T: Trait + TestnetFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+pub fn owned_ticker<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = owner::<T>();
     let ticker = make_asset::<T>(&owner);
     (owner, ticker)
@@ -170,7 +170,7 @@ fn set_config<T: Trait>() {
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

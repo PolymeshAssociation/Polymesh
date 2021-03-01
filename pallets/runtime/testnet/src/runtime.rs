@@ -250,9 +250,9 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl pallet_testnet::Trait for Runtime {
+impl pallet_test_utils::Trait for Runtime {
     type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 pub type AllModulesExported = AllModules;
@@ -340,7 +340,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
-        Testnet: pallet_testnet::{Module, Call, Storage, Event<T> } = 50,
+        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 

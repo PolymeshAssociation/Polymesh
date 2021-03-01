@@ -1,5 +1,5 @@
 [package]
-name = "pallet-testnet"
+name = "pallet-test-utils"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"

@@ -27,7 +27,7 @@ use polymesh_common_utilities::{
     benchs::{self, generate_ticker, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::AssetFnTrait,
-    TestnetFn,
+    TestUtilsFn,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -38,9 +38,6 @@ use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
-
-#[cfg(not(feature = "std"))]
-use hex_literal::hex;
 
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
@@ -140,7 +137,7 @@ fn fund_portfolio<T: Trait>(portfolio: &PortfolioId, ticker: &Ticker, amount: T:
     <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
 }
 
-fn setup_leg_and_portfolio<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
@@ -163,7 +160,7 @@ fn setup_leg_and_portfolio<T: Trait + TestnetFn<AccountIdOf<T>>>(
     sender_portfolios.push(portfolio_from);
 }
 
-fn generate_portfolio<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     portfolio_to: &'static str,
     pseudo_random_no: u32,
     user: Option<UserData<T>>,
@@ -189,7 +186,7 @@ fn generate_portfolio<T: Trait + TestnetFn<AccountIdOf<T>>>(
     PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
-fn populate_legs_for_instruction<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
 ) {
@@ -240,7 +237,7 @@ fn verify_add_and_affirm_instruction<T: Trait>(
     Ok(())
 }
 
-fn emulate_add_instruction<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn emulate_add_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
     create_portfolios: bool,
 ) -> Result<
@@ -294,7 +291,7 @@ fn emulate_add_instruction<T: Trait + TestnetFn<AccountIdOf<T>>>(
     ))
 }
 
-fn emulate_portfolios<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn emulate_portfolios<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     sender: Option<UserData<T>>,
     receiver: Option<UserData<T>>,
     ticker: Ticker,
@@ -394,7 +391,7 @@ pub fn compliance_setup<T: Trait>(
     .expect("Failed to add the asset compliance");
 }
 
-fn setup_affirm_instruction<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
 ) -> (
     Vec<PortfolioId>,
@@ -472,7 +469,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
         .expect("Settlement: Fail to add the smart extension to a given asset");
 }
 
-fn create_receipt_details<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg<T::Balance>,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
@@ -535,7 +532,7 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _{}
 

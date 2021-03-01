@@ -24,7 +24,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
-    MaybeBlock, SystematicIssuers, TestnetFn, GC_DID,
+    MaybeBlock, SystematicIssuers, TestUtilsFn, GC_DID,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -68,7 +68,7 @@ fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
 }
 
 /// Creates voters with seeds from 1 to `num_voters` inclusive.
-fn make_voters<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn make_voters<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     num_voters: usize,
     prefix: &'static str,
 ) -> Vec<(T::AccountId, RawOrigin<T::AccountId>, IdentityId)> {
@@ -99,7 +99,7 @@ fn cast_votes<T: Trait>(
 }
 
 /// Sets up PIPs and votes.
-fn pips_and_votes_setup<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn pips_and_votes_setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32)?;
@@ -175,7 +175,7 @@ fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> Dispatch
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

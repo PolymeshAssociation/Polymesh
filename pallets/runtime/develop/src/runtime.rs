@@ -14,7 +14,7 @@ use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp, TestnetFn};
+use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp, TestUtilsFn};
 use polymesh_primitives::{AccountId, Balance, BlockNumber, InvestorUid, Moment};
 use polymesh_runtime_common::{
     impls::Author,
@@ -249,19 +249,19 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl pallet_testnet::Trait for Runtime {
+impl pallet_test_utils::Trait for Runtime {
     type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_testnet::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.
-impl TestnetFn<AccountId> for Runtime {
+impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
         target: AccountId,
         investor: InvestorUid,
         secondary_keys: Vec<polymesh_primitives::secondary_key::api::SecondaryKey<AccountId>>,
     ) -> DispatchResult {
-        <Testnet as TestnetFn<AccountId>>::register_did(target, investor, secondary_keys)
+        <TestUtils as TestUtilsFn<AccountId>>::register_did(target, investor, secondary_keys)
     }
 }
 
@@ -349,7 +349,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
-        Testnet: pallet_testnet::{Module, Call, Storage, Event<T> } = 50,
+        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 
@@ -414,7 +414,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
             add_benchmark!(params, batches, pallet_staking, Staking);
-            add_benchmark!(params, batches, pallet_testnet, Testnet);
+            add_benchmark!(params, batches, pallet_test_utils, TestUtils);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

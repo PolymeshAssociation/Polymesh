@@ -17,7 +17,7 @@ use crate::{
     traits::{
         group::GroupTrait,
         identity::{IdentityFnTrait, Trait},
-        TestnetFn,
+        TestUtilsFn,
     },
 };
 use schnorrkel::{ExpansionMode, MiniSecretKey};
@@ -53,7 +53,7 @@ macro_rules! self_update {
     }};
 }
 
-impl<T: Trait + TestnetFn<AccountIdOf<T>>> UserBuilder<T> {
+impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
     /// Create an account based on the builder configuration.
     pub fn build(self, name: &'static str) -> User<T> {
         let (account, secret) = self

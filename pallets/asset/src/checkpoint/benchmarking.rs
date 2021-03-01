@@ -17,16 +17,16 @@ use super::*;
 use crate::benchmarking::owned_ticker;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{benchs::AccountIdOf, TestnetFn};
+use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use polymesh_primitives::calendar::CalendarUnit;
 
-fn init<T: Trait + TestnetFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, Ticker) {
+fn init<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (RawOrigin<T::AccountId>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
     let (owner, ticker) = owned_ticker::<T>();
     (owner.origin(), ticker)
 }
 
-fn init_with_existing<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn init_with_existing<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     existing: u32,
 ) -> (RawOrigin<T::AccountId>, Ticker) {
     let (owner, ticker) = init::<T>();
@@ -45,7 +45,7 @@ fn init_with_existing<T: Trait + TestnetFn<AccountIdOf<T>>>(
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

@@ -34,7 +34,7 @@ use pallet_session::{Module as Session, *};
 use pallet_staking::{
     benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
 };
-use polymesh_common_utilities::{benchs::AccountIdOf, TestnetFn};
+use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
 use sp_std::prelude::*;
 use sp_std::vec;
 
@@ -58,7 +58,7 @@ struct ValidatorInfo<T: Trait> {
     proof: Vec<u8>,
 }
 
-impl<T: Trait + TestnetFn<AccountIdOf<T>>> ValidatorInfo<T> {
+impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
     pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
     where
         <<T as pallet_staking::Trait>::Currency as Currency<
@@ -91,7 +91,7 @@ impl<T: Trait + TestnetFn<AccountIdOf<T>>> ValidatorInfo<T> {
 benchmarks! {
     where_clause {
         where
-            T: TestnetFn<AccountIdOf<T>>,
+            T: TestUtilsFn<AccountIdOf<T>>,
             <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance: From<u128>,
     }
 

@@ -5972,7 +5972,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-testnet"
+name = "pallet-test-utils"
 version = "0.1.0"
 dependencies = [
  "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
@@ -7056,7 +7056,7 @@ dependencies = [
  "pallet-statistics 0.1.0",
  "pallet-sto 0.1.0",
  "pallet-sudo 2.0.0",
- "pallet-testnet",
+ "pallet-test-utils",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-transaction-payment 2.0.0",
  "pallet-treasury 0.1.0",
@@ -7213,7 +7213,7 @@ dependencies = [
  "pallet-statistics 0.1.0",
  "pallet-sto 0.1.0",
  "pallet-sudo 2.0.0",
- "pallet-testnet",
+ "pallet-test-utils",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-transaction-payment 2.0.0",
  "pallet-treasury 0.1.0",
@@ -7365,7 +7365,7 @@ dependencies = [
  "pallet-statistics 0.1.0",
  "pallet-sto 0.1.0",
  "pallet-sudo 2.0.0",
- "pallet-testnet",
+ "pallet-test-utils",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-transaction-payment 2.0.0",
  "pallet-treasury 0.1.0",
@@ -7422,7 +7422,7 @@ dependencies = [
  "pallet-staking 2.0.0",
  "pallet-statistics 0.1.0",
  "pallet-sto 0.1.0",
- "pallet-testnet",
+ "pallet-test-utils",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-treasury 0.1.0",
  "pallet-utility 0.1.0",

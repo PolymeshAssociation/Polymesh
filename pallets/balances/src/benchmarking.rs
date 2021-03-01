@@ -23,7 +23,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, UserBuilder},
-    traits::TestnetFn,
+    traits::TestUtilsFn,
 };
 
 fn make_worst_memo() -> Option<Memo> {
@@ -31,7 +31,7 @@ fn make_worst_memo() -> Option<Memo> {
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

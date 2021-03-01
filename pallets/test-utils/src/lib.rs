@@ -52,11 +52,9 @@ use frame_support::{
 use frame_system::{ensure_signed, RawOrigin};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait, TestnetFn,
+    protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait, TestUtilsFn,
 };
-use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, CddId, Claim, IdentityId, InvestorUid,
-};
+use polymesh_primitives::{secondary_key, CddId, Claim, IdentityId, InvestorUid, SecondaryKey};
 use sp_std::{prelude::*, vec};
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -183,12 +181,13 @@ decl_module! {
     }
 }
 
-impl<T: Trait> TestnetFn<T::AccountId> for Module<T> {
+impl<T: Trait> TestUtilsFn<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
+        let keys = secondary_keys.into_iter().map(SecondaryKey::from).collect();
+        Self::register_did(RawOrigin::Signed(target).into(), investor, keys)
     }
 }

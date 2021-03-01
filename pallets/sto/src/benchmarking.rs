@@ -7,7 +7,7 @@ use pallet_settlement::{
 };
 use polymesh_common_utilities::{
     benchs::{make_asset, AccountIdOf, User, UserBuilder},
-    TestnetFn,
+    TestUtilsFn,
 };
 use polymesh_primitives::TrustedIssuer;
 
@@ -21,7 +21,7 @@ pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
-fn create_assets_and_compliance<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     from: &User<T>,
     to: &User<T>,
     offering_ticker: Ticker,
@@ -86,7 +86,7 @@ struct UserWithPortfolio<T: Trait> {
     portfolio: PortfolioId,
 }
 
-fn setup_fundraiser<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     complexity: u32,
     tiers: u32,
     transfer_managers: u32,
@@ -122,14 +122,14 @@ fn setup_fundraiser<T: Trait + TestnetFn<AccountIdOf<T>>>(
     Ok((alice, bob))
 }
 
-fn user<T: Trait + TestnetFn<AccountIdOf<T>>>(name: &'static str) -> UserWithPortfolio<T> {
+fn user<T: Trait + TestUtilsFn<AccountIdOf<T>>>(name: &'static str) -> UserWithPortfolio<T> {
     let user = <UserBuilder<T>>::default().generate_did().build(name);
     let portfolio = PortfolioId::default_portfolio(user.did());
     UserWithPortfolio { user, portfolio }
 }
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

@@ -34,7 +34,7 @@ pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 pallet-statistics = { path = "../../statistics", default-features = false }
-pallet-testnet = { path = "../../testnet", default-features = false }
+pallet-test-utils = { path = "../../test-utils", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
@@ -159,7 +159,7 @@ std = [
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
-    "pallet-testnet/std",
+    "pallet-test-utils/std",
     "pallet-timestamp/std",
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
@@ -217,7 +217,7 @@ runtime-benchmarks = [
     "pallet-timestamp/runtime-benchmarks",
     "pallet-treasury/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
-    "pallet-testnet/runtime-benchmarks",
+    "pallet-test-utils/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
     "polymesh-common-utilities/runtime-benchmarks",
     "polymesh-contracts/runtime-benchmarks",
@@ -229,5 +229,5 @@ running-ci = [
     "pallet-statistics/running-ci",
     "pallet-pips/running-ci",
     "pallet-identity/running-ci",
-    "pallet-testnet/running-ci",
+    "pallet-test-utils/running-ci",
 ]

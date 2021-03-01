@@ -2,7 +2,7 @@ use crate::*;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     group::{GroupTrait, Trait},
-    Context, TestnetFn,
+    Context, TestUtilsFn,
 };
 
 use frame_benchmarking::benchmarks_instance;
@@ -11,7 +11,7 @@ use frame_system::RawOrigin;
 const MAX_MEMBERS: u32 = 1_000;
 
 /// Create `m` new users.
-fn make_users<T: Trait<I> + TestnetFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
+fn make_users<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
     (0..m)
         .map(|s| {
             UserBuilder::<T>::default()
@@ -24,7 +24,7 @@ fn make_users<T: Trait<I> + TestnetFn<AccountIdOf<T>>, I: Instance>(m: u32) -> V
 }
 
 /// Create `m` new users and add them into the group.
-fn make_members<T: Trait<I> + TestnetFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
+fn make_members<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
     let dids = make_users::<T, I>(m);
     dids.iter().for_each(|did| {
         Module::<T, I>::add_member(RawOrigin::Root.into(), *did).expect("Member cannot be added");
@@ -42,14 +42,14 @@ fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool
         .is_some()
 }
 
-fn build_new_member<T: Trait<I> + TestnetFn<AccountIdOf<T>>, I: Instance>() -> User<T> {
+fn build_new_member<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>() -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .build("new member")
 }
 
 benchmarks_instance! {
-    where_clause {  where T: TestnetFn<AccountIdOf<T>> }
+    where_clause {  where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

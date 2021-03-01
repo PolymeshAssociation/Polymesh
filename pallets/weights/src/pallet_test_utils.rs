@@ -6,7 +6,7 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
-impl pallet_testnet::WeightInfo for WeightInfo {
+impl pallet_test_utils::WeightInfo for WeightInfo {
     fn register_did(i: u32) -> Weight {
         (1_413_637_000 as Weight)
             .saturating_add((22_583_000 as Weight).saturating_mul(i as Weight))

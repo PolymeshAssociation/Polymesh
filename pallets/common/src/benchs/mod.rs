@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 mod user;
-use crate::traits::{identity::Trait, TestnetFn};
+use crate::traits::{identity::Trait, TestUtilsFn};
 use frame_system::Trait as SysTrait;
 pub use user::{PublicKey, SecretKey, User};
 
@@ -24,7 +24,7 @@ pub use user_builder::{uid_from_name_and_idx, AccountIdOf, UserBuilder};
 mod asset;
 pub use asset::{generate_ticker, make_asset, make_indivisible_asset, make_ticker, ResultTicker};
 
-pub fn user<T: Trait + TestnetFn<<T as SysTrait>::AccountId>>(
+pub fn user<T: Trait + TestUtilsFn<<T as SysTrait>::AccountId>>(
     prefix: &'static str,
     u: u32,
 ) -> User<T> {
@@ -34,7 +34,7 @@ pub fn user<T: Trait + TestnetFn<<T as SysTrait>::AccountId>>(
         .build(prefix)
 }
 
-pub fn cdd_provider<T: Trait + TestnetFn<<T as SysTrait>::AccountId>>(
+pub fn cdd_provider<T: Trait + TestUtilsFn<<T as SysTrait>::AccountId>>(
     prefix: &'static str,
     u: u32,
 ) -> User<T> {

@@ -73,7 +73,7 @@ pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
 
-pub trait TestnetFn<AccountId> {
+pub trait TestUtilsFn<AccountId> {
     /// Creates a new did and attaches a CDD claim to it.
     fn register_did(
         target: AccountId,

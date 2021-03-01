@@ -24,7 +24,7 @@ use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
-    TestnetFn,
+    TestUtilsFn,
 };
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 use rand_chacha::{
@@ -38,7 +38,7 @@ use sp_runtime::DispatchError;
 const SEED: u32 = 0;
 
 /// Grab a funded user with the given balance.
-pub fn create_funded_user<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_funded_user<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     string: &'static str,
     n: u32,
     balance: u32,
@@ -53,7 +53,7 @@ pub fn create_funded_user<T: Trait + TestnetFn<AccountIdOf<T>>>(
     user
 }
 
-pub fn create_stash_controller_with_balance<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_stash_controller_with_balance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
@@ -65,21 +65,21 @@ pub fn create_stash_controller_with_balance<T: Trait + TestnetFn<AccountIdOf<T>>
 
 /// Create a stash and controller pair.
 /// Both accounts are created with the given balance and with DID.
-pub fn create_stash_controller<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_stash_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     _create_stash_controller::<T>(n, balance, RewardDestination::Staked, false)
 }
 
-pub fn create_stash_with_dead_controller<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_stash_with_dead_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     _create_stash_controller::<T>(n, balance, RewardDestination::Controller, true)
 }
 
-fn _create_stash_controller<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn _create_stash_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
     reward_destination: RewardDestination<T::AccountId>,
@@ -120,7 +120,7 @@ fn _create_stash_controller<T: Trait + TestnetFn<AccountIdOf<T>>>(
 }
 
 /// create `max` validators.
-pub fn create_validators<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_validators<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     max: u32,
     balance_factor: u32,
 ) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
@@ -161,7 +161,7 @@ pub fn emulate_validator_setup<T: Trait>(min_bond: u32, validator_count: u32, ca
 ///    Else, all of them are considered and `edge_per_nominator` random validators are voted for.
 ///
 /// Return the validators choosen to be nominated.
-pub fn create_validators_with_nominators_for_era<T: Trait + TestnetFn<AccountIdOf<T>>>(
+pub fn create_validators_with_nominators_for_era<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     validators: u32,
     nominators: u32,
     edge_per_nominator: usize,

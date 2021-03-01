@@ -18,14 +18,14 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
-    TestnetFn,
+    TestUtilsFn,
 };
 
 pub type MultiSig<T> = crate::Module<T>;
 pub type Identity<T> = identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Module<T>;
 
-fn generate_signers<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_signers<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     signers: &mut Vec<Signatory<T::AccountId>>,
     n: usize,
 ) {
@@ -47,7 +47,7 @@ fn get_last_auth_id<T: Trait>(signatory: &Signatory<T::AccountId>) -> u64 {
         .unwrap_or(0)
 }
 
-fn generate_multisig_with_extra_signers<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_multisig_with_extra_signers<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     caller: &User<T>,
     mut signers: &mut Vec<Signatory<T::AccountId>>,
     num_of_extra_signers: u32,
@@ -71,7 +71,7 @@ pub type MultisigSetupResult<T, AccountId> = (
     RawOrigin<AccountId>,
 );
 
-fn generate_multisig_for_alice_wo_accepting<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_multisig_for_alice_wo_accepting<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     singers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
@@ -96,7 +96,7 @@ fn generate_multisig_for_alice_wo_accepting<T: Trait + TestnetFn<AccountIdOf<T>>
     ))
 }
 
-fn generate_multisig_for_alice<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_multisig_for_alice<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     singers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
@@ -125,7 +125,7 @@ pub type ProposalSetupResult<T, AccountId, Proposal> = (
     AccountId,
 );
 
-fn generate_multisig_and_proposal_for_alice<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_multisig_and_proposal_for_alice<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     singers_required: u32,
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
@@ -144,7 +144,7 @@ fn generate_multisig_and_proposal_for_alice<T: Trait + TestnetFn<AccountIdOf<T>>
     ))
 }
 
-fn generate_multisig_and_create_proposal<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
     singers_required: u32,
     create_as_key: bool,
@@ -200,7 +200,7 @@ macro_rules! ensure_number_of_signers {
 const MAX_SIGNERS: u32 = 256;
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

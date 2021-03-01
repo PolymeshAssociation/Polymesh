@@ -17,13 +17,13 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{generate_ticker, AccountIdOf, UserBuilder},
-    TestnetFn,
+    TestUtilsFn,
 };
 use polymesh_primitives::PortfolioName;
 use sp_std::{convert::TryFrom, prelude::*};
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

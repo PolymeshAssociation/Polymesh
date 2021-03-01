@@ -19,16 +19,16 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
-    traits::{identity::TargetIdAuthorization, TestnetFn},
+    traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, Signatory,
+    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, SecondaryKey, Signatory,
 };
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
-fn setup_investor_uniqueness_claim<T: Trait + TestnetFn<AccountIdOf<T>>>(
+fn setup_investor_uniqueness_claim<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     name: &'static str,
 ) -> (User<T>, Claim, InvestorZKProofData) {
     let mut user = UserBuilder::<T>::default().build(name);
@@ -67,12 +67,10 @@ fn setup_investor_uniqueness_claim<T: Trait + TestnetFn<AccountIdOf<T>>>(
     (user, conf_scope_claim, inv_proof)
 }
 
-pub fn generate_secondary_keys<T: Trait>(
-    n: usize,
-) -> Vec<secondary_key::api::SecondaryKey<T::AccountId>> {
+pub fn generate_secondary_keys<T: Trait>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);
     for x in 0..n {
-        secondary_keys.push(secondary_key::api::SecondaryKey {
+        secondary_keys.push(SecondaryKey {
             signer: Signatory::Account(account("key", x as u32, SEED)),
             ..Default::default()
         });
@@ -93,7 +91,7 @@ mod limits {
 use limits::*;
 
 benchmarks! {
-    where_clause { where T: TestnetFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 
