@@ -648,22 +648,21 @@ impl<T: Trait> Module<T> {
     /// Issues the transacted amount to the recipient.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
         let did = T::CddChecker::get_key_cdd_did(&recipient).ok_or(Error::<T>::NoValidCdd)?;
-        if !Self::bridge_exempted(did) {
-            let (limit, interval_duration) = Self::bridge_limit();
 
-            // Check that the bridge limits are satisfied if this is not the genesis block.
-            if <system::Module<T>>::block_number() > Zero::zero() {
-                ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
-                let current_interval = <system::Module<T>>::block_number() / interval_duration;
-                let (bridged, last_interval) = Self::polyx_bridged(did);
-                let total_mint = if last_interval == current_interval {
-                    amount.checked_add(&bridged).ok_or(Error::<T>::Overflow)?
-                } else {
-                    *amount
-                };
-                ensure!(total_mint <= limit, Error::<T>::BridgeLimitReached);
-                <PolyxBridged<T>>::insert(did, (total_mint, current_interval))
-            }
+        // Check that the bridge limits are satisfied if this is not the genesis block.
+        if !Self::bridge_exempted(did) && <system::Module<T>>::block_number() > Zero::zero() {
+            let (limit, interval_duration) = Self::bridge_limit();
+            ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
+
+            let current_interval = <system::Module<T>>::block_number() / interval_duration;
+            let (bridged, last_interval) = Self::polyx_bridged(did);
+            let total_mint = if last_interval == current_interval {
+                amount.checked_add(&bridged).ok_or(Error::<T>::Overflow)?
+            } else {
+                *amount
+            };
+            ensure!(total_mint <= limit, Error::<T>::BridgeLimitReached);
+            <PolyxBridged<T>>::insert(did, (total_mint, current_interval))
         }
 
         let _pos_imbalance = <balances::Module<T>>::deposit_creating(&recipient, *amount);

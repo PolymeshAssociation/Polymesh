@@ -2,7 +2,6 @@ use super::storage::AccountId;
 use crate::TestStorage;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
-use pallet_bridge::{self as bridge, BridgeTx};
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
@@ -101,8 +100,6 @@ pub struct ExtBuilder {
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
-    /// Bridge transactions that have to be completed in the genesis block.
-    bridge_txs: Vec<BridgeTx<AccountId, u128>>,
 }
 
 thread_local! {
@@ -223,12 +220,6 @@ impl ExtBuilder {
     /// By default, it is disabled.
     pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
         self.enable_contracts_put_code = enable;
-        self
-    }
-
-    /// Sets the genesis bridge transactions.
-    pub fn bridge_txs(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
-        self.bridge_txs = txs;
         self
     }
 
@@ -412,13 +403,6 @@ impl ExtBuilder {
 
         polymesh_contracts::GenesisConfig {
             enable_put_code: self.enable_contracts_put_code,
-            ..Default::default()
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        bridge::GenesisConfig::<TestStorage> {
-            complete_txs: self.bridge_txs,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)

@@ -18,6 +18,7 @@ use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
+type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
@@ -795,33 +796,49 @@ fn genesis_txs() {
     let bob = AccountKeyring::Bob.public();
     let one_amount = 111;
     let two_amount = 222;
+    let complete_txs = vec![
+        BridgeTx {
+            nonce: 1,
+            recipient: alice,
+            amount: one_amount,
+            tx_hash: Default::default(),
+        },
+        BridgeTx {
+            nonce: 2,
+            recipient: bob,
+            amount: two_amount,
+            tx_hash: Default::default(),
+        },
+    ];
+    let genesis = BridgeGenesis {
+        complete_txs: complete_txs.clone(),
+        ..Default::default()
+    };
     ExtBuilder::default()
+        .adjust(Box::new(move |storage| {
+            genesis.assimilate_storage(storage).unwrap();
+        }))
         .regular_users(vec![alice, bob])
-        .bridge_txs(vec![
-            BridgeTx {
-                nonce: 1,
-                recipient: alice,
-                amount: one_amount,
-                tx_hash: Default::default(),
-            },
-            BridgeTx {
-                nonce: 2,
-                recipient: bob,
-                amount: two_amount,
-                tx_hash: Default::default(),
-            },
-        ])
         .build()
-        .execute_with(|| check_genesis_txs(one_amount, two_amount));
+        .execute_with(|| check_genesis_txs(one_amount, two_amount, complete_txs));
 }
 
-fn check_genesis_txs(one_amount: u128, two_amount: u128) {
-    assert_eq!(
-        one_amount,
-        Balances::total_balance(&AccountKeyring::Alice.public())
-    );
-    assert_eq!(
-        two_amount,
-        Balances::total_balance(&AccountKeyring::Bob.public())
-    );
+fn check_genesis_txs(txs: Vec<(AccountId, BridgeTx)>) {
+    let mut txs = txs.iter().map(|(acc, tx)| {
+        (
+            acc,
+            tx.nonce,
+            BridgeTxDetail {
+                amount: tx.amount,
+                status: BridgeTxStatus::Handled,
+                execution_block: 0,
+                tx_hash: tx.tx_hash,
+            },
+        )
+    });
+    txs.sort();
+    for tx in txs {
+        assert_eq!(tx.2.amount, Balances::total_balance(&acc));
+    }
+    assert_eq!(BridgeTxDetail::iter().collect::<Vec<_>>, txs);
 }
