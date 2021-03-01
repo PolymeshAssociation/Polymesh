@@ -221,6 +221,7 @@ impl_outer_event! {
         identity<T>,
         group Instance2<T>,
         pallet_scheduler<T>,
+        pallet_test_utils<T>,
     }
 }
 
@@ -403,6 +404,11 @@ impl pallet_scheduler::Trait for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+}
+
+impl pallet_test_utils::Trait for Test {
+    type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -998,6 +1004,7 @@ pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
 pub type Scheduler = pallet_scheduler::Module<Test>;
+pub type TestUtils = pallet_test_utils::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1620,7 +1627,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

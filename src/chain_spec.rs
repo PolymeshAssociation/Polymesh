@@ -71,7 +71,7 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
 }
 
 fn polymath_props() -> Properties {
-    json!({"tokenDecimals": 6, "tokenSymbol": "POLYX" })
+    json!({ "ss58Format": 12, "tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()

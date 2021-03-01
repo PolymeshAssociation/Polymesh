@@ -6,6 +6,7 @@ use frame_support::{assert_noop, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
@@ -43,7 +44,7 @@ fn cdd_checks() {
             // register did bypasses cdd checks
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::register_did(
+                    &Call::TestUtils(test_utils::Call::register_did(
                         InvestorUid::default(),
                         Default::default()
                     )),
