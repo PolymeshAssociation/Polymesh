@@ -2194,9 +2194,13 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
+        Self::register_did(
+            RawOrigin::Signed(target).into(),
+            investor,
+            secondary_keys.into_iter().map(|sk| sk.into()).collect(),
+        )
     }
 }
 
