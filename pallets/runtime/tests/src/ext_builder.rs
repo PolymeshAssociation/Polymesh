@@ -263,11 +263,13 @@ impl ExtBuilder {
     /// and the initial numeric `did_offset`.
     ///
     /// If `did_offset` is `n` then the DIDs start from `n + 1`.
+    ///
+    /// For the CDD claim to work, `GC_DID` must be added as a CDD provider in genesis.
     fn make_identities(
         accounts: &[Public],
         did_offset: usize,
     ) -> Vec<GenesisIdentityRecord<AccountId>> {
-        let issuer = IdentityId::from(1);
+        let issuer = IdentityId::from(GC_DID);
         accounts
             .iter()
             .enumerate()
@@ -291,8 +293,6 @@ impl ExtBuilder {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<TestStorage>()
             .unwrap();
-
-        let _root = AccountKeyring::Alice.public();
 
         // Create Identities.
         let mut system_accounts = self
