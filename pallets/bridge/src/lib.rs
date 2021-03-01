@@ -319,7 +319,7 @@ decl_storage! {
 
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
-        BridgeTxDetails get(fn bridge_tx_details) build(|config: &GenesisConfig<T>| {
+        pub BridgeTxDetails get(fn bridge_tx_details) build(|config: &GenesisConfig<T>| {
             // Record the transactions in genesis.
             config.complete_txs.iter().map(|tx| {
                 let recipient = tx.recipient.clone();
