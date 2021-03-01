@@ -1625,8 +1625,8 @@ impl<T: Trait> Module<T> {
             did,
             sender,
             secondary_keys
-                .iter()
-                .map(|sk| secondary_key::api::SecondaryKey::from(sk.clone()))
+                .into_iter()
+                .map(secondary_key::api::SecondaryKey::from)
                 .collect(),
         ));
         Ok(did)
