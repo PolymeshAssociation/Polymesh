@@ -100,10 +100,7 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait + TestnetFn<Acco
 }
 
 benchmarks! {
-    where_clause { where
-        T: pallet_compliance_manager::Trait,
-        T: TestnetFn<AccountIdOf<T>>,
-    }
+    where_clause { where T: pallet_compliance_manager::Trait + TestnetFn<AccountIdOf<T>> }
 
     _ {}
 
