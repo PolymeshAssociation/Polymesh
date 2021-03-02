@@ -1369,9 +1369,10 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
 impl<T: Trait> Module<T> {
     /// Ensure that all `idents` are valid.
     fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
-        for ai in idents {
-            ensure!(ai.is_valid(), Error::<T>::InvalidAssetIdentifier);
-        }
+        ensure!(
+            idents.iter().all(|i| i.is_valid()),
+            Error::<T>::InvalidAssetIdentifier
+        );
         Ok(())
     }
 
