@@ -332,6 +332,18 @@ macro_rules! storage_migrate_on {
     }};
 }
 
+/// Evaluate `$x:expr` and if not true return `Ok($y:expr)`.
+///
+/// Used as `ensure_as_ok!(expression_to_ensure, expression_to_return_on_false)`.
+#[macro_export]
+macro_rules! ensure_as_ok {
+    ( $x:expr, $y:expr $(,)? ) => {{
+        if !$x {
+            return Ok($y);
+        }
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};

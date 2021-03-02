@@ -71,7 +71,6 @@
 //! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
 //! - `total_supply` - It provides the total supply of a ticker.
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
-//! - `verify_restriction` - It is used to verify the restriction implied by the smart extension and the Compliance Manager.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -96,10 +95,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use hex_literal::hex;
-use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_statistics::Counter;
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
     balances::Trait as BalancesTrait,
@@ -111,6 +107,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName},
     calendar::CheckpointId,
+    ensure_as_ok,
     migrate::MigrationError,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
@@ -996,22 +993,9 @@ decl_error! {
 }
 
 impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
-        Self::is_owner(ticker, did)
-    }
-
     /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> T::Balance {
         Self::balance_of(ticker, &who)
-    }
-
-    /// Get the total supply of an asset `id`
-    fn total_supply(ticker: &Ticker) -> T::Balance {
-        Self::token_details(ticker).total_supply
-    }
-
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> T::Balance {
-        Self::get_balance_at(*ticker, did, at)
     }
 
     /// Returns the PIA if it's assigned or else the owner of the token
@@ -1020,15 +1004,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         token_details
             .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
-    }
-
-    fn base_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: T::Balance,
-    ) -> DispatchResult {
-        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
     }
 
     fn ensure_perms_owner_asset(
@@ -1144,12 +1119,6 @@ impl<T: Trait> Module<T> {
 
         Self::unverified_register_ticker(&ticker, to_did, expiry);
         Ok(())
-    }
-
-    #[inline]
-    /// Returns the max number of extensions that can be attached to an asset
-    pub fn max_number_of_tm_extension() -> u32 {
-        T::MaxNumberOfTMExtensionForAsset::get()
     }
 
     fn ensure_pia_with_custody_and_permissions(
@@ -1433,9 +1402,6 @@ impl<T: Trait> Module<T> {
         if status_code != ERC1400_TRANSFER_SUCCESS {
             return Ok(COMPLIANCE_MANAGER_FAILURE);
         }
-
-        // SE are currently disabled
-        // Self::compute_transfer_result_using_se()
 
         Ok(ERC1400_TRANSFER_SUCCESS)
     }
@@ -1747,95 +1713,6 @@ impl<T: Trait> Module<T> {
         <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
     }
 
-    pub fn verify_restriction(
-        ticker: &Ticker,
-        extension_caller: T::AccountId,
-        from_did: Option<IdentityId>,
-        to_did: Option<IdentityId>,
-        value: T::Balance,
-        holder_count: Counter,
-        dest: T::AccountId,
-    ) -> RestrictionResult {
-        // 4 byte selector of verify_transfer - 0xD9386E41
-        let selector = hex!("D1140AC9");
-        let balance = |did| {
-            T::Balance::encode(&match did {
-                None => 0u32.into(),
-                Some(did) => {
-                    let scope_id = Self::scope_id_of(ticker, &did);
-                    // Using aggregate balance instead of individual identity balance.
-                    Self::aggregate_balance_of(ticker, &scope_id)
-                }
-            })
-        };
-        let balance_to = balance(to_did);
-        let balance_from = balance(from_did);
-        let encoded_to = Option::<IdentityId>::encode(&to_did);
-        let encoded_from = Option::<IdentityId>::encode(&from_did);
-        let encoded_value = T::Balance::encode(&value);
-        let total_supply = T::Balance::encode(&<Tokens<T>>::get(&ticker).total_supply);
-        let current_holder_count = Counter::encode(&holder_count);
-
-        // Creation of the encoded data for the verifyTransfer function of the extension
-        // i.e fn verify_transfer(
-        //        from: Option<IdentityId>,
-        //        to: Option<IdentityId>,
-        //        value: Balance,
-        //        balance_from: Balance,
-        //        balance_to: Balance,
-        //        total_supply: Balance,
-        //        current_holder_count: Counter
-        //    ) -> RestrictionResult { }
-
-        let encoded_data = [
-            &selector[..],
-            &encoded_from[..],
-            &encoded_to[..],
-            &encoded_value[..],
-            &balance_from[..],
-            &balance_to[..],
-            &total_supply[..],
-            &current_holder_count[..],
-        ]
-        .concat();
-
-        // Calling extension to verify the compliance requirement
-        // native currency value should be `0` as no funds need to transfer to the smart extension
-        // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
-        // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let (res, _gas_spent) = Self::call_extension(
-            extension_caller,
-            dest,
-            T::AllowedGasLimit::get(),
-            encoded_data,
-        );
-        if let Ok(is_allowed) = &res {
-            if is_allowed.is_success() {
-                if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
-                    return allowed;
-                }
-            }
-        }
-        RestrictionResult::Invalid
-    }
-
-    /// A helper function that is used to call the smart extension function.
-    ///
-    /// # Arguments
-    /// * `from` - Caller of the extension.
-    /// * `dest` - Address/AccountId of the smart extension whom get called.
-    /// * `value` - Amount of native currency that need to transfer to the extension.
-    /// * `gas_limit` - Maximum amount of gas passed to successfully execute the function.
-    /// * `data` - Encoded data that contains function selector and function arguments values.
-    pub fn call_extension(
-        from: T::AccountId,
-        dest: T::AccountId,
-        gas_limit: Gas,
-        data: Vec<u8>,
-    ) -> (ExecResult, Gas) {
-        <pallet_contracts::Module<T>>::bare_call(from, dest, 0u32.into(), gas_limit, data)
-    }
-
     /// RPC: Function allows external users to know wether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
@@ -1846,45 +1723,59 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        Ok(if !Self::check_granularity(&ticker, value) {
-            // Granularity check
-            INVALID_GRANULARITY
-        } else if from_portfolio.did == to_portfolio.did {
-            INVALID_RECEIVER_DID
-        } else if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
+        ensure_as_ok!(Self::check_granularity(&ticker, value), INVALID_GRANULARITY);
+        ensure_as_ok!(from_portfolio.did != to_portfolio.did, INVALID_RECEIVER_DID);
+        ensure_as_ok!(
+            Identity::<T>::has_valid_cdd(from_portfolio.did),
             INVALID_SENDER_DID
-        } else if !Identity::<T>::verify_iu_claims_for_transfer(
-            *ticker,
-            to_portfolio.did,
-            from_portfolio.did,
-        ) {
+        );
+
+        ensure_as_ok!(
+            Identity::<T>::verify_iu_claims_for_transfer(
+                *ticker,
+                to_portfolio.did,
+                from_portfolio.did
+            ),
             SCOPE_CLAIM_MISSING
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_custody(
-            from_portfolio,
-            from_custodian.unwrap_or(from_portfolio.did),
-        ) {
+        );
+
+        let from_custodian = from_custodian.unwrap_or(from_portfolio.did);
+        ensure_as_ok!(
+            Portfolio::<T>::ensure_portfolio_custody(from_portfolio, from_custodian).is_ok(),
             CUSTODIAN_ERROR
-        } else if !Identity::<T>::has_valid_cdd(to_portfolio.did) {
+        );
+
+        ensure_as_ok!(
+            Identity::<T>::has_valid_cdd(to_portfolio.did),
             INVALID_RECEIVER_DID
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_custody(
-            to_portfolio,
-            to_custodian.unwrap_or(to_portfolio.did),
-        ) {
+        );
+
+        let to_custodian = to_custodian.unwrap_or(to_portfolio.did);
+        ensure_as_ok!(
+            Portfolio::<T>::ensure_portfolio_custody(to_portfolio, to_custodian).is_ok(),
             CUSTODIAN_ERROR
-        } else if Self::balance_of(&ticker, from_portfolio.did) < value {
+        );
+
+        ensure_as_ok!(
+            Self::balance_of(&ticker, from_portfolio.did) >= value,
             ERC1400_INSUFFICIENT_BALANCE
-        } else if let Err(_) = Portfolio::<T>::ensure_portfolio_transfer_validity(
-            &from_portfolio,
-            &to_portfolio,
-            ticker,
-            &value,
-        ) {
+        );
+        ensure_as_ok!(
+            Portfolio::<T>::ensure_portfolio_transfer_validity(
+                &from_portfolio,
+                &to_portfolio,
+                ticker,
+                &value
+            )
+            .is_ok(),
             PORTFOLIO_FAILURE
-        } else {
-            // Compliance manager & Smart Extension check
+        );
+
+        // Compliance manager & Smart Extension check
+        Ok(
             Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
-                .unwrap_or(ERC1400_TRANSFER_FAILURE)
-        })
+                .unwrap_or(ERC1400_TRANSFER_FAILURE),
+        )
     }
 
     /// Transfers an asset from one identity portfolio to another
@@ -1973,53 +1864,6 @@ impl<T: Trait> Module<T> {
             );
         }
         Ok(())
-    }
-
-    /// Compute the result of the transfer. It is currently not used but might be at a later date.
-    pub fn compute_transfer_result_using_se(
-        ticker: &Ticker,
-        extension_caller: T::AccountId,
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        value: T::Balance,
-    ) -> u8 {
-        let mut result = true;
-        let mut is_valid = false;
-        let mut is_invalid = false;
-        let mut force_valid = false;
-        let current_holder_count = Statistics::<T>::investor_count(ticker);
-        let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
-            .into_iter()
-            .filter(|tm| {
-                !Self::extension_details((ticker, tm)).is_archive
-                    && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
-            })
-            .collect::<Vec<T::AccountId>>();
-        if !tms.is_empty() {
-            for tm in tms.into_iter() {
-                let result = Self::verify_restriction(
-                    ticker,
-                    extension_caller.clone(),
-                    Some(from_portfolio.did),
-                    Some(to_portfolio.did),
-                    value,
-                    current_holder_count,
-                    tm,
-                );
-                match result {
-                    RestrictionResult::Valid => is_valid = true,
-                    RestrictionResult::Invalid => is_invalid = true,
-                    RestrictionResult::ForceValid => force_valid = true,
-                }
-            }
-            //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
-            result = force_valid || !is_invalid && is_valid;
-        }
-        if result {
-            ERC1400_TRANSFER_SUCCESS
-        } else {
-            SMART_EXTENSION_FAILURE
-        }
     }
 
     /// Ensure the extrinsic is signed and have valid extension id.
