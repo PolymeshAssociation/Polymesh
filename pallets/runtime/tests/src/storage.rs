@@ -1,6 +1,6 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
-    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use confidential_identity::{compute_cdd_id, compute_scope_id};
@@ -20,7 +20,6 @@ use pallet_balances as balances;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
-use pallet_confidential as confidential;
 use pallet_corporate_actions as corporate_actions;
 use pallet_corporate_actions::ballot as corporate_ballots;
 use pallet_corporate_actions::distribution as capital_distributions;
@@ -33,6 +32,7 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_sto as sto;
+use pallet_test_utils as test_utils;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
@@ -131,7 +131,6 @@ impl_outer_event! {
         sto<T>,
         pallet_utility,
         portfolio<T>,
-        confidential,
         polymesh_contracts<T>,
         pallet_scheduler<T>,
         corporate_actions,
@@ -139,6 +138,7 @@ impl_outer_event! {
         capital_distributions<T>,
         checkpoint<T>,
         statistics,
+        test_utils<T>,
     }
 }
 
@@ -330,15 +330,9 @@ impl multisig::Trait for TestStorage {
     type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
 }
 
-parameter_types! {
-    pub MaxLegsInInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
-}
-
 impl settlement::Trait for TestStorage {
     type Event = Event;
-    type MaxLegsInInstruction = MaxLegsInInstruction;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
     type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
 }
 
@@ -396,6 +390,9 @@ impl pallet_transaction_payment::Trait for TestStorage {
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = TestStorage;
+    type GovernanceCommittee = Committee;
+    type CddProviders = CddServiceProvider;
+    type Identity = identity::Module<TestStorage>;
 }
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
@@ -441,8 +438,6 @@ pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
 
 impl committee::Trait<committee::Instance1> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -450,8 +445,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -660,17 +653,9 @@ impl pips::Trait for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Treasury = treasury::Module<Self>;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
-}
-
-impl confidential::Trait for TestStorage {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
 }
 
 impl pallet_utility::Trait for TestStorage {
@@ -699,6 +684,11 @@ impl pallet_scheduler::Trait for TestStorage {
     type WeightInfo = ();
 }
 
+impl pallet_test_utils::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -722,6 +712,7 @@ pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 pub type Settlement = pallet_settlement::Module<TestStorage>;
+pub type TestUtils = pallet_test_utils::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
@@ -793,7 +784,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

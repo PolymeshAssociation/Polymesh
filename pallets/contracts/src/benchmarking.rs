@@ -20,7 +20,10 @@ use frame_support::storage::IterableStorageMap;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;
-use polymesh_common_utilities::benchs::UserBuilder;
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, UserBuilder},
+    TestUtilsFn,
+};
 use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
 use sp_runtime::traits::Hash;
 
@@ -134,6 +137,7 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
             load_module!("ptm")
         }
     };
+    Module::<T>::set_put_code_flag(RawOrigin::Root.into(), true)?;
     Module::<T>::put_code(
         origin.into(),
         meta_info,
@@ -144,6 +148,8 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _{}
 
     put_code {
@@ -165,6 +171,8 @@ benchmarks! {
         };
         let (wasm_blob, code_hash) = expanded_contract::<T>(l);
         let user = UserBuilder::<T>::default().generate_did().build("creator");
+        Module::<T>::set_put_code_flag(RawOrigin::Root.into(), true)?;
+
     }: _(user.origin, meta_info, 1000u32.into(), wasm_blob)
     verify {
         ensure!(matches!(Module::<T>::get_metadata_of(code_hash), meta_info), "Contracts_putCode: Meta info set incorrect");
@@ -242,4 +250,11 @@ benchmarks! {
             .. Default::default()
         };
     }: _(RawOrigin::Root, schedule)
+
+    set_put_code_flag {
+        ensure!(Module::<T>::is_put_code_enabled() == false, "Contracts_set_put_code_flag: Unexpected initial state");
+    }: _(RawOrigin::Root, true)
+    verify {
+        ensure!(Module::<T>::is_put_code_enabled() == true, "Contracts_set_put_code_flag: Failed to change the flag");
+    }
 }

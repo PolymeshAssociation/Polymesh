@@ -992,6 +992,9 @@ pub trait Trait:
 
     /// Yearly total reward amount that gets distributed when fixed rewards kicks in.
     type FixedYearlyReward: Get<BalanceOf<Self>>;
+
+    /// Minimum bond amount.
+    type MinimumBond: Get<BalanceOf<Self>>;
 }
 
 /// Mode of era-forcing.
@@ -1259,12 +1262,12 @@ decl_storage! {
                     "Stash does not have enough balance to bond."
                 );
                 let controller_origin = <Module<T>>::get_origin(controller.clone());
-                let _ = <Module<T>>::bond(
+                <Module<T>>::bond(
                     <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
-                );
+                ).expect("Unable to bond");
                 let _ = match status {
                     StakerStatus::Validator => {
                         if <Module<T>>::permissioned_identity(&did).is_none() {
@@ -1421,7 +1424,9 @@ decl_error! {
         /// Running validator count hit the intended count.
         HitIntendedValidatorCount,
         /// When the intended number of validators to run is >= 2/3 of `validator_count`.
-        IntendedCountIsExceedingConsensusLimit
+        IntendedCountIsExceedingConsensusLimit,
+        /// When the amount to be bonded is less than `MinimumBond`
+        BondTooSmall,
     }
 }
 
@@ -1499,6 +1504,7 @@ decl_module! {
 
                 StorageVersion::put(Releases::V6_0_0);
             }
+
             1_000
         }
 
@@ -1625,6 +1631,7 @@ decl_module! {
         ) {
             let stash = ensure_signed(origin)?;
             ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
+            ensure!(value >= T::MinimumBond::get() , Error::<T>::BondTooSmall);
 
             let controller = T::Lookup::lookup(controller)?;
             ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);

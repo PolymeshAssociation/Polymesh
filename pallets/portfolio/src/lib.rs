@@ -92,7 +92,7 @@ decl_storage! {
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
-            double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
             PortfolioName;
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
@@ -100,7 +100,7 @@ decl_storage! {
             T::Balance;
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
-            map hasher(identity) IdentityId => PortfolioNumber;
+            map hasher(twox_64_concat) IdentityId => PortfolioNumber;
         /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
         pub PortfolioCustodian get(fn portfolio_custodian):
             map hasher(twox_64_concat) PortfolioId => Option<IdentityId>;
@@ -113,7 +113,7 @@ decl_storage! {
         /// When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
-            double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
@@ -238,6 +238,9 @@ decl_module! {
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         /// * `PortfolioNotEmpty` if the portfolio still holds any asset
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) {
             let PermissionedCallOriginData {
@@ -266,6 +269,9 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
@@ -314,6 +320,9 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,

@@ -43,10 +43,11 @@
 //! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
 //! - `disallow_venues` - Revokes permission given to venues for creating instructions involving a particular asset.
-//!
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(const_option)]
+#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -57,10 +58,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, storage,
-    traits::{
-        schedule::{DispatchTime, Named as ScheduleNamed},
-        Get,
-    },
+    traits::schedule::{DispatchTime, Named as ScheduleNamed},
     weights::Weight,
     IterableStorageDoubleMap, StorageHasher, Twox128,
 };
@@ -88,7 +86,7 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait
+    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + CommonTrait
     + IdentityTrait
     + pallet_timestamp::Trait
@@ -97,12 +95,12 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// The maximum number of total legs allowed for a instruction can have.
-    type MaxLegsInInstruction: Get<u32>;
     /// Scheduler of settlement instructions.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+    type Scheduler: ScheduleNamed<
+        Self::BlockNumber,
+        <Self as frame_system::Trait>::Call,
+        Self::SchedulerOrigin,
+    >;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -416,8 +414,6 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Maximum numbers of legs in a instruction > `MaxLegsInInstruction`.
-        LegsCountExceededMaxLimit,
         /// Portfolio in receipt does not match with portfolios provided by the user.
         PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
@@ -479,8 +475,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        const MaxLegsInInstruction: u32 = T::MaxLegsInInstruction::get();
 
         fn on_runtime_upgrade() -> Weight {
 
@@ -588,6 +582,9 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
             <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
@@ -616,6 +613,9 @@ decl_module! {
         /// * `instruction_id` - Instruction id to affirm.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
         /// * `legs` - List of legs needs to affirmed.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32)]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
             Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter(), max_legs_count)
@@ -626,6 +626,9 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
@@ -644,6 +647,9 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
         /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*max_legs_count as u32)]
         pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
@@ -684,6 +690,9 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(*max_legs_count as u32).max(<T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32))]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios, max_legs_count)
@@ -697,6 +706,9 @@ decl_module! {
         /// * `receipt_uid` - Receipt ID generated by the signer.
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let (primary_did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
@@ -713,6 +725,9 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Target instruction id for the receipt.
         /// * `leg_id` - Target leg id for the receipt
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) {
             let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
@@ -735,6 +750,9 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token in question.
         /// * `enabled` - Boolean that decides if the filtering should be enabled.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
@@ -751,8 +769,8 @@ decl_module! {
         /// * `ticker` - Ticker of the token in question.
         /// * `venues` - Array of venues that are allowed to create instructions for the token in question.
         ///
-        /// # Weight
-        /// `200_000_000 + 500_000 * venues.len()`
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
@@ -767,8 +785,8 @@ decl_module! {
         /// * `ticker` - Ticker of the token in question.
         /// * `venues` - Array of venues that are no longer allowed to create instructions for the token in question.
         ///
-        /// # Weight
-        /// `200_000_000 + 500_000 * venues.len()`
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
@@ -834,12 +852,6 @@ impl<T: Trait> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg<T::Balance>>,
     ) -> Result<u64, DispatchError> {
-        // Check whether the no. of legs within the limit or not.
-        ensure!(
-            u32::try_from(legs.len()).unwrap_or_default() <= T::MaxLegsInInstruction::get(),
-            Error::<T>::LegsCountExceededMaxLimit
-        );
-
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {

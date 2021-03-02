@@ -42,9 +42,6 @@
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `create_checkpoint` - Function used to create the checkpoint.
-//! - `create_checkpoint_schedule` - Creates a checkpoint schedule.
-//! - `remove_checkpoint_schedule` - Removes a checkpoint schedule.
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `redeem` - Redeems tokens from PIA's (Primary Issuance Agent) default portfolio.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
@@ -298,8 +295,7 @@ decl_storage! {
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
-        // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => T::Balance;
+        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
@@ -321,18 +317,18 @@ decl_storage! {
         /// Tickers and token owned by a user
         /// (user, ticker) -> AssetOwnership
         pub AssetOwnershipRelations get(fn asset_ownership_relation):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
+            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
         /// Documents attached to an Asset
         /// (ticker, doc_id) -> document
         pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Document;
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentId => Document;
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Supported extension version.
-        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(twox_64_concat) SmartExtensionType => ExtVersion;
+        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -429,6 +425,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `ticker` ticker to register.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::register_ticker()]
         pub fn register_ticker(origin, ticker: Ticker) {
             let to_did = Identity::<T>::ensure_perms(origin)?;
@@ -487,8 +486,8 @@ decl_module! {
         /// * `identifiers` - a vector of asset identifiers.
         /// * `funding_round` - name of the funding round.
         ///
-        /// # Weight
-        /// `3_000_000_000 + 20_000 * identifiers.len()`
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,
@@ -612,6 +611,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the token.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::freeze()]
         pub fn freeze(origin, ticker: Ticker) {
             // Verify the ownership of the token
@@ -627,6 +629,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the frozen token.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::unfreeze()]
         pub fn unfreeze(origin, ticker: Ticker) {
             // Verify the ownership of the token
@@ -643,6 +648,9 @@ decl_module! {
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::rename_asset(ticker.len() as u32)]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) {
             ensure!(name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
@@ -661,6 +669,10 @@ decl_module! {
         /// * `origin` Secondary key of token owner.
         /// * `ticker` Ticker of the token.
         /// * `value` Amount of tokens that get issued.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::issue()]
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             // Ensure origin is PIA with custody and permissions for default portfolio.
@@ -684,6 +696,10 @@ decl_module! {
         /// - `Unauthorized` If called by someone other than the token owner or the PIA
         /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
         /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) {
             // Ensure origin is PIA with custody and permissions for default portfolio.
@@ -739,6 +755,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::make_divisible()]
         pub fn make_divisible(origin, ticker: Ticker) {
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -757,8 +776,8 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         /// * `docs` Documents to be attached to `ticker`.
         ///
-        /// # Weight
-        /// `500_000_000 + 600_000 * docs.len()`
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_documents(docs.len() as u32)]
         pub fn add_documents(origin, docs: Vec<Document>, ticker: Ticker) {
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -781,8 +800,8 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         /// * `ids` Documents ids to be removed from `ticker`.
         ///
-        /// # Weight
-        /// `500_000_000 + 600_000 * ids.len()`
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_documents(ids.len() as u32)]
         pub fn remove_documents(origin, ids: Vec<DocumentId>, ticker: Ticker) {
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -798,6 +817,9 @@ decl_module! {
         /// * `origin` - the secondary key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_funding_round( name.len() as u32 )]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) {
             ensure!(name.len() <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
@@ -815,8 +837,8 @@ decl_module! {
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
         ///    of `IdentifierType` and `AssetIdentifier` value.
         ///
-        /// # Weight
-        /// `150_000 + 20_000 * identifiers.len()`
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::update_identifiers( identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
@@ -839,6 +861,9 @@ decl_module! {
         /// * `origin` - Signatory who owns to ticker/asset.
         /// * `ticker` - ticker for whom extension get added.
         /// * `extension_details` - Details of the smart extension.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_extension()]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) {
             let my_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
@@ -862,6 +887,9 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be archived.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::archive_extension()]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) {
             // Ensure the extrinsic is signed and have valid extension id.
@@ -879,6 +907,9 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be un-archived.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::unarchive_extension()]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) {
             // Ensure the extrinsic is signed and have valid extension id.
@@ -896,6 +927,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_primary_issuance_agent()]
         pub fn remove_primary_issuance_agent(
             origin,
@@ -911,6 +945,9 @@ decl_module! {
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_smart_extension()]
         pub fn remove_smart_extension(origin, ticker: Ticker, extension_id: T::AccountId) {
             // Ensure the extrinsic is signed and have valid extension id.

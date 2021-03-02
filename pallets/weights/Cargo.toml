@@ -6,14 +6,15 @@ edition = "2018"
 
 [dependencies]
 # substrate pallets
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 # our pallets
 pallet-asset = { path = "../asset", default-features = false }
@@ -21,11 +22,9 @@ pallet-balances = { path = "../balances", default-features = false }
 pallet-staking = { path = "../staking", default-features = false }
 pallet-committee = { path = "../committee", default-features = false }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false  }
-pallet-confidential = { path = "../confidential", default-features = false }
 pallet-corporate-actions = { path = "../corporate-actions", default-features = false }
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
-pallet-im-online = { path = "../im-online", default-features = false }
 pallet-multisig = { path = "../multisig", default-features = false  }
 pallet-pips = { path = "../pips", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false  }
@@ -35,6 +34,7 @@ pallet-statistics = { path = "../statistics", default-features = false  }
 pallet-sto = { path = "../sto", default-features = false  }
 pallet-treasury = { path = "../treasury", default-features = false }
 pallet-utility = { path = "../utility", default-features = false }
+pallet-test-utils = { path = "../test-utils", default-features = false }
 polymesh-contracts = { path = "../contracts", default-features = false }
 polymesh-runtime-common = { path = "../runtime/common", default-features = false }
 
@@ -48,7 +48,6 @@ std = [
     "pallet-staking/std",
     "pallet-balances/std",
     "pallet-compliance-manager/std",
-    "pallet-confidential/std",
     "pallet-corporate-actions/std",
     "pallet-grandpa/std",
     "pallet-group/std",

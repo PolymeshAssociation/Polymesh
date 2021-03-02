@@ -301,6 +301,9 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * sender_conditions - Sender transfer conditions.
         /// * receiver_conditions - Receiver transfer conditions.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_compliance_requirement( sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -332,6 +335,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * id - Compliance requirement id which is need to be removed
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -356,6 +362,8 @@ decl_module! {
         /// * `Unauthorized` if `origin` is not the owner of the ticker.
         /// * `DuplicateAssetCompliance` if `asset_compliance` contains multiple entries with the same `requirement_id`.
         ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::replace_asset_compliance( asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -379,6 +387,9 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -391,6 +402,9 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::pause_asset_compliance()]
         pub fn pause_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, true)?;
@@ -402,6 +416,9 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::resume_asset_compliance()]
         pub fn resume_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, false)?;
@@ -414,6 +431,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -433,6 +453,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * issuer - IdentityId of the trusted claim issuer.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
@@ -451,6 +474,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * new_req - Compliance requirement.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::change_compliance_requirement(
             new_req.sender_conditions.len() as u32,
             new_req.receiver_conditions.len() as u32)]
