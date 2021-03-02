@@ -480,12 +480,11 @@ macro_rules! misc_pallet_impls {
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use sp_inherents::{CheckInherentsResult, InherentData};
-        use pallet_compliance_manager::AssetComplianceResult;
         use pallet_contracts_rpc_runtime_api::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
+        use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -858,7 +857,8 @@ macro_rules! runtime_apis {
                     to_did: Option<IdentityId>,
                 ) -> AssetComplianceResult
                 {
-                    ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+                    use polymesh_common_utilities::compliance_manager::Trait;
+                    ComplianceManager::verify_restriction_granular(&ticker, from_did, to_did)
                 }
             }
 

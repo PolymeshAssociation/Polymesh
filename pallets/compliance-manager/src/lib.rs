@@ -96,16 +96,19 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
+    compliance_manager::{
+        AssetCompliance, AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
+        ConditionResult,
+    },
     proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
     IdentityId, Ticker, TrustedIssuer,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
+
+type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -122,112 +125,6 @@ pub trait Trait:
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
-}
-
-/// A compliance requirement.
-/// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ComplianceRequirement {
-    pub sender_conditions: Vec<Condition>,
-    pub receiver_conditions: Vec<Condition>,
-    /// Unique identifier of the compliance requirement
-    pub id: u32,
-}
-
-impl ComplianceRequirement {
-    /// Dedup `ClaimType`s in `TrustedFor::Specific`.
-    fn dedup(&mut self) {
-        let dedup_condition = |conds: &mut [Condition]| {
-            conds
-                .iter_mut()
-                .flat_map(|c| &mut c.issuers)
-                .for_each(|issuer| issuer.dedup())
-        };
-        dedup_condition(&mut self.sender_conditions);
-        dedup_condition(&mut self.receiver_conditions);
-    }
-}
-
-/// A compliance requirement along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct ComplianceRequirementResult {
-    pub sender_conditions: Vec<ConditionResult>,
-    pub receiver_conditions: Vec<ConditionResult>,
-    /// Unique identifier of the compliance requirement.
-    pub id: u32,
-    /// Result of this transfer condition's evaluation.
-    pub result: bool,
-}
-
-impl From<ComplianceRequirement> for ComplianceRequirementResult {
-    fn from(requirement: ComplianceRequirement) -> Self {
-        let from_conds = |conds: Vec<_>| conds.into_iter().map(ConditionResult::from).collect();
-        Self {
-            sender_conditions: from_conds(requirement.sender_conditions),
-            receiver_conditions: from_conds(requirement.receiver_conditions),
-            id: requirement.id,
-            result: true,
-        }
-    }
-}
-
-/// An individual condition along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct ConditionResult {
-    // Condition being evaluated
-    pub condition: Condition,
-    // Result of evaluation
-    pub result: bool,
-}
-
-impl From<Condition> for ConditionResult {
-    fn from(condition: Condition) -> Self {
-        Self {
-            condition,
-            result: true,
-        }
-    }
-}
-
-/// List of compliance requirements associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
-pub struct AssetCompliance {
-    /// This flag indicates if asset compliance should be enforced
-    pub paused: bool,
-    /// List of compliance requirements.
-    pub requirements: Vec<ComplianceRequirement>,
-}
-
-type Identity<T> = identity::Module<T>;
-
-/// Asset compliance and it's evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct AssetComplianceResult {
-    /// This flag indicates if asset compliance should be enforced
-    pub paused: bool,
-    /// List of compliance requirements.
-    pub requirements: Vec<ComplianceRequirementResult>,
-    // Final evaluation result of the asset compliance
-    pub result: bool,
-}
-
-impl From<AssetCompliance> for AssetComplianceResult {
-    fn from(asset_compliance: AssetCompliance) -> Self {
-        Self {
-            paused: asset_compliance.paused,
-            requirements: asset_compliance
-                .requirements
-                .into_iter()
-                .map(ComplianceRequirementResult::from)
-                .collect(),
-            result: asset_compliance.paused,
-        }
-    }
 }
 
 pub mod weight_for {
@@ -664,50 +561,6 @@ impl<T: Trait> Module<T> {
             .unwrap_or(0)
     }
 
-    /// verifies all requirements and returns the result in an array of booleans.
-    /// this does not care if the requirements are paused or not. It is meant to be
-    /// called only in failure conditions
-    pub fn granular_verify_restriction(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-    ) -> AssetComplianceResult {
-        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
-        let asset_compliance = Self::asset_compliance(ticker);
-
-        let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-
-        for requirements in &mut asset_compliance_with_results.requirements {
-            if let Some(from_did) = from_did_opt {
-                // Evaluate all sender conditions
-                if !Self::evaluate_conditions(
-                    ticker,
-                    from_did,
-                    &mut requirements.sender_conditions,
-                    primary_issuance_agent,
-                ) {
-                    // If the result of any of the sender conditions was false, set this requirements result to false.
-                    requirements.result = false;
-                }
-            }
-            if let Some(to_did) = to_did_opt {
-                // Evaluate all receiver conditions
-                if !Self::evaluate_conditions(
-                    ticker,
-                    to_did,
-                    &mut requirements.receiver_conditions,
-                    primary_issuance_agent,
-                ) {
-                    // If the result of any of the receiver conditions was false, set this requirements result to false.
-                    requirements.result = false;
-                }
-            }
-
-            asset_compliance_with_results.result |= requirements.result;
-        }
-        asset_compliance_with_results
-    }
-
     /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
     pub fn verify_compliance_complexity(
@@ -792,5 +645,49 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
         }
         Ok(ERC1400_TRANSFER_FAILURE)
+    }
+
+    /// verifies all requirements and returns the result in an array of booleans.
+    /// this does not care if the requirements are paused or not. It is meant to be
+    /// called only in failure conditions
+    fn verify_restriction_granular(
+        ticker: &Ticker,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
+    ) -> AssetComplianceResult {
+        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
+        let asset_compliance = Self::asset_compliance(ticker);
+
+        let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
+
+        for requirements in &mut asset_compliance_with_results.requirements {
+            if let Some(from_did) = from_did_opt {
+                // Evaluate all sender conditions
+                if !Self::evaluate_conditions(
+                    ticker,
+                    from_did,
+                    &mut requirements.sender_conditions,
+                    primary_issuance_agent,
+                ) {
+                    // If the result of any of the sender conditions was false, set this requirements result to false.
+                    requirements.result = false;
+                }
+            }
+            if let Some(to_did) = to_did_opt {
+                // Evaluate all receiver conditions
+                if !Self::evaluate_conditions(
+                    ticker,
+                    to_did,
+                    &mut requirements.receiver_conditions,
+                    primary_issuance_agent,
+                ) {
+                    // If the result of any of the receiver conditions was false, set this requirements result to false.
+                    requirements.result = false;
+                }
+            }
+
+            asset_compliance_with_results.result |= requirements.result;
+        }
+        asset_compliance_with_results
     }
 }

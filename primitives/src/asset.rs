@@ -13,12 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::compliance_manager::AssetComplianceResult;
+use crate::statistics::{TransferManager, TransferManagerResult};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_std::prelude::Vec;
-
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
 #[derive(
@@ -75,8 +76,8 @@ impl Default for AssetType {
 pub struct FundingRoundName(pub Vec<u8>);
 
 /// Result of a granular can transfer
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Decode, Encode, Clone, Hash, PartialEq, Eq)]
 pub struct GranularCanTransferResult {
     /// Granularity check failed
     pub invalid_granularity: bool,
@@ -99,9 +100,9 @@ pub struct GranularCanTransferResult {
     /// Asset is frozen
     pub asset_frozen: bool,
     /// Statistics check failed
-    pub statistics_failure: bool,
-    /// Compliance check failed
-    pub compliance_failure: bool,
-    /// Is `true` if the transfer would have been successful
-    pub final_result: bool,
+    pub statistics_failures: Vec<TransferManagerResult>,
+    /// Result of Compliance check
+    pub compliance_result: AssetComplianceResult,
+    /// Is `true` if the transfer would have failed
+    pub failed: bool,
 }

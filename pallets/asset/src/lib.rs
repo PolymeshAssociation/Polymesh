@@ -99,7 +99,6 @@ use frame_system::ensure_root;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_statistics::Counter;
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
     balances::Trait as BalancesTrait,
@@ -108,11 +107,11 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
-use polymesh_primitives::asset::GranularCanTransferResult;
 use polymesh_primitives::{
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
     migrate::MigrationError,
+    statistics::{Counter, TransferManager, TransferManagerResult},
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
     Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
@@ -1619,7 +1618,7 @@ impl<T: Trait> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        if Self::statistics_failure(&from_portfolio, &to_portfolio, ticker, value) {
+        if Self::statistics_failures(&from_portfolio, &to_portfolio, ticker, value) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
@@ -2248,17 +2247,13 @@ impl<T: Trait> Module<T> {
         let portfolio_error =
             Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value);
         let asset_frozen = Self::frozen(ticker);
-        let statistics_failure =
-            Self::statistics_failure(&from_portfolio, &to_portfolio, ticker, value);
-        let compliance_failure = T::ComplianceManager::verify_restriction(
+        let statistics_failures =
+            Self::statistics_failures_granular(&from_portfolio, &to_portfolio, ticker, value);
+        let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
             Some(to_portfolio.did),
-            value,
-            Self::primary_issuance_agent_or_owner(&ticker),
-        )
-        .map(|status| status != ERC1400_TRANSFER_SUCCESS)
-        .unwrap_or(true);
+        );
 
         GranularCanTransferResult {
             invalid_granularity,
@@ -2271,20 +2266,22 @@ impl<T: Trait> Module<T> {
             sender_insufficient_balance,
             portfolio_error,
             asset_frozen,
-            statistics_failure,
-            compliance_failure,
-            final_result: !invalid_granularity
-                && !invalid_receiver_did
-                && !invalid_receiver_cdd
-                && !invalid_sender_cdd
-                && !missing_scope_claim
-                && !receiver_custodian_error
-                && !sender_custodian_error
-                && !sender_insufficient_balance
-                && !portfolio_error
-                && !asset_frozen
-                && !statistics_failure
-                && !compliance_failure,
+            failed: invalid_granularity
+                || invalid_receiver_did
+                || invalid_receiver_cdd
+                || invalid_sender_cdd
+                || missing_scope_claim
+                || receiver_custodian_error
+                || sender_custodian_error
+                || sender_insufficient_balance
+                || portfolio_error
+                || asset_frozen
+                || statistics_failures
+                    .iter()
+                    .any(|result| result.failed == true)
+                || !compliance_result.result,
+            statistics_failures,
+            compliance_result,
         }
     }
 
@@ -2327,15 +2324,26 @@ impl<T: Trait> Module<T> {
         .is_err()
     }
 
-    fn statistics_failure(
+    fn setup_statistics_failures(
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
+        ticker: &Ticker,
+    ) -> (ScopeId, ScopeId, SecurityToken<T::Balance>) {
+        (
+            Self::scope_id_of(ticker, &from_portfolio.did),
+            Self::scope_id_of(ticker, &to_portfolio.did),
+            <Tokens<T>>::get(ticker),
+        )
+    }
+
+    fn statistics_failures(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
     ) -> bool {
-        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
-        let token = <Tokens<T>>::get(ticker);
+        let (from_scope_id, to_scope_id, token) =
+            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
         Statistics::<T>::verify_tm_restrictions(
             ticker,
             from_scope_id,
@@ -2346,5 +2354,24 @@ impl<T: Trait> Module<T> {
             token.total_supply,
         )
         .is_err()
+    }
+
+    fn statistics_failures_granular(
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> Vec<TransferManagerResult> {
+        let (from_scope_id, to_scope_id, token) =
+            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
+        Statistics::<T>::verify_tm_restrictions_granular(
+            ticker,
+            from_scope_id,
+            to_scope_id,
+            value,
+            Self::aggregate_balance_of(ticker, &from_scope_id),
+            Self::aggregate_balance_of(ticker, &to_scope_id),
+            token.total_supply,
+        )
     }
 }
