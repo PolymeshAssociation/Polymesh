@@ -157,6 +157,10 @@ fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResul
     )
 }
 
+fn cusip() -> AssetIdentifier {
+    AssetIdentifier::cusip(*b"037833100").unwrap()
+}
+
 #[test]
 fn check_the_test_hex() {
     ExtBuilder::default().build().execute_with(|| {
@@ -777,32 +781,25 @@ fn update_identifiers() {
         // Expected token entry
         let (ticker, token) = a_token(owner.did);
         assert!(!has_ticker_record(ticker));
-        let ident_bad = AssetIdentifier::CUSIP(*b"aaaa_aaaa");
-        let mut identifiers = vec![
-            AssetIdentifier::cusip(*b"037833100").unwrap(),
-            ident_bad,
-        ];
 
         let create = |idents| asset_with_ids(owner, ticker, &token, idents);
         let update = |idents| Asset::update_identifiers(owner.origin(), ticker, idents);
 
         // Create: A bad entry was rejected.
         assert_noop!(
-            update(identifiers.clone()),
+            update(vec![cusip(), AssetIdentifier::CUSIP(*b"aaaa_aaaa")]),
             AssetError::InvalidAssetIdentifier
         );
-        identifiers.pop().unwrap();
 
         // Create: A correct entry was added.
-        assert_ok!(create(identifiers.clone()));
+        assert_ok!(create(vec![cusip()]));
         assert_eq!(Asset::token_details(ticker), token);
-        assert_eq!(Asset::identifiers(ticker), identifiers);
+        assert_eq!(Asset::identifiers(ticker), vec![cusip()]);
 
         // Update: A bad entry was rejected.
-        let identifier_value2 = b"US0378331005";
         let mut updated_identifiers = vec![
             AssetIdentifier::cusip(*b"17275R102").unwrap(),
-            AssetIdentifier::isin(*identifier_value2).unwrap(),
+            AssetIdentifier::isin(*b"US0378331005").unwrap(),
             AssetIdentifier::CUSIP(*b"aaaa_aaaa"),
         ];
         assert_noop!(
@@ -876,8 +873,7 @@ fn add_extension_successfully() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers.clone()));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
@@ -921,8 +917,7 @@ fn add_same_extension_should_fail() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
@@ -972,8 +967,7 @@ fn should_successfully_archive_extension() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
@@ -1028,8 +1022,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             // Expected token entry.
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
@@ -1088,8 +1081,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = AccountKeyring::Bob.public();
@@ -1112,8 +1104,7 @@ fn should_successfuly_unarchive_an_extension() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
@@ -1178,8 +1169,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
-            let identifiers = vec![AssetIdentifier::cusip(*b"037833100").unwrap()];
-            assert_ok!(asset_with_ids(owner, ticker, &token, identifiers));
+            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
 
             // Add smart extension.
             let extension_id = setup_se_template(owner.acc(), owner.did, true);
