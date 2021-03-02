@@ -206,24 +206,24 @@ decl_storage! {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
         pub MultiSigNonce get(fn ms_nonce) build(|_| 1u64): u64;
         /// Signers of a multisig. (multisig, signer) => signer.
-        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
+        pub MultiSigSigners: double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
         /// Number of approved/accepted signers of a multisig.
-        pub NumberOfSigners get(fn number_of_signers): map hasher(identity) T::AccountId => u64;
+        pub NumberOfSigners get(fn number_of_signers): map hasher(twox_64_concat) T::AccountId => u64;
         /// Confirmations required before processing a multisig tx.
-        pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(identity) T::AccountId => u64;
+        pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(twox_64_concat) T::AccountId => u64;
         /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
-        pub MultiSigTxDone get(fn ms_tx_done): map hasher(identity) T::AccountId => u64;
+        pub MultiSigTxDone get(fn ms_tx_done): map hasher(twox_64_concat) T::AccountId => u64;
         /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
         pub Proposals get(fn proposals): map hasher(twox_64_concat) (T::AccountId, u64) => Option<T::Proposal>;
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
-            double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
+            double_map hasher(twox_64_concat) T::AccountId, hasher(opaque_blake2_256) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
-        pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
+        pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
         /// Maps a multisig secondary key to a multisig address.
-        pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
+        pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
-        pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
+        pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for `on_runtime_upgrade`.

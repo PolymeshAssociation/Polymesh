@@ -49,6 +49,7 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
+    "pallets/test-utils",
     "pallets/weights",
     "primitives",
     "rpc",

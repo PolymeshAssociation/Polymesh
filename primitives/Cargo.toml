@@ -45,9 +45,7 @@ u32_backend = [ "confidential_identity/u32_backend", "schnorrkel/u32_backend"]
 u64_backend = [ "confidential_identity/u64_backend", "schnorrkel/u64_backend"]
 avx2_backend = [ "confidential_identity/avx2_backend", "schnorrkel/avx2_backend"]
 
-no_std = [
-    "confidential_identity/no_std"
-]
+no_std = ["confidential_identity/no_std"]
 
 std = [
     "chrono/std",
@@ -60,6 +58,7 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
+    "sp-runtime-interface/std",
 
     # Crypto
     "blake2/simd",
