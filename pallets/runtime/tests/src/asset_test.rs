@@ -1,5 +1,5 @@
 use crate::{
-    contract_test::{compile_module, create_contract_instance, create_se_template},
+    contract_test::{create_contract_instance, create_se_template, flipper},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
@@ -70,27 +70,21 @@ type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
 
-fn setup_se_template<T>(
+fn setup_se_template(
     creator: AccountId,
     creator_did: IdentityId,
     create_instance: bool,
-) -> AccountId
-where
-    T: frame_system::Trait<Hash = sp_core::H256>,
-{
-    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
-
+) -> AccountId {
+    let (code_hash, wasm) = flipper();
     let input_data = hex!("0222FF18");
 
     if create_instance {
         // Create SE template.
-        create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
+        create_se_template(creator, creator_did, 0, code_hash, wasm);
     }
 
     // Create SE instance.
-    assert_ok!(create_contract_instance::<TestStorage>(
-        creator, code_hash, 0, false
-    ));
+    assert_ok!(create_contract_instance(creator, code_hash, 0, false));
 
     NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
         &code_hash,
@@ -1161,7 +1155,7 @@ fn add_extension_successfully() {
 
             // Add smart extension
             let extension_name = b"PTM".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, dave_did, true);
+            let extension_id = setup_se_template(dave, dave_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::TransferManager,
@@ -1231,7 +1225,7 @@ fn add_same_extension_should_fail() {
 
             // Add smart extension
             let extension_name = b"PTM".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
+            let extension_id = setup_se_template(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::TransferManager,
@@ -1305,7 +1299,7 @@ fn should_successfully_archive_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
+            let extension_id = setup_se_template(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1385,7 +1379,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
+            let extension_id = setup_se_template(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1515,7 +1509,7 @@ fn should_successfuly_unarchive_an_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
+            let extension_id = setup_se_template(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1605,7 +1599,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
+            let extension_id = setup_se_template(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -2007,7 +2001,7 @@ fn check_functionality_of_remove_extension() {
                 None,
             ));
 
-            let extension_id = setup_se_template::<TestStorage>(alice, alice_did, true);
+            let extension_id = setup_se_template(alice, alice_did, true);
 
             // Add Tms
             assert_ok!(Asset::add_extension(
