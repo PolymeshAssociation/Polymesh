@@ -5746,6 +5746,10 @@ fn test_multiple_validators_from_an_entity() {
 
             assert_permissioned_identity_prefs!(entity_id, 2, 1);
 
+            // Adding the same validator again should not increment the `running_count`
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
             // Add other stash and controller to the same did.
             // 60 stash and 61 controller.
             add_secondary_key(50, 60);
@@ -5783,6 +5787,10 @@ fn test_multiple_validators_from_an_entity() {
             // Making a validator chill status.
             assert_ok!(Staking::chill(Origin::signed(61)));
 
+            assert_permissioned_identity_prefs!(entity_id, 3, 2);
+
+            // Chilling an already disabled validator should not reduce the `running_count`
+            assert_ok!(Staking::chill(Origin::signed(61)));
             assert_permissioned_identity_prefs!(entity_id, 3, 2);
         });
 }
