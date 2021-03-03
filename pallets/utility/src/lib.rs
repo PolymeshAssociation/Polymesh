@@ -295,7 +295,7 @@ decl_module! {
         pub fn relay_tx(
             origin,
             target: T::AccountId,
-            signature: <T as IdentityTrait>::OffChainSignature,
+            signature: T::OffChainSignature,
             call: UniqueCall<<T as Trait>::Call>
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
