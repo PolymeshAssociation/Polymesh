@@ -1,0 +1,52 @@
+[package]
+name = "pallet-test-utils"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+pallet-identity = { path = "../identity", default-features = false }
+pallet-permissions = { path = "../permissions", default-features = false }
+
+# Others
+serde = { version = "1.0.104", default-features = false }
+serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+
+# Crypto
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2", optional = true }
+
+
+[features]
+default = ["std"]
+running-ci = []
+no_std = ["confidential_identity/no_std"]
+std = [
+    "codec/std",
+    "confidential_identity/std",
+    "serde/std",
+    "serde_derive",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "pallet-identity/std",
+    "pallet-permissions/std",
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
+]

@@ -88,6 +88,7 @@ use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
+use ethereum::{EcdsaSignature, EthereumAddress};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -259,7 +260,7 @@ impl Default for RestrictionResult {
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
+    pub eth_owner: EthereumAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
@@ -273,7 +274,7 @@ pub struct ClassicTickerImport {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
+    pub eth_owner: EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
 }
@@ -295,8 +296,7 @@ decl_storage! {
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
-        // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => T::Balance;
+        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
@@ -318,18 +318,18 @@ decl_storage! {
         /// Tickers and token owned by a user
         /// (user, ticker) -> AssetOwnership
         pub AssetOwnershipRelations get(fn asset_ownership_relation):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
+            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
         /// Documents attached to an Asset
         /// (ticker, doc_id) -> document
         pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Document;
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentId => Document;
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Supported extension version.
-        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(twox_64_concat) SmartExtensionType => ExtVersion;
+        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -982,7 +982,7 @@ decl_module! {
         /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
         /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
         #[weight = <T as Trait>::WeightInfo::claim_classic_ticker()]
-        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) {
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: EcdsaSignature) {
             // Ensure the ticker is a classic one and fetch details.
             let ClassicTickerRegistration { eth_owner, .. } = ClassicTickers::get(ticker)
                 .ok_or(Error::<T>::NoSuchClassicTicker)?;
@@ -1153,7 +1153,7 @@ decl_event! {
         /// caller DID, ticker, AccountId
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
         /// Event for when a forced transfer takes place.
