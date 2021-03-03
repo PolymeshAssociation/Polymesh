@@ -54,6 +54,7 @@ fn dist<T: Trait + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CA
         ca_id,
         Some(pnum),
         currency,
+        2u32.into(),
         amount,
         3000,
         Some(4000),
@@ -111,9 +112,10 @@ benchmarks! {
         let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
         let currency = currency::<T>(&owner);
         let amount = 1000u32.into();
-        let pnum =1u64.into();
+        let per_share = 2u32.into();
+        let pnum = 1u64.into();
         portfolio::<T>(&owner, pnum, currency, amount);
-    }: _(owner.origin(), ca_id, Some(pnum), currency, amount, 3000, Some(4000))
+    }: _(owner.origin(), ca_id, Some(pnum), currency, per_share, amount, 3000, Some(4000))
     verify {
         ensure!(<Distributions<T>>::get(ca_id).is_some(), "distribution not created");
     }
