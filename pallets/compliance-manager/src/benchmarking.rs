@@ -17,7 +17,10 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use pallet_asset::SecurityToken;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    TestUtilsFn,
+};
 use polymesh_primitives::{asset::AssetType, TrustedFor, TrustedIssuer};
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
@@ -27,7 +30,7 @@ const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
 const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
 /// Create a token issuer trusted for `Any`.
-pub fn make_issuer<T: IdentityTrait + BalancesTrait>(id: u32) -> TrustedIssuer {
+pub fn make_issuer<T: IdentityTrait + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
         .seed(id)
@@ -43,7 +46,7 @@ pub fn make_issuer<T: IdentityTrait + BalancesTrait>(id: u32) -> TrustedIssuer {
 ///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
 ///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
 ///   complience requiriments.
-pub fn make_issuers<T: IdentityTrait + BalancesTrait>(s: u32) -> Vec<TrustedIssuer> {
+pub fn make_issuers<T: IdentityTrait + TestUtilsFn<AccountIdOf<T>>>(s: u32) -> Vec<TrustedIssuer> {
     (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
 }
 
@@ -94,7 +97,7 @@ struct ComplianceRequirementInfo<T: Trait> {
     pub receiver_conditions: Vec<Condition>,
 }
 
-impl<T: Trait> ComplianceRequirementInfo<T> {
+impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
         make_issuers::<T>(i).into_iter().for_each(|issuer| {
             Module::<T>::add_default_trusted_claim_issuer(
@@ -112,7 +115,7 @@ struct ComplianceRequirementBuilder<T: Trait> {
     has_been_added: bool,
 }
 
-impl<T: Trait> ComplianceRequirementBuilder<T> {
+impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
     pub fn new(
         trusted_issuer_count: u32,
         sender_conditions_count: u32,
@@ -142,7 +145,9 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
             has_been_added: false,
         }
     }
+}
 
+impl<T: Trait> ComplianceRequirementBuilder<T> {
     /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
         assert!(
@@ -166,6 +171,8 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
 }
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _ {}
 
     add_compliance_requirement {

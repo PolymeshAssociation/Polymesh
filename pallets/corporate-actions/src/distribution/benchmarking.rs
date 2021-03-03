@@ -21,7 +21,8 @@ use pallet_compliance_manager::Module as ComplianceManager;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::{
     asset::AssetFnTrait,
-    benchs::{user, User},
+    benchs::{user, AccountIdOf, User},
+    TestUtilsFn,
 };
 use polymesh_primitives::{PortfolioId, PortfolioNumber, Ticker};
 const MAX_TARGETS: u32 = 1000;
@@ -40,7 +41,7 @@ fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, a
     .unwrap();
 }
 
-fn dist<T: Trait>(target_ids: u32) -> (User<T>, CAId, Ticker) {
+fn dist<T: Trait + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, Ticker) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
@@ -64,7 +65,7 @@ fn dist<T: Trait>(target_ids: u32) -> (User<T>, CAId, Ticker) {
     (owner, ca_id, currency)
 }
 
-fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
+fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait + TestUtilsFn<AccountIdOf<T>>>(
     target_ids: u32,
     did_whts_num: u32,
 ) -> (User<T>, User<T>, CAId) {
@@ -99,7 +100,10 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait>(
 }
 
 benchmarks! {
-    where_clause { where T: pallet_compliance_manager::Trait }
+    where_clause { where
+        T: pallet_compliance_manager::Trait,
+        T: TestUtilsFn<AccountIdOf<T>>,
+    }
 
     _ {}
 

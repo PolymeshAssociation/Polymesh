@@ -32,6 +32,7 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_sto as sto;
+use pallet_test_utils as test_utils;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
@@ -137,6 +138,7 @@ impl_outer_event! {
         capital_distributions<T>,
         checkpoint<T>,
         statistics,
+        test_utils<T>,
     }
 }
 
@@ -682,6 +684,11 @@ impl pallet_scheduler::Trait for TestStorage {
     type WeightInfo = ();
 }
 
+impl pallet_test_utils::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -705,6 +712,7 @@ pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 pub type Settlement = pallet_settlement::Module<TestStorage>;
+pub type TestUtils = pallet_test_utils::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
@@ -776,7 +784,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }
