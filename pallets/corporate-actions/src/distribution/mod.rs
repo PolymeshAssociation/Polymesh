@@ -82,7 +82,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, PortfolioId,
+    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
     PortfolioNumber, Ticker,
 };
 use sp_runtime::traits::CheckedMul as _;
@@ -95,6 +95,9 @@ type Checkpoint<T> = checkpoint::Module<T>;
 type CA<T> = ca::Module<T>;
 type Identity<T> = identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
+
+/// The value `per_share` must take to get 1 `currency`.
+pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 
 /// A capital distribution's various details.
 ///
@@ -534,7 +537,7 @@ impl<T: Trait> Module<T> {
         balance
             .checked_mul(&per_share)
             // `per_share` was entered as a multiple of 1_000_000.
-            .map(|v| v / T::Balance::from(1_000_000u32))
+            .map(|v| v / T::Balance::from(PER_SHARE_PRECISION))
             .ok_or_else(|| Error::<T>::BalancePerShareProductOverflowed.into())
     }
 
