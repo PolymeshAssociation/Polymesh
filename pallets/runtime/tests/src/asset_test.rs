@@ -148,7 +148,7 @@ fn setup_se_template(
     )
 }
 
-fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
+crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
@@ -507,36 +507,25 @@ fn transfer_ticker() {
             "Illegal use of Authorization"
         );
 
-        let mut auth_id = Identity::add_auth(
-            alice.did,
-            Signatory::from(bob.did),
-            AuthorizationData::TransferTicker(ticker),
-            Some(now() - 100),
-        );
+        let add_auth = |auth, expiry| {
+            Identity::add_auth(alice.did, Signatory::from(bob.did), auth, Some(expiry))
+        };
+
+        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() - 100);
 
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
             "Authorization expired"
         );
 
-        auth_id = Identity::add_auth(
-            alice.did,
-            Signatory::from(bob.did),
-            AuthorizationData::Custom(ticker),
-            Some(now() + 100),
-        );
+        let auth_id = add_auth(AuthorizationData::Custom(ticker), now() + 100);
 
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
             AssetError::NoTickerTransferAuth
         );
 
-        auth_id = Identity::add_auth(
-            alice.did,
-            Signatory::from(bob.did),
-            AuthorizationData::TransferTicker(ticker),
-            Some(now() + 100),
-        );
+        let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
 
         assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
 
@@ -608,12 +597,12 @@ fn transfer_primary_issuance_agent() {
         assert!(!Asset::is_ticker_available(&ticker));
         assert_eq!(Asset::token_details(&ticker), token);
 
-        let auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(pia.did),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            Some(now() - 100),
-        );
+        let add_auth = |from: User, target: User, expiry| {
+            let data = AuthorizationData::TransferPrimaryIssuanceAgent(ticker);
+            Identity::add_auth(from.did, Signatory::from(target.did), data, expiry)
+        };
+
+        let auth_id = add_auth(owner, pia, Some(now() - 100));
 
         assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
@@ -621,12 +610,7 @@ fn transfer_primary_issuance_agent() {
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
-        let auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(owner.did),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            None,
-        );
+        let auth_id = add_auth(owner, owner, None);
 
         assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
@@ -634,12 +618,7 @@ fn transfer_primary_issuance_agent() {
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
-        let auth_id = Identity::add_auth(
-            pia.did,
-            Signatory::from(pia.did),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            None,
-        );
+        let auth_id = add_auth(pia, pia, None);
 
         assert_noop!(
             Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
@@ -647,12 +626,7 @@ fn transfer_primary_issuance_agent() {
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
-        let auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(pia.did),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            None,
-        );
+        let auth_id = add_auth(owner, pia, None);
 
         assert_ok!(Asset::accept_primary_issuance_agent_transfer(
             pia.origin(),
@@ -1271,6 +1245,7 @@ fn freeze_unfreeze_asset() {
         assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });
 }
+
 #[test]
 fn frozen_secondary_keys_create_asset() {
     ExtBuilder::default()

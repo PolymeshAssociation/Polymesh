@@ -96,12 +96,7 @@ fn currency_test(logic: impl FnOnce(Ticker, Ticker, [User; 3])) {
 fn transfer(ticker: &Ticker, from: User, to: User) {
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(&[from.did, to.did], *ticker, CDDP.public());
-    assert_ok!(Asset::base_transfer(
-        PortfolioId::default_portfolio(from.did),
-        PortfolioId::default_portfolio(to.did),
-        ticker,
-        500
-    ));
+    assert_ok!(crate::asset_test::transfer(*ticker, from, to, 500));
 }
 
 fn create_asset(ticker: &[u8], owner: User) -> Ticker {
