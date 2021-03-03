@@ -6,7 +6,7 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, IdentityId, PosRatio,
     SmartExtensionType,
@@ -254,13 +254,11 @@ impl ExtBuilder {
     /// and the initial numeric `did_offset`.
     ///
     /// If `did_offset` is `n` then the DIDs start from `n + 1`.
-    ///
-    /// For the CDD claim to work, `GC_DID` must be added as a CDD provider in genesis.
     fn make_identities(
         accounts: &[Public],
         did_offset: usize,
+        issuer: IdentityId,
     ) -> Vec<GenesisIdentityRecord<AccountId>> {
-        let issuer = IdentityId::from(GC_DID);
         accounts
             .iter()
             .enumerate()
@@ -278,6 +276,8 @@ impl ExtBuilder {
     ///     1. A new `IdentityId` is generated (from 1 to n),
     ///     2. CDD provider's account key is linked to its new Identity ID.
     ///     3. That Identity ID is added as member of CDD provider group.
+    ///
+    /// For the CDD claim to work, `GC_DID` must be added as a CDD provider in genesis.
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
 
@@ -285,23 +285,29 @@ impl ExtBuilder {
             .build_storage::<TestStorage>()
             .unwrap();
 
-        // Create Identities.
-        let mut system_accounts = self
-            .cdd_providers
-            .iter()
-            .chain(self.governance_committee_members.iter())
-            .cloned()
-            .collect::<Vec<_>>();
-        system_accounts.sort();
-        system_accounts.dedup();
+        let mut identities = vec![];
 
-        let sys_identities = Self::make_identities(system_accounts.as_slice(), 0);
+        // Create CDD provider identities.
+        let cdd_identities = Self::make_identities(
+            self.cdd_providers.as_slice(),
+            0,
+            IdentityId::from(SystematicIssuers::CDDProvider.as_id()),
+        );
+        identities.extend(cdd_identities.clone());
 
-        // Genesis identities are system users and regular users.
-        let mut identities = sys_identities.clone();
+        // Create committee identities.
+        let gc_identities = Self::make_identities(
+            self.governance_committee_members.as_slice(),
+            identities.len(),
+            IdentityId::from(SystematicIssuers::Committee.as_id()),
+        );
+        identities.extend(gc_identities.clone());
+
+        // Create regular user identities.
         identities.extend(Self::make_identities(
             self.regular_users.as_slice(),
             identities.len(),
+            IdentityId::from(GC_DID),
         ));
 
         // Identity genesis.
@@ -343,7 +349,7 @@ impl ExtBuilder {
         let cdd_ids = self
             .cdd_providers
             .iter()
-            .map(|key| sys_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
+            .map(|key| cdd_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
             .chain(core::iter::once(GC_DID))
             .collect::<Vec<_>>();
 
@@ -359,7 +365,7 @@ impl ExtBuilder {
         let mut gc_ids = self
             .governance_committee_members
             .iter()
-            .map(|key| sys_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
+            .map(|key| gc_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
             .collect::<Vec<_>>();
         gc_ids.sort();
 
