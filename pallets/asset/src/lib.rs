@@ -87,6 +87,7 @@ use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
+use ethereum::{EcdsaSignature, EthereumAddress};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -256,7 +257,7 @@ impl Default for RestrictionResult {
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
+    pub eth_owner: EthereumAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
@@ -270,7 +271,7 @@ pub struct ClassicTickerImport {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
+    pub eth_owner: EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
 }
@@ -794,7 +795,7 @@ decl_module! {
         /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
         /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
         #[weight = <T as Trait>::WeightInfo::claim_classic_ticker()]
-        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) -> DispatchResult {
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: EcdsaSignature) -> DispatchResult {
             Self::base_claim_classic_ticker(origin, ticker, ethereum_signature)
         }
 
@@ -908,7 +909,7 @@ decl_event! {
         /// caller DID, ticker, AccountId
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
         /// Migration error event.
         MigrationFailure(MigrationError<AssetMigrationError>),
         /// Event for when a forced transfer takes place.
