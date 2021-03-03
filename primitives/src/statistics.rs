@@ -18,7 +18,9 @@ use codec::{Decode, Encode};
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
+/// Transfer manager counter
 pub type Counter = u64;
+/// Transfer manager percentage
 pub type Percentage = HashablePermill;
 
 /// Transfer managers that can be attached to a Token for compliance.
@@ -35,7 +37,9 @@ pub enum TransferManager {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TransferManagerResult {
+    /// Transfer manager that was checked
     pub tm: TransferManager,
+    /// `true` if transfer manager check failed
     pub failed: bool,
 }
 

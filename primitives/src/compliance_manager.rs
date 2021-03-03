@@ -24,7 +24,9 @@ use sp_std::prelude::*;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
+    /// List of sender conditions
     pub sender_conditions: Vec<Condition>,
+    /// List of receiver conditions
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
@@ -48,7 +50,9 @@ impl ComplianceRequirement {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct ComplianceRequirementResult {
+    /// List of sender conditions
     pub sender_conditions: Vec<ConditionResult>,
+    /// List of receiver conditions
     pub receiver_conditions: Vec<ConditionResult>,
     /// Unique identifier of the compliance requirement.
     pub id: u32,
@@ -72,9 +76,9 @@ impl From<ComplianceRequirement> for ComplianceRequirementResult {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct ConditionResult {
-    // Condition being evaluated
+    /// Condition being evaluated
     pub condition: Condition,
-    // Result of evaluation
+    /// Result of evaluation
     pub result: bool,
 }
 
@@ -105,7 +109,7 @@ pub struct AssetComplianceResult {
     pub paused: bool,
     /// List of compliance requirements.
     pub requirements: Vec<ComplianceRequirementResult>,
-    // Final evaluation result of the asset compliance
+    /// Final evaluation result of the asset compliance
     pub result: bool,
 }
 

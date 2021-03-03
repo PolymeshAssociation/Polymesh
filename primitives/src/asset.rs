@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::compliance_manager::AssetComplianceResult;
-use crate::statistics::{TransferManager, TransferManagerResult};
+use crate::statistics::TransferManagerResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]

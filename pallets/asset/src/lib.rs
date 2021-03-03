@@ -111,7 +111,7 @@ use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
     migrate::MigrationError,
-    statistics::{Counter, TransferManager, TransferManagerResult},
+    statistics::{Counter, TransferManagerResult},
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
     Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,

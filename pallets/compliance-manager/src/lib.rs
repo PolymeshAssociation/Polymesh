@@ -97,8 +97,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     compliance_manager::{
-        AssetCompliance, AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
-        ConditionResult,
+        AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
     proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
     IdentityId, Ticker, TrustedIssuer,
