@@ -58,7 +58,6 @@ pub trait AssetSubTrait<Balance> {
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
-    // fn total_supply(ticker: &Ticker) -> Balance;
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
