@@ -5,6 +5,7 @@ use super::{
     },
     ExtBuilder,
 };
+use crate::asset_test::{allow_all_transfers, basic_asset, token};
 use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
@@ -22,7 +23,6 @@ use pallet_corporate_actions::{
 };
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_primitives::{
-    asset::AssetName,
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
@@ -91,31 +91,10 @@ fn transfer(ticker: &Ticker, from: User, to: User) {
 }
 
 fn create_asset(ticker: &[u8], owner: User) -> Ticker {
-    let asset_name: AssetName = ticker.into();
-    let ticker = ticker.try_into().unwrap();
-
-    // Create the asset.
-    assert_ok!(Asset::create_asset(
-        owner.origin(),
-        asset_name,
-        ticker,
-        1_000_000,
-        true,
-        <_>::default(),
-        vec![],
-        None
-    ));
-
+    let (ticker, token) = token(ticker, owner.did);
+    assert_ok!(basic_asset(owner, ticker, &token));
     assert_eq!(Asset::token_details(ticker).owner_did, owner.did);
-
-    // Allow all transfers
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
-
+    allow_all_transfers(ticker, owner);
     ticker
 }
 

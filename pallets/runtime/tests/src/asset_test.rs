@@ -72,7 +72,7 @@ fn set_time_to_now() {
     Timestamp::set_timestamp(now());
 }
 
-fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
         name: name.into(),
@@ -114,11 +114,11 @@ fn asset_with_ids(
     r
 }
 
-fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -> DispatchResult {
+crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -> DispatchResult {
     asset_with_ids(owner, ticker, token, vec![])
 }
 
-fn allow_all_transfers(ticker: Ticker, owner: User) {
+crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
         ticker,
