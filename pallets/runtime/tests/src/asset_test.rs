@@ -835,370 +835,145 @@ fn adding_removing_documents() {
     });
 }
 
-#[test]
-fn add_extension_successfully() {
+fn add_smart_ext(
+    owner: User,
+    ticker: Ticker,
+    ty: SmartExtensionType,
+) -> (AccountId, SmartExtension<AccountId>) {
+    let id = setup_se_template(owner.acc(), owner.did, true);
+    let details = SmartExtension {
+        extension_type: ty.clone(),
+        extension_name: b"EXT".into(),
+        extension_id: id.clone(),
+        is_archive: false,
+    };
+    assert_ok!(Asset::add_extension(
+        owner.origin(),
+        ticker,
+        details.clone(),
+    ));
+    assert_eq!(Asset::extension_details((ticker, id)), details);
+    assert_eq!(Asset::extensions((ticker, ty)), [id]);
+    (id, details)
+}
+
+#[track_caller]
+fn smart_ext_test(logic: impl FnOnce(User, Ticker)) {
     ExtBuilder::default()
-        .set_max_tms_allowed(2)
+        .set_max_tms_allowed(10)
         .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
             let owner = User::new(AccountKeyring::Dave);
-
-            // Expected token entry
             let (ticker, token) = a_token(owner.did);
             assert!(!has_ticker_record(ticker));
             assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::TransferManager,
-                extension_name: b"PTM".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone(),
-            ));
-
-            // Verify the data within the runtime.
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-                extension_id
-            );
+            logic(owner, ticker)
         });
+}
+
+#[test]
+fn add_extension_successfully() {
+    smart_ext_test(|owner, ticker| {
+        add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
+    });
 }
 
 #[test]
 fn add_same_extension_should_fail() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let (_, details) = add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
 
-            // Expected token entry
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::TransferManager,
-                extension_name: b"PTM".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone()
-            ));
-
-            // verify the data within the runtime
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details.clone()
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-                extension_id
-            );
-
-            assert_noop!(
-                Asset::add_extension(owner.origin(), ticker, extension_details),
-                AssetError::ExtensionAlreadyPresent
-            );
-        });
+        // And again, unsuccessfully.
+        assert_noop!(
+            Asset::add_extension(owner.origin(), ticker, details),
+            AssetError::ExtensionAlreadyPresent
+        );
+    });
 }
 
 #[test]
 fn should_successfully_archive_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
 
-            // Expected token entry
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::Offerings,
-                extension_name: b"STO".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone()
-            ));
-
-            // Verify the data within the runtime.
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-                extension_id
-            );
-
-            assert_ok!(Asset::archive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                true
-            );
-        });
+        // Archive it.
+        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id));
+        assert_eq!(Asset::extension_details((ticker, id)).is_archive, true);
+    });
 }
 
 #[test]
 fn should_fail_to_archive_an_already_archived_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
 
-            // Expected token entry.
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
+        // Archive it.
+        let archive = || Asset::archive_extension(owner.origin(), ticker, id);
+        assert_ok!(archive());
+        assert_eq!(Asset::extension_details((ticker, id)).is_archive, true);
 
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::Offerings,
-                extension_name: b"STO".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone()
-            ));
-
-            // Verify the data within the runtime.
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-                extension_id
-            );
-
-            assert_ok!(Asset::archive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                true
-            );
-
-            assert_noop!(
-                Asset::archive_extension(owner.origin(), ticker, extension_id),
-                AssetError::AlreadyArchived
-            );
-        });
+        // And again, unsuccessfully.
+        assert_noop!(archive(), AssetError::AlreadyArchived);
+    });
 }
 
 #[test]
 fn should_fail_to_archive_a_non_existent_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
-
-            // Expected token entry
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-
-            // Add smart extension.
-            let extension_id = AccountKeyring::Bob.public();
-            assert_noop!(
-                Asset::archive_extension(owner.origin(), ticker, extension_id),
-                AssetError::NoSuchSmartExtension
-            );
-        });
+    smart_ext_test(|owner, ticker| {
+        // Archive that which doesn't exist.
+        assert_noop!(
+            Asset::archive_extension(owner.origin(), ticker, AccountKeyring::Bob.public()),
+            AssetError::NoSuchSmartExtension
+        );
+    });
 }
 
 #[test]
-fn should_successfuly_unarchive_an_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
+fn should_successfully_unarchive_an_extension() {
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
 
-            // Expected token entry
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
+        // Archive it.
+        let is_archive = || Asset::extension_details((ticker, id)).is_archive;
+        let archive = || {
+            assert_ok!(Asset::archive_extension(owner.origin(), ticker, id));
+            assert_eq!(is_archive(), true);
+        };
+        archive();
 
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::Offerings,
-                extension_name: b"STO".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone()
-            ));
+        // Unarchive it.
+        assert_ok!(Asset::unarchive_extension(owner.origin(), ticker, id));
+        assert_eq!(is_archive(), false);
 
-            // verify the data within the runtime
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-                extension_id
-            );
-
-            assert_ok!(Asset::archive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                true
-            );
-
-            assert_ok!(Asset::unarchive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                false
-            );
-        });
+        // Roundtrip.
+        archive();
+    });
 }
 
 #[test]
 fn should_fail_to_unarchive_an_already_unarchived_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
 
-            // Expected token entry
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
+        // Archive it.
+        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id));
+        let is_archive = || Asset::extension_details((ticker, id)).is_archive;
+        assert_eq!(is_archive(), true);
 
-            // Add smart extension.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension_details = SmartExtension {
-                extension_type: SmartExtensionType::Offerings,
-                extension_name: b"STO".into(),
-                extension_id: extension_id.clone(),
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(
-                owner.origin(),
-                ticker,
-                extension_details.clone(),
-            ));
+        // Unarchive it.
+        let unarchive = || Asset::unarchive_extension(owner.origin(), ticker, id);
+        assert_ok!(unarchive());
+        assert_eq!(is_archive(), false);
 
-            // verify the data within the runtime
-            assert_eq!(
-                Asset::extension_details((ticker, extension_id)),
-                extension_details
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-                1
-            );
-            assert_eq!(
-                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-                extension_id
-            );
-
-            assert_ok!(Asset::archive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                true
-            );
-
-            assert_ok!(Asset::unarchive_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-            assert_eq!(
-                (Asset::extension_details((ticker, extension_id))).is_archive,
-                false
-            );
-
-            assert_noop!(
-                Asset::unarchive_extension(owner.origin(), ticker, extension_id),
-                AssetError::AlreadyUnArchived
-            );
-        });
+        // And again, unsuccessfully.
+        assert_noop!(unarchive(), AssetError::AlreadyUnArchived);
+    });
 }
 
 #[test]
@@ -1437,50 +1212,19 @@ fn can_set_primary_issuance_agent_we() {
 
 #[test]
 fn check_functionality_of_remove_extension() {
-    ExtBuilder::default()
-        .set_max_tms_allowed(5)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Alice);
+    smart_ext_test(|owner, ticker| {
+        // Add it.
+        let ty = SmartExtensionType::TransferManager;
+        let (id, _) = add_smart_ext(owner, ticker, ty.clone());
 
-            let (ticker, token) = a_token(owner.did);
-            assert_ok!(basic_asset(owner, ticker, &token));
+        // Remove it
+        let remove = || Asset::remove_smart_extension(owner.origin(), ticker, id);
+        assert_ok!(remove());
+        assert_eq!(Asset::extensions((ticker, ty)), vec![]);
 
-            // Add TransferManager.
-            let extension_id = setup_se_template(owner.acc(), owner.did, true);
-            let extension = SmartExtension {
-                extension_type: SmartExtensionType::TransferManager,
-                extension_name: b"ABC".into(),
-                extension_id: extension_id,
-                is_archive: false,
-            };
-            assert_ok!(Asset::add_extension(owner.origin(), ticker, extension));
-
-            // Verify storage.
-            assert_eq!(
-                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
-                vec![extension_id]
-            );
-            // Remove the extension.
-            assert_ok!(Asset::remove_smart_extension(
-                owner.origin(),
-                ticker,
-                extension_id
-            ));
-
-            // Verify storage.
-            assert_eq!(
-                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
-                vec![]
-            );
-
-            // Removing the same extension gives the error.
-            assert_noop!(
-                Asset::remove_smart_extension(owner.origin(), ticker, extension_id),
-                AssetError::NoSuchSmartExtension
-            );
-        });
+        // Remove it again => error.
+        assert_noop!(remove(), AssetError::NoSuchSmartExtension);
+    });
 }
 
 // Classic token tests:
