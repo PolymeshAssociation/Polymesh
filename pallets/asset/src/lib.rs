@@ -16,8 +16,8 @@
 //! # Asset Module
 //!
 //! The Asset module is one place to create the security tokens on the Polymesh blockchain.
-//! It consists every required functionality related to securityToken and every function
-//! execution can be differentiate at the token level by providing the ticker of the token.
+//! The module provides based functionality related to security tokens.
+//! Functions in the module differentiate between tokens using its `Ticker`.
 //! In Ethereum analogy every token has different smart contract address which act as the unique identity
 //! of the token while here token lives at low-level where token ticker act as the differentiator.
 //!
@@ -51,8 +51,8 @@
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
 //! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
-//! - `archive_extension` - Extension gets archived it means extension is no more used to verify the compliance or any smart logic it posses.
-//! - `unarchive_extension` - Extension gets un-archived it means extension is used to verify the compliance or any smart logic it posses.
+//! - `archive_extension` - Extension gets archived meaning it no longer is used to verify compliance or any smart logic it possesses.
+//! - `unarchive_extension` - Extension gets un-archived meaning it is again used to verify compliance or any smart logic it possesses.
 //!
 //! ### Public Functions
 //!
@@ -165,8 +165,8 @@ pub trait Trait:
 
     type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
 
-    /// Maximum number of smart extensions can attach to a asset.
-    /// This hard limit is set to avoid the cases where a asset transfer
+    /// Maximum number of smart extensions can attach to an asset.
+    /// This hard limit is set to avoid the cases where an asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
 
@@ -275,7 +275,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
+// A value placed in storage that represents the current version of this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
 storage_migration_ver!(2);
 
@@ -376,7 +376,7 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
-/// Errors of migration on this pallets.
+/// Errors of migration on this pallet.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub enum AssetMigrationError {
     /// Migration of document fails on the given ticker and document id.
@@ -419,7 +419,7 @@ decl_module! {
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
         /// # Arguments
-        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `ticker` ticker to register.
         ///
         /// # Permissions
@@ -431,11 +431,11 @@ decl_module! {
 
         /// Accepts a ticker transfer.
         ///
-        /// It consumes the authorization `auth_id` (see `pallet_identity::consume_auth`).
+        /// Consumes the authorization `auth_id` (see `pallet_identity::consume_auth`).
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         ///
         /// ## Errors
@@ -452,7 +452,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the signing key of the caller (i.e. who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of primary issuance agent transfer authorization.
         ///
         /// ## Errors
@@ -468,7 +468,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = <T as Trait>::WeightInfo::accept_asset_ownership_transfer()]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
@@ -481,7 +481,7 @@ decl_module! {
         /// & the balance of the owner is set to total supply.
         ///
         /// # Arguments
-        /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `name` - the name of the token.
         /// * `ticker` - the ticker symbol of the token.
         /// * `total_supply` - the total supply of the token.
@@ -491,15 +491,15 @@ decl_module! {
         /// * `funding_round` - name of the funding round.
         ///
         /// ## Errors
-        /// - `InvalidAssetIdentifier` if any of `identifiers` is invalid.
+        /// - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
         /// - `MaxLengthOfAssetNameExceeded` if `name`'s length exceeds `T::AssetNameMaxLength`.
-        /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is greater that
+        /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
         /// `T::FundingRoundNameMaxLength`.
-        /// - `AssetAlreadyCreated` if asset is already creaeted.
-        /// - `TotalSupplyAboveLimit` if `total_supply` is greater than `MAX_SUPPLY`.
+        /// - `AssetAlreadyCreated` if asset was already created.
+        /// - `TotalSupplyAboveLimit` if `total_supply > MAX_SUPPLY`.
         /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
         /// parameter.
-        /// - `TickerNotAscii` if `ticker` is not yet registered, and
+        /// - `TickerNotAscii` if `ticker` is not yet registered, and contains non-ascii printable characters (from code 32 to 126) or any character after first occurrence of `\0`.
         ///
         /// ## Permissions
         /// * Portfolio
@@ -515,7 +515,8 @@ decl_module! {
                 divisible: bool,
                 asset_type: AssetType,
                 identifiers: Vec<AssetIdentifier>,
-                funding_round: Option<FundingRoundName>) -> DispatchResult {
+                funding_round: Option<FundingRoundName>
+        ) -> DispatchResult {
             Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
 
@@ -683,7 +684,7 @@ decl_module! {
         ///    of `IdentifierType` and `AssetIdentifier` value.
         ///
         /// ## Errors
-        /// - `InvalidAssetIdentifiers` which contains any invalid asset identifier.
+        /// - `InvalidAssetIdentifier` if `identifiers` contains any invalid identifier.
         ///
         /// # Permissions
         /// * Asset
@@ -721,7 +722,7 @@ decl_module! {
         /// * `ticker` - Ticker symbol of the asset.
         ///
         /// ## Errors
-        /// - `MissingExtensionDetails` if `ticker` does not linked to `extension_id`.
+        /// - `MissingExtensionDetails` if `ticker` is not linked to `extension_id`.
         ///
         /// # Permissions
         /// * Asset
@@ -730,7 +731,7 @@ decl_module! {
             Self::base_remove_smart_extension(origin, ticker, extension_id)
         }
 
-        /// Archived the extension. Extension is used to verify the compliance or any smart logic it posses.
+        /// Archived the extension, which was used to verify compliance according to any smart logic it possesses.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns the ticker/asset.
@@ -747,12 +748,12 @@ decl_module! {
             Self::set_archive_on_extension(origin, ticker, extension_id, true)
         }
 
-        /// Un-archived the extension. Extension is used to verify the compliance or any smart logic it posses.
+        /// Unarchived the extension. Extension is used to verify the compliance or any smart logic it possesses.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be un-archived.
+        /// * `extension_id` - AccountId of the extension that need to be unarchived.
         ///
         /// ## Errors
         /// -  `AlreadyArchived` if `extension_id` of `ticker` is already archived.
@@ -854,13 +855,13 @@ decl_event! {
         /// Event for creation of the asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
-        /// Event emitted when a token identifiers are updated.
+        /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
-        /// An additional event to Transfer; emitted when transfer_with_data is called.
+        /// An additional event to Transfer; emitted when `ransfer_with_data` is called.
         /// caller DID , ticker, from DID, to DID, value, data
         TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
         /// is_issuable() output
@@ -1086,7 +1087,7 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
             let current_balance = Self::balance_of(ticker, target_did);
             // Update the balance on the identityId under the given scopeId.
             <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
-            // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
+            // current aggregate balance + current identity balance is always less than the `total_supply` of given ticker.
             <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
@@ -1139,16 +1140,6 @@ impl<T: Trait> Module<T> {
         // Ensure the PIA has not assigned custody of their default portfolio, and that caller is permissioned
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
         Ok(data)
-    }
-
-    /// Ensure that `origin` is permissioned for this call and that its identity is `ticker`'s owner.
-    pub fn ensure_perms_owner(
-        origin: T::Origin,
-        ticker: &Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_perms(origin)?;
-        Self::ensure_owner(ticker, did)?;
-        Ok(did)
     }
 
     /// Ensure that `origin` is permissioned for this call, its identity is `ticker`'s owner and,
@@ -1497,7 +1488,7 @@ impl<T: Trait> Module<T> {
         is_sender: bool,
     ) {
         // Calculate the new aggregate balance for given did.
-        // It should not underflow/overflow but still to be defensive.
+        // It should not be underflow/overflow but still to be defensive.
         let aggregate_balance = Self::aggregate_balance_of(ticker, &scope_id);
         let new_aggregate_balance = if is_sender {
             aggregate_balance.saturating_sub(value)
@@ -1712,7 +1703,7 @@ impl<T: Trait> Module<T> {
         <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
     }
 
-    /// RPC: Function allows external users to know wether the transfer extrinsic
+    /// RPC: Function allows external users to know whether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
         from_custodian: Option<IdentityId>,
@@ -1916,7 +1907,7 @@ impl<T: Trait> Module<T> {
         // Ensure its registered by DID or at least expired, thus available.
         let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
             TickerRegistrationStatus::RegisteredByOther => {
-                return Err(Error::<T>::TickerAlreadyRegistered.into())
+                fail!(Error::<T>::TickerAlreadyRegistered)
             }
             TickerRegistrationStatus::RegisteredByDid => false,
             TickerRegistrationStatus::Available => true,

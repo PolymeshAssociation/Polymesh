@@ -97,11 +97,9 @@ const ASSET_IDENTIFIERS: Vec<AssetIdentifier> = Vec::new();
 const FUNDING_ROUND: Option<FundingRoundName> = None;
 const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 
-fn make_simple_asset(
-    owner: Public,
-    ticker: Ticker,
-    is_divisible: bool,
-) -> Result<SecurityToken<u128>, DispatchError> {
+/// Creates a simple asset, owned by `owner`.
+fn simple_asset(owner: Public, is_divisible: bool) -> (SecurityToken<u128>, Ticker) {
+    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
     let asset_type = AssetType::default();
 
     let asset_name: AssetName = ticker.as_ref().into();
@@ -114,19 +112,23 @@ fn make_simple_asset(
         asset_type.clone(),
         ASSET_IDENTIFIERS,
         FUNDING_ROUND,
-    )?;
+    )
+    .expect("Asset cannot be created");
 
-    Ok(SecurityToken {
+    let token = SecurityToken {
         name: asset_name,
         owner_did: Identity::key_to_identity_dids(owner),
         total_supply: TOTAL_SUPPLY,
         divisible: is_divisible,
         asset_type: asset_type,
         primary_issuance_agent: None,
-    })
+    };
+
+    (token, ticker)
 }
 
-fn make_new_portfolio(owner: Public, name: &str) -> PortfolioId {
+/// Generates a new portfolio for `owner` using the given `name`.
+fn new_portfolio(owner: Public, name: &str) -> PortfolioId {
     let portfolio_name = PortfolioName::from(name);
     let did = Identity::key_to_identity_dids(owner);
 
@@ -140,6 +142,17 @@ fn make_new_portfolio(owner: Public, name: &str) -> PortfolioId {
         .unwrap();
 
     PortfolioId::user_portfolio(did, portfolio_num)
+}
+
+/// Returns a `FundingRoundName` which exceeds the maximum length defined in `AssetTrait`.
+fn exceeded_funding_round_name() -> FundingRoundName {
+    let funding_round_max_length =
+        <TestStorage as AssetTrait>::FundingRoundNameMaxLength::get() + 1;
+
+    iter::repeat(b'A')
+        .take(funding_round_max_length)
+        .collect::<Vec<_>>()
+        .into()
 }
 
 #[test]
@@ -813,6 +826,20 @@ fn transfer_primary_issuance_agent() {
 
         assert!(!Asset::is_ticker_available(&ticker));
         assert_eq!(Asset::token_details(&ticker), token);
+
+        let invalid_auth_id = Identity::add_auth(
+            owner_did,
+            Signatory::from(primary_issuance_agent),
+            AuthorizationData::NoData,
+            None,
+        );
+        assert_err!(
+            Asset::accept_primary_issuance_agent_transfer(
+                primary_issuance_signed.clone(),
+                invalid_auth_id
+            ),
+            AssetError::NoPrimaryIssuanceAgentTransferAuth
+        );
 
         let auth_id = Identity::add_auth(
             owner_did,
@@ -3118,9 +3145,7 @@ fn invalid_ticker_registry_test() {
 }
 
 fn invalid_ticker_registry(owner: Public) {
-    // Create a valid ticker.
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
-    let owner_did = make_simple_asset(owner, ticker, true).unwrap().owner_did;
+    let (token, _) = simple_asset(owner, true);
 
     // Generate a data set for testing: (input, expected result)
     [
@@ -3131,7 +3156,7 @@ fn invalid_ticker_registry(owner: Public) {
     .iter()
     .map(|(name, exp)| (Ticker::try_from(name.as_ref()).unwrap(), exp))
     .for_each(|(ticker, exp)| {
-        let valid = Asset::is_ticker_registry_valid(&ticker, owner_did);
+        let valid = Asset::is_ticker_registry_valid(&ticker, token.owner_did);
         assert_eq!(*exp, valid)
     });
 }
@@ -3147,13 +3172,11 @@ fn sender_same_as_receiver_test() {
 }
 
 fn sender_same_as_receiver(owner: Public) {
-    // Create a valid ticker.
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
-    let owner_did = make_simple_asset(owner, ticker, true).unwrap().owner_did;
+    let (token, ticker) = simple_asset(owner, true);
 
     // Create new portfolio
-    let eu_portfolio = PortfolioId::default_portfolio(owner_did);
-    let uk_portfolio = make_new_portfolio(owner, "UK");
+    let eu_portfolio = PortfolioId::default_portfolio(token.owner_did);
+    let uk_portfolio = new_portfolio(owner, "UK");
 
     // Enforce an unsafe tranfer.
     assert_noop!(
@@ -3165,13 +3188,12 @@ fn sender_same_as_receiver(owner: Public) {
 #[test]
 fn invalid_granularity_test() {
     let owner = AccountKeyring::Alice.public();
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
         .build()
         .execute_with(|| {
-            let _ = make_simple_asset(owner, ticker, false).unwrap();
+            let (_, ticker) = simple_asset(owner, false);
 
             assert_noop!(
                 Asset::issue(Origin::signed(owner), ticker, 10_000),
@@ -3203,53 +3225,48 @@ fn create_asset_errors(owner: Public, other: Public) {
         .take(name_max_length)
         .collect::<Vec<_>>()
         .into();
-    assert_noop!(
-        Asset::create_asset(
-            o.clone(),
+    let exceeded_funding_name = exceeded_funding_round_name();
+
+    let input_expected = vec![
+        (
             exceeded_name,
-            ticker,
             TOTAL_SUPPLY,
             true,
-            atype.clone(),
-            vec![],
-            None
+            None,
+            AssetError::MaxLengthOfAssetNameExceeded,
         ),
-        AssetError::MaxLengthOfAssetNameExceeded
-    );
-
-    let funding_round_max_length =
-        <TestStorage as AssetTrait>::FundingRoundNameMaxLength::get() + 1;
-    let exceeded_funding_name = iter::repeat(b'A')
-        .take(funding_round_max_length)
-        .collect::<Vec<_>>()
-        .into();
-    assert_noop!(
-        Asset::create_asset(
-            o.clone(),
+        (
             name.clone(),
-            ticker,
             TOTAL_SUPPLY,
             true,
-            atype.clone(),
-            vec![],
-            Some(exceeded_funding_name)
+            Some(exceeded_funding_name),
+            AssetError::FundingRoundNameMaxLengthExceeded,
         ),
-        AssetError::FundingRoundNameMaxLengthExceeded
-    );
-
-    assert_noop!(
-        Asset::create_asset(
-            o.clone(),
+        (
             name.clone(),
-            ticker,
             1_000,
             false,
-            atype.clone(),
-            vec![],
-            None
+            None,
+            AssetError::InvalidTotalSupply,
         ),
-        AssetError::InvalidTotalSupply
-    );
+    ];
+
+    for (name, total_supply, is_divisible, funding_name, expected_err) in input_expected.into_iter()
+    {
+        assert_noop!(
+            Asset::create_asset(
+                o.clone(),
+                name,
+                ticker,
+                total_supply,
+                is_divisible,
+                atype.clone(),
+                vec![],
+                funding_name
+            ),
+            expected_err
+        );
+    }
 
     assert_ok!(Asset::register_ticker(o2.clone(), ticker));
     assert_err!(
@@ -3265,13 +3282,6 @@ fn create_asset_errors(owner: Public, other: Public) {
         ),
         AssetError::TickerAlreadyRegistered
     );
-
-    /*
-    // Advance some blocks...
-    let expirate_at = Asset::ticker_registration_config();
-     assert_err!(
-        Asset::create_asset(o2.clone(), name.clone(), ticker, TOTAL_SUPPLY, true, atype.clone(), vec![], None),
-        AssetError::TickerRegistrationExpired);*/
 }
 
 #[test]
@@ -3285,26 +3295,20 @@ fn unsafe_can_transfer_all_status_codes_test() {
 }
 
 fn unsafe_can_transfer_all_status_codes(owner: Public) {
-    let ticker_indivisible = Ticker::try_from(&b"MYNFT"[..]).unwrap();
-    let token_indivisible = make_simple_asset(owner, ticker_indivisible, false).unwrap();
-    let owner_did = token_indivisible.owner_did.clone();
-    let uk_portfolio = make_new_portfolio(owner, "UK");
+    let (token, ticker) = simple_asset(owner, false);
+
+    let owner_did = token.owner_did.clone();
+    let uk_portfolio = new_portfolio(owner, "UK");
     let default_portfolio = PortfolioId::default_portfolio(owner_did);
 
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
-    let _ = make_simple_asset(owner, ticker, true).unwrap();
-
     // INVALID_GRANULARITY
-    let code = Asset::unsafe_can_transfer(
-        None,
-        default_portfolio,
-        None,
-        uk_portfolio,
-        &ticker_indivisible,
-        100,
-    )
-    .unwrap();
+    let code =
+        Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
+            .unwrap();
     assert_eq!(code, INVALID_GRANULARITY);
+
+    // Update indivisible.
+    assert_ok!(Asset::make_divisible(Origin::signed(owner), ticker));
 
     // INVALID_RECEIVER_DID
     let code =
@@ -3312,14 +3316,76 @@ fn unsafe_can_transfer_all_status_codes(owner: Public) {
             .unwrap();
     assert_eq!(code, INVALID_RECEIVER_DID);
 
-    /*
     // INVALID_SENDER_DID
     let no_cdd_portfolio_did = PortfolioId::default();
-    let code = Asset::unsafe_can_transfer(None, no_cdd_portfolio_did, None, no_cdd_portfolio_did, &ticker, 100).unwrap();
+    let code = Asset::unsafe_can_transfer(
+        None,
+        no_cdd_portfolio_did,
+        None,
+        default_portfolio,
+        &ticker,
+        100,
+    )
+    .unwrap();
     assert_eq!(code, INVALID_SENDER_DID);
+}
 
-    // SCOPE_CLAIM_MISSING
-    let code = Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100).unwrap();
-    assert_eq!(code, SCOPE_CLAIM_MISSING);
-    */
+#[test]
+fn set_funding_round_test() {
+    let owner = AccountKeyring::Alice.public();
+
+    ExtBuilder::default()
+        .add_regular_users_from_accounts(&[owner])
+        .build()
+        .execute_with(|| set_funding_round(owner))
+}
+
+fn set_funding_round(owner: Public) {
+    let (_, ticker) = simple_asset(owner, true);
+    let o = Origin::signed(owner);
+
+    let exceeded_funding_name = exceeded_funding_round_name();
+    assert_noop!(
+        Asset::set_funding_round(o.clone(), ticker, exceeded_funding_name),
+        AssetError::FundingRoundNameMaxLengthExceeded
+    );
+
+    let valid_funding_name = FundingRoundName(b"VIP round".to_vec());
+    assert_ok!(Asset::set_funding_round(o, ticker, valid_funding_name));
+}
+
+#[test]
+fn update_identifiers_errors_test() {
+    let owner = AccountKeyring::Alice.public();
+
+    ExtBuilder::default()
+        .add_regular_users_from_accounts(&[owner])
+        .build()
+        .execute_with(|| update_identifiers_errors(owner))
+}
+
+fn update_identifiers_errors(owner: Public) {
+    let (_, ticker) = simple_asset(owner, true);
+    let o = Origin::signed(owner);
+
+    let invalid_asset_ids = vec![
+        AssetIdentifier::CUSIP(*b"037833108"),   // Invalid checksum.
+        AssetIdentifier::CINS(*b"S08000AA7"),    // Invalid checksum.
+        AssetIdentifier::ISIN(*b"US0378331004"), // Invalid checksum.
+        AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN37"), // Invalid checksum.
+    ];
+
+    invalid_asset_ids.into_iter().for_each(|asset_id| {
+        assert_noop!(
+            Asset::update_identifiers(o.clone(), ticker, vec![asset_id]),
+            AssetError::InvalidAssetIdentifier
+        );
+    });
+
+    let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
+    assert_ok!(Asset::update_identifiers(
+        o.clone(),
+        ticker,
+        valid_asset_ids
+    ));
 }
