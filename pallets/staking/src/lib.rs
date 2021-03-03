@@ -1047,11 +1047,12 @@ enum Releases {
     V4_0_0,
     V5_0_0,
     V6_0_0,
+    V6_0_1,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V6_0_0
+        Releases::V6_0_1
     }
 }
 
@@ -1246,11 +1247,10 @@ decl_storage! {
         // Polymesh-Note: Polymesh specific change to provide slashing switch for validators & Nominators.
         pub SlashingAllowedFor get(fn slashing_allowed_for) config(): SlashingSwitch;
 
-        /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
-        /// This is set to v6.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_0): Releases;
+        /// This is set to v6.0.1 for new networks.
+        StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_1): Releases;
     }
     add_extra_genesis {
         config(stakers):
@@ -1503,6 +1503,22 @@ decl_module! {
                 });
 
                 StorageVersion::put(Releases::V6_0_0);
+            }
+
+            // Fix `running_count` of validators
+            if StorageVersion::get() == Releases::V6_0_0 {
+                let current_validators = <Validators<T>>::iter().map(|(k, _)| <Identity<T>>::get_identity(&k).unwrap_or_default()).collect::<Vec<_>>();
+                let permissioned_validators = PermissionedIdentity::iter().collect::<Vec<_>>();
+                for (permissioned_validator, mut prefs) in permissioned_validators {
+                    // Since hashmaps aren't natively supported in wasm and the `current_validators` set is expected to be quite small (~20)
+                    // It's fine to use this naive and slow iterative method rather than adding anything complex to cache count.
+                    prefs.running_count = current_validators
+                        .iter()
+                        .filter(|&&cv| cv == permissioned_validator)
+                        .count() as u32;
+                    PermissionedIdentity::insert(permissioned_validator, prefs);
+                }
+                StorageVersion::put(Releases::V6_0_1);
             }
 
             1_000
@@ -1863,7 +1879,9 @@ decl_module! {
                 // Ensures that the passed commission is within the cap.
                 ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
                 // Updates the running count.
-                id_pref.running_count += 1;
+                if !<Validators<T>>::contains_key(stash) {
+                    id_pref.running_count += 1;
+                }
                 PermissionedIdentity::insert(id, id_pref);
                 <Nominators<T>>::remove(stash);
                 <Validators<T>>::insert(stash, prefs);
@@ -2763,6 +2781,9 @@ impl<T: Trait> Module<T> {
 
     /// Decrease the running count of validators by 1 for the stash identity.
     fn release_running_validator(stash: &T::AccountId) {
+        if !<Validators<T>>::contains_key(stash) {
+            return;
+        }
         if let Some(id) = <Identity<T>>::get_identity(stash) {
             PermissionedIdentity::mutate(&id, |pref| {
                 if let Some(p) = pref {
