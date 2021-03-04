@@ -221,6 +221,7 @@ impl_outer_event! {
         identity<T>,
         group Instance2<T>,
         pallet_scheduler<T>,
+        pallet_test_utils<T>,
     }
 }
 
@@ -324,11 +325,9 @@ impl pallet_pips::Trait for Test {
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type Treasury = pallet_treasury::Module<Self>;
     type Event = MetaEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
 }
 
 impl pallet_treasury::Trait for Test {
@@ -405,6 +404,11 @@ impl pallet_scheduler::Trait for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+}
+
+impl pallet_test_utils::Trait for Test {
+    type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -604,7 +608,7 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
-    pub const MinimumBond: Balance = 0u128;
+    pub const MinimumBond: Balance = 10u128;
 }
 
 thread_local! {
@@ -894,7 +898,7 @@ impl ExtBuilder {
             let stake_31 = if self.validator_pool {
                 balance_factor * 1000
             } else {
-                1
+                MinimumBond::get()
             };
             let status_41 = if self.validator_pool {
                 StakerStatus::<AccountId>::Validator
@@ -1000,6 +1004,7 @@ pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
 pub type Scheduler = pallet_scheduler::Module<Test>;
+pub type TestUtils = pallet_test_utils::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1622,7 +1627,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

@@ -14,7 +14,7 @@ use frame_support::{
 use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
-    distribution::{self, Distribution},
+    distribution::{self, Distribution, PER_SHARE_PRECISION},
     Agent, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
@@ -1732,25 +1732,28 @@ fn dist_distribute_works() {
             Error::NoSuchCA
         );
 
-        let id = dist_ca(owner, ticker, Some(1)).unwrap();
+        let id1 = dist_ca(owner, ticker, Some(1)).unwrap();
+
+        Timestamp::set_timestamp(2);
+        let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
 
         // Test same-asset logic.
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, ticker, 0, 0, 0, None),
+            Dist::distribute(owner.origin(), id2, None, ticker, 0, 0, 0, None),
             DistError::DistributingAsset
         );
 
         // Test expiry.
         for &(pay, expiry) in &[(5, 5), (6, 5)] {
             assert_noop!(
-                Dist::distribute(owner.origin(), id, None, currency, 0, 0, pay, Some(expiry)),
+                Dist::distribute(owner.origin(), id2, None, currency, 0, 0, pay, Some(expiry)),
                 DistError::ExpiryBeforePayment
             );
         }
         Timestamp::set_timestamp(5);
         assert_ok!(Dist::distribute(
             owner.origin(),
-            id,
+            id2,
             None,
             currency,
             0,
@@ -1759,17 +1762,23 @@ fn dist_distribute_works() {
             Some(6)
         ));
 
-        // Start before now.
-        assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 0, 4, None),
-            DistError::NowAfterPayment
-        );
-
         // Distribution already exists.
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 0, 5, None),
+            Dist::distribute(owner.origin(), id2, None, currency, 0, 0, 5, None),
             DistError::AlreadyExists
         );
+
+        // Start before now.
+        assert_ok!(Dist::distribute(
+            owner.origin(),
+            id1,
+            None,
+            currency,
+            0,
+            0,
+            4,
+            None
+        ));
 
         // Portfolio doesn't exist.
         let id = dist_ca(owner, ticker, Some(5)).unwrap();
@@ -2055,7 +2064,7 @@ fn dist_claim_works() {
         // `foo` claims with 25% tax.
         assert_ok!(Dist::claim(foo.origin(), id));
         already(foo);
-        let benefit_foo = 500 * per_share / 1_000_000;
+        let benefit_foo = 500 * per_share / PER_SHARE_PRECISION;
         let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
         assert_eq!(Asset::balance(&currency, foo.did), post_tax_foo);
         let assert_rem =
@@ -2065,7 +2074,7 @@ fn dist_claim_works() {
         // `bar` is pushed to with 1/3 tax.
         assert_ok!(Dist::push_benefit(owner.origin(), id, bar.did));
         already(bar);
-        let benefit_bar = 1_000 * per_share / 1_000_000;
+        let benefit_bar = 1_000 * per_share / PER_SHARE_PRECISION;
         let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
         assert_eq!(Asset::balance(&currency, bar.did), post_tax_bar);
         assert_rem(benefit_foo + benefit_bar);
@@ -2109,7 +2118,7 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
             CDDP.public(),
         );
         let amount = 200_000;
-        let per_share = 5_000_000;
+        let per_share = 5 * PER_SHARE_PRECISION;
         assert_ok!(Dist::distribute(
             owner.origin(),
             id,
@@ -2129,7 +2138,7 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         // Check the balances; tax is 0%.
         assert_eq!(
             Asset::balance(&currency, claimant.did),
-            500 * per_share / 1_000_000
+            500 * per_share / PER_SHARE_PRECISION
         );
         assert_eq!(Asset::balance(&currency, other.did), 0);
     });

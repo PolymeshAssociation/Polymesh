@@ -387,7 +387,10 @@
                 "EH",
                 "YE",
                 "ZM",
-                "ZW"
+                "ZW",
+                "BQ",
+                "CW",
+                "SX"
             ]
         },
         "Scope": {
@@ -719,11 +722,6 @@
         "PendingTx": {
             "did": "IdentityId",
             "bridge_tx": "BridgeTx"
-        },
-        "OfflineSlashingParams": {
-            "max_offline_percent": "u32",
-            "constant": "u32",
-            "max_slash_percent": "u32"
         },
         "AssetCompliance": {
             "is_paused": "bool",

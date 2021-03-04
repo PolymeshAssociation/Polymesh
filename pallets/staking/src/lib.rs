@@ -1262,12 +1262,12 @@ decl_storage! {
                     "Stash does not have enough balance to bond."
                 );
                 let controller_origin = <Module<T>>::get_origin(controller.clone());
-                let _ = <Module<T>>::bond(
+                <Module<T>>::bond(
                     <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
-                );
+                ).expect("Unable to bond");
                 let _ = match status {
                     StakerStatus::Validator => {
                         if <Module<T>>::permissioned_identity(&did).is_none() {
