@@ -154,6 +154,7 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
         ca_id,
         None,
         currency,
+        2u32.into(),
         1000u32.into(),
         4000,
         None,

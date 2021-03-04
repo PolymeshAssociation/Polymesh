@@ -924,18 +924,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Returns the supply at `cp`, if any, or `did`'s current balance otherwise.
-    crate fn supply_at_cp(ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
-        let ticker = ca_id.ticker;
-        match cp {
-            // CP exists, use it.
-            Some(cp_id) => <Checkpoint<T>>::total_supply_at(ticker, cp_id),
-            // Although record date has passed, no transfers have happened yet for `ticker`.
-            // Thus, there is no checkpoint ID, and we must use current supply instead.
-            None => <Asset<T>>::token_details(ticker).total_supply,
-        }
-    }
-
     /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
     crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
         let ticker = ca_id.ticker;
