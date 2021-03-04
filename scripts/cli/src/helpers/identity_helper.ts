@@ -1,6 +1,5 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Moment } from "@polkadot/types/interfaces/runtime";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type {
 	IdentityId,
@@ -13,7 +12,7 @@ import type {
 	Scope,
 	Expiry
 } from "../types";
-import { sendTx, keyToIdentityIds } from "../util/init";
+import { sendTx, keyToIdentityIds, handle } from "../util/init";
 
 
 
@@ -39,7 +38,7 @@ export async function addClaimsToDids(
 	// Receieving Conditions Claim
 	let claim = { [claimType]: claimValue };
 	const transaction = api.tx.identity.addClaim(did, claim, expiry);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -71,7 +70,7 @@ export async function setPermissionToSigner(
 			Account: secondaryKeys[i].publicKey as AccountId,
 		};
 		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
-		await sendTx(primaryKeys[i], transaction);
+		await sendTx(primaryKeys[i], transaction).catch(err => console.log(`Error: ${err.message}`));
 	}
 }
 
@@ -91,9 +90,11 @@ export async function authorizeJoinToIdentities(
 ): Promise<IdentityId[]> {
 	for (let i in primaryKeys) {
 		// 1. Authorize
-		const auths = ((await api.query.identity.authorizations.entries({
+		const [entries, entriesErr] = await handle(api.query.identity.authorizations.entries({
 			Account: secondaryKeys[i].publicKey,
-		})) as unknown) as Authorization[][];
+		}));
+		if (entriesErr) throw new Error("Failed to get authorizations");
+		const auths = entries as unknown as Authorization[][];
 		let last_auth_id = 0;
 		for (let j in auths) {
 			if (auths[j][1].auth_id > last_auth_id) {
@@ -101,7 +102,7 @@ export async function authorizeJoinToIdentities(
 			}
 		}
 		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-		await sendTx(secondaryKeys[i], transaction);
+		await sendTx(secondaryKeys[i], transaction).catch(err => console.log(`Error: ${err.message}`));	
 	}
 	return dids;
 }
@@ -118,14 +119,14 @@ export async function createIdentities(
 	accounts: KeyringPair[],
 	signer: KeyringPair
 ): Promise<IdentityId[]> {
-	return await createIdentitiesWithExpiry(api, accounts, signer, []);
+	return createIdentitiesWithExpiry(api, accounts, signer, []);
 }
 
 async function createIdentitiesWithExpiry(
 	api: ApiPromise,
 	accounts: KeyringPair[],
 	signer: KeyringPair,
-	expiries: Moment[]
+	expiries: number[]
 ): Promise<IdentityId[]> {
 	let dids: IdentityId[] = [];
 
@@ -135,19 +136,26 @@ async function createIdentitiesWithExpiry(
 		if (parseInt(account_did) == 0) {
 			console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
 			const transaction = api.tx.identity.cddRegisterDid(account.address, []);
-			await sendTx(signer, transaction);
+			await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
 		} else {
 			console.log("Identity Already Linked.");
 		}
 	}
-	//await blockTillPoolEmpty(api);
+	await setDidsArray(api, dids, accounts).catch(err => console.log(`Error: ${err.message}`));
+	await addCddClaim(api, dids, expiries, signer).catch(err => console.log(`Error: ${err.message}`));
+	return dids;	
+}
 
+async function setDidsArray(api: ApiPromise, dids: IdentityId[], accounts: KeyringPair[]) {
 	for (let i in accounts) {
-		const d = await keyToIdentityIds(api, accounts[i].publicKey);
-		dids.push(d);
-		console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
+		const [did, didErr] = await handle(keyToIdentityIds(api, accounts[i].publicKey));
+		if(didErr) throw new Error("keyToIdentityIds failed");
+			dids.push(did);
+			console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
 	}
+}
 
+async function addCddClaim(api: ApiPromise, dids: IdentityId[], expiries: number[], signer: KeyringPair) {
 	// Add CDD Claim with CDD_ID
 	for (let i in dids) {
 		const cdd_id_byte = (parseInt(i) + 1).toString(16).padStart(2, "0");
@@ -158,7 +166,6 @@ async function createIdentitiesWithExpiry(
 
 		console.log(`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`);
 		const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
-		await sendTx(signer, transaction);
+		await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
 	}
-	return dids;
 }

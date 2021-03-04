@@ -2,19 +2,16 @@ import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
 import { cryptoWaitReady, blake2AsHex, mnemonicGenerate } from "@polkadot/util-crypto";
 import { stringToU8a, u8aConcat, u8aFixLength, u8aToHex } from "@polkadot/util";
 import BN from "bn.js";
-import assert from "assert";
 import fs from "fs";
 import path from "path";
 import cryptoRandomString from "crypto-random-string";
-import { AccountId, Balance, Moment } from "@polkadot/types/interfaces/runtime";
-import { SubmittableExtrinsic } from "@polkadot/api/types";
-import { ISubmittableResult } from "@polkadot/types/types";
-import { u8, u64 } from "@polkadot/types/primitive";
-import { KeyringPair } from "@polkadot/keyring/types";
+import type { AccountId } from "@polkadot/types/interfaces/runtime";
+import type { SubmittableExtrinsic } from "@polkadot/api/types";
+import type { KeyringPair } from "@polkadot/keyring/types";
 //import { some, none, ap, Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
-import type { DispatchError, EventRecord } from "@polkadot/types/interfaces";
-import { IdentityId, Scope, Ticker, NonceObject, AssetCompliance, Signatory, Expiry } from "../types";
+import type { DispatchError } from "@polkadot/types/interfaces";
+import type { IdentityId, Ticker, NonceObject, Signatory } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 
 let nonces = new Map();
@@ -103,12 +100,12 @@ export async function generateRandomEntity(api: ApiPromise) {
 	return entity;
 }
 
-export async function generateRandomTicker() {
+export function generateRandomTicker() {
 	let ticker = cryptoRandomString({ length: 12, type: "distinguishable" });
 	return ticker;
 }
 
-export async function generateRandomKey() {
+export function generateRandomKey() {
 	let ticker = cryptoRandomString({ length: 12, type: "alphanumeric" });
 	return ticker;
 }
@@ -233,6 +230,15 @@ export function sendTransaction(
 	});
 }
 
+export async function handle <T>(promise: Promise<T>): Promise<T[] | [T, any]> {
+ 	try {
+		 const data: T = await promise;
+		 return ([data, undefined]);
+	 } catch (error) {
+		 return ([undefined, error]);
+	 }
+ }
+
 export async function signAndSendTransaction(transaction: SubmittableExtrinsic<"promise">, signer: KeyringPair) {
 	let nonceObj = { nonce: nonces.get(signer.address) };
 	await sendTransaction(transaction, signer, nonceObj);
@@ -256,15 +262,11 @@ export async function signatory(api: ApiPromise, entity: KeyringPair, signer: Ke
 }
 
 export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"promise">) {
-	let nonceObj = { nonce: nonces.get(signer.address) };
-	let passed: EventRecord | undefined;
-	try {
-		const result = ((await sendTransaction(tx, signer, nonceObj)) as unknown) as ISubmittableResult;
-		passed = result.findRecord("system", "ExtrinsicSuccess");
-	} finally {
-		nonces.set(signer.address, nonces.get(signer.address).addn(1));
-	}
-	if (!passed) return -1;
+	let nonceObj = { nonce: nonces.get(signer.address) };	
+	nonces.set(signer.address, nonces.get(signer.address).addn(1));	
+	const [result, resultErr] = await handle(sendTransaction(tx, signer, nonceObj));
+	if (resultErr) throw new Error("Transaction Failed");
+	return result ;		
 }
 
 export function getDefaultPortfolio(did: IdentityId) {
