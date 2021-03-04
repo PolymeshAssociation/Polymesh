@@ -242,7 +242,13 @@ fn identities(
             identity_counter += 1;
             let did = IdentityId::from(identity_counter);
             let investor_uid = InvestorUid::from(did.as_ref());
-            (x.1.clone(), vec![IdentityId::from(1)], did, investor_uid, None)
+            (
+                x.1.clone(),
+                vec![IdentityId::from(1)],
+                did,
+                investor_uid,
+                None,
+            )
         })
         .collect::<Vec<_>>();
 

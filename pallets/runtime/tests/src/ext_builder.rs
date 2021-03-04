@@ -339,11 +339,12 @@ impl ExtBuilder {
         identities.extend(gc_identities.clone());
 
         // Create identities that are both CDD providers and GC members.
-        let _cdd_and_gc_identities = Self::make_identities(
+        let cdd_and_gc_identities = Self::make_identities(
             cdd_and_gc_members.as_slice(),
             identities.len(),
             vec![SystematicIssuers::CDDProvider.as_id(), GC_DID],
         );
+        identities.extend(cdd_and_gc_identities.clone());
 
         if !self.regular_users.is_empty() {
             let issuer = cdd_identities
@@ -357,8 +358,6 @@ impl ExtBuilder {
                 vec![issuer],
             ));
         }
-
-        println!("Genesis identities: {:?}", identities);
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
@@ -399,7 +398,14 @@ impl ExtBuilder {
         let cdd_ids = self
             .cdd_providers
             .iter()
-            .map(|key| cdd_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
+            .map(|key| {
+                cdd_identities
+                    .iter()
+                    .chain(cdd_and_gc_identities.iter())
+                    .find(|rec| rec.0 == *key)
+                    .unwrap()
+                    .2
+            })
             .chain(core::iter::once(GC_DID))
             .collect::<Vec<_>>();
 
@@ -415,7 +421,14 @@ impl ExtBuilder {
         let mut gc_ids = self
             .governance_committee_members
             .iter()
-            .map(|key| gc_identities.iter().find(|rec| rec.0 == *key).unwrap().2)
+            .map(|key| {
+                gc_identities
+                    .iter()
+                    .chain(cdd_and_gc_identities.iter())
+                    .find(|rec| rec.0 == *key)
+                    .unwrap()
+                    .2
+            })
             .collect::<Vec<_>>();
         gc_ids.sort();
 

@@ -1483,7 +1483,7 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 0. Accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_id = get_identity_id(AccountKeyring::Alice)
-        .expect("Charlie should be a Governance Committee member");
+        .expect("Alice should be a Governance Committee member");
 
     // 1. Alice should have 2 systematic CDD claims: One as GC member & another one as CDD
     //    provider.
