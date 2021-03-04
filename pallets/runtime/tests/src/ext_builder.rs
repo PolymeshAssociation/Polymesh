@@ -165,6 +165,7 @@ impl ExtBuilder {
 
     pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
         self.governance_committee_members = members;
+        self.governance_committee_members.sort();
         self
     }
 
@@ -179,12 +180,14 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self.cdd_providers.sort();
         self
     }
 
     /// Adds DID to `users` accounts.
     pub fn regular_users(mut self, users: Vec<Public>) -> Self {
         self.regular_users = users;
+        self.regular_users.sort();
         self
     }
 
@@ -257,7 +260,7 @@ impl ExtBuilder {
     fn make_identities(
         accounts: &[Public],
         did_offset: usize,
-        issuer: IdentityId,
+        issuers: Vec<IdentityId>,
     ) -> Vec<GenesisIdentityRecord<AccountId>> {
         accounts
             .iter()
@@ -265,7 +268,13 @@ impl ExtBuilder {
             .map(|(idx, key)| {
                 let did_index = (idx + did_offset + 1) as u128;
                 let did = IdentityId::from(did_index);
-                (*key, issuer, did, InvestorUid::from(did.as_ref()), None)
+                (
+                    *key,
+                    issuers.clone(),
+                    did,
+                    InvestorUid::from(did.as_ref()),
+                    None,
+                )
             })
             .collect::<Vec<_>>()
     }
@@ -285,30 +294,71 @@ impl ExtBuilder {
             .build_storage::<TestStorage>()
             .unwrap();
 
+        // Regular users should intersect neither with CDD providers nor with GC members.
+        assert!(!self
+            .regular_users
+            .iter()
+            .any(|key| self.cdd_providers.contains(key)
+                || self.governance_committee_members.contains(key)));
+
         let mut identities = vec![];
+
+        // Determine the intersection of the CDD provider set and GC members.
+        let cdd_and_gc_members: Vec<AccountId> = self
+            .cdd_providers
+            .iter()
+            .filter(|key| self.governance_committee_members.contains(key))
+            .cloned()
+            .collect();
+
+        // Keep only distinct members in these key vectors.
+        let cdd_providers_only: Vec<_> = self
+            .cdd_providers
+            .iter()
+            .filter(|key| !cdd_and_gc_members.contains(key))
+            .cloned()
+            .collect();
+        let gc_members_only: Vec<_> = self
+            .governance_committee_members
+            .iter()
+            .filter(|key| !cdd_and_gc_members.contains(key))
+            .cloned()
+            .collect();
 
         // Create CDD provider identities.
         let cdd_identities = Self::make_identities(
-            self.cdd_providers.as_slice(),
+            cdd_providers_only.as_slice(),
             0,
-            IdentityId::from(SystematicIssuers::CDDProvider.as_id()),
+            vec![SystematicIssuers::CDDProvider.as_id()],
         );
         identities.extend(cdd_identities.clone());
 
         // Create committee identities.
-        let gc_identities = Self::make_identities(
-            self.governance_committee_members.as_slice(),
-            identities.len(),
-            IdentityId::from(SystematicIssuers::Committee.as_id()),
-        );
+        let gc_identities =
+            Self::make_identities(gc_members_only.as_slice(), identities.len(), vec![GC_DID]);
         identities.extend(gc_identities.clone());
 
-        // Create regular user identities.
-        identities.extend(Self::make_identities(
-            self.regular_users.as_slice(),
+        // Create identities that are both CDD providers and GC members.
+        let _cdd_and_gc_identities = Self::make_identities(
+            cdd_and_gc_members.as_slice(),
             identities.len(),
-            IdentityId::from(GC_DID),
-        ));
+            vec![SystematicIssuers::CDDProvider.as_id(), GC_DID],
+        );
+
+        if !self.regular_users.is_empty() {
+            let issuer = cdd_identities
+                .get(0)
+                .expect("Regular users require a CDD identity at genesis")
+                .2;
+            // Create regular user identities.
+            identities.extend(Self::make_identities(
+                self.regular_users.as_slice(),
+                identities.len(),
+                vec![issuer],
+            ));
+        }
+
+        println!("Genesis identities: {:?}", identities);
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {

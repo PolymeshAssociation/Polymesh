@@ -795,6 +795,7 @@ fn do_force_mint() {
 fn genesis_txs() {
     let alice = AccountKeyring::Alice.public();
     let bob = AccountKeyring::Bob.public();
+    let charlie = AccountKeyring::Charlie.public();
     let one_amount = 111;
     let two_amount = 222;
     let complete_txs = vec![
@@ -817,10 +818,11 @@ fn genesis_txs() {
     };
     let regular_users = vec![alice, bob];
     ExtBuilder::default()
+        .cdd_providers(vec![charlie])
+        .regular_users(regular_users.clone())
         .adjust(Box::new(move |storage| {
             genesis.assimilate_storage(storage).unwrap();
         }))
-        .regular_users(regular_users.clone())
         .build()
         .execute_with(|| {
             check_genesis_txs(regular_users.into_iter().zip(complete_txs.into_iter()))
