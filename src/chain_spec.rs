@@ -167,7 +167,7 @@ macro_rules! checkpoint {
 // (primary_account_id, service provider did, target did, expiry time of CDD claim i.e 10 days is ms)
 type Identity = (
     AccountId,
-    IdentityId,
+    Vec<IdentityId>,
     IdentityId,
     InvestorUid,
     Option<Moment>,
@@ -190,7 +190,7 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
 fn cdd_provider(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
-        IdentityId::from(n as u128),
+        vec![IdentityId::from(n as u128)],
         IdentityId::from(n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
         None,
@@ -200,7 +200,7 @@ fn cdd_provider(n: u8) -> Identity {
 fn gc_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
-        IdentityId::from(1 as u128),
+        vec![IdentityId::from(1 as u128)],
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
@@ -210,7 +210,7 @@ fn gc_mem(n: u8) -> Identity {
 fn polymath_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        IdentityId::from(1 as u128),
+        vec![IdentityId::from(1 as u128)],
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
@@ -242,7 +242,7 @@ fn identities(
             identity_counter += 1;
             let did = IdentityId::from(identity_counter);
             let investor_uid = InvestorUid::from(did.as_ref());
-            (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
+            (x.1.clone(), vec![IdentityId::from(1)], did, investor_uid, None)
         })
         .collect::<Vec<_>>();
 
