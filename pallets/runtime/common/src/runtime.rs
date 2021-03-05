@@ -841,7 +841,8 @@ macro_rules! runtime_apis {
                     to_custodian: Option<IdentityId>,
                     to_portfolio: PortfolioId,
                     ticker: &Ticker,
-                    value: Balance) -> polymesh_primitives::asset::GranularCanTransferResult
+                    value: Balance
+                ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
                     Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 }
