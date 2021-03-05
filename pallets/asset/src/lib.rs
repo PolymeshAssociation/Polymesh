@@ -2278,7 +2278,7 @@ impl<T: Trait> Module<T> {
                 || asset_frozen
                 || statistics_failures
                     .iter()
-                    .any(|result| result.failed == true)
+                    .any(|result| result.failed)
                 || !compliance_result.result,
             statistics_failures,
             compliance_result,
