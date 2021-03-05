@@ -62,7 +62,8 @@ sp_api::decl_runtime_apis! {
             value: Balance
         ) -> CanTransferResult;
 
-         /// TODO
+         /// Checks whether a transaction with given parameters can take place or not.
+         /// The result is "granular" meaning each check is run and returned regardless of outcome.
         fn can_transfer_granular(
             sender: AccountId,
             from_custodian: Option<IdentityId>,

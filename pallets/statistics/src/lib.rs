@@ -251,15 +251,14 @@ impl<T: Trait> Module<T> {
         Self::transfer_managers(ticker)
             .into_iter()
             .map(|tm| TransferManagerResult {
-                tm: tm.clone(),
-                failed: match tm {
+                failed: match &tm {
                     TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
                         ticker,
                         sender,
                         value,
                         sender_balance,
                         receiver_balance,
-                        max_count,
+                        *max_count,
                     )
                     .is_err(),
                     TransferManager::PercentageTransferManager(max_percentage) => Self::ensure_ptm(
@@ -268,10 +267,11 @@ impl<T: Trait> Module<T> {
                         value,
                         receiver_balance,
                         total_supply,
-                        max_percentage,
+                        max_percentage.clone(),
                     )
                     .is_err(),
                 },
+                tm,
             })
             .collect()
     }
