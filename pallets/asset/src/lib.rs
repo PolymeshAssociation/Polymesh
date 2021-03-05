@@ -1610,7 +1610,7 @@ impl<T: Trait> Module<T> {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
 
-        if Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did) {
+        if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
             return Ok(SCOPE_CLAIM_MISSING);
         }
 
@@ -2053,7 +2053,7 @@ impl<T: Trait> Module<T> {
             INVALID_RECEIVER_DID
         } else if Self::invalid_cdd(from_portfolio.did) {
             INVALID_SENDER_DID
-        } else if Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did) {
+        } else if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
             SCOPE_CLAIM_MISSING
         } else if Self::custodian_error(
             from_portfolio,
@@ -2237,7 +2237,7 @@ impl<T: Trait> Module<T> {
         let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
         let missing_scope_claim =
-            Self::missing_scope_claim(ticker, to_portfolio.did, from_portfolio.did);
+            Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
         let receiver_custodian_error =
             Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did));
         let sender_custodian_error =
@@ -2297,8 +2297,8 @@ impl<T: Trait> Module<T> {
         !Identity::<T>::has_valid_cdd(did)
     }
 
-    fn missing_scope_claim(ticker: &Ticker, from: IdentityId, to: IdentityId) -> bool {
-        !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to, from)
+    fn missing_scope_claim(ticker: &Ticker, from: &PortfolioId, to: &PortfolioId) -> bool {
+        !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
     }
 
     fn custodian_error(from: PortfolioId, custodian: IdentityId) -> bool {
