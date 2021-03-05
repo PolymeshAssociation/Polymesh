@@ -10,21 +10,19 @@ import type {
 	Permissions,
 	Signatory,
 	Scope,
-	Expiry
+	Expiry,
 } from "../types";
 import { sendTx, keyToIdentityIds, handle } from "../util/init";
 
-
-
 // TODO Refactor function to deal with all the possible claim types and their values
 /**
- * @description Adds a Claim to an Identity 
+ * @description Adds a Claim to an Identity
  * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} signer - KeyringPair
  * @param {IdentityId} did - IdentityId
  * @param {string} claimType - Type of Claim
  * @param {Scope} claimValue - Claim value
- * @param {Expiry=} expiry - 
+ * @param {Expiry=} expiry -
  * @return {Promise<void>}
  */
 export async function addClaimsToDids(
@@ -38,7 +36,7 @@ export async function addClaimsToDids(
 	// Receieving Conditions Claim
 	let claim = { [claimType]: claimValue };
 	const transaction = api.tx.identity.addClaim(did, claim, expiry);
-	await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -70,7 +68,7 @@ export async function setPermissionToSigner(
 			Account: secondaryKeys[i].publicKey as AccountId,
 		};
 		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
-		await sendTx(primaryKeys[i], transaction).catch(err => console.log(`Error: ${err.message}`));
+		await sendTx(primaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }
 
@@ -90,11 +88,13 @@ export async function authorizeJoinToIdentities(
 ): Promise<IdentityId[]> {
 	for (let i in primaryKeys) {
 		// 1. Authorize
-		const [entries, entriesErr] = await handle(api.query.identity.authorizations.entries({
-			Account: secondaryKeys[i].publicKey,
-		}));
+		const [entriesErr, entries] = await handle(
+			api.query.identity.authorizations.entries({
+				Account: secondaryKeys[i].publicKey,
+			})
+		);
 		if (entriesErr) throw new Error("Failed to get authorizations");
-		const auths = entries as unknown as Authorization[][];
+		const auths = (entries as unknown) as Authorization[][];
 		let last_auth_id = 0;
 		for (let j in auths) {
 			if (auths[j][1].auth_id > last_auth_id) {
@@ -102,7 +102,7 @@ export async function authorizeJoinToIdentities(
 			}
 		}
 		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-		await sendTx(secondaryKeys[i], transaction).catch(err => console.log(`Error: ${err.message}`));	
+		await sendTx(secondaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 	return dids;
 }
@@ -136,22 +136,22 @@ async function createIdentitiesWithExpiry(
 		if (parseInt(account_did) == 0) {
 			console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
 			const transaction = api.tx.identity.cddRegisterDid(account.address, []);
-			await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
+			await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 		} else {
 			console.log("Identity Already Linked.");
 		}
 	}
-	await setDidsArray(api, dids, accounts).catch(err => console.log(`Error: ${err.message}`));
-	await addCddClaim(api, dids, expiries, signer).catch(err => console.log(`Error: ${err.message}`));
-	return dids;	
+	await setDidsArray(api, dids, accounts).catch((err) => console.log(`Error: ${err.message}`));
+	await addCddClaim(api, dids, expiries, signer).catch((err) => console.log(`Error: ${err.message}`));
+	return dids;
 }
 
 async function setDidsArray(api: ApiPromise, dids: IdentityId[], accounts: KeyringPair[]) {
 	for (let i in accounts) {
-		const [did, didErr] = await handle(keyToIdentityIds(api, accounts[i].publicKey));
-		if(didErr) throw new Error("keyToIdentityIds failed");
-			dids.push(did);
-			console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
+		const [didErr, did] = await handle(keyToIdentityIds(api, accounts[i].publicKey));
+		if (didErr) throw new Error("keyToIdentityIds failed");
+		dids.push(did);
+		console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
 	}
 }
 
@@ -166,6 +166,6 @@ async function addCddClaim(api: ApiPromise, dids: IdentityId[], expiries: number
 
 		console.log(`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`);
 		const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
-		await sendTx(signer, transaction).catch(err => console.log(`Error: ${err.message}`));
+		await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }
