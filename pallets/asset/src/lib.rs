@@ -2049,7 +2049,7 @@ impl<T: Trait> Module<T> {
         Ok(if Self::invalid_granularity(ticker, value) {
             // Granularity check
             INVALID_GRANULARITY
-        } else if Self::invalid_receiver(&from_portfolio, &to_portfolio) {
+        } else if Self::self_transfer(&from_portfolio, &to_portfolio) {
             INVALID_RECEIVER_DID
         } else if Self::invalid_cdd(from_portfolio.did) {
             INVALID_SENDER_DID
