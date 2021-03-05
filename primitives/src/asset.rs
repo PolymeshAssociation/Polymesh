@@ -81,8 +81,8 @@ pub struct FundingRoundName(pub Vec<u8>);
 pub struct GranularCanTransferResult {
     /// Granularity check failed.
     pub invalid_granularity: bool,
-    /// Receiver is invalid.
-    pub invalid_receiver_did: bool,
+    /// Receiver is equal to sender.
+    pub self_transfer: bool,
     /// Receiver is missing cdd.
     pub invalid_receiver_cdd: bool,
     /// Sender is missing cdd.

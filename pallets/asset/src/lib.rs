@@ -2233,7 +2233,7 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
     ) -> GranularCanTransferResult {
         let invalid_granularity = Self::invalid_granularity(ticker, value);
-        let invalid_receiver_did = Self::invalid_receiver(&from_portfolio, &to_portfolio);
+        let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
         let missing_scope_claim =
@@ -2257,7 +2257,7 @@ impl<T: Trait> Module<T> {
 
         GranularCanTransferResult {
             invalid_granularity,
-            invalid_receiver_did,
+            self_transfer,
             invalid_receiver_cdd,
             invalid_sender_cdd,
             missing_scope_claim,
@@ -2267,7 +2267,7 @@ impl<T: Trait> Module<T> {
             portfolio_error,
             asset_frozen,
             failed: invalid_granularity
-                || invalid_receiver_did
+                || self_transfer
                 || invalid_receiver_cdd
                 || invalid_sender_cdd
                 || missing_scope_claim
@@ -2289,7 +2289,7 @@ impl<T: Trait> Module<T> {
         !Self::check_granularity(&ticker, value)
     }
 
-    fn invalid_receiver(from: &PortfolioId, to: &PortfolioId) -> bool {
+    fn self_transfer(from: &PortfolioId, to: &PortfolioId) -> bool {
         from.did == to.did
     }
 
