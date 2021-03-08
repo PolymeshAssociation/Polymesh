@@ -1,7 +1,7 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Document, TickerRegistration, IdentityId } from "../types";
-import { sendTx } from "../util/init";
+import { sendTx, handle } from "../util/init";
 import { assert } from "chai";
 
 /**
@@ -20,7 +20,7 @@ export async function addDocuments(
 ): Promise<boolean> {
 	try {
 		const transaction = api.tx.asset.addDocuments(docs, ticker);
-		await sendTx(signer, transaction);
+		await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 		return true;
 	} catch (err) {
 		return false;
@@ -44,11 +44,14 @@ export async function issueTokenToDid(
 	fundingRound?: string
 ): Promise<void> {
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-	let tickerExist = ((await api.query.asset.tickers(ticker)) as unknown) as TickerRegistration;
+	const [tickerDataErr, tickerData] = await handle(api.query.asset.tickers(ticker));
+	if (tickerDataErr) throw new Error("Retrieving ticker failed");
+
+	let tickerExist = (tickerData as unknown) as TickerRegistration;
 
 	if (tickerExist.owner == 0) {
 		const transaction = api.tx.asset.createAsset(ticker, ticker, amount, true, 0, [], fundingRound);
-		await sendTx(account, transaction);
+		await sendTx(account, transaction).catch((err) => console.log(`Error: ${err.message}`));
 	} else {
 		console.log("ticker exists already");
 	}
@@ -63,7 +66,7 @@ export async function issueTokenToDid(
  */
 export async function mintingAsset(api: ApiPromise, minter: KeyringPair, ticker: Ticker): Promise<void> {
 	const transaction = api.tx.asset.issue(ticker, 100);
-	await sendTx(minter, transaction);
+	await sendTx(minter, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -74,5 +77,7 @@ export async function mintingAsset(api: ApiPromise, minter: KeyringPair, ticker:
  * @return {Promise<number>}
  */
 export async function assetBalance(api: ApiPromise, ticker: Ticker, did: IdentityId): Promise<number> {
-	return ((await api.query.asset.balanceOf(ticker, did)) as unknown) as number;
+	const [balanceErr, balance] = await handle(api.query.asset.balanceOf(ticker, did));
+	if (balanceErr) throw new Error("assetBalance failed");
+	return (balance as unknown) as number;
 }
