@@ -95,10 +95,7 @@ pub struct TemplateDetails<Balance> {
     pub frozen: bool,
 }
 
-impl<Balance> TemplateDetails<Balance>
-where
-    Balance: Clone + Copy,
-{
+impl<Balance: Copy> TemplateDetails<Balance> {
     /// Return the instantiation fee
     pub fn get_instantiation_fee(&self) -> Balance {
         self.instantiation_fee
