@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::compliance_manager::AssetComplianceResult;
+use crate::identity_id::PortfolioValidityResult;
 use crate::statistics::TransferManagerResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -95,14 +96,14 @@ pub struct GranularCanTransferResult {
     pub sender_custodian_error: bool,
     /// Sender had an insufficient balance.
     pub sender_insufficient_balance: bool,
-    /// Portfolio error.
-    pub portfolio_error: bool,
+    /// Portfolio validity result.
+    pub portfolio_validity_result: PortfolioValidityResult,
     /// Asset is frozen.
     pub asset_frozen: bool,
-    /// Statistics check failed.
-    pub statistics_failures: Vec<TransferManagerResult>,
-    /// Result of Compliance check.
+    /// Result of statistics check.
+    pub statistics_result: Vec<TransferManagerResult>,
+    /// Result of compliance check.
     pub compliance_result: AssetComplianceResult,
-    /// Is `true` if the transfer would have failed.
-    pub failed: bool,
+    /// Final evaluation result.
+    pub result: bool,
 }

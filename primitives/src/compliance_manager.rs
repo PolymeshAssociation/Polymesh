@@ -101,15 +101,15 @@ pub struct AssetCompliance {
     pub requirements: Vec<ComplianceRequirement>,
 }
 
-/// Asset compliance and it's evaluation result
+/// Asset compliance and it's evaluation result.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct AssetComplianceResult {
-    /// This flag indicates if asset compliance should be enforced
+    /// This flag indicates if asset compliance should be enforced.
     pub paused: bool,
     /// List of compliance requirements.
     pub requirements: Vec<ComplianceRequirementResult>,
-    /// Final evaluation result of the asset compliance
+    /// Final evaluation result of the asset compliance.
     pub result: bool,
 }
 

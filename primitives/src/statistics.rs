@@ -33,14 +33,14 @@ pub enum TransferManager {
     PercentageTransferManager(Percentage),
 }
 
-/// Result of a transfer manager check
+/// Result of a transfer manager check.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TransferManagerResult {
-    /// Transfer manager that was checked
+    /// Transfer manager that was checked.
     pub tm: TransferManager,
-    /// `true` if transfer manager check failed
-    pub failed: bool,
+    /// Final evaluation result.
+    pub result: bool,
 }
 
 /// Wrapper around `sp_arithmetic::Permill`

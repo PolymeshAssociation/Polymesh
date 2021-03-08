@@ -2236,18 +2236,21 @@ impl<T: Trait> Module<T> {
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
-        let missing_scope_claim =
-            Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
+        let missing_scope_claim = Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
         let receiver_custodian_error =
             Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did));
         let sender_custodian_error =
             Self::custodian_error(from_portfolio, from_custodian.unwrap_or(from_portfolio.did));
         let sender_insufficient_balance =
             Self::insufficient_balance(&ticker, from_portfolio.did, value);
-        let portfolio_error =
-            Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value);
+        let portfolio_validity_result = <Portfolio<T>>::ensure_portfolio_transfer_validity_granular(
+            &from_portfolio,
+            &to_portfolio,
+            ticker,
+            &value,
+        );
         let asset_frozen = Self::frozen(ticker);
-        let statistics_failures =
+        let statistics_result =
             Self::statistics_failures_granular(&from_portfolio, &to_portfolio, ticker, value);
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
@@ -2264,24 +2267,22 @@ impl<T: Trait> Module<T> {
             receiver_custodian_error,
             sender_custodian_error,
             sender_insufficient_balance,
-            portfolio_error,
             asset_frozen,
-            failed: invalid_granularity
-                || self_transfer
-                || invalid_receiver_cdd
-                || invalid_sender_cdd
-                || missing_scope_claim
-                || receiver_custodian_error
-                || sender_custodian_error
-                || sender_insufficient_balance
-                || portfolio_error
-                || asset_frozen
-                || statistics_failures
-                    .iter()
-                    .any(|result| result.failed)
-                || !compliance_result.result,
-            statistics_failures,
+            result: !invalid_granularity
+                && !self_transfer
+                && !invalid_receiver_cdd
+                && !invalid_sender_cdd
+                && !missing_scope_claim
+                && !receiver_custodian_error
+                && !sender_custodian_error
+                && !sender_insufficient_balance
+                && portfolio_validity_result.result
+                && !asset_frozen
+                && statistics_result.iter().all(|result| result.result)
+                && compliance_result.result,
+            statistics_result,
             compliance_result,
+            portfolio_validity_result,
         }
     }
 
