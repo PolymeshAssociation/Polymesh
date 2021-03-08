@@ -32,7 +32,7 @@ export async function addSecondaryKeys(
 		let expiry: Expiry = undefined;
 		// 1. Add Secondary Item to identity.
 		const transaction = api.tx.identity.addAuthorization(target, authData, expiry);
-		await sendTx(primaryKeys[i], transaction);
+		await sendTx(primaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }
 
@@ -51,5 +51,5 @@ export async function createMultiSig(
 	numOfSigners: number
 ): Promise<void> {
 	const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
