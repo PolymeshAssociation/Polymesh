@@ -507,16 +507,17 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,
-            funding_round.as_ref().map_or(0, |name| name.len()) as u32)]
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        )]
         pub fn create_asset(
-                origin,
-                name: AssetName,
-                ticker: Ticker,
-                total_supply: T::Balance,
-                divisible: bool,
-                asset_type: AssetType,
-                identifiers: Vec<AssetIdentifier>,
-                funding_round: Option<FundingRoundName>
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            total_supply: T::Balance,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
             Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
@@ -988,7 +989,7 @@ decl_error! {
         MaxLengthOfAssetNameExceeded,
         /// Maximum length of the funding round name has been exceeded.
         FundingRoundNameMaxLengthExceeded,
-        /// Invalid asset identifiers.
+        /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
     }
 }
@@ -1110,6 +1111,15 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
 impl<T: Trait> Module<T> {
+    /// Ensure that all `idents` are valid.
+    fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
+        ensure!(
+            idents.iter().all(|i| i.is_valid()),
+            Error::<T>::InvalidAssetIdentifier
+        );
+        Ok(())
+    }
+
     pub fn base_register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         let to_did = Identity::<T>::ensure_perms(origin)?;
         let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || {
@@ -1117,9 +1127,17 @@ impl<T: Trait> Module<T> {
         })?;
 
         T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-
         Self::unverified_register_ticker(&ticker, to_did, expiry);
+
         Ok(())
+    }
+
+    /// Update identitifiers of `ticker` as `did`.
+    ///
+    /// Does not verify that actor `did` is permissioned for this call or that `idents` are valid.
+    fn unverified_update_idents(did: IdentityId, ticker: Ticker, idents: Vec<AssetIdentifier>) {
+        Identifiers::insert(ticker, idents.clone());
+        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
     fn ensure_pia_with_custody_and_permissions(
@@ -1890,7 +1908,7 @@ impl<T: Trait> Module<T> {
                 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
-        Self::ensure_all_asset_identifiers_are_valid(identifiers.clone())?;
+        Self::ensure_asset_idents_valid(&identifiers)?;
 
         let PermissionedCallOriginData {
             sender,
@@ -1988,12 +2006,10 @@ impl<T: Trait> Module<T> {
             did,
         ));
 
-        Identifiers::insert(ticker, identifiers.clone());
-
         // Add funding round name.
         FundingRound::insert(ticker, funding_round.unwrap_or_default());
 
-        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+        Self::unverified_update_idents(did, ticker, identifiers);
 
         // Mint total supply to PIA
         if total_supply > Zero::zero() {
@@ -2030,11 +2046,11 @@ impl<T: Trait> Module<T> {
             name.len() <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
+
+        // Verify the ownership of token.
         let sender_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
         Self::ensure_asset_exists(&ticker)?;
-
         <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
-
         Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
         Ok(())
     }
@@ -2146,25 +2162,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn ensure_all_asset_identifiers_are_valid(ids: Vec<AssetIdentifier>) -> DispatchResult {
-        ensure!(
-            ids.into_iter().all(|id| id.validate().is_some()),
-            Error::<T>::InvalidAssetIdentifier
-        );
-        Ok(())
-    }
-
     fn base_update_identifiers(
         origin: T::Origin,
         ticker: Ticker,
         identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
         let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
-        Self::ensure_all_asset_identifiers_are_valid(identifiers.clone())?;
-
-        Identifiers::insert(ticker, identifiers.clone());
-
-        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+        Self::ensure_asset_idents_valid(&identifiers)?;
+        Self::unverified_update_idents(did, ticker, identifiers);
         Ok(())
     }
 
