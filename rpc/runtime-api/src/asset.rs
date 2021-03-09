@@ -65,7 +65,6 @@ sp_api::decl_runtime_apis! {
          /// Checks whether a transaction with given parameters can take place or not.
          /// The result is "granular" meaning each check is run and returned regardless of outcome.
         fn can_transfer_granular(
-            sender: AccountId,
             from_custodian: Option<IdentityId>,
             from_portfolio: PortfolioId,
             to_custodian: Option<IdentityId>,

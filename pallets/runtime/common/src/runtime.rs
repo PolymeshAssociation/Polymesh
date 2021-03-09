@@ -835,7 +835,6 @@ macro_rules! runtime_apis {
 
                 #[inline]
                 fn can_transfer_granular(
-                    _sender: polymesh_primitives::AccountId,
                     from_custodian: Option<IdentityId>,
                     from_portfolio: PortfolioId,
                     to_custodian: Option<IdentityId>,

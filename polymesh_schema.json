@@ -1488,11 +1488,6 @@
                 "description": "Checks whether a transaction with given parameters can take place or not. The result is granular meaning each check is run and returned regardless of outcome.",
                 "params": [
                     {
-                        "name": "sender",
-                        "type": "AccountId",
-                        "isOptional": false
-                    },
-                    {
                         "name": "from_custodian",
                         "type": "Option<IdentityId>",
                         "isOptional": false

@@ -47,7 +47,6 @@ pub trait AssetApi<BlockHash, AccountId> {
     #[rpc(name = "asset_canTransferGranular")]
     fn can_transfer_granular(
         &self,
-        sender: AccountId,
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -119,7 +118,6 @@ where
 
     fn can_transfer_granular(
         &self,
-        sender: AccountId, // Keeping this here to avoid breaking API.
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -139,7 +137,6 @@ where
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer_granular(
                 at,
-                sender,
                 from_custodian,
                 from_portfolio,
                 to_custodian,
