@@ -947,12 +947,12 @@ pub fn provide_scope_claim(
     scope_id
 }
 
-pub fn provide_scope_claim_to_multiple_parties(
-    parties: &[IdentityId],
+pub fn provide_scope_claim_to_multiple_parties<'a>(
+    parties: impl IntoIterator<Item = &'a IdentityId>,
     ticker: Ticker,
     cdd_provider: AccountId,
 ) {
-    parties.iter().enumerate().for_each(|(_, id)| {
+    parties.into_iter().enumerate().for_each(|(_, id)| {
         let uid = create_investor_uid(Identity::did_records(id).primary_key);
         provide_scope_claim(*id, ticker, uid, cdd_provider);
     });
