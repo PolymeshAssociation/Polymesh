@@ -55,8 +55,9 @@ use polymesh_common_utilities::{
     identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
 };
 use polymesh_primitives::{
-    storage_migration_ver, AuthorizationData, AuthorizationError, IdentityId, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Signatory, Ticker,
+    identity_id::PortfolioValidityResult, storage_migration_ver, AuthorizationData,
+    AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Signatory, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};
@@ -265,7 +266,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
-        /// * `DestinationIsSamePortfolio` if both sender and receiver portfolio are the same
+        /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
@@ -473,6 +474,32 @@ impl<T: Trait> Module<T> {
 
         // 3. Ensure sender has enough free balance
         Self::ensure_sufficient_balance(&from_portfolio, ticker, amount)
+    }
+
+    /// Granular `ensure_portfolio_transfer_validity`.
+    pub fn ensure_portfolio_transfer_validity_granular(
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: &<T as CommonTrait>::Balance,
+    ) -> PortfolioValidityResult {
+        let receiver_is_same_portfolio = from_portfolio == to_portfolio;
+        let sender_portfolio_does_not_exist =
+            Self::ensure_portfolio_validity(from_portfolio).is_err();
+        let receiver_portfolio_does_not_exist =
+            Self::ensure_portfolio_validity(to_portfolio).is_err();
+        let sender_insufficient_balance =
+            Self::ensure_sufficient_balance(&from_portfolio, ticker, amount).is_err();
+        PortfolioValidityResult {
+            receiver_is_same_portfolio,
+            sender_portfolio_does_not_exist,
+            receiver_portfolio_does_not_exist,
+            sender_insufficient_balance,
+            result: !receiver_is_same_portfolio
+                && !sender_portfolio_does_not_exist
+                && !receiver_portfolio_does_not_exist
+                && !sender_insufficient_balance,
+        }
     }
 
     /// Reduces the balance of a portfolio.

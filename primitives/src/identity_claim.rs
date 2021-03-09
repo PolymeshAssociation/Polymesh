@@ -26,7 +26,7 @@ use super::jurisdiction::CountryCode;
 pub type ScopeId = IdentityId;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 /// Scope: Almost all claim needs a valid scope.
 pub enum Scope {
     /// Scoped to an Identity
@@ -57,7 +57,7 @@ impl From<Vec<u8>> for Scope {
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Claim {
     /// User is Accredited
     Accredited(Scope),
@@ -137,7 +137,7 @@ impl Claim {
 
 /// Claim type represent the claim without its data.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
     /// User is Accredited
     Accredited,
