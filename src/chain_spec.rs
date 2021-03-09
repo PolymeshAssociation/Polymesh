@@ -1,9 +1,14 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use pallet_asset::{ClassicTickerImport, TickerRegistrationConfig};
+use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
-use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
+use polymesh_common_utilities::{
+    constants::{currency::POLY, TREASURY_MODULE_ID},
+    protocol_fee::ProtocolOp,
+    GC_DID,
+};
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
     Ticker,
@@ -14,14 +19,13 @@ use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, H256};
 use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
+    traits::{AccountIdConversion, IdentifyAccount, Verify},
     PerThing,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-
 use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
@@ -62,7 +66,7 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
         (
             seeded_acc_id(&format!("{}//stash", seed)),
             seeded_acc_id(seed),
-            get_from_seed::<GrandpaId>(seed),
+            get_from_seed::<GrandpaId>(seed), // let root = H256::from();
             get_from_seed::<BabeId>(seed),
             get_from_seed::<ImOnlineId>(seed),
             get_from_seed::<AuthorityDiscoveryId>(seed),
@@ -219,6 +223,19 @@ fn polymath_mem(n: u8) -> Identity {
 
 const STASH: u128 = 5_000_000 * POLY;
 const ENDOWMENT: u128 = 100_000_000 * POLY;
+const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
+const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
+
+fn bridge_lock(nonce: u32, hash: &'static str) -> (u32, H256) {
+    let offset = if hash.starts_with("0x") { 2 } else { 0 };
+    let stripped_hash = &hash[offset..];
+    let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
+        .expect("Failed to decode transaction hash (Invalid Hex Value)");
+    let hash_array: [u8; 32] = hash_vec
+        .try_into()
+        .expect("Failed to decode transaction hash (Invalid length)");
+    (nonce, hash_array.into())
+}
 
 fn identities(
     initial_authorities: &[InitialAuth],
@@ -283,6 +300,91 @@ fn identities(
         .collect::<Vec<_>>();
 
     (stakers, all_identities, secondary_keys)
+}
+
+fn genesis_processed_data(
+    initial_authorities: &Vec<InitialAuth>,
+    root_key: AccountId,
+    treasury_bridge_lock: (u32, H256),
+    key_bridge_locks: Vec<(u32, H256)>,
+) -> (
+    Vec<Identity>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
+    Vec<(AccountId, IdentityId)>,
+    Vec<BridgeTx<AccountId, u128>>,
+) {
+    // Identities and their roles
+    // 1 = GC + UC
+    // 2 = GC
+    // 3 = GC + TC
+    // 4 = Operator
+    // 5 = Bridge
+    let mut identities = Vec::with_capacity(5);
+    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
+    // Creating Identities 1-4
+    for i in 1..5u8 {
+        let key = seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, i));
+        keys.push(key.clone());
+        identities.push((
+            key,                         // Will be replaced by real keys in real genesis
+            vec![],                      // No CDD claim will be issued
+            IdentityId::from(i as u128), // Identity = 0xi000...0000
+            InvestorUid::from([i; 16]),  // Irrelevant since no CDD claim is issued
+            None,                        // Irrelevant since no CDD claim is issued
+        ));
+    }
+    // Identity for sudo + bridge admin
+    keys.push(root_key.clone());
+    identities.push((
+        root_key.clone(),             // Will be replaced by real keys in real genesis
+        vec![],                       // No CDD claim will be issued
+        IdentityId::from(5u128),      // Identity = 0xi000...0000
+        InvestorUid::from([5u8; 16]), // Irrelevant since no CDD claim is issued
+        None,                         // Irrelevant since no CDD claim is issued
+    ));
+
+    // 3 operators, all self staking at genesis
+    let mut stakers = Vec::with_capacity(initial_authorities.len());
+    // 3 operators * 2 keys (stash + controller)
+    let mut secondary_keys = Vec::with_capacity(2 * initial_authorities.len());
+    for (stash, controller, ..) in initial_authorities {
+        stakers.push((
+            IdentityId::from(4), // All operators have the same Identity
+            stash.clone(),
+            controller.clone(),
+            BOOTSTRAP_STASH,
+            pallet_staking::StakerStatus::Validator,
+        ));
+        secondary_keys.push((stash.clone(), IdentityId::from(4)));
+        secondary_keys.push((controller.clone(), IdentityId::from(4)));
+        keys.push(stash.clone());
+        keys.push(controller.clone());
+    }
+
+    let mut complete_txs: Vec<_> = key_bridge_locks
+        .iter()
+        .cloned()
+        .zip(keys.iter().cloned())
+        .map(|((nonce, tx_hash), recipient)| BridgeTx {
+            nonce,
+            recipient,
+            amount: BOOTSTRAP_STASH,
+            tx_hash,
+        })
+        .collect();
+    complete_txs.push(BridgeTx {
+        nonce: treasury_bridge_lock.0,
+        recipient: TREASURY_MODULE_ID.into_account(),
+        amount: BOOTSTRAP_TREASURY,
+        tx_hash: treasury_bridge_lock.1,
+    });
+    (identities, stakers, secondary_keys, complete_txs)
 }
 
 fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId, u128)> {
@@ -727,37 +829,35 @@ pub mod polymesh_mainnet {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        endowed_accounts: Vec<AccountId>,
         enable_println: bool,
+        treasury_bridge_lock: (u32, H256),
+        key_bridge_locks: Vec<(u32, H256)>,
     ) -> rt::runtime::GenesisConfig {
-        let init_ids = [
-            // Governance committee members
-            polymath_mem(1),
-            polymath_mem(2),
-            polymath_mem(3),
-        ];
-        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+        let (identities, stakers, secondary_keys, complete_txs) = genesis_processed_data(
+            &initial_authorities,
+            root_key.clone(),
+            treasury_bridge_lock,
+            key_bridge_locks,
+        );
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities: all_identities,
+                identities,
                 secondary_keys,
                 ..Default::default()
             }),
-            pallet_balances: Some(pallet_balances::GenesisConfig {
-                balances: balances(&initial_authorities, &endowed_accounts),
-            }),
+            pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
+                admin: root_key.clone(),
+                creator: root_key.clone(),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (100_000_000_000, 365 * time::DAYS),
-                ..Default::default()
+                complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -779,16 +879,16 @@ pub mod polymesh_mainnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
-            pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+            pallet_group_Instance1: Some(committee_membership!(1, 2, 3)), // 3 GC members
+            pallet_committee_Instance1: Some(committee!(1, (2, 3))), // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            pallet_group_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)), //admin
-            pallet_committee_Instance3: Some(committee!(3)),
+            pallet_group_Instance3: Some(committee_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
+            pallet_committee_Instance3: Some(committee!(3)), // RC = 3, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(3)), //admin
-            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_group_Instance4: Some(committee_membership!(1)), // One GC member
+            pallet_committee_Instance4: Some(committee!(1)),        // RC = 1, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -805,20 +905,22 @@ pub mod polymesh_mainnet {
                 get_authority_keys_from_seed("Bob", false),
                 get_authority_keys_from_seed("Charlie", false),
             ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("cdd_provider_1"),
-                seeded_acc_id("cdd_provider_2"),
-                seeded_acc_id("polymath_1"),
-                seeded_acc_id("polymath_2"),
-                seeded_acc_id("polymath_3"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("polymath_5"),
             false,
+            bridge_lock(
+                1,
+                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+            ),
+            vec![
+                bridge_lock(
+                    2,
+                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+                bridge_lock(
+                    3,
+                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+            ],
         )
     }
 
@@ -847,17 +949,22 @@ pub mod polymesh_mainnet {
     fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Bob"),
-                seeded_acc_id("Bob//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("Eve"),
             true,
+            bridge_lock(
+                1,
+                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+            ),
+            vec![
+                bridge_lock(
+                    2,
+                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+                bridge_lock(
+                    3,
+                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+            ],
         )
     }
 
@@ -883,18 +990,22 @@ pub mod polymesh_mainnet {
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
             ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Charlie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("Eve"),
             true,
+            bridge_lock(
+                1,
+                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+            ),
+            vec![
+                bridge_lock(
+                    2,
+                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+                bridge_lock(
+                    3,
+                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                ),
+            ],
         )
     }
 

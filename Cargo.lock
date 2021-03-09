@@ -6695,6 +6695,7 @@ dependencies = [
  "polymesh-runtime-develop",
  "polymesh-runtime-mainnet",
  "polymesh-runtime-testnet 0.1.0",
+ "rustc-hex",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",

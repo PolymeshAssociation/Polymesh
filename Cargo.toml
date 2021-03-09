@@ -99,6 +99,7 @@ jsonrpc-core = "15.0.0"
 log = "0.4.8"
 serde_json = '1.0.48'
 structopt = "0.3.15"
+rustc-hex = "2.1.0"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
