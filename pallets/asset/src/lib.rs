@@ -492,7 +492,8 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,
-            funding_round.as_ref().map_or(0, |name| name.len()) as u32)]
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        )]
         pub fn create_asset(
             origin,
             name: AssetName,
@@ -505,6 +506,8 @@ decl_module! {
         ) {
             ensure!(name.len() <= T::AssetNameMaxLength::get(), Error::<T>::MaxLengthOfAssetNameExceeded);
             ensure!(funding_round.as_ref().map_or(0, |name| name.len()) <= T::FundingRoundNameMaxLength::get(), Error::<T>::FundingRoundNameMaxLengthExceeded);
+
+            Self::ensure_asset_idents_valid(&identifiers)?;
 
             let PermissionedCallOriginData {
                 sender,
@@ -579,7 +582,7 @@ decl_module! {
             // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
             // those data points will get added in to the system whenever asset issuer/ primary issuance agent
             // have InvestorUniqueness claim. This also applies when issuing assets.
-            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+            AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
                 ticker,
@@ -589,17 +592,10 @@ decl_module! {
                 did,
             ));
 
-            let identifiers: Vec<AssetIdentifier> = identifiers
-                .into_iter()
-                .filter_map(|identifier| identifier.validate())
-                .collect();
-
-            Identifiers::insert(ticker, identifiers.clone());
-
             // Add funding round name.
             FundingRound::insert(ticker, funding_round.unwrap_or_default());
 
-            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+            Self::unverified_update_idents(did, ticker, identifiers);
 
             // Mint total supply to PIA
             if total_supply > Zero::zero() {
@@ -846,14 +842,9 @@ decl_module! {
             ticker: Ticker,
             identifiers: Vec<AssetIdentifier>
         ) {
+            Self::ensure_asset_idents_valid(&identifiers)?;
             let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
-            let identifiers: Vec<AssetIdentifier> = identifiers
-                .into_iter()
-                .filter_map(|identifier| identifier.validate())
-                .collect();
-
-            Identifiers::insert(ticker, identifiers.clone());
-            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+            Self::unverified_update_idents(did, ticker, identifiers);
         }
 
         /// Permissioning the Smart-Extension address for a given ticker.
@@ -1232,6 +1223,8 @@ decl_error! {
         MaxLengthOfAssetNameExceeded,
         /// Maximum length of the funding round name has been exceeded.
         FundingRoundNameMaxLengthExceeded,
+        /// Some `AssetIdentifier` was invalid.
+        InvalidAssetIdentifier,
     }
 }
 
@@ -1374,6 +1367,23 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
 impl<T: Trait> Module<T> {
+    /// Ensure that all `idents` are valid.
+    fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
+        ensure!(
+            idents.iter().all(|i| i.is_valid()),
+            Error::<T>::InvalidAssetIdentifier
+        );
+        Ok(())
+    }
+
+    /// Update identitifiers of `ticker` as `did`.
+    ///
+    /// Does not verify that actor `did` is permissioned for this call or that `idents` are valid.
+    fn unverified_update_idents(did: IdentityId, ticker: Ticker, idents: Vec<AssetIdentifier>) {
+        Identifiers::insert(ticker, idents.clone());
+        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
+    }
+
     /// Returns the max number of extensions that can be attached to an asset
     pub fn max_number_of_tm_extension() -> u32 {
         T::MaxNumberOfTMExtensionForAsset::get()
