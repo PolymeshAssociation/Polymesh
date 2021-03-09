@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::EventOnly;
+use crate::{cdd_id::InvestorUid, EventOnly};
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -29,6 +29,16 @@ const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
+
+/// The record to initialize an identity in the chain spec.
+/// (primary key, issuer DIDs, own DID, investor UID, CDD claim expiry)
+pub type GenesisIdentityRecord<AccountId> = (
+    AccountId,
+    Vec<IdentityId>,
+    IdentityId,
+    InvestorUid,
+    Option<u64>,
+);
 
 /// Polymesh Identifier ID.
 /// It is stored internally as an `u128` but it can be load from string with the following format:

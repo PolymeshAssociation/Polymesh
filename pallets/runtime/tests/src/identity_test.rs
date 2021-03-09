@@ -50,12 +50,21 @@ type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
 /// We have 2 systematic CDD claims issuers:
 /// * Governance Committee group.
 /// * CDD providers group.
+fn fetch_systematic_claim(target: IdentityId) -> Option<IdentityClaim> {
+    fetch_systematic_gc(target).or_else(|| fetch_systematic_cdd(target))
+}
+
+fn fetch_systematic_gc(target: IdentityId) -> Option<IdentityClaim> {
+    Identity::fetch_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
+}
+
 fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
-    let claim_type = ClaimType::CustomerDueDiligence;
-    Identity::fetch_claim(target, claim_type, GC_DID, None).or_else(|| {
-        let cdd_id = SystematicIssuers::CDDProvider.as_id();
-        Identity::fetch_claim(target, claim_type, cdd_id, None)
-    })
+    Identity::fetch_claim(
+        target,
+        ClaimType::CustomerDueDiligence,
+        SystematicIssuers::CDDProvider.as_id(),
+        None,
+    )
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -1349,15 +1358,15 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     assert_eq!(
         cdd_providers
             .iter()
-            .all(|cdd| fetch_systematic_cdd(*cdd).is_some()),
+            .all(|cdd| fetch_systematic_claim(*cdd).is_some()),
         true
     );
 
     // 2. Remove one member from CDD provider and double-check that systematic CDD claim was
     //    removed too.
     assert_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
-    assert_eq!(fetch_systematic_cdd(bob_id).is_none(), true);
-    assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
+    assert_eq!(fetch_systematic_claim(bob_id).is_none(), true);
+    assert_eq!(fetch_systematic_claim(alice_id).is_some(), true);
 
     // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
     // Then remove that DID from CDD provides, it should keep its previous CDD claim.
@@ -1379,12 +1388,12 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
 
     // 3.2. Add Charlie as trusted CDD providers, and check its new systematic CDD claim.
     assert_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
-    assert_eq!(fetch_systematic_cdd(charlie_id).is_some(), true);
+    assert_eq!(fetch_systematic_claim(charlie_id).is_some(), true);
 
     // 3.3. Remove Charlie from trusted CDD providers, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
     assert_ok!(CddServiceProviders::remove_member(root, charlie_id));
-    assert_eq!(fetch_systematic_cdd(charlie_id).is_none(), true);
+    assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
     assert_eq!(Identity::fetch_cdd(charlie_id, 0), Some(charlie_cdd_claim));
 }
 
@@ -1418,15 +1427,15 @@ fn gc_with_systematic_cdd_claims_we() {
     assert_eq!(
         governance_committee
             .iter()
-            .all(|gc_member| fetch_systematic_cdd(*gc_member).is_some()),
+            .all(|gc_member| fetch_systematic_claim(*gc_member).is_some()),
         true
     );
 
     // 2. Remove one member from GC and double-check that systematic CDD claim was
     //    removed too.
     assert_ok!(GovernanceCommittee::remove_member(root.clone(), charlie_id));
-    assert_eq!(fetch_systematic_cdd(charlie_id).is_none(), true);
-    assert_eq!(fetch_systematic_cdd(dave_id).is_some(), true);
+    assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
+    assert_eq!(fetch_systematic_claim(dave_id).is_some(), true);
 
     // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
     // Then remove that DID from CDD provides, it should keep its previous CDD claim.
@@ -1448,12 +1457,12 @@ fn gc_with_systematic_cdd_claims_we() {
 
     // 3.2. Add Ferdie to GC, and check its new systematic CDD claim.
     assert_ok!(GovernanceCommittee::add_member(root.clone(), ferdie_id));
-    assert_eq!(fetch_systematic_cdd(ferdie_id).is_some(), true);
+    assert_eq!(fetch_systematic_claim(ferdie_id).is_some(), true);
 
     // 3.3. Remove Ferdie from GC, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
     assert_ok!(GovernanceCommittee::remove_member(root, ferdie_id));
-    assert_eq!(fetch_systematic_cdd(ferdie_id).is_none(), true);
+    assert_eq!(fetch_systematic_claim(ferdie_id).is_none(), true);
     assert_eq!(Identity::fetch_cdd(ferdie_id, 0), Some(ferdie_cdd_claim));
 }
 
@@ -1474,19 +1483,20 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 0. Accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_id = get_identity_id(AccountKeyring::Alice)
-        .expect("Charlie should be a Governance Committee member");
+        .expect("Alice should be a Governance Committee member");
 
     // 1. Alice should have 2 systematic CDD claims: One as GC member & another one as CDD
     //    provider.
+    assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
     assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
 
     // 2. Remove Alice from CDD providers.
     assert_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
-    assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
+    assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
 
     // 3. Remove Alice from GC.
     assert_ok!(GovernanceCommittee::remove_member(root, alice_id));
-    assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
+    assert_eq!(fetch_systematic_gc(alice_id).is_none(), true);
 }
 
 #[test]

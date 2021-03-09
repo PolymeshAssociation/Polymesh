@@ -1,23 +1,25 @@
 use super::{
     storage::{
-        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance, Call,
-        TestStorage,
+        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance,
+        AccountId, Call, TestStorage,
     },
     ExtBuilder,
 };
 
 use frame_support::{
     assert_err, assert_ok,
+    storage::IterableStorageDoubleMap,
     traits::{Currency, OnInitialize},
     weights::Weight,
 };
 use pallet_balances as balances;
-use pallet_bridge::{self as bridge, BridgeTx, BridgeTxStatus};
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
+type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
@@ -786,5 +788,68 @@ fn do_force_mint() {
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
+    );
+}
+
+#[test]
+fn genesis_txs() {
+    let alice = AccountKeyring::Alice.public();
+    let bob = AccountKeyring::Bob.public();
+    let charlie = AccountKeyring::Charlie.public();
+    let one_amount = 111;
+    let two_amount = 222;
+    let complete_txs = vec![
+        BridgeTx {
+            nonce: 1,
+            recipient: alice,
+            amount: one_amount,
+            tx_hash: Default::default(),
+        },
+        BridgeTx {
+            nonce: 2,
+            recipient: bob,
+            amount: two_amount,
+            tx_hash: Default::default(),
+        },
+    ];
+    let genesis = BridgeGenesis {
+        complete_txs: complete_txs.clone(),
+        ..Default::default()
+    };
+    let regular_users = vec![alice, bob];
+    ExtBuilder::default()
+        .cdd_providers(vec![charlie])
+        .regular_users(regular_users.clone())
+        .adjust(Box::new(move |storage| {
+            genesis.assimilate_storage(storage).unwrap();
+        }))
+        .build()
+        .execute_with(|| {
+            check_genesis_txs(regular_users.into_iter().zip(complete_txs.into_iter()))
+        });
+}
+
+fn check_genesis_txs(txs: impl Iterator<Item = (AccountId, BridgeTx<AccountId, u128>)>) {
+    let mut txs: Vec<_> = txs
+        .map(|(acc, tx)| {
+            (
+                acc,
+                tx.nonce,
+                BridgeTxDetail {
+                    amount: tx.amount,
+                    status: BridgeTxStatus::Handled,
+                    execution_block: 0,
+                    tx_hash: tx.tx_hash,
+                },
+            )
+        })
+        .collect();
+    txs.sort();
+    for tx in &txs {
+        assert_eq!(tx.2.amount, Balances::total_balance(&tx.0));
+    }
+    assert_eq!(
+        <bridge::BridgeTxDetails<TestStorage>>::iter().collect::<Vec<_>>(),
+        txs
     );
 }
