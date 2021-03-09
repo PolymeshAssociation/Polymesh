@@ -6,8 +6,11 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
+use polymesh_primitives::{
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, IdentityId, PosRatio,
+    SmartExtensionType,
+};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
@@ -162,6 +165,7 @@ impl ExtBuilder {
 
     pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
         self.governance_committee_members = members;
+        self.governance_committee_members.sort();
         self
     }
 
@@ -176,12 +180,14 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self.cdd_providers.sort();
         self
     }
 
     /// Adds DID to `users` accounts.
     pub fn regular_users(mut self, users: Vec<Public>) -> Self {
         self.regular_users = users;
+        self.regular_users.sort();
         self
     }
 
@@ -247,35 +253,30 @@ impl ExtBuilder {
         }
     }
 
-    /// It generates, based on CDD providers, a pair of vectors whose contain:
-    ///  - mapping between DID and Identity info.
-    ///  - mapping between an account key and its DID.
-    /// Please note that generated DIDs start from 1.
+    /// Constructs a vector of genesis identity records given primary `accounts` of the identities
+    /// and the initial numeric `did_offset`.
+    ///
+    /// If `did_offset` is `n` then the DIDs start from `n + 1`.
     fn make_identities(
         accounts: &[Public],
         did_offset: usize,
-    ) -> (
-        Vec<(IdentityId, Identity<AccountId>)>,
-        Vec<(AccountId, IdentityId)>,
-    ) {
-        let identities = accounts
+        issuers: Vec<IdentityId>,
+    ) -> Vec<GenesisIdentityRecord<AccountId>> {
+        accounts
             .iter()
             .enumerate()
             .map(|(idx, key)| {
+                let did_index = (idx + did_offset + 1) as u128;
+                let did = IdentityId::from(did_index);
                 (
-                    IdentityId::from((idx + did_offset + 1) as u128),
-                    Identity::from(*key),
+                    *key,
+                    issuers.clone(),
+                    did,
+                    InvestorUid::from(did.as_ref()),
+                    None,
                 )
             })
-            .collect::<Vec<_>>();
-
-        let key_links = accounts
-            .into_iter()
-            .enumerate()
-            .map(|(idx, key)| (*key, IdentityId::from((idx + did_offset + 1) as u128)))
-            .collect::<Vec<_>>();
-
-        (identities, key_links)
+            .collect::<Vec<_>>()
     }
 
     /// Create externalities.
@@ -284,6 +285,8 @@ impl ExtBuilder {
     ///     1. A new `IdentityId` is generated (from 1 to n),
     ///     2. CDD provider's account key is linked to its new Identity ID.
     ///     3. That Identity ID is added as member of CDD provider group.
+    ///
+    /// For the CDD claim to work, `GC_DID` must be added as a CDD provider in genesis.
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
 
@@ -291,31 +294,74 @@ impl ExtBuilder {
             .build_storage::<TestStorage>()
             .unwrap();
 
-        let _root = AccountKeyring::Alice.public();
+        // Regular users should intersect neither with CDD providers nor with GC members.
+        assert!(!self
+            .regular_users
+            .iter()
+            .any(|key| self.cdd_providers.contains(key)
+                || self.governance_committee_members.contains(key)));
 
-        // Create Identities.
-        let mut system_accounts = self
+        let mut identities = vec![];
+
+        // Determine the intersection of the CDD provider set and GC members.
+        let cdd_and_gc_members: Vec<AccountId> = self
             .cdd_providers
             .iter()
-            .chain(self.governance_committee_members.iter())
+            .filter(|key| self.governance_committee_members.contains(key))
             .cloned()
-            .collect::<Vec<_>>();
-        system_accounts.sort();
-        system_accounts.dedup();
+            .collect();
 
-        let (sys_identities, sys_links) = Self::make_identities(system_accounts.as_slice(), 0);
+        // Keep only distinct members in these key vectors.
+        let cdd_providers_only: Vec<_> = self
+            .cdd_providers
+            .iter()
+            .filter(|key| !cdd_and_gc_members.contains(key))
+            .cloned()
+            .collect();
+        let gc_members_only: Vec<_> = self
+            .governance_committee_members
+            .iter()
+            .filter(|key| !cdd_and_gc_members.contains(key))
+            .cloned()
+            .collect();
 
-        // New identities are just `system users` + `regular users`.
-        let (mut new_identities, mut new_links) =
-            Self::make_identities(self.regular_users.as_slice(), sys_identities.len());
-        new_identities.extend(sys_identities.iter().cloned());
-        new_links.extend(sys_links.iter().cloned());
+        // Create CDD provider identities.
+        let cdd_identities = Self::make_identities(
+            cdd_providers_only.as_slice(),
+            0,
+            vec![SystematicIssuers::CDDProvider.as_id()],
+        );
+        identities.extend(cdd_identities.clone());
+
+        // Create committee identities.
+        let gc_identities =
+            Self::make_identities(gc_members_only.as_slice(), identities.len(), vec![GC_DID]);
+        identities.extend(gc_identities.clone());
+
+        // Create identities that are both CDD providers and GC members.
+        let cdd_and_gc_identities = Self::make_identities(
+            cdd_and_gc_members.as_slice(),
+            identities.len(),
+            vec![SystematicIssuers::CDDProvider.as_id(), GC_DID],
+        );
+        identities.extend(cdd_and_gc_identities.clone());
+
+        if !self.regular_users.is_empty() {
+            let issuer = cdd_identities
+                .get(0)
+                .expect("Regular users require a CDD identity at genesis")
+                .2;
+            // Create regular user identities.
+            identities.extend(Self::make_identities(
+                self.regular_users.as_slice(),
+                identities.len(),
+                vec![issuer],
+            ));
+        }
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
-            did_records: new_identities,
-            secondary_keys: new_links,
-            identities: vec![],
+            identities,
             ..Default::default()
         }
         .assimilate_storage(&mut storage)
@@ -353,13 +399,13 @@ impl ExtBuilder {
             .cdd_providers
             .iter()
             .map(|key| {
-                let (id, _) = sys_identities
+                cdd_identities
                     .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
+                    .chain(cdd_and_gc_identities.iter())
+                    .find(|rec| rec.0 == *key)
+                    .unwrap()
+                    .2
             })
-            .cloned()
             .chain(core::iter::once(GC_DID))
             .collect::<Vec<_>>();
 
@@ -376,13 +422,13 @@ impl ExtBuilder {
             .governance_committee_members
             .iter()
             .map(|key| {
-                let (id, _) = sys_identities
+                gc_identities
                     .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
+                    .chain(cdd_and_gc_identities.iter())
+                    .find(|rec| rec.0 == *key)
+                    .unwrap()
+                    .2
             })
-            .cloned()
             .collect::<Vec<_>>();
         gc_ids.sort();
 
