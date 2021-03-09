@@ -723,9 +723,6 @@ pub mod polymesh_mainnet {
         enable_println: bool,
     ) -> rt::runtime::GenesisConfig {
         let init_ids = [
-            // Service providers
-            cdd_provider(1),
-            cdd_provider(2),
             // Governance committee members
             polymath_mem(1),
             polymath_mem(2),
