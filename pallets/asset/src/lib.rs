@@ -2245,6 +2245,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    fn archive_error_selector(is_archive: bool) -> Error<T> {
+        is_archive
+            .then_some(Error::<T>::AlreadyArchived)
+            .unwrap_or(Error::<T>::AlreadyUnArchived)
+    }
+
     fn set_archive_on_extension(
         origin: T::Origin,
         ticker: Ticker,
@@ -2256,20 +2262,16 @@ impl<T: Trait> Module<T> {
 
         // Mutate the extension details
         <ExtensionDetails<T>>::try_mutate((ticker, &extension_id), |details| {
-            let error = |is_archive: bool| {
-                is_archive
-                    .then_some(Error::<T>::AlreadyArchived)
-                    .unwrap_or(Error::<T>::AlreadyUnArchived)
-            };
-
-            ensure!(details.is_archive != archive, error(archive));
+            ensure!(
+                details.is_archive != archive,
+                Self::archive_error_selector(archive)
+            );
             details.is_archive = archive;
 
-            let event = archive
-                .then(|| RawEvent::ExtensionArchived(did, ticker, extension_id.clone()))
-                .unwrap_or_else(|| {
-                    RawEvent::ExtensionUnArchived(did, ticker, extension_id.clone())
-                });
+            let event = match archive {
+                true => RawEvent::ExtensionArchived(did, ticker, extension_id.clone()),
+                false => RawEvent::ExtensionUnArchived(did, ticker, extension_id.clone()),
+            };
 
             Self::deposit_event(event);
             Ok(())

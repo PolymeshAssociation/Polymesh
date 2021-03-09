@@ -256,31 +256,26 @@ impl ExtBuilder {
     /// Generates a mapping between DID and Identity info.
     ///
     /// DIDs are generated sequentially from `offset`.
-    fn make_did_identity_map<I: Into<Identity<AccountId>>>(
-        identities: Vec<I>,
+    fn make_did_identity_map(
+        identities: Vec<impl Into<Identity<AccountId>>>,
         offset: usize,
     ) -> Vec<(IdentityId, Identity<AccountId>)> {
         identities
             .into_iter()
             .enumerate()
-            .map(|(idx, id)| -> (IdentityId, Identity<AccountId>) {
-                (IdentityId::from((idx + offset + 1) as u128), id.into())
-            })
-            .collect::<Vec<_>>()
+            .map(|(idx, id)| (IdentityId::from((idx + offset + 1) as u128), id.into()))
+            .collect()
     }
 
-    fn make_account_did_map<F>(
+    fn make_account_did_map(
         accounts: Vec<AccountId>,
-        did_maker: F,
-    ) -> Vec<(AccountId, IdentityId)>
-    where
-        F: Fn(usize) -> IdentityId,
-    {
+        did_maker: impl Fn(usize) -> IdentityId,
+    ) -> Vec<(AccountId, IdentityId)> {
         accounts
             .into_iter()
             .enumerate()
             .map(|(idx, acc)| (acc, did_maker(idx)))
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     /// Generates a mapping between keys from each item in `identities` and a DID.
@@ -299,9 +294,9 @@ impl ExtBuilder {
                     })
                     // Add its primary key
                     .chain(iter::once(id.primary_key))
-                    .collect::<Vec<AccountId>>()
+                    .collect()
             })
-            .collect::<Vec<Vec<AccountId>>>()
+            .collect()
     }
 
     fn build_identity_genesis(
@@ -483,7 +478,7 @@ impl ExtBuilder {
         system_accounts.sort();
         system_accounts.dedup();
 
-        let sys_identities = Self::make_did_identity_map::<Public>(system_accounts.clone(), 0);
+        let sys_identities = Self::make_did_identity_map(system_accounts.clone(), 0);
         let system_did_maker = |idx: usize| IdentityId::from((idx + 1) as u128);
         let sys_links = Self::make_account_did_map(system_accounts, system_did_maker);
 

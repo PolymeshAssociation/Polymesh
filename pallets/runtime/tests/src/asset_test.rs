@@ -10,7 +10,7 @@ use crate::{
 };
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
+    assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
@@ -2437,7 +2437,7 @@ fn create_asset_errors(owner: Public, other: Public) {
     }
 
     assert_ok!(Asset::register_ticker(o2.clone(), ticker));
-    assert_err!(
+    assert_noop!(
         Asset::create_asset(
             o.clone(),
             name.clone(),
@@ -2468,20 +2468,20 @@ fn unsafe_can_transfer_all_status_codes(owner: Public) {
     let owner_did = token.owner_did.clone();
     let uk_portfolio = new_portfolio(owner, "UK");
     let default_portfolio = PortfolioId::default_portfolio(owner_did);
+    let do_unsafe_can_transfer = || {
+        Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
+            .unwrap()
+    };
 
     // INVALID_GRANULARITY
-    let code =
-        Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
-            .unwrap();
+    let code = do_unsafe_can_transfer();
     assert_eq!(code, INVALID_GRANULARITY);
 
     // Update indivisible.
     assert_ok!(Asset::make_divisible(Origin::signed(owner), ticker));
 
     // INVALID_RECEIVER_DID
-    let code =
-        Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
-            .unwrap();
+    let code = do_unsafe_can_transfer();
     assert_eq!(code, INVALID_RECEIVER_DID);
 
     // INVALID_SENDER_DID
