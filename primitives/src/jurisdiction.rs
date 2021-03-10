@@ -24,7 +24,7 @@ macro_rules! country_codes {
     ( $([$discr:expr,$alpha2:ident, $alpha3:ident, $un:literal, $($extra:expr),*]),* $(,)? ) => {
         /// Existing country codes according to ISO-3166-1.
         #[allow(missing_docs)]
-        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode, Hash)]
         #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
         #[repr(u16)] // Could use `u8`, strictly speaking, but leave room for growth!
         pub enum CountryCode {

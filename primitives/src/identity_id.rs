@@ -281,6 +281,22 @@ impl PortfolioId {
     }
 }
 
+/// Result of a portfolio validity check.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortfolioValidityResult {
+    /// Receiver portfolio is the same portfolio as the sender.
+    pub receiver_is_same_portfolio: bool,
+    /// Sender portfolio does not exist.
+    pub sender_portfolio_does_not_exist: bool,
+    /// Receiver portfolio does not exist.
+    pub receiver_portfolio_does_not_exist: bool,
+    /// Sender does not have sufficient balance.
+    pub sender_insufficient_balance: bool,
+    /// Final evaluation result.
+    pub result: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
