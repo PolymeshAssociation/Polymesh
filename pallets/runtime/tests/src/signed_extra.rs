@@ -55,12 +55,12 @@ fn make_min_storage() -> Result<TestExternalities, String> {
             let did = IdentityId::from(idx as u128);
             let uid = InvestorUid::from(did.as_ref());
 
-            (acc.clone(), did, did, uid, None)
+            (acc.clone(), vec![did], did, uid, None)
         })
         .collect::<Vec<_>>();
     let did = identities
         .iter()
-        .map(|(_acc, did, ..)| did.clone())
+        .map(|(_acc, _issuer, did, ..)| did.clone())
         .collect::<Vec<_>>();
 
     let mut storage = frame_system::GenesisConfig::default().build_storage::<Runtime>()?;
@@ -82,7 +82,7 @@ fn make_min_storage() -> Result<TestExternalities, String> {
 
     // Identity
     identity::GenesisConfig::<Runtime> {
-        identities: identities,
+        identities,
         ..Default::default()
     }
     .assimilate_storage(&mut storage)?;

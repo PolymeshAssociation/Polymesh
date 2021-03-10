@@ -246,6 +246,12 @@ pub mod crypto;
 /// Asset type definitions.
 pub mod asset;
 
+/// Statistics type definitions.
+pub mod statistics;
+
+/// Compliance manager type definitions.
+pub mod compliance_manager;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

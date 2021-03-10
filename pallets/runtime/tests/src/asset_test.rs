@@ -1590,6 +1590,7 @@ fn classic_ticker_register_works() {
 #[test]
 fn classic_ticker_no_such_classic_ticker() {
     let user = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
     let ticker_acme = ticker("ACME");
     let ticker_emca = ticker("EMCA");
 
@@ -1603,6 +1604,7 @@ fn classic_ticker_no_such_classic_ticker() {
         ..<_>::default()
     })
     .add_regular_users_from_accounts(&[user])
+    .cdd_providers(vec![cdd])
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user);
@@ -1616,6 +1618,7 @@ fn classic_ticker_no_such_classic_ticker() {
 #[test]
 fn classic_ticker_registered_by_other() {
     let user = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Bob.public();
     let ticker = ticker("ACME");
 
     with_asset_genesis(AssetGenesis {
@@ -1629,6 +1632,7 @@ fn classic_ticker_registered_by_other() {
         ..<_>::default()
     })
     .add_regular_users_from_accounts(&[user])
+    .cdd_providers(vec![cdd])
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user);
@@ -1656,6 +1660,7 @@ fn classic_ticker_expired_thus_available() {
         ..<_>::default()
     })
     .add_regular_users_from_accounts(&[user])
+    .cdd_providers(vec![AccountKeyring::Alice.public()])
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user);
@@ -2226,6 +2231,8 @@ fn secondary_key_not_authorized_for_asset_test() {
     let primary_key = AccountKeyring::Alice.public();
     let sk_all_permissions = AccountKeyring::Bob.public();
     let sk_not_permissions = AccountKeyring::Charlie.public();
+    let cdd = AccountKeyring::Eve.public();
+
     let ticker = Ticker::try_from(&b"WPUSD"[..]).unwrap();
     let invalid_tickers = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"]
         .iter()
@@ -2253,6 +2260,7 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     ExtBuilder::default()
         .add_regular_users(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| {
             secondary_key_not_authorized_for_asset(
@@ -2305,9 +2313,11 @@ fn secondary_key_not_authorized_for_asset(
 #[test]
 fn invalid_ticker_registry_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| invalid_ticker_registry(owner))
 }
@@ -2332,9 +2342,11 @@ fn invalid_ticker_registry(owner: Public) {
 #[test]
 fn sender_same_as_receiver_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| sender_same_as_receiver(owner))
 }
@@ -2356,9 +2368,11 @@ fn sender_same_as_receiver(owner: Public) {
 #[test]
 fn invalid_granularity_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| {
             let (_, ticker) = simple_asset(owner, false);
@@ -2374,9 +2388,11 @@ fn invalid_granularity_test() {
 fn create_asset_errors_test() {
     let owner = AccountKeyring::Alice.public();
     let other = AccountKeyring::Bob.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner, other])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| create_asset_errors(owner, other))
 }
@@ -2455,9 +2471,11 @@ fn create_asset_errors(owner: Public, other: Public) {
 #[test]
 fn unsafe_can_transfer_all_status_codes_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| unsafe_can_transfer_all_status_codes(owner))
 }
@@ -2501,9 +2519,11 @@ fn unsafe_can_transfer_all_status_codes(owner: Public) {
 #[test]
 fn set_funding_round_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| set_funding_round(owner))
 }
@@ -2525,9 +2545,11 @@ fn set_funding_round(owner: Public) {
 #[test]
 fn update_identifiers_errors_test() {
     let owner = AccountKeyring::Alice.public();
+    let cdd = AccountKeyring::Eve.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[owner])
+        .cdd_providers(vec![cdd])
         .build()
         .execute_with(|| update_identifiers_errors(owner))
 }

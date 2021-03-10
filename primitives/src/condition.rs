@@ -25,7 +25,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 /// It defines a static/dynamic identity
 pub enum TargetIdentity {
     /// Current primary issuance agent of an asset. Resolved dynamically.
@@ -37,7 +37,7 @@ pub enum TargetIdentity {
 /// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
     IsPresent(Claim),
@@ -53,7 +53,7 @@ pub enum ConditionType {
 
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TrustedFor {
     /// Issuer is trusted for any `ClaimType`.
     Any,
@@ -63,7 +63,7 @@ pub enum TrustedFor {
 
 /// A trusted issuer for a certain compliance `Condition` and what `ClaimType`s is trusted for.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TrustedIssuer {
     /// The issuer trusted for the `Condition` or for the `Ticker`,
     /// depending on where `TrustedClaimIssuer` is included.
@@ -118,7 +118,7 @@ impl Migrate for TrustedIssuerOld {
 
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate, Hash)]
 pub struct Condition {
     /// Type of condition.
     pub condition_type: ConditionType,

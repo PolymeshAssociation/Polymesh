@@ -22,7 +22,6 @@ use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
-use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
     benchs::{self, generate_ticker, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
@@ -31,6 +30,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
+    statistics::TransferManager,
     Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
 };

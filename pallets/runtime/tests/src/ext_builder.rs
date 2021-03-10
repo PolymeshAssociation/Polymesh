@@ -2,12 +2,16 @@ use super::storage::AccountId;
 use crate::TestStorage;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
+use pallet_bridge::BridgeTx;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-use polymesh_primitives::{Identity, IdentityId, PosRatio, Signatory, SmartExtensionType};
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
+use polymesh_primitives::{
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
+    Signatory, SmartExtensionType,
+};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
@@ -97,6 +101,8 @@ pub struct ExtBuilder {
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
+    /// Bridge complete TXs
+    bridge_complete_txs: Vec<BridgeTx<AccountId, u128>>,
 }
 
 thread_local! {
@@ -162,6 +168,7 @@ impl ExtBuilder {
 
     pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
         self.governance_committee_members = members;
+        self.governance_committee_members.sort();
         self
     }
 
@@ -176,6 +183,7 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self.cdd_providers.sort();
         self
     }
 
@@ -226,6 +234,11 @@ impl ExtBuilder {
         self
     }
 
+    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
+        self.bridge_complete_txs = txs;
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
@@ -256,15 +269,26 @@ impl ExtBuilder {
     /// Generates a mapping between DID and Identity info.
     ///
     /// DIDs are generated sequentially from `offset`.
-    fn make_did_identity_map(
-        identities: Vec<impl Into<Identity<AccountId>>>,
+    fn make_identities(
+        identities: impl Iterator<Item = AccountId>,
         offset: usize,
-    ) -> Vec<(IdentityId, Identity<AccountId>)> {
+        issuers: Vec<IdentityId>,
+    ) -> Vec<GenesisIdentityRecord<AccountId>> {
         identities
-            .into_iter()
             .enumerate()
-            .map(|(idx, id)| (IdentityId::from((idx + offset + 1) as u128), id.into()))
-            .collect()
+            .map(|(idx, id)| {
+                let did_index = (idx + offset + 1) as u128;
+                let did = IdentityId::from(did_index);
+
+                (
+                    id.clone(),
+                    issuers.clone(),
+                    did,
+                    InvestorUid::from(did.as_ref()),
+                    None,
+                )
+            })
+            .collect::<Vec<_>>()
     }
 
     fn make_account_did_map(
@@ -278,53 +302,43 @@ impl ExtBuilder {
             .collect()
     }
 
-    /// Generates a mapping between keys from each item in `identities` and a DID.
-    ///
-    /// DIDs are generated sequentially from `offset`.
-    fn extract_accounts(identities: Vec<Identity<AccountId>>) -> Vec<Vec<AccountId>> {
-        identities
-            .into_iter()
-            .map(|id| {
-                // Extract each secondary key from the identity.
-                id.secondary_keys
+    fn extract_links(
+        &self,
+        identities: &[GenesisIdentityRecord<AccountId>],
+    ) -> Vec<(AccountId, IdentityId)> {
+        self.regular_users
+            .iter()
+            .filter_map(|id| {
+                let _ = id.secondary_keys.get(0)?;
+                let did = identities
+                    .iter()
+                    .find(|gen_id| gen_id.0 == id.primary_key)?
+                    .2;
+                let links = id
+                    .secondary_keys
                     .iter()
                     .filter_map(|sk| match sk.signer {
-                        Signatory::Account(acc) => Some(acc),
+                        Signatory::Account(acc) => Some((acc, did)),
                         Signatory::Identity(..) => None,
                     })
-                    // Add its primary key
-                    .chain(iter::once(id.primary_key))
-                    .collect()
+                    .collect::<Vec<_>>();
+
+                Some(links)
             })
+            .flatten()
             .collect()
     }
 
     fn build_identity_genesis(
         &self,
         storage: &mut Storage,
-        sys_identities: Vec<(IdentityId, Identity<AccountId>)>,
-        sys_links: Vec<(AccountId, IdentityId)>,
+        identities: Vec<GenesisIdentityRecord<AccountId>>,
     ) {
         // New identities are just `system users` + `regular users`.
-        let offset = sys_identities.len();
-        let mut new_identities = Self::make_did_identity_map(self.regular_users.clone(), offset);
-        let regular_users_group_by_identity = Self::extract_accounts(self.regular_users.clone());
-        let mut new_links = regular_users_group_by_identity
-            .into_iter()
-            .enumerate()
-            .flat_map(|(group_idx, accounts)| {
-                let group_did_maker = |_idx| IdentityId::from((group_idx + 1 + offset) as u128);
-                Self::make_account_did_map(accounts, group_did_maker)
-            })
-            .collect::<Vec<_>>();
-
-        new_identities.extend(sys_identities.iter().cloned());
-        new_links.extend(sys_links.iter().cloned());
-
+        let secondary_keys = self.extract_links(&identities);
         identity::GenesisConfig::<TestStorage> {
-            did_records: new_identities,
-            secondary_keys: new_links,
-            identities: vec![],
+            secondary_keys,
+            identities,
             ..Default::default()
         }
         .assimilate_storage(storage)
@@ -367,21 +381,10 @@ impl ExtBuilder {
     fn build_cdd_providers_genesis(
         &self,
         storage: &mut Storage,
-        sys_identities: &[(IdentityId, Identity<AccountId>)],
+        identities: &[GenesisIdentityRecord<AccountId>],
     ) {
-        let cdd_ids = self
-            .cdd_providers
-            .iter()
-            .map(|key| {
-                let (id, _) = sys_identities
-                    .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
-            })
-            .cloned()
-            .chain(core::iter::once(GC_DID))
-            .collect::<Vec<_>>();
+        let mut cdd_ids = identities.iter().map(|gen_id| gen_id.2).collect::<Vec<_>>();
+        cdd_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
             active_members_limit: u32::MAX,
@@ -395,20 +398,9 @@ impl ExtBuilder {
     fn build_committee_genesis(
         &self,
         storage: &mut Storage,
-        sys_identities: &[(IdentityId, Identity<AccountId>)],
+        identities: &[GenesisIdentityRecord<AccountId>],
     ) {
-        let mut gc_ids = self
-            .governance_committee_members
-            .iter()
-            .map(|key| {
-                let (id, _) = sys_identities
-                    .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
-            })
-            .cloned()
-            .collect::<Vec<_>>();
+        let mut gc_ids = identities.iter().map(|gen_id| gen_id.2).collect::<Vec<_>>();
         gc_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance1> {
@@ -463,38 +455,69 @@ impl ExtBuilder {
         .unwrap();
     }
 
+    fn build_bridge_genesis(&self, storage: &mut Storage) {
+        pallet_bridge::GenesisConfig::<TestStorage> {
+            complete_txs: self.bridge_complete_txs.clone(),
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap()
+    }
+
     /// Create externalities.
-    ///
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
 
-        // Create Identities.
-        let mut system_accounts = self
-            .cdd_providers
+        // Regular users should intersect neither with CDD providers nor with GC members.
+        assert!(!self
+            .regular_users
             .iter()
-            .chain(self.governance_committee_members.iter())
-            .cloned()
-            .collect::<Vec<_>>();
-        system_accounts.sort();
-        system_accounts.dedup();
+            .any(|id| self.cdd_providers.contains(&id.primary_key)
+                || self.governance_committee_members.contains(&id.primary_key)));
 
-        let sys_identities = Self::make_did_identity_map(system_accounts.clone(), 0);
-        let system_did_maker = |idx: usize| IdentityId::from((idx + 1) as u128);
-        let sys_links = Self::make_account_did_map(system_accounts, system_did_maker);
+        // System identities.
+        let cdd_identities = Self::make_identities(self.cdd_providers.iter().cloned(), 0, vec![]);
+        let gc_identities = Self::make_identities(
+            self.governance_committee_members.iter().cloned(),
+            cdd_identities.len(),
+            vec![],
+        );
+
+        //  User identities.
+        let issuer_did = cdd_identities
+            .iter()
+            .map(|gen_id| gen_id.2)
+            .next()
+            .unwrap_or(SystematicIssuers::CDDProvider.as_id());
+        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key);
+
+        // Create regular user identities.
+        let user_identities = Self::make_identities(
+            regular_accounts,
+            cdd_identities.len() + gc_identities.len(),
+            vec![issuer_did],
+        );
+        let identities = cdd_identities
+            .iter()
+            .chain(gc_identities.iter())
+            .chain(user_identities.iter())
+            .cloned()
+            .collect();
 
         // Create storage and assimilate each genesis.
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<TestStorage>()
             .expect("TestStorage cannot build its own storage");
 
-        self.build_identity_genesis(&mut storage, sys_identities.clone(), sys_links);
+        self.build_identity_genesis(&mut storage, identities);
         self.build_balances_genesis(&mut storage);
         self.build_asset_genesis(&mut storage);
-        self.build_cdd_providers_genesis(&mut storage, &sys_identities);
-        self.build_committee_genesis(&mut storage, &sys_identities);
+        self.build_cdd_providers_genesis(&mut storage, cdd_identities.as_slice());
+        self.build_committee_genesis(&mut storage, gc_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);
         self.build_contracts_genesis(&mut storage);
+        self.build_bridge_genesis(&mut storage);
 
         if let Some(adjust) = self.adjust {
             adjust(&mut storage);
