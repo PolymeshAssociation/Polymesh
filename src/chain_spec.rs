@@ -230,11 +230,22 @@ fn bridge_lock(nonce: u32, hash: &'static str) -> (u32, H256) {
     let offset = if hash.starts_with("0x") { 2 } else { 0 };
     let stripped_hash = &hash[offset..];
     let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
-        .expect("Failed to decode transaction hash (Invalid Hex Value)");
+        .expect("Failed to decode transaction hash (Invalid hex Value)");
     let hash_array: [u8; 32] = hash_vec
         .try_into()
-        .expect("Failed to decode transaction hash (Invalid length)");
+        .expect("Failed to decode transaction hash (Invalid hash length)");
     (nonce, hash_array.into())
+}
+
+fn generate_bridge_locks(count: u32) -> Vec<(u32, H256)> {
+    let mut bridge_locks = Vec::with_capacity(count as usize);
+    for i in 100..100 + count {
+        bridge_locks.push(bridge_lock(
+            i,
+            "0x000000000000000000000000000000000000000000000000000000000000dead",
+        ))
+    }
+    bridge_locks
 }
 
 fn identities(
@@ -324,7 +335,7 @@ fn genesis_processed_data(
     // 2 = GC
     // 3 = GC + TC
     // 4 = Operator
-    // 5 = Bridge
+    // 5 = Bridge + Sudo
     let mut identities = Vec::with_capacity(5);
     let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
     // Creating Identities 1-4
@@ -358,7 +369,7 @@ fn genesis_processed_data(
             IdentityId::from(4), // All operators have the same Identity
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH,
+            BOOTSTRAP_STASH / 2,
             pallet_staking::StakerStatus::Validator,
         ));
         secondary_keys.push((stash.clone(), IdentityId::from(4)));
@@ -367,6 +378,14 @@ fn genesis_processed_data(
         keys.push(controller.clone());
     }
 
+    // Add bridge signers to keys
+    for bs in bridge_signers() {
+        if let Signatory::Account(account_id) = bs {
+            keys.push(account_id)
+        };
+    }
+
+    // Accumulate bridge transactions
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
         .cloned()
@@ -909,18 +928,9 @@ pub mod polymesh_mainnet {
             false,
             bridge_lock(
                 1,
-                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            vec![
-                bridge_lock(
-                    2,
-                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-                bridge_lock(
-                    3,
-                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-            ],
+            generate_bridge_locks(20),
         )
     }
 
@@ -953,18 +963,9 @@ pub mod polymesh_mainnet {
             true,
             bridge_lock(
                 1,
-                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            vec![
-                bridge_lock(
-                    2,
-                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-                bridge_lock(
-                    3,
-                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-            ],
+            generate_bridge_locks(20),
         )
     }
 
@@ -978,7 +979,7 @@ pub mod polymesh_mainnet {
             develop_genesis,
             boot_nodes,
             None,
-            None,
+            Some(&*"/polymath/develop/1"),
             Some(polymath_props()),
             Default::default(),
         )
@@ -994,18 +995,9 @@ pub mod polymesh_mainnet {
             true,
             bridge_lock(
                 1,
-                "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            vec![
-                bridge_lock(
-                    2,
-                    "dae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-                bridge_lock(
-                    3,
-                    "0xdae874ec157a39d1b1faee5c373c9c787e5d74159c8514311020222c869a197f",
-                ),
-            ],
+            generate_bridge_locks(20),
         )
     }
 

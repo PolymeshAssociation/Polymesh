@@ -330,7 +330,7 @@ decl_storage! {
                     tx_hash: tx.tx_hash,
                 };
                 debug::info!(
-                    "Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
+                    "Credited Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
                     recipient,
                     tx.nonce,
                     tx.amount

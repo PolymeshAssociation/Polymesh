@@ -283,34 +283,35 @@ construct_runtime!(
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 14,
 
-        // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, Committees
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 15,
-        Offences: pallet_offences::{Module, Call, Storage, Event} = 16,
+        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 15,
+        // Bridge: Genesis config deps: Multisig, Identity, Committees
+        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 16,
+
+        // Staking: Genesis config deps: Bridge, Balances, Indices, Identity, Babe, Timestamp, Committees
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 17,
+        Offences: pallet_offences::{Module, Call, Storage, Event} = 18,
 
         // Session: Genesis config deps: System.
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 17,
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 18,
-        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 19,
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 20,
-        Historical: pallet_session_historical::{Module} = 21,
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 22,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 23,
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 19,
+        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 20,
+        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 21,
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 22,
+        Historical: pallet_session_historical::{Module} = 23,
+        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 24,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 25,
 
         // Sudo. Usable initially.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 24,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 25,
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 26,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 26,
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 27,
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 27,
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 28,
 
         //Polymesh
         ////////////
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 28,
-        // Bridge: Genesis config deps: Multisig, Identity, Committees
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 30,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 31,
         ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
