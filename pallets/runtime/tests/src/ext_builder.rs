@@ -289,7 +289,7 @@ impl ExtBuilder {
                     ..Default::default()
                 }
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn make_account_did_map(
