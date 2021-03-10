@@ -1670,7 +1670,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
+        if let Claim::InvestorUniqueness(scope, scope_id, _cdd_id) = &claim {
             if let Scope::Ticker(ticker) = &scope {
                 // If `target` already has an InvestorUniqueness claim and clean up the old scope_id data.
                 let old_scope_ids = Self::fetch_base_claims(target, ClaimType::InvestorUniqueness)
@@ -1679,22 +1679,18 @@ impl<T: Trait> Module<T> {
                             &id_claim.claim
                         {
                             if old_scope == scope {
-                                return Some(old_scope_id);
+                                return Some(*old_scope_id);
                             }
                         }
                         None
                     });
-                for old_scope_id in old_scope_ids {
-                    // FIXME
-                    T::AssetSubTraitTarget::purge_balance_of_scope_id(
-                        old_scope_id,
-                        target,
-                        *ticker,
-                    )?;
-                }
-
                 // Update the balance of the IdentityId under the ScopeId provided in claim data.
-                T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?
+                T::AssetSubTraitTarget::update_balance_of_scope_id(
+                    *scope_id,
+                    old_scope_ids,
+                    target,
+                    *ticker,
+                );
             }
         }
 

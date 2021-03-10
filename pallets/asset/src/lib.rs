@@ -1334,24 +1334,34 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     }
 
     fn update_balance_of_scope_id(
-        of: ScopeId,
+        scope_id: ScopeId,
+        old_scope_ids: impl Iterator<Item = ScopeId>,
         target_did: IdentityId,
         ticker: Ticker,
-    ) -> DispatchResult {
-        let balance_at_scope = Self::balance_of_at_scope(of, target_did);
+    ) {
+        for old_scope_id in old_scope_ids {
+            // Delete the balance of target_did at old_scope_id.
+            let target_balance = <BalanceOfAtScope<T>>::take(old_scope_id, target_did);
+            // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
+            <AggregateBalance<T>>::mutate(ticker, old_scope_id, {
+                |bal| *bal = bal.saturating_sub(target_balance)
+            });
+        }
+
+        let balance_at_scope = Self::balance_of_at_scope(scope_id, target_did);
+
         // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
         // has the scope claim already.
         if balance_at_scope == Zero::zero() {
             let current_balance = Self::balance_of(ticker, target_did);
             // Update the balance on the identityId under the given scopeId.
-            <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
+            <BalanceOfAtScope<T>>::insert(scope_id, target_did, current_balance);
             // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
-            <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
+            <AggregateBalance<T>>::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
-        ScopeIdOf::insert(ticker, target_did, of);
-        Ok(())
+        ScopeIdOf::insert(ticker, target_did, scope_id);
     }
 
     /// Returns balance for a given scope id and target DID.
