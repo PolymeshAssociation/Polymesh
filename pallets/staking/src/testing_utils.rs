@@ -175,9 +175,9 @@ pub fn create_validators_with_nominators_for_era<T: Trait + TestUtilsFn<AccountI
     // Create validators
     for i in 0..validators {
         let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
+            rng.next_u32() % 100_000_000u32 + 10_000_000u32
         } else {
-            100u32
+            10_000_000u32
         };
         let (v_stash, v_controller) = create_stash_controller::<T>(i, balance_factor)?;
         let validator_prefs = ValidatorPrefs {
@@ -195,9 +195,9 @@ pub fn create_validators_with_nominators_for_era<T: Trait + TestUtilsFn<AccountI
     // Create nominators
     for j in 0..nominators {
         let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
+            rng.next_u32() % 100_000_000u32 + 10_000_000u32
         } else {
-            100u32
+            10_000_000u32
         };
         let (_n_stash, n_controller) =
             create_stash_controller::<T>(u32::max_value() - j, balance_factor)?;

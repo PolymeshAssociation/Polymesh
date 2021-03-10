@@ -66,7 +66,7 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
         (
             seeded_acc_id(&format!("{}//stash", seed)),
             seeded_acc_id(seed),
-            get_from_seed::<GrandpaId>(seed), // let root = H256::from();
+            get_from_seed::<GrandpaId>(seed),
             get_from_seed::<BabeId>(seed),
             get_from_seed::<ImOnlineId>(seed),
             get_from_seed::<AuthorityDiscoveryId>(seed),
