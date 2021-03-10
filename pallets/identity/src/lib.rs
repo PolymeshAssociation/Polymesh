@@ -209,7 +209,6 @@ decl_storage! {
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
-                .inspect(|iss| debug::info!("Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
@@ -1362,6 +1361,9 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
+                || SYSTEMATIC_ISSUERS
+                    .iter()
+                    .any(|si| si.as_id() == id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
