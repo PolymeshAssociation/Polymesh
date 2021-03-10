@@ -80,7 +80,7 @@ impl SubstrateCli for Cli {
                     &include_bytes!("./chain_specs/alcyone_raw.json")[..],
                 )?)
             }
-            path => Box::new(chain_spec::general::ChainSpec::from_json_file(
+            path => Box::new(chain_spec::polymesh_mainnet::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
         })
