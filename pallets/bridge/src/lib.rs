@@ -116,6 +116,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
+    constants::currency::POLY,
     traits::{
         balances::{CheckCdd, Trait as BalancesTrait},
         identity::Trait as IdentityTrait,
@@ -333,7 +334,7 @@ decl_storage! {
                     "Credited Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
                     recipient,
                     tx.nonce,
-                    tx.amount
+                    tx.amount / T::Balance::from(POLY)
                 );
                 Module::<T>::issue(&recipient, &tx.amount).expect("Minting failed");
                 (recipient, tx.nonce, detail)

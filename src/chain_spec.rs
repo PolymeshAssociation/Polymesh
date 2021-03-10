@@ -378,13 +378,6 @@ fn genesis_processed_data(
         keys.push(controller.clone());
     }
 
-    // Add bridge signers to keys
-    for bs in bridge_signers() {
-        if let Signatory::Account(account_id) = bs {
-            keys.push(account_id)
-        };
-    }
-
     // Accumulate bridge transactions
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
