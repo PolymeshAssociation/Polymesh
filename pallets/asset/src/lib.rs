@@ -51,8 +51,8 @@
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
 //! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
-//! - `archive_extension` - Extension gets archived meaning it no longer is used to verify compliance or any smart logic it possesses.
-//! - `unarchive_extension` - Extension gets un-archived meaning it is again used to verify compliance or any smart logic it possesses.
+//! - `archive_extension` - Extension gets archived meaning it is no longer used to verify compliance or any smart logic it possesses.
+//! - `unarchive_extension` - Extension gets unarchived meaning it is used again to verify compliance or any smart logic it possesses.
 //!
 //! ### Public Functions
 //!
@@ -108,7 +108,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
-    ensure_as_ok,
     migrate::MigrationError,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
@@ -441,8 +440,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         ///
         /// ## Errors
-        /// - `NoTickerTransferAuth` if `auth_id` is not a valid authorization for ticket
-        /// transferring.
+        /// - `NoTickerTransferAuth` if `auth_id` is not a valid ticket transfer authorization.
         ///
         #[weight = <T as Trait>::WeightInfo::accept_ticker_transfer()]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
@@ -864,7 +862,7 @@ decl_event! {
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
-        /// An additional event to Transfer; emitted when `ransfer_with_data` is called.
+        /// An additional event to Transfer; emitted when `transfer_with_data` is called.
         /// caller DID , ticker, from DID, to DID, value, data
         TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
         /// is_issuable() output
@@ -1709,43 +1707,38 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ensure_as_ok!(
-            !Self::invalid_granularity(&ticker, value),
-            INVALID_GRANULARITY
-        );
-        ensure_as_ok!(
-            !Self::self_transfer(&from_portfolio, &to_portfolio),
-            INVALID_RECEIVER_DID
-        );
-        ensure_as_ok!(!Self::invalid_cdd(from_portfolio.did), INVALID_SENDER_DID);
-
-        ensure_as_ok!(
-            !Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio),
-            SCOPE_CLAIM_MISSING
-        );
+        if Self::invalid_granularity(&ticker, value) {
+            return Ok(INVALID_GRANULARITY);
+        }
+        if Self::self_transfer(&from_portfolio, &to_portfolio) {
+            return Ok(INVALID_RECEIVER_DID);
+        }
+        if Self::invalid_cdd(from_portfolio.did) {
+            return Ok(INVALID_SENDER_DID);
+        }
+        if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
+            return Ok(SCOPE_CLAIM_MISSING);
+        }
 
         let from_custodian = from_custodian.unwrap_or(from_portfolio.did);
-        ensure_as_ok!(
-            !Self::custodian_error(from_portfolio, from_custodian),
-            CUSTODIAN_ERROR
-        );
+        if Self::custodian_error(from_portfolio, from_custodian) {
+            return Ok(CUSTODIAN_ERROR);
+        }
+        if Self::invalid_cdd(to_portfolio.did) {
+            return Ok(INVALID_RECEIVER_DID);
+        }
 
-        ensure_as_ok!(!Self::invalid_cdd(to_portfolio.did), INVALID_RECEIVER_DID);
         let to_custodian = to_custodian.unwrap_or(to_portfolio.did);
-        ensure_as_ok!(
-            !Self::custodian_error(to_portfolio, to_custodian),
-            CUSTODIAN_ERROR
-        );
+        if Self::custodian_error(to_portfolio, to_custodian) {
+            return Ok(CUSTODIAN_ERROR);
+        }
+        if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
+            return Ok(ERC1400_INSUFFICIENT_BALANCE);
+        }
 
-        ensure_as_ok!(
-            !Self::insufficient_balance(&ticker, from_portfolio.did, value),
-            ERC1400_INSUFFICIENT_BALANCE
-        );
-
-        ensure_as_ok!(
-            !Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value),
-            PORTFOLIO_FAILURE
-        );
+        if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value) {
+            return Ok(PORTFOLIO_FAILURE);
+        }
 
         // Compliance manager & Smart Extension check
         Ok(

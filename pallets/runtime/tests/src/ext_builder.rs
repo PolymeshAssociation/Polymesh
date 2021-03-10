@@ -276,17 +276,18 @@ impl ExtBuilder {
     ) -> Vec<GenesisIdentityRecord<AccountId>> {
         identities
             .enumerate()
-            .map(|(idx, id)| {
+            .map(|(idx, primary_key)| {
                 let did_index = (idx + offset + 1) as u128;
                 let did = IdentityId::from(did_index);
+                let investor = InvestorUid::from(did.as_ref());
 
-                (
-                    id.clone(),
-                    issuers.clone(),
+                GenesisIdentityRecord {
+                    primary_key,
+                    issuers: issuers.clone(),
                     did,
-                    InvestorUid::from(did.as_ref()),
-                    None,
-                )
+                    investor,
+                    ..Default::default()
+                }
             })
             .collect::<Vec<_>>()
     }
@@ -312,8 +313,8 @@ impl ExtBuilder {
                 let _ = id.secondary_keys.get(0)?;
                 let did = identities
                     .iter()
-                    .find(|gen_id| gen_id.0 == id.primary_key)?
-                    .2;
+                    .find(|gen_id| gen_id.primary_key == id.primary_key)?
+                    .did;
                 let links = id
                     .secondary_keys
                     .iter()
@@ -383,7 +384,11 @@ impl ExtBuilder {
         storage: &mut Storage,
         identities: &[GenesisIdentityRecord<AccountId>],
     ) {
-        let mut cdd_ids = identities.iter().map(|gen_id| gen_id.2).collect::<Vec<_>>();
+        let mut cdd_ids = identities
+            .iter()
+            .map(|gen_id| gen_id.did)
+            .collect::<Vec<_>>();
+        cdd_ids.push(GC_DID);
         cdd_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
@@ -400,7 +405,10 @@ impl ExtBuilder {
         storage: &mut Storage,
         identities: &[GenesisIdentityRecord<AccountId>],
     ) {
-        let mut gc_ids = identities.iter().map(|gen_id| gen_id.2).collect::<Vec<_>>();
+        let mut gc_ids = identities
+            .iter()
+            .map(|gen_id| gen_id.did)
+            .collect::<Vec<_>>();
         gc_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance1> {
@@ -477,29 +485,52 @@ impl ExtBuilder {
 
         // System identities.
         let cdd_identities = Self::make_identities(self.cdd_providers.iter().cloned(), 0, vec![]);
-        let gc_identities = Self::make_identities(
-            self.governance_committee_members.iter().cloned(),
-            cdd_identities.len(),
-            vec![],
-        );
+        let gc_only_accs = self
+            .governance_committee_members
+            .iter()
+            .filter(|acc| !self.cdd_providers.contains(acc))
+            .cloned()
+            .collect::<Vec<_>>();
+        let gc_only_identities =
+            Self::make_identities(gc_only_accs.iter().cloned(), cdd_identities.len(), vec![]);
+        let gc_and_cdd_identities = cdd_identities.iter().filter(|gen_id| {
+            self.governance_committee_members
+                .contains(&gen_id.primary_key)
+        });
+        let gc_full_identities = gc_only_identities
+            .iter()
+            .chain(gc_and_cdd_identities)
+            .cloned()
+            .collect::<Vec<_>>();
 
         //  User identities.
         let issuer_did = cdd_identities
             .iter()
-            .map(|gen_id| gen_id.2)
+            .map(|gen_id| gen_id.did)
             .next()
             .unwrap_or(SystematicIssuers::CDDProvider.as_id());
         let regular_accounts = self.regular_users.iter().map(|id| id.primary_key);
 
-        // Create regular user identities.
-        let user_identities = Self::make_identities(
+        // Create regular user identities + .
+        let mut user_identities = Self::make_identities(
             regular_accounts,
-            cdd_identities.len() + gc_identities.len(),
+            cdd_identities.len() + gc_only_identities.len(),
             vec![issuer_did],
         );
+        // Add secondary keys (and permissions) to new identites.
+        for user_id in user_identities.iter_mut() {
+            if let Some(user) = self
+                .regular_users
+                .iter()
+                .find(|ru| ru.primary_key == user_id.primary_key)
+            {
+                user_id.secondary_keys = user.secondary_keys.clone();
+            }
+        }
+
         let identities = cdd_identities
             .iter()
-            .chain(gc_identities.iter())
+            .chain(gc_only_identities.iter())
             .chain(user_identities.iter())
             .cloned()
             .collect();
@@ -513,7 +544,7 @@ impl ExtBuilder {
         self.build_balances_genesis(&mut storage);
         self.build_asset_genesis(&mut storage);
         self.build_cdd_providers_genesis(&mut storage, cdd_identities.as_slice());
-        self.build_committee_genesis(&mut storage, gc_identities.as_slice());
+        self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);
         self.build_contracts_genesis(&mut storage);
