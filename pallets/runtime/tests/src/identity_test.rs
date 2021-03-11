@@ -3,8 +3,8 @@ use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
-        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
-        TestStorage,
+        provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
+        GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -1556,4 +1556,26 @@ fn add_permission_with_secondary_key() {
             assert_eq!(sig_items[0], sig_1);
             assert_eq!(sig_items[1], sig_2);
         });
+}
+
+#[test]
+fn add_investor_uniqueness_claim() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Charlie.public()])
+        .build()
+        .execute_with(|| do_add_investor_uniqueness_claim());
+}
+
+fn do_add_investor_uniqueness_claim() {
+    let alice = User::new(AccountKeyring::Alice);
+    let cdd_provider = AccountKeyring::Charlie.public();
+    let ticker = Ticker::try_from(b"AAA").unwrap();
+    assert_ok!(Identity::gc_add_cdd_claim(
+        gc_vmo(),
+        alice.did,
+        Some(100u64)
+    ));
+    let scope_id = provide_scope_claim(alice.did, ticker, alice.uid(), cdd_provider);
+    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, Claim::default_cdd_id());
+    Identity::add_investor_uniqueness_claim(alice.origin(), alice.did, claim, proof, None)
 }

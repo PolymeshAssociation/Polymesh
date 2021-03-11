@@ -172,6 +172,10 @@ impl User {
     pub fn origin(&self) -> Origin {
         Origin::signed(self.acc())
     }
+
+    pub fn uid(&self) -> InvestorUid {
+        create_investor_uid(self.acc())
+    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
