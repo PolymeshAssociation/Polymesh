@@ -118,6 +118,7 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
+    identity_id::GenesisIdentityRecord,
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
     AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
@@ -195,10 +196,11 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
-        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
+        // Identities at genesis.
+        config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
+        // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-
             SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
@@ -214,14 +216,16 @@ decl_storage! {
             <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
-            for &(ref primary_account_id, issuer, did, investor_uid, expiry) in &config.identities {
+            for &(ref primary_account_id, ref issuers, did, investor_uid, expiry) in &config.identities {
                 let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did.clone(), investor_uid));
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
-                <Module<T>>::base_add_claim(did, cdd_claim, issuer, expiry);
+                for issuer in issuers {
+                    <Module<T>>::base_add_claim(did, cdd_claim.clone(), issuer.clone(), expiry);
+                }
             }
 
             for &(ref secondary_account_id, did) in &config.secondary_keys {

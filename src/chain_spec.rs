@@ -167,7 +167,7 @@ macro_rules! checkpoint {
 // (primary_account_id, service provider did, target did, expiry time of CDD claim i.e 10 days is ms)
 type Identity = (
     AccountId,
-    IdentityId,
+    Vec<IdentityId>,
     IdentityId,
     InvestorUid,
     Option<Moment>,
@@ -190,7 +190,7 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
 fn cdd_provider(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
-        IdentityId::from(n as u128),
+        vec![IdentityId::from(n as u128)],
         IdentityId::from(n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
         None,
@@ -200,7 +200,7 @@ fn cdd_provider(n: u8) -> Identity {
 fn gc_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
-        IdentityId::from(1 as u128),
+        vec![IdentityId::from(1 as u128)],
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
@@ -210,7 +210,7 @@ fn gc_mem(n: u8) -> Identity {
 fn polymath_mem(n: u8) -> Identity {
     (
         seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        IdentityId::from(1 as u128),
+        vec![IdentityId::from(1 as u128)],
         IdentityId::from(2 + n as u128),
         InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
         None,
@@ -242,7 +242,13 @@ fn identities(
             identity_counter += 1;
             let did = IdentityId::from(identity_counter);
             let investor_uid = InvestorUid::from(did.as_ref());
-            (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
+            (
+                x.1.clone(),
+                vec![IdentityId::from(1)],
+                did,
+                investor_uid,
+                None,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -325,12 +331,12 @@ macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
             minimum_validator_count: 1,
-            validator_count: $auths.len() as u32,
+            validator_count: 20,
             validator_commission_cap: $cap,
             stakers: $stakers,
-            invulnerables: $auths.iter().map(|x| x.0.clone()).collect(),
+            invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
-            min_bond_threshold: 5_000_000_000_000,
+            min_bond_threshold: 0,
             ..Default::default()
         }
     };
@@ -342,7 +348,7 @@ macro_rules! pips {
             prune_historical_pips: false,
             min_proposal_deposit: 0,
             default_enactment_period: $period,
-            max_pip_skip_count: 1,
+            max_pip_skip_count: 2,
             active_pip_limit: $limit,
             pending_pip_expiry: <_>::default(),
         }
@@ -394,8 +400,8 @@ macro_rules! committee {
 
 fn protocol_fees() -> Vec<(ProtocolOp, u128)> {
     vec![
-        (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
-        (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
+        (ProtocolOp::AssetCreateAsset, 2_500 * 1_000_000),
+        (ProtocolOp::AssetRegisterTicker, 500 * 1_000_000),
     ]
 }
 
@@ -452,6 +458,7 @@ pub mod general {
                 signers: bridge_signers(),
                 timelock: 10,
                 bridge_limit: (100_000_000 * POLY, 1000),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -601,6 +608,7 @@ pub mod alcyone_testnet {
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -751,13 +759,18 @@ pub mod polymesh_mainnet {
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (30_000_000_000, time::DAYS),
+                bridge_limit: (100_000_000_000, 365 * time::DAYS),
+                ..Default::default()
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
             pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
+            pallet_staking: Some(staking!(
+                initial_authorities,
+                stakers,
+                PerThing::from_rational_approximation(1u64, 10u64)
+            )),
+            pallet_pips: Some(pips!(time::DAYS * 30, 1000)),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
