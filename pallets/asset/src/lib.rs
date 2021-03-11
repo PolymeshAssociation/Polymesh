@@ -1097,9 +1097,9 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
         // has the scope claim already.
         if balance_at_scope == Zero::zero() {
             let current_balance = Self::balance_of(ticker, target_did);
-            // Update the balance on the identityId under the given scopeId.
+            // Update the balance of `target_did` under `scope_id`.
             <BalanceOfAtScope<T>>::insert(scope_id, target_did, current_balance);
-            // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
+            // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
             <AggregateBalance<T>>::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
