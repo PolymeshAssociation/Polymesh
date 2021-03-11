@@ -210,10 +210,8 @@ fn new_portfolio(owner: Public, name: &str) -> PortfolioId {
     Portfolio::create_portfolio(Origin::signed(owner), portfolio_name.clone())
         .expect("New portfolio cannot be created");
 
-    let portfolio_num = pallet_portfolio::Portfolios::iter_prefix(&did)
-        .filter(|(_, name)| name == &portfolio_name)
-        .map(|(num, _)| num)
-        .next()
+    let (portfolio_num, _) = pallet_portfolio::Portfolios::iter_prefix(&did)
+        .find(|(_, name)| name == &portfolio_name)
         .unwrap();
 
     PortfolioId::user_portfolio(did, portfolio_num)

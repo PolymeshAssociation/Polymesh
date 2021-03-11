@@ -1707,44 +1707,33 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        if Self::invalid_granularity(&ticker, value) {
-            return Ok(INVALID_GRANULARITY);
-        }
-        if Self::self_transfer(&from_portfolio, &to_portfolio) {
-            return Ok(INVALID_RECEIVER_DID);
-        }
-        if Self::invalid_cdd(from_portfolio.did) {
-            return Ok(INVALID_SENDER_DID);
-        }
-        if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
-            return Ok(SCOPE_CLAIM_MISSING);
-        }
-
-        let from_custodian = from_custodian.unwrap_or(from_portfolio.did);
-        if Self::custodian_error(from_portfolio, from_custodian) {
-            return Ok(CUSTODIAN_ERROR);
-        }
-        if Self::invalid_cdd(to_portfolio.did) {
-            return Ok(INVALID_RECEIVER_DID);
-        }
-
-        let to_custodian = to_custodian.unwrap_or(to_portfolio.did);
-        if Self::custodian_error(to_portfolio, to_custodian) {
-            return Ok(CUSTODIAN_ERROR);
-        }
-        if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
-            return Ok(ERC1400_INSUFFICIENT_BALANCE);
-        }
-
-        if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value) {
-            return Ok(PORTFOLIO_FAILURE);
-        }
-
-        // Compliance manager & Smart Extension check
-        Ok(
+        Ok(if Self::invalid_granularity(ticker, value) {
+            // Granularity check
+            INVALID_GRANULARITY
+        } else if Self::self_transfer(&from_portfolio, &to_portfolio) {
+            INVALID_RECEIVER_DID
+        } else if Self::invalid_cdd(from_portfolio.did) {
+            INVALID_SENDER_DID
+        } else if Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio) {
+            SCOPE_CLAIM_MISSING
+        } else if Self::custodian_error(
+            from_portfolio,
+            from_custodian.unwrap_or(from_portfolio.did),
+        ) {
+            CUSTODIAN_ERROR
+        } else if Self::invalid_cdd(to_portfolio.did) {
+            INVALID_RECEIVER_DID
+        } else if Self::custodian_error(to_portfolio, to_custodian.unwrap_or(to_portfolio.did)) {
+            CUSTODIAN_ERROR
+        } else if Self::insufficient_balance(&ticker, from_portfolio.did, value) {
+            ERC1400_INSUFFICIENT_BALANCE
+        } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, &value) {
+            PORTFOLIO_FAILURE
+        } else {
+            // Compliance manager & Smart Extension check
             Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
-                .unwrap_or(ERC1400_TRANSFER_FAILURE),
-        )
+                .unwrap_or(ERC1400_TRANSFER_FAILURE)
+        })
     }
 
     /// Transfers an asset from one identity portfolio to another
@@ -2205,12 +2194,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn archive_error_selector(is_archive: bool) -> Error<T> {
-        is_archive
-            .then_some(Error::<T>::AlreadyArchived)
-            .unwrap_or(Error::<T>::AlreadyUnArchived)
-    }
-
     fn set_archive_on_extension(
         origin: T::Origin,
         ticker: Ticker,
@@ -2224,7 +2207,9 @@ impl<T: Trait> Module<T> {
         <ExtensionDetails<T>>::try_mutate((ticker, &extension_id), |details| {
             ensure!(
                 details.is_archive != archive,
-                Self::archive_error_selector(archive)
+                archive
+                    .then_some(Error::<T>::AlreadyArchived)
+                    .unwrap_or(Error::<T>::AlreadyUnArchived)
             );
             details.is_archive = archive;
 
