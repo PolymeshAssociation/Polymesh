@@ -42,10 +42,12 @@ pub trait AssetSubTrait<Balance> {
     /// * `auth_id` Authorization id of the authorization created by current token owner
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
 
-    /// Update balance of given IdentityId under the scopeId.
+    /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
+    /// to any previous valid `old_scope_ids`.
     ///
     /// # Arguments
     /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
+    /// * `old_scope_ids` - An iterator over previous valid `ScopeId`s.
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
     fn update_balance_of_scope_id(

@@ -800,18 +800,13 @@ decl_module! {
 
             // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
             // otherwise throw and error.
-            match &claim {
-                Claim::InvestorUniqueness(..) => {
-                    Self::base_add_investor_uniqueness_claim(
-                        target,
-                        claim,
-                        issuer,
-                        proof,
-                        expiry,
-                    )
-                },
-                _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
-            }
+            Self::base_add_investor_uniqueness_claim(
+                target,
+                claim,
+                issuer,
+                proof,
+                expiry,
+            )
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
@@ -1651,47 +1646,48 @@ impl<T: Trait> Module<T> {
         proof: InvestorZKProofData,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
+        let (scope, scope_id, cdd_id) =
+            if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
+                (scope, scope_id, cdd_id)
+            } else {
+                return Err(Error::<T>::ClaimVariantNotAllowed.into());
+            };
         // Only owner of the identity can add that confidential claim.
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
-
-        if let Claim::InvestorUniqueness(.., cdd_id) = &claim {
-            // Verify the owner of that CDD_ID.
-            ensure!(
-                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-                Error::<T>::ConfidentialScopeClaimNotAllowed
-            );
-        }
+        // Verify the owner of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
         // Verify the confidential claim.
         ensure!(
             ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Claim::InvestorUniqueness(scope, scope_id, _cdd_id) = &claim {
-            if let Scope::Ticker(ticker) = &scope {
-                // If `target` already has an InvestorUniqueness claim and clean up the old scope_id data.
-                let old_scope_ids = Self::fetch_base_claims(target, ClaimType::InvestorUniqueness)
-                    .filter_map(move |id_claim| {
-                        if let Claim::InvestorUniqueness(old_scope, old_scope_id, _old_cdd_id) =
-                            &id_claim.claim
-                        {
-                            if old_scope == scope {
-                                return Some(*old_scope_id);
-                            }
+        if let Scope::Ticker(ticker) = &scope {
+            // If `target` already has different InvestorUniqueness claims, clean up the old ScopeId data.
+            let old_scope_ids = Self::fetch_base_claims(target, ClaimType::InvestorUniqueness)
+                .filter_map(move |id_claim| {
+                    if let Claim::InvestorUniqueness(old_scope, old_scope_id, _old_cdd_id) =
+                        &id_claim.claim
+                    {
+                        if old_scope == scope && scope_id != old_scope_id {
+                            return Some(*old_scope_id);
                         }
-                        None
-                    });
-                // Update the balance of the IdentityId under the ScopeId provided in claim data.
-                T::AssetSubTraitTarget::update_balance_of_scope_id(
-                    *scope_id,
-                    old_scope_ids,
-                    target,
-                    *ticker,
-                );
-            }
+                    }
+                    None
+                });
+            // Update the balance of the IdentityId under the ScopeId provided in claim data.
+            T::AssetSubTraitTarget::update_balance_of_scope_id(
+                *scope_id,
+                old_scope_ids,
+                target,
+                *ticker,
+            );
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);
