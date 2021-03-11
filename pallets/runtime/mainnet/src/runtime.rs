@@ -55,10 +55,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 0,
+    spec_version: 1,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 0,
+    transaction_version: 1,
 };
 
 parameter_types! {
@@ -168,7 +168,7 @@ parameter_types! {
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
