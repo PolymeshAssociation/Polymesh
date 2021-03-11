@@ -7,7 +7,6 @@ use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
     constants::{currency::POLY, TREASURY_MODULE_ID},
     protocol_fee::ProtocolOp,
-    GC_DID,
 };
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
@@ -469,17 +468,7 @@ macro_rules! pips {
     };
 }
 
-macro_rules! cdd_membership {
-    ($($member:expr),*) => {
-        pallet_group::GenesisConfig {
-            active_members_limit: u32::MAX,
-            active_members: vec![$(IdentityId::from($member)),*, GC_DID],
-            phantom: Default::default(),
-        }
-    };
-}
-
-macro_rules! committee_membership {
+macro_rules! group_membership {
     ($($member:expr),*) => {
         pallet_group::GenesisConfig {
             active_members_limit: 20,
@@ -594,14 +583,14 @@ pub mod general {
                 },
             }),
             // Governance Council:
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
+            pallet_group_Instance1: Some(group_membership!(3, 4, 5, 6)),
             pallet_committee_Instance1: Some(committee!(6)),
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
+            pallet_group_Instance2: Some(group_membership!(1, 2, 6)), // sp1, sp2, first authority
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)),
+            pallet_group_Instance3: Some(group_membership!(3)),
             pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(4)),
+            pallet_group_Instance4: Some(group_membership!(4)),
             pallet_committee_Instance4: Some(committee!(4)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
@@ -740,15 +729,15 @@ pub mod alcyone_testnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+            pallet_group_Instance1: Some(group_membership!(3, 4, 5)), //admin, gc1, gc2
             pallet_committee_Instance1: Some(committee!(3, (2, 3))),
             // CDD providers
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            pallet_group_Instance2: Some(group_membership!(1, 2, 3)), // sp1, sp2, admin
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)), //admin
+            pallet_group_Instance3: Some(group_membership!(3)), //admin
             pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(3)), //admin
+            pallet_group_Instance4: Some(group_membership!(3)), //admin
             pallet_committee_Instance4: Some(committee!(3)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
@@ -891,15 +880,15 @@ pub mod polymesh_mainnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(committee_membership!(1, 2, 3)), // 3 GC members
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))), // RC = 1, 2/3 votes required
             // CDD providers
             pallet_group_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
+            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
             pallet_committee_Instance3: Some(committee!(3)), // RC = 3, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(1)), // One GC member
+            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
             pallet_committee_Instance4: Some(committee!(1)),        // RC = 1, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
