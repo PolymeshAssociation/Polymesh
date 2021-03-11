@@ -796,44 +796,35 @@ fn genesis_txs() {
     let alice = AccountKeyring::Alice.public();
     let bob = AccountKeyring::Bob.public();
     let charlie = AccountKeyring::Charlie.public();
-    let one_amount = 111;
-    let two_amount = 222;
     let complete_txs = vec![
         BridgeTx {
             nonce: 1,
             recipient: alice,
-            amount: one_amount,
+            amount: 111,
             tx_hash: Default::default(),
         },
         BridgeTx {
             nonce: 2,
             recipient: bob,
-            amount: two_amount,
+            amount: 222,
             tx_hash: Default::default(),
         },
     ];
-    let genesis = BridgeGenesis {
-        complete_txs: complete_txs.clone(),
-        ..Default::default()
-    };
+
     let regular_users = vec![alice, bob];
     ExtBuilder::default()
         .cdd_providers(vec![charlie])
-        .regular_users(regular_users.clone())
-        .adjust(Box::new(move |storage| {
-            genesis.assimilate_storage(storage).unwrap();
-        }))
+        .add_regular_users_from_accounts(&regular_users)
+        .set_bridge_complete_tx(complete_txs.clone())
         .build()
-        .execute_with(|| {
-            check_genesis_txs(regular_users.into_iter().zip(complete_txs.into_iter()))
-        });
+        .execute_with(|| check_genesis_txs(complete_txs.into_iter()));
 }
 
-fn check_genesis_txs(txs: impl Iterator<Item = (AccountId, BridgeTx<AccountId, u128>)>) {
+fn check_genesis_txs(txs: impl Iterator<Item = BridgeTx<AccountId, u128>>) {
     let mut txs: Vec<_> = txs
-        .map(|(acc, tx)| {
+        .map(|tx| {
             (
-                acc,
+                tx.recipient,
                 tx.nonce,
                 BridgeTxDetail {
                     amount: tx.amount,
