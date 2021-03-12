@@ -52,7 +52,7 @@ impl IsNetwork for dyn ChainSpec {
         let name = self.name();
         if name.starts_with("Polymesh Mainnet") {
             Network::Mainnet
-        } else if name.starts_with("Polymesh Alcyone") {
+        } else if name.starts_with("Polymesh Alcyone") || name.starts_with("Polymesh Buffron") {
             Network::Testnet
         } else {
             Network::Other
