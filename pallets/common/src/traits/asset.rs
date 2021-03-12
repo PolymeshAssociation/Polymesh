@@ -16,8 +16,7 @@
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName},
-    calendar::CheckpointId,
-    AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+    AssetIdentifier, IdentityId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
@@ -59,21 +58,9 @@ pub trait AssetSubTrait<Balance> {
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
-    fn total_supply(ticker: &Ticker) -> Balance;
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-    /// Check if an Identity is the owner of a ticker.
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    /// Get an Identity's balance of a token at a particular checkpoint.
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
-    /// Transfer an asset from one portfolio to another.
-    fn base_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
-    ) -> DispatchResult;
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,
@@ -92,6 +79,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     ) -> DispatchResult;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
+
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);

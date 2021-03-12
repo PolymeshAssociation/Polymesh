@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{cdd_id::InvestorUid, EventOnly};
+use crate::{cdd_id::InvestorUid, EventOnly, SecondaryKey};
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -31,14 +31,22 @@ const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
 
 /// The record to initialize an identity in the chain spec.
-/// (primary key, issuer DIDs, own DID, investor UID, CDD claim expiry)
-pub type GenesisIdentityRecord<AccountId> = (
-    AccountId,
-    Vec<IdentityId>,
-    IdentityId,
-    InvestorUid,
-    Option<u64>,
-);
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
+    /// Identity primary key.
+    pub primary_key: AccountId,
+    /// Secondary keys with permissions.
+    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+    /// issuers DIDs.
+    pub issuers: Vec<IdentityId>,
+    /// own DID.
+    pub did: IdentityId,
+    /// Investor UID.
+    pub investor: InvestorUid,
+    /// CDD claim expiry
+    pub cdd_claim_expiry: Option<u64>,
+}
 
 /// Polymesh Identifier ID.
 /// It is stored internally as an `u128` but it can be load from string with the following format:

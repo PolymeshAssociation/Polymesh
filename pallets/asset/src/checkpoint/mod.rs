@@ -65,10 +65,9 @@ use polymesh_primitives_derive::Migrate;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-use crate as pallet_asset;
-use pallet_asset::Trait;
+use crate::Trait;
 
-type Asset<T> = pallet_asset::Module<T>;
+type Asset<T> = crate::Module<T>;
 
 /// ID of a `StoredSchedule`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

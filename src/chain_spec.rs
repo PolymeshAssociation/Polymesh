@@ -9,8 +9,8 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, Moment, PosRatio, Signatory, Signature, SmartExtensionType,
-    Ticker,
+    identity_id::GenesisIdentityRecord, AccountId, IdentityId, InvestorUid, Moment, PosRatio,
+    Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -167,15 +167,6 @@ macro_rules! checkpoint {
     }};
 }
 
-// (primary_account_id, service provider did, target did, expiry time of CDD claim i.e 10 days is ms)
-type Identity = (
-    AccountId,
-    Vec<IdentityId>,
-    IdentityId,
-    InvestorUid,
-    Option<Moment>,
-);
-
 type InitialAuth = (
     AccountId,
     AccountId,
@@ -190,34 +181,34 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
     core::str::from_utf8(bytes).unwrap()
 }
 
-fn cdd_provider(n: u8) -> Identity {
-    (
-        seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
-        vec![IdentityId::from(n as u128)],
-        IdentityId::from(n as u128),
-        InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
-        None,
-    )
+fn cdd_provider(n: u8) -> GenesisIdentityRecord<AccountId> {
+    GenesisIdentityRecord {
+        primary_key: seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
+        issuers: vec![IdentityId::from(n as u128)],
+        did: IdentityId::from(n as u128),
+        investor: InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
+        ..Default::default()
+    }
 }
 
-fn gc_mem(n: u8) -> Identity {
-    (
-        seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
-        vec![IdentityId::from(1 as u128)],
-        IdentityId::from(2 + n as u128),
-        InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
-        None,
-    )
+fn gc_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
+    GenesisIdentityRecord {
+        primary_key: seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
+        issuers: vec![IdentityId::from(1 as u128)],
+        did: IdentityId::from(2 + n as u128),
+        investor: InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
+        ..Default::default()
+    }
 }
 
-fn polymath_mem(n: u8) -> Identity {
-    (
-        seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        vec![IdentityId::from(1 as u128)],
-        IdentityId::from(2 + n as u128),
-        InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
-        None,
-    )
+fn polymath_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
+    GenesisIdentityRecord {
+        primary_key: seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
+        issuers: vec![IdentityId::from(1 as u128)],
+        did: IdentityId::from(2 + n as u128),
+        investor: InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
+        ..Default::default()
+    }
 }
 
 const STASH: u128 = 5_000_000 * POLY;
@@ -249,7 +240,7 @@ fn generate_bridge_locks(count: u32) -> Vec<(u32, H256)> {
 
 fn identities(
     initial_authorities: &[InitialAuth],
-    initial_identities: &[Identity],
+    initial_identities: &[GenesisIdentityRecord<AccountId>],
 ) -> (
     Vec<(
         IdentityId,
@@ -258,7 +249,7 @@ fn identities(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<Identity>,
+    Vec<GenesisIdentityRecord<AccountId>>,
     Vec<(AccountId, IdentityId)>,
 ) {
     let num_initial_identities = initial_identities.len() as u128;
@@ -268,14 +259,16 @@ fn identities(
         .map(|x| {
             identity_counter += 1;
             let did = IdentityId::from(identity_counter);
-            let investor_uid = InvestorUid::from(did.as_ref());
-            (
-                x.1.clone(),
-                vec![IdentityId::from(1)],
+            let investor = InvestorUid::from(did.as_ref());
+            let issuers = vec![IdentityId::from(1)];
+
+            GenesisIdentityRecord {
+                primary_key: x.1.clone(),
+                issuers,
                 did,
-                investor_uid,
-                None,
-            )
+                investor,
+                ..Default::default()
+            }
         })
         .collect::<Vec<_>>();
 
@@ -298,9 +291,9 @@ fn identities(
         .iter()
         .cloned()
         .zip(initial_authorities.iter().cloned())
-        .map(|((_, _, did, ..), x)| {
+        .map(|(gen_id, x)| {
             (
-                did,
+                gen_id.did,
                 x.0.clone(),
                 x.1.clone(),
                 STASH,

@@ -215,15 +215,15 @@ decl_storage! {
             <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
-            for &(ref primary_account_id, ref issuers, did, investor_uid, expiry) in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did.clone(), investor_uid));
+            for gen_id in &config.identities {
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(gen_id.did, gen_id.investor));
                 // Direct storage change for registering the DID and providing the claim
-                <Module<T>>::ensure_no_id_record(did).unwrap();
+                <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
-                <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
-                for issuer in issuers {
-                    <Module<T>>::base_add_claim(did, cdd_claim.clone(), issuer.clone(), expiry);
+                let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
+                <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
+                for issuer in &gen_id.issuers {
+                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
                 }
             }
 
@@ -1906,15 +1906,20 @@ impl<T: Trait> Module<T> {
             id
         );
 
-        Self::unsafe_register_id(acc, id);
+        Self::do_register_id(acc, id, vec![]);
     }
 
     /// Registers `primary_key` as `id` identity.
     #[allow(dead_code)]
-    fn unsafe_register_id(primary_key: T::AccountId, id: IdentityId) {
+    fn do_register_id(
+        primary_key: T::AccountId,
+        id: IdentityId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) {
         <Module<T>>::link_account_key_to_did(&primary_key, id);
         let record = DidRecord {
             primary_key: primary_key.clone(),
+            secondary_keys,
             ..Default::default()
         };
         <DidRecords<T>>::insert(&id, record);
