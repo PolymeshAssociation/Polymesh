@@ -806,9 +806,9 @@ pub mod alcyone_testnet {
     }
 }
 
-pub mod polymesh_mainnet {
+pub mod polymesh_itn {
     use super::*;
-    use polymesh_runtime_mainnet::{self as rt, constants::time};
+    use polymesh_runtime_itn::{self as rt, constants::time};
 
     pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
@@ -905,20 +905,21 @@ pub mod polymesh_mainnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
-            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet",
-            "mainnet",
+            "Polymesh ITN",
+            "polymesh_itn",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Mainnet bootstrap telemetry url is valid; qed"),
+                    .expect("ITN bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/mainnet/1"),
+            Some(&*"/polymath/itn"),
             Some(polymath_props()),
             Default::default(),
         )
@@ -941,8 +942,8 @@ pub mod polymesh_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet Develop",
-            "dev_mainnet",
+            "Polymesh ITN Develop",
+            "dev_itn",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
@@ -973,8 +974,8 @@ pub mod polymesh_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet Local",
-            "local_mainnet",
+            "Polymesh ITN Local",
+            "local_itn",
             ChainType::Local,
             local_genesis,
             boot_nodes,

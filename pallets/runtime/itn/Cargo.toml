@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-mainnet"
+name = "polymesh-runtime-itn"
 version = "0.1.0"
 authors = ["Polymath Inc."]
 edition = "2018"

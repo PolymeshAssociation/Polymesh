@@ -1,11 +1,11 @@
 {
-  "name": "Polymesh Mainnet",
-  "id": "polymesh-mainnet",
+  "name": "Polymesh ITN",
+  "id": "polymesh-itn",
   "chainType": "Live",
   "bootNodes": [
-    "/dns4/mainnet-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE",
-    "/dns4/mainnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe",
-    "/dns4/mainnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq"
+    "/dns4/itn-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE",
+    "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe",
+    "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq"
   ],
   "telemetryEndpoints": [
     [
@@ -13,7 +13,7 @@
       0
     ]
   ],
-  "protocolId": "/polymesh/mainnet/1",
+  "protocolId": "/polymesh/itn/1",
   "properties": {
     "ss58Format": 12,
     "tokenDecimals": 6,

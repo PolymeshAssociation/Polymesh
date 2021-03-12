@@ -6693,7 +6693,7 @@ dependencies = [
  "polymesh-primitives 2.0.0",
  "polymesh-runtime-common 1.0.0",
  "polymesh-runtime-develop",
- "polymesh-runtime-mainnet",
+ "polymesh-runtime-itn",
  "polymesh-runtime-testnet 0.1.0",
  "rustc-hex",
  "sc-authority-discovery",
@@ -7090,7 +7090,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-runtime-mainnet"
+name = "polymesh-runtime-itn"
 version = "0.1.0"
 dependencies = [
  "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",

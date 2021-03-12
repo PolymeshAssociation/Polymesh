@@ -806,7 +806,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         let ensure_caller = || -> DispatchResult {
-            //TODO: Review admin permissions to handle bridge txs before mainnet
+            //TODO: Review admin permissions to handle bridge txs before itn
             ensure!(
                 sender == &Self::controller() || sender == &Self::admin(),
                 Error::<T>::BadCaller
