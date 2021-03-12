@@ -2,9 +2,9 @@ use super::{
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
-        provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
-        GovernanceCommittee, TestStorage, User,
+        add_secondary_key, create_cdd_id, create_cdd_id_and_investor_uid, get_identity_id,
+        get_last_auth_id, provide_scope_claim, register_keyring_account,
+        register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -21,8 +21,8 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
-    Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid,
+    Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -1569,13 +1569,32 @@ fn add_investor_uniqueness_claim() {
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let cdd_provider = AccountKeyring::Charlie.public();
-    let ticker = Ticker::try_from(b"AAA").unwrap();
-    assert_ok!(Identity::gc_add_cdd_claim(
-        gc_vmo(),
-        alice.did,
-        Some(100u64)
-    ));
-    let scope_id = provide_scope_claim(alice.did, ticker, alice.uid(), cdd_provider);
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, Claim::default_cdd_id());
-    Identity::add_investor_uniqueness_claim(alice.origin(), alice.did, claim, proof, None)
+    let ticker = Ticker::try_from(&b"ABC"[..]).unwrap();
+    assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), alice.did, None));
+    let scope = Scope::Ticker(ticker);
+    let add_iu_claim = |investor_uid| {
+        let scope_id = provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider);
+        let (cdd_id, proof) = create_cdd_id(alice.did, ticker, investor_uid);
+        let claim = Claim::InvestorUniqueness(scope.clone(), scope_id, cdd_id);
+        assert_ok!(Identity::add_investor_uniqueness_claim(
+            alice.origin(),
+            alice.did,
+            claim,
+            proof,
+            None
+        ));
+        scope_id
+    };
+    let scope_id = add_iu_claim(alice.uid());
+    let contains_key = |scope_id, did, t| {
+        assert_eq!(
+            t,
+            <pallet_asset::BalanceOfAtScope<TestStorage>>::contains_key(scope_id, did)
+        );
+    };
+    contains_key(scope_id, alice.did, true);
+    let new_uid = InvestorUid::from("ALICE-2");
+    let new_scope_id = add_iu_claim(new_uid);
+    contains_key(scope_id, alice.did, false);
+    contains_key(new_scope_id, alice.did, true);
 }
