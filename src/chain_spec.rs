@@ -10,7 +10,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, IdentityId, InvestorUid, Moment, PosRatio,
-    Signatory, Signature, SmartExtensionType, Ticker,
+    SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -311,7 +311,7 @@ fn genesis_processed_data(
     treasury_bridge_lock: (u32, H256),
     key_bridge_locks: Vec<(u32, H256)>,
 ) -> (
-    Vec<Identity>,
+    Vec<GenesisIdentityRecord<AccountId>>,
     Vec<(
         IdentityId,
         AccountId,
@@ -319,7 +319,6 @@ fn genesis_processed_data(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<(AccountId, IdentityId)>,
     Vec<BridgeTx<AccountId, u128>>,
 ) {
     // Identities and their roles
@@ -330,32 +329,22 @@ fn genesis_processed_data(
     // 5 = Bridge + Sudo
     let mut identities = Vec::with_capacity(5);
     let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
-    // Creating Identities 1-4
+
+    let mut create_id = |nonce: u8, primary_key: AccountId| {
+        keys.push(primary_key.clone());
+        identities.push(GenesisIdentityRecord::new(nonce, primary_key));
+    };
+
+    // Creating Identities 1-4 (GC + Operators)
     for i in 1..5u8 {
-        let key = seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, i));
-        keys.push(key.clone());
-        identities.push((
-            key,                         // Will be replaced by real keys in real genesis
-            vec![],                      // No CDD claim will be issued
-            IdentityId::from(i as u128), // Identity = 0xi000...0000
-            InvestorUid::from([i; 16]),  // Irrelevant since no CDD claim is issued
-            None,                        // Irrelevant since no CDD claim is issued
-        ));
+        create_id(i, seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, i)));
     }
-    // Identity for sudo + bridge admin
-    keys.push(root_key.clone());
-    identities.push((
-        root_key.clone(),             // Will be replaced by real keys in real genesis
-        vec![],                       // No CDD claim will be issued
-        IdentityId::from(5u128),      // Identity = 0xi000...0000
-        InvestorUid::from([5u8; 16]), // Irrelevant since no CDD claim is issued
-        None,                         // Irrelevant since no CDD claim is issued
-    ));
+
+    // Creating identity for sudo + bridge admin
+    create_id(5u8, root_key);
 
     // 3 operators, all self staking at genesis
     let mut stakers = Vec::with_capacity(initial_authorities.len());
-    // 3 operators * 2 keys (stash + controller)
-    let mut secondary_keys = Vec::with_capacity(2 * initial_authorities.len());
     for (stash, controller, ..) in initial_authorities {
         stakers.push((
             IdentityId::from(4), // All operators have the same Identity
@@ -364,10 +353,15 @@ fn genesis_processed_data(
             BOOTSTRAP_STASH / 2,
             pallet_staking::StakerStatus::Validator,
         ));
-        secondary_keys.push((stash.clone(), IdentityId::from(4)));
-        secondary_keys.push((controller.clone(), IdentityId::from(4)));
-        keys.push(stash.clone());
-        keys.push(controller.clone());
+        // Make stash and controller 4th Identity's secondary keys.
+        let mut push_key = |key: &AccountId| {
+            identities[3]
+                .secondary_keys
+                .push(SecondaryKey::from_account_id(key.clone()));
+            keys.push(key.clone());
+        };
+        push_key(stash);
+        push_key(controller);
     }
 
     // Accumulate bridge transactions
@@ -388,7 +382,7 @@ fn genesis_processed_data(
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.1,
     });
-    (identities, stakers, secondary_keys, complete_txs)
+    (identities, stakers, complete_txs)
 }
 
 fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId, u128)> {
@@ -827,7 +821,7 @@ pub mod polymesh_mainnet {
         treasury_bridge_lock: (u32, H256),
         key_bridge_locks: Vec<(u32, H256)>,
     ) -> rt::runtime::GenesisConfig {
-        let (identities, stakers, secondary_keys, complete_txs) = genesis_processed_data(
+        let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
@@ -840,7 +834,6 @@ pub mod polymesh_mainnet {
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
                 identities,
-                secondary_keys,
                 ..Default::default()
             }),
             pallet_balances: Some(Default::default()),
@@ -874,15 +867,15 @@ pub mod polymesh_mainnet {
             }),
             // Governing council
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))), // RC = 1, 2/3 votes required
+            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
             pallet_group_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
-            pallet_committee_Instance3: Some(committee!(3)), // RC = 3, 1/2 votes required
+            pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
             // Upgrade Committee:
             pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),        // RC = 1, 1/2 votes required
+            pallet_committee_Instance4: Some(committee!(1)),    // RC = 1, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
