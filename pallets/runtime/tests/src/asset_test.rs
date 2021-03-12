@@ -173,17 +173,17 @@ const FUNDING_ROUND: Option<FundingRoundName> = None;
 const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 
 /// Creates a simple asset, owned by `owner`.
-fn simple_asset(owner: Public, is_divisible: bool) -> (SecurityToken<u128>, Ticker) {
+pub fn simple_asset(owner: Public, divisible: bool) -> (SecurityToken<u128>, Ticker) {
     let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
     let asset_type = AssetType::default();
 
-    let asset_name: AssetName = ticker.as_ref().into();
+    let name: AssetName = ticker.as_ref().into();
     Asset::create_asset(
         Origin::signed(owner),
-        asset_name.clone(),
+        name.clone(),
         ticker,
         TOTAL_SUPPLY,
-        is_divisible,
+        divisible,
         asset_type.clone(),
         ASSET_IDENTIFIERS,
         FUNDING_ROUND,
@@ -191,11 +191,11 @@ fn simple_asset(owner: Public, is_divisible: bool) -> (SecurityToken<u128>, Tick
     .expect("Asset cannot be created");
 
     let token = SecurityToken {
-        name: asset_name,
+        name,
         owner_did: Identity::key_to_identity_dids(owner),
         total_supply: TOTAL_SUPPLY,
-        divisible: is_divisible,
-        asset_type: asset_type,
+        divisible,
+        asset_type,
         primary_issuance_agent: None,
     };
 
@@ -1905,10 +1905,10 @@ fn check_unique_investor_count() {
             // 1c). Provide the valid scope claim.
             // Create Investor unique Id, In an ideal scenario it will be generated from the PUIS system.
             let bob_uid = generate_uid("BOB_ENTITY".to_string());
-            provide_scope_claim(bob_1.did, ticker, bob_uid, cdd_provider);
+            provide_scope_claim(bob_1.did, ticker, bob_uid, cdd_provider, None).0;
 
             let alice_uid = generate_uid("ALICE_ENTITY".to_string());
-            provide_scope_claim(alice.did, ticker, alice_uid, cdd_provider);
+            provide_scope_claim(alice.did, ticker, alice_uid, cdd_provider, None).0;
             let alice_scope_id = Asset::scope_id_of(&ticker, &alice.did);
 
             // 1d). Validate the storage changes.
@@ -1947,7 +1947,7 @@ fn check_unique_investor_count() {
             assert_eq!(Statistics::investor_count(&ticker), 2);
 
             // Provide scope claim to bob_2.did
-            provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider);
+            provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider, None).0;
 
             // 1f). successfully transfer funds.
             assert_ok!(transfer(ticker, alice, bob_2, 1000));

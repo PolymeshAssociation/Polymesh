@@ -1,10 +1,11 @@
 use super::{
+    asset_test::simple_asset,
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, create_cdd_id, create_cdd_id_and_investor_uid, get_identity_id,
-        get_last_auth_id, provide_scope_claim, register_keyring_account,
-        register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
+        add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
+        provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
+        GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -32,8 +33,8 @@ use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
 
 type AuthorizationsGiven = identity::AuthorizationsGiven<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-
 type Identity = identity::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
@@ -1569,32 +1570,57 @@ fn add_investor_uniqueness_claim() {
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let cdd_provider = AccountKeyring::Charlie.public();
-    let ticker = Ticker::try_from(&b"ABC"[..]).unwrap();
-    assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), alice.did, None));
-    let scope = Scope::Ticker(ticker);
-    let add_iu_claim = |investor_uid| {
-        let scope_id = provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider);
-        let (cdd_id, proof) = create_cdd_id(alice.did, ticker, investor_uid);
-        let claim = Claim::InvestorUniqueness(scope.clone(), scope_id, cdd_id);
-        assert_ok!(Identity::add_investor_uniqueness_claim(
-            alice.origin(),
-            alice.did,
-            claim,
-            proof,
-            None
-        ));
-        scope_id
-    };
-    let scope_id = add_iu_claim(alice.uid());
-    let contains_key = |scope_id, did, t| {
+    let ticker = simple_asset(alice.acc(), true).1;
+    let initial_balance = Asset::balance_of(ticker, alice.did);
+    let add_iu_claim =
+        |investor_uid| provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider, Some(1));
+    let no_balance_at_scope = |scope_id| {
         assert_eq!(
-            t,
-            <pallet_asset::BalanceOfAtScope<TestStorage>>::contains_key(scope_id, did)
+            false,
+            <pallet_asset::BalanceOfAtScope<TestStorage>>::contains_key(scope_id, alice.did)
         );
     };
-    contains_key(scope_id, alice.did, true);
+    let balance_at_scope = |scope_id, balance| {
+        assert_eq!(
+            balance,
+            <pallet_asset::BalanceOfAtScope<TestStorage>>::get(scope_id, alice.did)
+        );
+    };
+    let scope_id_of = |scope_id| {
+        assert_eq!(scope_id, <pallet_asset::ScopeIdOf>::get(ticker, alice.did));
+    };
+    let aggregate_balance = |scope_id, balance| {
+        assert_eq!(
+            balance,
+            <pallet_asset::AggregateBalance<TestStorage>>::get(ticker, scope_id)
+        );
+    };
+
+    // Get some tokens for Alice in case the default initial balance changes to 0 in simple_token.
+    let amount = 10_000;
+    assert_ok!(Asset::issue(alice.origin(), ticker, amount));
+    let asset_balance = initial_balance + amount;
+
+    // Make a claim with a scope ID.
+    let (scope_id, cdd_id) = add_iu_claim(alice.uid());
+    balance_at_scope(scope_id, asset_balance);
+    scope_id_of(scope_id);
+    aggregate_balance(scope_id, asset_balance);
+
+    // Revoke the first CDD claim in order to issue another one.
+    assert_ok!(Identity::revoke_claim(
+        Origin::signed(cdd_provider),
+        alice.did,
+        Claim::CustomerDueDiligence(cdd_id)
+    ));
+
+    // Make another claim with a different scope ID.
     let new_uid = InvestorUid::from("ALICE-2");
-    let new_scope_id = add_iu_claim(new_uid);
-    contains_key(scope_id, alice.did, false);
-    contains_key(new_scope_id, alice.did, true);
+    // Adding a claim is possible thanks to the expiration of the previous CDD claim.
+    let new_scope_id = add_iu_claim(new_uid).0;
+    no_balance_at_scope(scope_id);
+    balance_at_scope(new_scope_id, asset_balance);
+    scope_id_of(new_scope_id);
+    aggregate_balance(scope_id, 0);
+    aggregate_balance(new_scope_id, asset_balance);
 }
