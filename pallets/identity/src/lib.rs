@@ -1917,6 +1917,12 @@ impl<T: Trait> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) {
         <Module<T>>::link_account_key_to_did(&primary_key, id);
+        for sk in &secondary_keys {
+            if let Signatory::Account(key) = &sk.signer {
+                Self::link_account_key_to_did(key, id);
+            }
+        }
+
         let record = DidRecord {
             primary_key: primary_key.clone(),
             secondary_keys,
