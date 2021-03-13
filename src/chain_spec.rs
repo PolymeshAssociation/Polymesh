@@ -229,7 +229,7 @@ fn bridge_lock(nonce: u32, hash: &'static str) -> (u32, H256) {
 
 fn generate_bridge_locks(count: u32) -> Vec<(u32, H256)> {
     const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
-    (0...count).map(|x| bridge_lock(x + 100, HASH)).collect()
+    (0..count).map(|x| bridge_lock(x + 100, HASH)).collect()
 }
 
 fn identities(
