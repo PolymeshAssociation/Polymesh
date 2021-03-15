@@ -124,7 +124,7 @@ where
         Moment,
     >,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
-    C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
+    C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
     C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,

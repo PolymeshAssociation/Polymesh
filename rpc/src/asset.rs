@@ -13,8 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+pub use node_rpc_runtime_api::asset::{
+    AssetApi as AssetRuntimeApi, BalanceAtResult, CanTransferResult,
+};
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, Ticker};
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
@@ -30,7 +32,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 #[rpc]
-pub trait AssetApi<BlockHash, AccountId> {
+pub trait AssetApi<BlockHash, AccountId, Balance> {
     #[rpc(name = "asset_canTransfer")]
     fn can_transfer(
         &self,
@@ -55,6 +57,15 @@ pub trait AssetApi<BlockHash, AccountId> {
         value: number::NumberOrHex,
         at: Option<BlockHash>,
     ) -> Result<GranularCanTransferResult>;
+
+    #[rpc(name = "asset_balanceAt")]
+    fn balance_at(
+        &self,
+        did: IdentityId,
+        ticker: Ticker,
+        checkpoint: CheckpointId,
+        at: Option<BlockHash>,
+    ) -> Result<BalanceAtResult<Balance>>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -73,14 +84,16 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-impl<C, Block, AccountId> AssetApi<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
+impl<C, Block, AccountId, Balance> AssetApi<<Block as BlockT>::Hash, AccountId, Balance>
+    for Asset<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: AssetRuntimeApi<Block, AccountId>,
+    C::Api: AssetRuntimeApi<Block, AccountId, Balance>,
     AccountId: Codec,
+    Balance: Codec + From<u64>,
 {
     fn can_transfer(
         &self,
@@ -145,6 +158,22 @@ where
                 value.into()
             ),
             "Unable to check transfer"
+        )
+    }
+
+    fn balance_at(
+        &self,
+        did: IdentityId,
+        ticker: Ticker,
+        checkpoint: CheckpointId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<BalanceAtResult<Balance>> {
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .balance_at(at, did, ticker, checkpoint),
+            "Cannot get balance at checkpoint"
         )
     }
 }

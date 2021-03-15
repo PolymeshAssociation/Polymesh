@@ -484,7 +484,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
+        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -818,7 +818,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
+            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId, Balance> for Runtime {
                 #[inline]
                 fn can_transfer(
                     _sender: polymesh_primitives::AccountId,
@@ -844,6 +844,14 @@ macro_rules! runtime_apis {
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
                     Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                }
+
+                #[inline]
+                fn balance_at(
+                    did: IdentityId, ticker: Ticker, checkpoint: CheckpointId
+                ) -> node_rpc_runtime_api::asset::BalanceAtResult<Balance>
+                {
+                    Ok(Asset::get_balance_at(ticker, did, checkpoint))
                 }
             }
 
