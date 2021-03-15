@@ -20,9 +20,10 @@ export async function addDocuments(
 ): Promise<boolean> {
 	try {
 		const transaction = api.tx.asset.addDocuments(docs, ticker);
-		await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signer, transaction);
 		return true;
 	} catch (err) {
+		console.log(`Error: ${err.message}`);
 		return false;
 	}
 }

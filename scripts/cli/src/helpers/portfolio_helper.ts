@@ -1,6 +1,6 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { IdentityId, PortfolioId, PortfolioNumber, Ticker, MovePortfolioItem } from "../types";
+import type { IdentityId, PortfolioId, Ticker, MovePortfolioItem, PortfolioNumber } from "../types";
 import { sendTx, keyToIdentityIds } from "../util/init";
 
 /**
@@ -10,7 +10,9 @@ import { sendTx, keyToIdentityIds } from "../util/init";
  * @return {Promise<number>}
  */
 export async function nextPortfolioNumber(api: ApiPromise, did: IdentityId): Promise<number> {
-	return ((await api.query.portfolio.nextPortfolioNumber(did)) as unknown) as number;
+	return ((await api.query.portfolio
+		.nextPortfolioNumber(did)
+		.catch((err) => console.log(`Error: ${err.message}`))) as unknown) as number;
 }
 
 /**
@@ -26,6 +28,7 @@ export async function createPortfolio(api: ApiPromise, name: string, signer: Key
 		await sendTx(signer, transaction);
 		return true;
 	} catch (err) {
+		console.log(`Error: ${err.message}`)
 		return false;
 	}
 }
@@ -70,6 +73,7 @@ export async function movePortfolioFunds(
 		await sendTx(secondary_key, transaction);
 		return true;
 	} catch (err) {
+		console.log(`Error: ${err.message}`);
 		return false;
 	}
 }

@@ -13,7 +13,7 @@ import { sendTx } from "../util/init";
  */
 export async function setDefaultEnactmentPeriod(api: ApiPromise, duration: number, signer: KeyringPair): Promise<void> {
 	const transaction = api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(duration));
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -22,7 +22,9 @@ export async function setDefaultEnactmentPeriod(api: ApiPromise, duration: numbe
  * @return {Promise<number>}
  */
 export async function pipIdSequence(api: ApiPromise): Promise<number> {
-	return ((await api.query.pips.pipIdSequence()) as unknown) as number;
+	return ((await api.query.pips
+		.pipIdSequence()
+		.catch((err) => console.log(`Error: ${err.message}`))) as unknown) as number;
 }
 
 /**
@@ -57,7 +59,7 @@ export async function propose(
 	description?: string
 ): Promise<void> {
 	const transaction = api.tx.pips.propose(proposal, deposit, url, description);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -68,7 +70,7 @@ export async function propose(
  */
 export async function snapshot(api: ApiPromise, signer: KeyringPair): Promise<void> {
 	const transaction = api.tx.pips.snapshot();
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -105,7 +107,7 @@ export function rejectProposal(api: ApiPromise, pipId: number): SubmittableExtri
  */
 export async function rescheduleProposal(api: ApiPromise, pipId: number, signer: KeyringPair): Promise<void> {
 	const transaction = api.tx.pips.rescheduleExecution(pipId, null);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -122,6 +124,6 @@ export async function voteResult(
 ): Promise<void> {
 	const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
 	for (let signer of signers) {
-		await sendTx(signer, vote);
+		await sendTx(signer, vote).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }

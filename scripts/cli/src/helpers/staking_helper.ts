@@ -19,5 +19,5 @@ export async function bond(
 	signer: KeyringPair
 ): Promise<void> {
 	const transaction = api.tx.staking.bond(controller.publicKey, value, payee);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }

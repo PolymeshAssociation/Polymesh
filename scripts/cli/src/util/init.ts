@@ -265,7 +265,7 @@ export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"prom
 	let nonceObj = { nonce: nonces.get(signer.address) };	
 	nonces.set(signer.address, nonces.get(signer.address).addn(1));	
 	const [resultErr, result] = await handle(sendTransaction(tx, signer, nonceObj));
-	if (resultErr) throw new Error("Transaction Failed");
+	if (resultErr) throw new Error(`Transaction failed: ${resultErr.message}`);
 	return result ;		
 }
 

@@ -4,7 +4,6 @@ import type { IdentityId, Ticker, AssetCompliance, Scope } from "../types";
 import { sendTx } from "../util/init";
 import { assert } from "chai";
 
-
 const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {
 		condition_type: {
@@ -39,15 +38,15 @@ export async function createClaimCompliance(
 ): Promise<void> {
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-	let senderConditions = senderConditions1(did, {Ticker: ticker});
-	let receiverConditions = receiverConditions1(did, {Ticker: ticker});
+	let senderConditions = senderConditions1(did, { Ticker: ticker });
+	let receiverConditions = receiverConditions1(did, { Ticker: ticker });
 
 	const transaction = api.tx.complianceManager.addComplianceRequirement(
 		ticker,
 		[senderConditions],
 		[receiverConditions]
 	);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -63,7 +62,7 @@ export async function addComplianceRequirement(api: ApiPromise, sender: KeyringP
 	if (assetCompliance.requirements.length == 0) {
 		const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, [], []);
 
-		await sendTx(sender, transaction);
+		await sendTx(sender, transaction).catch((err) => console.log(`Error: ${err.message}`));
 	} else {
 		console.log("Asset already has compliance.");
 	}

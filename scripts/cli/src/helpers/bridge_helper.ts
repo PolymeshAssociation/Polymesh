@@ -20,7 +20,7 @@ export async function bridgeTransfer(api: ApiPromise, signer: KeyringPair, alice
 	};
 
 	const transaction = api.tx.bridge.proposeBridgeTx(bridge_tx);
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -31,7 +31,7 @@ export async function bridgeTransfer(api: ApiPromise, signer: KeyringPair, alice
  */
 export async function freezeTransaction(api: ApiPromise, signer: KeyringPair): Promise<void> {
 	const transaction = api.tx.bridge.freeze();
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
 
 /**
@@ -42,5 +42,5 @@ export async function freezeTransaction(api: ApiPromise, signer: KeyringPair): P
  */
 export async function unfreezeTransaction(api: ApiPromise, signer: KeyringPair): Promise<void> {
 	const transaction = api.tx.bridge.unfreeze();
-	await sendTx(signer, transaction);
+	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
 }
