@@ -82,7 +82,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, PortfolioId,
+    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
     PortfolioNumber, Ticker,
 };
 use sp_runtime::traits::CheckedMul as _;
@@ -95,6 +95,9 @@ type Checkpoint<T> = checkpoint::Module<T>;
 type CA<T> = ca::Module<T>;
 type Identity<T> = identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
+
+/// The value `per_share` must take to get 1 `currency`.
+pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 
 /// A capital distribution's various details.
 ///
@@ -196,7 +199,6 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `DistributingAsset` if `ca_id.ticker == currency`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
-        /// - `NowAfterPayment` if `payment_at < now`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
         /// - `RecordDateAfterStart` if CA's record date > payment_at.
@@ -223,9 +225,6 @@ decl_module! {
 
             // Ensure that any expiry date doesn't come before the payment date.
             ensure!(!expired(expires_at, payment_at), Error::<T>::ExpiryBeforePayment);
-
-            // Ensure `now <= payment_at`.
-            ensure!(<Checkpoint<T>>::now_unix() <= payment_at, Error::<T>::NowAfterPayment);
 
             // Ensure CA doesn't have a distribution yet.
             ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
@@ -378,7 +377,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
-        /// - `DistributionStarted` if `payment_at >= now`.
+        /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
             let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
@@ -425,8 +424,6 @@ decl_error! {
         /// A distributions provided expiry date was strictly before its payment date.
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,
-        /// Start-of-payment date is in the past, since it is strictly before now.
-        NowAfterPayment,
         /// Currency that is distributed is the same as the CA's ticker.
         /// CAA is attempting a form of stock split, which is not what the extrinsic is for.
         DistributingAsset,
@@ -540,7 +537,7 @@ impl<T: Trait> Module<T> {
         balance
             .checked_mul(&per_share)
             // `per_share` was entered as a multiple of 1_000_000.
-            .map(|v| v / T::Balance::from(1_000_000u32))
+            .map(|v| v / T::Balance::from(PER_SHARE_PRECISION))
             .ok_or_else(|| Error::<T>::BalancePerShareProductOverflowed.into())
     }
 

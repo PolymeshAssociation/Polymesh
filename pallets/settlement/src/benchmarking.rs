@@ -22,14 +22,15 @@ use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
-use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
-    benchs::{self, generate_ticker, user, User, UserBuilder},
+    benchs::{self, generate_ticker, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::AssetFnTrait,
+    TestUtilsFn,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
+    statistics::TransferManager,
     Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
     PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
 };
@@ -37,9 +38,6 @@ use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
-
-#[cfg(not(feature = "std"))]
-use hex_literal::hex;
 
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
@@ -139,7 +137,7 @@ fn fund_portfolio<T: Trait>(portfolio: &PortfolioId, ticker: &Ticker, amount: T:
     <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
 }
 
-fn setup_leg_and_portfolio<T: Trait>(
+fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
@@ -162,7 +160,7 @@ fn setup_leg_and_portfolio<T: Trait>(
     sender_portfolios.push(portfolio_from);
 }
 
-fn generate_portfolio<T: Trait>(
+fn generate_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     portfolio_to: &'static str,
     pseudo_random_no: u32,
     user: Option<UserData<T>>,
@@ -188,7 +186,10 @@ fn generate_portfolio<T: Trait>(
     PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
-fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Balance>>) {
+fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+    index: u32,
+    legs: &mut Vec<Leg<T::Balance>>,
+) {
     let ticker = Ticker::try_from(generate_ticker(index.into()).as_slice()).unwrap();
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
@@ -236,7 +237,7 @@ fn verify_add_and_affirm_instruction<T: Trait>(
     Ok(())
 }
 
-fn emulate_add_instruction<T: Trait>(
+fn emulate_add_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
     create_portfolios: bool,
 ) -> Result<
@@ -290,7 +291,7 @@ fn emulate_add_instruction<T: Trait>(
     ))
 }
 
-fn emulate_portfolios<T: Trait>(
+fn emulate_portfolios<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     sender: Option<UserData<T>>,
     receiver: Option<UserData<T>>,
     ticker: Ticker,
@@ -390,7 +391,7 @@ pub fn compliance_setup<T: Trait>(
     .expect("Failed to add the asset compliance");
 }
 
-fn setup_affirm_instruction<T: Trait>(
+fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
 ) -> (
     Vec<PortfolioId>,
@@ -468,7 +469,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
         .expect("Settlement: Fail to add the smart extension to a given asset");
 }
 
-fn create_receipt_details<T: Trait>(
+fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg<T::Balance>,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
@@ -531,6 +532,8 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _{}
 
     create_venue {

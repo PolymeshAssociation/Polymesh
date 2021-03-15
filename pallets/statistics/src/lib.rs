@@ -17,30 +17,16 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     traits::Get, weights::Weight,
 };
 use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
-use polymesh_primitives::{IdentityId, ScopeId, Ticker};
-use sp_arithmetic::Permill;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use polymesh_primitives::{
+    statistics::{Counter, Percentage, TransferManager, TransferManagerResult},
+    IdentityId, ScopeId, Ticker,
+};
 use sp_std::vec::Vec;
-
-pub type Counter = u64;
-pub type Percentage = Permill;
-
-/// Transfer managers that can be attached to a Token for compliance.
-#[derive(Eq, PartialEq, Clone, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum TransferManager {
-    /// CTM limits the number of active investors in a Token.
-    CountTransferManager(Counter),
-    /// PTM limits the percentage of token owned by a single Identity.
-    PercentageTransferManager(Percentage),
-}
 
 /// The main trait for statistics module
 pub trait Trait: frame_system::Trait + IdentityTrait {
@@ -253,6 +239,43 @@ impl<T: Trait> Module<T> {
             })
     }
 
+    pub fn verify_tm_restrictions_granular(
+        ticker: &Ticker,
+        sender: ScopeId,
+        receiver: ScopeId,
+        value: T::Balance,
+        sender_balance: T::Balance,
+        receiver_balance: T::Balance,
+        total_supply: T::Balance,
+    ) -> Vec<TransferManagerResult> {
+        Self::transfer_managers(ticker)
+            .into_iter()
+            .map(|tm| TransferManagerResult {
+                result: match &tm {
+                    TransferManager::CountTransferManager(max_count) => Self::ensure_ctm(
+                        ticker,
+                        sender,
+                        value,
+                        sender_balance,
+                        receiver_balance,
+                        *max_count,
+                    )
+                    .is_ok(),
+                    TransferManager::PercentageTransferManager(max_percentage) => Self::ensure_ptm(
+                        ticker,
+                        receiver,
+                        value,
+                        receiver_balance,
+                        total_supply,
+                        max_percentage.clone(),
+                    )
+                    .is_ok(),
+                },
+                tm,
+            })
+            .collect()
+    }
+
     fn ensure_ctm(
         ticker: &Ticker,
         sender: ScopeId,
@@ -283,10 +306,12 @@ impl<T: Trait> Module<T> {
         total_supply: T::Balance,
         max_percentage: Percentage,
     ) -> DispatchResult {
-        let new_percentage =
-            Permill::from_rational_approximation(receiver_balance + value, total_supply);
+        let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+            receiver_balance + value,
+            total_supply,
+        );
         ensure!(
-            new_percentage <= max_percentage
+            new_percentage <= *max_percentage
                 || Self::entity_exempt(
                     (
                         *ticker,
