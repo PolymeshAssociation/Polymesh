@@ -494,7 +494,6 @@ impl AssetSubTrait<Balance> for Test {
     }
     fn update_balance_of_scope_id(
         _: ScopeId,
-        _: impl Iterator<Item = ScopeId>,
         _: IdentityId,
         _: Ticker,
     ) {

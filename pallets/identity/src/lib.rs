@@ -1669,25 +1669,8 @@ impl<T: Trait> Module<T> {
         );
 
         if let Scope::Ticker(ticker) = &scope {
-            // If `target` already has different InvestorUniqueness claims, clean up the old ScopeId data.
-            let old_scope_ids = Self::fetch_base_claims(target, ClaimType::InvestorUniqueness)
-                .filter_map(move |id_claim| {
-                    if let Claim::InvestorUniqueness(old_scope, old_scope_id, _old_cdd_id) =
-                        &id_claim.claim
-                    {
-                        if old_scope == scope && scope_id != old_scope_id {
-                            return Some(*old_scope_id);
-                        }
-                    }
-                    None
-                });
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(
-                *scope_id,
-                old_scope_ids,
-                target,
-                *ticker,
-            );
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker);
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);

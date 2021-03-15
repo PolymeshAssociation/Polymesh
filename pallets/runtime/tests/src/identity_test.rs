@@ -1581,19 +1581,13 @@ fn do_add_investor_uniqueness_claim() {
         );
     };
     let balance_at_scope = |scope_id, balance| {
-        assert_eq!(
-            balance,
-            Asset::balance_of_at_scope(scope_id, alice.did)
-        );
+        assert_eq!(balance, Asset::balance_of_at_scope(scope_id, alice.did));
     };
     let scope_id_of = |scope_id| {
         assert_eq!(scope_id, Asset::scope_id_of(ticker, alice.did));
     };
     let aggregate_balance = |scope_id, balance| {
-        assert_eq!(
-            balance,
-            Asset::aggregate_balance(ticker, scope_id)
-        );
+        assert_eq!(balance, Asset::aggregate_balance_of(ticker, scope_id));
     };
 
     // Get some tokens for Alice in case the default initial balance changes to 0 in simple_token.

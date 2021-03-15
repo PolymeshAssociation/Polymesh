@@ -45,13 +45,11 @@ pub trait AssetSubTrait<Balance> {
     /// to any previous valid `old_scope_ids`.
     ///
     /// # Arguments
-    /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
-    /// * `old_scope_ids` - An iterator over previous valid `ScopeId`s.
+    /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
     fn update_balance_of_scope_id(
         scope_id: ScopeId,
-        old_scope_ids: impl Iterator<Item = ScopeId>,
         target_did: IdentityId,
         ticker: Ticker,
     );

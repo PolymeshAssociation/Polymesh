@@ -1078,11 +1078,12 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
 
     fn update_balance_of_scope_id(
         scope_id: ScopeId,
-        old_scope_ids: impl Iterator<Item = ScopeId>,
         target_did: IdentityId,
         ticker: Ticker,
     ) {
-        for old_scope_id in old_scope_ids {
+        // If `target_did` already has another ScopeId, clean up the old ScopeId data.
+        if ScopeIdOf::contains_key(&ticker, &target_did) {
+            let old_scope_id = Self::scope_id_of(&ticker, &target_did);
             // Delete the balance of target_did at old_scope_id.
             let target_balance = <BalanceOfAtScope<T>>::take(old_scope_id, target_did);
             // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
