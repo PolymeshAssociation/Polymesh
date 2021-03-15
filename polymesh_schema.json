@@ -50,7 +50,7 @@
                 "StructuredProduct": "",
                 "Derivative": "",
                 "Custom": "Vec<u8>",
-                "StableCoin"
+                "StableCoin": ""
             }
         },
         "AssetIdentifier": {
