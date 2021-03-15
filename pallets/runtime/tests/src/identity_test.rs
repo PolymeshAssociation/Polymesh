@@ -1,5 +1,5 @@
 use super::{
-    asset_test::simple_asset,
+    asset_test::{a_token, basic_asset},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
@@ -1570,7 +1570,8 @@ fn add_investor_uniqueness_claim() {
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let cdd_provider = AccountKeyring::Charlie.public();
-    let ticker = simple_asset(alice.acc(), true).1;
+    let (ticker, token) = a_token(alice.did);
+    assert_ok!(basic_asset(alice, ticker, &token));
     let initial_balance = Asset::balance_of(ticker, alice.did);
     let add_iu_claim =
         |investor_uid| provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider, Some(1));
