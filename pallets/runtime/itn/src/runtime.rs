@@ -71,6 +71,9 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 
+    // Base:
+    pub const MaxLen: u32 = 256;
+
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
 
@@ -350,6 +353,7 @@ construct_runtime!(
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 42,
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 43,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
+        Base: pallet_base::{Module, Call, Event} = 45,
     }
 );
 

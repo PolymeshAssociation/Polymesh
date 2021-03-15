@@ -28,7 +28,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
-    traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
+    traits::{Currency, EnsureOrigin, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
@@ -220,9 +220,6 @@ decl_event!(
 
         /// All Secondary keys of the identity ID are unfrozen.
         SecondaryKeysUnfrozen(IdentityId),
-
-        /// An unexpected error happened that should be investigated.
-        UnexpectedError(Option<DispatchError>),
 
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),

@@ -84,6 +84,11 @@ macro_rules! misc_pallet_impls {
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
         }
 
+        impl pallet_base::Trait for Runtime {
+            type Event = Event;
+            type MaxLen = MaxLen;
+        }
+
         impl pallet_babe::Trait for Runtime {
             type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
             type EpochDuration = EpochDuration;

@@ -2030,11 +2030,6 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// Emit an unexpected error event that should be investigated manually
-    pub fn emit_unexpected_error(error: Option<DispatchError>) {
-        Self::deposit_event(RawEvent::UnexpectedError(error));
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {

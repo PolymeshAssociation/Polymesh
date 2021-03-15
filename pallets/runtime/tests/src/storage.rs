@@ -113,6 +113,7 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
+        pallet_base,
         bridge<T>,
         asset<T>,
         pips<T>,
@@ -294,6 +295,10 @@ impl CommonTrait for TestStorage {
     type Balance = Balance;
     type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<TestStorage>;
+}
+
+impl pallet_base::Trait for TestStorage {
+    type Event = Event;
 }
 
 impl balances::Trait for TestStorage {
