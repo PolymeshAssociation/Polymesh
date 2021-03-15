@@ -97,6 +97,12 @@ crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     token(b"A", owner_did)
 }
 
+crate fn an_asset(owner: User) -> Ticker {
+    let (ticker, token) = a_token(owner.did);
+    assert_ok!(basic_asset(owner, ticker, &token));
+    ticker
+}
+
 fn has_ticker_record(ticker: Ticker) -> bool {
     DidRecords::contains_key(Identity::get_token_did(&ticker).unwrap())
 }
