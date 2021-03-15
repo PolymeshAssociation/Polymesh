@@ -492,12 +492,7 @@ impl AssetSubTrait<Balance> for Test {
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
-    fn update_balance_of_scope_id(
-        _: ScopeId,
-        _: IdentityId,
-        _: Ticker,
-    ) {
-    }
+    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
     fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
         0
     }

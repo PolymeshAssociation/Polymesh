@@ -48,11 +48,7 @@ pub trait AssetSubTrait<Balance> {
     /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
-    fn update_balance_of_scope_id(
-        scope_id: ScopeId,
-        target_did: IdentityId,
-        ticker: Ticker,
-    );
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker);
 
     /// Returns balance for a given scope id and target DID.
     ///

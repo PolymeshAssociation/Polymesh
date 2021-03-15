@@ -1076,11 +1076,7 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
         Self::base_accept_token_ownership_transfer(to_did, auth_id)
     }
 
-    fn update_balance_of_scope_id(
-        scope_id: ScopeId,
-        target_did: IdentityId,
-        ticker: Ticker,
-    ) {
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
         // If `target_did` already has another ScopeId, clean up the old ScopeId data.
         if ScopeIdOf::contains_key(&ticker, &target_did) {
             let old_scope_id = Self::scope_id_of(&ticker, &target_did);

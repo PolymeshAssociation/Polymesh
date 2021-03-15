@@ -1,4 +1,4 @@
-#![allow(dead_code, deprecated)]
+#![allow(dead_code)]
 #![feature(crate_visibility_modifier)]
 #![feature(bindings_after_at, bool_to_option)]
 

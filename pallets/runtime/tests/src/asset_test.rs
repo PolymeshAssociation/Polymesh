@@ -179,7 +179,7 @@ const FUNDING_ROUND: Option<FundingRoundName> = None;
 const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 
 /// Creates a simple asset, owned by `owner`.
-#[deprecated(note = "Please use a_token with basic_asset instead")]
+// FIXME: Please use a_token and basic_asset or an_asset instead.
 crate fn simple_asset(owner: Public, divisible: bool) -> (SecurityToken<u128>, Ticker) {
     let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
     let asset_type = AssetType::default();
