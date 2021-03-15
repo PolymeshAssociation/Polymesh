@@ -1583,16 +1583,16 @@ fn do_add_investor_uniqueness_claim() {
     let balance_at_scope = |scope_id, balance| {
         assert_eq!(
             balance,
-            <pallet_asset::BalanceOfAtScope<TestStorage>>::get(scope_id, alice.did)
+            Asset::balance_of_at_scope(scope_id, alice.did)
         );
     };
     let scope_id_of = |scope_id| {
-        assert_eq!(scope_id, <pallet_asset::ScopeIdOf>::get(ticker, alice.did));
+        assert_eq!(scope_id, Asset::scope_id_of(ticker, alice.did));
     };
     let aggregate_balance = |scope_id, balance| {
         assert_eq!(
             balance,
-            <pallet_asset::AggregateBalance<TestStorage>>::get(ticker, scope_id)
+            Asset::aggregate_balance(ticker, scope_id)
         );
     };
 
