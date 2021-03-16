@@ -1859,6 +1859,9 @@ impl<T: Trait> Module<T> {
             name.len() <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
+        if let AssetType::Custom(ty) = &asset_type {
+            pallet_base::ensure_string_limited::<T>(ty);
+        }
         ensure!(
             funding_round.as_ref().map_or(0, |name| name.len())
                 <= T::FundingRoundNameMaxLength::get(),
