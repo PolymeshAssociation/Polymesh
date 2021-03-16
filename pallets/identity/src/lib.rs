@@ -89,7 +89,7 @@ use core::{
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, fail,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
@@ -800,18 +800,13 @@ decl_module! {
 
             // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
             // otherwise throw and error.
-            match &claim {
-                Claim::InvestorUniqueness(..) => {
-                    Self::base_add_investor_uniqueness_claim(
-                        target,
-                        claim,
-                        issuer,
-                        proof,
-                        expiry,
-                    )
-                },
-                _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
-            }
+            Self::base_add_investor_uniqueness_claim(
+                target,
+                claim,
+                issuer,
+                proof,
+                expiry,
+            )
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
@@ -1651,28 +1646,31 @@ impl<T: Trait> Module<T> {
         proof: InvestorZKProofData,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
+        let (scope, scope_id, cdd_id) =
+            if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
+                (scope, scope_id, cdd_id)
+            } else {
+                fail!(Error::<T>::ClaimVariantNotAllowed);
+            };
         // Only owner of the identity can add that confidential claim.
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
-
-        if let Claim::InvestorUniqueness(.., cdd_id) = &claim {
-            // Verify the owner of that CDD_ID.
-            ensure!(
-                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-                Error::<T>::ConfidentialScopeClaimNotAllowed
-            );
-        }
+        // Verify the owner of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
         // Verify the confidential claim.
         ensure!(
             ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, _) = &claim {
+        if let Scope::Ticker(ticker) = &scope {
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *scope)?
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker);
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);
