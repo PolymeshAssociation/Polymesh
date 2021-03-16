@@ -163,6 +163,13 @@ impl Condition {
                 claims.len()
             }
         };
-        (claims_count, self.issuers.len())
+        let tfs = self
+            .issuers
+            .iter()
+            .fold(0usize, |acc, ti| match &ti.trusted_for {
+                TrustedFor::Any => acc,
+                TrustedFor::Specific(cts) => acc.saturating_add(cts.len()),
+            });
+        (claims_count, self.issuers.len().saturating_add(tfs))
     }
 }
