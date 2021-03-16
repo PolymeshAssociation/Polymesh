@@ -848,10 +848,15 @@ macro_rules! runtime_apis {
 
                 #[inline]
                 fn balance_at(
-                    did: IdentityId, ticker: Ticker, checkpoint: CheckpointId
+                    ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>
                 ) -> node_rpc_runtime_api::asset::BalanceAtResult
                 {
-                    Ok(Asset::get_balance_at(ticker, did, checkpoint).into())
+                    let balances = dids
+                        .into_iter()
+                        .take(100) // max query size limit
+                        .map(|did| Asset::get_balance_at(ticker, did, checkpoint).into())
+                        .collect();
+                    Ok(balances)
                 }
             }
 

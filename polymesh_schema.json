@@ -1184,7 +1184,7 @@
         },
         "BalanceAtResult": {
             "_enum": {
-                "Ok": "Balance",
+                "Ok": "Vec<Balance>",
                 "Err": "Vec<u8>"
             }
         }
@@ -1533,13 +1533,8 @@
                 "type": "GranularCanTransferResult"
             },
             "balanceAt": {
-                "description": "Returns the identity-ticker balance at a checkpoint.",
+                "description": "Returns the ticker balances of identities at a checkpoint.",
                 "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    },
                     {
                         "name": "ticker",
                         "type": "Ticker",
@@ -1548,6 +1543,11 @@
                     {
                         "name": "checkpoint",
                         "type": "CheckpointId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "dids",
+                        "type": "Vec<IdentityId>",
                         "isOptional": false
                     }
                 ],

@@ -61,9 +61,9 @@ pub trait AssetApi<BlockHash, AccountId> {
     #[rpc(name = "asset_balanceAt")]
     fn balance_at(
         &self,
-        did: IdentityId,
         ticker: Ticker,
         checkpoint: CheckpointId,
+        dids: Vec<IdentityId>,
         at: Option<BlockHash>,
     ) -> Result<BalanceAtResult>;
 }
@@ -161,16 +161,16 @@ where
 
     fn balance_at(
         &self,
-        did: IdentityId,
         ticker: Ticker,
         checkpoint: CheckpointId,
+        dids: Vec<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<BalanceAtResult> {
         rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .balance_at(at, did, ticker, checkpoint),
+                .balance_at(at, ticker, checkpoint, dids),
             "Cannot get balance at checkpoint"
         )
     }

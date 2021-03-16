@@ -21,7 +21,7 @@ use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;
 pub type CanTransferResult = Result<u8, Error>;
-pub type BalanceAtResult = Result<Balance, Error>;
+pub type BalanceAtResult = Result<Vec<Balance>, Error>;
 
 sp_api::decl_runtime_apis! {
 
@@ -74,7 +74,7 @@ sp_api::decl_runtime_apis! {
             value: Balance
         ) -> polymesh_primitives::asset::GranularCanTransferResult;
 
-        /// Returns the identity-ticker balance at a checkpoint.
-        fn balance_at(did: IdentityId, ticker: Ticker, checkpoint: CheckpointId) -> BalanceAtResult;
+        /// Returns `ticker` balances of `dids` at `checkpoint`.
+        fn balance_at(ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>) -> BalanceAtResult;
     }
 }
