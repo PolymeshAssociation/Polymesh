@@ -1525,6 +1525,27 @@
                     }
                 ],
                 "type": "GranularCanTransferResult"
+            },
+            "balanceAt": {
+                "description": "Returns the identity-ticker balance at a checkpoint.",
+                "params": [
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "checkpoint",
+                        "type": "CheckpointId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "BalanceAtResult<Balance>"
             }
         }
     }
