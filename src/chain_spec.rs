@@ -73,8 +73,8 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
     }
 }
 
-fn polymath_props() -> Properties {
-    json!({ "ss58Format": 12, "tokenDecimals": 6, "tokenSymbol": "POLYX" })
+fn polymath_props(ss58: u8) -> Properties {
+    json!({ "ss58Format": ss58, "tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()
@@ -604,7 +604,7 @@ pub mod general {
         ctype: ChainType,
         genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
     ) -> ChainSpec {
-        let props = Some(polymath_props());
+        let props = Some(polymath_props(42));
         ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
     }
 
@@ -757,7 +757,7 @@ pub mod alcyone_testnet {
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -794,7 +794,7 @@ pub mod alcyone_testnet {
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -914,7 +914,7 @@ pub mod polymesh_itn {
                     .expect("ITN bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymath/itn"),
-            Some(polymath_props()),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }
@@ -943,7 +943,7 @@ pub mod polymesh_itn {
             boot_nodes,
             None,
             Some(&*"/polymath/develop/1"),
-            Some(polymath_props()),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }
@@ -975,7 +975,7 @@ pub mod polymesh_itn {
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }
