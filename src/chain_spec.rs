@@ -216,20 +216,31 @@ const ENDOWMENT: u128 = 100_000_000 * POLY;
 const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
 
-fn bridge_lock(nonce: u32, hash: &'static str) -> (u32, H256) {
-    let offset = if hash.starts_with("0x") { 2 } else { 0 };
-    let stripped_hash = &hash[offset..];
-    let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
-        .expect("Failed to decode transaction hash (Invalid hex Value)");
-    let hash_array: [u8; 32] = hash_vec
-        .try_into()
-        .expect("Failed to decode transaction hash (Invalid hash length)");
-    (nonce, hash_array.into())
+#[derive(Clone)]
+struct BridgeLockId {
+    nonce: u32,
+    tx_hash: H256,
 }
 
-fn generate_bridge_locks(count: u32) -> Vec<(u32, H256)> {
-    const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
-    (0..count).map(|x| bridge_lock(x + 100, HASH)).collect()
+impl BridgeLockId {
+    fn new(nonce: u32, hash: &'static str) -> Self {
+        let offset = if hash.starts_with("0x") { 2 } else { 0 };
+        let stripped_hash = &hash[offset..];
+        let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
+            .expect("Failed to decode transaction hash (Invalid hex Value)");
+        let hash_array: [u8; 32] = hash_vec
+            .try_into()
+            .expect("Failed to decode transaction hash (Invalid hash length)");
+        Self {
+            nonce,
+            tx_hash: hash_array.into(),
+        }
+    }
+
+    fn generate_bridge_locks(count: u32) -> Vec<Self> {
+        const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
+        (0..count).map(|x| Self::new(x + 100, HASH)).collect()
+    }
 }
 
 fn identities(
@@ -302,8 +313,8 @@ fn identities(
 fn genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
     root_key: AccountId,
-    treasury_bridge_lock: (u32, H256),
-    key_bridge_locks: Vec<(u32, H256)>,
+    treasury_bridge_lock: BridgeLockId,
+    key_bridge_locks: Vec<BridgeLockId>,
 ) -> (
     Vec<GenesisIdentityRecord<AccountId>>,
     Vec<(
@@ -363,7 +374,7 @@ fn genesis_processed_data(
         .iter()
         .cloned()
         .zip(keys.iter().cloned())
-        .map(|((nonce, tx_hash), recipient)| BridgeTx {
+        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
             amount: BOOTSTRAP_STASH,
@@ -371,10 +382,10 @@ fn genesis_processed_data(
         })
         .collect();
     complete_txs.push(BridgeTx {
-        nonce: treasury_bridge_lock.0,
+        nonce: treasury_bridge_lock.nonce,
         recipient: TREASURY_MODULE_ID.into_account(),
         amount: BOOTSTRAP_TREASURY,
-        tx_hash: treasury_bridge_lock.1,
+        tx_hash: treasury_bridge_lock.tx_hash,
     });
     (identities, stakers, complete_txs)
 }
@@ -812,8 +823,8 @@ pub mod polymesh_itn {
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
         enable_println: bool,
-        treasury_bridge_lock: (u32, H256),
-        key_bridge_locks: Vec<(u32, H256)>,
+        treasury_bridge_lock: BridgeLockId,
+        key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
@@ -888,11 +899,11 @@ pub mod polymesh_itn {
             ],
             seeded_acc_id("polymath_5"),
             false,
-            bridge_lock(
+            BridgeLockId::new(
                 1,
                 "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -924,11 +935,11 @@ pub mod polymesh_itn {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
-            bridge_lock(
+            BridgeLockId::new(
                 1,
                 "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -956,11 +967,11 @@ pub mod polymesh_itn {
             ],
             seeded_acc_id("Eve"),
             true,
-            bridge_lock(
+            BridgeLockId::new(
                 1,
                 "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
             ),
-            generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
