@@ -95,7 +95,7 @@ use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchError, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
     traits::{
@@ -738,6 +738,7 @@ decl_module! {
             if let Some(s) = &description {
                 ensure_string_limited::<T>(s)?;
             }
+            let proposal_data = Self::reportable_proposal_data(&*proposal)?;
 
             // Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
@@ -765,7 +766,6 @@ decl_module! {
             let created_at = <system::Module<T>>::block_number();
             let expiry = Self::pending_pip_expiry() + created_at;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
-            let proposal_data = Self::reportable_proposal_data(&*proposal);
             <ProposalMetadata<T>>::insert(id, PipsMetadata {
                 id,
                 created_at,
@@ -1564,14 +1564,15 @@ impl<T: Trait> Module<T> {
 
     /// Returns a reportable representation of a proposal taking care that the reported data are not
     /// too large.
-    fn reportable_proposal_data(proposal: &T::Proposal) -> ProposalData {
+    fn reportable_proposal_data(proposal: &T::Proposal) -> Result<ProposalData, DispatchError> {
         let encoded_proposal = proposal.encode();
         let proposal_data = if encoded_proposal.len() > PIP_MAX_REPORTING_SIZE {
             ProposalData::Hash(BlakeTwo256::hash(encoded_proposal.as_slice()))
         } else {
+            ensure_string_limited::<T>(&encoded_proposal)?;
             ProposalData::Proposal(encoded_proposal)
         };
-        proposal_data
+        Ok(proposal_data)
     }
 }
 
