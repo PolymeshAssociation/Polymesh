@@ -4973,6 +4973,7 @@ dependencies = [
  "libsecp256k1",
  "pallet-asset 0.1.0",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-compliance-manager 0.1.0",
  "pallet-identity 0.1.0",
  "pallet-portfolio 0.1.0",
