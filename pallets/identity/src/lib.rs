@@ -1650,7 +1650,7 @@ impl<T: Trait> Module<T> {
             if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
                 (scope, scope_id, cdd_id)
             } else {
-                return Err(Error::<T>::ClaimVariantNotAllowed.into());
+                fail!(Error::<T>::ClaimVariantNotAllowed);
             };
         // Only owner of the identity can add that confidential claim.
         ensure!(
