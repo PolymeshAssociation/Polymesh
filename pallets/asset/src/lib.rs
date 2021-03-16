@@ -114,6 +114,7 @@ use polymesh_primitives::{
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
     Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
+use pallet_base::ensure_string_limited;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -1860,7 +1861,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
         if let AssetType::Custom(ty) = &asset_type {
-            pallet_base::ensure_string_limited::<T>(ty)?;
+            ensure_string_limited::<T>(ty)?;
         }
         ensure!(
             funding_round.as_ref().map_or(0, |name| name.len())
@@ -2080,6 +2081,15 @@ impl<T: Trait> Module<T> {
         let len = docs.len();
         T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
 
+        // Ensure strings are limited.
+        for doc in &docs {
+            ensure_string_limited::<T>(&doc.uri)?;
+            ensure_string_limited::<T>(&doc.name)?;
+            if let Some(ty) = &doc.doc_type {
+                ensure_string_limited::<T>(ty)?;
+            }
+        }
+
         AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {
             for (id, doc) in (*id..).map(DocumentId).zip(docs) {
                 AssetDocuments::insert(ticker, id, doc.clone());
@@ -2147,9 +2157,9 @@ impl<T: Trait> Module<T> {
         } = details.clone();
 
         // Enforce length limits.
-        pallet_base::ensure_string_limited::<T>(&name)?;
+        ensure_string_limited::<T>(&name)?;
         if let SmartExtensionType::Custom(ty) = &ty {
-            pallet_base::ensure_string_limited::<T>(ty)?;
+            ensure_string_limited::<T>(ty)?;
         }
 
         // Verify the details of smart extension & store it.
