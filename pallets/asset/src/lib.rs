@@ -1860,7 +1860,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
         if let AssetType::Custom(ty) = &asset_type {
-            pallet_base::ensure_string_limited::<T>(ty);
+            pallet_base::ensure_string_limited::<T>(ty)?;
         }
         ensure!(
             funding_round.as_ref().map_or(0, |name| name.len())
@@ -2138,6 +2138,10 @@ impl<T: Trait> Module<T> {
         extension_details: SmartExtension<T::AccountId>,
     ) -> DispatchResult {
         let my_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
+
+        if let SmartExtensionType::Custom(ty) = &extension_details.extension_type {
+            pallet_base::ensure_string_limited::<T>(ty)?;
+        }
 
         // Verify the details of smart extension & store it
         ensure!(
