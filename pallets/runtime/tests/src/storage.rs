@@ -172,6 +172,10 @@ impl User {
     pub fn origin(&self) -> Origin {
         Origin::signed(self.acc())
     }
+
+    pub fn uid(&self) -> InvestorUid {
+        create_investor_uid(self.acc())
+    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
@@ -747,7 +751,7 @@ pub fn make_account_with_scope(
 > {
     let uid = create_investor_uid(id);
     let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
-    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);
+    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider, None).0;
     Ok((origin, did, scope_id))
 }
 
@@ -920,7 +924,8 @@ pub fn provide_scope_claim(
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
-) -> ScopeId {
+    cdd_claim_expiry: Option<u64>,
+) -> (ScopeId, CddId) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
     let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
@@ -932,7 +937,7 @@ pub fn provide_scope_claim(
         Origin::signed(cdd_provider),
         claim_to,
         Claim::CustomerDueDiligence(cdd_id),
-        None
+        cdd_claim_expiry,
     ));
 
     // Provide the InvestorUniqueness.
@@ -944,7 +949,7 @@ pub fn provide_scope_claim(
         None
     ));
 
-    scope_id
+    (scope_id, cdd_id)
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(
@@ -954,7 +959,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
 ) {
     parties.into_iter().enumerate().for_each(|(_, id)| {
         let uid = create_investor_uid(Identity::did_records(id).primary_key);
-        provide_scope_claim(*id, ticker, uid, cdd_provider);
+        provide_scope_claim(*id, ticker, uid, cdd_provider, None).0;
     });
 }
 
