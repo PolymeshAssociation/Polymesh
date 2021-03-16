@@ -19,7 +19,7 @@ use pallet_group as group;
 use pallet_pips::{
     self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
     Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
-    VotingResult,
+    VoteByPip, VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
@@ -1831,6 +1831,43 @@ fn live_queue_off_by_one_insertion_regression_test2() {
         assert_eq!(
             Pips::live_queue(),
             vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
+        );
+    });
+}
+
+#[test]
+fn pips_rpcs() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let user = User::new(AccountKeyring::Bob);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        System::set_block_number(1);
+        assert_ok!(alice_proposal(0));
+
+        let vote_deposit = 100;
+        let pip_id = 0;
+        assert_ok!(Pips::vote(user.origin(), pip_id, false, vote_deposit));
+
+        assert_eq!(
+            Pips::get_votes(pip_id),
+            VoteCount::ProposalFound {
+                ayes: 0,
+                nays: vote_deposit,
+            }
+        );
+        assert_eq!(
+            Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.public())),
+            vec![pip_id],
+        );
+        assert_eq!(Pips::voted_on(user.acc()), vec![pip_id]);
+        let vote = Vote(false, vote_deposit);
+        assert_eq!(
+            Pips::voting_history_by_address(user.acc()),
+            vec![VoteByPip { pip: pip_id, vote }]
+        );
+        assert_eq!(
+            Pips::voting_history_by_id(user.did),
+            vec![(user.acc(), vec![VoteByPip { pip: pip_id, vote }])]
         );
     });
 }
