@@ -117,6 +117,7 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
+use pallet_base::ensure_string_limited;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
@@ -398,6 +399,7 @@ pub trait Trait:
     + pallet_timestamp::Trait
     + IdentityTrait
     + CommonTrait
+    + pallet_base::Trait
 {
     /// Currency type for this module.
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
@@ -724,12 +726,20 @@ decl_module! {
             url: Option<Url>,
             description: Option<PipDescription>,
         ) {
-            // 1. Infer the proposer from `origin`.
+            // Infer the proposer from `origin`.
             let proposer = Self::ensure_infer_proposer(origin)?;
 
             let did = Self::current_did_or_missing()?;
 
-            // 2. Add a deposit for community PIPs.
+            // Ensure strings are limited in length.
+            if let Some(s) = &url {
+                ensure_string_limited::<T>(s)?;
+            }
+            if let Some(s) = &description {
+                ensure_string_limited::<T>(s)?;
+            }
+
+            // Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
                 // This doesn't apply to committee PIPs.
@@ -747,10 +757,10 @@ decl_module! {
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
             }
 
-            // 3. Charge protocol fees, even for committee PIPs.
+            // Charge protocol fees, even for committee PIPs.
             <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
-            // 4. Construct and add PIP to storage.
+            // Construct and add PIP to storage.
             let id = Self::next_pip_id();
             let created_at = <system::Module<T>>::block_number();
             let expiry = Self::pending_pip_expiry() + created_at;
@@ -772,12 +782,12 @@ decl_module! {
             });
             ActivePipCount::mutate(|count| *count += 1);
 
-            // 5. Schedule for expiry, as long as `Pending`, at block with number `expiring_at`.
+            // Schedule for expiry, as long as `Pending`, at block with number `expiring_at`.
             if let MaybeBlock::Some(expiring_at) = expiry {
                 Self::schedule_pip_for_expiry(id, expiring_at);
             }
 
-            // 6. Record the deposit and as a signal if we have a community PIP.
+            // Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
                 <Deposits<T>>::insert(id, &proposer, DepositInfo {
                     owner: proposer.clone(),
@@ -798,7 +808,7 @@ decl_module! {
                 CommitteePips::append(id);
             }
 
-            // 7. Emit the event.
+            // Emit the event.
             Self::deposit_event(RawEvent::ProposalCreated(
                 did,
                 proposer,

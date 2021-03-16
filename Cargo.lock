@@ -5421,6 +5421,7 @@ dependencies = [
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-committee 0.1.0",
  "pallet-group 0.1.0",
  "pallet-identity 0.1.0",

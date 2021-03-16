@@ -29,6 +29,7 @@ use frame_support::{
     weights::{DispatchClass::Operational, Weight},
 };
 use frame_system::ensure_root;
+use pallet_base::ensure_string_limited;
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -235,12 +236,12 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
 
             // Ensure strings are limited in length.
-            pallet_base::ensure_string_limited::<T>(&meta_info.description)?;
+            ensure_string_limited::<T>(&meta_info.description)?;
             if let Some(url) = &meta_info.url {
-                pallet_base::ensure_string_limited::<T>(url)?;
+                ensure_string_limited::<T>(url)?;
             }
             if let SmartExtensionType::Custom(ty) = &meta_info.se_type {
-                pallet_base::ensure_string_limited::<T>(ty)?;
+                ensure_string_limited::<T>(ty)?;
             }
 
             // Save metadata related to the SE template
@@ -389,7 +390,6 @@ decl_module! {
             Ok(())
         }
 
-
         /// Change the usage fee & the instantiation fee of the smart extension template
         ///
         /// # Arguments
@@ -418,7 +418,6 @@ decl_module! {
             Ok(())
         }
 
-
         /// Change the template meta url.
         ///
         /// # Arguments
@@ -431,7 +430,7 @@ decl_module! {
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
             // Ensure URL is limited in length.
             if let Some(url) = &new_url {
-                pallet_base::ensure_string_limited::<T>(url)?;
+                ensure_string_limited::<T>(url)?;
             }
             // Update the usage fee for a given code hash.
             let old_url = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url.clone()));

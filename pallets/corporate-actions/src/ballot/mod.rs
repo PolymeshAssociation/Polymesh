@@ -90,6 +90,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_asset::checkpoint;
+use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::CommonTrait;
@@ -647,12 +648,12 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that no string embedded within `meta` is too long.
     fn ensure_meta_lengths_limited(meta: &BallotMeta) -> DispatchResult {
-        pallet_base::ensure_string_limited::<T>(&meta.title)?;
+        ensure_string_limited::<T>(&meta.title)?;
         for motion in &meta.motions {
-            pallet_base::ensure_string_limited::<T>(&motion.title)?;
-            pallet_base::ensure_string_limited::<T>(&motion.info_link)?;
+            ensure_string_limited::<T>(&motion.title)?;
+            ensure_string_limited::<T>(&motion.info_link)?;
             for choice in &motion.choices {
-                pallet_base::ensure_string_limited::<T>(choice)?;
+                ensure_string_limited::<T>(choice)?;
             }
         }
         Ok(())
