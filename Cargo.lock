@@ -6823,6 +6823,7 @@ dependencies = [
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-base",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-identity 0.1.0",
  "pallet-protocol-fee 0.1.0",

@@ -37,7 +37,7 @@ use polymesh_common_utilities::{
     with_transaction,
 };
 use polymesh_primitives::{
-    ExtensionAttributes, IdentityId, MetaUrl, TemplateDetails, TemplateMetadata,
+    ExtensionAttributes, IdentityId, MetaUrl, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
@@ -94,7 +94,7 @@ pub trait WeightInfo {
     fn set_put_code_flag() -> Weight;
 }
 
-pub trait Trait: pallet_contracts::Trait + IdentityTrait {
+pub trait Trait: pallet_contracts::Trait + IdentityTrait + pallet_base::Trait {
     /// Event type
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
@@ -219,6 +219,7 @@ decl_module! {
         /// - `frame_system::BadOrigin` if `origin` is not signed.
         /// - `pallet_permission::Error::<T>::UnAutorizedCaller` if `origin` does not have a valid
         /// IdentityId.
+        /// - `TooLong` if the strings embedded in `meta_info` are too long.
         /// - `pallet_contrats::Error::<T>::CodeTooLarge` if `code` length is grater than the chain
         /// setting for `pallet_contrats::max_code_size`.
         /// - Before `code` is inserted, some checks are performed on it, and them could raise up
@@ -232,6 +233,15 @@ decl_module! {
         ) {
             ensure!(Self::is_put_code_enabled(), Error::<T>::PutCodeIsNotAllowed);
             let did = Identity::<T>::ensure_perms(origin.clone())?;
+
+            // Ensure strings are limited in length.
+            pallet_base::ensure_string_limited::<T>(&meta_info.description)?;
+            if let Some(url) = &meta_info.url {
+                pallet_base::ensure_string_limited::<T>(url)?;
+            }
+            if let SmartExtensionType::Custom(ty) = &meta_info.se_type {
+                pallet_base::ensure_string_limited::<T>(ty)?;
+            }
 
             // Save metadata related to the SE template
             // Generate the code_hash here as well because there is no way
@@ -419,6 +429,10 @@ decl_module! {
         pub fn change_template_meta_url(origin, code_hash: CodeHash<T>, new_url: Option<MetaUrl>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            // Ensure URL is limited in length.
+            if let Some(url) = &new_url {
+                pallet_base::ensure_string_limited::<T>(url)?;
+            }
             // Update the usage fee for a given code hash.
             let old_url = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url.clone()));
             // Emit event with old and new url.
