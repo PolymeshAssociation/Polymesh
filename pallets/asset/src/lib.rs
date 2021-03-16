@@ -96,6 +96,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
+use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
@@ -114,7 +115,6 @@ use polymesh_primitives::{
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SecondaryKey,
     Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
-use pallet_base::ensure_string_limited;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

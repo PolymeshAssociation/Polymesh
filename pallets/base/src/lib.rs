@@ -2,30 +2,14 @@
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
-use frame_support::{decl_error, decl_event, decl_module, ensure};
+use frame_support::{decl_error, decl_module, ensure};
 
-pub trait Trait: frame_system::Trait {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// The maximum length governing `TooLong`.
-    ///
-    /// How lengths are computed to compare against this value is situation based.
-    /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
-    type MaxLen: Get<u32>;
-}
+pub use polymesh_common_utilities::traits::base::{Event, Trait};
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
         fn deposit_event() = default;
-    }
-}
-
-decl_event! {
-    pub enum Event {
-        /// An unexpected error happened that should be investigated.
-        UnexpectedError(Option<DispatchError>),
     }
 }
 

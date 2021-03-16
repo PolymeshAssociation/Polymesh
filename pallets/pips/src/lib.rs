@@ -95,7 +95,7 @@ use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchError, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
     traits::{
@@ -106,6 +106,7 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
@@ -117,7 +118,6 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
-use pallet_base::ensure_string_limited;
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;

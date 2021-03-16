@@ -104,7 +104,7 @@ pub trait IdentityToCorporateAction {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.

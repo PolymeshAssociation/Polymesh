@@ -163,7 +163,9 @@ pub trait WeightInfo {
     fn stop() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait {
+pub trait Trait:
+    frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Weight information for extrinsic of the sto pallet.
