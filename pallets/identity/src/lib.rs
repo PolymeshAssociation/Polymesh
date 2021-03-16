@@ -89,7 +89,7 @@ use core::{
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, fail,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
