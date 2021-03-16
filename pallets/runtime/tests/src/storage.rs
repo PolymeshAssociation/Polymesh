@@ -289,6 +289,7 @@ impl frame_system::Trait for TestStorage {
 parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
+    pub const MaxLen: u32 = 256;
 }
 
 impl CommonTrait for TestStorage {
@@ -299,6 +300,7 @@ impl CommonTrait for TestStorage {
 
 impl pallet_base::Trait for TestStorage {
     type Event = Event;
+    type MaxLen = MaxLen;
 }
 
 impl balances::Trait for TestStorage {
