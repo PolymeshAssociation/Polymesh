@@ -1,5 +1,5 @@
 use crate::{IdentityId, InvestorUid, Ticker};
-use confidential_identity::{
+use confidential_identity_v1::{
     build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
 

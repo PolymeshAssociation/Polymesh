@@ -1,9 +1,8 @@
-use crate::{IdentityId, InvestorZKProofData};
-use confidential_identity::compute_cdd_id;
-use polymesh_primitives_derive::SliceU8StrongTyped;
+use crate::IdentityId;
 
 use codec::{Decode, Encode};
-
+use confidential_identity::{claim_proofs::Provider, CddClaimData, ProviderTrait as _};
+use polymesh_primitives_derive::SliceU8StrongTyped;
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 
@@ -64,8 +63,11 @@ impl CddId {
     /// The blind factor is generated as a `Blake2b` hash of the concatenation of the given `did`
     /// and `investor_uid`.
     pub fn new(did: IdentityId, investor_uid: InvestorUid) -> Self {
-        let cdd_claim_data = InvestorZKProofData::make_cdd_claim(&did, &investor_uid);
-        let raw_cdd_id = compute_cdd_id(&cdd_claim_data).compress().to_bytes();
+        let cdd_claim_data = CddClaimData::new(did.as_bytes(), investor_uid.as_slice());
+        let raw_cdd_id = Provider::create_cdd_id(&cdd_claim_data)
+            .0
+            .compress()
+            .to_bytes();
 
         Self(raw_cdd_id)
     }

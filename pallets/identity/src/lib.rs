@@ -82,14 +82,12 @@ mod migration;
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use core::{
-    convert::{From, TryInto},
-    result::Result as StdResult,
-};
+use confidential_identity::ScopeClaimProof;
+use core::convert::{From, TryInto};
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, fail,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
@@ -119,11 +117,14 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord,
+    investor_zkproof_data::{
+        v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProofDataGeneral,
+    },
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
     AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
-    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, PalletName, Permissions, Scope,
+    SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -796,23 +797,14 @@ decl_module! {
         /// * `InvalidScopeClaim When proof is invalid.
         #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim()]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
-            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
-
-            // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
-            // otherwise throw and error.
-            match &claim {
-                Claim::InvestorUniqueness(..) => {
-                    Self::base_add_investor_uniqueness_claim(
-                        target,
-                        claim,
-                        issuer,
-                        proof,
-                        expiry,
-                    )
-                },
-                _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
-            }
+            Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
+
+        #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim_v2()]
+        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
+            Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
+        }
+
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
         #[weight = (<T as Trait>::WeightInfo::add_claim(), Operational, Pays::Yes)]
@@ -1399,7 +1391,7 @@ impl<T: Trait> Module<T> {
     pub fn grant_check_only_primary_key(
         sender: &T::AccountId,
         did: IdentityId,
-    ) -> sp_std::result::Result<DidRecord<T::AccountId>, DispatchError> {
+    ) -> Result<DidRecord<T::AccountId>, DispatchError> {
         Self::ensure_id_record_exists(did)?;
         let record = <DidRecords<T>>::get(did);
         ensure!(*sender == record.primary_key, Error::<T>::KeyNotAllowed);
@@ -1469,7 +1461,7 @@ impl<T: Trait> Module<T> {
     /// IMPORTANT: No state change is allowed in this function
     /// because this function is used within the RPC calls
     /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
+    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
         let mut buf = SECURITY_TOKEN.encode();
         buf.append(&mut ticker.encode());
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
@@ -1644,35 +1636,42 @@ impl<T: Trait> Module<T> {
     ///     - You are not the owner of that CDD_ID.
     ///     - If claim is not valid.
     ///
-    fn base_add_investor_uniqueness_claim(
+    fn do_add_investor_uniqueness_claim(
+        origin: T::Origin,
         target: IdentityId,
         claim: Claim,
-        issuer: IdentityId,
-        proof: InvestorZKProofData,
+        proof: InvestorZKProofDataGeneral,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         // Only owner of the identity can add that confidential claim.
+        let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
 
-        if let Claim::InvestorUniqueness(.., cdd_id) = &claim {
-            // Verify the owner of that CDD_ID.
-            ensure!(
-                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-                Error::<T>::ConfidentialScopeClaimNotAllowed
-            );
-        }
+        // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
+        // otherwise throw and error.
+        let (scope, scope_id, cdd_id) = match &claim {
+            Claim::InvestorUniqueness(scope, scope_id, cdd_id) => (scope, scope_id, cdd_id),
+            _ => fail!(Error::<T>::ClaimVariantNotAllowed),
+        };
+
+        // Verify the owner of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
+
         // Verify the confidential claim.
         ensure!(
             ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, _) = &claim {
+        if let Scope::Ticker(ticker) = scope {
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *scope)?
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?;
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);
@@ -1767,7 +1766,7 @@ impl<T: Trait> Module<T> {
     fn ensure_signed_and_validate_claim_target(
         origin: T::Origin,
         target: IdentityId,
-    ) -> StdResult<IdentityId, DispatchError> {
+    ) -> Result<IdentityId, DispatchError> {
         let primary_did = Self::ensure_perms(origin)?;
         ensure!(
             <DidRecords<T>>::contains_key(target),

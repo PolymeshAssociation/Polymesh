@@ -1,5 +1,5 @@
-use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
-use confidential_identity::{CompressedRistretto, ProofPublicKey};
+use crate::{investor_zkproof_data::v1::InvestorZKProofData, CddId, Claim, IdentityId, Scope};
+use confidential_identity_v1::{CompressedRistretto, ProofPublicKey};
 
 // ZKProofs claims
 // =========================================================
@@ -13,17 +13,9 @@ impl ValidProofOfInvestor {
     /// Evaluates if the claim is a valid proof.
     pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
         match claim {
-            Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id) => {
-                let message = InvestorZKProofData::make_message(id, ticker.as_slice());
-                Self::verify_proof(cdd_id, id, scope_id, ticker.as_slice(), proof, &message)
-            }
-            Claim::InvestorUniqueness(Scope::Identity(identity), scope_id, cdd_id) => {
-                let message = InvestorZKProofData::make_message(id, &identity.to_bytes());
-                Self::verify_proof(cdd_id, id, scope_id, &identity.to_bytes(), proof, &message)
-            }
-            Claim::InvestorUniqueness(Scope::Custom(scope), scope_id, cdd_id) => {
-                let message = InvestorZKProofData::make_message(id, &scope);
-                Self::verify_proof(cdd_id, id, scope_id, &scope, proof, &message)
+            Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
+                let message = InvestorZKProofData::make_message(id, scope.as_bytes());
+                Self::verify_proof(cdd_id, id, scope_id, scope, proof, &message)
             }
             _ => false,
         }
@@ -33,16 +25,17 @@ impl ValidProofOfInvestor {
     fn verify_proof(
         cdd_id_raw: &CddId,
         investor: &IdentityId,
-        scope_id_raw: &IdentityId,
-        scope: &[u8],
+        scope_id: &IdentityId,
+        scope: &Scope,
         proof: &InvestorZKProofData,
         message: impl AsRef<[u8]>,
     ) -> bool {
-        if let Some(cdd_id) = CompressedRistretto::from_slice(cdd_id_raw.as_slice()).decompress() {
-            if let Some(scope_id) =
-                CompressedRistretto::from_slice(scope_id_raw.as_bytes()).decompress()
-            {
-                let verifier = ProofPublicKey::new(cdd_id, &investor.to_bytes(), scope_id, scope);
+        let cdd_id_opt = CompressedRistretto::from_slice(cdd_id_raw.as_slice()).decompress();
+        if let Some(cdd_id) = cdd_id_opt {
+            let scope_id_opt = CompressedRistretto::from_slice(scope_id.as_bytes()).decompress();
+            if let Some(scope_id) = scope_id_opt {
+                let verifier =
+                    ProofPublicKey::new(cdd_id, &investor.to_bytes(), scope_id, scope.as_bytes());
                 return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
             }
         }
