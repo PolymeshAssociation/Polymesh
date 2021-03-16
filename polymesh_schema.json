@@ -1181,6 +1181,12 @@
         "TransferManagerResult": {
             "tm": "TransferManager",
             "result": "bool"
+        },
+        "BalanceAtResult": {
+            "_enum": {
+                "Ok": "Balance",
+                "Err": "Vec<u8>"
+            }
         }
     },
     "rpc": {
@@ -1545,7 +1551,7 @@
                         "isOptional": false
                     }
                 ],
-                "type": "BalanceAtResult<Balance>"
+                "type": "BalanceAtResult"
             }
         }
     }

@@ -16,20 +16,19 @@
 //! Runtime API definition for Identity module.
 
 use codec::Codec;
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{calendar::CheckpointId, Balance, IdentityId, PortfolioId, Ticker};
 use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;
 pub type CanTransferResult = Result<u8, Error>;
-pub type BalanceAtResult<Balance> = Result<Balance, Error>;
+pub type BalanceAtResult = Result<Balance, Error>;
 
 sp_api::decl_runtime_apis! {
 
     /// The API to interact with Asset.
-    pub trait AssetApi<AccountId, Balance>
+    pub trait AssetApi<AccountId>
     where
         AccountId: Codec,
-        Balance: Codec
     {
         /// Checks whether a transaction with given parameters can take place or not.
         ///
@@ -76,6 +75,6 @@ sp_api::decl_runtime_apis! {
         ) -> polymesh_primitives::asset::GranularCanTransferResult;
 
         /// Returns the identity-ticker balance at a checkpoint.
-        fn balance_at(did: IdentityId, ticker: Ticker, checkpoint: CheckpointId) -> BalanceAtResult<Balance>;
+        fn balance_at(did: IdentityId, ticker: Ticker, checkpoint: CheckpointId) -> BalanceAtResult;
     }
 }

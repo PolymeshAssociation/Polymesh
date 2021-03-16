@@ -32,7 +32,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 #[rpc]
-pub trait AssetApi<BlockHash, AccountId, Balance> {
+pub trait AssetApi<BlockHash, AccountId> {
     #[rpc(name = "asset_canTransfer")]
     fn can_transfer(
         &self,
@@ -65,7 +65,7 @@ pub trait AssetApi<BlockHash, AccountId, Balance> {
         ticker: Ticker,
         checkpoint: CheckpointId,
         at: Option<BlockHash>,
-    ) -> Result<BalanceAtResult<Balance>>;
+    ) -> Result<BalanceAtResult>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -84,16 +84,14 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-impl<C, Block, AccountId, Balance> AssetApi<<Block as BlockT>::Hash, AccountId, Balance>
-    for Asset<C, Block>
+impl<C, Block, AccountId> AssetApi<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: AssetRuntimeApi<Block, AccountId, Balance>,
+    C::Api: AssetRuntimeApi<Block, AccountId>,
     AccountId: Codec,
-    Balance: Codec + From<u64>,
 {
     fn can_transfer(
         &self,
@@ -167,7 +165,7 @@ where
         ticker: Ticker,
         checkpoint: CheckpointId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<BalanceAtResult<Balance>> {
+    ) -> Result<BalanceAtResult> {
         rpc_forward_call!(
             self,
             at,

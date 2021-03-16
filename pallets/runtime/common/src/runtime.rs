@@ -818,7 +818,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId, Balance> for Runtime {
+            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
                 #[inline]
                 fn can_transfer(
                     _sender: polymesh_primitives::AccountId,
@@ -849,9 +849,9 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn balance_at(
                     did: IdentityId, ticker: Ticker, checkpoint: CheckpointId
-                ) -> node_rpc_runtime_api::asset::BalanceAtResult<Balance>
+                ) -> node_rpc_runtime_api::asset::BalanceAtResult
                 {
-                    Ok(Asset::get_balance_at(ticker, did, checkpoint))
+                    Ok(Asset::get_balance_at(ticker, did, checkpoint).into())
                 }
             }
 
