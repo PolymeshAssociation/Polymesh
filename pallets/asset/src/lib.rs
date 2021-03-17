@@ -1076,25 +1076,32 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
         Self::base_accept_token_ownership_transfer(to_did, auth_id)
     }
 
-    fn update_balance_of_scope_id(
-        of: ScopeId,
-        target_did: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult {
-        let balance_at_scope = Self::balance_of_at_scope(of, target_did);
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
+        // If `target_did` already has another ScopeId, clean up the old ScopeId data.
+        if ScopeIdOf::contains_key(&ticker, &target_did) {
+            let old_scope_id = Self::scope_id_of(&ticker, &target_did);
+            // Delete the balance of target_did at old_scope_id.
+            let target_balance = <BalanceOfAtScope<T>>::take(old_scope_id, target_did);
+            // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
+            <AggregateBalance<T>>::mutate(ticker, old_scope_id, {
+                |bal| *bal = bal.saturating_sub(target_balance)
+            });
+        }
+
+        let balance_at_scope = Self::balance_of_at_scope(scope_id, target_did);
+
         // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
         // has the scope claim already.
         if balance_at_scope == Zero::zero() {
             let current_balance = Self::balance_of(ticker, target_did);
-            // Update the balance on the identityId under the given scopeId.
-            <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
-            // current aggregate balance + current identity balance is always less than the `total_supply` of given ticker.
-            <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
+            // Update the balance of `target_did` under `scope_id`.
+            <BalanceOfAtScope<T>>::insert(scope_id, target_did, current_balance);
+            // current aggregate balance + current identity balance is always less than the total supply of `ticker`.
+            <AggregateBalance<T>>::mutate(ticker, scope_id, |bal| *bal = *bal + current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
-        ScopeIdOf::insert(ticker, target_did, of);
-        Ok(())
+        ScopeIdOf::insert(ticker, target_did, scope_id);
     }
 
     /// Returns balance for a given scope id and target DID.
