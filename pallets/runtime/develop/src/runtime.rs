@@ -134,7 +134,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 
     // Identity:
-    pub const InitialPOLYX: Balance = 100_000 * POLY;
+    pub const InitialPOLYX: Balance = 0;
 }
 
 /// Splits fees 80/20 between treasury and block author.
