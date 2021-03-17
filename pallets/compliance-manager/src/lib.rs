@@ -581,7 +581,6 @@ impl<T: Trait> Module<T> {
         asset_compliance: &[ComplianceRequirement],
         default_issuer_complexity: usize,
     ) -> DispatchResult {
-        dbg!(default_issuer_complexity);
         let complexity = asset_compliance
             .iter()
             .flat_map(|requirement| {
