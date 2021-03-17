@@ -1838,36 +1838,57 @@ fn live_queue_off_by_one_insertion_regression_test2() {
 #[test]
 fn pips_rpcs() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let user = User::new(AccountKeyring::Bob);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         System::set_block_number(1);
+        // Create two community proposals with IDs 0 and 1.
         assert_ok!(alice_proposal(0));
+        assert_ok!(alice_proposal(0));
+        let pip_id0 = 0;
+        let pip_id1 = 1;
 
-        let vote_deposit = 100;
-        let pip_id = 0;
-        assert_ok!(Pips::vote(user.origin(), pip_id, false, vote_deposit));
+        let bob_vote_deposit = 100;
+        let charlie_vote_deposit = 200;
+        assert_ok!(Pips::vote(bob.origin(), pip_id0, false, bob_vote_deposit));
+        assert_ok!(Pips::vote(bob.origin(), pip_id1, true, bob_vote_deposit));
+        assert_ok!(Pips::vote(
+            charlie.origin(),
+            pip_id0,
+            true,
+            charlie_vote_deposit
+        ));
 
         assert_eq!(
-            Pips::get_votes(pip_id),
+            Pips::get_votes(pip_id0),
             VoteCount::ProposalFound {
-                ayes: 0,
-                nays: vote_deposit,
+                ayes: charlie_vote_deposit,
+                nays: bob_vote_deposit,
             }
         );
         assert_eq!(
             Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.public())),
-            vec![pip_id],
+            vec![pip_id1, pip_id0],
         );
-        assert_eq!(Pips::voted_on(user.acc()), vec![pip_id]);
-        let vote = Vote(false, vote_deposit);
+        assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
+
+        let votef = Vote(false, bob_vote_deposit);
+        let votet = Vote(true, bob_vote_deposit);
+        let votes = vec![
+            VoteByPip {
+                pip: pip_id1,
+                vote: votet,
+            },
+            VoteByPip {
+                pip: pip_id0,
+                vote: votef,
+            },
+        ];
+        assert_eq!(Pips::voting_history_by_address(bob.acc()), votes);
         assert_eq!(
-            Pips::voting_history_by_address(user.acc()),
-            vec![VoteByPip { pip: pip_id, vote }]
-        );
-        assert_eq!(
-            Pips::voting_history_by_id(user.did),
-            vec![(user.acc(), vec![VoteByPip { pip: pip_id, vote }])]
+            Pips::voting_history_by_id(bob.did),
+            vec![(bob.acc(), votes)]
         );
     });
 }
