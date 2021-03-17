@@ -10,7 +10,7 @@ use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    Signatory, SmartExtensionType,
+    SmartExtensionType,
 };
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;

@@ -388,9 +388,11 @@ impl IdentityTrait for Test {
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
 }
 
 parameter_types! {
+    pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
 }
