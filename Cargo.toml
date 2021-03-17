@@ -1,7 +1,7 @@
 [package]
 name = "polymesh"
-version = "2.0.0"
-authors = ["Anonymous"]
+version = "3.0.0"
+authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
 
