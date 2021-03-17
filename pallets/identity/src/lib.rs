@@ -561,7 +561,7 @@ decl_module! {
         ) {
             let from_did = Self::ensure_perms(origin)?;
             if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
-                Self::ensure_perms_limited(perms)?;
+                Self::ensure_perms_length_limited(perms)?;
             }
             Self::add_auth(from_did, target, authorization_data, expiry);
         }
@@ -697,7 +697,7 @@ decl_module! {
             for si_with_auth in additional_keys.iter() {
                 let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
 
-                Self::ensure_perms_limited(&si.permissions)?;
+                Self::ensure_perms_length_limited(&si.permissions)?;
 
                 // Get account_id from signer
                 let account_id = match si.signer {
@@ -1192,7 +1192,7 @@ impl<T: Trait> Module<T> {
         signer: &Signatory<T::AccountId>,
         mut permissions: Permissions,
     ) -> DispatchResult {
-        Self::ensure_perms_limited(&permissions)?;
+        Self::ensure_perms_length_limited(&permissions)?;
 
         let mut new_s_item: Option<SecondaryKey<T::AccountId>> = None;
 
@@ -1563,7 +1563,7 @@ impl<T: Trait> Module<T> {
         Ok(did)
     }
 
-    fn ensure_perms_limited(perms: &Permissions) -> DispatchResult {
+    fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
         if let Some(len) = perms.asset.elems_len() {
             ensure_length_ok::<T>(len as u32)?;
         }
