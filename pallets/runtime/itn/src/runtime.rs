@@ -72,7 +72,7 @@ parameter_types! {
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 
     // Base:
-    pub const MaxLen: u32 = 256;
+    pub const MaxLen: u32 = 2048;
 
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
