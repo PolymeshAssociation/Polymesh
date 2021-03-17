@@ -2078,8 +2078,6 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
     ) -> DispatchResult {
         let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
-        let len = docs.len();
-        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
 
         // Ensure strings are limited.
         for doc in &docs {
@@ -2090,6 +2088,11 @@ impl<T: Trait> Module<T> {
             }
         }
 
+        // Charge fee.
+        let len = docs.len();
+        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
+
+        // Add the documents & emit events.
         AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {
             for (id, doc) in (*id..).map(DocumentId).zip(docs) {
                 AssetDocuments::insert(ticker, id, doc.clone());
