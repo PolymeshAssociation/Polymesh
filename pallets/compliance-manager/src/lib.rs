@@ -99,6 +99,7 @@ use polymesh_primitives::{
     compliance_manager::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
+    condition::trusted_issuers_complexity,
     proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
     IdentityId, Ticker, TrustedIssuer,
 };
@@ -336,7 +337,9 @@ decl_module! {
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
-                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, issuers.len() + 1)?;
+                let def_complexity = trusted_issuers_complexity(&issuers)
+                    .saturating_add(issuer.complexity());
+                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, def_complexity)?;
                 issuers.push(issuer.clone());
                 Ok(()) as DispatchResult
             })?;
@@ -560,25 +563,25 @@ impl<T: Trait> Module<T> {
             .unwrap_or(0)
     }
 
-    /// Verify that `asset_compliance`, with `add` number of default issuers to add,
+    /// Verify that `asset_compliance`, with `base` complexity,
     /// is within the maximum condition complexity allowed.
     pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
         add: usize,
     ) -> DispatchResult {
-        let count = TrustedClaimIssuer::decode_len(ticker)
-            .unwrap_or_default()
-            .saturating_add(add);
-        Self::base_verify_compliance_complexity(asset_compliance, count)
+        let complexity =
+            trusted_issuers_complexity(&TrustedClaimIssuer::get(ticker)).saturating_add(add);
+        Self::base_verify_compliance_complexity(asset_compliance, complexity)
     }
 
-    /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
+    /// Verify that `asset_compliance`, with `default_issuer_complexity`,
     /// is within the maximum condition complexity allowed.
     pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
-        default_issuer_count: usize,
+        default_issuer_complexity: usize,
     ) -> DispatchResult {
+        dbg!(default_issuer_complexity);
         let complexity = asset_compliance
             .iter()
             .flat_map(|requirement| {
@@ -590,7 +593,7 @@ impl<T: Trait> Module<T> {
             .fold(0usize, |complexity, condition| {
                 let (claims, issuers) = condition.complexity();
                 complexity.saturating_add(claims.saturating_mul(match issuers {
-                    0 => default_issuer_count,
+                    0 => default_issuer_complexity,
                     _ => issuers,
                 }))
             });
