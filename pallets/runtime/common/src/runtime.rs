@@ -479,6 +479,7 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
+        use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_contracts_rpc_runtime_api::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
@@ -818,7 +819,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
+            impl rpc_api_asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
                 #[inline]
                 fn can_transfer(
                     _sender: polymesh_primitives::AccountId,
@@ -827,7 +828,7 @@ macro_rules! runtime_apis {
                     to_custodian: Option<IdentityId>,
                     to_portfolio: PortfolioId,
                     ticker: &Ticker,
-                    value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
+                    value: Balance) -> rpc_api_asset::CanTransferResult
                 {
                     Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                         .map_err(|msg| msg.as_bytes().to_vec())
@@ -849,11 +850,11 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn balance_at(
                     ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>
-                ) -> node_rpc_runtime_api::asset::BalanceAtResult
+                ) -> rpc_api_asset::BalanceAtResult
                 {
                     let balances = dids
                         .into_iter()
-                        .take(100) // max query size limit
+                        .take(rpc_api_asset::MAX_BALANCE_AT_QUERY_SIZE)
                         .map(|did| Asset::get_balance_at(ticker, did, checkpoint).into())
                         .collect();
                     Ok(balances)
