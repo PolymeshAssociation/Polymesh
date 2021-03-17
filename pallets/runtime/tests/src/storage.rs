@@ -476,7 +476,7 @@ impl IdentityTrait for TestStorage {
 }
 
 parameter_types! {
-    pub const InitialPOLYX: Balance = 0;
+    pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
     pub const StorageSizeOffset: u32 = 8;
     pub const TombstoneDeposit: Balance = 16;
