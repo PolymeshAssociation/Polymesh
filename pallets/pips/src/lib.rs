@@ -732,12 +732,8 @@ decl_module! {
             let did = Self::current_did_or_missing()?;
 
             // Ensure strings are limited in length.
-            if let Some(s) = &url {
-                ensure_string_limited::<T>(s)?;
-            }
-            if let Some(s) = &description {
-                ensure_string_limited::<T>(s)?;
-            }
+            ensure_opt_string_limited::<T>(url.as_deref())?;
+            ensure_opt_string_limited::<T>(description.as_deref())?;
             let proposal_data = Self::reportable_proposal_data(&*proposal)?;
 
             // Add a deposit for community PIPs.

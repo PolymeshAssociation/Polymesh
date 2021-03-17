@@ -32,7 +32,15 @@ pub fn ensure_length_ok<T: Trait>(len: u32) -> DispatchResult {
     Ok(())
 }
 
-/// Ensure that string's `.len()` is within the generic length limit.
+/// Ensure that `s.len()` is within the generic length limit.
 pub fn ensure_string_limited<T: Trait>(s: &[u8]) -> DispatchResult {
     ensure_length_ok::<T>(s.len() as u32)
+}
+
+/// Ensure that given `Some(s)`, `s.len()` is within the generic length limit.
+pub fn ensure_opt_string_limited<T: Trait>(s: Option<&[u8]>) -> DispatchResult {
+    match s {
+        None => Ok(()),
+        Some(s) => ensure_string_limited::<T>(s),
+    }
 }

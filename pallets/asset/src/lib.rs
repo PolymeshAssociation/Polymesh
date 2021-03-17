@@ -96,7 +96,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_base::ensure_string_limited;
+use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
@@ -2083,9 +2083,7 @@ impl<T: Trait> Module<T> {
         for doc in &docs {
             ensure_string_limited::<T>(&doc.uri)?;
             ensure_string_limited::<T>(&doc.name)?;
-            if let Some(ty) = &doc.doc_type {
-                ensure_string_limited::<T>(ty)?;
-            }
+            ensure_opt_string_limited::<T>(doc.doc_type.as_deref())?;
         }
 
         // Charge fee.
