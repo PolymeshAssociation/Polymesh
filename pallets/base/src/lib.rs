@@ -27,14 +27,14 @@ decl_error! {
 }
 
 /// Ensure that the `len` provided is within the generic length limit.
-pub fn ensure_length_ok<T: Trait>(len: u32) -> DispatchResult {
-    ensure!(len <= T::MaxLen::get(), Error::<T>::TooLong);
+pub fn ensure_length_ok<T: Trait>(len: usize) -> DispatchResult {
+    ensure!(len <= T::MaxLen::get() as usize, Error::<T>::TooLong);
     Ok(())
 }
 
 /// Ensure that `s.len()` is within the generic length limit.
 pub fn ensure_string_limited<T: Trait>(s: &[u8]) -> DispatchResult {
-    ensure_length_ok::<T>(s.len() as u32)
+    ensure_length_ok::<T>(s.len())
 }
 
 /// Ensure that given `Some(s)`, `s.len()` is within the generic length limit.

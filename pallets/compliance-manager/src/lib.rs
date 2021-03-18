@@ -85,8 +85,8 @@ use frame_support::{
     traits::Get,
     weights::Weight,
 };
-use pallet_identity as identity;
 use pallet_base::ensure_length_ok;
+use pallet_identity as identity;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
     asset::AssetFnTrait,
@@ -347,7 +347,7 @@ decl_module! {
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 // Ensure we don't have too many issuers now in total.
                 let new_count = issuers.len().saturating_add(1);
-                ensure_length_ok::<T>(new_count as u32)?;
+                ensure_length_ok::<T>(new_count)?;
 
                 // Ensure the new issuer is new.
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
@@ -621,7 +621,7 @@ impl<T: Trait> Module<T> {
 
     fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {
         req.conditions().try_for_each(|cond| {
-            ensure_length_ok::<T>(cond.issuers.len() as u32)?;
+            ensure_length_ok::<T>(cond.issuers.len())?;
             cond.issuers
                 .iter()
                 .try_for_each(Self::ensure_issuer_limited)
@@ -631,7 +631,7 @@ impl<T: Trait> Module<T> {
     fn ensure_issuer_limited(issuer: &TrustedIssuer) -> DispatchResult {
         match &issuer.trusted_for {
             TrustedFor::Any => Ok(()),
-            TrustedFor::Specific(cts) => ensure_length_ok::<T>(cts.len() as u32),
+            TrustedFor::Specific(cts) => ensure_length_ok::<T>(cts.len()),
         }
     }
 }

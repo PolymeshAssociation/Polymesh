@@ -691,7 +691,7 @@ decl_module! {
             let mut record = <DidRecords<T>>::get(did);
 
             // Ensure we won't have too many keys.
-            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()) as u32)?;
+            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()))?;
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
@@ -1565,17 +1565,17 @@ impl<T: Trait> Module<T> {
 
     fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
         if let Some(len) = perms.asset.elems_len() {
-            ensure_length_ok::<T>(len as u32)?;
+            ensure_length_ok::<T>(len)?;
         }
         if let Some(len) = perms.portfolio.elems_len() {
-            ensure_length_ok::<T>(len as u32)?;
+            ensure_length_ok::<T>(len)?;
         }
         if let SubsetRestriction(Some(set)) = &perms.extrinsic {
-            ensure_length_ok::<T>(set.len() as u32)?;
+            ensure_length_ok::<T>(set.len())?;
             for elem in set {
                 ensure_string_limited::<T>(&elem.pallet_name)?;
                 if let SubsetRestriction(Some(set)) = &elem.dispatchable_names {
-                    ensure_length_ok::<T>(set.len() as u32)?;
+                    ensure_length_ok::<T>(set.len())?;
                     for elem in set {
                         ensure_string_limited::<T>(elem)?;
                     }
