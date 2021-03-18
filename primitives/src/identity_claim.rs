@@ -56,6 +56,7 @@ impl From<Vec<u8>> for Scope {
 }
 
 impl Scope {
+    /// Returns its inner content as a slice.
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Self::Ticker(ticker) => ticker.as_slice(),

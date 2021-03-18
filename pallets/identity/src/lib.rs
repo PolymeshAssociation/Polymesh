@@ -210,22 +210,21 @@ decl_storage! {
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
-                .inspect(|iss| debug::info!("Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
             <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
-            for &(ref primary_account_id, ref issuers, did, investor_uid, expiry) in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v2(did.clone(), investor_uid));
+            for gen_id in &config.identities {
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(gen_id.did, gen_id.investor));
                 // Direct storage change for registering the DID and providing the claim
-                <Module<T>>::ensure_no_id_record(did).unwrap();
+                <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
-                <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
-                for issuer in issuers {
-                    <Module<T>>::base_add_claim(did, cdd_claim.clone(), issuer.clone(), expiry);
+                let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
+                <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
+                for issuer in &gen_id.issuers {
+                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
                 }
             }
 
@@ -1353,6 +1352,9 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
+                || SYSTEMATIC_ISSUERS
+                    .iter()
+                    .any(|si| si.as_id() == id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
@@ -1530,6 +1532,10 @@ impl<T: Trait> Module<T> {
         };
         <DidRecords<T>>::insert(&did, record);
 
+        // 2.3. Give 100k POLYX to the primary key for testing.
+        // TODO: Remove before mainnet.
+        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
+
         Self::deposit_event(RawEvent::DidCreated(
             did,
             sender,
@@ -1642,20 +1648,18 @@ impl<T: Trait> Module<T> {
         proof: InvestorZKProofDataGeneral,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
-        // Only owner of the identity can add that confidential claim.
-        let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
-        ensure!(
-            issuer == target,
-            Error::<T>::ConfidentialScopeClaimNotAllowed
-        );
-
         // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
         // otherwise throw and error.
         let (scope, scope_id, cdd_id) = match &claim {
             Claim::InvestorUniqueness(scope, scope_id, cdd_id) => (scope, scope_id, cdd_id),
             _ => fail!(Error::<T>::ClaimVariantNotAllowed),
         };
-
+        // Only owner of the identity can add that confidential claim.
+        let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
+        ensure!(
+            issuer == target,
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
         // Verify the owner of that CDD_ID.
         ensure!(
             Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
@@ -1670,7 +1674,7 @@ impl<T: Trait> Module<T> {
 
         if let Scope::Ticker(ticker) = scope {
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?;
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker);
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);
@@ -1902,15 +1906,26 @@ impl<T: Trait> Module<T> {
             id
         );
 
-        Self::unsafe_register_id(acc, id);
+        Self::do_register_id(acc, id, vec![]);
     }
 
     /// Registers `primary_key` as `id` identity.
     #[allow(dead_code)]
-    fn unsafe_register_id(primary_key: T::AccountId, id: IdentityId) {
+    fn do_register_id(
+        primary_key: T::AccountId,
+        id: IdentityId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) {
         <Module<T>>::link_account_key_to_did(&primary_key, id);
+        for sk in &secondary_keys {
+            if let Signatory::Account(key) = &sk.signer {
+                Self::link_account_key_to_did(key, id);
+            }
+        }
+
         let record = DidRecord {
             primary_key: primary_key.clone(),
+            secondary_keys,
             ..Default::default()
         };
         <DidRecords<T>>::insert(&id, record);
@@ -2083,7 +2098,7 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Adds systematic CDD claims.
     fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new_v2(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }

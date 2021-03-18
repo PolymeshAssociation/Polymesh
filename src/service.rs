@@ -1,7 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 pub use crate::chain_spec::{
-    alcyone_testnet::ChainSpec as AlcyoneChainSpec, polymesh_mainnet::ChainSpec as GeneralChainSpec,
+    alcyone_testnet::ChainSpec as AlcyoneChainSpec, polymesh_itn::ChainSpec as GeneralChainSpec,
 };
 pub use codec::Codec;
 use core::marker::PhantomData;
@@ -38,7 +38,7 @@ use std::sync::Arc;
 
 /// Known networks based on name.
 pub enum Network {
-    Mainnet,
+    ITN,
     Testnet,
     Other,
 }
@@ -50,9 +50,9 @@ pub trait IsNetwork {
 impl IsNetwork for dyn ChainSpec {
     fn network(&self) -> Network {
         let name = self.name();
-        if name.starts_with("Polymesh Mainnet") {
-            Network::Mainnet
-        } else if name.starts_with("Polymesh Alcyone") {
+        if name.starts_with("Polymesh ITN") {
+            Network::ITN
+        } else if name.starts_with("Polymesh Alcyone") || name.starts_with("Polymesh Buffron") {
             Network::Testnet
         } else {
             Network::Other
@@ -62,9 +62,9 @@ impl IsNetwork for dyn ChainSpec {
 
 // Our native executor instance.
 native_executor_instance!(
-    pub MainnetExecutor,
-    polymesh_runtime_mainnet::api::dispatch,
-    polymesh_runtime_mainnet::native_version,
+    pub ITNExecutor,
+    polymesh_runtime_itn::api::dispatch,
+    polymesh_runtime_itn::native_version,
     (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
@@ -531,8 +531,8 @@ where
 type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new Alcyone service for a full node.
-pub fn mainnet_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
+pub fn itn_new_full(config: Configuration) -> TaskResult {
+    new_full_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
@@ -574,10 +574,10 @@ where
     Ok((client, backend, import_queue, task_manager))
 }
 
-pub fn mainnet_chain_ops(
+pub fn itn_chain_ops(
     config: &mut Configuration,
-) -> Result<NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_mainnet::UncheckedExtrinsic>(config)
+) -> Result<NewChainOps<polymesh_runtime_itn::RuntimeApi, ITNExecutor>, ServiceError> {
+    chain_ops::<_, _, polymesh_runtime_itn::UncheckedExtrinsic>(config)
 }
 
 pub fn alcyone_chain_ops(
@@ -730,8 +730,8 @@ where
 }
 
 /// Create a new Polymesh service for a light client.
-pub fn mainnet_new_light(config: Configuration) -> TaskResult {
-    new_light_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _>(config)
+pub fn itn_new_light(config: Configuration) -> TaskResult {
+    new_light_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _>(config)
         .map(|(task_manager, _, _, _, _)| task_manager)
 }
 

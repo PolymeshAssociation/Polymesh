@@ -51,8 +51,8 @@ fn batch_test(test: impl FnOnce(Public, Public)) {
         TestStorage::set_payer_context(Some(bob));
         let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
-        assert_balance(alice, 959, 0);
-        assert_balance(bob, 959, 0);
+        assert_balance(alice, 1000, 0);
+        assert_balance(bob, 1000, 0);
 
         test(alice, bob)
     });
@@ -63,8 +63,8 @@ fn batch_with_signed_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob, 400), transfer(bob, 400)];
         assert_ok!(Utility::batch(Origin::signed(alice), calls));
-        assert_balance(alice, 159, 0);
-        assert_balance(bob, 959 + 400 + 400, 0);
+        assert_balance(alice, 200, 0);
+        assert_balance(bob, 1000 + 400 + 400, 0);
         assert_event(Event::BatchCompleted);
     });
 }
@@ -74,8 +74,8 @@ fn batch_early_exit_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob, 400), transfer(bob, 900), transfer(bob, 400)];
         assert_ok!(Utility::batch(Origin::signed(alice), calls));
-        assert_balance(alice, 559, 0);
-        assert_balance(bob, 959 + 400, 0);
+        assert_balance(alice, 600, 0);
+        assert_balance(bob, 1000 + 400, 0);
         assert_event(Event::BatchInterrupted(1, ERROR));
     })
 }
@@ -86,8 +86,8 @@ fn batch_optimistic_works() {
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
         assert_ok!(Utility::batch_optimistic(Origin::signed(alice), calls));
         assert_event(Event::BatchCompleted);
-        assert_balance(alice, 959 - 401 - 402, 0);
-        assert_balance(bob, 959 + 401 + 402, 0);
+        assert_balance(alice, 1000 - 401 - 402, 0);
+        assert_balance(bob, 1000 + 401 + 402, 0);
     });
 }
 
@@ -109,8 +109,8 @@ fn batch_optimistic_failures_listed() {
             (2, ERROR),
             (4, ERROR),
         ]));
-        assert_balance(alice, 959 - 401 - 402, 0);
-        assert_balance(bob, 959 + 401 + 402, 0);
+        assert_balance(alice, 1000 - 401 - 402, 0);
+        assert_balance(bob, 1000 + 401 + 402, 0);
     });
 }
 
@@ -120,8 +120,8 @@ fn batch_atomic_works() {
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
         assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
         assert_event(Event::BatchCompleted);
-        assert_balance(alice, 959 - 401 - 402, 0);
-        assert_balance(bob, 959 + 401 + 402, 0);
+        assert_balance(alice, 1000 - 401 - 402, 0);
+        assert_balance(bob, 1000 + 401 + 402, 0);
     });
 }
 
@@ -130,8 +130,8 @@ fn batch_atomic_early_exit_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob, 400), transfer(bob, 900), transfer(bob, 400)];
         assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
-        assert_balance(alice, 959, 0);
-        assert_balance(bob, 959, 0);
+        assert_balance(alice, 1000, 0);
+        assert_balance(bob, 1000, 0);
         assert_event(Event::BatchInterrupted(1, ERROR));
     })
 }
@@ -153,8 +153,9 @@ fn _relay_happy_case() {
     let charlie = AccountKeyring::Charlie.public();
     let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
 
-    assert_balance(bob, 1000, 0);
-    assert_balance(charlie, 1000, 0);
+    // 41 Extra for registering a DID
+    assert_balance(bob, 1041, 0);
+    assert_balance(charlie, 1041, 0);
 
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
@@ -169,8 +170,8 @@ fn _relay_happy_case() {
         transaction
     ));
 
-    assert_balance(bob, 950, 0);
-    assert_balance(charlie, 1_050, 0);
+    assert_balance(bob, 991, 0);
+    assert_balance(charlie, 1_091, 0);
 }
 
 #[test]

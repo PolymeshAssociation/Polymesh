@@ -62,6 +62,10 @@ pub enum AssetType {
     Derivative,
     /// Anything else.
     Custom(Vec<u8>),
+    /// Stablecoins are cryptocurrencies designed to minimize the volatility of the price of the stablecoin,
+    /// relative to some "stable" asset or basket of assets.
+    /// A stablecoin can be pegged to a cryptocurrency, fiat money, or to exchange-traded commodities.
+    StableCoin,
 }
 
 impl Default for AssetType {

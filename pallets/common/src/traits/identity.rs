@@ -28,7 +28,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
-    traits::{Currency, EnsureOrigin, GetCallMetadata},
+    traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
@@ -144,6 +144,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait {
 
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+    /// POLYX given to primary keys of all new Identities
+    type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
 }
 
 decl_event!(
