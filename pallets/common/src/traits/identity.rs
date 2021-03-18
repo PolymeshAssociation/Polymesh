@@ -27,8 +27,8 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
-    traits::{Currency, EnsureOrigin, GetCallMetadata},
+    dispatch::{DispatchResult, PostDispatchInfo},
+    traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
