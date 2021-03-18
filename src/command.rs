@@ -65,7 +65,7 @@ impl SubstrateCli for Cli {
             "itn-dev" => Box::new(chain_spec::polymesh_itn::develop_config()),
             "itn-local" => Box::new(chain_spec::polymesh_itn::local_config()),
             "itn-bootstrap" => Box::new(chain_spec::polymesh_itn::bootstrap_config()),
-            "ITN" | "itn" | "" => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_bytes(
+            "ITN" | "itn" => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/itn_raw.json")[..],
             )?),
             "Buffron" | "buffron" => {
@@ -73,7 +73,7 @@ impl SubstrateCli for Cli {
                     &include_bytes!("./chain_specs/buffron_raw.json")[..],
                 )?)
             }
-            "Alcyone" | "alcyone" => {
+            "Alcyone" | "alcyone" | "" => {
                 Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/alcyone_raw.json")[..],
                 )?)
