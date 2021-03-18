@@ -209,7 +209,6 @@ decl_storage! {
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
-                .inspect(|iss| debug::info!("Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
@@ -1357,6 +1356,9 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
+                || SYSTEMATIC_ISSUERS
+                    .iter()
+                    .any(|si| si.as_id() == id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
@@ -1533,6 +1535,10 @@ impl<T: Trait> Module<T> {
             ..Default::default()
         };
         <DidRecords<T>>::insert(&did, record);
+
+        // 2.3. Give 100k POLYX to the primary key for testing.
+        // TODO: Remove before mainnet.
+        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
 
         Self::deposit_event(RawEvent::DidCreated(
             did,
@@ -1913,6 +1919,12 @@ impl<T: Trait> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
     ) {
         <Module<T>>::link_account_key_to_did(&primary_key, id);
+        for sk in &secondary_keys {
+            if let Signatory::Account(key) = &sk.signer {
+                Self::link_account_key_to_did(key, id);
+            }
+        }
+
         let record = DidRecord {
             primary_key: primary_key.clone(),
             secondary_keys,

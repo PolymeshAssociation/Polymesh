@@ -261,25 +261,6 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
         }
 
-        impl polymesh_common_utilities::traits::identity::Trait for Runtime {
-            type Event = Event;
-            type Proposal = Call;
-            type MultiSig = MultiSig;
-            type Portfolio = Portfolio;
-            type CddServiceProviders = CddServiceProviders;
-            type Balances = pallet_balances::Module<Runtime>;
-            type ChargeTxFeeTarget = TransactionPayment;
-            type CddHandler = CddHandler;
-            type Public = <MultiSignature as Verify>::Signer;
-            type OffChainSignature = MultiSignature;
-            type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
-            type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-            type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-            type CorporateAction = CorporateAction;
-            type IdentityFn = pallet_identity::Module<Runtime>;
-            type SchedulerOrigin = OriginCaller;
-        }
-
         impl pallet_asset::Trait for Runtime {
             type Event = Event;
             type Currency = Balances;

@@ -10,7 +10,7 @@ use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    Signatory, SmartExtensionType,
+    SmartExtensionType,
 };
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -303,42 +303,13 @@ impl ExtBuilder {
             .collect()
     }
 
-    fn extract_links(
-        &self,
-        identities: &[GenesisIdentityRecord<AccountId>],
-    ) -> Vec<(AccountId, IdentityId)> {
-        self.regular_users
-            .iter()
-            .filter_map(|id| {
-                let _ = id.secondary_keys.get(0)?;
-                let did = identities
-                    .iter()
-                    .find(|gen_id| gen_id.primary_key == id.primary_key)?
-                    .did;
-                let links = id
-                    .secondary_keys
-                    .iter()
-                    .filter_map(|sk| match sk.signer {
-                        Signatory::Account(acc) => Some((acc, did)),
-                        Signatory::Identity(..) => None,
-                    })
-                    .collect::<Vec<_>>();
-
-                Some(links)
-            })
-            .flatten()
-            .collect()
-    }
-
     fn build_identity_genesis(
         &self,
         storage: &mut Storage,
         identities: Vec<GenesisIdentityRecord<AccountId>>,
     ) {
         // New identities are just `system users` + `regular users`.
-        let secondary_keys = self.extract_links(&identities);
         identity::GenesisConfig::<TestStorage> {
-            secondary_keys,
             identities,
             ..Default::default()
         }

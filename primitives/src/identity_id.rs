@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{cdd_id::InvestorUid, EventOnly, SecondaryKey};
+use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -46,6 +46,18 @@ pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
     pub investor: InvestorUid,
     /// CDD claim expiry
     pub cdd_claim_expiry: Option<u64>,
+}
+
+impl GenesisIdentityRecord<AccountId> {
+    /// Creates a new CDD less `GenesisIdentityRecord` from a nonce and the primary key
+    pub fn new(nonce: u8, primary_key: AccountId) -> Self {
+        Self {
+            primary_key,                              // No CDD claim will be issued
+            did: IdentityId::from(nonce as u128),     // Identity = 0xi000...0000
+            investor: InvestorUid::from([nonce; 16]), // Irrelevant since no CDD claim is issued
+            ..Default::default()
+        }
+    }
 }
 
 /// Polymesh Identifier ID.

@@ -472,9 +472,11 @@ impl IdentityTrait for TestStorage {
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
 }
 
 parameter_types! {
+    pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
     pub const StorageSizeOffset: u32 = 8;
     pub const TombstoneDeposit: Balance = 16;

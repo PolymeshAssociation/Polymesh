@@ -1,12 +1,16 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use pallet_asset::{ClassicTickerImport, TickerRegistrationConfig};
+use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
-use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
+use polymesh_common_utilities::{
+    constants::{currency::POLY, TREASURY_MODULE_ID},
+    protocol_fee::ProtocolOp,
+};
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, IdentityId, InvestorUid, Moment, PosRatio,
-    Signatory, Signature, SmartExtensionType, Ticker,
+    SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -14,14 +18,13 @@ use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, H256};
 use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
+    traits::{AccountIdConversion, IdentifyAccount, Verify},
     PerThing,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-
 use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
@@ -70,8 +73,8 @@ pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
     }
 }
 
-fn polymath_props() -> Properties {
-    json!({ "ss58Format": 12, "tokenDecimals": 6, "tokenSymbol": "POLYX" })
+fn polymath_props(ss58: u8) -> Properties {
+    json!({ "ss58Format": ss58, "tokenDecimals": 6, "tokenSymbol": "POLYX" })
         .as_object()
         .unwrap()
         .clone()
@@ -210,6 +213,35 @@ fn polymath_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
 
 const STASH: u128 = 5_000_000 * POLY;
 const ENDOWMENT: u128 = 100_000_000 * POLY;
+const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
+const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
+
+#[derive(Clone)]
+struct BridgeLockId {
+    nonce: u32,
+    tx_hash: H256,
+}
+
+impl BridgeLockId {
+    fn new(nonce: u32, hash: &'static str) -> Self {
+        let offset = if hash.starts_with("0x") { 2 } else { 0 };
+        let stripped_hash = &hash[offset..];
+        let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
+            .expect("Failed to decode transaction hash (Invalid hex Value)");
+        let hash_array: [u8; 32] = hash_vec
+            .try_into()
+            .expect("Failed to decode transaction hash (Invalid hash length)");
+        Self {
+            nonce,
+            tx_hash: hash_array.into(),
+        }
+    }
+
+    fn generate_bridge_locks(count: u32) -> Vec<Self> {
+        const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
+        (0..count).map(|x| Self::new(x + 100, HASH)).collect()
+    }
+}
 
 fn identities(
     initial_authorities: &[InitialAuth],
@@ -276,6 +308,86 @@ fn identities(
         .collect::<Vec<_>>();
 
     (stakers, all_identities, secondary_keys)
+}
+
+fn genesis_processed_data(
+    initial_authorities: &Vec<InitialAuth>,
+    root_key: AccountId,
+    treasury_bridge_lock: BridgeLockId,
+    key_bridge_locks: Vec<BridgeLockId>,
+) -> (
+    Vec<GenesisIdentityRecord<AccountId>>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
+    Vec<BridgeTx<AccountId, u128>>,
+) {
+    // Identities and their roles
+    // 1 = GC + UC
+    // 2 = GC
+    // 3 = GC + TC
+    // 4 = Operator
+    // 5 = Bridge + Sudo
+    let mut identities = Vec::with_capacity(5);
+    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
+
+    let mut create_id = |nonce: u8, primary_key: AccountId| {
+        keys.push(primary_key.clone());
+        identities.push(GenesisIdentityRecord::new(nonce, primary_key));
+    };
+
+    // Creating Identities 1-4 (GC + Operators)
+    for i in 1..5u8 {
+        create_id(i, seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, i)));
+    }
+
+    // Creating identity for sudo + bridge admin
+    create_id(5u8, root_key);
+
+    // 3 operators, all self staking at genesis
+    let mut stakers = Vec::with_capacity(initial_authorities.len());
+    for (stash, controller, ..) in initial_authorities {
+        stakers.push((
+            IdentityId::from(4), // All operators have the same Identity
+            stash.clone(),
+            controller.clone(),
+            BOOTSTRAP_STASH / 2,
+            pallet_staking::StakerStatus::Validator,
+        ));
+        // Make stash and controller 4th Identity's secondary keys.
+        let mut push_key = |key: &AccountId| {
+            identities[3]
+                .secondary_keys
+                .push(SecondaryKey::from_account_id(key.clone()));
+            keys.push(key.clone());
+        };
+        push_key(stash);
+        push_key(controller);
+    }
+
+    // Accumulate bridge transactions
+    let mut complete_txs: Vec<_> = key_bridge_locks
+        .iter()
+        .cloned()
+        .zip(keys.iter().cloned())
+        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
+            nonce,
+            recipient,
+            amount: BOOTSTRAP_STASH,
+            tx_hash,
+        })
+        .collect();
+    complete_txs.push(BridgeTx {
+        nonce: treasury_bridge_lock.nonce,
+        recipient: TREASURY_MODULE_ID.into_account(),
+        amount: BOOTSTRAP_TREASURY,
+        tx_hash: treasury_bridge_lock.tx_hash,
+    });
+    (identities, stakers, complete_txs)
 }
 
 fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId, u128)> {
@@ -348,17 +460,7 @@ macro_rules! pips {
     };
 }
 
-macro_rules! cdd_membership {
-    ($($member:expr),*) => {
-        pallet_group::GenesisConfig {
-            active_members_limit: u32::MAX,
-            active_members: vec![$(IdentityId::from($member)),*, GC_DID],
-            phantom: Default::default(),
-        }
-    };
-}
-
-macro_rules! committee_membership {
+macro_rules! group_membership {
     ($($member:expr),*) => {
         pallet_group::GenesisConfig {
             active_members_limit: 20,
@@ -473,14 +575,14 @@ pub mod general {
                 },
             }),
             // Governance Council:
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5, 6)),
+            pallet_group_Instance1: Some(group_membership!(3, 4, 5, 6)),
             pallet_committee_Instance1: Some(committee!(6)),
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 6)), // sp1, sp2, first authority
+            pallet_group_Instance2: Some(group_membership!(1, 2, 6)), // sp1, sp2, first authority
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)),
+            pallet_group_Instance3: Some(group_membership!(3)),
             pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(4)),
+            pallet_group_Instance4: Some(group_membership!(4)),
             pallet_committee_Instance4: Some(committee!(4)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
@@ -513,7 +615,7 @@ pub mod general {
         ctype: ChainType,
         genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
     ) -> ChainSpec {
-        let props = Some(polymath_props());
+        let props = Some(polymath_props(42));
         ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
     }
 
@@ -619,15 +721,15 @@ pub mod alcyone_testnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
+            pallet_group_Instance1: Some(group_membership!(3, 4, 5)), //admin, gc1, gc2
             pallet_committee_Instance1: Some(committee!(3, (2, 3))),
             // CDD providers
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            pallet_group_Instance2: Some(group_membership!(1, 2, 3)), // sp1, sp2, admin
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)), //admin
+            pallet_group_Instance3: Some(group_membership!(3)), //admin
             pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(3)), //admin
+            pallet_group_Instance4: Some(group_membership!(3)), //admin
             pallet_committee_Instance4: Some(committee!(3)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
@@ -666,7 +768,7 @@ pub mod alcyone_testnet {
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -703,15 +805,15 @@ pub mod alcyone_testnet {
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
 }
 
-pub mod polymesh_mainnet {
+pub mod polymesh_itn {
     use super::*;
-    use polymesh_runtime_mainnet::{self as rt, constants::time};
+    use polymesh_runtime_itn::{self as rt, constants::time};
 
     pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
 
@@ -720,40 +822,34 @@ pub mod polymesh_mainnet {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        endowed_accounts: Vec<AccountId>,
         enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
+        key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let init_ids = [
-            // Service providers
-            cdd_provider(1),
-            cdd_provider(2),
-            // Governance committee members
-            polymath_mem(1),
-            polymath_mem(2),
-            polymath_mem(3),
-        ];
-        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+        let (identities, stakers, complete_txs) = genesis_processed_data(
+            &initial_authorities,
+            root_key.clone(),
+            treasury_bridge_lock,
+            key_bridge_locks,
+        );
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities: all_identities,
-                secondary_keys,
+                identities,
                 ..Default::default()
             }),
-            pallet_balances: Some(pallet_balances::GenesisConfig {
-                balances: balances(&initial_authorities, &endowed_accounts),
-            }),
+            pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
+                admin: root_key.clone(),
+                creator: root_key.clone(),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (100_000_000_000, 365 * time::DAYS),
-                ..Default::default()
+                complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -775,16 +871,16 @@ pub mod polymesh_mainnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(committee_membership!(3, 4, 5)), //admin, gc1, gc2
-            pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
+            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(cdd_membership!(1, 2, 3)), // sp1, sp2, admin
+            pallet_group_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(committee_membership!(3)), //admin
-            pallet_committee_Instance3: Some(committee!(3)),
+            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
+            pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(committee_membership!(3)), //admin
-            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
+            pallet_committee_Instance4: Some(committee!(1)),    // RC = 1, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -801,41 +897,35 @@ pub mod polymesh_mainnet {
                 get_authority_keys_from_seed("Bob", false),
                 get_authority_keys_from_seed("Charlie", false),
             ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("cdd_provider_1"),
-                seeded_acc_id("cdd_provider_2"),
-                seeded_acc_id("polymath_1"),
-                seeded_acc_id("polymath_2"),
-                seeded_acc_id("polymath_3"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("polymath_5"),
             false,
+            BridgeLockId::new(
+                1,
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+            ),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/buffron-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAhsJHrHJ5Wk5v6sensyjJu2afJFanq4acxbMqhWje2pw".parse().expect("Unable to parse bootnode"),
-            "/dns4/buffron-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWQZ1mfWzKAzK5eXMqk4qupQqTshtWFSiSbhKS5D6Ycz1M".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
+            "/dns4/itn-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet",
-            "mainnet",
+            "Polymesh ITN",
+            "polymesh_itn",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("Mainnet bootstrap telemetry url is valid; qed"),
+                    .expect("ITN bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/mainnet/1"),
-            Some(polymath_props()),
+            Some(&*"/polymath/itn"),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }
@@ -843,17 +933,13 @@ pub mod polymesh_mainnet {
     fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Bob"),
-                seeded_acc_id("Bob//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(
+                1,
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+            ),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -861,14 +947,14 @@ pub mod polymesh_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet Develop",
-            "dev_mainnet",
+            "Polymesh ITN Develop",
+            "dev_itn",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
             None,
-            None,
-            Some(polymath_props()),
+            Some(&*"/polymath/develop/1"),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }
@@ -879,18 +965,13 @@ pub mod polymesh_mainnet {
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
             ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Charlie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(
+                1,
+                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+            ),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -898,14 +979,14 @@ pub mod polymesh_mainnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Mainnet Local",
-            "local_mainnet",
+            "Polymesh ITN Local",
+            "local_itn",
             ChainType::Local,
             local_genesis,
             boot_nodes,
             None,
             None,
-            Some(polymath_props()),
+            Some(polymath_props(12)),
             Default::default(),
         )
     }

@@ -433,7 +433,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     TestStorage::set_payer_context(Some(charlie));
     let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
-    assert_eq!(Balances::free_balance(charlie), 59);
+    assert_eq!(Balances::free_balance(charlie), 100);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
@@ -456,7 +456,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 1_059);
+    assert_eq!(Balances::free_balance(charlie), 1100);
 
     // 3. Alice freezes her secondary keys.
     assert_ok!(Identity::freeze_secondary_keys(Origin::signed(alice)));
@@ -476,7 +476,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
     );
 
-    assert_eq!(Balances::free_balance(charlie), 1_059);
+    assert_eq!(Balances::free_balance(charlie), 1100);
 
     // 5. Alice still can make transfers.
     assert_ok!(Balances::transfer_with_memo(
@@ -485,7 +485,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 2_059);
+    assert_eq!(Balances::free_balance(charlie), 2100);
 
     // 6. Unfreeze signatory keys, and Bob should be able to transfer again.
     assert_ok!(Identity::unfreeze_secondary_keys(Origin::signed(alice)));
@@ -495,7 +495,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 3_059);
+    assert_eq!(Balances::free_balance(charlie), 3100);
 }
 
 #[test]

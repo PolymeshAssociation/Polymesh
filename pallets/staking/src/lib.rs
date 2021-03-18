@@ -1272,7 +1272,7 @@ decl_storage! {
                     StakerStatus::Validator => {
                         if <Module<T>>::permissioned_identity(&did).is_none() {
                             // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
+                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::new(3));
                             <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
                         }
                         let mut prefs = ValidatorPrefs::default();

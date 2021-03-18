@@ -25,6 +25,7 @@ fn make_users<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) ->
 
 /// Create `m` new users and add them into the group.
 fn make_members<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
+    <ActiveMembersLimit<I>>::put(u32::MAX);
     let dids = make_users::<T, I>(m);
     dids.iter().for_each(|did| {
         Module::<T, I>::add_member(RawOrigin::Root.into(), *did).expect("Member cannot be added");
@@ -112,6 +113,8 @@ benchmarks_instance! {
 
     reset_members {
         let m in 1..MAX_MEMBERS;
+        <ActiveMembersLimit<I>>::put(u32::MAX);
+
         let new_members = make_users::<T,I>(m);
 
         let mut new_members_exp = new_members.clone();
