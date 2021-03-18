@@ -460,12 +460,13 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
+        use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_contracts_rpc_runtime_api::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
+        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -799,7 +800,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
+            impl rpc_api_asset::AssetApi<Block, polymesh_primitives::AccountId> for Runtime {
                 #[inline]
                 fn can_transfer(
                     _sender: polymesh_primitives::AccountId,
@@ -808,7 +809,7 @@ macro_rules! runtime_apis {
                     to_custodian: Option<IdentityId>,
                     to_portfolio: PortfolioId,
                     ticker: &Ticker,
-                    value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
+                    value: Balance) -> rpc_api_asset::CanTransferResult
                 {
                     Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                         .map_err(|msg| msg.as_bytes().to_vec())
@@ -825,6 +826,19 @@ macro_rules! runtime_apis {
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
                     Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                }
+
+                #[inline]
+                fn balance_at(
+                    ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>
+                ) -> rpc_api_asset::BalanceAtResult
+                {
+                    let balances = dids
+                        .into_iter()
+                        .take(rpc_api_asset::MAX_BALANCE_AT_QUERY_SIZE)
+                        .map(|did| Asset::get_balance_at(ticker, did, checkpoint).into())
+                        .collect();
+                    Ok(balances)
                 }
             }
 

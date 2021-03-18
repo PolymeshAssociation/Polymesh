@@ -87,7 +87,7 @@ sp_api::decl_runtime_apis! {
     pub trait PipsApi<AccountId, Balance>
     where
         AccountId: Codec,
-        Balance: Codec // + UniqueSaturatedInto<u128>
+        Balance: Codec
     {
         /// Retrieve votes for a proposal for a given `pips_index`.
         fn get_votes(pips_index: u32) -> VoteCount<Balance>;
