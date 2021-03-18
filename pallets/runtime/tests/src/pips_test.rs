@@ -19,7 +19,7 @@ use pallet_group as group;
 use pallet_pips::{
     self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
     Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
-    VotingResult,
+    VoteByPip, VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
@@ -1831,6 +1831,64 @@ fn live_queue_off_by_one_insertion_regression_test2() {
         assert_eq!(
             Pips::live_queue(),
             vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
+        );
+    });
+}
+
+#[test]
+fn pips_rpcs() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        System::set_block_number(1);
+        // Create two community proposals with IDs 0 and 1.
+        assert_ok!(alice_proposal(0));
+        assert_ok!(alice_proposal(0));
+        let pip_id0 = 0;
+        let pip_id1 = 1;
+
+        let bob_vote_deposit = 100;
+        let charlie_vote_deposit = 200;
+        assert_ok!(Pips::vote(bob.origin(), pip_id0, false, bob_vote_deposit));
+        assert_ok!(Pips::vote(bob.origin(), pip_id1, true, bob_vote_deposit));
+        assert_ok!(Pips::vote(
+            charlie.origin(),
+            pip_id0,
+            true,
+            charlie_vote_deposit
+        ));
+
+        assert_eq!(
+            Pips::get_votes(pip_id0),
+            VoteCount::ProposalFound {
+                ayes: charlie_vote_deposit,
+                nays: bob_vote_deposit,
+            }
+        );
+        assert_eq!(
+            Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.public())),
+            vec![pip_id1, pip_id0],
+        );
+        assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
+
+        let votef = Vote(false, bob_vote_deposit);
+        let votet = Vote(true, bob_vote_deposit);
+        let votes = vec![
+            VoteByPip {
+                pip: pip_id1,
+                vote: votet,
+            },
+            VoteByPip {
+                pip: pip_id0,
+                vote: votef,
+            },
+        ];
+        assert_eq!(Pips::voting_history_by_address(bob.acc()), votes);
+        assert_eq!(
+            Pips::voting_history_by_id(bob.did),
+            vec![(bob.acc(), votes)]
         );
     });
 }
