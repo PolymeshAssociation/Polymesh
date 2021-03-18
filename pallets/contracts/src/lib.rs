@@ -427,9 +427,7 @@ decl_module! {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
             // Ensure URL is limited in length.
-            if let Some(url) = &new_url {
-                ensure_string_limited::<T>(url)?;
-            }
+            ensure_opt_string_limited::<T>(new_url.as_deref())?;
             // Update the usage fee for a given code hash.
             let old_url = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url.clone()));
             // Emit event with old and new url.
