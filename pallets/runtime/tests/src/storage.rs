@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    investor_zkproof_data::v2::InvestorZKProofData, Authorization, AuthorizationData, CddId, Claim,
+    investor_zkproof_data::v1::InvestorZKProofData, Authorization, AuthorizationData, CddId, Claim,
     IdentityId, InvestorUid, Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory,
     Ticker,
 };
@@ -926,8 +926,7 @@ pub fn provide_scope_claim(
     cdd_claim_expiry: Option<u64>,
 ) -> (ScopeId, CddId) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
-    let scope_id = scope_claim.scope_did.to_bytes().into();
+    let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 
@@ -940,11 +939,11 @@ pub fn provide_scope_claim(
     ));
 
     // Provide the InvestorUniqueness.
-    assert_ok!(Identity::add_investor_uniqueness_claim_v2(
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
         Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
-        proof.0,
+        proof,
         None
     ));
 

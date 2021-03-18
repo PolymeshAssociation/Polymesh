@@ -57,7 +57,7 @@ mod tests {
     use crate::{
         investor_zkproof_data::v1::InvestorZKProofData, Claim, Context, InvestorUid, Ticker,
     };
-    use confidential_identity_v1::{compute_cdd_id, compute_scope_id};
+    use confidential_identity_v1::compute_cdd_id;
     use sp_std::convert::{From, TryFrom};
 
     #[test]
@@ -87,9 +87,7 @@ mod tests {
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
         let cdd_claim = InvestorZKProofData::make_cdd_claim(&investor_id, &investor_uid);
         let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-        let scope_claim =
-            InvestorZKProofData::make_scope_claim(&asset_ticker.as_slice(), &investor_uid);
-        let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+        let scope_id = InvestorZKProofData::make_scope_id(&asset_ticker.as_slice(), &investor_uid);
 
         let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);
 

@@ -26,16 +26,21 @@ impl InvestorZKProofData {
         Self(proof)
     }
 
-    /// Returns the CDD claim of the given `investor_did` and `investor_uid`.
-    pub fn make_cdd_claim(
-        investor_did: &IdentityId,
-        investor_unique_id: &InvestorUid,
-    ) -> CddClaimData {
-        CddClaimData::new(&investor_did.to_bytes(), &investor_unique_id.to_bytes())
+    /// Returns the CDD claim of the given `did` and `investor`.
+    pub fn make_cdd_claim(did: &IdentityId, investor: &InvestorUid) -> CddClaimData {
+        CddClaimData::new(&did.to_bytes(), &investor.to_bytes())
     }
 
-    /// Returns the Scope claim of the given `ticker` and `investor_uid`.
-    pub fn make_scope_claim(scope: &[u8], investor_unique_id: &InvestorUid) -> ScopeClaimData {
-        ScopeClaimData::new(scope, &investor_unique_id.to_bytes())
+    /// Returns the Scope claim of the given `scope` and `investor_uid`.
+    pub fn make_scope_claim(scope: &[u8], investor: &InvestorUid) -> ScopeClaimData {
+        ScopeClaimData::new(scope, &investor.to_bytes())
+    }
+
+    /// Returns the Scope ID of the given `scope` and `investor_uid`.
+    pub fn make_scope_id(scope: &[u8], investor: &InvestorUid) -> IdentityId {
+        Self::make_scope_claim(scope, &investor)
+            .scope_did
+            .to_bytes()
+            .into()
     }
 }

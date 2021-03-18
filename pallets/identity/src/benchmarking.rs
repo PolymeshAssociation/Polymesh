@@ -47,7 +47,7 @@ where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
     IF: Fn(&[u8]) -> InvestorUid,
     CF: Fn(IdentityId, InvestorUid) -> CddId,
-    SF: Fn(&Ticker, &InvestorUid) -> IdentityId,
+    SF: Fn(&[u8], &InvestorUid) -> IdentityId,
     PF: Fn(&IdentityId, &InvestorUid, &Ticker) -> P,
 {
     let user = UserBuilder::<T>::default().generate_did().build(name);
@@ -78,10 +78,6 @@ fn setup_investor_uniqueness_claim_v2<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    let make_scope_did = |t: &Ticker, i: &InvestorUid| {
-        let scope_did_scalar = ScopeClaimDataV2::new(t.as_bytes(), i.as_slice()).scope_did;
-        IdentityId::from(scope_did_scalar.to_bytes())
-    };
     let make_investor_uid =
         |raw_did: &[u8]| -> InvestorUid { make_investor_uid_v2(raw_did).into() };
 
@@ -89,7 +85,7 @@ where
         name,
         make_investor_uid,
         CddId::new_v2,
-        make_scope_did,
+        v2::InvestorZKProofData::make_scope_id,
         v2::InvestorZKProofData::new,
     )
 }
@@ -100,11 +96,6 @@ fn setup_investor_uniqueness_claim_v1<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    let make_scope_did = |t: &Ticker, i: &InvestorUid| {
-        let scope_did_point =
-            compute_scope_id_v1(&ScopeClaimDataV1::new(t.as_bytes(), i.as_slice()));
-        IdentityId::from(scope_did_point.compress().to_bytes())
-    };
     let make_investor_uid =
         |raw_did: &[u8]| -> InvestorUid { make_investor_uid_v1(raw_did).into() };
 
@@ -112,7 +103,7 @@ where
         name,
         make_investor_uid,
         CddId::new_v1,
-        make_scope_did,
+        v1::InvestorZKProofData::make_scope_id,
         v1::InvestorZKProofData::new,
     )
 }
