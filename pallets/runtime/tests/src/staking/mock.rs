@@ -48,8 +48,8 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Moment, Permissions,
-    PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
+    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
+    InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -221,6 +221,7 @@ impl_outer_event! {
         identity<T>,
         group Instance2<T>,
         pallet_scheduler<T>,
+        pallet_test_utils<T>,
     }
 }
 
@@ -387,9 +388,11 @@ impl IdentityTrait for Test {
     type CorporateAction = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
 }
 
 parameter_types! {
+    pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
 }
@@ -403,6 +406,11 @@ impl pallet_scheduler::Trait for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+}
+
+impl pallet_test_utils::Trait for Test {
+    type Event = MetaEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -486,9 +494,7 @@ impl AssetSubTrait<Balance> for Test {
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
-    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
-        Ok(())
-    }
+    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
     fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
         0
     }
@@ -839,48 +845,48 @@ impl ExtBuilder {
             identities: vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Provide Identity
-                (
-                    1005,
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    InvestorUid::from(b"uid1".as_ref()),
-                    None,
-                ),
-                (
-                    11,
-                    IdentityId::from(1),
-                    IdentityId::from(11),
-                    InvestorUid::from(b"uid11".as_ref()),
-                    None,
-                ),
-                (
-                    21,
-                    IdentityId::from(1),
-                    IdentityId::from(21),
-                    InvestorUid::from(b"uid21".as_ref()),
-                    None,
-                ),
-                (
-                    31,
-                    IdentityId::from(1),
-                    IdentityId::from(31),
-                    InvestorUid::from(b"uid31".as_ref()),
-                    None,
-                ),
-                (
-                    41,
-                    IdentityId::from(1),
-                    IdentityId::from(41),
-                    InvestorUid::from(b"uid41".as_ref()),
-                    None,
-                ),
-                (
-                    101,
-                    IdentityId::from(1),
-                    IdentityId::from(101),
-                    InvestorUid::from(b"uid101".as_ref()),
-                    None,
-                ),
+                GenesisIdentityRecord {
+                    primary_key: 1005,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(1),
+                    investor: InvestorUid::from(b"uid1".as_ref()),
+                    ..Default::default()
+                },
+                GenesisIdentityRecord {
+                    primary_key: 11,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(11),
+                    investor: InvestorUid::from(b"uid11".as_ref()),
+                    ..Default::default()
+                },
+                GenesisIdentityRecord {
+                    primary_key: 21,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(21),
+                    investor: InvestorUid::from(b"uid21".as_ref()),
+                    ..Default::default()
+                },
+                GenesisIdentityRecord {
+                    primary_key: 31,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(31),
+                    investor: InvestorUid::from(b"uid31".as_ref()),
+                    ..Default::default()
+                },
+                GenesisIdentityRecord {
+                    primary_key: 41,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(41),
+                    investor: InvestorUid::from(b"uid41".as_ref()),
+                    ..Default::default()
+                },
+                GenesisIdentityRecord {
+                    primary_key: 101,
+                    issuers: vec![IdentityId::from(1)],
+                    did: IdentityId::from(101),
+                    investor: InvestorUid::from(b"uid101".as_ref()),
+                    ..Default::default()
+                },
             ],
             ..Default::default()
         }
@@ -998,6 +1004,7 @@ pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
 pub type Scheduler = pallet_scheduler::Module<Test>;
+pub type TestUtils = pallet_test_utils::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1620,7 +1627,7 @@ pub fn make_account_with_balance(
             did
         }
         _ => {
-            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+            let _ = TestUtils::register_did(signed_id.clone(), uid, vec![])
                 .map_err(|_| "Register DID failed")?;
             Identity::get_identity(&id).unwrap()
         }

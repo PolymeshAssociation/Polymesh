@@ -17,8 +17,8 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, alcyone_chain_ops, general_chain_ops, mainnet_chain_ops, new_full_base, AlcyoneExecutor,
-    GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps, NewFullBase,
+    self, alcyone_chain_ops, general_chain_ops, itn_chain_ops, new_full_base, AlcyoneExecutor,
+    GeneralExecutor, ITNExecutor, IsNetwork, Network, NewChainOps, NewFullBase,
 };
 use core::future::Future;
 use log::info;
@@ -62,14 +62,12 @@ impl SubstrateCli for Cli {
             "local" => Box::new(chain_spec::general::local_config()),
             "alcyone-dev" => Box::new(chain_spec::alcyone_testnet::develop_config()),
             "alcyone-local" => Box::new(chain_spec::alcyone_testnet::local_config()),
-            "mainnet-dev" => Box::new(chain_spec::polymesh_mainnet::develop_config()),
-            "mainnet-local" => Box::new(chain_spec::polymesh_mainnet::local_config()),
-            "mainnet-bootstrap" => Box::new(chain_spec::polymesh_mainnet::bootstrap_config()),
-            "Mainnet" | "mainnet" | "" => {
-                Box::new(chain_spec::polymesh_mainnet::ChainSpec::from_json_bytes(
-                    &include_bytes!("./chain_specs/mainnet_raw.json")[..],
-                )?)
-            }
+            "itn-dev" => Box::new(chain_spec::polymesh_itn::develop_config()),
+            "itn-local" => Box::new(chain_spec::polymesh_itn::local_config()),
+            "itn-bootstrap" => Box::new(chain_spec::polymesh_itn::bootstrap_config()),
+            "ITN" | "itn" | "" => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_bytes(
+                &include_bytes!("./chain_specs/itn_raw.json")[..],
+            )?),
             "Buffron" | "buffron" => {
                 Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/buffron_raw.json")[..],
@@ -80,7 +78,7 @@ impl SubstrateCli for Cli {
                     &include_bytes!("./chain_specs/alcyone_raw.json")[..],
                 )?)
             }
-            path => Box::new(chain_spec::general::ChainSpec::from_json_file(
+            path => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
         })
@@ -88,7 +86,7 @@ impl SubstrateCli for Cli {
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
         match chain_spec.network() {
-            Network::Mainnet => &polymesh_runtime_mainnet::runtime::VERSION,
+            Network::ITN => &polymesh_runtime_itn::runtime::VERSION,
             Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
             Network::Other => &polymesh_runtime_develop::runtime::VERSION,
         }
@@ -114,8 +112,8 @@ pub fn run() -> Result<()> {
 
             let network = chain_spec.network();
             runtime.run_node_until_exit(|config| match (network, &config.role) {
-                (Network::Mainnet, Role::Light) => service::mainnet_new_light(config),
-                (Network::Mainnet, _) => service::mainnet_new_full(config),
+                (Network::ITN, Role::Light) => service::itn_new_light(config),
+                (Network::ITN, _) => service::itn_new_full(config),
                 (Network::Testnet, Role::Light) => service::alcyone_new_light(config),
                 (Network::Testnet, _) => service::alcyone_new_full(config),
                 (Network::Other, Role::Light) => service::general_new_light(config),
@@ -129,27 +127,23 @@ pub fn run() -> Result<()> {
         Some(Subcommand::BuildSyncSpec(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             match runner.config().chain_spec.network() {
-                Network::Mainnet => {
-                    runner.async_run(|config| {
-                        let chain_spec = config.chain_spec.cloned_box();
-                        let network_config = config.network.clone();
-                        let NewFullBase {
-                            task_manager,
-                            client,
-                            network_status_sinks,
-                            ..
-                        } = new_full_base::<
-                            polymesh_runtime_mainnet::RuntimeApi,
-                            MainnetExecutor,
-                            _,
-                            _,
-                        >(config, |_, _| ())?;
-                        Ok((
-                            cmd.run(chain_spec, network_config, client, network_status_sinks),
-                            task_manager,
-                        ))
-                    })
-                }
+                Network::ITN => runner.async_run(|config| {
+                    let chain_spec = config.chain_spec.cloned_box();
+                    let network_config = config.network.clone();
+                    let NewFullBase {
+                        task_manager,
+                        client,
+                        network_status_sinks,
+                        ..
+                    } = new_full_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _, _>(
+                        config,
+                        |_, _| (),
+                    )?;
+                    Ok((
+                        cmd.run(chain_spec, network_config, client, network_status_sinks),
+                        task_manager,
+                    ))
+                }),
                 Network::Testnet => {
                     runner.async_run(|config| {
                         let chain_spec = config.chain_spec.cloned_box();
@@ -239,8 +233,8 @@ pub fn run() -> Result<()> {
                 let chain_spec = &runner.config().chain_spec;
 
                 match chain_spec.network() {
-                    Network::Mainnet => {
-                        runner.sync_run(|config| cmd.run::<Block, service::MainnetExecutor>(config))
+                    Network::ITN => {
+                        runner.sync_run(|config| cmd.run::<Block, service::ITNExecutor>(config))
                     }
                     Network::Testnet => {
                         runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
@@ -261,8 +255,8 @@ pub fn run() -> Result<()> {
 fn async_run<F, G, H>(
     cli: &impl sc_cli::SubstrateCli,
     cmd: &impl sc_cli::CliConfiguration,
-    mainnet: impl FnOnce(
-        NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>,
+    itn: impl FnOnce(
+        NewChainOps<polymesh_runtime_itn::RuntimeApi, ITNExecutor>,
         Configuration,
     ) -> Result<(F, TaskManager)>,
     alcyone: impl FnOnce(
@@ -281,9 +275,7 @@ where
 {
     let runner = cli.create_runner(cmd)?;
     match runner.config().chain_spec.network() {
-        Network::Mainnet => {
-            runner.async_run(|mut config| mainnet(mainnet_chain_ops(&mut config)?, config))
-        }
+        Network::ITN => runner.async_run(|mut config| itn(itn_chain_ops(&mut config)?, config)),
         Network::Testnet => {
             runner.async_run(|mut config| alcyone(alcyone_chain_ops(&mut config)?, config))
         }

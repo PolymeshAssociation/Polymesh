@@ -5,8 +5,12 @@ use super::{
 use frame_support::{assert_noop, assert_ok};
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
-use pallet_statistics::{self as statistics, TransferManager};
-use polymesh_primitives::{asset::AssetType, IdentityId, PortfolioId, Ticker};
+use pallet_statistics::{self as statistics};
+use polymesh_primitives::{
+    asset::AssetType,
+    statistics::{HashablePermill, TransferManager},
+    IdentityId, PortfolioId, Ticker,
+};
 use sp_arithmetic::Permill;
 use sp_core::sr25519::Public;
 use sp_std::convert::TryFrom;
@@ -288,9 +292,9 @@ fn should_verify_tms() {
             ));
             add_ctm(10);
 
-            let ptm25 = TransferManager::PercentageTransferManager(
+            let ptm25 = TransferManager::PercentageTransferManager(HashablePermill(
                 Permill::from_rational_approximation(1u32, 4u32),
-            );
+            ));
             // Add ptm with max ownership limit of 50%
             assert_ok!(add_tm(ptm25.clone()));
             // Transfer should fail when receiver is breaching the limit
@@ -307,7 +311,7 @@ fn should_verify_tms() {
 
             // Advanced scenario where charlie is limited at 30% but others at 25%
             assert_ok!(add_tm(TransferManager::PercentageTransferManager(
-                Permill::from_rational_approximation(3u32, 10u32)
+                HashablePermill(Permill::from_rational_approximation(3u32, 10u32))
             )));
             // Transfer should fail when dave is breaching the default limit
             ensure_invalid_transfer(ticker, alice_did, dave_did, 1);

@@ -134,6 +134,9 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+
+    // Identity:
+    pub const InitialPOLYX: Balance = 100_000 * POLY;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -169,13 +172,33 @@ parameter_types! {
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+impl polymesh_common_utilities::traits::identity::Trait for Runtime {
+    type Event = Event;
+    type Proposal = Call;
+    type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
+    type CddServiceProviders = CddServiceProviders;
+    type Balances = pallet_balances::Module<Runtime>;
+    type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
+    type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = CorporateAction;
+    type IdentityFn = pallet_identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
+}
 
 impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
@@ -248,6 +271,11 @@ impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+}
+
+impl pallet_test_utils::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
 pub type AllModulesExported = AllModules;
@@ -335,6 +363,7 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
     }
 );
 

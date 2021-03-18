@@ -497,9 +497,6 @@ decl_module! {
         /// * `details` - Extra details about a venue
         /// * `signers` - Array of signers that are allowed to sign receipts for this venue
         /// * `venue_type` - Type of venue being created
-        ///
-        /// # Weight
-        /// `200_000_000 + 5_000_000 * signers.len()`
         #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
@@ -520,9 +517,6 @@ decl_module! {
         /// * `venue_id` - ID of the venue to edit
         /// * `details` - Extra details about a venue
         /// * `type` - Type of venue being created
-        ///
-        /// # Weight
-        /// `200_000_000
         #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
         pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, typ: Option<VenueType>) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;

@@ -413,7 +413,7 @@ decl_storage! {
         ///
         /// (ticker => local ID => the corporate action)
         pub CorporateActions get(fn corporate_actions):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) LocalCAId => Option<CorporateAction>;
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) LocalCAId => Option<CorporateAction>;
 
         /// Associations from CAs to `Document`s via their IDs.
         /// (CAId => [DocumentId])
@@ -921,18 +921,6 @@ impl<T: Trait> Module<T> {
             Some(rd) if rd.date <= start => Ok(()),
             Some(_) => Err(Error::<T>::RecordDateAfterStart.into()),
             None => Err(Error::<T>::NoRecordDate.into()),
-        }
-    }
-
-    /// Returns the supply at `cp`, if any, or `did`'s current balance otherwise.
-    crate fn supply_at_cp(ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
-        let ticker = ca_id.ticker;
-        match cp {
-            // CP exists, use it.
-            Some(cp_id) => <Checkpoint<T>>::total_supply_at(ticker, cp_id),
-            // Although record date has passed, no transfers have happened yet for `ticker`.
-            // Thus, there is no checkpoint ID, and we must use current supply instead.
-            None => <Asset<T>>::token_details(ticker).total_supply,
         }
     }
 

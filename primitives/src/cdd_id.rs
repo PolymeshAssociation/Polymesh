@@ -45,13 +45,13 @@ impl From<[u8; 32]> for InvestorUid {
     }
 }
 
-/// It links the investor UID with an specific Identity DID in a way that no one can extract that
-/// investor UID from this CDD Id, and the investor can create a Zero Knowledge Proof to prove that
-/// an specific DID belongs to him.
-/// The main purpose of this claim is to keep the privacy of the investor using several identities
-/// to handle his portfolio.
+/// A CDD ID is a link between the investor UID and a certain Identity DID such that no one can
+/// extract the investor UID from the CDD ID while the investor can create a Zero Knowledge Proof to
+/// prove that that DID belongs to them.
+/// The main purpose of such a claim is to preserve privacy of the investor using several identities
+/// to handle their portfolio.
 #[derive(
-    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped,
+    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped, Hash,
 )]
 #[cfg_attr(
     feature = "std",

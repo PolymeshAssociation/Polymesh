@@ -23,11 +23,12 @@ use crate::{
     },
     ChargeProtocolFee, SystematicIssuers,
 };
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
-    traits::{Currency, EnsureOrigin, GetCallMetadata},
+    traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
@@ -75,9 +76,7 @@ pub struct SecondaryKeyWithAuth<AccountId> {
 }
 
 pub trait WeightInfo {
-    fn register_did(i: u32) -> Weight;
     fn cdd_register_did(i: u32) -> Weight;
-    fn mock_cdd_register_did() -> Weight;
     fn invalidate_cdd_claims() -> Weight;
     fn remove_secondary_keys(i: u32) -> Weight;
     fn accept_primary_key() -> Weight;
@@ -139,10 +138,14 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait {
     /// Negotiates between Corporate Actions and the Identity pallet.
     type CorporateAction: IdentityToCorporateAction;
 
+    /// Identity functions
     type IdentityFn: IdentityFnTrait<Self::AccountId>;
 
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
     type SchedulerOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+
+    /// POLYX given to primary keys of all new Identities
+    type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
 }
 
 decl_event!(
@@ -174,12 +177,6 @@ decl_event!(
 
         /// DID, ClaimType, Claim Issuer
         ClaimRevoked(IdentityId, IdentityClaim),
-
-        /// DID queried
-        DidStatus(IdentityId, AccountId),
-
-        /// CDD queried
-        CddStatus(Option<IdentityId>, AccountId, bool),
 
         /// Asset DID
         AssetDidRegistered(IdentityId, Ticker),
@@ -257,12 +254,4 @@ pub trait IdentityFnTrait<AccountId> {
 
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    /// Creates a new did and attaches a CDD claim to it.
-    fn register_did(
-        target: AccountId,
-        investor: InvestorUid,
-        secondary_keys: Vec<SecondaryKey<AccountId>>,
-    ) -> DispatchResult;
 }

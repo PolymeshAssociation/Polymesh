@@ -1,7 +1,7 @@
 [package]
 name = "polymesh"
-version = "2.0.0"
-authors = ["Anonymous"]
+version = "3.0.0"
+authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
 
@@ -37,7 +37,7 @@ members = [
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/runtime/common",
     "pallets/runtime/develop",
-    "pallets/runtime/mainnet",
+    "pallets/runtime/itn",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/settlement",
@@ -49,6 +49,7 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
+    "pallets/test-utils",
     "pallets/weights",
     "primitives",
     "rpc",
@@ -87,7 +88,7 @@ polymesh-node-rpc = { path = "node-rpc" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
-polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
+polymesh-runtime-itn = { path = "pallets/runtime/itn" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
@@ -98,6 +99,7 @@ jsonrpc-core = "15.0.0"
 log = "0.4.8"
 serde_json = '1.0.48'
 structopt = "0.3.15"
+rustc-hex = "2.1.0"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }

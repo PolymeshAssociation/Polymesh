@@ -5,6 +5,7 @@ use super::{
     },
     ExtBuilder,
 };
+use crate::asset_test::{allow_all_transfers, basic_asset, token};
 use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
@@ -14,7 +15,7 @@ use frame_support::{
 use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
-    distribution::{self, Distribution},
+    distribution::{self, Distribution, PER_SHARE_PRECISION},
     Agent, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
@@ -22,7 +23,6 @@ use pallet_corporate_actions::{
 };
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_primitives::{
-    asset::AssetName,
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
@@ -79,43 +79,31 @@ fn test(logic: impl FnOnce(Ticker, [User; 3])) {
         });
 }
 
+#[track_caller]
+fn currency_test(logic: impl FnOnce(Ticker, Ticker, [User; 3])) {
+    test(|ticker, users @ [owner, ..]| {
+        set_schedule_complexity();
+
+        // Create `currency` & add scope claims for it to `users`.
+        let currency = create_asset(b"BETA", owner);
+        let parties = users.iter().map(|u| &u.did);
+        provide_scope_claim_to_multiple_parties(parties, currency, CDDP.public());
+
+        logic(ticker, currency, users);
+    });
+}
+
 fn transfer(ticker: &Ticker, from: User, to: User) {
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(&[from.did, to.did], *ticker, CDDP.public());
-    assert_ok!(Asset::base_transfer(
-        PortfolioId::default_portfolio(from.did),
-        PortfolioId::default_portfolio(to.did),
-        ticker,
-        500
-    ));
+    assert_ok!(crate::asset_test::transfer(*ticker, from, to, 500));
 }
 
 fn create_asset(ticker: &[u8], owner: User) -> Ticker {
-    let asset_name: AssetName = ticker.into();
-    let ticker = ticker.try_into().unwrap();
-
-    // Create the asset.
-    assert_ok!(Asset::create_asset(
-        owner.origin(),
-        asset_name,
-        ticker,
-        1_000_000,
-        true,
-        <_>::default(),
-        vec![],
-        None
-    ));
-
+    let (ticker, token) = token(ticker, owner.did);
+    assert_ok!(basic_asset(owner, ticker, &token));
     assert_eq!(Asset::token_details(ticker).owner_did, owner.did);
-
-    // Allow all transfers
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
-
+    allow_all_transfers(ticker, owner);
     ticker
 }
 
@@ -293,7 +281,7 @@ fn only_caa_authorized() {
                 // ..., `distribute`,
                 let id = next_ca_id(ticker);
                 $assert!(mk_ca(CAKind::UnpredictableBenefit) $(, $tail)?);
-                $assert!(Dist::distribute($user.origin(), id, None, currency, 0, 3000, None) $(, $tail)?);
+                $assert!(Dist::distribute($user.origin(), id, None, currency, 0, 0, 3000, None) $(, $tail)?);
                 // ..., and `remove_distribution`.
                 $assert!(Dist::remove_distribution($user.origin(), id) $(, $tail)?);
             };
@@ -841,6 +829,7 @@ fn remove_ca_works() {
                 id,
                 None,
                 currency,
+                2,
                 0,
                 3000,
                 None,
@@ -854,6 +843,7 @@ fn remove_ca_works() {
             Some(Distribution {
                 from: PortfolioId::default_portfolio(owner.did),
                 currency,
+                per_share: 2,
                 amount: 0,
                 remaining: 0,
                 reclaimed: false,
@@ -1016,6 +1006,7 @@ fn change_record_date_works() {
             id,
             None,
             create_asset(b"BETA", owner),
+            0,
             0,
             5000,
             None,
@@ -1647,7 +1638,7 @@ fn vote_works() {
         assert_ballot(
             id,
             &BallotData {
-                votes: vec![(other.did, votes(vs2)), (voter.did, votes(vs1))],
+                votes: vec![(voter.did, votes(vs1)), (other.did, votes(vs2))],
                 results: vs1.iter().zip(vs2).map(|(a, b)| a + b).collect(),
                 ..data.clone()
             },
@@ -1725,7 +1716,7 @@ fn dist_distribute_works() {
         // Test no CA at id.
         let id = next_ca_id(ticker);
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 1, None),
+            Dist::distribute(owner.origin(), id, None, currency, 0, 0, 1, None),
             Error::NoSuchCA
         );
 
@@ -1736,14 +1727,14 @@ fn dist_distribute_works() {
 
         // Test same-asset logic.
         assert_noop!(
-            Dist::distribute(owner.origin(), id2, None, ticker, 0, 0, None),
+            Dist::distribute(owner.origin(), id2, None, ticker, 0, 0, 0, None),
             DistError::DistributingAsset
         );
 
         // Test expiry.
         for &(pay, expiry) in &[(5, 5), (6, 5)] {
             assert_noop!(
-                Dist::distribute(owner.origin(), id2, None, currency, 0, pay, Some(expiry)),
+                Dist::distribute(owner.origin(), id2, None, currency, 0, 0, pay, Some(expiry)),
                 DistError::ExpiryBeforePayment
             );
         }
@@ -1754,13 +1745,14 @@ fn dist_distribute_works() {
             None,
             currency,
             0,
+            0,
             5,
             Some(6)
         ));
 
         // Distribution already exists.
         assert_noop!(
-            Dist::distribute(owner.origin(), id2, None, currency, 0, 5, None),
+            Dist::distribute(owner.origin(), id2, None, currency, 0, 0, 5, None),
             DistError::AlreadyExists
         );
 
@@ -1771,6 +1763,7 @@ fn dist_distribute_works() {
             None,
             currency,
             0,
+            0,
             4,
             None
         ));
@@ -1779,14 +1772,14 @@ fn dist_distribute_works() {
         let id = dist_ca(owner, ticker, Some(5)).unwrap();
         let num = PortfolioNumber(42);
         assert_noop!(
-            Dist::distribute(owner.origin(), id, Some(num), currency, 0, 5, None),
+            Dist::distribute(owner.origin(), id, Some(num), currency, 0, 0, 5, None),
             PError::PortfolioDoesNotExist
         );
 
         // No custody over portfolio.
         let custody =
             |who: User| Custodian::insert(PortfolioId::default_portfolio(owner.did), who.did);
-        let dist = |id| Dist::distribute(owner.origin(), id, None, currency, 0, 6, None);
+        let dist = |id| Dist::distribute(owner.origin(), id, None, currency, 0, 0, 6, None);
         custody(other);
         assert_noop!(dist(id), PError::UnauthorizedCustodian);
         custody(owner);
@@ -1807,7 +1800,8 @@ fn dist_distribute_works() {
         assert_noop!(dist(id), Error::NoRecordDate);
 
         // Record date after start.
-        let dist = |id, start| Dist::distribute(owner.origin(), id, None, currency, 0, start, None);
+        let dist =
+            |id, start| Dist::distribute(owner.origin(), id, None, currency, 0, 0, start, None);
         let id = dist_ca(owner, ticker, Some(5000)).unwrap();
         assert_noop!(dist(id, 4999), Error::RecordDateAfterStart);
         assert_ok!(dist(id, 5000));
@@ -1817,7 +1811,7 @@ fn dist_distribute_works() {
         transfer(&currency, owner, other);
         let id = dist_ca(other, ticker, Some(5)).unwrap();
         let dist =
-            |amount| Dist::distribute(other.origin(), id, None, currency, amount, 5, Some(13));
+            |amount| Dist::distribute(other.origin(), id, None, currency, 3, amount, 5, Some(13));
         assert_noop!(dist(501), PError::InsufficientPortfolioBalance);
         assert_ok!(dist(500));
         assert_eq!(
@@ -1825,6 +1819,7 @@ fn dist_distribute_works() {
             Some(Distribution {
                 from: PortfolioId::default_portfolio(other.did),
                 currency,
+                per_share: 3,
                 amount: 500,
                 remaining: 500,
                 reclaimed: false,
@@ -1853,6 +1848,7 @@ fn dist_remove_works() {
             id,
             None,
             create_asset(b"BETA", owner),
+            0,
             0,
             5,
             Some(6)
@@ -1889,6 +1885,7 @@ fn dist_reclaim_works() {
             id,
             None,
             currency,
+            0,
             500,
             5,
             Some(6)
@@ -1949,6 +1946,7 @@ fn dist_claim_misc_bad() {
             None,
             create_asset(b"BETA", owner),
             0,
+            0,
             5,
             Some(6)
         ));
@@ -1969,17 +1967,7 @@ fn dist_claim_misc_bad() {
 
 #[test]
 fn dist_claim_not_targeted() {
-    test(|ticker, [owner, foo, bar]| {
-        set_schedule_complexity();
-
-        let currency = create_asset(b"BETA", owner);
-
-        provide_scope_claim_to_multiple_parties(
-            &[owner.did, foo.did, bar.did],
-            currency,
-            CDDP.public(),
-        );
-
+    currency_test(|ticker, currency, [owner, foo, bar]| {
         let ca = || {
             let id = dist_ca(owner, ticker, Some(1)).unwrap();
             assert_ok!(Dist::distribute(
@@ -1987,6 +1975,7 @@ fn dist_claim_not_targeted() {
                 id,
                 None,
                 currency,
+                0,
                 0,
                 1,
                 None,
@@ -1999,31 +1988,26 @@ fn dist_claim_not_targeted() {
 
 #[test]
 fn dist_claim_works() {
-    test(|ticker, [owner, foo, bar]| {
-        set_schedule_complexity();
-
-        // Add scope claims for `BETA`, allowing transfers to go through.
-        let currency = create_asset(b"BETA", owner);
-        provide_scope_claim_to_multiple_parties(
-            &[owner.did, foo.did, bar.did],
-            currency,
-            CDDP.public(),
-        );
+    currency_test(|ticker, currency, [owner, foo, bar]| {
+        let baz = User::new(AccountKeyring::Dave);
+        provide_scope_claim_to_multiple_parties(&[baz.did], currency, CDDP.public());
 
         // Transfer 500 to `foo` and 1000 to `bar`.
         transfer(&ticker, owner, foo);
         transfer(&ticker, owner, bar);
         transfer(&ticker, owner, bar);
+        transfer(&ticker, owner, baz);
 
         // Create the dist.
         let id = dist_ca(owner, ticker, Some(1)).unwrap();
         let amount = 200_000;
-        let supply = Asset::total_supply(ticker);
+        let per_share = 101_000_000;
         assert_ok!(Dist::distribute(
             owner.origin(),
             id,
             None,
             currency,
+            per_share,
             amount,
             5,
             None,
@@ -2049,8 +2033,8 @@ fn dist_claim_works() {
         // `foo` claims with 25% tax.
         assert_ok!(Dist::claim(foo.origin(), id));
         already(foo);
-        let benefit_foo = 500 * amount / supply;
-        let post_tax_foo = benefit_foo * 3 / 4;
+        let benefit_foo = 500 * per_share / PER_SHARE_PRECISION;
+        let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
         assert_eq!(Asset::balance(&currency, foo.did), post_tax_foo);
         let assert_rem =
             |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
@@ -2059,7 +2043,7 @@ fn dist_claim_works() {
         // `bar` is pushed to with 1/3 tax.
         assert_ok!(Dist::push_benefit(owner.origin(), id, bar.did));
         already(bar);
-        let benefit_bar = 1_000 * amount / supply;
+        let benefit_bar = 1_000 * per_share / PER_SHARE_PRECISION;
         let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
         assert_eq!(Asset::balance(&currency, bar.did), post_tax_bar);
         assert_rem(benefit_foo + benefit_bar);
@@ -2067,19 +2051,23 @@ fn dist_claim_works() {
         // Owner should have some free currency balance due to withheld taxes.
         let pid = PortfolioId::default_portfolio(owner.did);
         let wht = benefit_foo - post_tax_foo + benefit_bar - post_tax_bar;
-        let rem = supply - amount + wht;
+        let rem = Asset::total_supply(ticker) - amount + wht;
         assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, &rem));
         assert_noop!(
             Portfolio::ensure_sufficient_balance(&pid, &currency, &(rem + 1)),
             PError::InsufficientPortfolioBalance,
         );
+
+        // No funds left. Baz wants 101 per share but pool provided cannot satisfy that.
+        assert_noop!(
+            Dist::claim(baz.origin(), id),
+            PError::InsufficientTokensLocked
+        );
     });
 }
 
 fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
-    test(|ticker, [owner, other, claimant]| {
-        set_schedule_complexity();
-
+    currency_test(|ticker, currency, [owner, other, claimant]| {
         // Owner ==[500]==> Voter.
         transfer(&ticker, owner, claimant);
 
@@ -2090,19 +2078,14 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         transfer(&ticker, claimant, other);
 
         // Create the distribution.
-        let currency = create_asset(b"BETA", owner);
-        provide_scope_claim_to_multiple_parties(
-            &[owner.did, other.did, claimant.did],
-            currency,
-            CDDP.public(),
-        );
         let amount = 200_000;
-        let supply = Asset::total_supply(ticker);
+        let per_share = 5 * PER_SHARE_PRECISION;
         assert_ok!(Dist::distribute(
             owner.origin(),
             id,
             None,
             currency,
+            per_share,
             amount,
             4000,
             None,
@@ -2116,7 +2099,7 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         // Check the balances; tax is 0%.
         assert_eq!(
             Asset::balance(&currency, claimant.did),
-            500 * amount / supply
+            500 * per_share / PER_SHARE_PRECISION
         );
         assert_eq!(Asset::balance(&currency, other.did), 0);
     });
