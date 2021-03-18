@@ -188,7 +188,7 @@ mod tests {
         let scope = Scope::Identity(IdentityId::from(0));
         let did = IdentityId::from(1);
         let cdd_claim =
-            Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
+            Claim::CustomerDueDiligence(CddId::new_v2(did, InvestorUid::from(b"UID1".as_ref())));
         let mut context = mk_ctx(vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())]);
         context.id = did;
 

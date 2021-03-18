@@ -218,7 +218,7 @@ decl_storage! {
 
             //  Other
             for &(ref primary_account_id, ref issuers, did, investor_uid, expiry) in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did.clone(), investor_uid));
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v2(did.clone(), investor_uid));
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
@@ -804,7 +804,6 @@ decl_module! {
         pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
             Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
-
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
         #[weight = (<T as Trait>::WeightInfo::add_claim(), Operational, Pays::Yes)]
@@ -2084,7 +2083,7 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Adds systematic CDD claims.
     fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_id = CddId::new_v2(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }

@@ -21,9 +21,9 @@ dependencies = [
 
 [[package]]
 name = "adler"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bedc89c5c7b5550ffb9372eb5c5ffc7f9f705cc3f4a128bd4669b9745f555093"
+checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "aead"
@@ -230,7 +230,7 @@ dependencies = [
  "concurrent-queue",
  "fastrand",
  "futures-lite",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "vec-arena",
 ]
 
@@ -247,7 +247,7 @@ dependencies = [
  "blocking",
  "futures-lite",
  "num_cpus",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
 ]
 
 [[package]]
@@ -262,7 +262,7 @@ dependencies = [
  "libc",
  "log",
  "nb-connect",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "parking",
  "polling",
  "vec-arena",
@@ -299,7 +299,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "event-listener",
  "futures-lite",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "signal-hook",
  "winapi 0.3.9",
 ]
@@ -326,8 +326,8 @@ dependencies = [
  "log",
  "memchr",
  "num_cpus",
- "once_cell 1.7.0",
- "pin-project-lite 0.2.4",
+ "once_cell 1.7.2",
+ "pin-project-lite 0.2.6",
  "pin-utils",
  "slab",
  "wasm-bindgen-futures",
@@ -353,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.42"
+version = "0.1.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3a45e77e34375a7923b1e8febb049bb011f064714a8e17a1a616fef01da13d"
+checksum = "36ea56748e10732c49404c153638a15ec3d6211ec5ff35d9bb20e13b93576adf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -558,7 +558,7 @@ dependencies = [
  "block-padding 0.1.5",
  "byte-tools",
  "byteorder 1.3.4",
- "generic-array 0.12.3",
+ "generic-array 0.12.4",
 ]
 
 [[package]]
@@ -606,7 +606,7 @@ dependencies = [
  "atomic-waker",
  "fastrand",
  "futures-lite",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
 ]
 
 [[package]]
@@ -871,7 +871,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3#379db49a18884a43ff30ad77c142cf9c81c1ee8f"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1#f5f85490985eaa3886fc3ee32e963dcd96c103aa"
 dependencies = [
  "blake2",
  "byteorder 1.3.4",
@@ -884,6 +884,29 @@ dependencies = [
  "rand_core 0.5.1",
  "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
+ "serde_json",
+ "sha3 0.8.2",
+ "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "zeroize",
+]
+
+[[package]]
+name = "confidential_identity"
+version = "1.1.2"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1569/pius_v2_integration#eeb6928e34f1f295f0070bc5d62cfb954928c950"
+dependencies = [
+ "blake2",
+ "byteorder 1.3.4",
+ "criterion",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1569/pius_v2_integration)",
+ "curve25519-dalek 2.1.0",
+ "failure",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
+ "serde_bytes",
  "serde_json",
  "sha3 0.8.2",
  "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -1187,7 +1210,7 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 name = "crypto-cli"
 version = "1.0.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "hex",
  "parity-scale-codec",
  "polymesh-primitives 2.0.0",
@@ -1199,7 +1222,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
 dependencies = [
- "generic-array 0.12.3",
+ "generic-array 0.12.4",
  "subtle 1.0.0",
 ]
 
@@ -1236,7 +1259,28 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2#fd1e598e7a80e646e7ff59510ab572d6f282504c"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=MESH-1569/pius_v2_integration#eeb6928e34f1f295f0070bc5d62cfb954928c950"
+dependencies = [
+ "blake2",
+ "bulletproofs",
+ "byteorder 1.3.4",
+ "criterion",
+ "curve25519-dalek 2.1.0",
+ "failure",
+ "merlin",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "serde",
+ "sha3 0.8.2",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "zeroize",
+]
+
+[[package]]
+name = "cryptography_core"
+version = "1.0.0"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1#f5f85490985eaa3886fc3ee32e963dcd96c103aa"
 dependencies = [
  "bulletproofs",
  "byteorder 1.3.4",
@@ -1249,7 +1293,7 @@ dependencies = [
  "rand_core 0.5.1",
  "serde",
  "sha3 0.8.2",
- "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "zeroize",
 ]
 
@@ -1282,9 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "csv"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d58633299b24b515ac72a3f869f8b91306a3cec616a602843a383acd6f9e97"
+checksum = "22813a6dc45b335f9bade10bf7271dc477e81113e89eb251a0bc2a8a81c536e1"
 dependencies = [
  "bstr",
  "csv-core",
@@ -1394,7 +1438,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
 dependencies = [
- "generic-array 0.12.3",
+ "generic-array 0.12.4",
 ]
 
 [[package]]
@@ -1849,7 +1893,7 @@ dependencies = [
  "frame-support-procedural 2.0.1 (git+https://github.com/paritytech/substrate?tag=v2.0.1)",
  "impl-trait-for-tuples",
  "log",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "parity-scale-codec",
  "paste",
  "serde",
@@ -1874,7 +1918,7 @@ dependencies = [
  "frame-support-procedural 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "impl-trait-for-tuples",
  "log",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "parity-scale-codec",
  "paste",
  "serde",
@@ -2176,7 +2220,7 @@ dependencies = [
  "futures-io",
  "memchr",
  "parking",
- "pin-project-lite 0.2.4",
+ "pin-project-lite 0.2.6",
  "waker-fn",
 ]
 
@@ -2230,7 +2274,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project-lite 0.2.4",
+ "pin-project-lite 0.2.6",
  "pin-utils",
  "proc-macro-hack",
  "proc-macro-nested",
@@ -2278,9 +2322,9 @@ checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
 name = "generic-array"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68f0274ae0e023facc3c97b2e00f076be70e254bc851d972503b328db79b2ec"
+checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
 dependencies = [
  "typenum",
 ]
@@ -2531,9 +2575,9 @@ dependencies = [
 
 [[package]]
 name = "hex"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hex-literal"
@@ -2583,7 +2627,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6e570451493f10f6581b48cdd530413b63ea9e780f544bfd3bdcaa0d89d1a7b"
 dependencies = [
  "digest 0.8.1",
- "generic-array 0.12.3",
+ "generic-array 0.12.4",
  "hmac",
 ]
 
@@ -2797,9 +2841,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.6.1"
+version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb1fa934250de4de8aef298d81c729a7d33d8c239daa3a7575e6b92bfc7313b"
+checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown 0.9.1",
@@ -2918,9 +2962,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.47"
+version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cfb73131c35423a367daf8cbd24100af0d077668c8c2943f0e7dd775fef0f65"
+checksum = "dc9f84f9b115ce7843d60706df1422a916680bfdfcbdb0447c5614ff9d7e4d78"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -3135,9 +3179,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "libc"
-version = "0.2.86"
+version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7282d924be3275cec7f6756ff4121987bc6481325397dde6ba3e7802b1a8b1c"
+checksum = "538c092e5586f4cdd7dd8078c4a79220e3e168880218124dcbce860f0ea938c6"
 
 [[package]]
 name = "libloading"
@@ -3970,9 +4014,9 @@ dependencies = [
 
 [[package]]
 name = "multimap"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1255076139a83bb467426e7f8d0134968a8118844faa755985e077cf31850333"
+checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
 name = "multistream-select"
@@ -3996,7 +4040,7 @@ checksum = "aaa9fddbc34c8c35dd2108515587b8ce0cab396f17977b8c738568e4edb521a2"
 dependencies = [
  "alga",
  "approx",
- "generic-array 0.12.3",
+ "generic-array 0.12.4",
  "matrixmultiply",
  "num-complex",
  "num-rational",
@@ -4359,9 +4403,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.7.0"
+version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10acf907b94fc1b1a152d08ef97e7759650268cf986bf127f387e602b02c7e5a"
+checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
 dependencies = [
  "parking_lot 0.11.1",
 ]
@@ -4946,7 +4990,7 @@ dependencies = [
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -5172,7 +5216,8 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
+ "confidential_identity 1.1.2",
  "either",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -5975,7 +6020,7 @@ dependencies = [
 name = "pallet-test-utils"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -6195,9 +6240,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "1.3.6"
+version = "1.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79602888a81ace83e3d1d4b2873286c1f5f906c84db667594e8db8da3506c383"
+checksum = "a4b26b16c7687c3075982af47719e481815df30bc544f7a6690763a25ca16e9d"
 dependencies = [
  "arrayvec 0.5.2",
  "bitvec",
@@ -6208,9 +6253,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "198db82bb1c18fc00176004462dd809b2a6d851669550aa17af6dacd21ae0c14"
+checksum = "c41512944b1faff334a5f1b9447611bf4ef40638ccb6328173dacefb338e878c"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -6576,15 +6621,15 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c917123afa01924fc84bb20c4c03f004d9c38e5127e3c039bbf7f4b9c76a2f6b"
+checksum = "257b64915a082f7811703966789728173279bdebb956b143dbcd23f6f970a777"
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439697af366c49a6d0a010c56a0d97685bc140ce0d377b13a2ea2aa42d64a827"
+checksum = "dc0e1f259c92177c30a4c9d177246edd0a3568b25756a977d0632cf8fa37e905"
 
 [[package]]
 name = "pin-utils"
@@ -6734,7 +6779,7 @@ dependencies = [
 name = "polymesh-build-tool"
 version = "0.1.0"
 dependencies = [
- "substrate-wasm-builder-runner 1.0.6 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "substrate-wasm-builder-runner 2.0.0",
 ]
 
 [[package]]
@@ -6887,12 +6932,15 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
+ "confidential_identity 1.1.2",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "hex",
  "parity-scale-codec",
  "polymesh-primitives-derive 0.1.0",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
  "schnorrkel 0.9.1 (git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue)",
  "serde",
  "serde_json",
@@ -7012,7 +7060,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7092,7 +7140,7 @@ dependencies = [
 name = "polymesh-runtime-mainnet"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7171,7 +7219,7 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "frame-executive 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7330,8 +7378,8 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.3)",
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",
+ "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=miguel/b2.2.3-1)",
  "env_logger 0.7.1",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7644,7 +7692,7 @@ checksum = "77de3c815e5a160b1539c6592796801df2043ae35e123b46d73380cfa57af858"
 dependencies = [
  "futures-core",
  "futures-sink",
- "pin-project-lite 0.1.11",
+ "pin-project-lite 0.1.12",
 ]
 
 [[package]]
@@ -8005,14 +8053,13 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.4.3"
+version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9251239e129e16308e70d853559389de218ac275b515068abc96829d05b948a"
+checksum = "957056ecddbeba1b26965114e191d2e8589ce74db242b6ea25fc4062427a5c19"
 dependencies = [
  "aho-corasick",
  "memchr",
  "regex-syntax",
- "thread_local",
 ]
 
 [[package]]
@@ -8027,9 +8074,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.22"
+version = "0.6.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
+checksum = "24d5f089152e60f62d28b835fbff2cd2e8dc0baf1ac13343bef92ab7eed84548"
 
 [[package]]
 name = "region"
@@ -8102,7 +8149,7 @@ checksum = "3053cf52e236a3ed746dfc745aa9cacf1b791d846bdaf412f60a8d7d6e17c8fc"
 dependencies = [
  "cc",
  "libc",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "spin",
  "untrusted",
  "web-sys",
@@ -9894,11 +9941,20 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+checksum = "bd761ff957cb2a45fbb9ab3da6512de9de55872866160b23c25f1a841e99d29f"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16ae07dd2f88a366f15bd0632ba725227018c69a1c8550a927324f8eb8368bb9"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -9913,9 +9969,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9391c295d64fc0abb2c556bad848f33cb8296276b1ad2677d1ae1ace4f258f31"
+checksum = "1800f7693e94e186f5e25a28291ae1570da908aff7d97a095dec1e56ff99069b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9924,9 +9980,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.63"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43535db9747a4ba938c0ce0a98cc631a46ebf943c9e1d604e091df6007620bf6"
+checksum = "799e97dc9fdae36a5c8b8f2cae9ce2ee9fdce2058c57a93e6099d919fd982f79"
 dependencies = [
  "itoa",
  "ryu",
@@ -10035,9 +10091,9 @@ checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a7f3f92a1da3d6b1d32245d0cbcbbab0cfc45996d8df619c42bccfa6d2bbb5f"
+checksum = "6aa894ef3fade0ee7243422f4fbbd6c2b48e6de767e621d37ef65f2310f53cea"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -11218,11 +11274,6 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b05
 [[package]]
 name = "sp-std"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-1#cf4f97d1c02e3ba1c3585d09065980c2933ef3f1"
-
-[[package]]
-name = "sp-std"
-version = "2.0.1"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 
 [[package]]
@@ -11828,6 +11879,12 @@ version = "1.0.6"
 source = "git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2#a55ca4640199e5e27747ccd8604db06bcc3f4c6e"
 
 [[package]]
+name = "substrate-wasm-builder-runner"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54cab12167e32b38a62c5ea5825aa0874cde315f907a46aad2b05aa8ef3d862f"
+
+[[package]]
 name = "subtle"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11841,9 +11898,9 @@ checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
 
 [[package]]
 name = "syn"
-version = "1.0.60"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c700597eca8a5a762beb35753ef6b94df201c81cca676604f547495a0d7f0081"
+checksum = "3fd9d1e9976102a03c542daa2eff1b43f9d72306342f3f8b3ed5fb8908195d6f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -11949,7 +12006,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
 dependencies = [
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
 ]
 
 [[package]]
@@ -11980,7 +12037,7 @@ checksum = "b0165e045cc2ae1660270ca65e1676dbaab60feb0f91b10f7d0665e9b47e31f2"
 dependencies = [
  "failure",
  "hmac",
- "once_cell 1.7.0",
+ "once_cell 1.7.2",
  "pbkdf2",
  "rand 0.7.3",
  "rustc-hash",
@@ -11999,9 +12056,9 @@ dependencies = [
 
 [[package]]
 name = "tinytemplate"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2ada8616fad06a2d0c455adc530de4ef57605a8120cc65da9653e0e9623ca74"
+checksum = "be4d6b5f19ff7664e8c98d03e2139cb510db9b0a60b55f8e8709b689d939b6bc"
 dependencies = [
  "serde",
  "serde_json",
@@ -12062,7 +12119,7 @@ dependencies = [
  "mio",
  "mio-uds",
  "num_cpus",
- "pin-project-lite 0.1.11",
+ "pin-project-lite 0.1.12",
  "signal-hook-registry",
  "slab",
  "tokio-macros",
@@ -12315,7 +12372,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "log",
- "pin-project-lite 0.1.11",
+ "pin-project-lite 0.1.12",
  "tokio 0.2.25",
 ]
 
@@ -12342,16 +12399,16 @@ checksum = "01ebdc2bb4498ab1ab5f5b73c5803825e60199229ccba0698170e3be0e7f959f"
 dependencies = [
  "cfg-if 1.0.0",
  "log",
- "pin-project-lite 0.2.4",
+ "pin-project-lite 0.2.6",
  "tracing-attributes",
  "tracing-core",
 ]
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.13"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8a9bd1db7706f2373a190b0d067146caa39350c486f3d455b0e33b431f94c07"
+checksum = "c42e6fa53307c8a17e4ccd4dc81cf5ec38db9209f59b222210375b54ee40d1e2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12400,9 +12457,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ab8966ac3ca27126141f7999361cc97dd6fb4b71da04c02044fa9045d98bb96"
+checksum = "705096c6f83bf68ea5d357a6aa01829ddbdac531b357b45abeca842938085baa"
 dependencies = [
  "ansi_term 0.12.1",
  "chrono",
@@ -12481,9 +12538,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "373c8a200f9e67a0c95e62a4f52fbf80c23b4381c05a17845531982fa99e6b33"
+checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "ucd-trie"
@@ -12655,9 +12712,9 @@ dependencies = [
 
 [[package]]
 name = "version_check"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
+checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
 name = "void"
@@ -12740,9 +12797,9 @@ checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.70"
+version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55c0f7123de74f0dab9b7d00fd614e7b19349cd1e2f5252bbe9b1754b59433be"
+checksum = "7ee1280240b7c461d6a0071313e08f34a60b0365f14260362e5a2b17d1d31aa7"
 dependencies = [
  "cfg-if 1.0.0",
  "wasm-bindgen-macro",
@@ -12750,9 +12807,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.70"
+version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bc45447f0d4573f3d65720f636bbcc3dd6ce920ed704670118650bcd47764c7"
+checksum = "5b7d8b6942b8bb3a9b0e73fc79b98095a27de6fa247615e59d096754a3bc2aa8"
 dependencies = [
  "bumpalo",
  "lazy_static",
@@ -12765,9 +12822,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.20"
+version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3de431a2910c86679c34283a33f66f4e4abd7e0aec27b6669060148872aadf94"
+checksum = "8e67a5806118af01f0d9045915676b22aaebecf4178ae7021bc171dab0b897ab"
 dependencies = [
  "cfg-if 1.0.0",
  "js-sys",
@@ -12777,9 +12834,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.70"
+version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b8853882eef39593ad4174dd26fc9865a64e84026d223f63bb2c42affcbba2c"
+checksum = "e5ac38da8ef716661f0f36c0d8320b89028efe10c7c0afde65baffb496ce0d3b"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -12787,9 +12844,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.70"
+version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4133b5e7f2a531fa413b3a1695e925038a05a71cf67e87dafa295cb645a01385"
+checksum = "cc053ec74d454df287b9374ee8abb36ffd5acb95ba87da3ba5b7d3fe20eb401e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12800,9 +12857,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.70"
+version = "0.2.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd4945e4943ae02d15c13962b38a5b1e81eadd4b71214eee75af64a4d6a4fd64"
+checksum = "7d6f8ec44822dd71f5f221a5847fb34acd9060535c1211b70a05844c0f6383b1"
 
 [[package]]
 name = "wasm-timer"
@@ -13012,27 +13069,27 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "34.0.0"
+version = "35.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3de71ea922e46a60d0bde4b27ebf24ab7c4991006fd5de23ce9c58e129b3ab3c"
+checksum = "db5ae96da18bb5926341516fd409b5a8ce4e4714da7f0a1063d3b20ac9f9a1e1"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wat"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "474403335b9a90b21120ab8131dd888f0a8d041c2d365ab960feddfe5a73c4b6"
+checksum = "0b0fa059022c5dabe129f02b429d67086400deb8277f89c975555dacc1dadbcc"
 dependencies = [
  "wast",
 ]
 
 [[package]]
 name = "web-sys"
-version = "0.3.47"
+version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c40dc691fc48003eba817c38da7113c15698142da971298003cac3ef175680b3"
+checksum = "ec600b26223b2948cedfde2a0aa6756dcf1fef616f43d7b3097aaf53a6c4d92b"
 dependencies = [
  "js-sys",
  "wasm-bindgen",

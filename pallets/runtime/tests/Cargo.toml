@@ -80,11 +80,11 @@ ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", de
 
 frame-benchmarking = { version = "2.0.1", optional = true }
 
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
 substrate-test-utils = { version = "2.0.1", optional = true }
 polymesh-weights = { path = "../../weights", default-features = false }
 
 [dev-dependencies]
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
 libsecp256k1 = { version = "0.3.5", default-features = false }
 wat = "1.0"
 
@@ -152,6 +152,7 @@ std = [
     "sp-staking/std",
     "sp-std/std",
     "substrate-test-utils",
+    "test_client",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

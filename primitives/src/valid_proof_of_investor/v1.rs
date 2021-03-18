@@ -23,22 +23,29 @@ impl ValidProofOfInvestor {
 
     /// It double check that `proof` matches with the rest of the parameters.
     fn verify_proof(
-        cdd_id_raw: &CddId,
+        cdd_id: &CddId,
         investor: &IdentityId,
         scope_id: &IdentityId,
         scope: &Scope,
         proof: &InvestorZKProofData,
         message: impl AsRef<[u8]>,
     ) -> bool {
-        let cdd_id_opt = CompressedRistretto::from_slice(cdd_id_raw.as_slice()).decompress();
-        if let Some(cdd_id) = cdd_id_opt {
-            let scope_id_opt = CompressedRistretto::from_slice(scope_id.as_bytes()).decompress();
-            if let Some(scope_id) = scope_id_opt {
-                let verifier =
-                    ProofPublicKey::new(cdd_id, &investor.to_bytes(), scope_id, scope.as_bytes());
+        if let Some(cdd_id_point) = CompressedRistretto::from_slice(cdd_id.as_slice()).decompress()
+        {
+            if let Some(scope_id) =
+                CompressedRistretto::from_slice(scope_id.as_bytes()).decompress()
+            {
+                let verifier = ProofPublicKey::new(
+                    cdd_id_point,
+                    &investor.to_bytes(),
+                    scope_id,
+                    scope.as_bytes(),
+                );
+
                 return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
             }
         }
+
         false
     }
 }
@@ -47,8 +54,10 @@ impl ValidProofOfInvestor {
 mod tests {
     use super::*;
     use crate::proposition::{exists, Proposition};
-    use crate::{Claim, Context, InvestorUid, InvestorZKProofData, Ticker};
-    use confidential_identity::{compute_cdd_id, compute_scope_id};
+    use crate::{
+        investor_zkproof_data::v1::InvestorZKProofData, Claim, Context, InvestorUid, Ticker,
+    };
+    use confidential_identity_v1::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
 
     #[test]

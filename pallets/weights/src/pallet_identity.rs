@@ -106,8 +106,8 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn add_investor_uniqueness_claim_v2() -> Weight {
-        (2_067_866_000 as Weight)
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (3_971_380_000 as Weight)
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
 }
