@@ -1,7 +1,7 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
-import type { ISubmittableResult } from "@polkadot/types/types";
+import type { ISubmittableResult } from "@polkadot/api/node_modules/@polkadot/types/types/extrinsic";
 import { sendTx } from "../util/init";
 
 /**
