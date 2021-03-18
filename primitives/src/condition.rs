@@ -104,20 +104,6 @@ impl TrustedIssuer {
             TrustedFor::Specific(ok_types) => ok_types.contains(&ty),
         }
     }
-
-    /// The complexity incurred from this trusted issuer.
-    pub fn complexity(&self) -> usize {
-        match &self.trusted_for {
-            TrustedFor::Any => 1,
-            TrustedFor::Specific(cts) => cts.len(),
-        }
-    }
-}
-
-/// Total complexity of a set of trusted issuers.
-pub fn trusted_issuers_complexity(tis: &[TrustedIssuer]) -> usize {
-    tis.iter()
-        .fold(0, |acc, ti| acc.saturating_add(ti.complexity()))
 }
 
 /// Create a `TrustedIssuer` trusted for any claim type.
@@ -173,10 +159,7 @@ impl Condition {
 
     /// Returns worst case complexity of a condition
     pub fn complexity(&self) -> (usize, usize) {
-        (
-            self.condition_type.complexity(),
-            trusted_issuers_complexity(&self.issuers),
-        )
+        (self.condition_type.complexity(), self.issuers.len())
     }
 }
 
