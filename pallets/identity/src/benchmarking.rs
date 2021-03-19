@@ -58,12 +58,8 @@ where
     let ticker = Ticker::default();
     let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
-    // Claim
     let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
-
-    // Proof
     let proof = make_proof(&did, &investor_uid, &ticker);
-
     (user, claim, proof)
 }
 
@@ -73,12 +69,9 @@ fn setup_investor_uniqueness_claim_v2<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    let make_investor_uid =
-        |raw_did: &[u8]| -> InvestorUid { make_investor_uid_v2(raw_did).into() };
-
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
         name,
-        make_investor_uid,
+        |raw_did| make_investor_uid_v2(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
         v2::InvestorZKProofData::new,
@@ -91,12 +84,9 @@ fn setup_investor_uniqueness_claim_v1<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    let make_investor_uid =
-        |raw_did: &[u8]| -> InvestorUid { make_investor_uid_v1(raw_did).into() };
-
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
         name,
-        make_investor_uid,
+        |raw_did| make_investor_uid_v1(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
         v1::InvestorZKProofData::new,

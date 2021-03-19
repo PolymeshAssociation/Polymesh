@@ -19,11 +19,13 @@ impl InvestorZKProofData {
     pub fn new(did: &IdentityId, investor: &InvestorUid, ticker: &Ticker) -> Self {
         let cdd_claim = Self::make_cdd_claim(did, investor);
         let scope_claim = Self::make_scope_claim(ticker.as_bytes(), investor);
-
         let mut rng = native_rng::Rng::default();
-        let proof = Investor::create_scope_claim_proof(&cdd_claim, &scope_claim, &mut rng);
 
-        Self(proof)
+        Self(Investor::create_scope_claim_proof(
+            &cdd_claim,
+            &scope_claim,
+            &mut rng,
+        ))
     }
 
     /// Returns the CDD claim of the given `did` and `investor`.

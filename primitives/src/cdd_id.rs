@@ -109,15 +109,15 @@ mod tests {
         let alice_cdd_id_1_prima = CddId::new_v1(alice_id_1, alice_uid);
         let alice_cdd_id_2 = CddId::new_v1(alice_id_2, alice_uid);
 
-        assert!(alice_id_1 != alice_id_2);
-        assert!(alice_cdd_id_1 != alice_cdd_id_2);
-        assert!(alice_cdd_id_1 == alice_cdd_id_1_prima);
+        assert_ne!(alice_id_1, alice_id_2);
+        assert_ne!(alice_cdd_id_1, alice_cdd_id_2);
+        assert_eq!(alice_cdd_id_1, alice_cdd_id_1_prima);
 
         let alice_cdd_id_1_v2 = CddId::new_v2(alice_id_1, alice_uid);
         let alice_cdd_id_1_v2_prima = CddId::new_v2(alice_id_1, alice_uid);
         let alice_cdd_id_2_v2 = CddId::new_v2(alice_id_2, alice_uid);
 
-        assert!(alice_cdd_id_1_v2 == alice_cdd_id_1_v2_prima);
-        assert!(alice_cdd_id_1_v2 != alice_cdd_id_2_v2);
+        assert_eq!(alice_cdd_id_1_v2, alice_cdd_id_1_v2_prima);
+        assert_ne!(alice_cdd_id_1_v2, alice_cdd_id_2_v2);
     }
 }

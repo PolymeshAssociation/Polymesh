@@ -235,7 +235,6 @@ pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Pr
 
 /// For confidential stuff.
 pub mod valid_proof_of_investor;
-pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;

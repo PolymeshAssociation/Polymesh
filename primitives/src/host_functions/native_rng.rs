@@ -59,24 +59,10 @@ pub trait NativeRng {
 }
 
 /// Wrapper over `OsRng` which supports WASM using `NativeRng` host functions.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Rng {
     #[cfg(feature = "std")]
     inner: OsRng,
-}
-
-impl Default for Rng {
-    #[cfg(feature = "std")]
-    fn default() -> Self {
-        Self {
-            inner: OsRng::default(),
-        }
-    }
-
-    #[cfg(not(feature = "std"))]
-    fn default() -> Self {
-        Rng {}
-    }
 }
 
 impl RngCore for Rng {
@@ -117,12 +103,9 @@ impl RngCore for Rng {
 
     #[cfg(not(feature = "std"))]
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        match native_rng::try_fill_bytes(dest) {
-            0 => Ok(()),
-            code => {
-                let non_zero_code = unsafe { NonZeroU32::new_unchecked(code as u32) };
-                Err(Error::from(non_zero_code))
-            }
+        match NonZeroU32::new(native_rng::try_fill_bytes(dest) as u32) {
+            None => Ok(()),
+            Some(nz_code) => Err(Error::from(nz_code)),
         }
     }
 }

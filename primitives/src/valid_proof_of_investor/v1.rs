@@ -4,50 +4,40 @@ use confidential_identity_v1::{CompressedRistretto, ProofPublicKey};
 // ZKProofs claims
 // =========================================================
 
-/// Data structure used to check if any of its internal claims exist in context.
-#[derive(Clone)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct ValidProofOfInvestor;
+/// Evaluates if the claim is a valid proof.
+pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
+    match claim {
+        Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
+            let message = InvestorZKProofData::make_message(id, scope.as_bytes());
+            verify_proof(cdd_id, id, scope_id, scope, proof, &message)
+        }
+        _ => false,
+    }
+}
 
-impl ValidProofOfInvestor {
-    /// Evaluates if the claim is a valid proof.
-    pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
-        match claim {
-            Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
-                let message = InvestorZKProofData::make_message(id, scope.as_bytes());
-                Self::verify_proof(cdd_id, id, scope_id, scope, proof, &message)
-            }
-            _ => false,
+/// It double check that `proof` matches with the rest of the parameters.
+fn verify_proof(
+    cdd_id: &CddId,
+    investor: &IdentityId,
+    scope_id: &IdentityId,
+    scope: &Scope,
+    proof: &InvestorZKProofData,
+    message: impl AsRef<[u8]>,
+) -> bool {
+    if let Some(cdd_id_point) = CompressedRistretto::from_slice(cdd_id.as_slice()).decompress() {
+        if let Some(scope_id) = CompressedRistretto::from_slice(scope_id.as_bytes()).decompress() {
+            let verifier = ProofPublicKey::new(
+                cdd_id_point,
+                &investor.to_bytes(),
+                scope_id,
+                scope.as_bytes(),
+            );
+
+            return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
         }
     }
 
-    /// It double check that `proof` matches with the rest of the parameters.
-    fn verify_proof(
-        cdd_id: &CddId,
-        investor: &IdentityId,
-        scope_id: &IdentityId,
-        scope: &Scope,
-        proof: &InvestorZKProofData,
-        message: impl AsRef<[u8]>,
-    ) -> bool {
-        if let Some(cdd_id_point) = CompressedRistretto::from_slice(cdd_id.as_slice()).decompress()
-        {
-            if let Some(scope_id) =
-                CompressedRistretto::from_slice(scope_id.as_bytes()).decompress()
-            {
-                let verifier = ProofPublicKey::new(
-                    cdd_id_point,
-                    &investor.to_bytes(),
-                    scope_id,
-                    scope.as_bytes(),
-                );
-
-                return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
-            }
-        }
-
-        false
-    }
+    false
 }
 
 #[cfg(test)]
@@ -91,10 +81,6 @@ mod tests {
 
         let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);
 
-        assert!(ValidProofOfInvestor::evaluate_claim(
-            &claim,
-            &investor_id,
-            &proof
-        ));
+        assert!(evaluate_claim(&claim, &investor_id, &proof));
     }
 }
