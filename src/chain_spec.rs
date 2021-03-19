@@ -520,40 +520,34 @@ pub mod general {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        endowed_accounts: Vec<AccountId>,
         enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
+        key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let init_ids = [
-            // Service providers
-            cdd_provider(1),
-            cdd_provider(2),
-            // Governance committee members
-            gc_mem(1),
-            gc_mem(2),
-            gc_mem(3),
-        ];
-        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+        let (identities, stakers, complete_txs) = genesis_processed_data(
+            &initial_authorities,
+            root_key.clone(),
+            treasury_bridge_lock,
+            key_bridge_locks,
+        );
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities: all_identities,
-                secondary_keys,
+                identities,
                 ..Default::default()
             }),
-            pallet_balances: Some(pallet_balances::GenesisConfig {
-                balances: balances(&initial_authorities, &endowed_accounts),
-            }),
+            pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: initial_authorities[0].1.clone(),
-                creator: initial_authorities[0].1.clone(),
+                admin: root_key.clone(),
+                creator: root_key.clone(),
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
                 bridge_limit: (100_000_000 * POLY, 1000),
-                ..Default::default()
+                complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
@@ -575,15 +569,17 @@ pub mod general {
                 },
             }),
             // Governance Council:
-            pallet_group_Instance1: Some(group_membership!(3, 4, 5, 6)),
-            pallet_committee_Instance1: Some(committee!(6)),
-            pallet_group_Instance2: Some(group_membership!(1, 2, 6)), // sp1, sp2, first authority
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
+            pallet_committee_Instance1: Some(committee!(1, (2, 3))),
+            // CDD providers
+            pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
+            pallet_committee_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3)),
-            pallet_committee_Instance3: Some(committee!(3)),
+            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
+            pallet_committee_Instance3: Some(committee!(3)),          // RC, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(4)),
-            pallet_committee_Instance4: Some(committee!(4)),
+            pallet_group_Instance4: Some(group_membership!(1)),
+            pallet_committee_Instance4: Some(committee!(1)), // RC, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -596,16 +592,13 @@ pub mod general {
     fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Bob"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("polymath_5"),
             true,
+            BridgeLockId::new(
+                1,
+                "0x1000000000000000000000000000000000000000000000000000000000000001",
+            ),
+            BridgeLockId::generate_bridge_locks(10),
         )
     }
 
@@ -634,18 +627,13 @@ pub mod general {
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
             ],
-            seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Charlie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
+            seeded_acc_id("polymath_5"),
             true,
+            BridgeLockId::new(
+                1,
+                "0x1000000000000000000000000000000000000000000000000000000000000001",
+            ),
+            BridgeLockId::generate_bridge_locks(10),
         )
     }
 
