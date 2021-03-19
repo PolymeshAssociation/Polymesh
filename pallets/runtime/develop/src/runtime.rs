@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2016,
+    spec_version: 2017,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -72,6 +72,9 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+
+    // Base:
+    pub const MaxLen: u32 = 2048;
 
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
@@ -132,6 +135,9 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+
+    // Identity:
+    pub const InitialPOLYX: Balance = 0;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -174,6 +180,26 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+impl polymesh_common_utilities::traits::identity::Trait for Runtime {
+    type Event = Event;
+    type Proposal = Call;
+    type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
+    type CddServiceProviders = CddServiceProviders;
+    type Balances = pallet_balances::Module<Runtime>;
+    type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
+    type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = CorporateAction;
+    type IdentityFn = pallet_identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
+}
 
 impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
@@ -350,6 +376,7 @@ construct_runtime!(
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
+        Base: pallet_base::{Module, Call, Event} = 51,
     }
 );
 

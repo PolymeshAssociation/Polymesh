@@ -3,7 +3,6 @@ use super::ext_builder::{
     WEIGHT_TO_FEE,
 };
 use codec::Encode;
-use confidential_identity::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{Currency, Imbalance, OnInitialize, OnUnbalanced},
@@ -44,8 +43,9 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, Authorization, AuthorizationData, CddId, Claim,
+    IdentityId, InvestorUid, Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory,
+    Ticker,
 };
 use polymesh_runtime_common::cdd_check::CddChecker;
 use smallvec::smallvec;
@@ -113,6 +113,7 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
+        pallet_base,
         bridge<T>,
         asset<T>,
         pips<T>,
@@ -171,6 +172,10 @@ impl User {
 
     pub fn origin(&self) -> Origin {
         Origin::signed(self.acc())
+    }
+
+    pub fn uid(&self) -> InvestorUid {
+        create_investor_uid(self.acc())
     }
 }
 
@@ -284,12 +289,18 @@ impl frame_system::Trait for TestStorage {
 parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
+    pub const MaxLen: u32 = 256;
 }
 
 impl CommonTrait for TestStorage {
     type Balance = Balance;
     type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<TestStorage>;
+}
+
+impl pallet_base::Trait for TestStorage {
+    type Event = Event;
+    type MaxLen = MaxLen;
 }
 
 impl balances::Trait for TestStorage {
@@ -468,9 +479,11 @@ impl IdentityTrait for TestStorage {
     type CorporateAction = CorporateActions;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
 }
 
 parameter_types! {
+    pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
     pub const StorageSizeOffset: u32 = 8;
     pub const TombstoneDeposit: Balance = 16;
@@ -747,7 +760,7 @@ pub fn make_account_with_scope(
 > {
     let uid = create_investor_uid(id);
     let (origin, did) = make_account_with_uid(id, uid.clone()).unwrap();
-    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider);
+    let scope_id = provide_scope_claim(did, ticker, uid, cdd_provider, None).0;
     Ok((origin, did, scope_id))
 }
 
@@ -904,11 +917,8 @@ pub fn create_cdd_id(
     investor_uid: InvestorUid,
 ) -> (CddId, InvestorZKProofData) {
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
-    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
-    (
-        compute_cdd_id(&cdd_claim).compress().to_bytes().into(),
-        proof,
-    )
+    let cdd_id = CddId::new_v1(claim_to, investor_uid);
+    (cdd_id, proof)
 }
 
 pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
@@ -920,10 +930,10 @@ pub fn provide_scope_claim(
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
-) -> ScopeId {
+    cdd_claim_expiry: Option<u64>,
+) -> (ScopeId, CddId) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
-    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+    let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 
@@ -932,7 +942,7 @@ pub fn provide_scope_claim(
         Origin::signed(cdd_provider),
         claim_to,
         Claim::CustomerDueDiligence(cdd_id),
-        None
+        cdd_claim_expiry,
     ));
 
     // Provide the InvestorUniqueness.
@@ -944,7 +954,7 @@ pub fn provide_scope_claim(
         None
     ));
 
-    scope_id
+    (scope_id, cdd_id)
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(
@@ -954,7 +964,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
 ) {
     parties.into_iter().enumerate().for_each(|(_, id)| {
         let uid = create_investor_uid(Identity::did_records(id).primary_key);
-        provide_scope_claim(*id, ticker, uid, cdd_provider);
+        provide_scope_claim(*id, ticker, uid, cdd_provider, None).0;
     });
 }
 

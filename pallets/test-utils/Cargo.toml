@@ -16,15 +16,15 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-std = { version = "2.0.1", default-features = false }
 
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2", optional = true }
+frame-system = { version = "2.0.1", default-features = false }
+frame-support = { version = "2.0.1", default-features = false }
+frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
 
 
 [features]
