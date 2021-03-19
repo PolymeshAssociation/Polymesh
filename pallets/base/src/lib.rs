@@ -1,3 +1,28 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2021 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+//! # Base Module
+//!
+//! The Base module provides utility and framework-like functionality atop of substrate.
+//!
+//! Currently, the module contains:
+//! - `Error::TooLong` and `ensure_*` functions to conveniently check data types for length.
+//! - `Event::UnexpectedError` and `emit_unexpected_error` to embed an error for manual inspection.
+//!
+//! There are currently no extrinsics or storage items in the base module.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
