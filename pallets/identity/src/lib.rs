@@ -125,7 +125,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
     AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
     DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    Permissions, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
