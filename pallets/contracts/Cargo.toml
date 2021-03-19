@@ -20,6 +20,7 @@ wat = { version = "1.0", optional = true, default-features = false }
 parity-wasm = { version = "0.41.0", default-features = false }
 
 # Polymesh specific
+pallet-base = { path = "../base", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }

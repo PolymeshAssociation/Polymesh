@@ -12,6 +12,7 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
+pallet-base = { path = "../base", default-features = false  }
 pallet-contracts = { version = "2.0.1", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }

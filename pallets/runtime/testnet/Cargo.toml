@@ -18,6 +18,7 @@ polymesh-extensions = { path = "../extensions", default-features = false }
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
+pallet-base = { path = "../../base", default-features = false }
 pallet-sto = { path = "../../sto", default-features = false }
 pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }

@@ -44,6 +44,13 @@ impl ComplianceRequirement {
         dedup_condition(&mut self.sender_conditions);
         dedup_condition(&mut self.receiver_conditions);
     }
+
+    /// Returns an iterator for all conditions in this requirement.
+    pub fn conditions(&self) -> impl Iterator<Item = &Condition> {
+        self.sender_conditions
+            .iter()
+            .chain(self.receiver_conditions.iter())
+    }
 }
 
 /// A compliance requirement along with its evaluation result

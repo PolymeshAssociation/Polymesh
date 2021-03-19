@@ -4464,6 +4464,7 @@ dependencies = [
  "hex-literal 0.2.1",
  "libsecp256k1",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-identity 0.1.0",
  "pallet-permissions 0.1.0",
@@ -4715,6 +4716,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-base"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "parity-scale-codec",
+ "polymesh-common-utilities 0.1.0",
+ "serde",
+ "serde_derive",
+ "sp-api 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-version 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+]
+
+[[package]]
 name = "pallet-bridge"
 version = "1.0.0"
 dependencies = [
@@ -4722,6 +4741,7 @@ dependencies = [
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-identity 0.1.0",
  "pallet-multisig 0.1.0",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -4813,6 +4833,7 @@ dependencies = [
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-asset 0.1.0",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-identity 0.1.0",
  "pallet-permissions 0.1.0",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -4997,6 +5018,7 @@ dependencies = [
  "libsecp256k1",
  "pallet-asset 0.1.0",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-compliance-manager 0.1.0",
  "pallet-identity 0.1.0",
  "pallet-portfolio 0.1.0",
@@ -5223,6 +5245,7 @@ dependencies = [
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-permissions 0.1.0",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "parity-scale-codec",
@@ -5445,6 +5468,7 @@ dependencies = [
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-committee 0.1.0",
  "pallet-group 0.1.0",
  "pallet-identity 0.1.0",
@@ -5502,6 +5526,7 @@ dependencies = [
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-identity 0.1.0",
  "pallet-permissions 0.1.0",
  "parity-scale-codec",
@@ -5716,6 +5741,7 @@ dependencies = [
  "hex-literal 0.2.1",
  "pallet-asset 0.1.0",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-compliance-manager 0.1.0",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-identity 0.1.0",
@@ -5936,6 +5962,7 @@ dependencies = [
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-asset 0.1.0",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-compliance-manager 0.1.0",
  "pallet-identity 0.1.0",
  "pallet-permissions 0.1.0",
@@ -6846,6 +6873,7 @@ dependencies = [
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-base",
  "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-identity 0.1.0",
  "pallet-protocol-fee 0.1.0",
@@ -7075,6 +7103,7 @@ dependencies = [
  "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-babe 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
@@ -7153,6 +7182,7 @@ dependencies = [
  "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-babe 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
@@ -7232,6 +7262,7 @@ dependencies = [
  "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-babe 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
@@ -7393,6 +7424,7 @@ dependencies = [
  "pallet-authorship 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-babe 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-balances 0.1.0",
+ "pallet-base",
  "pallet-bridge 1.0.0",
  "pallet-committee 0.1.0",
  "pallet-compliance-manager 0.1.0",
