@@ -132,6 +132,9 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+
+    // Identity:
+    pub const InitialPOLYX: Balance = 0;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -167,13 +170,33 @@ parameter_types! {
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 200_000_000 * POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+impl polymesh_common_utilities::traits::identity::Trait for Runtime {
+    type Event = Event;
+    type Proposal = Call;
+    type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
+    type CddServiceProviders = CddServiceProviders;
+    type Balances = pallet_balances::Module<Runtime>;
+    type ChargeTxFeeTarget = TransactionPayment;
+    type CddHandler = CddHandler;
+    type Public = <MultiSignature as Verify>::Signer;
+    type OffChainSignature = MultiSignature;
+    type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type CorporateAction = CorporateAction;
+    type IdentityFn = pallet_identity::Module<Runtime>;
+    type SchedulerOrigin = OriginCaller;
+    type InitialPOLYX = InitialPOLYX;
+}
 
 impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;

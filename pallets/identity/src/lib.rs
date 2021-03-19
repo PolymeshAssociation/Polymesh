@@ -89,7 +89,7 @@ use core::{
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, fail,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
@@ -118,6 +118,7 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
+    identity_id::GenesisIdentityRecord,
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
     AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
@@ -195,10 +196,11 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
     add_extra_genesis {
-        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
+        // Identities at genesis.
+        config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
+        // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-
             SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
@@ -207,21 +209,22 @@ decl_storage! {
             // Add CDD claims to Treasury & BRR
             let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
-                .inspect(|iss| debug::info!("Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
             <Module<T>>::add_systematic_cdd_claims(&id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
-            for &(ref primary_account_id, issuer, did, investor_uid, expiry) in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did.clone(), investor_uid));
+            for gen_id in &config.identities {
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(gen_id.did, gen_id.investor));
                 // Direct storage change for registering the DID and providing the claim
-                <Module<T>>::ensure_no_id_record(did).unwrap();
+                <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
-                <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
-                <Module<T>>::base_add_claim(did, cdd_claim, issuer, expiry);
+                let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
+                <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
+                for issuer in &gen_id.issuers {
+                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
+                }
             }
 
             for &(ref secondary_account_id, did) in &config.secondary_keys {
@@ -796,18 +799,13 @@ decl_module! {
 
             // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
             // otherwise throw and error.
-            match &claim {
-                Claim::InvestorUniqueness(..) => {
-                    Self::base_add_investor_uniqueness_claim(
-                        target,
-                        claim,
-                        issuer,
-                        proof,
-                        expiry,
-                    )
-                },
-                _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
-            }
+            Self::base_add_investor_uniqueness_claim(
+                target,
+                claim,
+                issuer,
+                proof,
+                expiry,
+            )
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
@@ -1358,6 +1356,9 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
+                || SYSTEMATIC_ISSUERS
+                    .iter()
+                    .any(|si| si.as_id() == id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
@@ -1535,6 +1536,10 @@ impl<T: Trait> Module<T> {
         };
         <DidRecords<T>>::insert(&did, record);
 
+        // 2.3. Give 100k POLYX to the primary key for testing.
+        // TODO: Remove before mainnet.
+        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
+
         Self::deposit_event(RawEvent::DidCreated(
             did,
             sender,
@@ -1647,28 +1652,31 @@ impl<T: Trait> Module<T> {
         proof: InvestorZKProofData,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
+        let (scope, scope_id, cdd_id) =
+            if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
+                (scope, scope_id, cdd_id)
+            } else {
+                fail!(Error::<T>::ClaimVariantNotAllowed);
+            };
         // Only owner of the identity can add that confidential claim.
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
-
-        if let Claim::InvestorUniqueness(.., cdd_id) = &claim {
-            // Verify the owner of that CDD_ID.
-            ensure!(
-                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-                Error::<T>::ConfidentialScopeClaimNotAllowed
-            );
-        }
+        // Verify the owner of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
         // Verify the confidential claim.
         ensure!(
             ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, _) = &claim {
+        if let Scope::Ticker(ticker) = &scope {
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
-            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *scope)?
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker);
         }
 
         Self::base_add_claim(target, claim, issuer, expiry);
@@ -1900,15 +1908,26 @@ impl<T: Trait> Module<T> {
             id
         );
 
-        Self::unsafe_register_id(acc, id);
+        Self::do_register_id(acc, id, vec![]);
     }
 
     /// Registers `primary_key` as `id` identity.
     #[allow(dead_code)]
-    fn unsafe_register_id(primary_key: T::AccountId, id: IdentityId) {
+    fn do_register_id(
+        primary_key: T::AccountId,
+        id: IdentityId,
+        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+    ) {
         <Module<T>>::link_account_key_to_did(&primary_key, id);
+        for sk in &secondary_keys {
+            if let Signatory::Account(key) = &sk.signer {
+                Self::link_account_key_to_did(key, id);
+            }
+        }
+
         let record = DidRecord {
             primary_key: primary_key.clone(),
+            secondary_keys,
             ..Default::default()
         };
         <DidRecords<T>>::insert(&id, record);

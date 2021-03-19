@@ -18,11 +18,9 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
-use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
-use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
     benchs::{self, generate_ticker, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
@@ -30,9 +28,9 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    asset::{AssetName, AssetType},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
-    PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
+    statistics::TransferManager, Claim, Condition, ConditionType, CountryCode, IdentityId,
+    PortfolioId, PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker,
+    TrustedIssuer,
 };
 use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
@@ -114,22 +112,8 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 }
 
 // create asset
-fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchError> {
-    let ticker = Ticker::try_from(generate_ticker(8u64).as_slice()).unwrap();
-    let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    let total_supply: T::Balance = 90000u32.into();
-    let token = SecurityToken {
-        name,
-        total_supply,
-        owner_did,
-        divisible: true,
-        asset_type: AssetType::EquityCommon,
-        primary_issuance_agent: None,
-    };
-    <Tokens<T>>::insert(ticker, token);
-    <BalanceOf<T>>::insert(ticker, owner_did, total_supply);
-    Portfolio::<T>::set_default_portfolio_balance(owner_did, &ticker, total_supply);
-    Ok(ticker)
+fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
+    make_asset::<T>(owner, Some(generate_ticker(8u64)))
 }
 
 // fund portfolio
@@ -632,9 +616,9 @@ benchmarks! {
 
     set_venue_filtering {
         // Constant time function. It is only for allow venue filtering.
-        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
-    }: _(origin, ticker, true)
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
+    }: _(user.origin, ticker, true)
     verify {
         ensure!(Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
@@ -642,9 +626,9 @@ benchmarks! {
 
     set_venue_filtering_disallow {
         // Constant time function. It is only for disallowing venue filtering.
-        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
-    }: set_venue_filtering(origin, ticker, false)
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
+    }: set_venue_filtering(user.origin, ticker, false)
     verify {
         ensure!(!Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
@@ -653,14 +637,14 @@ benchmarks! {
     allow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
         }
         let s_venues = venues.clone();
-    }: _(origin, ticker, s_venues)
+    }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -671,14 +655,14 @@ benchmarks! {
     disallow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
         }
         let s_venues = venues.clone();
-    }: _(origin, ticker, s_venues)
+    }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");

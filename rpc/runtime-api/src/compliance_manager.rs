@@ -17,8 +17,7 @@
 
 use codec::Codec;
 use frame_support::traits::Currency;
-use pallet_compliance_manager::AssetComplianceResult;
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 
 pub trait Trait: frame_system::Trait {
     type Currency: Currency<Self::AccountId>;

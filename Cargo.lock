@@ -6651,7 +6651,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -6693,8 +6693,9 @@ dependencies = [
  "polymesh-primitives 2.0.0",
  "polymesh-runtime-common 1.0.0",
  "polymesh-runtime-develop",
- "polymesh-runtime-mainnet",
+ "polymesh-runtime-itn",
  "polymesh-runtime-testnet 0.1.0",
+ "rustc-hex",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -6897,6 +6898,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-application-crypto 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "sp-arithmetic 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
@@ -7088,7 +7090,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-runtime-mainnet"
+name = "polymesh-runtime-itn"
 version = "0.1.0"
 dependencies = [
  "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=v2.2.2)",

@@ -27,6 +27,7 @@ sp-std = { package = "sp-std", git = "https://github.com/PolymathNetwork/substra
 sp-runtime = { package = "sp-runtime", git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 sp-runtime-interface = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
