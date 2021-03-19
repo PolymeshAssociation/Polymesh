@@ -402,6 +402,17 @@
             }
         },
         "InvestorZKProofData": "Signature",
+        "RistrettoPoint": "[u8; 32]",
+        "ZkProofData": {
+            "challenge_responses": "[[u8; 32]; 2]",
+            "subtract_expressions_res": "RistrettoPoint",
+            "blinded_scope_did_hash": "RistrettoPoint"
+        },
+        "ScopeClaimProof": {
+            "proof_scope_id_wellformed": "Signature",
+            "proof_scope_id_cdd_id_match": "ZkProofData",
+            "scope_id": "RistrettoPoint"
+        },
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",

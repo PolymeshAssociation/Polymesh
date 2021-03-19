@@ -18,7 +18,7 @@ pub fn migrate_claim(
 /// CDD claims are going to be mocked, where the Investor UID is the hash of its `IdentityId`.
 fn migrate_cdd_claim(target: IdentityId, mut id_claim: IdentityClaim) -> Option<IdentityClaim> {
     let uid = make_investor_uid(target.as_bytes()).into();
-    let cdd_id = CddId::new(target, uid);
+    let cdd_id = CddId::new_v1(target, uid);
 
     id_claim.claim = Claim::CustomerDueDiligence(cdd_id);
     Some(id_claim)
