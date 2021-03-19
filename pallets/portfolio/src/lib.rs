@@ -82,7 +82,7 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
 }
 
-pub trait Trait: CommonTrait + IdentityTrait {
+pub trait Trait: CommonTrait + IdentityTrait + pallet_base::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type WeightInfo: WeightInfo;
 }
@@ -382,6 +382,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensures that there is no portfolio with the desired `name` yet.
     fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
+        pallet_base::ensure_string_limited::<T>(name)?;
         let name_uniq = Portfolios::iter_prefix(&did).all(|n| &n.1 != name);
         ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
         Ok(())

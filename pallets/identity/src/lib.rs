@@ -82,10 +82,8 @@ mod migration;
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use core::{
-    convert::{From, TryInto},
-    result::Result as StdResult,
-};
+use confidential_identity::ScopeClaimProof;
+use core::convert::{From, TryInto};
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -98,6 +96,7 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use pallet_base::{ensure_length_ok, ensure_string_limited};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
@@ -119,11 +118,14 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord,
+    investor_zkproof_data::{
+        v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProofDataGeneral,
+    },
     secondary_key::{self, api::LegacyPermissions},
-    storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
-    AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
-    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
+    AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
+    DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, PalletName,
+    Permissions, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -216,7 +218,7 @@ decl_storage! {
 
             //  Other
             for gen_id in &config.identities {
-                let cdd_claim = Claim::CustomerDueDiligence(CddId::new(gen_id.did, gen_id.investor));
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(gen_id.did, gen_id.investor));
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
@@ -559,6 +561,9 @@ decl_module! {
             expiry: Option<T::Moment>
         ) {
             let from_did = Self::ensure_perms(origin)?;
+            if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
+                Self::ensure_perms_length_limited(perms)?;
+            }
             Self::add_auth(from_did, target, authorization_data, expiry);
         }
 
@@ -684,9 +689,16 @@ decl_module! {
             };
             let auth_encoded = authorization.encode();
 
+            let mut record = <DidRecords<T>>::get(did);
+
+            // Ensure we won't have too many keys.
+            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()))?;
+
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
                 let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
+
+                Self::ensure_perms_length_limited(&si.permissions)?;
 
                 // Get account_id from signer
                 let account_id = match si.signer {
@@ -735,9 +747,8 @@ decl_module! {
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords<T>>::mutate(did, |record| {
-                (*record).add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
-            });
+            record.add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
+            <DidRecords<T>>::insert(did, record);
             OffChainAuthorizationNonce::mutate(did, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
@@ -795,17 +806,7 @@ decl_module! {
         /// * `InvalidScopeClaim When proof is invalid.
         #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim()]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
-            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
-
-            // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
-            // otherwise throw and error.
-            Self::base_add_investor_uniqueness_claim(
-                target,
-                claim,
-                issuer,
-                proof,
-                expiry,
-            )
+            Self::base_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
@@ -824,6 +825,11 @@ decl_module! {
         pub fn gc_revoke_cdd_claim(origin, target: IdentityId) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
+        }
+
+        #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim_v2()]
+        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
+            Self::base_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
     }
 }
@@ -1182,6 +1188,8 @@ impl<T: Trait> Module<T> {
         signer: &Signatory<T::AccountId>,
         mut permissions: Permissions,
     ) -> DispatchResult {
+        Self::ensure_perms_length_limited(&permissions)?;
+
         let mut new_s_item: Option<SecondaryKey<T::AccountId>> = None;
 
         <DidRecords<T>>::mutate(target_did, |record| {
@@ -1396,7 +1404,7 @@ impl<T: Trait> Module<T> {
     pub fn grant_check_only_primary_key(
         sender: &T::AccountId,
         did: IdentityId,
-    ) -> sp_std::result::Result<DidRecord<T::AccountId>, DispatchError> {
+    ) -> Result<DidRecord<T::AccountId>, DispatchError> {
         Self::ensure_id_record_exists(did)?;
         let record = <DidRecords<T>>::get(did);
         ensure!(*sender == record.primary_key, Error::<T>::KeyNotAllowed);
@@ -1466,7 +1474,7 @@ impl<T: Trait> Module<T> {
     /// IMPORTANT: No state change is allowed in this function
     /// because this function is used within the RPC calls
     /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Ticker) -> StdResult<IdentityId, &'static str> {
+    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
         let mut buf = SECURITY_TOKEN.encode();
         buf.append(&mut ticker.encode());
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
@@ -1486,12 +1494,12 @@ impl<T: Trait> Module<T> {
         MultiPurposeNonce::put(&new_nonce);
 
         // 1 Check constraints.
-        // 1.1. Primary key is not linked to any identity.
+        // Primary key is not linked to any identity.
         ensure!(
             Self::can_link_account_key_to_did(&sender),
             Error::<T>::AlreadyLinked
         );
-        // 1.2. Primary key is not part of secondary keys.
+        // Primary key is not part of secondary keys.
         ensure!(
             !secondary_keys
                 .iter()
@@ -1502,11 +1510,11 @@ impl<T: Trait> Module<T> {
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
         let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
-        // 1.3. Make sure there's no pre-existing entry for the DID
+        // Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         Self::ensure_no_id_record(did)?;
 
-        // 1.4. Secondary keys can be linked to the new identity.
+        // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {
             if let Signatory::Account(ref key) = sk.signer {
                 ensure!(
@@ -1516,7 +1524,7 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        // 1.5. Charge the given fee.
+        // Charge the given fee.
         if let Some(op) = protocol_fee_data {
             T::ProtocolFee::charge_fee(op)?;
         }
@@ -1549,6 +1557,28 @@ impl<T: Trait> Module<T> {
                 .collect(),
         ));
         Ok(did)
+    }
+
+    fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
+        if let Some(len) = perms.asset.elems_len() {
+            ensure_length_ok::<T>(len)?;
+        }
+        if let Some(len) = perms.portfolio.elems_len() {
+            ensure_length_ok::<T>(len)?;
+        }
+        if let SubsetRestriction(Some(set)) = &perms.extrinsic {
+            ensure_length_ok::<T>(set.len())?;
+            for elem in set {
+                ensure_string_limited::<T>(&elem.pallet_name)?;
+                if let SubsetRestriction(Some(set)) = &elem.dispatchable_names {
+                    ensure_length_ok::<T>(set.len())?;
+                    for elem in set {
+                        ensure_string_limited::<T>(elem)?;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// It adds a new claim without any previous security check.
@@ -1646,19 +1676,19 @@ impl<T: Trait> Module<T> {
     ///     - If claim is not valid.
     ///
     fn base_add_investor_uniqueness_claim(
+        origin: T::Origin,
         target: IdentityId,
         claim: Claim,
-        issuer: IdentityId,
-        proof: InvestorZKProofData,
+        proof: InvestorZKProofDataGeneral,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
-        let (scope, scope_id, cdd_id) =
-            if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = &claim {
-                (scope, scope_id, cdd_id)
-            } else {
-                fail!(Error::<T>::ClaimVariantNotAllowed);
-            };
+        // Ensure the claim is of kind `InvestorUniqueness`.
+        let (scope, scope_id, cdd_id) = match &claim {
+            Claim::InvestorUniqueness(scope, scope_id, cdd_id) => (scope, scope_id, cdd_id),
+            _ => fail!(Error::<T>::ClaimVariantNotAllowed),
+        };
         // Only owner of the identity can add that confidential claim.
+        let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
@@ -1668,13 +1698,14 @@ impl<T: Trait> Module<T> {
             Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
+
         // Verify the confidential claim.
         ensure!(
-            ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
+            valid_proof_of_investor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
-        if let Scope::Ticker(ticker) = &scope {
+        if let Scope::Ticker(ticker) = scope {
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
             T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker);
         }
@@ -1771,7 +1802,7 @@ impl<T: Trait> Module<T> {
     fn ensure_signed_and_validate_claim_target(
         origin: T::Origin,
         target: IdentityId,
-    ) -> StdResult<IdentityId, DispatchError> {
+    ) -> Result<IdentityId, DispatchError> {
         let primary_did = Self::ensure_perms(origin)?;
         ensure!(
             <DidRecords<T>>::contains_key(target),
@@ -2030,11 +2061,6 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// Emit an unexpected error event that should be investigated manually
-    pub fn emit_unexpected_error(error: Option<DispatchError>) {
-        Self::deposit_event(RawEvent::UnexpectedError(error));
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
@@ -2100,7 +2126,7 @@ impl<T: Trait> IdentityFnTrait<T::AccountId> for Module<T> {
     /// Adds systematic CDD claims.
     fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
