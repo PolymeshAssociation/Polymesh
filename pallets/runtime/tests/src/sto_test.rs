@@ -24,7 +24,6 @@ type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
 
 #[test]
 fn raise_happy_path_ext() {
@@ -616,7 +615,7 @@ fn fundraiser_expired() {
         Some(Timestamp::get() + 1)
     ));
 
-    System::set_block_number(Timestamp::get() + 2);
+    Timestamp::set_timestamp(Timestamp::get() + 2);
 
     assert_noop!(
         STO::modify_fundraiser_window(
