@@ -369,7 +369,7 @@ decl_module! {
 
             let now = Timestamp::<T>::get();
             ensure!(
-                fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
+                fundraiser.start <= now && fundraiser.end.filter(|e| now < *e).is_none(),
                 Error::<T>::FundraiserExpired
             );
 
@@ -512,10 +512,10 @@ decl_module! {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
                 ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
-                    ensure!(Timestamp::<T>::get() < end, Error::<T>::FundraiserExpired);
+                    ensure!(end < Timestamp::<T>::get(), Error::<T>::FundraiserExpired);
                 }
                 if let Some(end) = end {
-                    ensure!(start < end, Error::<T>::InvalidOfferingWindow);
+                    ensure!(start < end && start != end, Error::<T>::InvalidOfferingWindow);
                 }
                 Self::deposit_event(RawEvent::FundraiserWindowModified(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
                 fundraiser.start = start;
@@ -550,7 +550,6 @@ decl_module! {
                 .map(|t| t.remaining)
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
-            //TODO(Connor): Should we check portfolio perms here?
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
             fundraiser.status = match fundraiser.end {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
