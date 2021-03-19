@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 pallet-asset = { path = "../asset", default-features = false  }
 pallet-balances = { path = "../balances", default-features = false  }
+pallet-base = { path = "../base", default-features = false  }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
 pallet-permissions = { path = "../permissions", default-features = false }

@@ -64,6 +64,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
+use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{
@@ -500,6 +501,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
+            ensure_string_limited::<T>(&details)?;
             let venue = Venue::new(did, details, venue_type);
             // NB: Venue counter starts with 1.
             let venue_counter = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
@@ -527,6 +529,7 @@ decl_module! {
 
                 // Update details & type.
                 if let Some(details) = details {
+                    ensure_string_limited::<T>(&details)?;
                     venue.details = details;
                 }
                 if let Some(typ) = typ {
