@@ -98,6 +98,7 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use pallet_base::{ensure_length_ok, ensure_string_limited};
 use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
@@ -123,7 +124,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Authorization, AuthorizationData,
     AuthorizationError, AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
     Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, InvestorZKProofData, PalletName,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    Permissions, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -559,6 +560,9 @@ decl_module! {
             expiry: Option<T::Moment>
         ) {
             let from_did = Self::ensure_perms(origin)?;
+            if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
+                Self::ensure_perms_length_limited(perms)?;
+            }
             Self::add_auth(from_did, target, authorization_data, expiry);
         }
 
@@ -684,9 +688,16 @@ decl_module! {
             };
             let auth_encoded = authorization.encode();
 
+            let mut record = <DidRecords<T>>::get(did);
+
+            // Ensure we won't have too many keys.
+            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()))?;
+
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
                 let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
+
+                Self::ensure_perms_length_limited(&si.permissions)?;
 
                 // Get account_id from signer
                 let account_id = match si.signer {
@@ -735,9 +746,8 @@ decl_module! {
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords<T>>::mutate(did, |record| {
-                (*record).add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
-            });
+            record.add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
+            <DidRecords<T>>::insert(did, record);
             OffChainAuthorizationNonce::mutate(did, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
@@ -1182,6 +1192,8 @@ impl<T: Trait> Module<T> {
         signer: &Signatory<T::AccountId>,
         mut permissions: Permissions,
     ) -> DispatchResult {
+        Self::ensure_perms_length_limited(&permissions)?;
+
         let mut new_s_item: Option<SecondaryKey<T::AccountId>> = None;
 
         <DidRecords<T>>::mutate(target_did, |record| {
@@ -1486,12 +1498,12 @@ impl<T: Trait> Module<T> {
         MultiPurposeNonce::put(&new_nonce);
 
         // 1 Check constraints.
-        // 1.1. Primary key is not linked to any identity.
+        // Primary key is not linked to any identity.
         ensure!(
             Self::can_link_account_key_to_did(&sender),
             Error::<T>::AlreadyLinked
         );
-        // 1.2. Primary key is not part of secondary keys.
+        // Primary key is not part of secondary keys.
         ensure!(
             !secondary_keys
                 .iter()
@@ -1502,11 +1514,11 @@ impl<T: Trait> Module<T> {
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
         let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
-        // 1.3. Make sure there's no pre-existing entry for the DID
+        // Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         Self::ensure_no_id_record(did)?;
 
-        // 1.4. Secondary keys can be linked to the new identity.
+        // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {
             if let Signatory::Account(ref key) = sk.signer {
                 ensure!(
@@ -1516,7 +1528,7 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        // 1.5. Charge the given fee.
+        // Charge the given fee.
         if let Some(op) = protocol_fee_data {
             T::ProtocolFee::charge_fee(op)?;
         }
@@ -1549,6 +1561,28 @@ impl<T: Trait> Module<T> {
                 .collect(),
         ));
         Ok(did)
+    }
+
+    fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
+        if let Some(len) = perms.asset.elems_len() {
+            ensure_length_ok::<T>(len)?;
+        }
+        if let Some(len) = perms.portfolio.elems_len() {
+            ensure_length_ok::<T>(len)?;
+        }
+        if let SubsetRestriction(Some(set)) = &perms.extrinsic {
+            ensure_length_ok::<T>(set.len())?;
+            for elem in set {
+                ensure_string_limited::<T>(&elem.pallet_name)?;
+                if let SubsetRestriction(Some(set)) = &elem.dispatchable_names {
+                    ensure_length_ok::<T>(set.len())?;
+                    for elem in set {
+                        ensure_string_limited::<T>(elem)?;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// It adds a new claim without any previous security check.
@@ -2028,11 +2062,6 @@ impl<T: Trait> Module<T> {
             secondary_keys,
             Some(ProtocolOp::IdentityCddRegisterDid),
         )
-    }
-
-    /// Emit an unexpected error event that should be investigated manually
-    pub fn emit_unexpected_error(error: Option<DispatchError>) {
-        Self::deposit_event(RawEvent::UnexpectedError(error));
     }
 
     #[cfg(feature = "runtime-benchmarks")]

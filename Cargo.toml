@@ -20,6 +20,7 @@ members = [
     "node-rpc",
     "pallets/asset",
     "pallets/balances",
+    "pallets/base",
     "pallets/bridge",
     "pallets/committee",
     "pallets/common",

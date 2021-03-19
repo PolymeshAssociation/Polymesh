@@ -81,3 +81,27 @@ pub trait TestUtilsFn<AccountId> {
         secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
     ) -> DispatchResult;
 }
+
+pub mod base {
+    use frame_support::decl_event;
+    use frame_support::dispatch::DispatchError;
+    use frame_support::traits::Get;
+
+    decl_event! {
+        pub enum Event {
+            /// An unexpected error happened that should be investigated.
+            UnexpectedError(Option<DispatchError>),
+        }
+    }
+
+    pub trait Trait: frame_system::Trait {
+        /// The overarching event type.
+        type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+
+        /// The maximum length governing `TooLong`.
+        ///
+        /// How lengths are computed to compare against this value is situation based.
+        /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
+        type MaxLen: Get<u32>;
+    }
+}

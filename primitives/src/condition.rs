@@ -51,6 +51,19 @@ pub enum ConditionType {
     IsIdentity(TargetIdentity),
 }
 
+impl ConditionType {
+    fn complexity(&self) -> usize {
+        match self {
+            ConditionType::IsIdentity(..)
+            | ConditionType::IsPresent(..)
+            | ConditionType::IsAbsent(..) => 1,
+            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
+                claims.len()
+            }
+        }
+    }
+}
+
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
@@ -127,7 +140,6 @@ pub struct Condition {
     pub issuers: Vec<TrustedIssuer>,
 }
 
-#[allow(missing_docs)]
 impl Condition {
     /// Generate condition on the basis of `condition_type` & `issuers`.
     pub fn new(condition_type: ConditionType, issuers: Vec<TrustedIssuer>) -> Self {
@@ -144,25 +156,15 @@ impl Condition {
             issuers.iter().copied().map(TrustedIssuer::from).collect(),
         )
     }
+
+    /// Returns worst case complexity of a condition
+    pub fn complexity(&self) -> (usize, usize) {
+        (self.condition_type.complexity(), self.issuers.len())
+    }
 }
 
 impl From<ConditionType> for Condition {
     fn from(condition_type: ConditionType) -> Self {
         Condition::new(condition_type, Vec::new())
-    }
-}
-
-impl Condition {
-    /// Returns worst case complexity of a condition
-    pub fn complexity(&self) -> (usize, usize) {
-        let claims_count = match self.condition_type {
-            ConditionType::IsIdentity(..)
-            | ConditionType::IsPresent(..)
-            | ConditionType::IsAbsent(..) => 1,
-            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
-                claims.len()
-            }
-        };
-        (claims_count, self.issuers.len())
     }
 }
