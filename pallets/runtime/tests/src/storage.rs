@@ -3,7 +3,6 @@ use super::ext_builder::{
     WEIGHT_TO_FEE,
 };
 use codec::Encode;
-use confidential_identity::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{Currency, Imbalance, OnInitialize, OnUnbalanced},
@@ -44,8 +43,9 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, Authorization, AuthorizationData, CddId, Claim,
+    IdentityId, InvestorUid, Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory,
+    Ticker,
 };
 use polymesh_runtime_common::cdd_check::CddChecker;
 use smallvec::smallvec;
@@ -917,11 +917,8 @@ pub fn create_cdd_id(
     investor_uid: InvestorUid,
 ) -> (CddId, InvestorZKProofData) {
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
-    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
-    (
-        compute_cdd_id(&cdd_claim).compress().to_bytes().into(),
-        proof,
-    )
+    let cdd_id = CddId::new_v1(claim_to, investor_uid);
+    (cdd_id, proof)
 }
 
 pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
@@ -936,8 +933,7 @@ pub fn provide_scope_claim(
     cdd_claim_expiry: Option<u64>,
 ) -> (ScopeId, CddId) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
-    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+    let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 

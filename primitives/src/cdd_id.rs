@@ -1,9 +1,9 @@
-use crate::{IdentityId, InvestorZKProofData};
-use confidential_identity::compute_cdd_id;
-use polymesh_primitives_derive::SliceU8StrongTyped;
+use crate::{investor_zkproof_data::v1, IdentityId};
 
 use codec::{Decode, Encode};
-
+use confidential_identity as v2;
+use confidential_identity_v1 as ci_v1;
+use polymesh_primitives_derive::SliceU8StrongTyped;
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 
@@ -60,14 +60,25 @@ impl From<[u8; 32]> for InvestorUid {
 pub struct CddId([u8; 32]);
 
 impl CddId {
-    /// Create a new CDD Id given the `did` and the `investor_uid`.
-    /// The blind factor is generated as a `Blake2b` hash of the concatenation of the given `did`
-    /// and `investor_uid`.
-    pub fn new(did: IdentityId, investor_uid: InvestorUid) -> Self {
-        let cdd_claim_data = InvestorZKProofData::make_cdd_claim(&did, &investor_uid);
-        let raw_cdd_id = compute_cdd_id(&cdd_claim_data).compress().to_bytes();
+    /// Creates a new CDD Id for PIUS v1.
+    pub fn new_v1(did: IdentityId, investor_uid: InvestorUid) -> Self {
+        let cdd_claim_data = v1::InvestorZKProofData::make_cdd_claim(&did, &investor_uid);
+        let raw_cdd_id = ci_v1::compute_cdd_id(&cdd_claim_data).compress().to_bytes();
 
         Self(raw_cdd_id)
+    }
+
+    /// Creates a new CDD Id for PIUS v2.
+    pub fn new_v2(did: IdentityId, investor_uid: InvestorUid) -> Self {
+        use v2::ProviderTrait;
+
+        let data = v2::CddClaimData::new(did.as_bytes(), investor_uid.as_slice());
+        let raw = v2::claim_proofs::Provider::create_cdd_id(&data)
+            .0
+            .compress()
+            .to_bytes();
+
+        Self(raw)
     }
 
     /// Only the zero-filled `CddId` is considered as invalid.
@@ -94,10 +105,19 @@ mod tests {
         let alice_id_2 = IdentityId::from(2);
         let alice_uid = InvestorUid::from(b"alice_uid".as_ref());
 
-        let alice_cdd_id_1 = CddId::new(alice_id_1, alice_uid);
-        let alice_cdd_id_2 = CddId::new(alice_id_2, alice_uid);
+        let alice_cdd_id_1 = CddId::new_v1(alice_id_1, alice_uid);
+        let alice_cdd_id_1_prima = CddId::new_v1(alice_id_1, alice_uid);
+        let alice_cdd_id_2 = CddId::new_v1(alice_id_2, alice_uid);
 
-        assert!(alice_id_1 != alice_id_2);
-        assert!(alice_cdd_id_1 != alice_cdd_id_2);
+        assert_ne!(alice_id_1, alice_id_2);
+        assert_ne!(alice_cdd_id_1, alice_cdd_id_2);
+        assert_eq!(alice_cdd_id_1, alice_cdd_id_1_prima);
+
+        let alice_cdd_id_1_v2 = CddId::new_v2(alice_id_1, alice_uid);
+        let alice_cdd_id_1_v2_prima = CddId::new_v2(alice_id_1, alice_uid);
+        let alice_cdd_id_2_v2 = CddId::new_v2(alice_id_2, alice_uid);
+
+        assert_eq!(alice_cdd_id_1_v2, alice_cdd_id_1_v2_prima);
+        assert_ne!(alice_cdd_id_1_v2, alice_cdd_id_2_v2);
     }
 }

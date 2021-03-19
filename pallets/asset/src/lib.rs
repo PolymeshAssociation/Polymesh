@@ -1052,7 +1052,7 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
             Claim::InvestorUniqueness(
                 Scope::Ticker(ticker),
                 did,
-                CddId::new(did, InvestorUid::from(did.to_bytes())),
+                CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
             ),
             did,
             None,
