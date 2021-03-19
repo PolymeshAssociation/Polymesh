@@ -17,14 +17,14 @@ pallet-transaction-payment = { path = "../pallets/transaction-payment", default-
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-core = {git = 'https://github.com/PolymathNetwork/substrate', default_features = false, tag = "v2.0.1-2" }
-sp-std = {git = 'https://github.com/PolymathNetwork/substrate', default_features = false, tag = "v2.0.1-2" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-api = { git = 'https://github.com/PolymathNetwork/substrate', default-features = false, tag = "v2.0.1-2" }
-sp-blockchain = { git = 'https://github.com/PolymathNetwork/substrate', tag = "v2.0.1-2" }
-sp-rpc = { git = 'https://github.com/PolymathNetwork/substrate', tag = "v2.0.1-2" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+sp-core = {version = "2.0.1", default_features = false }
+sp-std = {version = "2.0.1", default_features = false }
+sp-runtime = { version = "2.0.1", default-features = false }
+sp-api = { version = "2.0.1", default-features = false }
+sp-blockchain = { version = "2.0.1" }
+sp-rpc = { version = "2.0.1" }
+frame-support = { version = "2.0.1", default-features = false }
+frame-system = { version = "2.0.1", default-features = false }
 
 # Others
 jsonrpc-core = "15.0.0"
