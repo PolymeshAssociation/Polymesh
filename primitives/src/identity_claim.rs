@@ -55,6 +55,17 @@ impl From<Vec<u8>> for Scope {
     }
 }
 
+impl Scope {
+    /// Returns its inner content as a slice.
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Ticker(ticker) => ticker.as_slice(),
+            Self::Identity(did) => did.as_bytes(),
+            Self::Custom(data) => data.as_slice(),
+        }
+    }
+}
+
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
