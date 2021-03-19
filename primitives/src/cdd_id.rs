@@ -70,7 +70,7 @@ impl CddId {
 
     /// Creates a new CDD Id for PIUS v2.
     pub fn new_v2(did: IdentityId, investor_uid: InvestorUid) -> Self {
-        use v2::ProviderTrait as _;
+        use v2::ProviderTrait;
 
         let data = v2::CddClaimData::new(did.as_bytes(), investor_uid.as_slice());
         let raw = v2::claim_proofs::Provider::create_cdd_id(&data)

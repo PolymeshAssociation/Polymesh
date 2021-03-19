@@ -15,13 +15,8 @@
 
 use crate::*;
 
-use confidential_identity::{
-    mocked::make_investor_uid as make_investor_uid_v2, ScopeClaimData as ScopeClaimDataV2,
-};
-use confidential_identity_v1::{
-    compute_scope_id as compute_scope_id_v1, mocked::make_investor_uid as make_investor_uid_v1,
-    ScopeClaimData as ScopeClaimDataV1,
-};
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
@@ -61,7 +56,7 @@ where
 
     // Create the scope.
     let ticker = Ticker::default();
-    let scope_id = make_scope_id(&ticker, &investor_uid);
+    let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
     // Claim
     let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);

@@ -799,11 +799,6 @@ decl_module! {
             Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
 
-        #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim_v2()]
-        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
-        }
-
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
         #[weight = (<T as Trait>::WeightInfo::add_claim(), Operational, Pays::Yes)]
         pub fn gc_add_cdd_claim(
@@ -820,6 +815,11 @@ decl_module! {
         pub fn gc_revoke_cdd_claim(origin, target: IdentityId) -> DispatchResult {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
+        }
+
+        #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim_v2()]
+        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
+            Self::do_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
         }
     }
 }

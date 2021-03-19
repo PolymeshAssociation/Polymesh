@@ -25,7 +25,7 @@ pub enum InvestorZKProofData {
 impl InvestorZKProofData {
     /// Generates a new ZKProof using the latest PIUS version.
     pub fn new(did: &IdentityId, investor: &InvestorUid, ticker: &Ticker) -> Self {
-        Self::new_v2(did, investor, ticker)
+        Self::new_v1(did, investor, ticker)
     }
 
     /// Generates a new ZKProof using PIUS v1.
