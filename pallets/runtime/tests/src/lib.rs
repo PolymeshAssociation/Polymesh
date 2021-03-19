@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![feature(crate_visibility_modifier)]
-#![feature(bindings_after_at)]
+#![feature(bindings_after_at, bool_to_option)]
 
 pub mod storage;
 pub use storage::{
