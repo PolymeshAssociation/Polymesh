@@ -10,7 +10,10 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use frame_support::{
+    assert_err, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
+};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::{
@@ -22,12 +25,12 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    investor_zkproof_data::v2, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    IdentityClaim, IdentityId, InvestorUid, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
-use sp_core::crypto::AccountId32;
-use sp_core::H512;
+use sp_core::{crypto::AccountId32, sr25519::Public, H512};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
@@ -42,6 +45,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 // Identity Test Helper functions
 // =======================================
@@ -1617,4 +1621,67 @@ fn do_add_investor_uniqueness_claim() {
     scope_id_of(new_scope_id);
     aggregate_balance(scope_id, 0);
     aggregate_balance(new_scope_id, asset_balance);
+}
+
+#[test]
+fn add_investor_uniqueness_claim_v2() {
+    let user = AccountKeyring::Alice.public();
+
+    ExtBuilder::default()
+        .add_regular_users_from_accounts(&[user])
+        .build()
+        .execute_with(|| {
+            // Load test cases and run them.
+            let test_data = add_investor_uniqueness_claim_v2_data(user /*, user_no_cdd_id*/);
+            for (idx, (input, expect)) in test_data.into_iter().enumerate() {
+                let (user, claim, proof) = input;
+                let did = Identity::get_identity(&user).unwrap();
+                let origin = Origin::signed(user);
+                let output =
+                    Identity::add_investor_uniqueness_claim_v2(origin, did, claim, proof.0, None);
+                assert_eq!(
+                    output, expect,
+                    "Unexpected output at index {}: output: {:?}, expected: {:?}",
+                    idx, output, expect
+                );
+            }
+        });
+}
+
+/// Creates a data set as an input for `do_add_investor_uniqueness_claim_v2`.
+fn add_investor_uniqueness_claim_v2_data(
+    user: Public,
+) -> Vec<((Public, Claim, v2::InvestorZKProofData), DispatchResult)> {
+    let ticker = Ticker::default();
+    let did = Identity::get_identity(&user).unwrap();
+    let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+    let cdd_id = CddId::new_v2(did, investor.clone());
+    let scope_id = v2::InvestorZKProofData::make_scope_id(&ticker.as_slice(), &investor);
+    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
+    let invalid_claim = Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), scope_id, cdd_id);
+    let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
+    let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
+
+    vec![
+        // Invalid claim.
+        (
+            (user, invalid_claim, proof),
+            Err(IdentityError::InvalidScopeClaim.into()),
+        ),
+        // Valid ZKProof v2
+        ((user, claim.clone(), proof), Ok(())),
+        // Not allowed claim.
+        (
+            (user, Claim::NoData, proof),
+            Err(IdentityError::ClaimVariantNotAllowed.into()),
+        ),
+        // Missing CDD id.
+        // ((user_no_cdd_id, claim.clone(), proof), Err(IdentityError::ConfidentialScopeClaimNotAllowed.into())),
+        // Invalid ZKProof
+        (
+            (user, claim, invalid_proof),
+            Err(IdentityError::InvalidScopeClaim.into()),
+        ),
+    ]
 }

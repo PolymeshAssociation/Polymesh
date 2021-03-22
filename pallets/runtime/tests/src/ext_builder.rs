@@ -1,5 +1,6 @@
 use super::storage::AccountId;
 use crate::TestStorage;
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -9,8 +10,9 @@ use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    SmartExtensionType,
+    cdd_id::{CddId, InvestorUid},
+    identity_id::GenesisIdentityRecord,
+    Identity, IdentityId, PosRatio, SmartExtensionType,
 };
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -279,13 +281,15 @@ impl ExtBuilder {
             .map(|(idx, primary_key)| {
                 let did_index = (idx + offset + 1) as u128;
                 let did = IdentityId::from(did_index);
-                let investor = InvestorUid::from(did.as_ref());
+                let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+                let cdd_id = Some(CddId::new_v2(did, investor.clone()));
 
                 GenesisIdentityRecord {
                     primary_key,
                     issuers: issuers.clone(),
                     did,
                     investor,
+                    cdd_id,
                     ..Default::default()
                 }
             })
