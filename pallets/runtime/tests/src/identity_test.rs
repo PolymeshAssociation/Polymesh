@@ -17,6 +17,7 @@ use frame_support::{
 use pallet_balances as balances;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::{
+    protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
         identity::{SecondaryKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
@@ -1626,16 +1627,24 @@ fn do_add_investor_uniqueness_claim() {
 #[test]
 fn add_investor_uniqueness_claim_v2() {
     let user = AccountKeyring::Alice.public();
+    let user_no_cdd_id = AccountKeyring::Bob.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[user])
         .build()
         .execute_with(|| {
+            // Create an DID without CDD_id.
+            assert_ok!(Identity::_register_did(
+                user_no_cdd_id,
+                vec![],
+                Some(ProtocolOp::IdentityRegisterDid)
+            ));
+
             // Load test cases and run them.
-            let test_data = add_investor_uniqueness_claim_v2_data(user /*, user_no_cdd_id*/);
+            let test_data = add_investor_uniqueness_claim_v2_data(user, user_no_cdd_id);
             for (idx, (input, expect)) in test_data.into_iter().enumerate() {
                 let (user, claim, proof) = input;
-                let did = Identity::get_identity(&user).unwrap();
+                let did = Identity::get_identity(&user).unwrap_or_default();
                 let origin = Origin::signed(user);
                 let output =
                     Identity::add_investor_uniqueness_claim_v2(origin, did, claim, proof.0, None);
@@ -1651,15 +1660,16 @@ fn add_investor_uniqueness_claim_v2() {
 /// Creates a data set as an input for `do_add_investor_uniqueness_claim_v2`.
 fn add_investor_uniqueness_claim_v2_data(
     user: Public,
+    user_no_cdd_id: Public,
 ) -> Vec<((Public, Claim, v2::InvestorZKProofData), DispatchResult)> {
+    let unused = IdentityId::default();
     let ticker = Ticker::default();
     let did = Identity::get_identity(&user).unwrap();
     let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
-    let scope_id = v2::InvestorZKProofData::make_scope_id(&ticker.as_slice(), &investor);
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), unused, cdd_id);
     let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
-    let invalid_claim = Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), scope_id, cdd_id);
+    let invalid_claim = Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), unused, cdd_id);
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
     let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
 
@@ -1677,7 +1687,10 @@ fn add_investor_uniqueness_claim_v2_data(
             Err(IdentityError::ClaimVariantNotAllowed.into()),
         ),
         // Missing CDD id.
-        // ((user_no_cdd_id, claim.clone(), proof), Err(IdentityError::ConfidentialScopeClaimNotAllowed.into())),
+        (
+            (user_no_cdd_id, claim.clone(), proof),
+            Err(IdentityError::ConfidentialScopeClaimNotAllowed.into()),
+        ),
         // Invalid ZKProof
         (
             (user, claim, invalid_proof),
