@@ -30,97 +30,38 @@ pub enum AssetIdentifier {
 impl AssetIdentifier {
     /// Validate `bytes` is a valid CUSIP identifier, returns an instance of `Identifier` if successful
     pub fn cusip(bytes: [u8; 9]) -> Option<AssetIdentifier> {
-        (cusip_checksum(&bytes[..8]) == bytes[8] - b'0').then_some(AssetIdentifier::CUSIP(bytes))
+        validate_cusip(&bytes).then_some(AssetIdentifier::CUSIP(bytes))
     }
 
     /// Validate `bytes` is a valid CINS identifier, returns an instance of `Identifier` if successful
     pub fn cins(bytes: [u8; 9]) -> Option<AssetIdentifier> {
-        Self::cusip(bytes).map(|_| AssetIdentifier::CINS(bytes))
+        validate_cusip(&bytes).then_some(AssetIdentifier::CINS(bytes))
     }
 
     /// Validate `bytes` is a valid ISIN identifier, returns an instance of `Identifier` if successful
     pub fn isin(bytes: [u8; 12]) -> Option<AssetIdentifier> {
-        enum UpToTwo {
-            Zero,
-            One(u8),
-            Two(u8, u8),
-        }
-        impl Iterator for UpToTwo {
-            type Item = u8;
-            fn next(&mut self) -> Option<Self::Item> {
-                let (this, next) = match self {
-                    Self::Zero => return None,
-                    Self::One(x) => (Self::Zero, Some(*x)),
-                    Self::Two(x, y) => (Self::One(*y), Some(*x)),
-                };
-                *self = this;
-                next
-            }
-        }
-        impl core::iter::DoubleEndedIterator for UpToTwo {
-            fn next_back(&mut self) -> Option<Self::Item> {
-                let (this, next) = match self {
-                    Self::Zero => return None,
-                    Self::One(x) => (Self::Zero, Some(*x)),
-                    Self::Two(x, y) => (Self::One(*x), Some(*y)),
-                };
-                *self = this;
-                next
-            }
-        }
-
-        let (s1, s2) = bytes
-            .iter()
-            .copied()
-            .map(byte_value)
-            .flat_map(|b| {
-                if b > 9 {
-                    UpToTwo::Two(b / 10, b % 10)
-                } else {
-                    UpToTwo::One(b)
-                }
-            })
-            .rev()
-            .enumerate()
-            .fold((0u8, 0u8), |(mut s1, mut s2), (i, digit)| {
-                if i % 2 == 0 {
-                    s1 = s1.wrapping_add(digit);
-                } else {
-                    s2 = s2.wrapping_add(2u8.wrapping_mul(digit));
-                    if digit >= 5 {
-                        s2 = s2.wrapping_sub(9);
-                    }
-                }
-                (s1, s2)
-            });
-        (s1.wrapping_add(s2) % 10 == 0).then_some(AssetIdentifier::ISIN(bytes))
+        validate_isin(&bytes).then_some(AssetIdentifier::ISIN(bytes))
     }
 
     /// Validate `bytes` is a valid LEI identifier, returns an instance of `Identifier` if successful
     pub fn lei(bytes: [u8; 20]) -> Option<AssetIdentifier> {
-        bytes[..18]
-            .try_into()
-            .ok()
-            .map(lei_checksum)
-            .filter(|hash| {
-                *hash
-                    == (bytes[18].wrapping_sub(b'0'))
-                        .wrapping_mul(10)
-                        .wrapping_add(bytes[19].wrapping_sub(b'0'))
-            })
-            .map(|_| AssetIdentifier::LEI(bytes))
+        validate_lei(&bytes).then_some(AssetIdentifier::LEI(bytes))
     }
 
-    /// Ensures the identifier is valid.
+    /// Returns `true` iff the identifier is valid.
+    ///
     /// Mainly used for validating manual constructions of the enum (user input).
-    pub fn validate(self) -> Option<Self> {
+    pub fn is_valid(&self) -> bool {
         match self {
-            AssetIdentifier::CUSIP(bytes) => Self::cusip(bytes),
-            AssetIdentifier::CINS(bytes) => Self::cins(bytes),
-            AssetIdentifier::ISIN(bytes) => Self::isin(bytes),
-            AssetIdentifier::LEI(bytes) => Self::lei(bytes),
+            AssetIdentifier::CUSIP(bs) | AssetIdentifier::CINS(bs) => validate_cusip(bs),
+            AssetIdentifier::ISIN(bs) => validate_isin(bs),
+            AssetIdentifier::LEI(bs) => validate_lei(bs),
         }
     }
+}
+
+fn validate_cusip(bytes: &[u8; 9]) -> bool {
+    cusip_checksum(&bytes[..8]) == bytes[8] - b'0'
 }
 
 fn cusip_checksum(bytes: &[u8]) -> u8 {
@@ -134,6 +75,77 @@ fn cusip_checksum(bytes: &[u8]) -> u8 {
         .map(|x| x as usize)
         .sum();
     ((10 - (total % 10)) % 10) as u8
+}
+
+fn validate_isin(bytes: &[u8; 12]) -> bool {
+    enum UpToTwo {
+        Zero,
+        One(u8),
+        Two(u8, u8),
+    }
+    impl Iterator for UpToTwo {
+        type Item = u8;
+        fn next(&mut self) -> Option<Self::Item> {
+            let (this, next) = match self {
+                Self::Zero => return None,
+                Self::One(x) => (Self::Zero, Some(*x)),
+                Self::Two(x, y) => (Self::One(*y), Some(*x)),
+            };
+            *self = this;
+            next
+        }
+    }
+    impl core::iter::DoubleEndedIterator for UpToTwo {
+        fn next_back(&mut self) -> Option<Self::Item> {
+            let (this, next) = match self {
+                Self::Zero => return None,
+                Self::One(x) => (Self::Zero, Some(*x)),
+                Self::Two(x, y) => (Self::One(*x), Some(*y)),
+            };
+            *self = this;
+            next
+        }
+    }
+
+    let (s1, s2) = bytes
+        .iter()
+        .copied()
+        .map(byte_value)
+        .flat_map(|b| {
+            if b > 9 {
+                UpToTwo::Two(b / 10, b % 10)
+            } else {
+                UpToTwo::One(b)
+            }
+        })
+        .rev()
+        .enumerate()
+        .fold((0u8, 0u8), |(mut s1, mut s2), (i, digit)| {
+            if i % 2 == 0 {
+                s1 = s1.wrapping_add(digit);
+            } else {
+                s2 = s2.wrapping_add(2u8.wrapping_mul(digit));
+                if digit >= 5 {
+                    s2 = s2.wrapping_sub(9);
+                }
+            }
+            (s1, s2)
+        });
+    s1.wrapping_add(s2) % 10 == 0
+}
+
+fn validate_lei(bytes: &[u8; 20]) -> bool {
+    bytes[..18]
+        .try_into()
+        .ok()
+        .map(lei_checksum)
+        .filter(|hash| {
+            *hash
+                == (bytes[18].wrapping_sub(b'0'))
+                    .wrapping_mul(10)
+                    .wrapping_add(bytes[19].wrapping_sub(b'0'))
+        })
+        .is_some()
 }
 
 fn lei_checksum(bytes: [u8; 18]) -> u8 {

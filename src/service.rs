@@ -1,15 +1,16 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-pub use crate::chain_spec::{AlcyoneChainSpec, GeneralChainSpec};
+pub use crate::chain_spec::{
+    alcyone_testnet::ChainSpec as AlcyoneChainSpec, polymesh_itn::ChainSpec as GeneralChainSpec,
+};
 pub use codec::Codec;
 use core::marker::PhantomData;
 use futures::stream::StreamExt;
 use grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
-pub use pallet_confidential::native_rng;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
-    crypto::native_schnorrkel, AccountId, Balance, Block, BlockNumber, Hash, IdentityId,
-    Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
+    crypto::native_schnorrkel, host_functions::native_rng::native_rng, AccountId, Balance, Block,
+    BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet;
@@ -35,15 +36,37 @@ pub use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
-pub trait IsAlcyoneNetwork {
-    fn is_alcyone_network(&self) -> bool;
+/// Known networks based on name.
+pub enum Network {
+    ITN,
+    Testnet,
+    Other,
 }
 
-impl IsAlcyoneNetwork for dyn ChainSpec {
-    fn is_alcyone_network(&self) -> bool {
-        self.name().starts_with("Polymesh Alcyone")
+pub trait IsNetwork {
+    fn network(&self) -> Network;
+}
+
+impl IsNetwork for dyn ChainSpec {
+    fn network(&self) -> Network {
+        let name = self.name();
+        if name.starts_with("Polymesh ITN") {
+            Network::ITN
+        } else if name.starts_with("Polymesh Alcyone") || name.starts_with("Polymesh Buffron") {
+            Network::Testnet
+        } else {
+            Network::Other
+        }
     }
 }
+
+// Our native executor instance.
+native_executor_instance!(
+    pub ITNExecutor,
+    polymesh_runtime_itn::api::dispatch,
+    polymesh_runtime_itn::native_version,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
+);
 
 // Our native executor instance.
 native_executor_instance!(
@@ -66,7 +89,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
     + sp_consensus_babe::BabeApi<Block>
-    + grandpa_primitives::GrandpaApi<Block>
+    + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
     + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
@@ -100,7 +123,7 @@ where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block, Error = sp_blockchain::Error>
         + sp_consensus_babe::BabeApi<Block>
-        + grandpa_primitives::GrandpaApi<Block>
+        + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
         + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
@@ -197,6 +220,7 @@ where
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
+        config.role.is_authority().into(),
         config.prometheus_registry(),
         task_manager.spawn_handle(),
         client.clone(),
@@ -507,6 +531,12 @@ where
 type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new Alcyone service for a full node.
+pub fn itn_new_full(config: Configuration) -> TaskResult {
+    new_full_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _, _>(config, |_, _| ())
+        .map(|data| data.task_manager)
+}
+
+/// Create a new Alcyone service for a full node.
 pub fn alcyone_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_testnet::RuntimeApi, AlcyoneExecutor, _, _>(config, |_, _| ())
         .map(|data| data.task_manager)
@@ -542,6 +572,12 @@ where
         ..
     } = new_partial::<R, D, E>(config)?;
     Ok((client, backend, import_queue, task_manager))
+}
+
+pub fn itn_chain_ops(
+    config: &mut Configuration,
+) -> Result<NewChainOps<polymesh_runtime_itn::RuntimeApi, ITNExecutor>, ServiceError> {
+    chain_ops::<_, _, polymesh_runtime_itn::UncheckedExtrinsic>(config)
 }
 
 pub fn alcyone_chain_ops(
@@ -691,6 +727,12 @@ where
         network,
         transaction_pool,
     ))
+}
+
+/// Create a new Polymesh service for a light client.
+pub fn itn_new_light(config: Configuration) -> TaskResult {
+    new_light_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _>(config)
+        .map(|(task_manager, _, _, _, _)| task_manager)
 }
 
 /// Create a new Polymesh service for a light client.

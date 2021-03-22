@@ -15,64 +15,88 @@
 
 use crate::*;
 
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{uid_from_name_and_idx, User, UserBuilder},
-    traits::identity::TargetIdAuthorization,
+    benchs::{AccountIdOf, User, UserBuilder},
+    traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, Signatory,
+    investor_zkproof_data::{v1, v2},
+    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, SecondaryKey, Signatory,
 };
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
-fn setup_investor_uniqueness_claim<T: Trait>(
+fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, PF>(
     name: &'static str,
-) -> (User<T>, Claim, InvestorZKProofData) {
-    let mut user = UserBuilder::<T>::default().build(name);
+    make_investor_uid: IF,
+    make_cdd_id: CF,
+    make_scope_id: SF,
+    make_proof: PF,
+) -> (User<T>, Claim, P)
+where
+    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+    IF: Fn(&[u8]) -> InvestorUid,
+    CF: Fn(IdentityId, InvestorUid) -> CddId,
+    SF: Fn(&[u8], &InvestorUid) -> IdentityId,
+    PF: Fn(&IdentityId, &InvestorUid, &Ticker) -> P,
+{
+    let user = UserBuilder::<T>::default().generate_did().build(name);
 
-    let did = IdentityId::from([
-        152u8, 25, 31, 70, 229, 131, 2, 22, 68, 84, 54, 151, 136, 3, 105, 122, 94, 58, 182, 27, 30,
-        137, 81, 212, 254, 154, 230, 123, 171, 97, 74, 95,
-    ]);
-    Module::<T>::link_did(user.account(), did);
-    user.did = Some(did.clone());
+    // Create CDD and add it to `user`.
+    let did = user.did();
+    let investor_uid = make_investor_uid(did.as_bytes());
+    let cdd_id = make_cdd_id(did, investor_uid.clone());
+    let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
+    Module::<T>::base_add_claim(did, cdd_claim, GC_DID, None);
 
-    let cdd_id = CddId::from([
-        102u8, 210, 32, 212, 213, 80, 255, 99, 142, 30, 202, 20, 220, 131, 109, 106, 137, 12, 137,
-        191, 123, 156, 212, 20, 215, 87, 23, 42, 84, 181, 128, 73,
-    ]);
-    let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666u32.into()));
+    // Create the scope.
+    let ticker = Ticker::default();
+    let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
-    let scope = Scope::Custom([228u8, 152, 116, 104, 5, 8, 30, 188, 143, 185, 10, 208].to_vec());
-    let scope_did = IdentityId::from([
-        2u8, 72, 20, 154, 7, 96, 116, 105, 155, 74, 227, 252, 172, 18, 200, 203, 137, 107, 200,
-        210, 194, 71, 250, 41, 108, 172, 100, 107, 223, 114, 182, 101,
-    ]);
-    let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
-
-    let inv_proof = InvestorZKProofData(
-        schnorrkel::Signature::from_bytes(&[
-            216u8, 224, 57, 254, 200, 45, 150, 202, 12, 108, 226, 233, 148, 213, 237, 7, 35, 150,
-            142, 18, 127, 146, 162, 19, 161, 164, 95, 67, 181, 100, 156, 25, 201, 210, 209, 165,
-            182, 74, 184, 145, 230, 255, 215, 144, 223, 100, 100, 147, 226, 58, 142, 92, 103, 153,
-            153, 204, 123, 120, 133, 113, 218, 51, 208, 132,
-        ])
-        .unwrap(),
-    );
-
-    (user, conf_scope_claim, inv_proof)
+    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let proof = make_proof(&did, &investor_uid, &ticker);
+    (user, claim, proof)
 }
 
-fn generate_secondary_keys<T: Trait>(
-    n: usize,
-) -> Vec<secondary_key::api::SecondaryKey<T::AccountId>> {
+fn setup_investor_uniqueness_claim_v2<T>(
+    name: &'static str,
+) -> (User<T>, Claim, v2::InvestorZKProofData)
+where
+    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+{
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+        name,
+        |raw_did| make_investor_uid_v2(raw_did).into(),
+        CddId::new_v2,
+        v2::InvestorZKProofData::make_scope_id,
+        v2::InvestorZKProofData::new,
+    )
+}
+
+fn setup_investor_uniqueness_claim_v1<T>(
+    name: &'static str,
+) -> (User<T>, Claim, v1::InvestorZKProofData)
+where
+    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+{
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+        name,
+        |raw_did| make_investor_uid_v1(raw_did).into(),
+        CddId::new_v1,
+        v1::InvestorZKProofData::make_scope_id,
+        v1::InvestorZKProofData::new,
+    )
+}
+
+pub fn generate_secondary_keys<T: Trait>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);
     for x in 0..n {
-        secondary_keys.push(secondary_key::api::SecondaryKey {
+        secondary_keys.push(SecondaryKey {
             signer: Signatory::Account(account("key", x as u32, SEED)),
             ..Default::default()
         });
@@ -93,17 +117,9 @@ mod limits {
 use limits::*;
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _ {}
-
-    register_did {
-        // Number of secondary items.
-        let i in 0 .. MAX_SECONDARY_KEYS;
-
-        let _cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
-        let caller = UserBuilder::<T>::default().build("caller");
-        let uid = uid_from_name_and_idx("caller", SEED);
-        let secondary_keys = generate_secondary_keys::<T>(i as usize);
-    }: _(caller.origin, uid, secondary_keys)
 
     cdd_register_did {
         // Number of secondary items.
@@ -113,11 +129,6 @@ benchmarks! {
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
-
-    mock_cdd_register_did {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
-        let target: T::AccountId = account("target", SEED, SEED);
-    }: _(cdd.origin, target)
 
     invalidate_cdd_claims {
         // NB: This function loops over all cdd claims issued by the cdd provider.
@@ -254,8 +265,8 @@ benchmarks! {
     }: _(key.origin, target.did(), boxed_proposal)
 
     revoke_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof, Some(666u32.into()))?;
+        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof.0, Some(666u32.into()))?;
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
@@ -348,6 +359,10 @@ benchmarks! {
     }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
+        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
     }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666u32.into()))
+
+    add_investor_uniqueness_claim_v2 {
+        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof.0, Some(666u32.into()))
 }

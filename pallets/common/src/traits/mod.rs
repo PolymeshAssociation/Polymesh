@@ -15,10 +15,13 @@
 
 use codec::{Codec, Decode, Encode};
 use frame_support::{
+    dispatch::DispatchResult,
     traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use polymesh_primitives::{
+    secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
+};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
@@ -69,3 +72,36 @@ pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
+
+pub trait TestUtilsFn<AccountId> {
+    /// Creates a new did and attaches a CDD claim to it.
+    fn register_did(
+        target: AccountId,
+        investor: InvestorUid,
+        secondary_keys: sp_std::vec::Vec<SecondaryKey<AccountId>>,
+    ) -> DispatchResult;
+}
+
+pub mod base {
+    use frame_support::decl_event;
+    use frame_support::dispatch::DispatchError;
+    use frame_support::traits::Get;
+
+    decl_event! {
+        pub enum Event {
+            /// An unexpected error happened that should be investigated.
+            UnexpectedError(Option<DispatchError>),
+        }
+    }
+
+    pub trait Trait: frame_system::Trait {
+        /// The overarching event type.
+        type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+
+        /// The maximum length governing `TooLong`.
+        ///
+        /// How lengths are computed to compare against this value is situation based.
+        /// For example, you could halve it, double it, compute a sum for some tree of strings, etc.
+        type MaxLen: Get<u32>;
+    }
+}

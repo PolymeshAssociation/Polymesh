@@ -1262,17 +1262,17 @@ decl_storage! {
                     "Stash does not have enough balance to bond."
                 );
                 let controller_origin = <Module<T>>::get_origin(controller.clone());
-                let _ = <Module<T>>::bond(
+                <Module<T>>::bond(
                     <Module<T>>::get_origin(stash.clone()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
-                );
+                ).expect("Unable to bond");
                 let _ = match status {
                     StakerStatus::Validator => {
                         if <Module<T>>::permissioned_identity(&did).is_none() {
                             // Adding identity directly in the storage by assuming it is CDD'ed
-                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::default());
+                            PermissionedIdentity::insert(&did, PermissionedIdentityPrefs::new(3));
                             <Module<T>>::deposit_event(RawEvent::PermissionedIdentityAdded(GC_DID, did));
                         }
                         let mut prefs = ValidatorPrefs::default();
@@ -1302,8 +1302,8 @@ decl_event!(
         /// the remainder from the maximum amount of reward.
         /// [era_index, validator_payout, remainder]
         EraPayout(EraIndex, Balance, Balance),
-        /// The staker has been rewarded by this amount. [stash, amount]
-        Reward(AccountId, Balance),
+        /// The staker has been rewarded by this amount. [stash_identity, stash, amount]
+        Reward(IdentityId, AccountId, Balance),
         /// One validator (and its nominators) has been slashed by the given amount.
         /// [validator, amount]
         Slash(AccountId, Balance),
@@ -2735,7 +2735,11 @@ impl<T: Trait> Module<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout,
         ) {
-            Self::deposit_event(RawEvent::Reward(ledger.stash, imbalance.peek()));
+            Self::deposit_event(RawEvent::Reward(
+                <Identity<T>>::get_identity(&ledger.stash).unwrap_or_default(),
+                ledger.stash,
+                imbalance.peek(),
+            ));
         }
 
         // Lets now calculate how this is split to the nominators.
@@ -2748,7 +2752,11 @@ impl<T: Trait> Module<T> {
                 nominator_exposure_part * validator_leftover_payout;
             // We can now make nominator payout:
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
-                Self::deposit_event(RawEvent::Reward(nominator.who.clone(), imbalance.peek()));
+                Self::deposit_event(RawEvent::Reward(
+                    <Identity<T>>::get_identity(&nominator.who).unwrap_or_default(),
+                    nominator.who.clone(),
+                    imbalance.peek(),
+                ));
             }
         }
 

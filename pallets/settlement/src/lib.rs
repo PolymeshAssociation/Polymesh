@@ -43,10 +43,11 @@
 //! - `set_venue_filtering` - Enables or disabled venue filtering for a token.
 //! - `allow_venues` - Allows additional venues to create instructions involving an asset.
 //! - `disallow_venues` - Revokes permission given to venues for creating instructions involving a particular asset.
-//!
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 #![feature(const_option)]
+#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -63,6 +64,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_asset as asset;
+use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{
@@ -85,7 +87,7 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait
+    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + CommonTrait
     + IdentityTrait
     + pallet_timestamp::Trait
@@ -95,9 +97,11 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Scheduler of settlement instructions.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
-    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
-    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+    type Scheduler: ScheduleNamed<
+        Self::BlockNumber,
+        <Self as frame_system::Trait>::Call,
+        Self::SchedulerOrigin,
+    >;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -494,12 +498,10 @@ decl_module! {
         /// * `details` - Extra details about a venue
         /// * `signers` - Array of signers that are allowed to sign receipts for this venue
         /// * `venue_type` - Type of venue being created
-        ///
-        /// # Weight
-        /// `200_000_000 + 5_000_000 * signers.len()`
         #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
+            ensure_string_limited::<T>(&details)?;
             let venue = Venue::new(did, details, venue_type);
             // NB: Venue counter starts with 1.
             let venue_counter = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
@@ -517,9 +519,6 @@ decl_module! {
         /// * `venue_id` - ID of the venue to edit
         /// * `details` - Extra details about a venue
         /// * `type` - Type of venue being created
-        ///
-        /// # Weight
-        /// `200_000_000
         #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
         pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, typ: Option<VenueType>) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;
@@ -530,6 +529,7 @@ decl_module! {
 
                 // Update details & type.
                 if let Some(details) = details {
+                    ensure_string_limited::<T>(&details)?;
                     venue.details = details;
                 }
                 if let Some(typ) = typ {

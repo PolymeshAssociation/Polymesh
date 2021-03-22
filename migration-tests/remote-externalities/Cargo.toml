@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 jsonrpc-core-client = { version = "15.1.0", features = ["http"] }
-sc-rpc-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
-sc-rpc = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sc-rpc-api = { version = "0.8.1" }
+sc-rpc = { version = "2.0.1" }
 futures = "0.1.29"
 
 hex-literal = "0.3.1"
@@ -16,8 +16,8 @@ log = "0.4.11"
 bincode = "1.3.1"
 tokio = "0.1.22"
 
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1" }
+sp-io = { version = "2.0.1" }
+sp-core = { version = "2.0.1" }
 
 [dev-dependencies]
 async-std = { version = "1.6.5", features = ["attributes"] }

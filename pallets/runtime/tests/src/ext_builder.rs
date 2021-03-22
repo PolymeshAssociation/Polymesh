@@ -2,16 +2,20 @@ use super::storage::AccountId;
 use crate::TestStorage;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
+use pallet_bridge::BridgeTx;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
+use polymesh_primitives::{
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
+    SmartExtensionType,
+};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
-use std::{cell::RefCell, convert::From, iter};
+use sp_std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
 
 /// A prime number fee to test the split between multiple recipients.
@@ -77,9 +81,14 @@ pub struct ExtBuilder {
     /// When `false`, no balances will be initialized on genesis.
     monied: bool,
     vesting: bool,
+    /// CDD Service provides. Their DID will be generated.
     cdd_providers: Vec<Public>,
+    /// Governance committee members. Their DID will be generated.
     governance_committee_members: Vec<Public>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
+    /// Regular users. Their DID will be generated.
+    regular_users: Vec<Identity<Public>>,
+
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
     /// Percentage fee share of a network (treasury + validators) in instantiation fee
@@ -90,6 +99,10 @@ pub struct ExtBuilder {
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
+    /// Enable `put_code` in contracts pallet
+    enable_contracts_put_code: bool,
+    /// Bridge complete TXs
+    bridge_complete_txs: Vec<BridgeTx<AccountId, u128>>,
 }
 
 thread_local! {
@@ -155,6 +168,7 @@ impl ExtBuilder {
 
     pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
         self.governance_committee_members = members;
+        self.governance_committee_members.sort();
         self
     }
 
@@ -169,6 +183,19 @@ impl ExtBuilder {
     /// It sets `providers` as CDD providers.
     pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
         self.cdd_providers = providers;
+        self.cdd_providers.sort();
+        self
+    }
+
+    /// Adds DID to `users` accounts.
+    pub fn add_regular_users(mut self, users: &[Identity<Public>]) -> Self {
+        self.regular_users.extend_from_slice(users);
+        self
+    }
+
+    pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
+        self.regular_users
+            .extend(accounts.iter().cloned().map(Identity::<AccountId>::from));
         self
     }
 
@@ -200,6 +227,18 @@ impl ExtBuilder {
         self
     }
 
+    /// Enables `contracts::put_code` at genesis if `enable` is `true`.
+    /// By default, it is disabled.
+    pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
+        self.enable_contracts_put_code = enable;
+        self
+    }
+
+    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
+        self.bridge_complete_txs = txs;
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
@@ -227,75 +266,66 @@ impl ExtBuilder {
         }
     }
 
-    /// It generates, based on CDD providers, a pair of vectors whose contain:
-    ///  - mapping between DID and Identity info.
-    ///  - mapping between an account key and its DID.
-    /// Please note that generated DIDs start from 1.
+    /// Generates a mapping between DID and Identity info.
+    ///
+    /// DIDs are generated sequentially from `offset`.
     fn make_identities(
-        accounts: &[Public],
-    ) -> (
-        Vec<(IdentityId, Identity<AccountId>)>,
-        Vec<(AccountId, IdentityId)>,
-    ) {
-        let identities = accounts
-            .iter()
+        identities: impl Iterator<Item = AccountId>,
+        offset: usize,
+        issuers: Vec<IdentityId>,
+    ) -> Vec<GenesisIdentityRecord<AccountId>> {
+        identities
             .enumerate()
-            .map(|(idx, key)| (IdentityId::from((idx + 1) as u128), Identity::from(*key)))
-            .collect::<Vec<_>>();
-        let key_links = accounts
-            .into_iter()
-            .enumerate()
-            .map(|(idx, key)| (*key, IdentityId::from((idx + 1) as u128)))
-            .collect::<Vec<_>>();
+            .map(|(idx, primary_key)| {
+                let did_index = (idx + offset + 1) as u128;
+                let did = IdentityId::from(did_index);
+                let investor = InvestorUid::from(did.as_ref());
 
-        (identities, key_links)
+                GenesisIdentityRecord {
+                    primary_key,
+                    issuers: issuers.clone(),
+                    did,
+                    investor,
+                    ..Default::default()
+                }
+            })
+            .collect()
     }
 
-    /// Create externalities.
-    ///
-    /// For each `cdd_providers`:
-    ///     1. A new `IdentityId` is generated (from 1 to n),
-    ///     2. CDD provider's account key is linked to its new Identity ID.
-    ///     3. That Identity ID is added as member of CDD provider group.
-    pub fn build(self) -> TestExternalities {
-        self.set_associated_consts();
+    fn make_account_did_map(
+        accounts: Vec<AccountId>,
+        did_maker: impl Fn(usize) -> IdentityId,
+    ) -> Vec<(AccountId, IdentityId)> {
+        accounts
+            .into_iter()
+            .enumerate()
+            .map(|(idx, acc)| (acc, did_maker(idx)))
+            .collect()
+    }
 
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<TestStorage>()
-            .unwrap();
-
-        let _root = AccountKeyring::Alice.public();
-
-        // Create Identities.
-        let mut system_accounts = self
-            .cdd_providers
-            .iter()
-            .chain(self.governance_committee_members.iter())
-            .cloned()
-            .collect::<Vec<_>>();
-        system_accounts.sort();
-        system_accounts.dedup();
-
-        let (system_identities, system_links) = Self::make_identities(system_accounts.as_slice());
-
-        // Identity genesis.
+    fn build_identity_genesis(
+        &self,
+        storage: &mut Storage,
+        identities: Vec<GenesisIdentityRecord<AccountId>>,
+    ) {
+        // New identities are just `system users` + `regular users`.
         identity::GenesisConfig::<TestStorage> {
-            did_records: system_identities.clone(),
-            secondary_keys: system_links,
-            identities: vec![],
+            identities,
             ..Default::default()
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
-        // Balances genesis.
+    fn build_balances_genesis(&self, storage: &mut Storage) {
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
-        // Asset genesis.
+    fn build_asset_genesis(&self, storage: &mut Storage) {
         let ticker_registration_config = TickerRegistrationConfig {
             max_ticker_length: 8,
             registration_length: Some(10000),
@@ -312,44 +342,43 @@ impl ExtBuilder {
             ticker_registration_config,
             reserved_country_currency_codes: vec![],
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
-        // CDD Service providers.
-        let cdd_ids = self
-            .cdd_providers
+    /// For each `cdd_providers`:
+    ///     1. A new `IdentityId` is generated (from 1 to n),
+    ///     2. CDD provider's account key is linked to its new Identity ID.
+    ///     3. That Identity ID is added as member of CDD provider group.
+    fn build_cdd_providers_genesis(
+        &self,
+        storage: &mut Storage,
+        identities: &[GenesisIdentityRecord<AccountId>],
+    ) {
+        let mut cdd_ids = identities
             .iter()
-            .map(|key| {
-                let (id, _) = system_identities
-                    .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
-            })
-            .cloned()
-            .chain(core::iter::once(GC_DID))
+            .map(|gen_id| gen_id.did)
             .collect::<Vec<_>>();
+        cdd_ids.push(GC_DID);
+        cdd_ids.sort();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
             active_members_limit: u32::MAX,
             active_members: cdd_ids,
             ..Default::default()
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
-        // Committee
-        let mut gc_ids = self
-            .governance_committee_members
+    fn build_committee_genesis(
+        &self,
+        storage: &mut Storage,
+        identities: &[GenesisIdentityRecord<AccountId>],
+    ) {
+        let mut gc_ids = identities
             .iter()
-            .map(|key| {
-                let (id, _) = system_identities
-                    .iter()
-                    .find(|(_id, info)| info.primary_key == *key)
-                    .unwrap();
-                id
-            })
-            .cloned()
+            .map(|gen_id| gen_id.did)
             .collect::<Vec<_>>();
         gc_ids.sort();
 
@@ -358,7 +387,7 @@ impl ExtBuilder {
             active_members: gc_ids.clone(),
             ..Default::default()
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
 
         committee::GenesisConfig::<TestStorage, committee::Instance1> {
@@ -370,16 +399,20 @@ impl ExtBuilder {
             release_coordinator: IdentityId::from(999),
             ..Default::default()
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
+    fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
         pallet_protocol_fee::GenesisConfig::<TestStorage> {
-            base_fees: self.protocol_base_fees.0,
+            base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
 
+    fn build_pips_genesis(&self, storage: &mut Storage) {
         pips::GenesisConfig::<TestStorage> {
             prune_historical_pips: false,
             min_proposal_deposit: 50,
@@ -388,8 +421,105 @@ impl ExtBuilder {
             active_pip_limit: 5,
             pending_pip_expiry: <_>::default(),
         }
-        .assimilate_storage(&mut storage)
+        .assimilate_storage(storage)
         .unwrap();
+    }
+
+    fn build_contracts_genesis(&self, storage: &mut Storage) {
+        polymesh_contracts::GenesisConfig {
+            enable_put_code: self.enable_contracts_put_code,
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap();
+    }
+
+    fn build_bridge_genesis(&self, storage: &mut Storage) {
+        pallet_bridge::GenesisConfig::<TestStorage> {
+            complete_txs: self.bridge_complete_txs.clone(),
+            ..Default::default()
+        }
+        .assimilate_storage(storage)
+        .unwrap()
+    }
+
+    /// Create externalities.
+    pub fn build(self) -> TestExternalities {
+        self.set_associated_consts();
+
+        // Regular users should intersect neither with CDD providers nor with GC members.
+        assert!(!self
+            .regular_users
+            .iter()
+            .any(|id| self.cdd_providers.contains(&id.primary_key)
+                || self.governance_committee_members.contains(&id.primary_key)));
+
+        // System identities.
+        let cdd_identities = Self::make_identities(self.cdd_providers.iter().cloned(), 0, vec![]);
+        let gc_only_accs = self
+            .governance_committee_members
+            .iter()
+            .filter(|acc| !self.cdd_providers.contains(acc))
+            .cloned()
+            .collect::<Vec<_>>();
+        let gc_only_identities =
+            Self::make_identities(gc_only_accs.iter().cloned(), cdd_identities.len(), vec![]);
+        let gc_and_cdd_identities = cdd_identities.iter().filter(|gen_id| {
+            self.governance_committee_members
+                .contains(&gen_id.primary_key)
+        });
+        let gc_full_identities = gc_only_identities
+            .iter()
+            .chain(gc_and_cdd_identities)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        //  User identities.
+        let issuer_did = cdd_identities
+            .iter()
+            .map(|gen_id| gen_id.did)
+            .next()
+            .unwrap_or(SystematicIssuers::CDDProvider.as_id());
+        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key);
+
+        // Create regular user identities + .
+        let mut user_identities = Self::make_identities(
+            regular_accounts,
+            cdd_identities.len() + gc_only_identities.len(),
+            vec![issuer_did],
+        );
+        // Add secondary keys (and permissions) to new identites.
+        for user_id in user_identities.iter_mut() {
+            if let Some(user) = self
+                .regular_users
+                .iter()
+                .find(|ru| ru.primary_key == user_id.primary_key)
+            {
+                user_id.secondary_keys = user.secondary_keys.clone();
+            }
+        }
+
+        let identities = cdd_identities
+            .iter()
+            .chain(gc_only_identities.iter())
+            .chain(user_identities.iter())
+            .cloned()
+            .collect();
+
+        // Create storage and assimilate each genesis.
+        let mut storage = frame_system::GenesisConfig::default()
+            .build_storage::<TestStorage>()
+            .expect("TestStorage cannot build its own storage");
+
+        self.build_identity_genesis(&mut storage, identities);
+        self.build_balances_genesis(&mut storage);
+        self.build_asset_genesis(&mut storage);
+        self.build_cdd_providers_genesis(&mut storage, cdd_identities.as_slice());
+        self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
+        self.build_protocol_fee_genesis(&mut storage);
+        self.build_pips_genesis(&mut storage);
+        self.build_contracts_genesis(&mut storage);
+        self.build_bridge_genesis(&mut storage);
 
         if let Some(adjust) = self.adjust {
             adjust(&mut storage);

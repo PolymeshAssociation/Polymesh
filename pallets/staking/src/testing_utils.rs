@@ -22,7 +22,10 @@ use crate::Module as Staking;
 use crate::*;
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    TestUtilsFn,
+};
 use polymesh_primitives::{AuthorizationData, Permissions, Signatory};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
@@ -35,7 +38,11 @@ use sp_runtime::DispatchError;
 const SEED: u32 = 0;
 
 /// Grab a funded user with the given balance.
-pub fn create_funded_user<T: Trait>(string: &'static str, n: u32, balance: u32) -> User<T> {
+pub fn create_funded_user<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+    string: &'static str,
+    n: u32,
+    balance: u32,
+) -> User<T> {
     let user = UserBuilder::<T>::default()
         .balance(balance)
         .seed(n)
@@ -46,7 +53,7 @@ pub fn create_funded_user<T: Trait>(string: &'static str, n: u32, balance: u32) 
     user
 }
 
-pub fn create_stash_controller_with_balance<T: Trait>(
+pub fn create_stash_controller_with_balance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
@@ -58,21 +65,21 @@ pub fn create_stash_controller_with_balance<T: Trait>(
 
 /// Create a stash and controller pair.
 /// Both accounts are created with the given balance and with DID.
-pub fn create_stash_controller<T: Trait>(
+pub fn create_stash_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     _create_stash_controller::<T>(n, balance, RewardDestination::Staked, false)
 }
 
-pub fn create_stash_with_dead_controller<T: Trait>(
+pub fn create_stash_with_dead_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
     _create_stash_controller::<T>(n, balance, RewardDestination::Controller, true)
 }
 
-fn _create_stash_controller<T: Trait>(
+fn _create_stash_controller<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
     reward_destination: RewardDestination<T::AccountId>,
@@ -113,7 +120,7 @@ fn _create_stash_controller<T: Trait>(
 }
 
 /// create `max` validators.
-pub fn create_validators<T: Trait>(
+pub fn create_validators<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     max: u32,
     balance_factor: u32,
 ) -> Result<Vec<<T::Lookup as StaticLookup>::Source>, &'static str> {
@@ -154,7 +161,7 @@ pub fn emulate_validator_setup<T: Trait>(min_bond: u32, validator_count: u32, ca
 ///    Else, all of them are considered and `edge_per_nominator` random validators are voted for.
 ///
 /// Return the validators choosen to be nominated.
-pub fn create_validators_with_nominators_for_era<T: Trait>(
+pub fn create_validators_with_nominators_for_era<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     validators: u32,
     nominators: u32,
     edge_per_nominator: usize,
@@ -168,9 +175,9 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
     // Create validators
     for i in 0..validators {
         let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
+            rng.next_u32() % 100_000_000u32 + 10_000_000u32
         } else {
-            100u32
+            10_000_000u32
         };
         let (v_stash, v_controller) = create_stash_controller::<T>(i, balance_factor)?;
         let validator_prefs = ValidatorPrefs {
@@ -188,9 +195,9 @@ pub fn create_validators_with_nominators_for_era<T: Trait>(
     // Create nominators
     for j in 0..nominators {
         let balance_factor = if randomize_stake {
-            rng.next_u32() % 255 + 10
+            rng.next_u32() % 100_000_000u32 + 10_000_000u32
         } else {
-            100u32
+            10_000_000u32
         };
         let (_n_stash, n_controller) =
             create_stash_controller::<T>(u32::max_value() - j, balance_factor)?;

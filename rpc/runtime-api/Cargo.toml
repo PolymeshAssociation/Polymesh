@@ -18,11 +18,11 @@ serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-api = { git = 'https://github.com/PolymathNetwork/substrate', default_features = false, tag = "v2.0.1-1" }
-sp-std = { git = 'https://github.com/PolymathNetwork/substrate', default_features = false, tag = "v2.0.1-1" }
-sp-runtime = { git = 'https://github.com/PolymathNetwork/substrate', default_features = false, tag = "v2.0.1-1" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+sp-api = { version = "2.0.1", default_features = false }
+sp-std = { version = "2.0.1", default_features = false }
+sp-runtime = { version = "2.0.1", default_features = false }
+frame-support = { version = "2.0.1", default-features = false }
+frame-system = { version = "2.0.1", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0.41"
