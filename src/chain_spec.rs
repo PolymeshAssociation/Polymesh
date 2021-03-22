@@ -191,16 +191,6 @@ fn cdd_provider(n: u8) -> GenesisIdentityRecord<AccountId> {
     }
 }
 
-fn gc_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
-    GenesisIdentityRecord {
-        primary_key: seeded_acc_id(adjust_last(&mut { *b"governance_committee_0" }, n)),
-        issuers: vec![IdentityId::from(1 as u128)],
-        did: IdentityId::from(2 + n as u128),
-        investor: InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
-        ..Default::default()
-    }
-}
-
 fn polymath_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
     GenesisIdentityRecord {
         primary_key: seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
@@ -573,7 +563,6 @@ pub mod general {
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),
             // CDD providers
             pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
-            pallet_committee_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
             pallet_committee_Instance3: Some(committee!(3)),          // RC, 1/2 votes required
