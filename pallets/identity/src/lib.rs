@@ -218,8 +218,7 @@ decl_storage! {
 
             //  Other
             for gen_id in &config.identities {
-                let cdd_id = gen_id.cdd_id.unwrap_or_else(||CddId::new_v1(gen_id.did, gen_id.investor));
-                let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+                let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(gen_id.did, gen_id.investor));
                 // Direct storage change for registering the DID and providing the claim
                 <Module<T>>::ensure_no_id_record(gen_id.did).unwrap();
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);

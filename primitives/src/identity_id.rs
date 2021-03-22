@@ -13,10 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    cdd_id::{CddId, InvestorUid},
-    AccountId, EventOnly, SecondaryKey,
-};
+use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -47,8 +44,6 @@ pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
     pub did: IdentityId,
     /// Investor UID.
     pub investor: InvestorUid,
-    /// CDDId
-    pub cdd_id: Option<CddId>,
     /// CDD claim expiry
     pub cdd_claim_expiry: Option<u64>,
 }
