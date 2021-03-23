@@ -1,7 +1,8 @@
 use crate::{host_functions::native_rng, IdentityId, InvestorUid, Ticker};
 
 use confidential_identity::{
-    claim_proofs::Investor, CddClaimData, InvestorTrait as _, ScopeClaimData, ScopeClaimProof,
+    claim_proofs::{slice_to_ristretto_point, slice_to_scalar, Investor},
+    CddClaimData, InvestorTrait as _, ScopeClaimData, ScopeClaimProof,
 };
 
 use codec::{Decode, Encode};
@@ -40,9 +41,10 @@ impl InvestorZKProofData {
 
     /// Returns the Scope ID of the given `scope` and `investor_uid`.
     pub fn make_scope_id(scope: &[u8], investor: &InvestorUid) -> IdentityId {
-        Self::make_scope_claim(scope, &investor)
-            .scope_did
-            .to_bytes()
-            .into()
+        let scope_did = slice_to_ristretto_point(slice_to_scalar(scope).as_bytes());
+        let investor = slice_to_scalar(investor.as_slice());
+        let scope_id = investor * scope_did;
+
+        scope_id.compress().to_bytes().into()
     }
 }

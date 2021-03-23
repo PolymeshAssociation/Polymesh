@@ -118,9 +118,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord,
-    investor_zkproof_data::{
-        v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProofDataGeneral,
-    },
+    investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
     AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
@@ -1679,7 +1677,7 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         target: IdentityId,
         claim: Claim,
-        proof: InvestorZKProofDataGeneral,
+        proof: InvestorZKProof,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         // Ensure the claim is of kind `InvestorUniqueness`.

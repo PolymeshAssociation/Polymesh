@@ -1662,21 +1662,24 @@ fn add_investor_uniqueness_claim_v2_data(
     user: Public,
     user_no_cdd_id: Public,
 ) -> Vec<((Public, Claim, v2::InvestorZKProofData), DispatchResult)> {
-    let unused = IdentityId::default();
     let ticker = Ticker::default();
     let did = Identity::get_identity(&user).unwrap();
     let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), unused, cdd_id);
-    let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
-    let invalid_claim = Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), unused, cdd_id);
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
+    let scope_id = v2::InvestorZKProofData::make_scope_id(ticker.as_slice(), &investor);
+    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
+    let invalid_ticker_claim =
+        Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), scope_id, cdd_id);
+    let invalid_scope_id_claim =
+        Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
     let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
 
     vec![
         // Invalid claim.
         (
-            (user, invalid_claim, proof),
+            (user, invalid_ticker_claim, proof),
             Err(IdentityError::InvalidScopeClaim.into()),
         ),
         // Valid ZKProof v2
@@ -1690,6 +1693,11 @@ fn add_investor_uniqueness_claim_v2_data(
         (
             (user_no_cdd_id, claim.clone(), proof),
             Err(IdentityError::ConfidentialScopeClaimNotAllowed.into()),
+        ),
+        // Invalid ScopeId
+        (
+            (user, invalid_scope_id_claim, invalid_proof),
+            Err(IdentityError::InvalidScopeClaim.into()),
         ),
         // Invalid ZKProof
         (
