@@ -96,6 +96,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
+use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
@@ -1051,7 +1052,7 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
             Claim::InvestorUniqueness(
                 Scope::Ticker(ticker),
                 did,
-                CddId::new(did, InvestorUid::from(did.to_bytes())),
+                CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
             ),
             did,
             None,
@@ -1859,6 +1860,9 @@ impl<T: Trait> Module<T> {
             name.len() <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
+        if let AssetType::Custom(ty) = &asset_type {
+            ensure_string_limited::<T>(ty)?;
+        }
         ensure!(
             funding_round.as_ref().map_or(0, |name| name.len())
                 <= T::FundingRoundNameMaxLength::get(),
@@ -2074,9 +2078,19 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
     ) -> DispatchResult {
         let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
+
+        // Ensure strings are limited.
+        for doc in &docs {
+            ensure_string_limited::<T>(&doc.uri)?;
+            ensure_string_limited::<T>(&doc.name)?;
+            ensure_opt_string_limited::<T>(doc.doc_type.as_deref())?;
+        }
+
+        // Charge fee.
         let len = docs.len();
         T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
 
+        // Add the documents & emit events.
         AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {
             for (id, doc) in (*id..).map(DocumentId).zip(docs) {
                 AssetDocuments::insert(ticker, id, doc.clone());
@@ -2132,44 +2146,37 @@ impl<T: Trait> Module<T> {
     fn base_add_extension(
         origin: T::Origin,
         ticker: Ticker,
-        extension_details: SmartExtension<T::AccountId>,
+        details: SmartExtension<T::AccountId>,
     ) -> DispatchResult {
-        let my_did = Self::ensure_perms_owner_asset(origin, &ticker)?;
+        let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
 
-        // Verify the details of smart extension & store it
+        // Enforce length limits.
+        ensure_string_limited::<T>(&details.extension_name)?;
+        if let SmartExtensionType::Custom(ty) = &details.extension_type {
+            ensure_string_limited::<T>(ty)?;
+        }
+
+        // Verify the details of smart extension & store it.
         ensure!(
-            !<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)),
+            !<ExtensionDetails<T>>::contains_key((ticker, &details.extension_id)),
             Error::<T>::ExtensionAlreadyPresent
         );
         // Ensure the version compatibility with the asset.
         ensure!(
-            Self::is_ext_compatible(
-                &extension_details.extension_type,
-                &extension_details.extension_id
-            ),
+            Self::is_ext_compatible(&details.extension_type, &details.extension_id),
             Error::<T>::IncompatibleExtensionVersion
         );
         // Ensure the hard limit on the count of maximum transfer manager an asset can have.
-        Self::ensure_max_limit_for_tm_extension(&extension_details.extension_type, &ticker)?;
+        Self::ensure_max_limit_for_tm_extension(&details.extension_type, &ticker)?;
 
-        // Update the storage
-        <ExtensionDetails<T>>::insert(
-            (ticker, &extension_details.extension_id),
-            extension_details.clone(),
-        );
-        <Extensions<T>>::append(
-            (ticker, &extension_details.extension_type),
-            extension_details.extension_id.clone(),
-        );
+        // Update the storage.
+        let id = details.extension_id.clone();
+        let name = details.extension_name.clone();
+        let ty = details.extension_type.clone();
+        <Extensions<T>>::append((ticker, &ty), id.clone());
+        <ExtensionDetails<T>>::insert((ticker, &id), details);
+        Self::deposit_event(Event::<T>::ExtensionAdded(did, ticker, id, name, ty));
 
-        let event = RawEvent::ExtensionAdded(
-            my_did,
-            ticker,
-            extension_details.extension_id,
-            extension_details.extension_name,
-            extension_details.extension_type,
-        );
-        Self::deposit_event(event);
         Ok(())
     }
 

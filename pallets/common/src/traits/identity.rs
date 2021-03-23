@@ -27,7 +27,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::{DispatchError, DispatchResult, PostDispatchInfo},
+    dispatch::{DispatchResult, PostDispatchInfo},
     traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
@@ -95,6 +95,7 @@ pub trait WeightInfo {
     fn remove_authorization() -> Weight;
     fn revoke_offchain_authorization() -> Weight;
     fn add_investor_uniqueness_claim() -> Weight;
+    fn add_investor_uniqueness_claim_v2() -> Weight;
 }
 
 /// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
@@ -104,7 +105,7 @@ pub trait IdentityToCorporateAction {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait {
+pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
@@ -220,9 +221,6 @@ decl_event!(
 
         /// All Secondary keys of the identity ID are unfrozen.
         SecondaryKeysUnfrozen(IdentityId),
-
-        /// An unexpected error happened that should be investigated.
-        UnexpectedError(Option<DispatchError>),
 
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),

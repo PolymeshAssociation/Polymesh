@@ -214,6 +214,7 @@ impl_outer_event! {
         system<T>,
         balances<T>,
         session,
+        pallet_base,
         pallet_pips<T>,
         pallet_treasury<T>,
         staking<T>,
@@ -246,6 +247,7 @@ parameter_types! {
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
     pub const MaxLocks: u32 = 50;
+    pub const MaxLen: u32 = 256;
 }
 impl frame_system::Trait for Test {
     type BaseCallFilter = ();
@@ -273,6 +275,11 @@ impl frame_system::Trait for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+}
+
+impl pallet_base::Trait for Test {
+    type Event = MetaEvent;
+    type MaxLen = MaxLen;
 }
 
 impl CommonTrait for Test {
