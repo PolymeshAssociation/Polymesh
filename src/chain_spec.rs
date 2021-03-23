@@ -377,6 +377,7 @@ fn genesis_processed_data(
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
+    println!("Complete txs: {:?}", complete_txs);
     (identities, stakers, complete_txs)
 }
 
@@ -579,15 +580,17 @@ pub mod general {
     }
 
     fn develop_genesis() -> rt::runtime::GenesisConfig {
+        let alice = get_authority_keys_from_seed("Alice", false);
+        let alice_stash = alice.0.clone();
         genesis(
-            vec![get_authority_keys_from_seed("Alice", false)],
+            vec![alice],
             seeded_acc_id("polymath_5"),
             true,
             BridgeLockId::new(
                 1,
                 "0x1000000000000000000000000000000000000000000000000000000000000001",
             ),
-            BridgeLockId::generate_bridge_locks(10),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -622,7 +625,7 @@ pub mod general {
                 1,
                 "0x1000000000000000000000000000000000000000000000000000000000000001",
             ),
-            BridgeLockId::generate_bridge_locks(10),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
