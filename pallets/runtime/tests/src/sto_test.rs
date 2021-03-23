@@ -25,59 +25,51 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
-#[test]
-fn raise_happy_path_ext() {
+#[track_caller]
+fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
-        .execute_with(raise_happy_path);
+        .execute_with(logic);
+}
+
+#[test]
+fn raise_happy_path_ext() {
+    test(raise_happy_path);
 }
 #[test]
 fn raise_unhappy_path_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(raise_unhappy_path);
+    test(raise_unhappy_path);
 }
 
 #[test]
 fn zero_price_sto_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(zero_price_sto);
+    test(zero_price_sto);
+}
+
+#[test]
+fn invalid_fundraiser_ext() {
+    test(fundraiser_expired);
 }
 
 #[test]
 fn fundraiser_expired_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(fundraiser_expired);
+    test(fundraiser_expired);
 }
 
 #[test]
 fn modifying_fundraiser_window_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(modifying_fundraiser_window);
+    test(modifying_fundraiser_window);
 }
 
 #[test]
 fn freeze_unfreeze_fundraiser_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(freeze_unfreeze_fundraiser);
+    test(freeze_unfreeze_fundraiser);
 }
 
 #[test]
 fn stop_fundraiser_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(stop_fundraiser);
+    test(stop_fundraiser);
 }
 
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
