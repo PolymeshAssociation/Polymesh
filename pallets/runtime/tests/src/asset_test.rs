@@ -79,6 +79,20 @@ fn set_time_to_now() {
     Timestamp::set_timestamp(now());
 }
 
+fn max_len() -> u32 {
+    <TestStorage as pallet_base::Trait>::MaxLen::get()
+}
+
+fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
+    bytes_of_len(b'A', (max_len() + add) as usize)
+}
+
+macro_rules! assert_too_long {
+    ($e:expr) => {
+        assert_noop!($e, pallet_base::Error::<TestStorage>::TooLong);
+    };
+}
+
 crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
@@ -113,7 +127,7 @@ fn asset_with_ids(
     token: &SecurityToken<u128>,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
-    let r = Asset::create_asset(
+    Asset::create_asset(
         owner.origin(),
         token.name.clone(),
         ticker,
@@ -122,9 +136,9 @@ fn asset_with_ids(
         token.asset_type.clone(),
         ids,
         None,
-    );
+    )?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
-    r
+    Ok(())
 }
 
 crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -> DispatchResult {
@@ -140,24 +154,20 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     ));
 }
 
-fn setup_se_template(
-    creator: AccountId,
-    creator_did: IdentityId,
-    create_instance: bool,
-) -> AccountId {
+fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
     let (code_hash, wasm) = flipper();
 
     // Create SE template.
     if create_instance {
-        create_se_template(creator, creator_did, 0, code_hash, wasm);
+        create_se_template(creator.acc(), creator.did, 0, code_hash, wasm);
     }
     // Create SE instance.
-    assert_ok!(create_contract_instance(creator, code_hash, 0, false));
+    assert_ok!(create_contract_instance(creator.acc(), code_hash, 0, false));
 
     NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
         &code_hash,
         &hex!("0222FF18"),
-        &creator,
+        &creator.acc(),
     )
 }
 
@@ -914,7 +924,7 @@ fn add_smart_ext(
     ticker: Ticker,
     ty: SmartExtensionType,
 ) -> (AccountId, SmartExtension<AccountId>) {
-    let id = setup_se_template(owner.acc(), owner.did, true);
+    let id = setup_se_template(owner, true);
     let details = SmartExtension {
         extension_type: ty.clone(),
         extension_name: b"EXT".into(),
@@ -944,6 +954,29 @@ fn smart_ext_test(logic: impl FnOnce(User, Ticker)) {
             assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
             logic(owner, ticker)
         });
+}
+
+#[test]
+fn add_extension_limited() {
+    smart_ext_test(|owner, ticker| {
+        let id = setup_se_template(owner, true);
+        let add_ext = |ty, name| {
+            let details = SmartExtension {
+                extension_type: SmartExtensionType::Custom(ty),
+                extension_name: name,
+                extension_id: id,
+                is_archive: false,
+            };
+            Asset::add_extension(owner.origin(), ticker, details)
+        };
+        assert_too_long!(add_ext(max_len_bytes(1), max_len_bytes(0)));
+        assert_too_long!(add_ext(max_len_bytes(0), max_len_bytes(1)));
+        pallet_asset::CompatibleSmartExtVersion::insert(
+            SmartExtensionType::Custom(max_len_bytes(0)),
+            5000,
+        );
+        assert_ok!(add_ext(max_len_bytes(0), max_len_bytes(0)));
+    });
 }
 
 #[test]
@@ -2402,23 +2435,22 @@ fn create_asset_errors_test() {
         .execute_with(|| create_asset_errors(owner, other))
 }
 
+fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
+    iter::repeat(e).take(len).collect::<Vec<_>>().into()
+}
+
 fn create_asset_errors(owner: Public, other: Public) {
     let o = Origin::signed(owner);
     let o2 = Origin::signed(other);
+
     let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
     let name: AssetName = ticker.as_ref().into();
     let atype = AssetType::default();
 
     let name_max_length = <TestStorage as AssetTrait>::AssetNameMaxLength::get() + 1;
-    let exceeded_name = iter::repeat(b'A')
-        .take(name_max_length)
-        .collect::<Vec<_>>()
-        .into();
-    let exceeded_funding_name = exceeded_funding_round_name();
-
     let input_expected = vec![
         (
-            exceeded_name,
+            bytes_of_len(b'A', name_max_length),
             TOTAL_SUPPLY,
             true,
             None,
@@ -2428,7 +2460,7 @@ fn create_asset_errors(owner: Public, other: Public) {
             name.clone(),
             TOTAL_SUPPLY,
             true,
-            Some(exceeded_funding_name),
+            Some(exceeded_funding_round_name()),
             AssetError::FundingRoundNameMaxLengthExceeded,
         ),
         (
@@ -2471,6 +2503,47 @@ fn create_asset_errors(owner: Public, other: Public) {
         ),
         AssetError::TickerAlreadyRegistered
     );
+}
+
+#[test]
+fn asset_type_custom_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let (ticker, mut token) = a_token(owner.did);
+        let mut case = |add| {
+            token.asset_type = AssetType::Custom(max_len_bytes(add));
+            basic_asset(owner, ticker, &token)
+        };
+        assert_too_long!(case(1));
+        assert_ok!(case(0));
+    });
+}
+
+#[test]
+fn asset_doc_field_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(owner);
+        let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], ticker);
+        assert_too_long!(add_doc(Document {
+            uri: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(add_doc(Document {
+            name: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(add_doc(Document {
+            doc_type: Some(max_len_bytes(1)),
+            ..<_>::default()
+        }));
+        assert_ok!(add_doc(Document {
+            uri: max_len_bytes(0),
+            name: max_len_bytes(0),
+            doc_type: Some(max_len_bytes(0)),
+            ..<_>::default()
+        }));
+    });
 }
 
 #[test]
