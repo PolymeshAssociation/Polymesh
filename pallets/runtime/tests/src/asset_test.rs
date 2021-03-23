@@ -83,7 +83,7 @@ fn max_len() -> u32 {
     <TestStorage as pallet_base::Trait>::MaxLen::get()
 }
 
-fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
+crate fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
     bytes_of_len(b'A', (max_len() + add) as usize)
 }
 

@@ -1,16 +1,16 @@
 use super::{
     storage::{TestStorage, User},
     ExtBuilder,
+    asset_test::{a_token, basic_asset, max_len_bytes}
 };
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, AuthorizationError, PortfolioId, PortfolioName,
+    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName,
     PortfolioNumber, Signatory, Ticker,
 };
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -19,30 +19,11 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 
-fn create_token() -> (SecurityToken<u128>, Ticker) {
-    let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-    let owner_did = Identity::get_identity(&AccountKeyring::Alice.public()).unwrap();
-    let total_supply = 1_000_000u128;
-    let token = SecurityToken {
-        name: vec![b'A'].into(),
-        owner_did,
-        total_supply,
-        divisible: true,
-        asset_type: AssetType::default(),
-        ..Default::default()
-    };
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
-        owner_signed.clone(),
-        token.name.clone(),
-        ticker,
-        token.total_supply,
-        token.divisible,
-        token.asset_type.clone(),
-        vec![],
-        None,
-    ));
-    (token, ticker)
+fn create_token() -> (Ticker, SecurityToken<u128>) {
+    let owner = User::existing(AccountKeyring::Alice);
+    let r = a_token(owner.did);
+    assert_ok!(basic_asset(owner, r.0, &r.1));
+    r
 }
 
 fn create_portfolio() -> (User, PortfolioNumber) {
@@ -53,6 +34,21 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
     assert_eq!(Portfolio::portfolios(&owner.did, num), name);
     (owner, num)
+}
+
+#[test]
+fn portfolio_name_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let id = Portfolio::next_portfolio_number(owner.did);
+        let create = |name| Portfolio::create_portfolio(owner.origin(), name);
+        let rename = |name| Portfolio::rename_portfolio(owner.origin(), id, name);
+        assert_too_long!(create(max_len_bytes(1)));
+        assert_ok!(create(max_len_bytes(0)));
+        assert_too_long!(rename(max_len_bytes(1)));
+        assert_ok!(rename(b"".into()));
+        assert_ok!(rename(max_len_bytes(0)));
+    });
 }
 
 #[test]
@@ -78,7 +74,7 @@ fn can_create_rename_delete_portfolio() {
 fn can_recover_funds_from_deleted_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (token, ticker) = create_token();
+        let (ticker, token) = create_token();
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
@@ -133,7 +129,7 @@ fn can_move_asset_from_portfolio() {
 fn do_move_asset_from_portfolio() {
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
-    let (token, ticker) = create_token();
+    let (ticker, token) = create_token();
     assert_eq!(
         Portfolio::default_portfolio_balance(owner.did, &ticker),
         token.total_supply,
@@ -242,7 +238,7 @@ fn do_move_asset_from_portfolio() {
 fn can_lock_unlock_assets() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (token, ticker) = create_token();
+        let (ticker, token) = create_token();
         assert_eq!(
             Portfolio::default_portfolio_balance(owner.did, &ticker),
             token.total_supply,

@@ -13,6 +13,7 @@ pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
 #[cfg(test)]
+#[macro_use]
 mod asset_test;
 #[cfg(test)]
 mod balances_test;
