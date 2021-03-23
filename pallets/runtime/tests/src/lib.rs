@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![feature(crate_visibility_modifier)]
+#![feature(crate_visibility_modifier, box_syntax)]
 
 pub mod storage;
 pub use storage::{

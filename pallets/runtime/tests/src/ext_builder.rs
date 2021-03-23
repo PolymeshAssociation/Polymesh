@@ -7,7 +7,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
+use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType, Signatory};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
@@ -97,6 +97,16 @@ pub struct ExtBuilder {
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
+    /// Bridge: admin. 
+    bridge_admin: Option<Public>,
+    /// Bridge: signers of the controller multisig account.
+    bridge_signers: Vec<Signatory<Public>>,
+    /// Bridge: # of signers required for controller multisig account.
+    bridge_signatures_required: u64,
+    /// Bridge limit.
+    bridge_limit: Option<u128>,
+    /// Bridge timelock.
+    bridge_timelock: Option<u64>,
 }
 
 thread_local! {
@@ -220,6 +230,24 @@ impl ExtBuilder {
         self
     }
 
+    /// Sets the bridge controller.
+    pub fn set_bridge_controller(mut self, admin: Public, signers: Vec<Public>, signatures_required: u64) -> Self {
+        self.bridge_admin = Some(admin);
+        self.bridge_signers = signers.into_iter().map(|acc| Signatory::Account(acc)).collect::<Vec<_>>();
+        self.bridge_signatures_required = signatures_required;
+        self
+    }
+
+    pub fn set_bridge_limit(mut self, limit: u128) -> Self {
+        self.bridge_limit = Some(limit);
+        self
+    }
+
+    pub fn set_bridge_timelock(mut self, timelock: u64) -> Self {
+        self.bridge_timelock = Some(timelock);
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
@@ -276,6 +304,21 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         (identities, key_links)
+    }
+
+    fn build_bridge(&self, storage: &mut Storage) {
+        if let Some(creator) = self.bridge_admin {
+            pallet_bridge::GenesisConfig::<TestStorage> {
+                creator: creator.clone(),
+                signers: self.bridge_signers.clone(),
+                signatures_required: self.bridge_signatures_required,
+                bridge_limit: (self.bridge_limit.unwrap_or(1_000_000_000_000_000_000_000_000), 1),
+                timelock: self.bridge_timelock.unwrap_or(3).into(),
+                ..Default::default()
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }
     }
 
     /// Create externalities.
@@ -407,7 +450,7 @@ impl ExtBuilder {
         .unwrap();
 
         pallet_protocol_fee::GenesisConfig::<TestStorage> {
-            base_fees: self.protocol_base_fees.0,
+            base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
         }
         .assimilate_storage(&mut storage)
@@ -431,9 +474,12 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        self.build_bridge(&mut storage);
+
         if let Some(adjust) = self.adjust {
             adjust(&mut storage);
         }
+
 
         sp_io::TestExternalities::new(storage)
     }
