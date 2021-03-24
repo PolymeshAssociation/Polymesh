@@ -1,5 +1,6 @@
 use super::{
     assert_event_exists,
+    asset_test::max_len_bytes,
     committee_test::{gc_vmo, set_members},
     storage::{
         fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
@@ -491,6 +492,26 @@ fn proposal_details_are_correct() {
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(0, alice.acc(), 60);
+    });
+}
+
+#[test]
+fn proposal_limits_are_enforced() {
+    ExtBuilder::default().build().execute_with(|| {
+        let proposer = User::new(AccountKeyring::Alice).balance(300);
+        let propose = |url, desc| {
+            proposal(
+                &proposer.origin(),
+                &Proposer::Community(proposer.acc()),
+                make_remark_proposal(),
+                60,
+                Some(url),
+                Some(desc),
+            )
+        };
+        assert_too_long!(propose(max_len_bytes(1), max_len_bytes(0)));
+        assert_too_long!(propose(max_len_bytes(0), max_len_bytes(1)));
+        assert_ok!(propose(max_len_bytes(0), max_len_bytes(0)));
     });
 }
 
