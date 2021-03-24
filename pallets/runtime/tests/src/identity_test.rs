@@ -10,7 +10,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{assert_noop, assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::{
@@ -288,7 +288,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
-    assert_err!(
+    assert_noop!(
         Identity::set_permission_to_signer(
             bob.clone(),
             Signatory::Account(bob_key),
@@ -298,7 +298,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
-    assert_err!(
+    assert_noop!(
         Identity::set_permission_to_signer(
             bob,
             Signatory::Account(charlie_key),
@@ -344,7 +344,7 @@ fn freeze_secondary_keys_with_externalities() {
     );
 
     // Freeze secondary keys: bob & charlie.
-    assert_err!(
+    assert_noop!(
         Identity::freeze_secondary_keys(bob.clone()),
         Error::<TestStorage>::KeyNotAllowed
     );
@@ -471,7 +471,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         )),
         &AccountId32::from(AccountKeyring::Bob.public().0),
     );
-    assert_err!(
+    assert_noop!(
         payer,
         InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
     );
@@ -674,7 +674,7 @@ fn leave_identity_test_with_externalities() {
     // send funds to multisig
     assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
     // multisig tries leaving identity while it has funds
-    assert_err!(
+    assert_noop!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
         Error::<TestStorage>::MultiSigHasBalance
     );
@@ -846,7 +846,7 @@ fn one_step_join_id_with_ext() {
     // NOTE: We need to force the increment of account's nonce manually.
     System::inc_account_nonce(&a_pub);
 
-    assert_err!(
+    assert_noop!(
         Identity::add_secondary_keys_with_authorization(
             a.clone(),
             secondary_keys_with_auth[2..].to_owned(),
@@ -875,7 +875,7 @@ fn one_step_join_id_with_ext() {
         Signatory::Identity(e_id),
         eve_auth
     ));
-    assert_err!(
+    assert_noop!(
         Identity::add_secondary_keys_with_authorization(
             a,
             vec![eve_secondary_key_with_auth],
@@ -900,7 +900,7 @@ fn one_step_join_id_with_ext() {
         auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
     };
 
-    assert_err!(
+    assert_noop!(
         Identity::add_secondary_keys_with_authorization(
             f,
             vec![ferdie_secondary_key_with_auth],
@@ -1322,7 +1322,7 @@ fn invalidate_cdd_claims_we() {
     // Move to time 8... CDD_1 is inactive: Its claims are valid.
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
-    assert_err!(
+    assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
@@ -1330,7 +1330,7 @@ fn invalidate_cdd_claims_we() {
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
     Timestamp::set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
-    assert_err!(
+    assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
