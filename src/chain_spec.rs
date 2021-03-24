@@ -515,7 +515,7 @@ pub mod general {
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let (identities, stakers, complete_txs) = genesis_processed_data(
+        let (mut identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
