@@ -1,15 +1,15 @@
 use super::{
+    asset_test::{a_token, basic_asset, max_len_bytes},
     storage::{TestStorage, User},
     ExtBuilder,
-    asset_test::{a_token, basic_asset, max_len_bytes}
 };
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName,
-    PortfolioNumber, Signatory, Ticker,
+    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
+    Ticker,
 };
 use test_client::AccountKeyring;
 
