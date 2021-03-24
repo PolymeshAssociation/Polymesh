@@ -519,7 +519,16 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            let create = || Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round);
+            // Mint total supply to PIA
+            if total_supply > Zero::zero() {
+                with_transaction(|| {
+                    let (sender, did) = create()?;
+                    Self::_mint(&ticker, sender, did, total_supply, None)
+                })
+            } else {
+                create().map(drop)
+            }
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1860,7 +1869,7 @@ impl<T: Trait> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult {
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         ensure!(
             name.len() <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
@@ -1976,12 +1985,7 @@ impl<T: Trait> Module<T> {
 
         Self::unverified_update_idents(did, ticker, identifiers);
 
-        // Mint total supply to PIA
-        if total_supply > Zero::zero() {
-            Self::_mint(&ticker, sender, did, total_supply, None)?;
-        }
-
-        Ok(())
+        Ok((sender, did))
     }
 
     fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {

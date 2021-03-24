@@ -476,7 +476,8 @@ decl_module! {
             let _ = T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
                 proposal.get_dispatch_info())
-                    .map_err(|_| Error::<T>::FailedToChargeFee)?;
+                    .map_err(|_| Error::<T>::FailedToChargeFee,
+            )?;
 
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
