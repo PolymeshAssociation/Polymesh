@@ -231,15 +231,6 @@ export function sendTransaction(
 	});
 }
 
-export async function handle <T>(promise: Promise<T>): Promise<T[] | [any, T]> {
- 	try {
-		 const data: T = await promise;
-		 return ([undefined, data]);
-	 } catch (error) {
-		 return ([error, undefined]);
-	 }
- }
-
 export async function signAndSendTransaction(transaction: SubmittableExtrinsic<"promise">, signer: KeyringPair) {
 	let nonceObj = { nonce: nonces.get(signer.address) };
 	await sendTransaction(transaction, signer, nonceObj);
@@ -265,8 +256,7 @@ export async function signatory(api: ApiPromise, entity: KeyringPair, signer: Ke
 export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"promise">) {
 	let nonceObj = { nonce: nonces.get(signer.address) };	
 	nonces.set(signer.address, nonces.get(signer.address).addn(1));	
-	const [resultErr, result] = await handle(sendTransaction(tx, signer, nonceObj));
-	if (resultErr) throw new Error(`Transaction failed: ${resultErr.message}`);
+	const result = await sendTransaction(tx, signer, nonceObj);
 	return result ;		
 }
 

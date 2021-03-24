@@ -11,7 +11,7 @@ import type {
 	Permissions,
 	Expiry,
 } from "../types";
-import { sendTx, keyToIdentityIds, handle } from "../util/init";
+import { sendTx, keyToIdentityIds } from "../util/init";
 import type { IdentityId } from '../interfaces';
 
 // TODO Refactor function to deal with all the possible claim types and their values
@@ -88,13 +88,11 @@ export async function authorizeJoinToIdentities(
 ): Promise<IdentityId[]> {
 	for (let i in primaryKeys) {
 		// 1. Authorize
-		const [entriesErr, entries] = await handle(
+		const auths = await 
 			api.query.identity.authorizations.entries({
 				Account: secondaryKeys[i].publicKey,
-			})
-		);
-		if (entriesErr) throw new Error("Failed to get authorizations");
-		const auths = (entries as unknown) as Authorization[][];
+			});
+		
 		let last_auth_id: AnyNumber = 0;
 		for (let j in auths) {
 			if (auths[j][1].auth_id > last_auth_id) {
@@ -148,8 +146,7 @@ async function createIdentitiesWithExpiry(
 
 async function setDidsArray(api: ApiPromise, dids: IdentityId[], accounts: KeyringPair[]) {
 	for (let i in accounts) {
-		const [didErr, did] = await handle(keyToIdentityIds(api, accounts[i].publicKey));
-		if (didErr) throw new Error("keyToIdentityIds failed");
+		const did = await keyToIdentityIds(api, accounts[i].publicKey);
 		dids.push(did);
 		console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
 	}

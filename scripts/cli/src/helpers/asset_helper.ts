@@ -1,7 +1,7 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Document } from "../types";
-import { sendTx, handle } from "../util/init";
+import { sendTx } from "../util/init";
 import { assert } from "chai";
 import type { IdentityId } from '../interfaces';
 
@@ -46,9 +46,8 @@ export async function issueTokenToDid(
 	fundingRound: string | null
 ): Promise<void> {
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-	const [tickerDataErr, tickerData] = await handle(api.query.asset.tickers(ticker));
-	if (tickerDataErr) throw new Error("Retrieving ticker failed");
-
+	const tickerData = await api.query.asset.tickers(ticker);
+	
 	if (tickerData.owner) {
 		const transaction = api.tx.asset.createAsset(ticker, ticker, amount, true, {EquityCommon: ""}, [], fundingRound);
 		await sendTx(account, transaction).catch((err) => console.log(`Error: ${err.message}`));
@@ -77,7 +76,6 @@ export async function mintingAsset(api: ApiPromise, minter: KeyringPair, ticker:
  * @return {Promise<number>}
  */
 export async function assetBalance(api: ApiPromise, ticker: Ticker, did: IdentityId): Promise<number> {
-	const [balanceErr, balance] = await handle(api.query.asset.balanceOf(ticker, did));
-	if (balanceErr) throw new Error("assetBalance failed");
+	const balance = await api.query.asset.balanceOf(ticker, did);
 	return (balance as unknown) as number;
 }
