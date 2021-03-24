@@ -8,14 +8,12 @@ use confidential_identity::{
 
 /// Evaluates if the claim is a valid proof and if `scope_id` matches with the one inside `proof`.
 pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
-    if let Claim::InvestorUniqueness(scope, scope_id, cdd_id) = claim {
-        let proof_scope_id = proof.0.scope_id.compress().to_bytes();
-        if proof_scope_id == scope_id.as_bytes() {
-            return verify_proof(id, scope.as_bytes(), cdd_id, proof);
+    match claim {
+        Claim::InvestorUniquenessV2(scope, cdd_id) => {
+            verify_proof(id, scope.as_bytes(), cdd_id, proof)
         }
+        _ => false,
     }
-
-    false
 }
 
 fn verify_proof(

@@ -1109,6 +1109,10 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> T::Balance {
         Self::balance_of_at_scope(scope_id, target)
     }
+
+    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId {
+        Self::scope_id_of(ticker, did)
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module

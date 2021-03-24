@@ -97,6 +97,8 @@ pub enum Claim {
     InvestorUniqueness(Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
+    /// Confidential claim using latest version from cryptography library.
+    InvestorUniquenessV2(Scope, CddId),
 }
 
 impl Default for Claim {
@@ -119,6 +121,7 @@ impl Claim {
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
             Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
+            Claim::InvestorUniquenessV2(..) => ClaimType::InvestorUniquenessV2,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -136,6 +139,7 @@ impl Claim {
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
             Claim::InvestorUniqueness(ref ticker_scope, ..) => Some(ticker_scope),
+            Claim::InvestorUniquenessV2(ref ticker_scope, ..) => Some(ticker_scope),
             Claim::NoData => None,
         }
     }
@@ -172,6 +176,8 @@ pub enum ClaimType {
     InvestorUniqueness,
     /// Empty type
     NoType,
+    /// New Investor uniqueness claim.
+    InvestorUniquenessV2,
 }
 
 impl Default for ClaimType {

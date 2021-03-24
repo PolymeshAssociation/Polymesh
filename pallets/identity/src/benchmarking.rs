@@ -25,17 +25,19 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, SecondaryKey, Signatory,
+    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
+    Signatory,
 };
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
-fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, PF>(
+fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     name: &'static str,
     make_investor_uid: IF,
     make_cdd_id: CF,
     make_scope_id: SF,
+    make_claim: IUF,
     make_proof: PF,
 ) -> (User<T>, Claim, P)
 where
@@ -44,6 +46,7 @@ where
     CF: Fn(IdentityId, InvestorUid) -> CddId,
     SF: Fn(&[u8], &InvestorUid) -> IdentityId,
     PF: Fn(&IdentityId, &InvestorUid, &Ticker) -> P,
+    IUF: Fn(Scope, ScopeId, CddId) -> Claim,
 {
     let user = UserBuilder::<T>::default().generate_did().build(name);
 
@@ -58,7 +61,7 @@ where
     let ticker = Ticker::default();
     let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let claim = make_claim(Scope::Ticker(ticker), scope_id, cdd_id);
     let proof = make_proof(&did, &investor_uid, &ticker);
     (user, claim, proof)
 }
@@ -69,11 +72,12 @@ fn setup_investor_uniqueness_claim_v2<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
         |raw_did| make_investor_uid_v2(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
+        |scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(scope, cdd_id),
         v2::InvestorZKProofData::new,
     )
 }
@@ -84,11 +88,12 @@ fn setup_investor_uniqueness_claim_v1<T>(
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
         |raw_did| make_investor_uid_v1(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
+        |scope, scope_id, cdd_id| Claim::InvestorUniqueness(scope, scope_id, cdd_id),
         v1::InvestorZKProofData::new,
     )
 }

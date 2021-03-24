@@ -1667,12 +1667,11 @@ fn add_investor_uniqueness_claim_v2_data(
     let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
-    let scope_id = v2::InvestorZKProofData::make_scope_id(ticker.as_slice(), &investor);
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let claim = Claim::InvestorUniquenessV2(Scope::Ticker(ticker), cdd_id);
     let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
-    let invalid_ticker_claim =
-        Claim::InvestorUniqueness(Scope::Ticker(invalid_ticker), scope_id, cdd_id);
-    let invalid_scope_id_claim =
+    let invalid_ticker_claim = Claim::InvestorUniquenessV2(Scope::Ticker(invalid_ticker), cdd_id);
+    let invalid_scope_id_claim = Claim::InvestorUniquenessV2(Scope::Ticker(ticker), cdd_id);
+    let invalid_version_claim =
         Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
     let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
 
@@ -1703,6 +1702,11 @@ fn add_investor_uniqueness_claim_v2_data(
         (
             (user, claim, invalid_proof),
             Err(IdentityError::InvalidScopeClaim.into()),
+        ),
+        // Claim version does NOT match.
+        (
+            (user, invalid_version_claim, proof),
+            Err(IdentityError::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
 }
