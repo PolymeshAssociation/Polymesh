@@ -1,7 +1,8 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { IdentityId, Ticker } from "../types";
+import type { Ticker } from "../types";
 import { sendTx, getDefaultPortfolio } from "../util/init";
+import type { IdentityId } from '../interfaces';
 
 /**
  * @description Creates a Venue
@@ -46,7 +47,7 @@ export async function addInstruction(
 		amount: amount,
 	};
 
-	const transaction = api.tx.settlement.addInstruction(venueCounter, 0, null, null, [leg]);
+	const transaction = api.tx.settlement.addInstruction(venueCounter, {SettleOnAffirmation: ""}, null, null, [leg]);
 	await sendTx(sender, transaction);
 
 	return instructionCounter;
@@ -104,7 +105,7 @@ export async function rejectInstruction(
 	instructionCounter: number,
 	did: IdentityId
 ): Promise<void> {
-	const transaction = api.tx.settlement.rejectInstruction(instructionCounter, [getDefaultPortfolio(did)]);
+	const transaction = api.tx.settlement.rejectInstruction(instructionCounter, [getDefaultPortfolio(did)], 5);
 	await sendTx(sender, transaction);
 }
 
@@ -164,7 +165,8 @@ export async function addGroupInstruction(
 		amount: amount,
 	};
 
-	const transaction = api.tx.settlement.addInstruction(venueCounter, 0, null, null, [leg, leg2, leg3, leg4, leg5]);
+	const transaction = api.tx.settlement.addInstruction(venueCounter, 
+		{SettleOnAffirmation: ""}, null, null, [leg, leg2, leg3, leg4, leg5]);
 
 	await sendTx(sender, transaction);
 	return instructionCounter;

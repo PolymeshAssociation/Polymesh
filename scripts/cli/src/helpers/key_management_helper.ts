@@ -1,6 +1,7 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
+import { IdentityId } from "polymesh-typegen/interfaces";
 import type { AuthorizationData, Expiry, Permissions, Signatory } from "../types";
 import { sendTx } from "../util/init";
 
@@ -23,13 +24,13 @@ export async function addSecondaryKeys(
 	};
 
 	for (let i in primaryKeys) {
-		let target: Signatory = {
+		let target = {
 			Account: secondaryKeys[i].publicKey as AccountId,
 		};
-		let authData: AuthorizationData = {
+		let authData = {
 			JoinIdentity: totalPermissions,
 		};
-		let expiry: Expiry = undefined;
+		let expiry: Expiry = null;
 		// 1. Add Secondary Item to identity.
 		const transaction = api.tx.identity.addAuthorization(target, authData, expiry);
 		await sendTx(primaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));

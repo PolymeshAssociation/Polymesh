@@ -13,7 +13,7 @@ async function main(): Promise<void> {
 		const primaryKeys = await init.generateKeys(api.api, 1, primaryDevSeed);
 		await createIdentities(api.api, primaryKeys, alice);
 		await distributePolyBatch(api.api, primaryKeys, init.transferAmount, alice);
-		await issueTokenToDid(api.api, primaryKeys[0], ticker, 1000000);
+		await issueTokenToDid(api.api, primaryKeys[0], ticker, 1000000, null);
 		await api.ws_provider.disconnect();
 	} catch (err) {
 		console.log(err);

@@ -14,8 +14,8 @@ async function main(): Promise<void> {
 		const primaryKey = (await init.generateKeys(api.api, 1, primaryDevSeed))[0];
 		let issuerDid = await createIdentities(api.api, [primaryKey], alice);
 		await distributePoly(api.api, primaryKey, init.transferAmount, alice);
-		await issueTokenToDid(api.api, primaryKey, ticker, 1000000);
-		await addClaimsToDids(api.api, primaryKey, issuerDid[0], "Exempted", { Ticker: ticker });
+		await issueTokenToDid(api.api, primaryKey, ticker, 1000000, null);
+		await addClaimsToDids(api.api, primaryKey, issuerDid[0], "Exempted", { Ticker: ticker }, null);
 		await addComplianceRequirement(api.api, primaryKey, ticker);
 		await mintingAsset(api.api, primaryKey, ticker);
 

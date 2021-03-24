@@ -23,8 +23,8 @@ async function main(): Promise<void> {
 		const eveDid = (await createIdentities(api.api, [eve], alice))[0];
 
 		await distributePolyBatch(api.api, [bob, charlie, dave, eve], init.transferAmount, alice);
-		await issueTokenToDid(api.api, alice, ticker, 1000000);
-		await issueTokenToDid(api.api, bob, ticker2, 1000000);
+		await issueTokenToDid(api.api, alice, ticker, 1000000, null);
+		await issueTokenToDid(api.api, bob, ticker2, 1000000, null);
 		await addComplianceRequirement(api.api, alice, ticker);
 		await addComplianceRequirement(api.api, bob, ticker2);
 		await mintingAsset(api.api, alice, ticker);

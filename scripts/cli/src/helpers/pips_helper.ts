@@ -1,7 +1,7 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
-import type { ISubmittableResult } from "@polkadot/api/node_modules/@polkadot/types/types/extrinsic";
+import type { ISubmittableResult } from "@polkadot/types/types/extrinsic";
 import { sendTx } from "../util/init";
 
 /**
@@ -55,8 +55,8 @@ export async function propose(
 	proposal: SubmittableExtrinsic<"promise", ISubmittableResult>,
 	deposit: number,
 	signer: KeyringPair,
-	url?: string,
-	description?: string
+	url: string | null,
+	description: string | null
 ): Promise<void> {
 	const transaction = api.tx.pips.propose(proposal, deposit, url, description);
 	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
@@ -83,7 +83,7 @@ export async function snapshot(api: ApiPromise, signer: KeyringPair): Promise<vo
 export function enactSnapshotResults(
 	api: ApiPromise,
 	pipId: number,
-	snapshotResult: object
+	snapshotResult: number | Uint8Array | "Approve" | "Reject" | "Skip"
 ): SubmittableExtrinsic<"promise", ISubmittableResult> {
 	return api.tx.pips.enactSnapshotResults([[pipId, snapshotResult]]);
 }

@@ -1,18 +1,18 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
+import type { AnyNumber } from "@polkadot/types/types";
 import type {
-	IdentityId,
+	
 	Authorization,
 	LegacyPalletPermissions,
 	PortfolioId,
 	Ticker,
 	Permissions,
-	Signatory,
-	Scope,
 	Expiry,
 } from "../types";
 import { sendTx, keyToIdentityIds, handle } from "../util/init";
+import type { IdentityId } from '../interfaces';
 
 // TODO Refactor function to deal with all the possible claim types and their values
 /**
@@ -29,9 +29,9 @@ export async function addClaimsToDids(
 	api: ApiPromise,
 	signer: KeyringPair,
 	did: IdentityId,
-	claimType: string,
-	claimValue: Scope,
-	expiry?: Expiry
+	claimType: "Exempted",
+	claimValue: any,
+	expiry: Expiry
 ): Promise<void> {
 	// Receieving Conditions Claim
 	let claim = { [claimType]: claimValue };
@@ -64,7 +64,7 @@ export async function setPermissionToSigner(
 	};
 
 	for (let i in primaryKeys) {
-		let signer: Signatory = {
+		let signer = {
 			Account: secondaryKeys[i].publicKey as AccountId,
 		};
 		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
@@ -95,13 +95,13 @@ export async function authorizeJoinToIdentities(
 		);
 		if (entriesErr) throw new Error("Failed to get authorizations");
 		const auths = (entries as unknown) as Authorization[][];
-		let last_auth_id = 0;
+		let last_auth_id: AnyNumber = 0;
 		for (let j in auths) {
 			if (auths[j][1].auth_id > last_auth_id) {
 				last_auth_id = auths[j][1].auth_id;
 			}
 		}
-		const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+		const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
 		await sendTx(secondaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 	return dids;
@@ -126,7 +126,7 @@ async function createIdentitiesWithExpiry(
 	api: ApiPromise,
 	accounts: KeyringPair[],
 	signer: KeyringPair,
-	expiries: number[]
+	expiries: Uint8Array[]
 ): Promise<IdentityId[]> {
 	let dids: IdentityId[] = [];
 
@@ -155,7 +155,7 @@ async function setDidsArray(api: ApiPromise, dids: IdentityId[], accounts: Keyri
 	}
 }
 
-async function addCddClaim(api: ApiPromise, dids: IdentityId[], expiries: number[], signer: KeyringPair) {
+async function addCddClaim(api: ApiPromise, dids: IdentityId[], expiries: Uint8Array[], signer: KeyringPair) {
 	// Add CDD Claim with CDD_ID
 	for (let i in dids) {
 		const cdd_id_byte = (parseInt(i) + 1).toString(16).padStart(2, "0");

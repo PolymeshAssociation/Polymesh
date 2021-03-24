@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
+    "baseUrl": "",
     "paths": {
-      "sample-polkadotjs-typegen/*": ["src/*"],
+      "polymesh-typegen/*": ["src/*"],
       "@polkadot/api/augment": ["src/interfaces/augment-api.ts"],
       "@polkadot/types/augment": ["src/interfaces/augment-types.ts"]
     },

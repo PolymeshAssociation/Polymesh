@@ -1,8 +1,9 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Ticker, Document, TickerRegistration, IdentityId } from "../types";
+import type { Ticker, Document } from "../types";
 import { sendTx, handle } from "../util/init";
 import { assert } from "chai";
+import type { IdentityId } from '../interfaces';
 
 /**
  * @description Adds Documents for a given token
@@ -42,16 +43,14 @@ export async function issueTokenToDid(
 	account: KeyringPair,
 	ticker: Ticker,
 	amount: number,
-	fundingRound?: string
+	fundingRound: string | null
 ): Promise<void> {
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 	const [tickerDataErr, tickerData] = await handle(api.query.asset.tickers(ticker));
 	if (tickerDataErr) throw new Error("Retrieving ticker failed");
 
-	let tickerExist = (tickerData as unknown) as TickerRegistration;
-
-	if (tickerExist.owner == 0) {
-		const transaction = api.tx.asset.createAsset(ticker, ticker, amount, true, 0, [], fundingRound);
+	if (tickerData.owner) {
+		const transaction = api.tx.asset.createAsset(ticker, ticker, amount, true, {EquityCommon: ""}, [], fundingRound);
 		await sendTx(account, transaction).catch((err) => console.log(`Error: ${err.message}`));
 	} else {
 		console.log("ticker exists already");

@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
 		// Snapshot and approve second PIP.
 		await pips.snapshot(api.api, govCommittee1);
-		const approvePIP = pips.enactSnapshotResults(api.api, secondPipCount, { Approve: "" });
+		const approvePIP = pips.enactSnapshotResults(api.api, secondPipCount, "Approve");
 		await pips.voteResult(api.api, approvePIP, [govCommittee1, govCommittee2]);
 
 		// Reject the first PIP

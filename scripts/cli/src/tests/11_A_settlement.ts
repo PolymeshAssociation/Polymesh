@@ -15,7 +15,7 @@ async function main(): Promise<void> {
 		const bobDid = (await createIdentities(api.api, [bob], alice))[0];
 		const aliceDid = await init.keyToIdentityIds(api.api, alice.publicKey);
 		await distributePoly(api.api, bob, init.transferAmount, alice);
-		await issueTokenToDid(api.api, alice, ticker, 1000000);
+		await issueTokenToDid(api.api, alice, ticker, 1000000, null);
 		await addComplianceRequirement(api.api, alice, ticker);
 
 		let aliceBalance = await assetBalance(api.api, ticker, aliceDid);

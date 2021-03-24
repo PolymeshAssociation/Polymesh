@@ -11,8 +11,9 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 //import { some, none, ap, Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
 import type { DispatchError } from "@polkadot/types/interfaces";
-import type { IdentityId, Ticker, NonceObject, Signatory } from "../types";
+import type { Ticker, NonceObject } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
+import type { IdentityId } from '../interfaces';
 
 let nonces = new Map();
 let block_sizes: Number[] = [];
@@ -28,7 +29,7 @@ export async function sleep(ms: number) {
 }
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
-export async function initMain(api: ApiPromise) {
+export async function initMain(api: ApiPromise): Promise<KeyringPair[]> {
 	let entities = [];
 
 	let alice = await generateEntity(api, "Alice");
@@ -58,7 +59,7 @@ export async function createApi() {
 	return { api, ws_provider };
 }
 
-export async function generateEntity(api: ApiPromise, name: string) {
+export async function generateEntity(api: ApiPromise, name: string): Promise<KeyringPair> {
 	await cryptoWaitReady();
 	let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
 		name: `${name}`,
@@ -70,7 +71,7 @@ export async function generateEntity(api: ApiPromise, name: string) {
 	return entity;
 }
 
-export async function generateKeys(api: ApiPromise, numberOfKeys: Number, keyPrepend: String) {
+export async function generateKeys(api: ApiPromise, numberOfKeys: Number, keyPrepend: String): Promise<KeyringPair[]> {
 	let keys = [];
 	await cryptoWaitReady();
 	for (let i = 0; i < numberOfKeys; i++) {
@@ -86,7 +87,7 @@ export async function generateKeys(api: ApiPromise, numberOfKeys: Number, keyPre
 	return keys;
 }
 
-export async function generateEntityFromUri(api: ApiPromise, uri: string) {
+export async function generateEntityFromUri(api: ApiPromise, uri: string): Promise<KeyringPair> {
 	await cryptoWaitReady();
 	let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
 	let accountRawNonce = (await api.query.system.account(entity.address)).nonce;
@@ -149,7 +150,7 @@ export async function keyToIdentityIds(
 	accountKey: AccountId | KeyringPair["publicKey"]
 ): Promise<IdentityId> {
 	let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-	return account_did.toHuman() as IdentityId;
+	return account_did;
 }
 
 // Returns the asset did
@@ -159,7 +160,7 @@ export function tickerToDid(ticker: Ticker) {
 	return blake2AsHex(u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(tickerUintArray, 96, true)));
 }
 
-export async function generateStashKeys(api: ApiPromise, accounts: KeyringPair[]) {
+export async function generateStashKeys(api: ApiPromise, accounts: KeyringPair[]): Promise<KeyringPair[]> {
 	let keys = [];
 	await cryptoWaitReady();
 	for (let i = 0; i < accounts.length; i++) {
@@ -255,7 +256,7 @@ export async function generateOffchainKeys(api: ApiPromise, keyType: string) {
 // Creates a Signatory Object
 export async function signatory(api: ApiPromise, entity: KeyringPair, signer: KeyringPair) {
 	let entityDid = (await createIdentities(api, [entity], signer))[0];
-	let signatoryObj: Signatory = {
+	let signatoryObj = {
 		Identity: entityDid,
 	};
 	return signatoryObj;

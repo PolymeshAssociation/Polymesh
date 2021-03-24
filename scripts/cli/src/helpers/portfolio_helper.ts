@@ -1,7 +1,8 @@
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { IdentityId, PortfolioId, Ticker, MovePortfolioItem, PortfolioNumber } from "../types";
+import type { PortfolioId, Ticker, MovePortfolioItem, PortfolioNumber } from "../types";
 import { sendTx, keyToIdentityIds } from "../util/init";
+import type { IdentityId } from '../interfaces';
 
 /**
  * @description Returns the next portfolio number

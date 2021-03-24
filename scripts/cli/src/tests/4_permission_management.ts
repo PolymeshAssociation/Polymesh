@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 		let documents: Document[] = [];
 
 		await distributePolyBatch(api.api, [primaryKeys[0]], init.transferAmount, alice);
-		await issueTokenToDid(api.api, primaryKeys[0], ticker, 1000000);
+		await issueTokenToDid(api.api, primaryKeys[0], ticker, 1000000, null);
 		await addSecondaryKeys(api.api, secondaryKeys, primaryKeys);
 		await authorizeJoinToIdentities(api.api, primaryKeys, issuerDids, secondaryKeys);
 		await distributePolyBatch(api.api, [secondaryKeys[0]], init.transferAmount, alice);

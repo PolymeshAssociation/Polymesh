@@ -14,7 +14,7 @@ async function main(): Promise<void> {
 		const issuerDids = await createIdentities(api.api, primaryKeys, alice);
 		const claimIssuerDids = await createIdentities(api.api, claimKeys, alice);
 		await distributePolyBatch(api.api, primaryKeys.concat(claimKeys), transferAmount, alice);
-		await addClaimsToDids(api.api, claimKeys[0], issuerDids[0], "Exempted", { Identity: claimIssuerDids[1] });
+		await addClaimsToDids(api.api, claimKeys[0], issuerDids[0], "Exempted", { Identity: claimIssuerDids[1] }, null);
 		await api.ws_provider.disconnect();
 	} catch (err) {
 		console.log(err);
