@@ -55,10 +55,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 1,
+    spec_version: 2017,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
+    transaction_version: 7,
 };
 
 parameter_types! {
@@ -70,6 +70,9 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+
+    // Base:
+    pub const MaxLen: u32 = 2048;
 
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
@@ -350,6 +353,7 @@ construct_runtime!(
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 42,
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 43,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
+        Base: pallet_base::{Module, Call, Event} = 45,
     }
 );
 

@@ -1,6 +1,6 @@
 use crate::{IdentityId, InvestorUid, Ticker};
-use confidential_identity::{
-    build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
+use confidential_identity_v1::{
+    build_scope_claim_proof_data, compute_scope_id, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
 
 use blake2::{Blake2s, Digest};
@@ -42,9 +42,15 @@ impl InvestorZKProofData {
         CddClaimData::new(&investor_did.to_bytes(), &investor_unique_id.to_bytes())
     }
 
-    /// Returns the Scope claim of the given `ticker` and `investor_uid`.
-    pub fn make_scope_claim(scope: &[u8], investor_unique_id: &InvestorUid) -> ScopeClaimData {
-        ScopeClaimData::new(scope, &investor_unique_id.to_bytes())
+    /// Returns the Scope claim of the given `ticker` and `investor`.
+    pub fn make_scope_claim(scope: &[u8], investor: &InvestorUid) -> ScopeClaimData {
+        ScopeClaimData::new(scope, &investor.to_bytes())
+    }
+
+    /// Returns the `ScopeId` of the given `scope` and `investor`.
+    pub fn make_scope_id(scope: &[u8], investor: &InvestorUid) -> IdentityId {
+        let scope_claim = Self::make_scope_claim(scope, investor);
+        compute_scope_id(&scope_claim).compress().to_bytes().into()
     }
 
     /// Returns the message used for testing the proof.

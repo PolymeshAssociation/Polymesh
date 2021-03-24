@@ -163,7 +163,9 @@ pub trait WeightInfo {
     fn stop() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
+pub trait Trait:
+    frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Weight information for extrinsic of the sto pallet.
@@ -283,6 +285,8 @@ decl_module! {
             minimum_investment: T::Balance,
             fundraiser_name: FundraiserName
         ) {
+            pallet_base::ensure_string_limited::<T>(&fundraiser_name)?;
+
             let (did, secondary_key) = Self::ensure_perms_pia(origin, &offering_asset)?;
 
             VenueInfo::get(venue_id)
@@ -550,7 +554,6 @@ decl_module! {
                 .map(|t| t.remaining)
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
-            //TODO(Connor): Should we check portfolio perms here?
             <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
             fundraiser.status = match fundraiser.end {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,

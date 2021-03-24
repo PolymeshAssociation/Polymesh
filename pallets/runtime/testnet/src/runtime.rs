@@ -75,6 +75,9 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 
+    // Base:
+    pub const MaxLen: u32 = 2048;
+
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
 
@@ -136,7 +139,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 
     // Identity:
-    pub const InitialPOLYX: Balance = 100_000 * POLY;
+    pub const InitialPOLYX: Balance = 0;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -364,6 +367,7 @@ construct_runtime!(
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
+        Base: pallet_base::{Module, Call, Event} = 51,
     }
 );
 

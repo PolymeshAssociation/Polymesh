@@ -85,6 +85,7 @@ use frame_support::{
     traits::Get,
     weights::Weight,
 };
+use pallet_base::ensure_length_ok;
 use pallet_identity as identity;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
@@ -100,7 +101,7 @@ use polymesh_primitives::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
     proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
-    IdentityId, Ticker, TrustedIssuer,
+    IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{
     convert::{From, TryFrom},
@@ -200,29 +201,30 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::add_compliance_requirement( sender_conditions.len() as u32, receiver_conditions.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                ProtocolOp::ComplianceManagerAddComplianceRequirement
-            )?;
+            // Bundle as a requirement.
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
-            let mut new_requirement = ComplianceRequirement { sender_conditions, receiver_conditions, id };
-            new_requirement.dedup();
+            let mut new_req = ComplianceRequirement { sender_conditions, receiver_conditions, id };
+            new_req.dedup();
 
+            // Ensure issuers are limited in length.
+            Self::ensure_issuers_in_req_limited(&new_req)?;
+
+            // Add to existing requirements, and place a limit on the total complexity.
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
+            reqs.push(new_req.clone());
+            Self::verify_compliance_complexity(&reqs, ticker, 0)?;
 
-            if !reqs
-                .iter()
-                .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
-            {
-                reqs.push(new_requirement.clone());
-                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-                AssetCompliances::insert(&ticker, asset_compliance);
-                Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
-            }
+            // Last storage change, now we can charge the fee.
+            T::ProtocolFee::charge_fee(ProtocolOp::ComplianceManagerAddComplianceRequirement)?;
+
+            // Commit new compliance to storage & emit event.
+            AssetCompliances::insert(&ticker, asset_compliance);
+            Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_req));
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -260,7 +262,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::replace_asset_compliance( asset_compliance.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
 
@@ -273,7 +275,11 @@ decl_module! {
             // Dedup `ClaimType`s in `TrustedFor::Specific`.
             asset_compliance.iter_mut().for_each(|r| r.dedup());
 
+            // Ensure issuers are limited in length + limit the complexity.
+            asset_compliance.iter().try_for_each(Self::ensure_issuers_in_req_limited)?;
             Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
+
+            // Commit changes to storage + emit event.
             AssetCompliances::mutate(&ticker, |old| old.requirements = asset_compliance.clone());
             Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
         }
@@ -334,12 +340,27 @@ decl_module! {
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
+
+            // Ensure the new `issuer` is limited; the existing ones we have previously checked.
+            Self::ensure_issuer_limited(&issuer)?;
+
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
+                // Ensure we don't have too many issuers now in total.
+                let new_count = issuers.len().saturating_add(1);
+                ensure_length_ok::<T>(new_count)?;
+
+                // Ensure the new issuer is new.
                 ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
-                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, issuers.len() + 1)?;
+
+                // Ensure the complexity is limited for the ticker.
+                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, new_count)?;
+
+                // Finally add the new issuer & commit...
                 issuers.push(issuer.clone());
                 Ok(()) as DispatchResult
             })?;
+
+            // ...and emit the event.
             Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(did, ticker, issuer));
         }
 
@@ -375,7 +396,8 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::change_compliance_requirement(
             new_req.sender_conditions.len() as u32,
-            new_req.receiver_conditions.len() as u32)]
+            new_req.receiver_conditions.len() as u32,
+        )]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
             let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
@@ -560,7 +582,7 @@ impl<T: Trait> Module<T> {
             .unwrap_or(0)
     }
 
-    /// Verify that `asset_compliance`, with `add` number of default issuers to add,
+    /// Verify that `asset_compliance`, with `base` complexity,
     /// is within the maximum condition complexity allowed.
     pub fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
@@ -573,7 +595,7 @@ impl<T: Trait> Module<T> {
         Self::base_verify_compliance_complexity(asset_compliance, count)
     }
 
-    /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
+    /// Verify that `asset_compliance`, with `default_issuer_count`,
     /// is within the maximum condition complexity allowed.
     pub fn base_verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
@@ -581,12 +603,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let complexity = asset_compliance
             .iter()
-            .flat_map(|requirement| {
-                requirement
-                    .sender_conditions
-                    .iter()
-                    .chain(requirement.receiver_conditions.iter())
-            })
+            .flat_map(|req| req.conditions())
             .fold(0usize, |complexity, condition| {
                 let (claims, issuers) = condition.complexity();
                 complexity.saturating_add(claims.saturating_mul(match issuers {
@@ -600,6 +617,22 @@ impl<T: Trait> Module<T> {
             }
         }
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
+    }
+
+    fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {
+        req.conditions().try_for_each(|cond| {
+            ensure_length_ok::<T>(cond.issuers.len())?;
+            cond.issuers
+                .iter()
+                .try_for_each(Self::ensure_issuer_limited)
+        })
+    }
+
+    fn ensure_issuer_limited(issuer: &TrustedIssuer) -> DispatchResult {
+        match &issuer.trusted_for {
+            TrustedFor::Any => Ok(()),
+            TrustedFor::Specific(cts) => ensure_length_ok::<T>(cts.len()),
+        }
     }
 }
 

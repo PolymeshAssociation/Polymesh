@@ -133,7 +133,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait {
+pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait + pallet_base::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
@@ -893,7 +893,7 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            <Identity<T>>::emit_unexpected_error(Some(e));
+            pallet_base::emit_unexpected_error::<T>(Some(e));
         } else {
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
             Self::deposit_event(RawEvent::BridgeTxScheduled(
