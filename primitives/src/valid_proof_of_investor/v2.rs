@@ -25,11 +25,11 @@ fn verify_proof(
     proof: &InvestorZKProofData,
 ) -> bool {
     if let Some(cdd_id_point) = CompressedRistretto::from_slice(cdd_id.as_slice()).decompress() {
-        let scope_did = slice_to_scalar(scope);
+        let scope = slice_to_scalar(scope);
         let user = slice_to_scalar(user.as_bytes());
         let cdd_id = CryptoCddId(cdd_id_point);
 
-        return Verifier::verify_scope_claim_proof(&proof.0, &user, &scope_did, &cdd_id).is_ok();
+        return Verifier::verify_scope_claim_proof(&proof.0, &user, &scope, &cdd_id).is_ok();
     }
     false
 }
