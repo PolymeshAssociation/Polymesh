@@ -1,8 +1,9 @@
 use super::{
+    asset_test::max_len_bytes,
     storage::{
         default_portfolio_vec, make_account, make_account_without_cdd,
         provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
-        TestStorage,
+        TestStorage, User,
     },
     ExtBuilder,
 };
@@ -123,6 +124,20 @@ pub fn next_block() {
 
 pub fn set_current_block_number(block: u64) {
     System::set_block_number(block);
+}
+
+#[test]
+fn venue_details_length_limited() {
+    ExtBuilder::default().build().execute_with(|| {
+        let actor = User::new(AccountKeyring::Alice);
+        let id = Settlement::venue_counter();
+        let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
+        let update = |d| Settlement::update_venue(actor.origin(), id, Some(d), None);
+        assert_too_long!(create(max_len_bytes(1)));
+        assert_ok!(create(max_len_bytes(0)));
+        assert_too_long!(update(max_len_bytes(1)));
+        assert_ok!(update(max_len_bytes(0)));
+    });
 }
 
 #[test]
