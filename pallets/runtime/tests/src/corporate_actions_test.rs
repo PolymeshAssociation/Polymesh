@@ -1,4 +1,5 @@
 use super::{
+    asset_test::max_len_bytes,
     storage::{
         provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, MaxDidWhts,
         MaxTargetIds, TestStorage, User,
@@ -1315,8 +1316,10 @@ fn change_meta_works() {
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
         let change = |meta| Ballot::change_meta(owner.origin(), id, meta);
 
+        // Changing an undefined ballot => error.
         assert_noop!(change(<_>::default()), BallotError::NoSuchBallot);
 
+        // Create a ballot.
         let range = BallotTimeRange {
             start: 4000,
             end: 6000,
@@ -1332,17 +1335,47 @@ fn change_meta_works() {
         ));
         assert_ballot(id, &data);
 
+        // Changing meta works as expected.
         Timestamp::set_timestamp(3999);
         assert_ok!(change(mk_meta()));
         data.meta = Some(mk_meta());
         data.choices = vec![3, 1];
         assert_ballot(id, &data);
 
+        // Test various "too long" aspects.
+        assert_too_long!(change(BallotMeta {
+            title: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                title: max_len_bytes(1),
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                info_link: max_len_bytes(1),
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                choices: vec![max_len_bytes(1)],
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+
+        // Too many choices => error.
         assert_noop!(
             change(overflowing_meta()),
             BallotError::NumberOfChoicesOverflow,
         );
 
+        // Set now := start; so voting has already started => error.
         Timestamp::set_timestamp(4000);
         assert_noop!(change(mk_meta()), BallotError::VotingAlreadyStarted);
         assert_ballot(id, &data);
