@@ -82,19 +82,32 @@ where
     )
 }
 
+// NB As `schnorkell` uses internally a `RNG`, we have to use different `make_proof` for both
+// environments.
+// In `std`, we use directly the constructor from `v1::InvestorZKProofData`.
+// In non `std`, we decode the proof from an hard-coded hexadecimal value, so we avoid the use of
+// `schnorkell` functionality here.
 fn setup_investor_uniqueness_claim_v1<T>(
     name: &'static str,
 ) -> (User<T>, Claim, v1::InvestorZKProofData)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
+    #[cfg(feature = "std")]
+    let make_proof = v1::InvestorZKProofData::new;
+    #[cfg(not(feature = "std"))]
+    let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
+        let mut proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
+    };
+
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
         |raw_did| make_investor_uid_v1(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
         |scope, scope_id, cdd_id| Claim::InvestorUniqueness(scope, scope_id, cdd_id),
-        v1::InvestorZKProofData::new,
+        make_proof,
     )
 }
 
