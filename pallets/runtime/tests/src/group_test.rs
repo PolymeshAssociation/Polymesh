@@ -7,7 +7,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{traits::group::GroupTrait, Context};
 use polymesh_primitives::IdentityId;
 
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use test_client::AccountKeyring;
 
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
@@ -163,7 +163,7 @@ fn remove_member_works_we() {
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
 
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
         DispatchError::BadOrigin
     );
@@ -196,7 +196,7 @@ fn swap_member_works_we() {
     let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         DispatchError::BadOrigin
     );
@@ -231,7 +231,7 @@ fn reset_members_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.public());
     let new_committee = (4..=6).map(IdentityId::from).collect::<Vec<_>>();
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::reset_members(non_root, new_committee.clone()),
         DispatchError::BadOrigin
     );
@@ -264,7 +264,7 @@ fn rage_quit_we() {
     // Ferdie is NOT a member
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);
     Context::set_current_identity::<Identity>(Some(ferdie_did));
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
@@ -285,7 +285,7 @@ fn rage_quit_we() {
     // Alice should not quit because she is the last member.
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
     Context::set_current_identity::<Identity>(Some(alice_did));
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );

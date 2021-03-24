@@ -498,6 +498,7 @@ fn proposal_details_are_correct() {
 #[test]
 fn proposal_limits_are_enforced() {
     ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(42);
         let proposer = User::new(AccountKeyring::Alice).balance(300);
         let propose = |url, desc| {
             proposal(

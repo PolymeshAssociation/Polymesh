@@ -1627,7 +1627,9 @@ impl<T: Trait> Module<T> {
         Self::ensure_asset_fresh(&ticker)?;
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <Identity<T>>::consume_auth(ticker_details.owner, Signatory::from(to_did), auth_id)?;
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(ticker_details.owner, &signer, auth_id)?;
+        <Identity<T>>::take_auth(&signer, &auth);
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -1702,7 +1704,10 @@ impl<T: Trait> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let owner = Self::token_details(ticker).owner_did;
-        <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(owner, &signer, auth_id)?;
+        <Identity<T>>::take_auth(&signer, &auth);
+        Ok(())
     }
 
     /// RPC: Function allows external users to know whether the transfer extrinsic

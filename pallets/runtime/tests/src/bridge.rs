@@ -7,7 +7,7 @@ use super::{
 };
 
 use frame_support::{
-    assert_err, assert_ok,
+    assert_noop, assert_ok,
     storage::IterableStorageDoubleMap,
     traits::{Currency, OnInitialize},
     weights::Weight,
@@ -142,7 +142,7 @@ fn can_issue_to_identity_we() {
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
-    assert_err!(
+    assert_noop!(
         Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
     );
@@ -217,7 +217,7 @@ fn cannot_propose_without_controller() {
             amount,
             tx_hash: Default::default(),
         };
-        assert_err!(
+        assert_noop!(
             Bridge::propose_bridge_tx(alice, bridge_tx),
             Error::ControllerNotSet,
         );
@@ -229,7 +229,7 @@ fn cannot_call_bridge_callback_extrinsics() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_account = AccountKeyring::Alice.public();
         let alice = Origin::signed(alice_account);
-        assert_err!(
+        assert_noop!(
             Bridge::change_controller(alice.clone(), alice_account),
             Error::BadAdmin,
         );
@@ -239,7 +239,7 @@ fn cannot_call_bridge_callback_extrinsics() {
             amount: 1_000_000,
             tx_hash: Default::default(),
         };
-        assert_err!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
+        assert_noop!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
     });
 }
 
@@ -351,7 +351,7 @@ fn do_freeze_and_unfreeze_bridge() {
         BridgeTxStatus::Handled
     );
     // Attempt to handle the same transaction again.
-    assert_err!(
+    assert_noop!(
         Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
     );

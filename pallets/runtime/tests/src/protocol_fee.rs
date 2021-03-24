@@ -3,7 +3,7 @@ use super::{
     storage::{register_keyring_account_with_balance, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp, traits::transaction_payment::CddAndFeeDetails,
 };
@@ -34,7 +34,7 @@ fn can_charge_fee_batch() {
             Some(AccountKeyring::Alice.public())
         );
         assert_ok!(ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7));
-        assert_err!(
+        assert_noop!(
             ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7),
             Error::InsufficientAccountBalance
         );

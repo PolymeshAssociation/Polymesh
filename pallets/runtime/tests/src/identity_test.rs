@@ -10,7 +10,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{assert_noop, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::{
@@ -366,7 +366,7 @@ fn freeze_secondary_keys_with_externalities() {
 
     // unfreeze all
     // commenting this because `default_identity` feature is not allowing to access None identity.
-    // assert_err!(
+    // assert_noop!(
     //     Identity::unfreeze_secondary_keys(bob.clone()),
     //     DispatchError::Other("Current identity is none and key is not linked to any identity")
     // );
@@ -734,7 +734,7 @@ fn enforce_uniqueness_keys_in_identity() {
         AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
-    assert_err!(
+    assert_noop!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
         Error::<TestStorage>::AlreadyLinked
     );
@@ -1256,7 +1256,7 @@ fn add_identity_signers() {
             None,
         );
 
-        assert_err!(
+        assert_noop!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
             Error::<TestStorage>::AlreadyLinked
         );

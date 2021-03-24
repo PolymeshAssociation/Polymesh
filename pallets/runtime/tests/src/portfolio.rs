@@ -3,7 +3,7 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_noop, assert_ok, StorageMap};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
@@ -143,7 +143,7 @@ fn do_move_asset_from_portfolio() {
     let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
     // Attempt to move more than the total supply.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -155,7 +155,7 @@ fn do_move_asset_from_portfolio() {
         ),
         Error::InsufficientPortfolioBalance
     );
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &owner_user_portfolio,
@@ -166,7 +166,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move to the same portfolio.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -175,7 +175,7 @@ fn do_move_asset_from_portfolio() {
         ),
         Error::DestinationIsSamePortfolio
     );
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &owner_default_portfolio,
@@ -186,7 +186,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move to a non-existent portfolio.
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &PortfolioId::user_portfolio(owner.did, PortfolioNumber(666)),
@@ -197,7 +197,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move by another identity.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             bob.origin(),
             owner_default_portfolio,
@@ -416,7 +416,7 @@ fn can_take_custody_of_portfolios() {
             owner_user_portfolio,
             bob.did
         ));
-        assert_err!(
+        assert_noop!(
             Portfolio::ensure_portfolio_custody(owner_user_portfolio, owner.did),
             Error::UnauthorizedCustodian
         );
