@@ -227,6 +227,7 @@ decl_storage! {
                 for issuer in &gen_id.issuers {
                     <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
                 }
+                debug::info!("Added genesis CDD claim {:?} for {:?}", cdd_claim.clone(), gen_id.did);
             }
 
             for &(ref secondary_account_id, did) in &config.secondary_keys {
@@ -1312,6 +1313,12 @@ impl<T: Trait> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> impl Iterator<Item = IdentityClaim> {
+        debug::info!(
+            "base_fetch_valid_cdd_calims {:?} {:?} {:?}",
+            claim_for,
+            leeway,
+            filter_cdd_id
+        );
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1362,6 +1369,13 @@ impl<T: Trait> Module<T> {
         active_cdds: &[IdentityId],
         inactive_not_expired_cdds: &[InactiveMember<T::Moment>],
     ) -> bool {
+        debug::info!(
+            "is_identity_cdd_claim_valid {:?} {:?} {:?} {:?}",
+            id_claim.claim,
+            exp_with_leeway,
+            active_cdds,
+            inactive_not_expired_cdds
+        );
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
                 || SYSTEMATIC_ISSUERS

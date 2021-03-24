@@ -333,9 +333,6 @@ construct_runtime!(
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 27,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 28,
 
-        //Polymesh
-        ////////////
-
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 30,

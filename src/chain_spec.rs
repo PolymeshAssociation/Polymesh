@@ -522,6 +522,13 @@ pub mod general {
             key_bridge_locks,
         );
 
+        // Add an issuer to issue a CDD claim during identity genesis config.
+        for id in &mut identities {
+            id.issuers = vec![IdentityId::from(1)];
+        }
+
+        println!("Identities: {:?}", identities);
+        println!("complete_txs: {:?}", complete_txs);
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
@@ -568,8 +575,8 @@ pub mod general {
             pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
             pallet_committee_Instance3: Some(committee!(3)),          // RC, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)),
-            pallet_committee_Instance4: Some(committee!(1)), // RC, 1/2 votes required
+            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
+            pallet_committee_Instance4: Some(committee!(1)),    // RC, 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -580,10 +587,8 @@ pub mod general {
     }
 
     fn develop_genesis() -> rt::runtime::GenesisConfig {
-        let alice = get_authority_keys_from_seed("Alice", false);
-        let alice_stash = alice.0.clone();
         genesis(
-            vec![alice],
+            vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("polymath_5"),
             true,
             BridgeLockId::new(
