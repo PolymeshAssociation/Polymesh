@@ -21,6 +21,7 @@ use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{self, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
+    constants::ENSURED_MAX_LEN,
     TestUtilsFn,
 };
 use polymesh_contracts::ExtensionInfo;
@@ -31,7 +32,7 @@ use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 const MAX_DOCS_PER_ASSET: u32 = 64;
-const MAX_DOC_URI: usize = 4096;
+const MAX_DOC_URI: usize = ENSURED_MAX_LEN as usize;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;

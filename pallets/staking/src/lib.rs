@@ -293,7 +293,7 @@ pub mod slashing;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, IsSubType,
         WithPostDispatchInfo,
@@ -1257,10 +1257,6 @@ decl_storage! {
             Vec<(IdentityId, T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
         build(|config: &GenesisConfig<T>| {
             for &(did, ref stash, ref controller, balance, ref status) in &config.stakers {
-                debug::info!(
-                    "Genesis bond -- did {:?}, stash {:?}, controller {:?}, balance {:?}, free balance {:?}, status {:?}",
-                    did, stash, controller, balance, T::Currency::free_balance(&stash), status
-                );
                 assert!(
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
