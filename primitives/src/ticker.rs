@@ -19,6 +19,7 @@ use codec::{Decode, Encode, Error, Input};
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 
 use sp_std::convert::TryFrom;
+use sp_std::vec::Vec;
 
 /// Ticker length.
 pub const TICKER_LEN: usize = 12;

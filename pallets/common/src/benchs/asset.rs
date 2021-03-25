@@ -10,7 +10,8 @@ use polymesh_primitives::{
 };
 
 use frame_system::RawOrigin;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::convert::TryFrom;
+use sp_std::vec;
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 
