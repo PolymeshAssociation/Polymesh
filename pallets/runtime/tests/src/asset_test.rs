@@ -79,7 +79,7 @@ fn set_time_to_now() {
     Timestamp::set_timestamp(now());
 }
 
-fn max_len() -> u32 {
+crate fn max_len() -> u32 {
     <TestStorage as pallet_base::Trait>::MaxLen::get()
 }
 

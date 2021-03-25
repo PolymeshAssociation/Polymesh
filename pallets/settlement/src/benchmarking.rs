@@ -22,7 +22,7 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{self, generate_ticker, user, AccountIdOf, User, UserBuilder},
+    benchs::{self, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::AssetFnTrait,
     TestUtilsFn,
@@ -113,7 +113,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 
 // create asset
 fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
-    make_asset::<T>(owner, Some(generate_ticker(8u64)))
+    make_asset::<T>(owner, Some(Ticker::generate(8u64)))
 }
 
 // fund portfolio
@@ -130,7 +130,7 @@ fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
     let variance = index + 1;
-    let ticker = Ticker::try_from(generate_ticker(variance.into()).as_slice()).unwrap();
+    let ticker = Ticker::try_from(Ticker::generate(variance.into()).as_slice()).unwrap();
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
@@ -174,7 +174,7 @@ fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
 ) {
-    let ticker = Ticker::try_from(generate_ticker(index.into()).as_slice()).unwrap();
+    let ticker = Ticker::try_from(Ticker::generate(index.into()).as_slice()).unwrap();
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
@@ -397,7 +397,7 @@ fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     let to_data = UserData::from(to);
 
     for n in 0..l {
-        tickers.push(make_asset::<T>(&from, Some(generate_ticker(n as u64 + 1))));
+        tickers.push(make_asset::<T>(&from, Some(Ticker::generate(n as u64 + 1))));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),
@@ -789,7 +789,7 @@ benchmarks! {
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
-        let ticker = Ticker::try_from(generate_ticker(1u64).as_slice()).unwrap();
+        let ticker = Ticker::try_from(Ticker::generate(1u64).as_slice()).unwrap();
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
         let leg_id = 0;
         let amount = 100u128;
