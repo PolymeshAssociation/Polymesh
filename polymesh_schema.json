@@ -427,7 +427,7 @@
                 "Blocked": "Scope",
                 "InvestorUniqueness": "(Scope, ScopeId, CddId)",
                 "NoData": "",
-                "InvestorUniquenessV2": "(Scope, CddId)"
+                "InvestorUniquenessV2": "(CddId)"
             }
         },
         "ClaimType": {
