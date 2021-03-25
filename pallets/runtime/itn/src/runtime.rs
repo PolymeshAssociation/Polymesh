@@ -299,9 +299,10 @@ construct_runtime!(
         // Polymesh Committees
         // CddServiceProviders: Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 8,
+
+        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 10,
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
         CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 9,
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 10,
         TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 11,
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
         TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 12,
