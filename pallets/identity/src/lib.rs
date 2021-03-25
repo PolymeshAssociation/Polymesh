@@ -44,6 +44,18 @@
 //! see [freeze_secondary_keys](./struct.Module.html#method.freeze_secondary_keys)
 //! see [unfreeze_secondary_keys](./struct.Module.html#method.unfreeze_secondary_keys)
 //!
+//! ## Claim Unique Index
+//!
+//! Each claim is identified by a unique index, which is composed by two keys in order to optimise
+//! the posterior use of them:
+//! - Claim First Key, which have two fields:
+//!    - A target DID, which is the user that receive that claim.
+//!    - The type of the claim.
+//! - Claim Second Key contains:
+//!     - An issuer of the claim, who generated/added that claim.
+//!     - An optional scope, it could limit the scope of this claim to specific assets,
+//!     identities, or any other custom label.
+//!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
@@ -88,7 +100,7 @@ use core::convert::{From, TryInto};
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, fail,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
@@ -495,7 +507,7 @@ decl_module! {
         }
 
         /// Marks the specified claim as revoked.
-        #[weight = revoke_claim::<T>(&claim)]
+        #[weight = (<T as Trait>::WeightInfo::revoke_claim(), revoke_claim_class(claim.claim_type()))]
         pub fn revoke_claim(origin, target: IdentityId, claim: Claim) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             let claim_type = claim.claim_type();
@@ -805,7 +817,7 @@ decl_module! {
         /// * `InvalidScopeClaim When proof is invalid.
         #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim()]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::base_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
+            Self::base_add_investor_uniqueness_claim(origin, target, claim, None, proof.into(), expiry)
         }
 
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
@@ -827,8 +839,22 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::add_investor_uniqueness_claim_v2()]
-        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
-            Self::base_add_investor_uniqueness_claim(origin, target, claim, proof.into(), expiry)
+        pub fn add_investor_uniqueness_claim_v2(origin, target: IdentityId, scope: Scope, claim: Claim, proof: ScopeClaimProof, expiry: Option<T::Moment>) -> DispatchResult {
+            Self::base_add_investor_uniqueness_claim(origin, target, claim, Some(scope), proof.into(), expiry)
+        }
+
+        /// Revokes a specific claim using its claim unique index, instead of its
+        /// content.
+        ///
+        /// Please note that only the `issuer` of the target claim can effectively call this function, because its `DID` is part of claim index.
+       ///
+        /// # Errors
+        /// - `TargetHasNonZeroBalanceAtScopeId` when you try to revoke a `InvestorUniqueness*`
+        /// claim, and `target` identity still have any balance on the given `scope`.
+        #[weight = (<T as Trait>::WeightInfo::revoke_claim_by_index(), revoke_claim_class(*claim_type))]
+        pub fn revoke_claim_by_index(origin, target: IdentityId, claim_type: ClaimType, scope: Option<Scope>) -> DispatchResult {
+            let issuer = Self::ensure_perms(origin)?;
+            Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
     }
 }
@@ -1589,8 +1615,19 @@ impl<T: Trait> Module<T> {
         issuer: IdentityId,
         expiry: Option<T::Moment>,
     ) {
+        let inner_scope = claim.as_scope().cloned();
+        Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
+    }
+
+    /// Adds claims with no inner scope.
+    fn base_add_claim_with_scope(
+        target: IdentityId,
+        claim: Claim,
+        scope: Option<Scope>,
+        issuer: IdentityId,
+        expiry: Option<T::Moment>,
+    ) {
         let claim_type = claim.claim_type();
-        let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
@@ -1680,25 +1717,28 @@ impl<T: Trait> Module<T> {
     fn decode_investor_uniqueness_claim<'a>(
         claim: &'a Claim,
         proof: &'_ InvestorZKProof,
+        scope: Option<&'a Scope>,
     ) -> Result<(&'a Scope, ScopeId, &'a CddId), DispatchError> {
-        match &claim {
+        let decode = match &claim {
             Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
                 ensure!(
                     matches!(proof, InvestorZKProof::V1(..)),
                     Error::<T>::ClaimAndProofVersionsDoNotMatch
                 );
-                Ok((scope, scope_id.clone(), cdd_id))
+                (scope, scope_id.clone(), cdd_id)
             }
-            Claim::InvestorUniquenessV2(scope, cdd_id) => match proof {
-                InvestorZKProof::V2(inner_proof) => Ok((
-                    scope,
+            Claim::InvestorUniquenessV2(cdd_id) => match proof {
+                InvestorZKProof::V2(inner_proof) => (
+                    scope.ok_or(Error::<T>::InvalidScopeClaim)?,
                     inner_proof.0.scope_id.compress().to_bytes().into(),
                     cdd_id,
-                )),
-                _ => Err(Error::<T>::ClaimAndProofVersionsDoNotMatch.into()),
+                ),
+                _ => fail!(Error::<T>::ClaimAndProofVersionsDoNotMatch),
             },
-            _ => Err(Error::<T>::ClaimVariantNotAllowed.into()),
-        }
+            _ => fail!(Error::<T>::ClaimVariantNotAllowed),
+        };
+
+        Ok(decode)
     }
 
     /// # Errors
@@ -1711,11 +1751,13 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         target: IdentityId,
         claim: Claim,
+        scope_opt: Option<Scope>,
         proof: InvestorZKProof,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         // Decode needed fields and ensures `claim` is `InvestorUniqueness*`.
-        let (scope, scope_id, cdd_id) = Self::decode_investor_uniqueness_claim(&claim, &proof)?;
+        let (scope, scope_id, cdd_id) =
+            Self::decode_investor_uniqueness_claim(&claim, &proof, scope_opt.as_ref())?;
 
         // Only owner of the identity can add that confidential claim.
         let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
@@ -1731,7 +1773,7 @@ impl<T: Trait> Module<T> {
 
         // Verify the confidential claim.
         ensure!(
-            valid_proof_of_investor::evaluate_claim(&claim, &target, &proof),
+            valid_proof_of_investor::evaluate_claim(scope, &claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
 
@@ -1740,7 +1782,8 @@ impl<T: Trait> Module<T> {
             T::AssetSubTraitTarget::update_balance_of_scope_id(scope_id, target, *ticker);
         }
 
-        Self::base_add_claim(target, claim, issuer, expiry);
+        let scope = Some(scope.clone());
+        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry);
         Ok(())
     }
 
@@ -1763,18 +1806,19 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
 
-        let scope_id_opt = match Claims::get(&pk, &sk).claim {
+        let investor_unique_scope_id = match Claims::get(&pk, &sk).claim {
             Claim::InvestorUniqueness(_, scope_id, _) => Some(scope_id),
-            Claim::InvestorUniquenessV2(scope, _) => match scope {
-                Scope::Ticker(ticker) => {
-                    Some(T::AssetSubTraitTarget::scope_id_of(&ticker, &target))
+            Claim::InvestorUniquenessV2(..) => match &sk.scope {
+                Some(Scope::Ticker(ticker)) => {
+                    Some(T::AssetSubTraitTarget::scope_id_of(ticker, &target))
                 }
                 _ => None,
             },
             _ => None,
         };
 
-        if let Some(scope_id) = scope_id_opt {
+        // Only if claim is a `InvestorUniqueness*`.
+        if let Some(scope_id) = investor_unique_scope_id {
             // Ensure the target is the issuer of the claim.
             ensure!(
                 target == issuer,
@@ -2284,13 +2328,11 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     }
 }
 
-/// A `revoke_claim` transaction is operational iff `claim` is a `Claim::CustomerDueDiligence`.
+/// A `revoke_claim` or `revoke_claim_by_index` TX is operational iff `claim_type` is a `Claim::CustomerDueDiligence`.
 /// Otherwise, it will be a normal transaction.
-fn revoke_claim<T: Trait>(claim: &Claim) -> (Weight, frame_support::weights::DispatchClass) {
-    let class = match claim {
-        Claim::CustomerDueDiligence(..) => Operational,
+fn revoke_claim_class(claim_type: ClaimType) -> frame_support::weights::DispatchClass {
+    match claim_type {
+        ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
-    };
-
-    (<T as Trait>::WeightInfo::revoke_claim(), class)
+    }
 }

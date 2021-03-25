@@ -1,4 +1,4 @@
-use crate::{investor_zkproof_data::v2::InvestorZKProofData, CddId, Claim, IdentityId};
+use crate::{investor_zkproof_data::v2::InvestorZKProofData, CddId, Claim, IdentityId, Scope};
 
 use confidential_identity::{
     claim_proofs::{slice_to_scalar, Verifier},
@@ -7,11 +7,14 @@ use confidential_identity::{
 };
 
 /// Evaluates if the claim is a valid proof and if `scope_id` matches with the one inside `proof`.
-pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
+pub fn evaluate_claim(
+    scope: &Scope,
+    claim: &Claim,
+    id: &IdentityId,
+    proof: &InvestorZKProofData,
+) -> bool {
     match claim {
-        Claim::InvestorUniquenessV2(scope, cdd_id) => {
-            verify_proof(id, scope.as_bytes(), cdd_id, proof)
-        }
+        Claim::InvestorUniquenessV2(cdd_id) => verify_proof(id, scope.as_bytes(), cdd_id, proof),
         _ => false,
     }
 }

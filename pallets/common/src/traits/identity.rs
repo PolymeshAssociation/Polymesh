@@ -96,6 +96,7 @@ pub trait WeightInfo {
     fn revoke_offchain_authorization() -> Weight;
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
+    fn revoke_claim_by_index() -> Weight;
 }
 
 /// The link between the identity and corporate actions pallet for handling CAA transfer authorization.

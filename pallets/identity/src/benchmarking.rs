@@ -39,7 +39,7 @@ fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     make_scope_id: SF,
     make_claim: IUF,
     make_proof: PF,
-) -> (User<T>, Claim, P)
+) -> (User<T>, Scope, Claim, P)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
     IF: Fn(&[u8]) -> InvestorUid,
@@ -61,14 +61,15 @@ where
     let ticker = Ticker::default();
     let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
-    let claim = make_claim(Scope::Ticker(ticker), scope_id, cdd_id);
+    let scope = Scope::Ticker(ticker);
+    let claim = make_claim(scope.clone(), scope_id, cdd_id);
     let proof = make_proof(&did, &investor_uid, &ticker);
-    (user, claim, proof)
+    (user, scope, claim, proof)
 }
 
 fn setup_investor_uniqueness_claim_v2<T>(
     name: &'static str,
-) -> (User<T>, Claim, v2::InvestorZKProofData)
+) -> (User<T>, Scope, Claim, v2::InvestorZKProofData)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -77,7 +78,7 @@ where
         |raw_did| make_investor_uid_v2(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
-        |scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(scope, cdd_id),
+        |_scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(cdd_id),
         v2::InvestorZKProofData::new,
     )
 }
@@ -89,7 +90,7 @@ where
 // `schnorkell` functionality here.
 fn setup_investor_uniqueness_claim_v1<T>(
     name: &'static str,
-) -> (User<T>, Claim, v1::InvestorZKProofData)
+) -> (User<T>, Scope, Claim, v1::InvestorZKProofData)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
@@ -283,9 +284,15 @@ benchmarks! {
     }: _(key.origin, target.did(), boxed_proposal)
 
     revoke_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof.0, Some(666u32.into()))?;
-    }: _(caller.origin, caller.did(), conf_scope_claim)
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into()))?;
+    }: _(caller.origin, caller.did(), claim)
+
+    revoke_claim_by_index {
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+        let claim_type = claim.claim_type();
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into()))?;
+    }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_permission_to_signer {
         let target = UserBuilder::<T>::default().generate_did().build("target");
@@ -377,10 +384,10 @@ benchmarks! {
     }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666u32.into()))
+        let (caller, _, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
+    }: _(caller.origin, caller.did(), claim, proof, Some(666u32.into()))
 
     add_investor_uniqueness_claim_v2 {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof.0, Some(666u32.into()))
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+    }: _(caller.origin, caller.did(), scope, claim, proof.0, Some(666u32.into()))
 }

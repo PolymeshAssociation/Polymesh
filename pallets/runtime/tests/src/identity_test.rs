@@ -1643,11 +1643,12 @@ fn add_investor_uniqueness_claim_v2() {
             // Load test cases and run them.
             let test_data = add_investor_uniqueness_claim_v2_data(user, user_no_cdd_id);
             for (idx, (input, expect)) in test_data.into_iter().enumerate() {
-                let (user, claim, proof) = input;
+                let (user, scope, claim, proof) = input;
                 let did = Identity::get_identity(&user).unwrap_or_default();
                 let origin = Origin::signed(user);
-                let output =
-                    Identity::add_investor_uniqueness_claim_v2(origin, did, claim, proof.0, None);
+                let output = Identity::add_investor_uniqueness_claim_v2(
+                    origin, did, scope, claim, proof.0, None,
+                );
                 assert_eq!(
                     output, expect,
                     "Unexpected output at index {}: output: {:?}, expected: {:?}",
@@ -1661,16 +1662,18 @@ fn add_investor_uniqueness_claim_v2() {
 fn add_investor_uniqueness_claim_v2_data(
     user: Public,
     user_no_cdd_id: Public,
-) -> Vec<((Public, Claim, v2::InvestorZKProofData), DispatchResult)> {
+) -> Vec<(
+    (Public, Scope, Claim, v2::InvestorZKProofData),
+    DispatchResult,
+)> {
     let ticker = Ticker::default();
     let did = Identity::get_identity(&user).unwrap();
     let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
-    let claim = Claim::InvestorUniquenessV2(Scope::Ticker(ticker), cdd_id);
+    let claim = Claim::InvestorUniquenessV2(cdd_id);
+    let scope = Scope::Ticker(ticker);
     let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
-    let invalid_ticker_claim = Claim::InvestorUniquenessV2(Scope::Ticker(invalid_ticker), cdd_id);
-    let invalid_scope_id_claim = Claim::InvestorUniquenessV2(Scope::Ticker(ticker), cdd_id);
     let invalid_version_claim =
         Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
     let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
@@ -1678,34 +1681,29 @@ fn add_investor_uniqueness_claim_v2_data(
     vec![
         // Invalid claim.
         (
-            (user, invalid_ticker_claim, proof),
+            (user, Scope::Ticker(invalid_ticker), claim.clone(), proof),
             Err(IdentityError::InvalidScopeClaim.into()),
         ),
         // Valid ZKProof v2
-        ((user, claim.clone(), proof), Ok(())),
+        ((user, scope.clone(), claim.clone(), proof), Ok(())),
         // Not allowed claim.
         (
-            (user, Claim::NoData, proof),
+            (user, scope.clone(), Claim::NoData, proof),
             Err(IdentityError::ClaimVariantNotAllowed.into()),
         ),
         // Missing CDD id.
         (
-            (user_no_cdd_id, claim.clone(), proof),
+            (user_no_cdd_id, scope.clone(), claim.clone(), proof),
             Err(IdentityError::ConfidentialScopeClaimNotAllowed.into()),
-        ),
-        // Invalid ScopeId
-        (
-            (user, invalid_scope_id_claim, invalid_proof),
-            Err(IdentityError::InvalidScopeClaim.into()),
         ),
         // Invalid ZKProof
         (
-            (user, claim, invalid_proof),
+            (user, scope.clone(), claim, invalid_proof),
             Err(IdentityError::InvalidScopeClaim.into()),
         ),
         // Claim version does NOT match.
         (
-            (user, invalid_version_claim, proof),
+            (user, scope.clone(), invalid_version_claim, proof),
             Err(IdentityError::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
