@@ -1669,7 +1669,7 @@ fn add_investor_uniqueness_claim() {
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let cdd_provider = AccountKeyring::Charlie.public();
-    let ticker = an_asset(alice);
+    let ticker = an_asset(alice, true);
     let initial_balance = Asset::balance_of(ticker, alice.did);
     let add_iu_claim =
         |investor_uid| provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider, Some(1));

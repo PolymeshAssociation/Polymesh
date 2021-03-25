@@ -98,7 +98,7 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u12
     let token = SecurityToken {
         name: name.into(),
         owner_did,
-        total_supply: 1_000_000,
+        total_supply: TOTAL_SUPPLY,
         divisible: true,
         asset_type: AssetType::default(),
         primary_issuance_agent: None,
@@ -111,8 +111,9 @@ crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
     token(b"A", owner_did)
 }
 
-crate fn an_asset(owner: User) -> Ticker {
-    let (ticker, token) = a_token(owner.did);
+crate fn an_asset(owner: User, divisible: bool) -> Ticker {
+    let (ticker, mut token) = a_token(owner.did);
+    token.divisible = divisible;
     assert_ok!(basic_asset(owner, ticker, &token));
     ticker
 }
@@ -187,37 +188,6 @@ fn cusip() -> AssetIdentifier {
 const ASSET_IDENTIFIERS: Vec<AssetIdentifier> = Vec::new();
 const FUNDING_ROUND: Option<FundingRoundName> = None;
 const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
-
-/// Creates a simple asset, owned by `owner`.
-// FIXME: Please use a_token and basic_asset or an_asset instead.
-crate fn simple_asset(owner: Public, divisible: bool) -> (SecurityToken<u128>, Ticker) {
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
-    let asset_type = AssetType::default();
-
-    let name: AssetName = ticker.as_ref().into();
-    Asset::create_asset(
-        Origin::signed(owner),
-        name.clone(),
-        ticker,
-        TOTAL_SUPPLY,
-        divisible,
-        asset_type.clone(),
-        ASSET_IDENTIFIERS,
-        FUNDING_ROUND,
-    )
-    .expect("Asset cannot be created");
-
-    let token = SecurityToken {
-        name,
-        owner_did: Identity::key_to_identity_dids(owner),
-        total_supply: TOTAL_SUPPLY,
-        divisible,
-        asset_type,
-        primary_issuance_agent: None,
-    };
-
-    (token, ticker)
-}
 
 /// Generates a new portfolio for `owner` using the given `name`.
 fn new_portfolio(owner: Public, name: &str) -> PortfolioId {
@@ -350,7 +320,7 @@ fn valid_transfers_pass() {
             assert_noop!(transfer(owner, owner), AssetError::InvalidTransfer);
             assert_ok!(transfer(owner, alice));
 
-            assert_eq!(Asset::balance_of(&ticker, owner.did), 1_000_000 - 500);
+            assert_eq!(Asset::balance_of(&ticker, owner.did), TOTAL_SUPPLY - 500);
             assert_eq!(Asset::balance_of(&ticker, alice.did), 500);
         })
 }
@@ -422,7 +392,7 @@ fn checkpoints_fuzz_test() {
 
             allow_all_transfers(ticker, owner);
 
-            let mut owner_balance: [u128; 100] = [1_000_000; 100];
+            let mut owner_balance: [u128; 100] = [TOTAL_SUPPLY; 100];
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
             for j in 1..100 {
@@ -652,7 +622,7 @@ fn controller_transfer() {
             let balance_of = |did| Asset::balance_of(&ticker, did);
             let balance_alice = balance_of(alice.did);
             let balance_owner = balance_of(owner.did);
-            assert_eq!(balance_owner, 1_000_000 - 500);
+            assert_eq!(balance_owner, TOTAL_SUPPLY - 500);
             assert_eq!(balance_alice, 500);
 
             assert_ok!(Asset::controller_transfer(
@@ -2266,22 +2236,21 @@ fn mesh_1531_ts_collission_regression_test() {
 
 #[test]
 fn secondary_key_not_authorized_for_asset_test() {
-    let primary_key = AccountKeyring::Alice.public();
+    let ring = AccountKeyring::Alice;
+    let primary_key = ring.public();
     let sk_all_permissions = AccountKeyring::Bob.public();
     let sk_not_permissions = AccountKeyring::Charlie.public();
-    let cdd = AccountKeyring::Eve.public();
 
-    let ticker = Ticker::try_from(&b"WPUSD"[..]).unwrap();
-    let invalid_tickers = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"]
+    let invalid_names = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"];
+    let invalid_tickers = invalid_names
         .iter()
-        .filter_map(|name| Ticker::try_from(name.as_ref()).ok())
-        .collect::<Vec<_>>();
+        .filter_map(|name| Ticker::try_from(name.as_ref()).ok());
 
     let secondary_keys = vec![
         SecondaryKey {
             signer: Signatory::Account(sk_not_permissions),
             permissions: Permissions {
-                asset: AssetPermissions::elems(invalid_tickers.into_iter()),
+                asset: AssetPermissions::elems(invalid_tickers),
                 ..Default::default()
             },
         },
@@ -2298,128 +2267,78 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     ExtBuilder::default()
         .add_regular_users(&[owner])
-        .cdd_providers(vec![cdd])
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(|| {
-            secondary_key_not_authorized_for_asset(
-                primary_key,
+            // NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
+            let owner = User::existing(ring);
+            let (ticker, token) = token(b"WPUSD", owner.did);
+            assert_ok!(basic_asset(owner, ticker, &token));
+
+            let minted_value = 50_000u128.into();
+            StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
+            assert_noop!(
+                Asset::issue(Origin::signed(sk_not_permissions), ticker, minted_value),
+                AssetError::SecondaryKeyNotAuthorizedForAsset
+            );
+
+            assert_ok!(Asset::issue(
+                Origin::signed(sk_all_permissions),
                 ticker,
-                sk_all_permissions,
-                sk_not_permissions,
-            )
+                minted_value
+            ));
+
+            assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
         });
-}
-
-/// NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
-fn secondary_key_not_authorized_for_asset(
-    owner: Public,
-    ticker: Ticker,
-    sk_all_permissions: Public,
-    sk_not_permissions: Public,
-) {
-    let init_total_supply = 1_000_000;
-    assert_ok!(Asset::create_asset(
-        Origin::signed(owner),
-        ticker.as_ref().into(),
-        ticker,
-        init_total_supply,
-        true,
-        AssetType::default(),
-        vec![],
-        None,
-    ));
-
-    let minted_value = 50_000u128.into();
-    StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
-    assert_noop!(
-        Asset::issue(Origin::signed(sk_not_permissions), ticker, minted_value),
-        AssetError::SecondaryKeyNotAuthorizedForAsset
-    );
-
-    assert_ok!(Asset::issue(
-        Origin::signed(sk_all_permissions),
-        ticker,
-        minted_value
-    ));
-
-    assert_eq!(
-        Asset::total_supply(ticker),
-        init_total_supply + minted_value
-    );
 }
 
 #[test]
 fn invalid_ticker_registry_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
+    test_with_owner(|owner| {
+        let (ticker, token) = token(b"MYUSD", owner.did);
+        assert_ok!(basic_asset(owner, ticker, &token));
 
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
-        .build()
-        .execute_with(|| invalid_ticker_registry(owner))
-}
-
-fn invalid_ticker_registry(owner: Public) {
-    let (token, _) = simple_asset(owner, true);
-
-    // Generate a data set for testing: (input, expected result)
-    [
-        (&b"MYUSD"[..], true),
-        (&b"MYUSD\01"[..], false),
-        (&b"YOUR"[..], false),
-    ]
-    .iter()
-    .map(|(name, exp)| (Ticker::try_from(name.as_ref()).unwrap(), exp))
-    .for_each(|(ticker, exp)| {
-        let valid = Asset::is_ticker_registry_valid(&ticker, token.owner_did);
-        assert_eq!(*exp, valid)
+        // Generate a data set for testing: (input, expected result)
+        [
+            (&b"MYUSD"[..], true),
+            (&b"MYUSD\01"[..], false),
+            (&b"YOUR"[..], false),
+        ]
+        .iter()
+        .map(|(name, exp)| (Ticker::try_from(name.as_ref()).unwrap(), exp))
+        .for_each(|(ticker, exp)| {
+            let valid = Asset::is_ticker_registry_valid(&ticker, owner.did);
+            assert_eq!(*exp, valid)
+        });
     });
 }
 
 #[test]
 fn sender_same_as_receiver_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
+    test_with_owner(|owner| {
+        let ticker = an_asset(owner, true);
 
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
-        .build()
-        .execute_with(|| sender_same_as_receiver(owner))
-}
+        // Create new portfolio
+        let eu_portfolio = PortfolioId::default_portfolio(owner.did);
+        let uk_portfolio = new_portfolio(owner.acc(), "UK");
 
-fn sender_same_as_receiver(owner: Public) {
-    let (token, ticker) = simple_asset(owner, true);
-
-    // Create new portfolio
-    let eu_portfolio = PortfolioId::default_portfolio(token.owner_did);
-    let uk_portfolio = new_portfolio(owner, "UK");
-
-    // Enforce an unsafe tranfer.
-    assert_noop!(
-        Asset::unsafe_transfer(eu_portfolio, uk_portfolio, &ticker, 1_000),
-        AssetError::SenderSameAsReceiver
-    );
+        // Enforce an unsafe tranfer.
+        assert_noop!(
+            Asset::unsafe_transfer(eu_portfolio, uk_portfolio, &ticker, 1_000),
+            AssetError::SenderSameAsReceiver
+        );
+    });
 }
 
 #[test]
 fn invalid_granularity_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
-
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
-        .build()
-        .execute_with(|| {
-            let (_, ticker) = simple_asset(owner, false);
-
-            assert_noop!(
-                Asset::issue(Origin::signed(owner), ticker, 10_000),
-                AssetError::InvalidGranularity
-            );
-        })
+    test_with_owner(|owner| {
+        let ticker = an_asset(owner, false);
+        assert_noop!(
+            Asset::issue(owner.origin(), ticker, 10_000),
+            AssetError::InvalidGranularity
+        );
+    })
 }
 
 #[test]
@@ -2523,7 +2442,7 @@ fn asset_type_custom_too_long() {
 fn asset_doc_field_too_long() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let ticker = an_asset(owner);
+        let ticker = an_asset(owner, true);
         let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], ticker);
         assert_too_long!(add_doc(Document {
             uri: max_len_bytes(1),
@@ -2546,114 +2465,93 @@ fn asset_doc_field_too_long() {
     });
 }
 
-#[test]
-fn unsafe_can_transfer_all_status_codes_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
-
+#[track_caller]
+fn test_with_owner(test: impl FnOnce(User)) {
+    let owner = AccountKeyring::Alice;
     ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
+        .add_regular_users_from_accounts(&[owner.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
-        .execute_with(|| unsafe_can_transfer_all_status_codes(owner))
+        .execute_with(|| test(User::existing(owner)));
 }
 
-fn unsafe_can_transfer_all_status_codes(owner: Public) {
-    let (token, ticker) = simple_asset(owner, false);
+#[test]
+fn unsafe_can_transfer_all_status_codes_test() {
+    test_with_owner(|owner| {
+        let ticker = an_asset(owner, false);
 
-    let owner_did = token.owner_did.clone();
-    let uk_portfolio = new_portfolio(owner, "UK");
-    let default_portfolio = PortfolioId::default_portfolio(owner_did);
-    let do_unsafe_can_transfer = || {
-        Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
-            .unwrap()
-    };
+        let uk_portfolio = new_portfolio(owner.acc(), "UK");
+        let default_portfolio = PortfolioId::default_portfolio(owner.did);
+        let do_unsafe_can_transfer = || {
+            Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
+                .unwrap()
+        };
 
-    // INVALID_GRANULARITY
-    let code = do_unsafe_can_transfer();
-    assert_eq!(code, INVALID_GRANULARITY);
+        // INVALID_GRANULARITY
+        let code = do_unsafe_can_transfer();
+        assert_eq!(code, INVALID_GRANULARITY);
 
-    // Update indivisible.
-    assert_ok!(Asset::make_divisible(Origin::signed(owner), ticker));
+        // Update indivisible.
+        assert_ok!(Asset::make_divisible(owner.origin(), ticker));
 
-    // INVALID_RECEIVER_DID
-    let code = do_unsafe_can_transfer();
-    assert_eq!(code, INVALID_RECEIVER_DID);
+        // INVALID_RECEIVER_DID
+        let code = do_unsafe_can_transfer();
+        assert_eq!(code, INVALID_RECEIVER_DID);
 
-    // INVALID_SENDER_DID
-    let no_cdd_portfolio_did = PortfolioId::default();
-    let code = Asset::unsafe_can_transfer(
-        None,
-        no_cdd_portfolio_did,
-        None,
-        default_portfolio,
-        &ticker,
-        100,
-    )
-    .unwrap();
-    assert_eq!(code, INVALID_SENDER_DID);
+        // INVALID_SENDER_DID
+        let no_cdd_portfolio_did = PortfolioId::default();
+        let code = Asset::unsafe_can_transfer(
+            None,
+            no_cdd_portfolio_did,
+            None,
+            default_portfolio,
+            &ticker,
+            100,
+        )
+        .unwrap();
+        assert_eq!(code, INVALID_SENDER_DID);
+    });
 }
 
 #[test]
 fn set_funding_round_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
-
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
-        .build()
-        .execute_with(|| set_funding_round(owner))
-}
-
-fn set_funding_round(owner: Public) {
-    let (_, ticker) = simple_asset(owner, true);
-    let o = Origin::signed(owner);
-
-    let exceeded_funding_name = exceeded_funding_round_name();
-    assert_noop!(
-        Asset::set_funding_round(o.clone(), ticker, exceeded_funding_name),
-        AssetError::FundingRoundNameMaxLengthExceeded
-    );
-
-    let valid_funding_name = FundingRoundName(b"VIP round".to_vec());
-    assert_ok!(Asset::set_funding_round(o, ticker, valid_funding_name));
+    test_with_owner(|owner| {
+        let ticker = an_asset(owner, true);
+        assert_noop!(
+            Asset::set_funding_round(owner.origin(), ticker, exceeded_funding_round_name()),
+            AssetError::FundingRoundNameMaxLengthExceeded
+        );
+        assert_ok!(Asset::set_funding_round(
+            owner.origin(),
+            ticker,
+            FundingRoundName(b"VIP round".to_vec())
+        ));
+    })
 }
 
 #[test]
 fn update_identifiers_errors_test() {
-    let owner = AccountKeyring::Alice.public();
-    let cdd = AccountKeyring::Eve.public();
+    test_with_owner(|owner| {
+        let ticker = an_asset(owner, true);
+        let invalid_asset_ids = vec![
+            AssetIdentifier::CUSIP(*b"037833108"),   // Invalid checksum.
+            AssetIdentifier::CINS(*b"S08000AA7"),    // Invalid checksum.
+            AssetIdentifier::ISIN(*b"US0378331004"), // Invalid checksum.
+            AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN37"), // Invalid checksum.
+        ];
 
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[owner])
-        .cdd_providers(vec![cdd])
-        .build()
-        .execute_with(|| update_identifiers_errors(owner))
-}
+        invalid_asset_ids.into_iter().for_each(|asset_id| {
+            assert_noop!(
+                Asset::update_identifiers(owner.origin(), ticker, vec![asset_id]),
+                AssetError::InvalidAssetIdentifier
+            );
+        });
 
-fn update_identifiers_errors(owner: Public) {
-    let (_, ticker) = simple_asset(owner, true);
-    let o = Origin::signed(owner);
-
-    let invalid_asset_ids = vec![
-        AssetIdentifier::CUSIP(*b"037833108"),   // Invalid checksum.
-        AssetIdentifier::CINS(*b"S08000AA7"),    // Invalid checksum.
-        AssetIdentifier::ISIN(*b"US0378331004"), // Invalid checksum.
-        AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN37"), // Invalid checksum.
-    ];
-
-    invalid_asset_ids.into_iter().for_each(|asset_id| {
-        assert_noop!(
-            Asset::update_identifiers(o.clone(), ticker, vec![asset_id]),
-            AssetError::InvalidAssetIdentifier
-        );
-    });
-
-    let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
-    assert_ok!(Asset::update_identifiers(
-        o.clone(),
-        ticker,
-        valid_asset_ids
-    ));
+        let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
+        assert_ok!(Asset::update_identifiers(
+            owner.origin(),
+            ticker,
+            valid_asset_ids
+        ));
+    })
 }
