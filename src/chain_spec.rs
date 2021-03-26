@@ -9,8 +9,8 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, InvestorUid, Moment, PosRatio,
-    SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
+    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Moment, PosRatio, SecondaryKey,
+    Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -182,28 +182,6 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
     core::str::from_utf8(bytes).unwrap()
 }
 
-fn cdd_provider(n: u8) -> GenesisIdentityRecord<AccountId> {
-    GenesisIdentityRecord {
-        primary_key: seeded_acc_id(adjust_last(&mut { *b"cdd_provider_0" }, n)),
-        issuers: vec![IdentityId::from(n as u128)],
-        did: IdentityId::from(n as u128),
-        investor: InvestorUid::from(adjust_last(&mut { *b"uid0" }, n).as_bytes()),
-        ..Default::default()
-    }
-}
-
-fn polymath_mem(n: u8) -> GenesisIdentityRecord<AccountId> {
-    GenesisIdentityRecord {
-        primary_key: seeded_acc_id(adjust_last(&mut { *b"polymath_0" }, n)),
-        issuers: vec![IdentityId::from(1 as u128)],
-        did: IdentityId::from(2 + n as u128),
-        investor: InvestorUid::from(adjust_last(&mut { *b"uid3" }, n)),
-        ..Default::default()
-    }
-}
-
-const STASH: u128 = 5_000_000 * POLY;
-const ENDOWMENT: u128 = 100_000_000 * POLY;
 const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
 
@@ -232,73 +210,6 @@ impl BridgeLockId {
         const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
         (0..count).map(|x| Self::new(x + 100, HASH)).collect()
     }
-}
-
-fn identities(
-    initial_authorities: &[InitialAuth],
-    initial_identities: &[GenesisIdentityRecord<AccountId>],
-) -> (
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<GenesisIdentityRecord<AccountId>>,
-    Vec<(AccountId, IdentityId)>,
-) {
-    let num_initial_identities = initial_identities.len() as u128;
-    let mut identity_counter = num_initial_identities;
-    let authority_identities = initial_authorities
-        .iter()
-        .map(|x| {
-            identity_counter += 1;
-            let did = IdentityId::from(identity_counter);
-            let investor = InvestorUid::from(did.as_ref());
-            let issuers = vec![IdentityId::from(1)];
-
-            GenesisIdentityRecord {
-                primary_key: x.1.clone(),
-                issuers,
-                did,
-                investor,
-                ..Default::default()
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let all_identities = initial_identities
-        .iter()
-        .cloned()
-        .chain(authority_identities.iter().cloned())
-        .collect::<Vec<_>>();
-    identity_counter = num_initial_identities;
-
-    let secondary_keys = initial_authorities
-        .iter()
-        .map(|x| {
-            identity_counter += 1;
-            (x.0.clone(), IdentityId::from(identity_counter))
-        })
-        .collect::<Vec<_>>();
-
-    let stakers = authority_identities
-        .iter()
-        .cloned()
-        .zip(initial_authorities.iter().cloned())
-        .map(|(gen_id, x)| {
-            (
-                gen_id.did,
-                x.0.clone(),
-                x.1.clone(),
-                STASH,
-                pallet_staking::StakerStatus::Validator,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    (stakers, all_identities, secondary_keys)
 }
 
 fn genesis_processed_data(

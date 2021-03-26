@@ -314,6 +314,7 @@ construct_runtime!(
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
         MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
+
         // CddServiceProviders: Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
 
