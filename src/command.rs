@@ -73,7 +73,7 @@ impl SubstrateCli for Cli {
             )?),
             "Testnet" | "testnet" | "" => {
                 Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
-                    &include_bytes!("./chain_specs/alcyone_raw.json")[..],
+                    &include_bytes!("./chain_specs/testnet_raw.json")[..],
                 )?)
             }
             path => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_file(
