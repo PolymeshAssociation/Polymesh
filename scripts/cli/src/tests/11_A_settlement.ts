@@ -6,46 +6,41 @@ import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import * as settlement from "../helpers/settlement_helper";
 
 async function main(): Promise<void> {
-		const ticker = init.generateRandomTicker();
-		const testEntities = await init.initMain();
-		const alice = testEntities[0];
-		const bob = await init.generateRandomEntity();
-		const bobDid = (await createIdentities([bob], alice))[0];
-		const aliceDid = await init.keyToIdentityIds(alice.publicKey);
-		await distributePoly(bob, init.transferAmount, alice);
-		await issueTokenToDid(alice, ticker, 1000000, null);
-		await addComplianceRequirement(alice, ticker);
+	const ticker = init.generateRandomTicker();
+	const testEntities = await init.initMain();
+	const alice = testEntities[0];
+	const bob = await init.generateRandomEntity();
+	const bobDid = (await createIdentities(alice, [bob]))[0];
+	const aliceDid = await init.keyToIdentityIds(alice.publicKey);
+	await distributePoly(alice, bob, init.transferAmount);
+	await issueTokenToDid(alice, ticker, 1000000, null);
+	await addComplianceRequirement(alice, ticker);
 
-		let aliceBalance = await assetBalance(ticker, aliceDid);
-		let bobBalance = await assetBalance(ticker, bobDid);
+	let aliceBalance = await assetBalance(ticker, aliceDid);
+	let bobBalance = await assetBalance(ticker, bobDid);
 
-		console.log("Balance for Asset (Before)");
-		console.log(`alice asset balance -------->  ${aliceBalance}`);
-		console.log(`bob asset balance -------->  ${bobBalance}`);
-		console.log(" ");
+	console.log("Balance for Asset (Before)");
+	console.log(`alice asset balance -------->  ${aliceBalance}`);
+	console.log(`bob asset balance -------->  ${bobBalance}`);
+	console.log(" ");
 
-		let venueCounter = await settlement.createVenue(alice);
+	let venueCounter = await settlement.createVenue(alice);
 
-		let intructionCounterAB = await settlement.addInstruction(
-			venueCounter,
-			alice,
-			aliceDid,
-			bobDid,
-			ticker,
-			100
-		);
+	let intructionCounterAB = await settlement.addInstruction(alice, venueCounter, aliceDid, bobDid, ticker, 100);
 
-		await settlement.affirmInstruction(alice, intructionCounterAB, aliceDid, 1);
-		await settlement.affirmInstruction(bob, intructionCounterAB, bobDid, 0);
+	await settlement.affirmInstruction(alice, intructionCounterAB, aliceDid, 1);
+	await settlement.affirmInstruction(bob, intructionCounterAB, bobDid, 0);
 
-		//await rejectInstruction(bob, intructionCounter);
-		//await unathorizeInstruction(alice, instructionCounter);
+	//await rejectInstruction(bob, intructionCounter);
+	//await unathorizeInstruction(alice, instructionCounter);
 
-		aliceBalance = await assetBalance(ticker, aliceDid);
-		bobBalance = await assetBalance(ticker, bobDid);
+	aliceBalance = await assetBalance(ticker, aliceDid);
+	bobBalance = await assetBalance(ticker, bobDid);
 
-		console.log(`alice asset balance -------->  ${aliceBalance}`);
-		console.log(`bob asset balance -------->  ${bobBalance}`);
+	console.log(`alice asset balance -------->  ${aliceBalance}`);
+	console.log(`bob asset balance -------->  ${bobBalance}`);
 }
 
-main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());
+main()
+	.catch((err) => console.log(`Error: ${err.message}`))
+	.finally(() => process.exit());

@@ -5,11 +5,11 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Attaches a secondary key to each DID
- * @param {KeyringPair[]} secondaryKeys - KeyringPair[]
- * @param {KeyringPair[]} primaryKeys - KeyringPair[]
+ * @param {KeyringPair[]} signers - KeyringPair[]
+ * @param {KeyringPair[]} receivers - KeyringPair[]
  * @return {Promise<void>}
  */
-export async function addSecondaryKeys(secondaryKeys: KeyringPair[], primaryKeys: KeyringPair[]): Promise<void> {
+export async function addSecondaryKeys(signers: KeyringPair[], receivers: KeyringPair[]): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	let totalPermissions: Permissions = {
 		asset: [],
@@ -17,9 +17,9 @@ export async function addSecondaryKeys(secondaryKeys: KeyringPair[], primaryKeys
 		portfolio: [],
 	};
 
-	for (let i in primaryKeys) {
+	for (let i in signers) {
 		let target = {
-			Account: secondaryKeys[i].publicKey as AccountId,
+			Account: receivers[i].publicKey as AccountId,
 		};
 		let authData = {
 			JoinIdentity: totalPermissions,
@@ -27,7 +27,7 @@ export async function addSecondaryKeys(secondaryKeys: KeyringPair[], primaryKeys
 		let expiry: Expiry = null;
 		// 1. Add Secondary Item to identity.
 		const transaction = api.tx.identity.addAuthorization(target, authData, expiry);
-		await sendTx(primaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }
 

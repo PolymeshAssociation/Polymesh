@@ -31,16 +31,16 @@ export async function addClaimsToDids(
 
 /**
  * @description Sets permission to signer key
- * @param {KeyringPair[]} primaryKeys - An array of KeyringPairs
- * @param {KeyringPair[]} secondaryKeys - An array of KeyringPairs
+ * @param {KeyringPair[]} signers - An array of KeyringPairs
+ * @param {KeyringPair[]} receivers - An array of KeyringPairs
  * @param {LegacyPalletPermissions[]} extrinsic - An array of LegacyPalletPermissions
  * @param {PortfolioId[]} portfolio - An array of PortfolioIds
  * @param {Ticker[]} asset - An array of Tickers
  * @return {Promise<void>}
  */
 export async function setPermissionToSigner(
-	primaryKeys: KeyringPair[],
-	secondaryKeys: KeyringPair[],
+	signers: KeyringPair[],
+	receivers: KeyringPair[],
 	extrinsic: LegacyPalletPermissions[],
 	portfolio: PortfolioId[],
 	asset: Ticker[]
@@ -52,32 +52,30 @@ export async function setPermissionToSigner(
 		portfolio,
 	};
 
-	for (let i in primaryKeys) {
+	for (let i in signers) {
 		let signer = {
-			Account: secondaryKeys[i].publicKey as AccountId,
+			Account: receivers[i].publicKey as AccountId,
 		};
 		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
-		await sendTx(primaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
 }
 
 /**
  * @description Authorizes the joining of secondary keys to a DID
- * @param {KeyringPair[]} primaryKeys - An array of KeyringPairs
- * @param {IdentityId[]} dids - An array of IdentityIds
- * @param {KeyringPair[]} secondaryKeys - An array of KeyringPairs
- * @return {Promise<IdentityId[]>} Creates an array of identities
+ * @param {KeyringPair[]} signers - An array of KeyringPairs
+ * @param {KeyringPair[]} receivers - An array of KeyringPairs
+ * @return {Promise<void>} 
  */
 export async function authorizeJoinToIdentities(
-	primaryKeys: KeyringPair[],
-	dids: IdentityId[],
-	secondaryKeys: KeyringPair[]
-): Promise<IdentityId[]> {
+	signers: KeyringPair[],
+	receivers: KeyringPair[]
+): Promise<void> {
 	const api = await ApiSingleton.getInstance();
-	for (let i in primaryKeys) {
+	for (let i in receivers) {
 		// 1. Authorize
 		const auths = await api.query.identity.authorizations.entries({
-			Account: secondaryKeys[i].publicKey,
+			Account: signers[i].publicKey,
 		});
 
 		let last_auth_id: AnyNumber = 0;
@@ -87,30 +85,29 @@ export async function authorizeJoinToIdentities(
 			}
 		}
 		const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-		await sendTx(secondaryKeys[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
 	}
-	return dids;
 }
 
 /**
  * @description Creates an Identity for KeyringPairs.
- * @param {KeyringPair[]} accounts - An array of KeyringPairs
  * @param {KeyringPair} signer - KeyringPair
+ * @param {KeyringPair[]} receivers - An array of KeyringPairs
  * @return {Promise<IdentityId[]>} Creates an array of identities
  */
-export async function createIdentities(accounts: KeyringPair[], signer: KeyringPair): Promise<IdentityId[]> {
-	return createIdentitiesWithExpiry(accounts, signer, []);
+export async function createIdentities(signer: KeyringPair, receivers: KeyringPair[]): Promise<IdentityId[]> {
+	return createIdentitiesWithExpiry(signer, receivers, []);
 }
 
 async function createIdentitiesWithExpiry(
-	accounts: KeyringPair[],
 	signer: KeyringPair,
+	receivers: KeyringPair[],
 	expiries: Uint8Array[]
 ): Promise<IdentityId[]> {
 	const api = await ApiSingleton.getInstance();
 	let dids: IdentityId[] = [];
 
-	for (let account of accounts) {
+	for (let account of receivers) {
 		let account_did = (await keyToIdentityIds(account.publicKey)).toString();
 
 		if (parseInt(account_did) == 0) {
@@ -121,20 +118,20 @@ async function createIdentitiesWithExpiry(
 			console.log("Identity Already Linked.");
 		}
 	}
-	await setDidsArray(dids, accounts).catch((err) => console.log(`Error: ${err.message}`));
-	await addCddClaim(dids, expiries, signer).catch((err) => console.log(`Error: ${err.message}`));
+	await setDidsArray(dids, receivers).catch((err) => console.log(`Error: ${err.message}`));
+	await addCddClaim(signer, dids, expiries).catch((err) => console.log(`Error: ${err.message}`));
 	return dids;
 }
 
-async function setDidsArray(dids: IdentityId[], accounts: KeyringPair[]) {
-	for (let i in accounts) {
-		const did = await keyToIdentityIds(accounts[i].publicKey);
+async function setDidsArray(dids: IdentityId[], receivers: KeyringPair[]) {
+	for (let i in receivers) {
+		const did = await keyToIdentityIds(receivers[i].publicKey);
 		dids.push(did);
-		console.log(`>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}`);
+		console.log(`>>>> [Get DID ] acc: ${receivers[i].address} did: ${dids[i]}`);
 	}
 }
 
-async function addCddClaim(dids: IdentityId[], expiries: Uint8Array[], signer: KeyringPair) {
+async function addCddClaim(signer: KeyringPair, dids: IdentityId[], expiries: Uint8Array[]) {
 	const api = await ApiSingleton.getInstance();
 	// Add CDD Claim with CDD_ID
 	for (let i in dids) {

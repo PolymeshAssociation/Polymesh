@@ -15,11 +15,11 @@ export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
 
 /**
  * @description Creates a portfolio
- * @param {string} name - Name of portfolio
  * @param {KeyringPair} signer - KeyringPair
+ * @param {string} name - Name of portfolio
  * @return {Promise<boolean>}
  */
-export async function createPortfolio(name: string, signer: KeyringPair): Promise<boolean> {
+export async function createPortfolio(signer: KeyringPair, name: string): Promise<boolean> {
 	const api = await ApiSingleton.getInstance();
 	try {
 		const transaction = api.tx.portfolio.createPortfolio(name);
@@ -33,30 +33,30 @@ export async function createPortfolio(name: string, signer: KeyringPair): Promis
 
 /**
  * @description Moves portfolio funds
+ * @param {KeyringPair} signer - KeyringPair
  * @param {KeyringPair} primaryKey - KeyringPair
- * @param {KeyringPair} secondaryKey - KeyringPair
  * @param {Ticker} ticker - Ticker to be moved
  * @param {number} amount - Amount to move
  * @return {Promise<boolean>}
  */
 export async function movePortfolioFunds(
-	primary_key: KeyringPair,
-	secondary_key: KeyringPair,
+	signer: KeyringPair,
+	primaryKey: KeyringPair,
 	ticker: Ticker,
 	amount: number
 ): Promise<boolean> {
 	const api = await ApiSingleton.getInstance();
 	try {
-		const primaryKeyDid = await keyToIdentityIds(primary_key.publicKey);
-		const secondaryKeyDid = await keyToIdentityIds(secondary_key.publicKey);
-		const portfolioNum = (await nextPortfolioNumber(secondaryKeyDid)) - 1;
+		const primaryKeyDid = await keyToIdentityIds(primaryKey.publicKey);
+		const signerDid = await keyToIdentityIds(signer.publicKey);
+		const portfolioNum = (await nextPortfolioNumber(signerDid)) - 1;
 
 		const from: PortfolioId = {
 			did: primaryKeyDid,
 			kind: { Default: "" },
 		};
 		const to: PortfolioId = {
-			did: secondaryKeyDid,
+			did: signerDid,
 			kind: { User: portfolioNum },
 		};
 		const items: MovePortfolioItem[] = [
@@ -67,7 +67,7 @@ export async function movePortfolioFunds(
 		];
 
 		const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
-		await sendTx(secondary_key, transaction);
+		await sendTx(signer, transaction);
 		return true;
 	} catch (err) {
 		console.log(`Error: ${err.message}`);

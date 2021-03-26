@@ -41,32 +41,32 @@ export function setDoc(
 }
 
 /**
- * @description Adds ticker to ticker array
+ * @description Adds portfolio to portfolioArray
  * @param {PortfolioId[]} portfolioArray - An array of PortfolioIds
- * @param {KeyringPair} key - KeyringPair
+ * @param {KeyringPair} receiver - KeyringPair
  * @param {"Default" | "User"} type - Type of Portfolio
  * @return {Promise<void>}
  */
 export async function setPortfolio(
 	portfolioArray: PortfolioId[],
-	key: KeyringPair,
+	receiver: KeyringPair,
 	type: "Default" | "User"
 ): Promise<void> {
 	const api = await ApiSingleton.getInstance();
-	let keyDid = await keyToIdentityIds(key.publicKey);
+	let receiverDid = await keyToIdentityIds(receiver.publicKey);
 
 	switch (type) {
 		case "User":
-			const portfolioNum = (await nextPortfolioNumber(keyDid)) - 1;
+			const portfolioNum = (await nextPortfolioNumber(receiverDid)) - 1;
 			let userPortfolio: PortfolioId = {
-				did: keyDid,
+				did: receiverDid,
 				kind: { User: portfolioNum },
 			};
 			portfolioArray.push(userPortfolio);
 			break;
 		default:
 			let defaultPortfolio: PortfolioId = {
-				did: keyDid,
+				did: receiverDid,
 				kind: { Default: "" },
 			};
 			portfolioArray.push(defaultPortfolio);

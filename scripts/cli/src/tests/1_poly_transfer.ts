@@ -7,8 +7,10 @@ async function main(): Promise<void> {
 	const alice = testEntities[0];
 	const primaryDevSeed = generateRandomKey();
 	const keys = await generateKeys(2, primaryDevSeed);
-	await createIdentities(keys, alice);
-	await distributePolyBatch(keys, transferAmount, alice);
+	await createIdentities(alice, keys);
+	await distributePolyBatch(alice, keys, transferAmount);
 }
 
-main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());
+main()
+	.catch((err) => console.log(`Error: ${err.message}`))
+	.finally(() => process.exit());

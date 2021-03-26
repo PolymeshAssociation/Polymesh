@@ -5,11 +5,11 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Sets the default enactment period for a PIP
- * @param {number} duration - Blocknumber
  * @param {KeyringPair} signer - KeyringPair
+ * @param {number} duration - Blocknumber
  * @return {Promise<void>}
  */
-export async function setDefaultEnactmentPeriod(duration: number, signer: KeyringPair): Promise<void> {
+export async function setDefaultEnactmentPeriod(signer: KeyringPair, duration: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(duration));
 	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
@@ -38,17 +38,17 @@ export async function setActivePipLimit(
 
 /**
  * @description Creates a proposal
+ * @param {KeyringPair} signer - KeyringPair
  * @param {number} proposal
  * @param {number} deposit - number
- * @param {KeyringPair} signer - KeyringPair
  * @param {string=} url - Proposal URL link
  * @param {string=} description - Proposal description
  * @return {Promise<void>}
  */
 export async function propose(
+	signer: KeyringPair,
 	proposal: SubmittableExtrinsic<"promise", ISubmittableResult>,
 	deposit: number,
-	signer: KeyringPair,
 	url: string | null,
 	description: string | null
 ): Promise<void> {
@@ -94,11 +94,11 @@ export async function rejectProposal(pipId: number): Promise<SubmittableExtrinsi
 
 /**
  * @description Reschedules a proposal
- * @param {number} pipId - number
  * @param {KeyringPair} signer - KeyringPair
+ * @param {number} pipId - number
  * @return {Promise<void>}
  */
-export async function rescheduleProposal(pipId: number, signer: KeyringPair): Promise<void> {
+export async function rescheduleProposal(signer: KeyringPair, pipId: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.pips.rescheduleExecution(pipId, null);
 	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
@@ -106,13 +106,13 @@ export async function rescheduleProposal(pipId: number, signer: KeyringPair): Pr
 
 /**
  * @description Vote Result
- * @param {SubmittableExtrinsic<"promise", ISubmittableResult>} tx - SubmittableExtrinsic
  * @param {KeyringPair[]} signers - KeyringPair[]
+ * @param {SubmittableExtrinsic<"promise", ISubmittableResult>} tx - SubmittableExtrinsic
  * @return {Promise<void>}
  */
 export async function voteResult(
-	tx: SubmittableExtrinsic<"promise", ISubmittableResult>,
-	signers: KeyringPair[]
+	signers: KeyringPair[],
+	tx: SubmittableExtrinsic<"promise", ISubmittableResult>
 ): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);

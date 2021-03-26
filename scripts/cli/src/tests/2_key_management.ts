@@ -13,14 +13,16 @@ async function main(): Promise<void> {
 	const dave = await init.generateRandomEntity();
 	const primaryKeys = await init.generateKeys(2, primaryDevSeed);
 	const secondaryKeys = await init.generateKeys(2, secondaryDevSeed);
-	const bobSignatory = await init.signatory(bob, alice);
-	const charlieSignatory = await init.signatory(charlie, alice);
-	const daveSignatory = await init.signatory(dave, alice);
+	const bobSignatory = await init.signatory(alice, bob);
+	const charlieSignatory = await init.signatory(alice, charlie);
+	const daveSignatory = await init.signatory(alice, dave);
 	const signatoryArray = [bobSignatory, charlieSignatory, daveSignatory];
-	await createIdentities(primaryKeys, alice);
-	await distributePolyBatch(primaryKeys, init.transferAmount, alice);
-	await addSecondaryKeys(secondaryKeys, primaryKeys);
+	await createIdentities(alice, primaryKeys);
+	await distributePolyBatch(alice, primaryKeys, init.transferAmount);
+	await addSecondaryKeys(primaryKeys, secondaryKeys);
 	await createMultiSig(alice, signatoryArray, 2);
 }
 
-main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());
+main()
+	.catch((err) => console.log(`Error: ${err.message}`))
+	.finally(() => process.exit());

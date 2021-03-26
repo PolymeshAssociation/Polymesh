@@ -196,8 +196,8 @@ export async function generateStashKeys(accounts: KeyringPair[]): Promise<Keyrin
 }
 
 export function sendTransaction(
-	transaction: SubmittableExtrinsic<"promise">,
 	signer: KeyringPair,
+	transaction: SubmittableExtrinsic<"promise">,
 	nonceObj: NonceObject
 ) {
 	return new Promise((resolve, reject) => {
@@ -249,12 +249,6 @@ export function sendTransaction(
 	});
 }
 
-export async function signAndSendTransaction(transaction: SubmittableExtrinsic<"promise">, signer: KeyringPair) {
-	let nonceObj = { nonce: nonces.get(signer.address) };
-	await sendTransaction(transaction, signer, nonceObj);
-	nonces.set(signer.address, nonces.get(signer.address).addn(1));
-}
-
 export async function generateOffchainKeys(keyType: string) {
 	const api = await ApiSingleton.getInstance();
 	const PHRASE = mnemonicGenerate();
@@ -264,9 +258,9 @@ export async function generateOffchainKeys(keyType: string) {
 }
 
 // Creates a Signatory Object
-export async function signatory(entity: KeyringPair, signer: KeyringPair) {
+export async function signatory(signer: KeyringPair, entity: KeyringPair) {
 	const api = await ApiSingleton.getInstance();
-	let entityDid = (await createIdentities([entity], signer))[0];
+	let entityDid = (await createIdentities(signer, [entity]))[0];
 	let signatoryObj = {
 		Identity: entityDid,
 	};
@@ -276,7 +270,7 @@ export async function signatory(entity: KeyringPair, signer: KeyringPair) {
 export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"promise">) {
 	let nonceObj = { nonce: nonces.get(signer.address) };
 	nonces.set(signer.address, nonces.get(signer.address).addn(1));
-	const result = await sendTransaction(tx, signer, nonceObj);
+	const result = await sendTransaction(signer, tx, nonceObj);
 	return result;
 }
 
