@@ -17,8 +17,8 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, alcyone_chain_ops, general_chain_ops, itn_chain_ops, new_full_base, AlcyoneExecutor,
-    GeneralExecutor, ITNExecutor, IsNetwork, Network, NewChainOps, NewFullBase,
+    self, general_chain_ops, itn_chain_ops, new_full_base, testnet_chain_ops, GeneralExecutor,
+    ITNExecutor, IsNetwork, Network, NewChainOps, NewFullBase, TestnetExecutor,
 };
 use core::future::Future;
 use log::info;
@@ -60,21 +60,19 @@ impl SubstrateCli for Cli {
         Ok(match id {
             "dev" => Box::new(chain_spec::general::develop_config()),
             "local" => Box::new(chain_spec::general::local_config()),
-            "alcyone-dev" => Box::new(chain_spec::alcyone_testnet::develop_config()),
-            "alcyone-local" => Box::new(chain_spec::alcyone_testnet::local_config()),
+            "testnet-dev" => Box::new(chain_spec::testnet::develop_config()),
+            "testnet-local" => Box::new(chain_spec::testnet::local_config()),
             "itn-dev" => Box::new(chain_spec::polymesh_itn::develop_config()),
             "itn-local" => Box::new(chain_spec::polymesh_itn::local_config()),
             "itn-bootstrap" => Box::new(chain_spec::polymesh_itn::bootstrap_config()),
             "ITN" | "itn" => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/itn_raw.json")[..],
             )?),
-            "Buffron" | "buffron" => {
-                Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
-                    &include_bytes!("./chain_specs/buffron_raw.json")[..],
-                )?)
-            }
-            "Alcyone" | "alcyone" | "" => {
-                Box::new(chain_spec::alcyone_testnet::ChainSpec::from_json_bytes(
+            "Buffron" | "buffron" => Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
+                &include_bytes!("./chain_specs/buffron_raw.json")[..],
+            )?),
+            "Testnet" | "testnet" | "" => {
+                Box::new(chain_spec::testnet::ChainSpec::from_json_bytes(
                     &include_bytes!("./chain_specs/alcyone_raw.json")[..],
                 )?)
             }
@@ -114,8 +112,8 @@ pub fn run() -> Result<()> {
             runtime.run_node_until_exit(|config| match (network, &config.role) {
                 (Network::ITN, Role::Light) => service::itn_new_light(config),
                 (Network::ITN, _) => service::itn_new_full(config),
-                (Network::Testnet, Role::Light) => service::alcyone_new_light(config),
-                (Network::Testnet, _) => service::alcyone_new_full(config),
+                (Network::Testnet, Role::Light) => service::testnet_new_light(config),
+                (Network::Testnet, _) => service::testnet_new_full(config),
                 (Network::Other, Role::Light) => service::general_new_light(config),
                 (Network::Other, _) => service::general_new_full(config),
             })
@@ -155,7 +153,7 @@ pub fn run() -> Result<()> {
                             ..
                         } = new_full_base::<
                             polymesh_runtime_testnet::RuntimeApi,
-                            AlcyoneExecutor,
+                            TestnetExecutor,
                             _,
                             _,
                         >(config, |_, _| ())?;
@@ -237,7 +235,7 @@ pub fn run() -> Result<()> {
                         runner.sync_run(|config| cmd.run::<Block, service::ITNExecutor>(config))
                     }
                     Network::Testnet => {
-                        runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                        runner.sync_run(|config| cmd.run::<Block, service::TestnetExecutor>(config))
                     }
                     Network::Other => {
                         runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
@@ -259,8 +257,8 @@ fn async_run<F, G, H>(
         NewChainOps<polymesh_runtime_itn::RuntimeApi, ITNExecutor>,
         Configuration,
     ) -> Result<(F, TaskManager)>,
-    alcyone: impl FnOnce(
-        NewChainOps<polymesh_runtime_testnet::RuntimeApi, AlcyoneExecutor>,
+    testnet: impl FnOnce(
+        NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>,
         Configuration,
     ) -> Result<(G, TaskManager)>,
     general: impl FnOnce(
@@ -277,7 +275,7 @@ where
     match runner.config().chain_spec.network() {
         Network::ITN => runner.async_run(|mut config| itn(itn_chain_ops(&mut config)?, config)),
         Network::Testnet => {
-            runner.async_run(|mut config| alcyone(alcyone_chain_ops(&mut config)?, config))
+            runner.async_run(|mut config| testnet(testnet_chain_ops(&mut config)?, config))
         }
         Network::Other => {
             runner.async_run(|mut config| general(general_chain_ops(&mut config)?, config))

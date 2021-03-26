@@ -28,6 +28,7 @@ use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
+const BRIDGE_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000001";
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -381,15 +382,6 @@ fn genesis_processed_data(
     (identities, stakers, complete_txs)
 }
 
-fn balances(inits: &[InitialAuth], endoweds: &[AccountId]) -> Vec<(AccountId, u128)> {
-    endoweds
-        .iter()
-        .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-        .chain(inits.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-        .chain(inits.iter().map(|x| (x.0.clone(), STASH)))
-        .collect()
-}
-
 fn bridge_signers() -> Vec<Signatory<AccountId>> {
     let signer =
         |seed| Signatory::Account(AccountId::from(get_from_seed::<sr25519::Public>(seed).0));
@@ -589,10 +581,7 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("polymath_5"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x1000000000000000000000000000000000000000000000000000000000000001",
-            ),
+            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
         )
     }
@@ -624,10 +613,7 @@ pub mod general {
             ],
             seeded_acc_id("polymath_5"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x1000000000000000000000000000000000000000000000000000000000000001",
-            ),
+            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
         )
     }
@@ -642,7 +628,7 @@ pub mod general {
     }
 }
 
-pub mod alcyone_testnet {
+pub mod testnet {
     use super::*;
     use polymesh_runtime_testnet::{self as rt, constants::time};
 
@@ -653,32 +639,31 @@ pub mod alcyone_testnet {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        endowed_accounts: Vec<AccountId>,
         enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
+        key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let init_ids = [
-            // Service providers
-            cdd_provider(1),
-            cdd_provider(2),
-            // Governance committee members
-            polymath_mem(1),
-            polymath_mem(2),
-            polymath_mem(3),
-        ];
-        let (stakers, all_identities, secondary_keys) = identities(&initial_authorities, &init_ids);
+        let (mut identities, stakers, complete_txs) = genesis_processed_data(
+            &initial_authorities,
+            root_key.clone(),
+            treasury_bridge_lock,
+            key_bridge_locks,
+        );
+
+        // Add an issuer to issue a CDD claim during identity genesis config.
+        for id in &mut identities {
+            id.issuers = vec![IdentityId::from(1)];
+        }
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities: all_identities,
-                secondary_keys,
+                identities,
                 ..Default::default()
             }),
-            pallet_balances: Some(pallet_balances::GenesisConfig {
-                balances: balances(&initial_authorities, &endowed_accounts),
-            }),
+            pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: seeded_acc_id("polymath_1"),
                 creator: seeded_acc_id("polymath_1"),
@@ -704,15 +689,15 @@ pub mod alcyone_testnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(3, 4, 5)), //admin, gc1, gc2
-            pallet_committee_Instance1: Some(committee!(3, (2, 3))),
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
+            pallet_committee_Instance1: Some(committee!(1, (2, 3))),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3)), // sp1, sp2, admin
+            pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3)), //admin
+            pallet_group_Instance3: Some(group_membership!(3)), // admin
             pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(3)), //admin
+            pallet_group_Instance4: Some(group_membership!(3)), // admin
             pallet_committee_Instance4: Some(committee!(3)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
@@ -727,16 +712,9 @@ pub mod alcyone_testnet {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Bob"),
-                seeded_acc_id("Bob//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
             true,
+            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -744,8 +722,8 @@ pub mod alcyone_testnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Alcyone Develop",
-            "dev_alcyone",
+            "Polymesh Testnet Develop",
+            "dev_testnet",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
@@ -763,17 +741,9 @@ pub mod alcyone_testnet {
                 get_authority_keys_from_seed("Bob", false),
             ],
             seeded_acc_id("Alice"),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Charlie//stash"),
-                seeded_acc_id("relay_1"),
-                seeded_acc_id("relay_2"),
-                seeded_acc_id("relay_3"),
-                seeded_acc_id("relay_4"),
-                seeded_acc_id("relay_5"),
-            ],
             true,
+            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20),
         )
     }
 
@@ -781,8 +751,8 @@ pub mod alcyone_testnet {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh Alcyone Local",
-            "local_alcyone",
+            "Polymesh Testnet Local",
+            "local_testnet",
             ChainType::Local,
             local_genesis,
             boot_nodes,
