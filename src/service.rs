@@ -1,7 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 pub use crate::chain_spec::{
-    testnet::ChainSpec as TestnetChainSpec, polymesh_itn::ChainSpec as GeneralChainSpec,
+    polymesh_itn::ChainSpec as GeneralChainSpec, testnet::ChainSpec as TestnetChainSpec,
 };
 pub use codec::Codec;
 use core::marker::PhantomData;
