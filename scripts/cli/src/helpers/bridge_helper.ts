@@ -19,7 +19,7 @@ export async function bridgeTransfer(signer: KeyringPair, alice: KeyringPair): P
 	};
 
 	const transaction = api.tx.bridge.proposeBridgeTx(bridge_tx);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -30,7 +30,7 @@ export async function bridgeTransfer(signer: KeyringPair, alice: KeyringPair): P
 export async function freezeTransaction(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.bridge.freeze();
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -41,5 +41,5 @@ export async function freezeTransaction(signer: KeyringPair): Promise<void> {
 export async function unfreezeTransaction(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.bridge.unfreeze();
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }

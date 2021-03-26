@@ -26,7 +26,7 @@ export async function addClaimsToDids(
 	// Receieving Conditions Claim
 	let claim = { [claimType]: claimValue };
 	const transaction = api.tx.identity.addClaim(did, claim, expiry);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -57,7 +57,7 @@ export async function setPermissionToSigner(
 			Account: receivers[i].publicKey as AccountId,
 		};
 		let transaction = api.tx.identity.legacySetPermissionToSigner(signer, permissions);
-		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction);
 	}
 }
 
@@ -85,7 +85,7 @@ export async function authorizeJoinToIdentities(
 			}
 		}
 		const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction);
 	}
 }
 
@@ -113,13 +113,13 @@ async function createIdentitiesWithExpiry(
 		if (parseInt(account_did) == 0) {
 			console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
 			const transaction = api.tx.identity.cddRegisterDid(account.address, []);
-			await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+			await sendTx(signer, transaction);
 		} else {
 			console.log("Identity Already Linked.");
 		}
 	}
-	await setDidsArray(dids, receivers).catch((err) => console.log(`Error: ${err.message}`));
-	await addCddClaim(signer, dids, expiries).catch((err) => console.log(`Error: ${err.message}`));
+	await setDidsArray(dids, receivers);
+	await addCddClaim(signer, dids, expiries);
 	return dids;
 }
 
@@ -143,6 +143,6 @@ async function addCddClaim(signer: KeyringPair, dids: IdentityId[], expiries: Ui
 
 		console.log(`>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`);
 		const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
-		await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signer, transaction);
 	}
 }

@@ -12,7 +12,7 @@ import { sendTx, ApiSingleton } from "../util/init";
 export async function setDefaultEnactmentPeriod(signer: KeyringPair, duration: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(duration));
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -54,7 +54,7 @@ export async function propose(
 ): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.pips.propose(proposal, deposit, url, description);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -65,7 +65,7 @@ export async function propose(
 export async function snapshot(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.pips.snapshot();
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -101,7 +101,7 @@ export async function rejectProposal(pipId: number): Promise<SubmittableExtrinsi
 export async function rescheduleProposal(signer: KeyringPair, pipId: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.pips.rescheduleExecution(pipId, null);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -117,6 +117,6 @@ export async function voteResult(
 	const api = await ApiSingleton.getInstance();
 	const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
 	for (let signer of signers) {
-		await sendTx(signer, vote).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signer, vote);
 	}
 }

@@ -51,7 +51,7 @@ export async function issueTokenToDid(
 			[],
 			fundingRound
 		);
-		await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signer, transaction);
 	} else {
 		console.log("ticker exists already");
 	}
@@ -66,7 +66,7 @@ export async function issueTokenToDid(
 export async function mintingAsset(signer: KeyringPair, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.asset.issue(ticker, 100);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**

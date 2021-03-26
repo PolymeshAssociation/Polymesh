@@ -27,7 +27,7 @@ export async function addSecondaryKeys(signers: KeyringPair[], receivers: Keyrin
 		let expiry: Expiry = null;
 		// 1. Add Secondary Item to identity.
 		const transaction = api.tx.identity.addAuthorization(target, authData, expiry);
-		await sendTx(signers[i], transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(signers[i], transaction);
 	}
 }
 
@@ -45,5 +45,5 @@ export async function createMultiSig(
 ): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.multiSig.createMultisig(signatories, numOfSigners);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }

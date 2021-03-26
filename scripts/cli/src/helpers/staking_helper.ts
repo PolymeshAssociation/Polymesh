@@ -12,5 +12,5 @@ import { sendTx, ApiSingleton } from "../util/init";
 export async function bond(signer: KeyringPair, controller: KeyringPair, value: number, payee: string): Promise<void> {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.staking.bond(controller.publicKey, value, payee);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }

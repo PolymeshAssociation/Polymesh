@@ -41,7 +41,7 @@ export async function createClaimCompliance(signer: KeyringPair, did: IdentityId
 		[senderConditions],
 		[receiverConditions]
 	);
-	await sendTx(signer, transaction).catch((err) => console.log(`Error: ${err.message}`));
+	await sendTx(signer, transaction);
 }
 
 /**
@@ -57,7 +57,7 @@ export async function addComplianceRequirement(sender: KeyringPair, ticker: Tick
 	if (assetCompliance.requirements.length == 0) {
 		const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, [], []);
 
-		await sendTx(sender, transaction).catch((err) => console.log(`Error: ${err.message}`));
+		await sendTx(sender, transaction);
 	} else {
 		console.log("Asset already has compliance.");
 	}
