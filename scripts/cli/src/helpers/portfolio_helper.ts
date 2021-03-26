@@ -1,16 +1,15 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { PortfolioId, Ticker, MovePortfolioItem, PortfolioNumber } from "../types";
-import { sendTx, keyToIdentityIds } from "../util/init";
-import type { IdentityId } from '../interfaces';
+import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
+import type { IdentityId } from "../interfaces";
 
 /**
  * @description Returns the next portfolio number
- * @param {ApiPromise}  api - ApiPromise
  * @param {IdentityId} did - IdentityId
  * @return {Promise<number>}
  */
-export async function nextPortfolioNumber(api: ApiPromise, did: IdentityId): Promise<number> {
+export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
+	const api = await ApiSingleton.getInstance();
 	return ((await api.query.portfolio
 		.nextPortfolioNumber(did)
 		.catch((err) => console.log(`Error: ${err.message}`))) as unknown) as number;
@@ -18,25 +17,24 @@ export async function nextPortfolioNumber(api: ApiPromise, did: IdentityId): Pro
 
 /**
  * @description Creates a portfolio
- * @param {ApiPromise}  api - ApiPromise
  * @param {string} name - Name of portfolio
  * @param {KeyringPair} signer - KeyringPair
  * @return {Promise<boolean>}
  */
-export async function createPortfolio(api: ApiPromise, name: string, signer: KeyringPair): Promise<boolean> {
+export async function createPortfolio(name: string, signer: KeyringPair): Promise<boolean> {
+	const api = await ApiSingleton.getInstance();
 	try {
 		const transaction = api.tx.portfolio.createPortfolio(name);
 		await sendTx(signer, transaction);
 		return true;
 	} catch (err) {
-		console.log(`Error: ${err.message}`)
+		console.log(`Error: ${err.message}`);
 		return false;
 	}
 }
 
 /**
  * @description Moves portfolio funds
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} primaryKey - KeyringPair
  * @param {KeyringPair} secondaryKey - KeyringPair
  * @param {Ticker} ticker - Ticker to be moved
@@ -44,16 +42,16 @@ export async function createPortfolio(api: ApiPromise, name: string, signer: Key
  * @return {Promise<boolean>}
  */
 export async function movePortfolioFunds(
-	api: ApiPromise,
 	primary_key: KeyringPair,
 	secondary_key: KeyringPair,
 	ticker: Ticker,
 	amount: number
 ): Promise<boolean> {
+	const api = await ApiSingleton.getInstance();
 	try {
-		const primaryKeyDid = await keyToIdentityIds(api, primary_key.publicKey);
-		const secondaryKeyDid = await keyToIdentityIds(api, secondary_key.publicKey);
-		const portfolioNum: PortfolioNumber = (await nextPortfolioNumber(api, secondaryKeyDid)) - 1;
+		const primaryKeyDid = await keyToIdentityIds(primary_key.publicKey);
+		const secondaryKeyDid = await keyToIdentityIds(secondary_key.publicKey);
+		const portfolioNum: PortfolioNumber = (await nextPortfolioNumber(secondaryKeyDid)) - 1;
 
 		const from: PortfolioId = {
 			did: primaryKeyDid,

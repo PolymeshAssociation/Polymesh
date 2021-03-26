@@ -6,34 +6,33 @@ import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import * as settlement from "../helpers/settlement_helper";
 
 async function main(): Promise<void> {
-		const api = await init.createApi();
-		const ticker = await init.generateRandomTicker();
-		const ticker2 = await init.generateRandomTicker();
-		const testEntities = await init.initMain(api.api);
+		const ticker = init.generateRandomTicker();
+		const ticker2 = init.generateRandomTicker();
+		const testEntities = await init.initMain();
 		const alice = testEntities[0];
-		const bob = await init.generateRandomEntity(api.api);
-		const charlie = await init.generateRandomEntity(api.api);
-		const dave = await init.generateRandomEntity(api.api);
-		const eve = await init.generateRandomEntity(api.api);
-		const aliceDid = await init.keyToIdentityIds(api.api, alice.publicKey);
-		const bobDid = (await createIdentities(api.api, [bob], alice))[0];
-		const charlieDid = (await createIdentities(api.api, [charlie], alice))[0];
-		const daveDid = (await createIdentities(api.api, [dave], alice))[0];
-		const eveDid = (await createIdentities(api.api, [eve], alice))[0];
+		const bob = await init.generateRandomEntity();
+		const charlie = await init.generateRandomEntity();
+		const dave = await init.generateRandomEntity();
+		const eve = await init.generateRandomEntity();
+		const aliceDid = await init.keyToIdentityIds(alice.publicKey);
+		const bobDid = (await createIdentities([bob], alice))[0];
+		const charlieDid = (await createIdentities([charlie], alice))[0];
+		const daveDid = (await createIdentities([dave], alice))[0];
+		const eveDid = (await createIdentities([eve], alice))[0];
 
-		await distributePolyBatch(api.api, [bob, charlie, dave, eve], init.transferAmount, alice);
-		await issueTokenToDid(api.api, alice, ticker, 1000000, null);
-		await issueTokenToDid(api.api, bob, ticker2, 1000000, null);
-		await addComplianceRequirement(api.api, alice, ticker);
-		await addComplianceRequirement(api.api, bob, ticker2);
-		await mintingAsset(api.api, alice, ticker);
-		await mintingAsset(api.api, bob, ticker2);
+		await distributePolyBatch([bob, charlie, dave, eve], init.transferAmount, alice);
+		await issueTokenToDid(alice, ticker, 1000000, null);
+		await issueTokenToDid(bob, ticker2, 1000000, null);
+		await addComplianceRequirement(alice, ticker);
+		await addComplianceRequirement(bob, ticker2);
+		await mintingAsset(alice, ticker);
+		await mintingAsset(bob, ticker2);
 
-		let aliceBalance = await assetBalance(api.api, ticker, aliceDid);
-		let bobBalance = await assetBalance(api.api, ticker, bobDid);
-		let charlieBalance = await assetBalance(api.api, ticker, charlieDid);
-		let daveBalance = await assetBalance(api.api, ticker, daveDid);
-		let eveBalance = await assetBalance(api.api, ticker, eveDid);
+		let aliceBalance = await assetBalance(ticker, aliceDid);
+		let bobBalance = await assetBalance(ticker, bobDid);
+		let charlieBalance = await assetBalance(ticker, charlieDid);
+		let daveBalance = await assetBalance(ticker, daveDid);
+		let eveBalance = await assetBalance(ticker, eveDid);
 
 		console.log("Balance for Alice Asset (Before)");
 		console.log(`alice asset balance -------->  ${aliceBalance}`);
@@ -43,11 +42,11 @@ async function main(): Promise<void> {
 		console.log(`eve asset balance -------->  ${eveBalance}`);
 		console.log(" ");
 
-		aliceBalance = await assetBalance(api.api, ticker2, aliceDid);
-		bobBalance = await assetBalance(api.api, ticker2, bobDid);
-		charlieBalance = await assetBalance(api.api, ticker2, charlieDid);
-		daveBalance = await assetBalance(api.api, ticker2, daveDid);
-		eveBalance = await assetBalance(api.api, ticker2, eveDid);
+		aliceBalance = await assetBalance(ticker2, aliceDid);
+		bobBalance = await assetBalance(ticker2, bobDid);
+		charlieBalance = await assetBalance(ticker2, charlieDid);
+		daveBalance = await assetBalance(ticker2, daveDid);
+		eveBalance = await assetBalance(ticker2, eveDid);
 
 		console.log("Balance for Bob's Asset (Before)");
 		console.log(`alice asset balance -------->  ${aliceBalance}`);
@@ -57,10 +56,9 @@ async function main(): Promise<void> {
 		console.log(`eve asset balance -------->  ${eveBalance}`);
 		console.log(" ");
 
-		const venueCounter = await settlement.createVenue(api.api, alice);
+		const venueCounter = await settlement.createVenue(alice);
 		let instructionCounter = await settlement.addGroupInstruction(
-			api.api,
-			venueCounter,
+						venueCounter,
 			alice,
 			[aliceDid, bobDid, charlieDid, daveDid, eveDid],
 			ticker,
@@ -68,18 +66,18 @@ async function main(): Promise<void> {
 			100
 		);
 
-		await settlement.affirmInstruction(api.api, alice, instructionCounter, aliceDid, 4);
-		await settlement.affirmInstruction(api.api, bob, instructionCounter, bobDid, 1);
-		await settlement.affirmInstruction(api.api, charlie, instructionCounter, charlieDid, 0);
-		await settlement.affirmInstruction(api.api, dave, instructionCounter, daveDid, 0);
-		//await settlement.rejectInstruction(api.api, eve, instructionCounter);
-		await settlement.affirmInstruction(api.api, eve, instructionCounter, eveDid, 0);
+		await settlement.affirmInstruction(alice, instructionCounter, aliceDid, 4);
+		await settlement.affirmInstruction(bob, instructionCounter, bobDid, 1);
+		await settlement.affirmInstruction(charlie, instructionCounter, charlieDid, 0);
+		await settlement.affirmInstruction(dave, instructionCounter, daveDid, 0);
+		//await settlement.rejectInstruction(eve, instructionCounter);
+		await settlement.affirmInstruction(eve, instructionCounter, eveDid, 0);
 
-		aliceBalance = await assetBalance(api.api, ticker, aliceDid);
-		bobBalance = await assetBalance(api.api, ticker, bobDid);
-		charlieBalance = await assetBalance(api.api, ticker, charlieDid);
-		daveBalance = await assetBalance(api.api, ticker, daveDid);
-		eveBalance = await assetBalance(api.api, ticker, eveDid);
+		aliceBalance = await assetBalance(ticker, aliceDid);
+		bobBalance = await assetBalance(ticker, bobDid);
+		charlieBalance = await assetBalance(ticker, charlieDid);
+		daveBalance = await assetBalance(ticker, daveDid);
+		eveBalance = await assetBalance(ticker, eveDid);
 
 		console.log("Balance for Alice Asset (After)");
 		console.log(`alice asset balance -------->  ${aliceBalance}`);
@@ -89,11 +87,11 @@ async function main(): Promise<void> {
 		console.log(`eve asset balance -------->  ${eveBalance}`);
 		console.log(" ");
 
-		aliceBalance = await assetBalance(api.api, ticker2, aliceDid);
-		bobBalance = await assetBalance(api.api, ticker2, bobDid);
-		charlieBalance = await assetBalance(api.api, ticker2, charlieDid);
-		daveBalance = await assetBalance(api.api, ticker2, daveDid);
-		eveBalance = await assetBalance(api.api, ticker2, eveDid);
+		aliceBalance = await assetBalance(ticker2, aliceDid);
+		bobBalance = await assetBalance(ticker2, bobDid);
+		charlieBalance = await assetBalance(ticker2, charlieDid);
+		daveBalance = await assetBalance(ticker2, daveDid);
+		eveBalance = await assetBalance(ticker2, eveDid);
 
 		console.log("Balance for Bob's ASSET (After)");
 		console.log(`alice asset balance -------->  ${aliceBalance}`);

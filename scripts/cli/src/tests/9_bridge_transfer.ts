@@ -1,15 +1,14 @@
-import { createApi, initMain, sleep } from "../util/init";
+import { initMain, sleep } from "../util/init";
 import { bridgeTransfer, freezeTransaction, unfreezeTransaction } from "../helpers/bridge_helper";
 
 async function main(): Promise<void> {
-		const api = await createApi();
-		const testEntities = await initMain(api.api);
+		const testEntities = await initMain();
 		const alice = testEntities[0];
 		const relay = testEntities[1];
-		await bridgeTransfer(api.api, relay, alice);
-		await freezeTransaction(api.api, alice);
+		await bridgeTransfer(relay, alice);
+		await freezeTransaction(alice);
 		await sleep(50000).then(async () => {
-			await unfreezeTransaction(api.api, alice);
+			await unfreezeTransaction(alice);
 		});
 }
 

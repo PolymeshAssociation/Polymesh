@@ -6,29 +6,27 @@ import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import * as settlement from "../helpers/settlement_helper";
 
 async function main(): Promise<void> {
-		const api = await init.createApi();
-		const ticker = await init.generateRandomTicker();
-		const testEntities = await init.initMain(api.api);
+		const ticker = init.generateRandomTicker();
+		const testEntities = await init.initMain();
 		const alice = testEntities[0];
-		const bob = await init.generateRandomEntity(api.api);
-		const bobDid = (await createIdentities(api.api, [bob], alice))[0];
-		const aliceDid = await init.keyToIdentityIds(api.api, alice.publicKey);
-		await distributePoly(api.api, bob, init.transferAmount, alice);
-		await issueTokenToDid(api.api, alice, ticker, 1000000, null);
-		await addComplianceRequirement(api.api, alice, ticker);
+		const bob = await init.generateRandomEntity();
+		const bobDid = (await createIdentities([bob], alice))[0];
+		const aliceDid = await init.keyToIdentityIds(alice.publicKey);
+		await distributePoly(bob, init.transferAmount, alice);
+		await issueTokenToDid(alice, ticker, 1000000, null);
+		await addComplianceRequirement(alice, ticker);
 
-		let aliceBalance = await assetBalance(api.api, ticker, aliceDid);
-		let bobBalance = await assetBalance(api.api, ticker, bobDid);
+		let aliceBalance = await assetBalance(ticker, aliceDid);
+		let bobBalance = await assetBalance(ticker, bobDid);
 
 		console.log("Balance for Asset (Before)");
 		console.log(`alice asset balance -------->  ${aliceBalance}`);
 		console.log(`bob asset balance -------->  ${bobBalance}`);
 		console.log(" ");
 
-		let venueCounter = await settlement.createVenue(api.api, alice);
+		let venueCounter = await settlement.createVenue(alice);
 
 		let intructionCounterAB = await settlement.addInstruction(
-			api.api,
 			venueCounter,
 			alice,
 			aliceDid,
@@ -37,14 +35,14 @@ async function main(): Promise<void> {
 			100
 		);
 
-		await settlement.affirmInstruction(api.api, alice, intructionCounterAB, aliceDid, 1);
-		await settlement.affirmInstruction(api.api, bob, intructionCounterAB, bobDid, 0);
+		await settlement.affirmInstruction(alice, intructionCounterAB, aliceDid, 1);
+		await settlement.affirmInstruction(bob, intructionCounterAB, bobDid, 0);
 
-		//await rejectInstruction(api, bob, intructionCounter);
-		//await unathorizeInstruction(api, alice, instructionCounter);
+		//await rejectInstruction(bob, intructionCounter);
+		//await unathorizeInstruction(alice, instructionCounter);
 
-		aliceBalance = await assetBalance(api.api, ticker, aliceDid);
-		bobBalance = await assetBalance(api.api, ticker, bobDid);
+		aliceBalance = await assetBalance(ticker, aliceDid);
+		bobBalance = await assetBalance(ticker, bobDid);
 
 		console.log(`alice asset balance -------->  ${aliceBalance}`);
 		console.log(`bob asset balance -------->  ${bobBalance}`);

@@ -13,7 +13,7 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
 import type { Ticker, NonceObject } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
-import type { IdentityId } from '../interfaces';
+import type { IdentityId } from "../interfaces";
 
 let nonces = new Map();
 let block_sizes: Number[] = [];
@@ -24,18 +24,48 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 export const transferAmount = new BN(25000).mul(new BN(10).pow(new BN(6))).toNumber();
 
+export class ApiSingleton {
+	private static api: Promise<ApiPromise>;
+
+	private constructor() {
+		ApiSingleton.api = this.createApi();
+	}
+
+	public static getInstance() {
+		if (!ApiSingleton.api) {
+			new ApiSingleton();
+		}
+		return ApiSingleton.api;
+	}
+
+	async createApi() {
+		// Schema path
+		const filePath = path.join(__dirname + "../../../../../polymesh_schema.json");
+		const { types } = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+		// Start node instance
+		const ws_provider = new WsProvider(process.env.WS_PROVIDER || "ws://127.0.0.1:9944/");
+		const api = await ApiPromise.create({
+			types,
+			provider: ws_provider,
+		});
+		return api;
+	}
+}
+
 export async function sleep(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
-export async function initMain(api: ApiPromise): Promise<KeyringPair[]> {
+export async function initMain(): Promise<KeyringPair[]> {
+	const api = await ApiSingleton.getInstance();
 	let entities = [];
 
-	let alice = await generateEntity(api, "Alice");
-	let relay = await generateEntity(api, "relay_1");
-	let govCommittee1 = await generateEntity(api, "governance_committee_1");
-	let govCommittee2 = await generateEntity(api, "governance_committee_2");
+	let alice = await generateEntity("Alice");
+	let relay = await generateEntity("relay_1");
+	let govCommittee1 = await generateEntity("governance_committee_1");
+	let govCommittee2 = await generateEntity("governance_committee_2");
 
 	entities.push(alice);
 	entities.push(relay);
@@ -45,21 +75,8 @@ export async function initMain(api: ApiPromise): Promise<KeyringPair[]> {
 	return entities;
 }
 
-export async function createApi() {
-	// Schema path
-	const filePath = path.join(__dirname + "../../../../../polymesh_schema.json");
-	const { types } = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-	// Start node instance
-	const ws_provider = new WsProvider(process.env.WS_PROVIDER || "ws://127.0.0.1:9944/");
-	const api = await ApiPromise.create({
-		types,
-		provider: ws_provider,
-	});
-	return { api, ws_provider };
-}
-
-export async function generateEntity(api: ApiPromise, name: string): Promise<KeyringPair> {
+export async function generateEntity(name: string): Promise<KeyringPair> {
+	const api = await ApiSingleton.getInstance();
 	await cryptoWaitReady();
 	let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
 		name: `${name}`,
@@ -71,7 +88,8 @@ export async function generateEntity(api: ApiPromise, name: string): Promise<Key
 	return entity;
 }
 
-export async function generateKeys(api: ApiPromise, numberOfKeys: Number, keyPrepend: String): Promise<KeyringPair[]> {
+export async function generateKeys(numberOfKeys: Number, keyPrepend: String): Promise<KeyringPair[]> {
+	const api = await ApiSingleton.getInstance();
 	let keys = [];
 	await cryptoWaitReady();
 	for (let i = 0; i < numberOfKeys; i++) {
@@ -87,7 +105,8 @@ export async function generateKeys(api: ApiPromise, numberOfKeys: Number, keyPre
 	return keys;
 }
 
-export async function generateEntityFromUri(api: ApiPromise, uri: string): Promise<KeyringPair> {
+export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
+	const api = await ApiSingleton.getInstance();
 	await cryptoWaitReady();
 	let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
 	let accountRawNonce = (await api.query.system.account(entity.address)).nonce;
@@ -96,8 +115,8 @@ export async function generateEntityFromUri(api: ApiPromise, uri: string): Promi
 	return entity;
 }
 
-export async function generateRandomEntity(api: ApiPromise) {
-	let entity = await generateEntityFromUri(api, cryptoRandomString({ length: 10 }));
+export async function generateRandomEntity() {
+	let entity = await generateEntityFromUri(cryptoRandomString({ length: 10 }));
 	return entity;
 }
 
@@ -111,7 +130,8 @@ export function generateRandomKey() {
 	return ticker;
 }
 
-export async function blockTillPoolEmpty(api: ApiPromise) {
+export async function blockTillPoolEmpty() {
+	const api = await ApiSingleton.getInstance();
 	let prev_block_pending = 0;
 	let done_something = false;
 	let done = false;
@@ -145,10 +165,8 @@ export async function blockTillPoolEmpty(api: ApiPromise) {
 }
 
 // Fetches DID that belongs to the Account Key
-export async function keyToIdentityIds(
-	api: ApiPromise,
-	accountKey: AccountId | KeyringPair["publicKey"]
-): Promise<IdentityId> {
+export async function keyToIdentityIds(accountKey: AccountId | KeyringPair["publicKey"]): Promise<IdentityId> {
+	const api = await ApiSingleton.getInstance();
 	let account_did = await api.query.identity.keyToIdentityIds(accountKey);
 	return account_did;
 }
@@ -160,7 +178,8 @@ export function tickerToDid(ticker: Ticker) {
 	return blake2AsHex(u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(tickerUintArray, 96, true)));
 }
 
-export async function generateStashKeys(api: ApiPromise, accounts: KeyringPair[]): Promise<KeyringPair[]> {
+export async function generateStashKeys(accounts: KeyringPair[]): Promise<KeyringPair[]> {
+	const api = await ApiSingleton.getInstance();
 	let keys = [];
 	await cryptoWaitReady();
 	for (let i = 0; i < accounts.length; i++) {
@@ -237,7 +256,8 @@ export async function signAndSendTransaction(transaction: SubmittableExtrinsic<"
 	nonces.set(signer.address, nonces.get(signer.address).addn(1));
 }
 
-export async function generateOffchainKeys(api: ApiPromise, keyType: string) {
+export async function generateOffchainKeys(keyType: string) {
+	const api = await ApiSingleton.getInstance();
 	const PHRASE = mnemonicGenerate();
 	await cryptoWaitReady();
 	const newPair = new Keyring({ type: "sr25519" }).addFromUri(PHRASE);
@@ -245,8 +265,9 @@ export async function generateOffchainKeys(api: ApiPromise, keyType: string) {
 }
 
 // Creates a Signatory Object
-export async function signatory(api: ApiPromise, entity: KeyringPair, signer: KeyringPair) {
-	let entityDid = (await createIdentities(api, [entity], signer))[0];
+export async function signatory(entity: KeyringPair, signer: KeyringPair) {
+	const api = await ApiSingleton.getInstance();
+	let entityDid = (await createIdentities([entity], signer))[0];
 	let signatoryObj = {
 		Identity: entityDid,
 	};
@@ -254,10 +275,10 @@ export async function signatory(api: ApiPromise, entity: KeyringPair, signer: Ke
 }
 
 export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"promise">) {
-	let nonceObj = { nonce: nonces.get(signer.address) };	
-	nonces.set(signer.address, nonces.get(signer.address).addn(1));	
+	let nonceObj = { nonce: nonces.get(signer.address) };
+	nonces.set(signer.address, nonces.get(signer.address).addn(1));
 	const result = await sendTransaction(tx, signer, nonceObj);
-	return result ;		
+	return result;
 }
 
 export function getDefaultPortfolio(did: IdentityId) {

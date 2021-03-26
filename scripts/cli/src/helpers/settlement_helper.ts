@@ -1,16 +1,15 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker } from "../types";
-import { sendTx, getDefaultPortfolio } from "../util/init";
+import { sendTx, getDefaultPortfolio, ApiSingleton } from "../util/init";
 import type { IdentityId } from '../interfaces';
 
 /**
  * @description Creates a Venue
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} sender - KeyringPair
  * @return {Promise<number>}
  */
-export async function createVenue(api: ApiPromise, sender: KeyringPair): Promise<number> {
+export async function createVenue(sender: KeyringPair): Promise<number> {
+	const api = await ApiSingleton.getInstance();
 	let venueCounter = ((await api.query.settlement.venueCounter()) as unknown) as number;
 	let venueDetails = "created venue";
 	const transaction = api.tx.settlement.createVenue(venueDetails, [sender.address], 0);
@@ -20,7 +19,6 @@ export async function createVenue(api: ApiPromise, sender: KeyringPair): Promise
 
 /**
  * @description Adds an Instruction
- * @param {ApiPromise}  api - ApiPromise
  * @param {number} venueCounter - Venue Id
  * @param {KeyringPair} sender - KeyringPair
  * @param {IdentityId} senderDid - IdentityId
@@ -30,7 +28,6 @@ export async function createVenue(api: ApiPromise, sender: KeyringPair): Promise
  * @return {Promise<number>}
  */
 export async function addInstruction(
-	api: ApiPromise,
 	venueCounter: number,
 	sender: KeyringPair,
 	senderDid: IdentityId,
@@ -38,6 +35,7 @@ export async function addInstruction(
 	ticker: Ticker,
 	amount: number
 ): Promise<number> {
+	const api = await ApiSingleton.getInstance();
 	let instructionCounter = ((await api.query.settlement.instructionCounter()) as unknown) as number;
 
 	let leg = {
@@ -55,7 +53,6 @@ export async function addInstruction(
 
 /**
  * @description Affirms an Instruction
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} sender - KeyringPair
  * @param {number} instructionCounter - Instruction Id
  * @param {IdentityId} did - IdentityId
@@ -63,55 +60,52 @@ export async function addInstruction(
  * @return {Promise<void>}
  */
 export async function affirmInstruction(
-	api: ApiPromise,
 	sender: KeyringPair,
 	instructionCounter: number,
 	did: IdentityId,
 	legCounter: number
 ): Promise<void> {
+	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.settlement.affirmInstruction(instructionCounter, [getDefaultPortfolio(did)], legCounter);
 	await sendTx(sender, transaction);
 }
 
 /**
  * @description Withdraws a Instruction
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} sender - KeyringPair
  * @param {number} instructionCounter - Instruction Id
  * @param {IdentityId} did - IdentityId
  * @return {Promise<void>}
  */
 export async function withdrawInstruction(
-	api: ApiPromise,
 	sender: KeyringPair,
 	instructionCounter: number,
 	did: IdentityId
 ): Promise<void> {
+	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.settlement.withdrawInstruction(instructionCounter, [getDefaultPortfolio(did)]);
 	await sendTx(sender, transaction);
 }
 
 /**
  * @description Rejects a Instruction
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} sender - KeyringPair
  * @param {number} instructionCounter - Instruction Id
  * @param {IdentityId} did - IdentityId
  * @return {Promise<void>}
  */
 export async function rejectInstruction(
-	api: ApiPromise,
 	sender: KeyringPair,
 	instructionCounter: number,
 	did: IdentityId
 ): Promise<void> {
+	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.settlement.rejectInstruction(instructionCounter, [getDefaultPortfolio(did)], 5);
 	await sendTx(sender, transaction);
 }
 
 /**
  * @description Adds a group Instruction
- * @param {ApiPromise}  api - ApiPromise
  * @param {number} venueCounter - number
  * @param {KeyringPair} sender - KeyringPair
  * @param {IdentityId[]} group - IdentityId[]
@@ -121,7 +115,6 @@ export async function rejectInstruction(
  * @return {Promise<number>}
  */
 export async function addGroupInstruction(
-	api: ApiPromise,
 	venueCounter: number,
 	sender: KeyringPair,
 	group: IdentityId[],
@@ -129,6 +122,7 @@ export async function addGroupInstruction(
 	ticker2: Ticker,
 	amount: number
 ): Promise<number> {
+	const api = await ApiSingleton.getInstance();
 	let instructionCounter = ((await api.query.settlement.instructionCounter()) as unknown) as number;
 	let leg = {
 		from: group[1],
@@ -174,7 +168,6 @@ export async function addGroupInstruction(
 
 /**
  * @description Creates a Claim Receipt
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} sender - KeyringPair
  * @param {IdentityId} sender_did - IdentityId
  * @param {IdentityId} receiver_did - IdentityId
@@ -184,7 +177,6 @@ export async function addGroupInstruction(
  * @return {Promise<void>}
  */
 async function claimReceipt(
-	api: ApiPromise,
 	sender: KeyringPair,
 	sender_did: IdentityId,
 	receiver_did: IdentityId,
@@ -192,6 +184,8 @@ async function claimReceipt(
 	amount: number,
 	instructionCounter: number
 ): Promise<void> {
+	const api = await ApiSingleton.getInstance();
+	
 	let msg = {
 		receipt_uid: 0,
 		from: sender_did,

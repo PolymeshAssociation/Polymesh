@@ -1,9 +1,8 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, AssetCompliance, Scope } from "../types";
-import { sendTx } from "../util/init";
+import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
-import type { IdentityId } from '../interfaces';
+import type { IdentityId } from "../interfaces";
 
 const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {
@@ -25,18 +24,13 @@ const receiverConditions1 = senderConditions1;
 
 /**
  * @description Creates claim compliance for an asset
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} signer - KeyringPair
  * @param {IdentityId} did - IdentityId
  * @param {Ticker} ticker - Ticker
  * @return {Promise<void>}
  */
-export async function createClaimCompliance(
-	api: ApiPromise,
-	signer: KeyringPair,
-	did: IdentityId,
-	ticker: Ticker
-): Promise<void> {
+export async function createClaimCompliance(signer: KeyringPair, did: IdentityId, ticker: Ticker): Promise<void> {
+	const api = await ApiSingleton.getInstance();
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
 	let senderConditions = senderConditions1(did, { Ticker: ticker });
@@ -52,12 +46,12 @@ export async function createClaimCompliance(
 
 /**
  * @description Creates claim compliance for an asset
- * @param {ApiPromise}  api - ApiPromise
  * @param {KeyringPair} signer - KeyringPair
  * @param {Ticker} ticker - Ticker
  * @return {Promise<void>}
  */
-export async function addComplianceRequirement(api: ApiPromise, sender: KeyringPair, ticker: Ticker): Promise<void> {
+export async function addComplianceRequirement(sender: KeyringPair, ticker: Ticker): Promise<void> {
+	const api = await ApiSingleton.getInstance();
 	let assetCompliance = ((await api.query.complianceManager.assetCompliances(ticker)) as unknown) as AssetCompliance;
 
 	if (assetCompliance.requirements.length == 0) {

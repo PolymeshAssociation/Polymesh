@@ -1,7 +1,6 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { PortfolioId, Ticker, DocumentHash, DocumentName, Document, LegacyPalletPermissions } from "../types";
-import { keyToIdentityIds } from "../util/init";
+import { keyToIdentityIds, ApiSingleton } from "../util/init";
 import { nextPortfolioNumber } from "../helpers/portfolio_helper";
 
 /**
@@ -43,23 +42,22 @@ export function setDoc(
 
 /**
  * @description Adds ticker to ticker array
- * @param {ApiPromise} api - Ticker
  * @param {PortfolioId[]} portfolioArray - An array of PortfolioIds
  * @param {KeyringPair} key - KeyringPair
  * @param {"Default" | "User"} type - Type of Portfolio
  * @return {Promise<void>}
  */
 export async function setPortfolio(
-	api: ApiPromise,
 	portfolioArray: PortfolioId[],
 	key: KeyringPair,
 	type: "Default" | "User"
 ): Promise<void> {
-	let keyDid = await keyToIdentityIds(api, key.publicKey);
+	const api = await ApiSingleton.getInstance();
+	let keyDid = await keyToIdentityIds(key.publicKey);
 
 	switch (type) {
 		case "User":
-			const portfolioNum = (await nextPortfolioNumber(api, keyDid)) - 1;
+			const portfolioNum = (await nextPortfolioNumber(keyDid)) - 1;
 			let userPortfolio: PortfolioId = {
 				did: keyDid,
 				kind: { User: portfolioNum },

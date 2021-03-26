@@ -4,24 +4,23 @@ import { distributePolyBatch } from "../helpers/poly_helper";
 import { addSecondaryKeys, createMultiSig } from "../helpers/key_management_helper";
 
 async function main(): Promise<void> {
-	const api = await init.createApi();
-	const testEntities = await init.initMain(api.api);
+	const testEntities = await init.initMain();
 	const primaryDevSeed = init.generateRandomKey();
 	const secondaryDevSeed = init.generateRandomKey();
 	const alice = testEntities[0];
-	const bob = await init.generateRandomEntity(api.api);
-	const charlie = await init.generateRandomEntity(api.api);
-	const dave = await init.generateRandomEntity(api.api);
-	const primaryKeys = await init.generateKeys(api.api, 2, primaryDevSeed);
-	const secondaryKeys = await init.generateKeys(api.api, 2, secondaryDevSeed);
-	const bobSignatory = await init.signatory(api.api, bob, alice);
-	const charlieSignatory = await init.signatory(api.api, charlie, alice);
-	const daveSignatory = await init.signatory(api.api, dave, alice);
+	const bob = await init.generateRandomEntity();
+	const charlie = await init.generateRandomEntity();
+	const dave = await init.generateRandomEntity();
+	const primaryKeys = await init.generateKeys(2, primaryDevSeed);
+	const secondaryKeys = await init.generateKeys(2, secondaryDevSeed);
+	const bobSignatory = await init.signatory(bob, alice);
+	const charlieSignatory = await init.signatory(charlie, alice);
+	const daveSignatory = await init.signatory(dave, alice);
 	const signatoryArray = [bobSignatory, charlieSignatory, daveSignatory];
-	await createIdentities(api.api, primaryKeys, alice)
-	await distributePolyBatch(api.api, primaryKeys, init.transferAmount, alice)
-	await addSecondaryKeys(api.api, secondaryKeys, primaryKeys)
-	await createMultiSig(api.api, alice, signatoryArray, 2)
+	await createIdentities(primaryKeys, alice);
+	await distributePolyBatch(primaryKeys, init.transferAmount, alice);
+	await addSecondaryKeys(secondaryKeys, primaryKeys);
+	await createMultiSig(alice, signatoryArray, 2);
 }
 
 main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());
