@@ -1,6 +1,7 @@
 // Set options as a parameter, environment variable, or rc file.
 require = require("esm")(module /*, options*/);
 module.exports = require("../util/init.js");
+const assert = require('assert');
 
 let { reqImports } = require("../util/init.js");
 
@@ -8,7 +9,6 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
@@ -20,34 +20,29 @@ async function main() {
   let govCommittee2 = testEntities[3];
 
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(10)));
+  // Reset ActivePipLimit to 100
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setActivePipLimit(100)));
   await reqImports.createIdentities(api, [bob, dave, govCommittee1, govCommittee2], alice);
 
   // Bob and Dave needs some funds to use.
   await reqImports.distributePolyBatch(api, [bob, dave], reqImports.transfer_amount, alice);
 
   await sendTx(dave, api.tx.staking.bond(bob.publicKey, 1000000, "Staked"));
-  const setLimit = api.tx.pips.setActivePipLimit(42);
-
-  let firstPipCount = await api.query.pips.pipIdSequence();
-  await sendTx(bob, api.tx.pips.propose(setLimit, 9000000000, "google.com", "first"));
-
-  let secondPipCount = await api.query.pips.pipIdSequence();
-  await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
 
   // GC needs some funds to use.
   await reqImports.distributePolyBatch(api, [govCommittee1, govCommittee2], reqImports.transfer_amount, alice);
 
-  // Snapshot and approve second PIP.
-  await sendTx(govCommittee1, api.tx.pips.snapshot());
-  const approvePIP = api.tx.pips.enactSnapshotResults([[secondPipCount, { "Approve": "" }]]);
-  await voteResult(api, approvePIP, [govCommittee1, govCommittee2]);
-
-  // Reject the first PIP
-  const rejectPIP = api.tx.pips.rejectProposal(firstPipCount);
-  await voteResult(api, rejectPIP, [govCommittee1, govCommittee2]);
-
+  let pipId = await basicVote(api.tx.pips.setActivePipLimit(100), { "Approve": "" });
   // Finally reschedule, demonstrating that it had been scheduled.
-  await sendTx(alice, api.tx.pips.rescheduleExecution(secondPipCount, null));
+  await sendTx(alice, api.tx.pips.rescheduleExecution(pipId, null));
+
+  pipId = await basicVote(api.tx.pips.setActivePipLimit(101), { "Skip": "" });
+  assert.deepStrictEqual(api.query.pips.pipSkipCount(pipId), 2);
+
+  pipId = await basicVote(api.tx.pips.setActivePipLimit(102), { "Reject": "" });
+  assert.deepStrictEqual(api.query.pips.proposals(pipId).state, { "Rejected": "" });
+
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -56,6 +51,13 @@ async function main() {
   }
 
   process.exit();
+
+  async function basicVote(dummyProposal, snapshotResult) {
+    let pipId = await api.query.pips.pipIdSequence();
+    await sendTx(bob, api.tx.pips.propose(dummyProposal, 9000000000, "basic-vote.com", "basicVote"));
+    await committeeVote(api, pipId, [govCommittee1, govCommittee2], snapshotResult);
+    return pipId;
+  }
 }
 
 async function sendTx(signer, tx) {
@@ -66,10 +68,12 @@ async function sendTx(signer, tx) {
   reqImports.nonces.set(signer.address, reqImports.nonces.get(signer.address).addn(1));
 }
 
-async function voteResult(api, tx, signers) {
-  const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
-  for (let i = 0; i < signers.length; i++) {
-    await sendTx(signers[i], vote);
+async function committeeVote(api, pipId, committees, snapshotResult) {
+  await sendTx(committees[0], api.tx.pips.snapshot());
+  let voteTx = api.tx.pips.enactSnapshotResults([[pipId, snapshotResult]])
+  const vote = api.tx.polymeshCommittee.voteOrPropose(true, voteTx);
+  for (let i = 0; i < committees.length; i++) {
+    await sendTx(committees[i], vote);
   }
 }
 
