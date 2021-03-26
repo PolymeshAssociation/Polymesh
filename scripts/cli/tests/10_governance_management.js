@@ -37,10 +37,10 @@ async function main() {
   await sendTx(alice, api.tx.pips.rescheduleExecution(pipId, null));
 
   pipId = await basicVote(api.tx.pips.setActivePipLimit(101), { "Skip": "" });
-  assert.deepStrictEqual(api.query.pips.pipSkipCount(pipId), 2);
+  assert.deepStrictEqual(await api.query.pips.pipSkipCount(pipId), 2);
 
   pipId = await basicVote(api.tx.pips.setActivePipLimit(102), { "Reject": "" });
-  assert.deepStrictEqual(api.query.pips.proposals(pipId).state, { "Rejected": "" });
+  assert.deepStrictEqual(await api.query.pips.proposals(pipId).state, { "Rejected": "" });
 
 
   if (reqImports.fail_count > 0) {
