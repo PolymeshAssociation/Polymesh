@@ -9,7 +9,6 @@ import { Document, LegacyPalletPermissions, PortfolioId, Ticker } from "../types
 import { assert } from "chai";
 
 async function main(): Promise<void> {
-	try {
 		const api = await init.createApi();
 		const ticker = await init.generateRandomTicker();
 		const portfolioName = await init.generateRandomTicker();
@@ -60,11 +59,6 @@ async function main(): Promise<void> {
 		await setPermissionToSigner(api.api, primaryKeys, secondaryKeys, extrinsics, portfolios, assets);
 		addDocsOutput = await addDocuments(api.api, ticker, documents, secondaryKeys[0]);
 		assert.equal(addDocsOutput, true);
-
-		await api.ws_provider.disconnect();
-	} catch (err) {
-		console.log(err);
-	}
 }
 
-main();
+main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());

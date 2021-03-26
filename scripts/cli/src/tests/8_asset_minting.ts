@@ -5,7 +5,6 @@ import { issueTokenToDid, mintingAsset } from "../helpers/asset_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 
 async function main(): Promise<void> {
-	try {
 		const api = await init.createApi();
 		const ticker = await init.generateRandomTicker();
 		const testEntities = await init.initMain(api.api);
@@ -18,11 +17,6 @@ async function main(): Promise<void> {
 		await addClaimsToDids(api.api, primaryKey, issuerDid[0], "Exempted", { Ticker: ticker }, null);
 		await addComplianceRequirement(api.api, primaryKey, ticker);
 		await mintingAsset(api.api, primaryKey, ticker);
-
-		await api.ws_provider.disconnect();
-	} catch (err) {
-		console.log(err);
-	}
 }
 
-main();
+main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());

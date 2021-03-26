@@ -5,7 +5,6 @@ import * as staking from "../helpers/staking_helper";
 import * as pips from "../helpers/pips_helper";
 
 async function main(): Promise<void> {
-	try {
 		const api = await createApi();
 		const testEntities = await initMain(api.api);
 		const alice = testEntities[0];
@@ -41,11 +40,6 @@ async function main(): Promise<void> {
 
 		// Finally reschedule, demonstrating that it had been scheduled.
 		await pips.rescheduleProposal(api.api, secondPipCount, alice);
-
-		await api.ws_provider.disconnect();
-	} catch (err) {
-		console.log(err);
-	}
 }
 
-main();
+main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());

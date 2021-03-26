@@ -6,7 +6,6 @@ import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import * as settlement from "../helpers/settlement_helper";
 
 async function main(): Promise<void> {
-	try {
 		const api = await init.createApi();
 		const ticker = await init.generateRandomTicker();
 		const ticker2 = await init.generateRandomTicker();
@@ -102,11 +101,6 @@ async function main(): Promise<void> {
 		console.log(`charlie asset balance -------->  ${charlieBalance}`);
 		console.log(`dave asset balance -------->  ${daveBalance}`);
 		console.log(`eve asset balance -------->  ${eveBalance}`);
-
-		await api.ws_provider.disconnect();
-	} catch (err) {
-		console.log(err);
-	}
 }
 
-main();
+main().catch((err) => console.log(`Error: ${err.message}`)).finally(() => process.exit());
