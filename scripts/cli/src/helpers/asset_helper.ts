@@ -17,8 +17,10 @@ export async function addDocuments(signer: KeyringPair, ticker: Ticker, docs: Do
 		const transaction = api.tx.asset.addDocuments(docs, ticker);
 		await sendTx(signer, transaction);
 		return true;
-	} catch (err) {
-		console.log(`Error: ${err.message}`);
+	} catch (err: unknown) {
+		if (err instanceof Error) {
+			console.log(`Error: ${err.message}`);
+		}
 		return false;
 	}
 }

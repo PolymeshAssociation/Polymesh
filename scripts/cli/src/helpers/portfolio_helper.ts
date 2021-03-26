@@ -25,8 +25,10 @@ export async function createPortfolio(signer: KeyringPair, name: string): Promis
 		const transaction = api.tx.portfolio.createPortfolio(name);
 		await sendTx(signer, transaction);
 		return true;
-	} catch (err) {
-		console.log(`Error: ${err.message}`);
+	} catch (err: unknown) {
+		if (err instanceof Error) {
+			console.log(`Error: ${err.message}`);
+		}
 		return false;
 	}
 }
@@ -69,8 +71,10 @@ export async function movePortfolioFunds(
 		const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
 		await sendTx(signer, transaction);
 		return true;
-	} catch (err) {
-		console.log(`Error: ${err.message}`);
+	} catch (err: unknown) {
+		if (err instanceof Error) {
+			console.log(`Error: ${err.message}`);
+		}
 		return false;
 	}
 }

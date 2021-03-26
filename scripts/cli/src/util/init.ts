@@ -8,8 +8,6 @@ import cryptoRandomString from "crypto-random-string";
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
-//import { some, none, ap, Option } from "fp-ts/lib/Option";
-//import type { Option, Vec } from '@polkadot/types/codec';
 import type { DispatchError } from "@polkadot/types/interfaces";
 import type { Ticker, NonceObject } from "../types";
 import { createIdentities } from "../helpers/identity_helper";

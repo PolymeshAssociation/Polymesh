@@ -13,5 +13,9 @@ async function main(): Promise<void> {
 }
 
 main()
-	.catch((err) => console.log(`Error: ${err.message}`))
+	.catch((err: unknown) => {
+		if (err instanceof Error) {
+			console.log(`Error: ${err.message}`);
+		}
+	})
 	.finally(() => process.exit());
