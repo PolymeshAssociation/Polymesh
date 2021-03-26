@@ -527,8 +527,6 @@ pub mod general {
             id.issuers = vec![IdentityId::from(1)];
         }
 
-        println!("Identities: {:?}", identities);
-        println!("complete_txs: {:?}", complete_txs);
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
