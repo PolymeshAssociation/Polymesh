@@ -69,6 +69,7 @@
 //! - `add_claim` - Adds a new claim record or edits an existing one.
 //! - `forwarded_call` - Creates a call on behalf of another DID.
 //! - `revoke_claim` - Marks the specified claim as revoked.
+//! - `revoke_claim_by_index` - Revoke a claim identified by its index.
 //! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
 //! - `freeze_secondary_keys` - Disables all secondary keys at `did` identity.
 //! - `unfreeze_secondary_keys` - Re-enables all secondary keys of the caller's identity.
