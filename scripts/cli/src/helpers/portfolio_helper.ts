@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { PortfolioId, Ticker, MovePortfolioItem, PortfolioNumber } from "../types";
+import type { PortfolioId, Ticker, MovePortfolioItem } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
 
@@ -10,9 +10,7 @@ import type { IdentityId } from "../interfaces";
  */
 export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	return ((await api.query.portfolio
-		.nextPortfolioNumber(did)
-		.catch((err) => console.log(`Error: ${err.message}`))) as unknown) as number;
+	return (await api.query.portfolio.nextPortfolioNumber(did)).toNumber();
 }
 
 /**
@@ -51,7 +49,7 @@ export async function movePortfolioFunds(
 	try {
 		const primaryKeyDid = await keyToIdentityIds(primary_key.publicKey);
 		const secondaryKeyDid = await keyToIdentityIds(secondary_key.publicKey);
-		const portfolioNum: PortfolioNumber = (await nextPortfolioNumber(secondaryKeyDid)) - 1;
+		const portfolioNum = (await nextPortfolioNumber(secondaryKeyDid)) - 1;
 
 		const from: PortfolioId = {
 			did: primaryKeyDid,

@@ -220,8 +220,7 @@ export function sendTransaction(
 					if (failed) {
 						// get revert message from event
 						let message = "";
-						const dispatchError = (failed.event.data[0] as unknown) as DispatchError;
-
+						const dispatchError = <DispatchError>failed.event.data[0];
 						if (dispatchError.isModule) {
 							// known error
 							const mod = dispatchError.asModule;

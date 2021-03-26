@@ -77,6 +77,6 @@ export async function mintingAsset(minter: KeyringPair, ticker: Ticker): Promise
  */
 export async function assetBalance(ticker: Ticker, did: IdentityId): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	const balance = await api.query.asset.balanceOf(ticker, did);
-	return (balance as unknown) as number;
+	const balance = (await api.query.asset.balanceOf(ticker, did)).toNumber();
+	return balance;
 }

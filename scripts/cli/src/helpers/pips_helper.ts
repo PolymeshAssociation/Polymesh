@@ -21,9 +21,7 @@ export async function setDefaultEnactmentPeriod(duration: number, signer: Keyrin
  */
 export async function pipIdSequence(): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	return ((await api.query.pips
-		.pipIdSequence()
-		.catch((err) => console.log(`Error: ${err.message}`))) as unknown) as number;
+	return (await api.query.pips.pipIdSequence()).toNumber();
 }
 
 /**

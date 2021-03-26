@@ -10,7 +10,7 @@ import type { IdentityId } from '../interfaces';
  */
 export async function createVenue(sender: KeyringPair): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	let venueCounter = ((await api.query.settlement.venueCounter()) as unknown) as number;
+	let venueCounter = (await api.query.settlement.venueCounter()).toNumber();
 	let venueDetails = "created venue";
 	const transaction = api.tx.settlement.createVenue(venueDetails, [sender.address], 0);
 	await sendTx(sender, transaction);
@@ -36,8 +36,7 @@ export async function addInstruction(
 	amount: number
 ): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	let instructionCounter = ((await api.query.settlement.instructionCounter()) as unknown) as number;
-
+	let instructionCounter = (await api.query.settlement.instructionCounter()).toNumber();
 	let leg = {
 		from: getDefaultPortfolio(senderDid),
 		to: getDefaultPortfolio(receiverDid),
@@ -123,7 +122,7 @@ export async function addGroupInstruction(
 	amount: number
 ): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	let instructionCounter = ((await api.query.settlement.instructionCounter()) as unknown) as number;
+	let instructionCounter = (await api.query.settlement.instructionCounter()).toNumber();
 	let leg = {
 		from: group[1],
 		to: group[0],

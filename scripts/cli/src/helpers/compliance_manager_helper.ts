@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Ticker, AssetCompliance, Scope } from "../types";
+import type { Ticker, Scope } from "../types";
 import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
 import type { IdentityId } from "../interfaces";
@@ -52,7 +52,7 @@ export async function createClaimCompliance(signer: KeyringPair, did: IdentityId
  */
 export async function addComplianceRequirement(sender: KeyringPair, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();
-	let assetCompliance = ((await api.query.complianceManager.assetCompliances(ticker)) as unknown) as AssetCompliance;
+	let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
 
 	if (assetCompliance.requirements.length == 0) {
 		const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, [], []);
