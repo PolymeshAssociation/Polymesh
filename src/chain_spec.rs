@@ -671,7 +671,7 @@ pub mod testnet {
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
-                ..Default::default()
+                complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),

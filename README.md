@@ -11,15 +11,15 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 <https://polymath.network/polymesh-whitepaper>
 
-# Polymesh Alcyone Public Testnet
+# Polymesh Public Testnet
 
-We provide linux binaries for each Alcyone release.
+We provide linux binaries for each testnet release.
 
-The latest release for the Polymesh Alcyone Public Testnet can be found at:
+The latest release for the Polymesh Public Testnet can be found at:
 
 <https://github.com/PolymathNetwork/Polymesh/releases>
 
-Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
+Specifying no chain at the command line defaults to the Polymesh Public Testnet (e.g. `--chain testnet`), so to run a node which connects to the Public Testnet, you can start your node with:
 
 ```bash
 ./target/release/polymesh
