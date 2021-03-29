@@ -588,7 +588,12 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
         )?;
 
         // Transfer custody of `portfolio_id` over to `new_custodian`, removing it from `current_custodian`.
-        PortfolioCustodian::insert(&portfolio_id, new_custodian);
+        if portfolio_id.did == new_custodian {
+            // Set the custodian to the default value `None` meaning that the owner is the custodian.
+            PortfolioCustodian::remove(&portfolio_id);
+        } else {
+            PortfolioCustodian::insert(&portfolio_id, new_custodian);
+        }
         PortfoliosInCustody::remove(&current_custodian, &portfolio_id);
         PortfoliosInCustody::insert(&new_custodian, &portfolio_id, true);
 

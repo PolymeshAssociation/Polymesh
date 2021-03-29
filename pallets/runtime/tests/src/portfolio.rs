@@ -2,7 +2,7 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
@@ -453,6 +453,27 @@ fn can_take_custody_of_portfolios() {
         assert_noop!(
             Identity::accept_authorization(owner_signed.clone(), auth_id),
             AuthorizationError::Unauthorized
+        );
+
+        // Bob transfers portfolio custody back to Alice.
+        auth_id = Identity::add_auth(
+            bob_did,
+            Signatory::from(owner_did),
+            AuthorizationData::PortfolioCustody(owner_user_portfolio),
+            None,
+        );
+        assert_ok!(Identity::accept_authorization(
+            owner_signed.clone(),
+            auth_id
+        ));
+        assert_eq!(
+            Portfolio::portfolios_in_custody(owner_did, owner_user_portfolio),
+            true
+        );
+        // The mapping is removed which means the owner is the custodian.
+        assert_eq!(
+            pallet_portfolio::PortfolioCustodian::contains_key(&owner_user_portfolio),
+            false
         );
     });
 }
