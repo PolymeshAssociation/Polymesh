@@ -822,9 +822,6 @@ fn one_step_join_id() {
 
 fn one_step_join_id_with_ext() {
     let a = User::new(AccountKeyring::Alice);
-    let b = User::new(AccountKeyring::Bob);
-    let c = User::new(AccountKeyring::Charlie);
-    let d = User::new(AccountKeyring::Dave);
 
     let expires_at = 100u64;
     let target_id_auth = |user: User| TargetIdAuthorization {
@@ -840,8 +837,9 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
     ];
+    let users @ [b, c, _] = keys.map(User::new);
     let secondary_keys_with_auth =
-        secondary_keys_with_auth(&keys, &[b.did, c.did, d.did], &auth_encoded);
+        secondary_keys_with_auth(&keys, &users.map(|u| u.did), &auth_encoded);
 
     let add = |user: User, auth| {
         Identity::add_secondary_keys_with_authorization(user.origin(), auth, expires_at)

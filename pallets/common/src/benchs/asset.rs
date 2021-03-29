@@ -4,14 +4,12 @@ use crate::{
     traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
 };
 
+use frame_system::RawOrigin;
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
     Ticker,
 };
-
-use frame_system::RawOrigin;
-use sp_std::convert::TryFrom;
-use sp_std::vec;
+use sp_std::{convert::TryFrom, vec};
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 

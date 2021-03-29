@@ -473,11 +473,10 @@ decl_module! {
             );
 
             // 1.5 charge fee
-            let _ = T::ChargeTxFeeTarget::charge_fee(
+            T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
-                proposal.get_dispatch_info())
-                    .map_err(|_| Error::<T>::FailedToChargeFee,
-            )?;
+                proposal.get_dispatch_info()
+            ).map_err(|_| Error::<T>::FailedToChargeFee)?;
 
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);

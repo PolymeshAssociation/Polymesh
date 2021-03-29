@@ -2236,11 +2236,11 @@ fn mesh_1531_ts_collission_regression_test() {
 
 #[test]
 fn secondary_key_not_authorized_for_asset_test() {
-    let ring = AccountKeyring::Alice;
-    let primary_key = ring.public();
-    let sk_all_permissions = AccountKeyring::Bob.public();
-    let sk_not_permissions = AccountKeyring::Charlie.public();
-
+    let users @ [owner, all, not] = [
+        AccountKeyring::Alice,
+        AccountKeyring::Bob,
+        AccountKeyring::Charlie,
+    ];
     let invalid_names = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"];
     let invalid_tickers = invalid_names
         .iter()
@@ -2248,20 +2248,20 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     let secondary_keys = vec![
         SecondaryKey {
-            signer: Signatory::Account(sk_not_permissions),
+            signer: Signatory::Account(not.public()),
             permissions: Permissions {
                 asset: AssetPermissions::elems(invalid_tickers),
                 ..Default::default()
             },
         },
         SecondaryKey {
-            signer: Signatory::Account(sk_all_permissions),
+            signer: Signatory::Account(all.public()),
             permissions: Permissions::default(),
         },
     ];
 
     let owner = polymesh_primitives::Identity {
-        primary_key,
+        primary_key: owner.public(),
         secondary_keys,
     };
 
@@ -2271,23 +2271,18 @@ fn secondary_key_not_authorized_for_asset_test() {
         .build()
         .execute_with(|| {
             // NB `sk_not_permsissions` does not have enought asset permissions to issue `ticker`.
-            let owner = User::existing(ring);
+            let [owner, all, not] = users.map(User::existing);
             let (ticker, token) = token(b"WPUSD", owner.did);
             assert_ok!(basic_asset(owner, ticker, &token));
 
             let minted_value = 50_000u128.into();
             StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
             assert_noop!(
-                Asset::issue(Origin::signed(sk_not_permissions), ticker, minted_value),
+                Asset::issue(not.origin(), ticker, minted_value),
                 AssetError::SecondaryKeyNotAuthorizedForAsset
             );
 
-            assert_ok!(Asset::issue(
-                Origin::signed(sk_all_permissions),
-                ticker,
-                minted_value
-            ));
-
+            assert_ok!(Asset::issue(all.origin(), ticker, minted_value));
             assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
         });
 }

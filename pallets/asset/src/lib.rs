@@ -519,16 +519,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            let create = || Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round);
-            // Mint total supply to PIA
-            if total_supply > Zero::zero() {
-                with_transaction(|| {
-                    let (sender, did) = create()?;
-                    Self::_mint(&ticker, sender, did, total_supply, None)
-                })
-            } else {
-                create().map(drop)
-            }
+            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1858,6 +1849,39 @@ impl<T: Trait> Module<T> {
             Error::<T>::NoSuchSmartExtension
         );
         Ok(did)
+    }
+
+    fn base_create_asset_and_mint(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        let create = || {
+            Self::base_create_asset(
+                origin,
+                name,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                identifiers,
+                funding_round,
+            )
+        };
+        // Mint total supply to PIA
+        if total_supply > Zero::zero() {
+            with_transaction(|| {
+                let (sender, did) = create()?;
+                Self::_mint(&ticker, sender, did, total_supply, None)
+            })
+        } else {
+            create().map(drop)
+        }
     }
 
     fn base_create_asset(
