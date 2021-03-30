@@ -289,7 +289,6 @@ fn genesis_processed_data(
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
-    println!("Complete txs: {:?}", complete_txs);
     (identities, stakers, complete_txs)
 }
 
