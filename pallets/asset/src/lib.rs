@@ -1629,7 +1629,7 @@ impl<T: Trait> Module<T> {
 
         let signer = Signatory::from(to_did);
         let auth = <Identity<T>>::check_auth(ticker_details.owner, &signer, auth_id)?;
-        <Identity<T>>::take_auth(&signer, &auth);
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -1706,7 +1706,7 @@ impl<T: Trait> Module<T> {
         let owner = Self::token_details(ticker).owner_did;
         let signer = Signatory::from(to_did);
         let auth = <Identity<T>>::check_auth(owner, &signer, auth_id)?;
-        <Identity<T>>::take_auth(&signer, &auth);
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
         Ok(())
     }
 
@@ -1861,8 +1861,8 @@ impl<T: Trait> Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
-        let create = || {
-            Self::base_create_asset(
+        with_transaction(|| {
+            let (sender, did) = Self::base_create_asset(
                 origin,
                 name,
                 ticker,
@@ -1871,17 +1871,14 @@ impl<T: Trait> Module<T> {
                 asset_type,
                 identifiers,
                 funding_round,
-            )
-        };
-        // Mint total supply to PIA
-        if total_supply > Zero::zero() {
-            with_transaction(|| {
-                let (sender, did) = create()?;
-                Self::_mint(&ticker, sender, did, total_supply, None)
-            })
-        } else {
-            create().map(drop)
-        }
+            )?;
+
+            // Mint total supply to PIA
+            if total_supply > Zero::zero() {
+                Self::_mint(&ticker, sender, did, total_supply, None)?
+            }
+            Ok(())
+        })
     }
 
     fn base_create_asset(

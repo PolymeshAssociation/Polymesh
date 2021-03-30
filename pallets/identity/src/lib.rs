@@ -935,7 +935,7 @@ impl<T: Trait> Module<T> {
 
         let auth = Self::check_auth(auth.authorized_by, &signer, auth_id)?;
         Self::base_join_identity(auth.authorized_by, permissions.into(), &signer)?;
-        Self::take_auth(&signer, &auth);
+        Self::unchecked_take_auth(&signer, &auth);
         Ok(())
     }
 
@@ -1041,7 +1041,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Consumes an authorization, removing it from storage.
-    pub fn take_auth(
+    pub fn unchecked_take_auth(
         target: &Signatory<T::AccountId>,
         auth: &Authorization<T::AccountId, T::Moment>,
     ) {
@@ -1122,7 +1122,7 @@ impl<T: Trait> Module<T> {
             // consume owner's authorization
             let auth = Self::check_auth(rotation_for_did, &signer, rotation_auth_id)?;
             Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)?;
-            Self::take_auth(&signer, &auth);
+            Self::unchecked_take_auth(&signer, &auth);
             Ok(())
         } else {
             Err(Error::<T>::UnknownAuthorization.into())
@@ -1166,7 +1166,7 @@ impl<T: Trait> Module<T> {
                     // rather than the expected authorising identity,
                     // as we've already checked the validity above.
                     let auth = Self::check_auth(cdd_auth.authorized_by, &signer, cdd_auth_id)?;
-                    Self::take_auth(&signer, &auth);
+                    Self::unchecked_take_auth(&signer, &auth);
                 }
                 _ => return Err(Error::<T>::UnknownAuthorization.into()),
             }

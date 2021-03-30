@@ -1072,7 +1072,7 @@ impl<T: Trait> Module<T> {
         let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
 
         let auth = <Identity<T>>::check_auth(ms_identity, &signer, auth_id)?;
-        <Identity<T>>::take_auth(&signer, &auth);
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
         <MultiSigSigners<T>>::insert(multisig.clone(), signer.clone(), signer.clone());
         <NumberOfSigners<T>>::mutate(multisig.clone(), |x| *x += 1u64);
 

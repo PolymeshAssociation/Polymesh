@@ -582,7 +582,7 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
         let current_custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
         let signer = Signatory::from(new_custodian);
         let auth = <identity::Module<T>>::check_auth(current_custodian, &signer, auth_id)?;
-        <identity::Module<T>>::take_auth(&signer, &auth);
+        <identity::Module<T>>::unchecked_take_auth(&signer, &auth);
 
         // Transfer custody of `portfolio_id` over to `new_custodian`, removing it from `current_custodian`.
         if portfolio_id.did == new_custodian {

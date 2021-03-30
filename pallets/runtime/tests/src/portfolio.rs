@@ -362,6 +362,8 @@ fn can_take_custody_of_portfolios() {
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
+        let has_custody = |u: User| Portfolio::portfolios_in_custody(u.did, owner_user_portfolio);
+
         // Custody of all portfolios is with the owner identity by default
         assert_ok!(Portfolio::ensure_portfolio_custody(
             owner_default_portfolio,
@@ -376,18 +378,15 @@ fn can_take_custody_of_portfolios() {
             None
         );
         assert_eq!(Portfolio::portfolio_custodian(owner_user_portfolio), None);
-        assert_eq!(
-            Portfolio::portfolios_in_custody(bob.did, owner_user_portfolio),
-            false
-        );
+        assert!(!has_custody(bob));
 
         // Bob can not issue authorization for custody transfer of a portfolio they don't have custody of
-        let mut auth_id = Identity::add_auth(
-            bob.did,
-            Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
+        let add_auth = |from: User, target: User| {
+            let auth = AuthorizationData::PortfolioCustody(owner_user_portfolio);
+            Identity::add_auth(from.did, Signatory::from(target.did), auth, None)
+        };
+
+        let auth_id = add_auth(bob, bob);
         assert_noop!(
             Identity::accept_authorization(bob.origin(), auth_id),
             AuthorizationError::Unauthorized
@@ -400,12 +399,7 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Can accept a valid custody transfer auth
-        auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
+        let auth_id = add_auth(owner, bob);
         assert_ok!(Identity::accept_authorization(bob.origin(), auth_id));
 
         assert_ok!(Portfolio::ensure_portfolio_custody(
@@ -428,38 +422,19 @@ fn can_take_custody_of_portfolios() {
             Portfolio::portfolio_custodian(owner_user_portfolio),
             Some(bob.did)
         );
-        assert_eq!(
-            Portfolio::portfolios_in_custody(bob.did, owner_user_portfolio),
-            true
-        );
+        assert!(has_custody(bob));
 
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
-        auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(owner.did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
+        let auth_id = add_auth(owner, owner);
         assert_noop!(
             Identity::accept_authorization(owner.origin(), auth_id),
             AuthorizationError::Unauthorized
         );
 
         // Bob transfers portfolio custody back to Alice.
-        auth_id = Identity::add_auth(
-            bob_did,
-            Signatory::from(owner_did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
-        assert_ok!(Identity::accept_authorization(
-            owner_signed.clone(),
-            auth_id
-        ));
-        assert_eq!(
-            Portfolio::portfolios_in_custody(owner_did, owner_user_portfolio),
-            true
-        );
+        let auth_id = add_auth(bob, owner);
+        assert_ok!(Identity::accept_authorization(owner.origin(), auth_id));
+        assert!(has_custody(owner));
         // The mapping is removed which means the owner is the custodian.
         assert_eq!(
             pallet_portfolio::PortfolioCustodian::contains_key(&owner_user_portfolio),
