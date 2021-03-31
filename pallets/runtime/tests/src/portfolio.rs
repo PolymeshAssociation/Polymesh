@@ -447,7 +447,7 @@ fn can_take_custody_of_portfolios() {
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
         auth_id = Identity::add_auth(
             owner.did,
-            Signatory::from(owner_did),
+            Signatory::from(owner.did),
             AuthorizationData::PortfolioCustody(owner_user_portfolio),
             None,
         );
