@@ -814,7 +814,6 @@ decl_module! {
         pub fn gc_add_cdd_claim(
             origin,
             target: IdentityId,
-            expiry: Option<T::Moment>,
         ) {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
             Self::add_systematic_cdd_claims(&[target], SystematicIssuers::Committee);
