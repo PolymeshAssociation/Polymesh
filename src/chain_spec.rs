@@ -439,8 +439,8 @@ pub mod general {
             }),
             pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: root_key.clone(),
-                creator: root_key.clone(),
+                admin: initial_authorities[0].1.clone(),
+                creator: initial_authorities[0].1.clone(),
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
@@ -467,16 +467,16 @@ pub mod general {
                 },
             }),
             // Governance Council:
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3)),
+            pallet_committee_Instance1: Some(committee!(1)),
             // CDD providers
             pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
-            pallet_committee_Instance3: Some(committee!(3)),          // RC, 1/2 votes required
+            pallet_group_Instance3: Some(group_membership!(3)),
+            pallet_committee_Instance3: Some(committee!(3)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // RC, 1/2 votes required
+            pallet_group_Instance4: Some(group_membership!(3)),
+            pallet_committee_Instance4: Some(committee!(3)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -489,7 +489,7 @@ pub mod general {
     fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![get_authority_keys_from_seed("Alice", false)],
-            seeded_acc_id("polymath_5"),
+            seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
@@ -521,7 +521,7 @@ pub mod general {
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
             ],
-            seeded_acc_id("polymath_5"),
+            seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
