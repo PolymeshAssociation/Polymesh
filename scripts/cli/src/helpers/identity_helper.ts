@@ -99,7 +99,7 @@ export async function createIdentities(signer: KeyringPair, receivers: KeyringPa
 	return createIdentitiesWithExpiry(signer, receivers, []);
 }
 
-async function createIdentitiesWithExpiry(
+export async function createIdentitiesWithExpiry(
 	signer: KeyringPair,
 	receivers: KeyringPair[],
 	expiries: Uint8Array[]

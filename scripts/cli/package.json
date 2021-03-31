@@ -40,7 +40,7 @@
     "11_A_settlement": "node ./dist/tests/11_A_settlement.js",
     "11_B_settlement": "node ./dist/tests/11_B_settlement.js",
     "schema_test": "./util/schema_test.sh",
-    "offchain_worker_test": "node ./util/offchain_worker_test.js",
+    "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "test": "./test.sh"
   },
   "author": "Polymath Network",

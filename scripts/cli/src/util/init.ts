@@ -1,6 +1,6 @@
 import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
 import { cryptoWaitReady, blake2AsHex, mnemonicGenerate } from "@polkadot/util-crypto";
-import { stringToU8a, u8aConcat, u8aFixLength, u8aToHex } from "@polkadot/util";
+import { stringToU8a, u8aConcat, u8aFixLength, u8aToHex, hexToString } from "@polkadot/util";
 import BN from "bn.js";
 import fs from "fs";
 import path from "path";
@@ -11,7 +11,9 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
 import type { Ticker, NonceObject } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
+import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
+import { assert } from "chai";
 
 let nonces = new Map();
 let block_sizes: Number[] = [];
@@ -71,6 +73,15 @@ export async function initMain(): Promise<KeyringPair[]> {
 	entities.push(govCommittee2);
 
 	return entities;
+}
+
+export async function generateEntities(accounts: string[]) {
+    let entites = []
+    for(let i= 0; i < accounts.length; i++) {
+        let entity = await generateEntity(accounts[i]);
+        entites.push(entity);
+    }
+    return entites;
 }
 
 export async function generateEntity(name: string): Promise<KeyringPair> {
@@ -176,7 +187,7 @@ export function tickerToDid(ticker: Ticker) {
 	return blake2AsHex(u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(tickerUintArray, 96, true)));
 }
 
-export async function generateStashKeys(accounts: KeyringPair[]): Promise<KeyringPair[]> {
+export async function generateStashKeys(accounts: string[]): Promise<KeyringPair[]> {
 	const api = await ApiSingleton.getInstance();
 	let keys = [];
 	await cryptoWaitReady();
@@ -257,7 +268,6 @@ export async function generateOffchainKeys(keyType: string) {
 
 // Creates a Signatory Object
 export async function signatory(signer: KeyringPair, entity: KeyringPair) {
-	const api = await ApiSingleton.getInstance();
 	let entityDid = (await createIdentities(signer, [entity]))[0];
 	let signatoryObj = {
 		Identity: entityDid,
@@ -274,4 +284,79 @@ export async function sendTx(signer: KeyringPair, tx: SubmittableExtrinsic<"prom
 
 export function getDefaultPortfolio(did: IdentityId) {
 	return { did: did, kind: "Default" };
+}
+
+export async function getValidCddProvider(alice: KeyringPair) {
+	const api = await ApiSingleton.getInstance();
+    let transfer_amount = new BN(1000).mul(new BN(10).pow(new BN(6)));
+    // Fetch the cdd providers key and provide them right fuel to spent for
+    // cdd creation
+    let service_providers = await api.query.cddServiceProviders.activeMembers();
+    let service_provider_1_key = await generateEntity("service_provider_1");
+
+    // match the identity within the identity pallet
+    const service_provider_1_identity = await keyToIdentityIds(service_provider_1_key.publicKey);
+    assert.equal(service_provider_1_identity.toString(), service_providers[0].toString());
+
+    // fund the service_provider_1 account key to successfully call the `register_did` dispatchable
+    let old_balance = (await api.query.system.account(service_provider_1_key.address)).data.free;
+
+    await distributePoly(alice, service_provider_1_key, transferAmount);
+    //await blockTillPoolEmpty();
+
+    // check the funds of service_provider_1
+    let new_free_balance = (await api.query.system.account(service_provider_1_key.address)).data.free;
+    assert.equal(new_free_balance.toString(), (transfer_amount.add(old_balance)).toString());
+    return service_provider_1_key;
+}
+
+export async function getExpiries(length: number) {
+	const api = await ApiSingleton.getInstance();
+    let blockTime = api.consts.babe.expectedBlockTime;
+    let bondingDuration = api.consts.staking.bondingDuration;
+    let sessionPerEra = api.consts.staking.sessionsPerEra;
+    let session_length = api.consts.babe.epochDuration;
+    const currentBlockTime = await api.query.timestamp.now();
+
+    const bondingTime = bondingDuration.toNumber() * sessionPerEra.toNumber() * session_length.toNumber();
+    let expiryTime = currentBlockTime.toNumber() + (bondingTime * 1000);
+
+    let expiries = [];
+    for (let i = 1; i <= length; i++) {
+        // Providing 15 block as the extra time
+        let temp = expiryTime + i * 5 * blockTime.toNumber();
+        expiries.push(temp);
+    }
+    return expiries;
+}
+
+export async function subscribeCddOffchainWorker() {
+	const api = await ApiSingleton.getInstance();
+    let eventCount = 0;
+    const unsubscribe = await api.rpc.chain.subscribeNewHeads(async (header) => {
+    console.log(`Chain is at block: #${header.number.unwrap()}`);
+    let hash = await api.rpc.chain.getBlockHash(header.number.unwrap());
+    let events = await api.query.system.events.at(hash.toString());
+    for (let i = 0; i < Object.keys(events).length - 1; i++) {
+        try {
+            if (events[i].event.data.section == "CddOffchainWorker") {
+                let typeList = events[i].event.data.typeDef;
+                console.log(`EventName - ${events[i].event.data.method} at block number ${header.number.unwrap()}`);
+                for (let j = 0; j < typeList.length; j++) {
+                    let value = events[i].event.data[j].toString();
+                    if (typeList[j].type == "Bytes")
+                        value = hexToString(u8aToHex(events[i].event.data[j].toU8a()));
+                    console.log(`${typeList[j].type} : ${value}`);
+                    eventCount++;
+                }
+                console.log("***************************************");
+            }
+        } catch(error) {
+            console.log(`Event is not present in this block ${header.number}`);
+        }
+    }
+    if (eventCount >= 5) {
+        process.exit(0);
+    }
+});
 }
