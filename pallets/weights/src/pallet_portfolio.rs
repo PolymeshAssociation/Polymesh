@@ -7,8 +7,7 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 pub struct WeightInfo;
 impl pallet_portfolio::WeightInfo for WeightInfo {
-    // WARNING! Some components were not used: ["i"]
-    fn create_portfolio(_: u32) -> Weight {
+    fn create_portfolio() -> Weight {
         (134_527_000 as Weight)
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
@@ -30,5 +29,9 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
             .saturating_add((23_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn quit_portfolio_custody() -> Weight {
+        // TODO
+        100_000_000 as Weight
     }
 }

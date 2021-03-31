@@ -76,10 +76,11 @@ pub struct MovePortfolioItem<Balance> {
 }
 
 pub trait WeightInfo {
-    fn create_portfolio(i: u32) -> Weight;
+    fn create_portfolio() -> Weight;
     fn delete_portfolio() -> Weight;
     fn move_portfolio_funds(i: u32) -> Weight;
     fn rename_portfolio(i: u32) -> Weight;
+    fn quit_portfolio_custody() -> Weight;
 }
 
 pub trait Trait: CommonTrait + IdentityTrait + pallet_base::Trait {
@@ -225,7 +226,7 @@ decl_module! {
         }
 
         /// Creates a portfolio with the given `name`.
-        #[weight = <T as Trait>::WeightInfo::create_portfolio(name.len() as u32)]
+        #[weight = <T as Trait>::WeightInfo::create_portfolio()]
         pub fn create_portfolio(origin, name: PortfolioName) {
             let primary_did = Identity::<T>::ensure_perms(origin)?;
             Self::ensure_name_unique(&primary_did, &name)?;
@@ -343,6 +344,34 @@ decl_module! {
                 primary_did,
                 num,
                 to_name,
+            ));
+        }
+
+        /// When called by the custodian of `portfolio_id`, allows to return the custody of the portfolio to
+        /// the portfolio owner unilaterally.
+        ///
+        /// # Errors
+        /// * `UnauthorizedCustodian` if the caller is not the current custodian of `portfolio_id`.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Trait>::WeightInfo::quit_portfolio_custody()]
+        pub fn quit_portfolio_custody(origin, portfolio_id: PortfolioId) {
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            let custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
+
+            ensure!(primary_did == custodian, Error::<T>::UnauthorizedCustodian);
+            PortfolioCustodian::remove(&portfolio_id);
+            PortfoliosInCustody::remove(&custodian, &portfolio_id);
+
+            Self::deposit_event(RawEvent::PortfolioCustodianChanged(
+                primary_did,
+                portfolio_id,
+                portfolio_id.did,
             ));
         }
     }
@@ -588,14 +617,14 @@ impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
         )?;
 
         // Transfer custody of `portfolio_id` over to `new_custodian`, removing it from `current_custodian`.
+        PortfoliosInCustody::remove(&current_custodian, &portfolio_id);
         if portfolio_id.did == new_custodian {
             // Set the custodian to the default value `None` meaning that the owner is the custodian.
             PortfolioCustodian::remove(&portfolio_id);
         } else {
             PortfolioCustodian::insert(&portfolio_id, new_custodian);
+            PortfoliosInCustody::insert(&new_custodian, &portfolio_id, true);
         }
-        PortfoliosInCustody::remove(&current_custodian, &portfolio_id);
-        PortfoliosInCustody::insert(&new_custodian, &portfolio_id, true);
 
         Self::deposit_event(RawEvent::PortfolioCustodianChanged(
             new_custodian,
