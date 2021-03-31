@@ -22,8 +22,8 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, IdentityClaim, IdentityId,
+    InvestorUid, Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -119,19 +119,17 @@ fn gc_add_remove_cdd_claim() {
         let fetch =
             || Identity::fetch_claim(target_did, ClaimType::CustomerDueDiligence, GC_DID, None);
 
-        assert_ok!(Identity::gc_add_cdd_claim(
-            gc_vmo(),
-            target_did,
-            Some(100u64)
-        ));
+        assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), target_did));
+
+        let cdd_id = CddId::new_v1(target_did, InvestorUid::from(target_did.as_ref()));
         assert_eq!(
             fetch(),
             Some(IdentityClaim {
                 claim_issuer: GC_DID,
                 issuance_date: 0,
                 last_update_date: 0,
-                expiry: Some(100),
-                claim: Claim::default_cdd_id(),
+                expiry: None,
+                claim: Claim::CustomerDueDiligence(cdd_id)
             })
         );
 
