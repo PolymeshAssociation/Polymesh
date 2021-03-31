@@ -265,7 +265,7 @@ decl_module! {
         type Error = Error<T>;
 
         // Polymesh modified code. Existential Deposit requirements are zero in Polymesh.
-        /// This is no longer needed but kept for compatibility reasons
+        // This is no longer needed but kept for compatibility reasons
         /// The minimum amount required to keep an account open.
         const ExistentialDeposit: T::Balance = 0u32.into();
 
