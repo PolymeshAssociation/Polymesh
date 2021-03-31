@@ -816,10 +816,9 @@ decl_module! {
         pub fn gc_add_cdd_claim(
             origin,
             target: IdentityId,
-            expiry: Option<T::Moment>,
-        ) -> DispatchResult {
+        ) {
             T::GCVotingMajorityOrigin::ensure_origin(origin)?;
-            Self::base_add_cdd_claim(target, Claim::default_cdd_id(), GC_DID, expiry)
+            Self::add_systematic_cdd_claims(&[target], SystematicIssuers::Committee);
         }
 
         /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
