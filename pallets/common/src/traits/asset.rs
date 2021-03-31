@@ -66,7 +66,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     /// Ensure that the caller has the required extrinsic and asset permissions.
-    fn ensure_perms_owner_asset(
+    fn ensure_owner_perms(
         origin: Origin,
         ticker: &Ticker,
     ) -> Result<IdentityId, DispatchError>;

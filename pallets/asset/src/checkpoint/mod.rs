@@ -264,7 +264,7 @@ decl_module! {
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
-            let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?.for_event();
+            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?.for_event();
             Self::create_at_by(owner, ticker, Self::now_unix())?;
         }
 
@@ -310,7 +310,7 @@ decl_module! {
             ticker: Ticker,
             schedule: ScheduleSpec,
         ) {
-            let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?.for_event();
+            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?.for_event();
             Self::create_schedule_base(owner, ticker, schedule, 0)?;
         }
 
@@ -334,7 +334,7 @@ decl_module! {
             ticker: Ticker,
             id: ScheduleId,
         ) {
-            let owner = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
 
             // If the ID matches and schedule is removable, it should be removed.
             let schedule = Schedules::try_mutate(&ticker, |ss| {

@@ -354,6 +354,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 43,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
         Base: pallet_base::{Module, Call, Event} = 45,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
     }
 );
 

@@ -2279,7 +2279,7 @@ fn secondary_key_not_authorized_for_asset_test() {
             StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
             assert_noop!(
                 Asset::issue(not.origin(), ticker, minted_value),
-                AssetError::SecondaryKeyNotAuthorizedForAsset
+                pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
             );
 
             assert_ok!(Asset::issue(all.origin(), ticker, minted_value));

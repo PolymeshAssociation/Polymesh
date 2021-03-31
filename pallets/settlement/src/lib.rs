@@ -752,7 +752,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
             if enabled {
                 VenueFiltering::insert(ticker, enabled);
             } else {
@@ -770,7 +770,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
             for venue in &venues {
                 VenueAllowList::insert(&ticker, venue, true);
             }
@@ -786,7 +786,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
             for venue in &venues {
                 VenueAllowList::remove(&ticker, venue);
             }

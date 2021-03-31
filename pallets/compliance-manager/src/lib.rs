@@ -205,7 +205,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
 
             // Bundle as a requirement.
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
@@ -240,7 +240,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
 
             AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
                 let before = requirements.len();
@@ -266,7 +266,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -296,7 +296,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
             AssetCompliances::remove(ticker);
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
         }
@@ -340,7 +340,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
 
             // Ensure the new `issuer` is limited; the existing ones we have previously checked.
@@ -377,7 +377,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
                 issuers.retain(|ti| ti.issuer != issuer);
@@ -401,7 +401,7 @@ decl_module! {
             new_req.receiver_conditions.len() as u32,
         )]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -570,7 +570,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
-        let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+        let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
         AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
         Ok(did)
     }

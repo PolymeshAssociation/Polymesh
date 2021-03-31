@@ -354,11 +354,12 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
     type DistWeightInfo: distribution::WeightInfo;
 }
 
-type Identity<T> = identity::Module<T>;
 type Asset<T> = asset::Module<T>;
+type Ballot<T> = ballot::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type Distribution<T> = distribution::Module<T>;
-type Ballot<T> = ballot::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -471,7 +472,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
             Self::change_ca_agent(did, ticker, None);
         }
 
@@ -1046,14 +1047,13 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
-        let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let data = <ExternalAgents<T>>::ensure_asset_perms(origin, &ticker)?;
         let did = data.primary_did;
         ensure!(
             Self::agent(ticker)
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
             Error::<T>::UnauthorizedAsAgent
         );
-        <Asset<T>>::ensure_asset_perms(data.secondary_key.as_ref(), &ticker)?;
         Ok(data)
     }
 }

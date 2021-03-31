@@ -31,7 +31,6 @@ use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use pallet_asset as asset;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_portfolio::{self as portfolio, Trait as PortfolioTrait};
 use pallet_settlement::{
@@ -47,18 +46,19 @@ use polymesh_common_utilities::{
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
-use polymesh_primitives::{EventDid, IdentityId, PortfolioId, SecondaryKey, Ticker};
+use polymesh_primitives::{EventDid, IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub const MAX_TIERS: usize = 10;
 
+type Asset<T> = pallet_asset::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = identity::Module<T>;
+type Portfolio<T> = portfolio::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
-type Portfolio<T> = portfolio::Module<T>;
-type Asset<T> = asset::Module<T>;
 
 /// Status of a Fundraiser.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord, Debug)]
@@ -286,7 +286,11 @@ decl_module! {
         ) {
             pallet_base::ensure_string_limited::<T>(&fundraiser_name)?;
 
-            let (did, secondary_key) = Self::ensure_perms_pia(origin, &offering_asset)?;
+            let PermissionedCallOriginData {
+                primary_did: did,
+                secondary_key,
+                sender: _,
+            } = Self::ensure_perms_pia(origin, &offering_asset)?;
 
             VenueInfo::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
@@ -509,7 +513,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let did = Self::ensure_perms_pia(origin, &offering_asset)?.0.for_event();
+            let did = Self::ensure_perms_pia(origin, &offering_asset)?.primary_did.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -536,7 +540,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
-            let did = Self::ensure_perms(origin, &offering_asset)?.0;
+            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
 
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
@@ -566,12 +570,12 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn set_frozen(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: T::Origin,
         offering_asset: Ticker,
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
-        let did = Self::ensure_perms_pia(origin, &offering_asset)?.0;
+        let did = Self::ensure_perms_pia(origin, &offering_asset)?.primary_did;
         let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
             .ok_or(Error::<T>::FundraiserNotFound)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
@@ -586,30 +590,16 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Ensure that `origin` is permissioned, returning its DID.
-    fn ensure_perms(
-        origin: <T as frame_system::Trait>::Origin,
-        asset: &Ticker,
-    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
-        let PermissionedCallOriginData {
-            primary_did,
-            secondary_key,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        <Asset<T>>::ensure_asset_perms(secondary_key.as_ref(), asset)?;
-        Ok((primary_did, secondary_key))
-    }
-
     /// Ensure that `origin` is permissioned and the PIA, returning its DID.
     fn ensure_perms_pia(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: T::Origin,
         asset: &Ticker,
-    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
-        let (primary_did, secondary_key) = Self::ensure_perms(origin, asset)?;
+    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
+        let data = <ExternalAgents<T>>::ensure_asset_perms(origin, asset)?;
         ensure!(
-            <Asset<T>>::primary_issuance_agent_or_owner(asset) == primary_did,
+            <Asset<T>>::primary_issuance_agent_or_owner(asset) == data.primary_did,
             Error::<T>::Unauthorized
         );
-        Ok((primary_did, secondary_key))
+        Ok(data)
     }
 }

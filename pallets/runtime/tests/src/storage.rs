@@ -137,6 +137,7 @@ impl_outer_event! {
         corporate_actions,
         corporate_ballots<T>,
         capital_distributions<T>,
+        pallet_external_agents,
         checkpoint<T>,
         statistics,
         test_utils<T>,
@@ -555,6 +556,11 @@ parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+}
+
+impl pallet_external_agents::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
 }
 
 impl asset::Trait for TestStorage {

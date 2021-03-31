@@ -65,6 +65,24 @@ impl PalletPermissions {
 /// Extrinsic permissions.
 pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 
+impl ExtrinsicPermissions {
+    /// Returns `true` iff this permission set permits calling `pallet::dispatchable`.
+    pub fn sufficient_for(&self, pallet: &PalletName, dispatchable: &DispatchableName) -> bool {
+        match &self.0 {
+            None => true,
+            Some(perms) => perms.iter().any(|perm| {
+                if &perm.pallet_name != pallet {
+                    return false;
+                }
+                match &perm.dispatchable_names.0 {
+                    None => true,
+                    Some(funcs) => funcs.contains(dispatchable),
+                }
+            }),
+        }
+    }
+}
+
 /// Portfolio permissions.
 pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 
@@ -240,24 +258,10 @@ where
     /// Checks if the given key has permission to call the given extrinsic.
     pub fn has_extrinsic_permission(
         &self,
-        pallet_name: &PalletName,
-        dispatchable_name: &DispatchableName,
+        pallet: &PalletName,
+        dispatchable: &DispatchableName,
     ) -> bool {
-        match &self.permissions.extrinsic.0 {
-            None => true,
-            Some(pallet_perms) => pallet_perms
-                .iter()
-                .find(|perm| {
-                    if &perm.pallet_name != pallet_name {
-                        return false;
-                    }
-                    match &perm.dispatchable_names.0 {
-                        None => true,
-                        Some(funcs) => funcs.contains(dispatchable_name),
-                    }
-                })
-                .is_some(),
-        }
+        self.permissions.extrinsic.sufficient_for(pallet, dispatchable)
     }
 
     /// Checks if the given key has permission to access all given portfolios.
