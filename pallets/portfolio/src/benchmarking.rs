@@ -118,7 +118,7 @@ benchmarks! {
 
         assert_eq!(PortfolioCustodian::get(&user_portfolio), Some(custodian.did()));
         assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), true);
-    }: _(owner.origin, user_portfolio)
+    }: _(custodian.origin.clone(), user_portfolio)
     verify {
         assert_eq!(PortfolioCustodian::get(&user_portfolio), None);
         assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), false);
