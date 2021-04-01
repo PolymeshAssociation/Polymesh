@@ -1077,24 +1077,8 @@ impl<T: Trait> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        if Self::has_authorization(target, auth_id) {
-            Some(Self::get_authorization(target, auth_id))
-        } else {
-            None
-        }
-    }
-
-    /// Returns `true` if `target` has the given `auth_id`.
-    fn has_authorization(target: &Signatory<T::AccountId>, auth_id: u64) -> bool {
         <Authorizations<T>>::contains_key(target, auth_id)
-    }
-
-    /// Fetches a particular authorization.
-    pub fn get_authorization(
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Authorization<T::AccountId, T::Moment> {
-        <Authorizations<T>>::get(target, auth_id)
+            .then(|| <Authorizations<T>>::get(target, auth_id))
     }
 
     /// Accepts a primary key rotation.
