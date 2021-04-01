@@ -85,7 +85,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
     PortfolioNumber, Ticker,
 };
-use sp_runtime::traits::CheckedMul as _;
+use sp_runtime::traits::{CheckedMul as _, CheckedSub as _};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -445,6 +445,8 @@ decl_error! {
         NotExpired,
         /// A distribution has been activated, as `payment_at <= now` holds.
         DistributionStarted,
+        /// A distribution has insufficient remaining amount of currency to distribute.
+        InsufficientRemainingAmount,
     }
 }
 
@@ -498,6 +500,12 @@ impl<T: Trait> Module<T> {
         let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
         let benefit = Self::benefit_of(balance, dist.per_share)?;
 
+        // Ensure we have enough remaining.
+        dist.remaining = dist
+            .remaining
+            .checked_sub(&benefit)
+            .ok_or(Error::<T>::InsufficientRemainingAmount)?;
+
         // Compute withholding tax + gain.
         let tax = ca.tax_of(&holder);
         let gain = benefit - tax * benefit;
@@ -516,7 +524,6 @@ impl<T: Trait> Module<T> {
         let holder = holder.for_event();
 
         // Commit `dist` change to storage.
-        dist.remaining -= benefit;
         <Distributions<T>>::insert(ca_id, dist);
 
         // Emit event.

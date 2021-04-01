@@ -210,7 +210,7 @@ fn exceeded_funding_round_name() -> FundingRoundName {
         <TestStorage as AssetTrait>::FundingRoundNameMaxLength::get() + 1;
 
     iter::repeat(b'A')
-        .take(funding_round_max_length)
+        .take(funding_round_max_length as usize)
         .collect::<Vec<_>>()
         .into()
 }

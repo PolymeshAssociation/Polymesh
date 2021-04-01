@@ -2094,7 +2094,47 @@ fn dist_claim_works() {
         // No funds left. Baz wants 101 per share but pool provided cannot satisfy that.
         assert_noop!(
             Dist::claim(baz.origin(), id),
-            PError::InsufficientTokensLocked
+            DistError::InsufficientRemainingAmount
+        );
+    });
+}
+
+#[test]
+fn dist_claim_no_remaining() {
+    currency_test(|ticker, currency, [owner, foo, bar]| {
+        // Transfer 500 to `foo` & `bar`.
+        transfer(&ticker, owner, foo);
+        transfer(&ticker, owner, bar);
+
+        let mk_dist = |amount| {
+            let id = dist_ca(owner, ticker, Some(1)).unwrap();
+            assert_ok!(Dist::distribute(
+                owner.origin(),
+                id,
+                None,
+                currency,
+                1_000_000,
+                amount,
+                5,
+                None,
+            ));
+            id
+        };
+
+        // We create two dists.
+        // One has sufficient tokens but we'll claim from the other.
+        // Previously, this would cause `remaining -= benefit` underflow.
+        mk_dist(1_000_000);
+        let id = mk_dist(0);
+
+        Timestamp::set_timestamp(5);
+        assert_noop!(
+            Dist::claim(foo.origin(), id),
+            DistError::InsufficientRemainingAmount
+        );
+        assert_noop!(
+            Dist::push_benefit(owner.origin(), id, bar.did),
+            DistError::InsufficientRemainingAmount
         );
     });
 }
@@ -2152,6 +2192,6 @@ fn dist_claim_existing_checkpoint() {
 }
 
 #[test]
-fn dist_claimscheduled_checkpoint() {
+fn dist_claim_scheduled_checkpoint() {
     dist_claim_cp_test(|ticker, owner| dist_ca(owner, ticker, Some(2000)).unwrap());
 }

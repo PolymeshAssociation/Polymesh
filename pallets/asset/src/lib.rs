@@ -176,15 +176,12 @@ pub trait Trait:
     type UnixTime: UnixTime;
 
     /// Max length for the name of an asset.
-    type AssetNameMaxLength: Get<usize>;
+    type AssetNameMaxLength: Get<u32>;
 
     /// Max length of the funding round name.
-    type FundingRoundNameMaxLength: Get<usize>;
+    type FundingRoundNameMaxLength: Get<u32>;
 
     type AssetFn: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
-
-    /// Maximum gas used for smart extension execution.
-    type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: checkpoint::WeightInfo;
@@ -391,10 +388,12 @@ decl_module! {
 
         type Error = Error<T>;
 
-        const AllowedGasLimit: u64 = T::AllowedGasLimit::get();
-
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
+        const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
+        const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // Migrate `AssetDocuments`.
@@ -1892,14 +1891,16 @@ impl<T: Trait> Module<T> {
         funding_round: Option<FundingRoundName>,
     ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         ensure!(
-            name.len() <= T::AssetNameMaxLength::get(),
+            name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
         if let AssetType::Custom(ty) = &asset_type {
             ensure_string_limited::<T>(ty)?;
         }
         ensure!(
-            funding_round.as_ref().map_or(0, |name| name.len())
+            funding_round
+                .as_ref()
+                .map_or(0u32, |name| name.len() as u32)
                 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
@@ -2033,7 +2034,7 @@ impl<T: Trait> Module<T> {
 
     fn base_rename_asset(origin: T::Origin, ticker: Ticker, name: AssetName) -> DispatchResult {
         ensure!(
-            name.len() <= T::AssetNameMaxLength::get(),
+            name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
 
@@ -2151,7 +2152,7 @@ impl<T: Trait> Module<T> {
         name: FundingRoundName,
     ) -> DispatchResult {
         ensure!(
-            name.len() <= T::FundingRoundNameMaxLength::get(),
+            name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
         let did = Self::ensure_perms_owner_asset(origin, &ticker)?;
