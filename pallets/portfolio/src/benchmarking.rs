@@ -20,7 +20,7 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::PortfolioName;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
