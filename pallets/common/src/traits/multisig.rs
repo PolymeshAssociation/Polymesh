@@ -19,7 +19,7 @@
 //! multisig module itself.
 
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::Signatory;
+use polymesh_primitives::{IdentityId, Signatory};
 
 use sp_std::vec::Vec;
 
@@ -29,8 +29,13 @@ pub trait MultiSigSubTrait<AccountId> {
     ///
     /// # Arguments
     /// * `signer` - DID/key of the signer
-    /// * `auth_id` - Authorization ID of the authorization created by the multisig.
-    fn accept_multisig_signer(signer: Signatory<AccountId>, auth_id: u64) -> DispatchResult;
+    /// * `from` - The DID that sent the authorization
+    /// * `multisig` - The multisig address
+    fn accept_multisig_signer(
+        signer: Signatory<AccountId>,
+        from: IdentityId,
+        multisig: &AccountId,
+    ) -> DispatchResult;
 
     /// Fetches signers of a multisig
     ///

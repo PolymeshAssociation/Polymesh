@@ -585,7 +585,7 @@ decl_module! {
             Self::ensure_auth_unexpired(auth.expiry)?;
 
             match (signer.clone(), &auth.authorization_data) {
-                (sig, AuthorizationData::AddMultiSigSigner(_)) => T::MultiSig::accept_multisig_signer(sig, auth_id),
+                (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, *ticker),
@@ -1035,18 +1035,6 @@ impl<T: Trait> Module<T> {
             target.as_account().cloned(),
             auth.auth_id,
         ));
-    }
-
-    /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn check_auth(
-        from: IdentityId,
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        let auth = Self::ensure_authorization(target, auth_id)?;
-        Self::ensure_auth_unexpired(auth.expiry)?;
-        Self::ensure_auth_by(auth.authorized_by, from)?;
-        Ok(auth)
     }
 
     pub fn ensure_auth_by(auth_by: IdentityId, from: IdentityId) -> DispatchResult {
