@@ -25,21 +25,34 @@ pub trait AssetSubTrait<Balance> {
     /// Accept and process a ticker transfer
     ///
     /// # Arguments
-    /// * `to_did` did of the receiver
-    /// * `auth_id` Authorization id of the authorization created by current ticker owner
-    fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    /// * `to` did of the receiver.
+    /// * `from` sender of the authorization.
+    /// * `ticker` that is being transferred.
+    fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
+
     /// Accept and process a primary issuance agent transfer
     ///
     /// # Arguments
-    /// * `to_did` did of the receiver
-    /// * `auth_id` Authorization id of the authorization created by current ticker owner
-    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    /// * `to` did of the receiver.
+    /// * `from` sender of the authorization.
+    /// * `ticker` that is being altered.
+    fn accept_primary_issuance_agent_transfer(
+        to: IdentityId,
+        from: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult;
+
     /// Accept and process a token ownership transfer
     ///
     /// # Arguments
-    /// * `to_did` did of the receiver
-    /// * `auth_id` Authorization id of the authorization created by current token owner
-    fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    /// * `to` did of the receiver.
+    /// * `from` sender of the authorization.
+    /// * `ticker` that is being transferred.
+    fn accept_asset_ownership_transfer(
+        to: IdentityId,
+        from: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult;
 
     /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
     /// to any previous valid `old_scope_ids`.
@@ -66,10 +79,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
     /// Ensure that the caller has the required extrinsic and asset permissions.
-    fn ensure_owner_perms(
-        origin: Origin,
-        ticker: &Ticker,
-    ) -> Result<IdentityId, DispatchError>;
+    fn ensure_owner_perms(origin: Origin, ticker: &Ticker) -> Result<IdentityId, DispatchError>;
 
     fn create_asset(
         origin: Origin,

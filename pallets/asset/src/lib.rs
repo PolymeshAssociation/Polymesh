@@ -112,7 +112,7 @@ use polymesh_primitives::{
     migrate::MigrationError,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
-    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory,
+    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
@@ -1081,16 +1081,46 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
 }
 
 impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
-    fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        Self::base_accept_ticker_transfer(to_did, auth_id)
+    fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
+        Self::ensure_asset_fresh(&ticker)?;
+        let owner = Self::ensure_auth_by_is_owner(&ticker, from)?;
+
+        Self::transfer_ticker(ticker, to, owner);
+        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
+        Ok(())
     }
 
-    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        Self::base_accept_primary_issuance_agent_transfer(to_did, auth_id)
+    fn accept_primary_issuance_agent_transfer(
+        to: IdentityId,
+        from: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        Self::ensure_auth_by_is_owner(&ticker, from)?;
+
+        let pia = Some(to);
+        let old_pia = <Tokens<T>>::mutate(&ticker, |token| {
+            mem::replace(&mut token.primary_issuance_agent, pia)
+        });
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
+            to, ticker, old_pia, pia,
+        ));
+        Ok(())
     }
 
-    fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        Self::base_accept_token_ownership_transfer(to_did, auth_id)
+    fn accept_asset_ownership_transfer(
+        to: IdentityId,
+        from: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        Self::ensure_asset_exists(&ticker)?;
+        let owner = Self::ensure_auth_by_is_owner(&ticker, from)?;
+
+        AssetOwnershipRelations::remove(owner, ticker);
+        AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+        <Tokens<T>>::mutate(&ticker, |tr| tr.owner_did = to);
+        Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, owner));
+        Ok(())
     }
 
     fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
@@ -1608,23 +1638,13 @@ impl<T: Trait> Module<T> {
 
     /// Accepts and executes the ticker transfer.
     pub fn base_accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?.authorization_data;
-
-        let ticker = match auth {
-            AuthorizationData::TransferTicker(ticker) => ticker,
-            _ => fail!(Error::<T>::NoTickerTransferAuth),
-        };
-
-        Self::ensure_asset_fresh(&ticker)?;
-        let ticker_details = Self::ticker_registration(&ticker);
-
-        let signer = Signatory::from(to_did);
-        let auth = <Identity<T>>::check_auth(ticker_details.owner, &signer, auth_id)?;
-        <Identity<T>>::unchecked_take_auth(&signer, &auth);
-
-        Self::transfer_ticker(ticker, to_did, ticker_details.owner);
-        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
-        Ok(())
+        <Identity<T>>::accept_auth_with(&to_did.into(), auth_id, |auth| {
+            let ticker = match auth.authorization_data {
+                AuthorizationData::TransferTicker(ticker) => ticker,
+                _ => fail!(Error::<T>::NoTickerTransferAuth),
+            };
+            <Self as AssetSubTrait<_>>::accept_ticker_transfer(to_did, auth.authorized_by, ticker)
+        })
     }
 
     /// Transfer the given `ticker`'s registration from `from` to `to`.
@@ -1636,69 +1656,42 @@ impl<T: Trait> Module<T> {
     }
 
     /// Accept and process a primary issuance agent transfer.
-    pub fn base_accept_primary_issuance_agent_transfer(
-        to_did: IdentityId,
-        auth_id: u64,
-    ) -> DispatchResult {
-        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?.authorization_data;
-
-        let ticker = match auth {
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
-            _ => fail!(Error::<T>::NoPrimaryIssuanceAgentTransferAuth),
-        };
-
-        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
-
-        let pia = Some(to_did);
-        let old_pia = <Tokens<T>>::mutate(&ticker, |token| {
-            mem::replace(&mut token.primary_issuance_agent, pia)
-        });
-
-        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
-            to_did, ticker, old_pia, pia,
-        ));
-
-        Ok(())
+    pub fn base_accept_primary_issuance_agent_transfer(to: IdentityId, id: u64) -> DispatchResult {
+        <Identity<T>>::accept_auth_with(&to.into(), id, |auth| {
+            let ticker = match auth.authorization_data {
+                AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
+                _ => fail!(Error::<T>::NoPrimaryIssuanceAgentTransferAuth),
+            };
+            <Self as AssetSubTrait<_>>::accept_primary_issuance_agent_transfer(
+                to,
+                auth.authorized_by,
+                ticker,
+            )
+        })
     }
 
     /// Accept and process a token ownership transfer.
-    pub fn base_accept_token_ownership_transfer(
-        to_did: IdentityId,
-        auth_id: u64,
-    ) -> DispatchResult {
-        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
-
-        let ticker = match auth.authorization_data {
-            AuthorizationData::TransferAssetOwnership(ticker) => ticker,
-            _ => fail!(Error::<T>::NotTickerOwnershipTransferAuth),
-        };
-
-        Self::ensure_asset_exists(&ticker)?;
-        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
-
-        let ticker_details = Self::ticker_registration(&ticker);
-        AssetOwnershipRelations::remove(ticker_details.owner, ticker);
-
-        AssetOwnershipRelations::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
-
-        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
-        let owner = <Tokens<T>>::mutate(&ticker, |tr| mem::replace(&mut tr.owner_did, to_did));
-
-        Self::deposit_event(RawEvent::AssetOwnershipTransferred(to_did, ticker, owner));
-
-        Ok(())
+    pub fn base_accept_token_ownership_transfer(to: IdentityId, id: u64) -> DispatchResult {
+        <Identity<T>>::accept_auth_with(&to.into(), id, |auth| {
+            let ticker = match auth.authorization_data {
+                AuthorizationData::TransferAssetOwnership(ticker) => ticker,
+                _ => fail!(Error::<T>::NotTickerOwnershipTransferAuth),
+            };
+            <Self as AssetSubTrait<_>>::accept_asset_ownership_transfer(
+                to,
+                auth.authorized_by,
+                ticker,
+            )
+        })
     }
 
-    pub fn consume_auth_by_owner(
+    pub fn ensure_auth_by_is_owner(
         ticker: &Ticker,
-        to_did: IdentityId,
-        auth_id: u64,
-    ) -> DispatchResult {
-        let owner = Self::token_details(ticker).owner_did;
-        let signer = Signatory::from(to_did);
-        let auth = <Identity<T>>::check_auth(owner, &signer, auth_id)?;
-        <Identity<T>>::unchecked_take_auth(&signer, &auth);
-        Ok(())
+        auth_by: IdentityId,
+    ) -> Result<IdentityId, DispatchError> {
+        let owner = Self::ticker_registration(&ticker).owner;
+        <Identity<T>>::ensure_auth_by(auth_by, owner)?;
+        Ok(owner)
     }
 
     /// RPC: Function allows external users to know whether the transfer extrinsic

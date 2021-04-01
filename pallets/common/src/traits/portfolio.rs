@@ -26,9 +26,10 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// Accepts custody of a portfolio
     ///
     /// # Arguments
-    /// * `new_custodian` - DID of the new custodian
-    /// * `auth_id` - Authorization ID of the authorization created by the current custodian.
-    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult;
+    /// * `to` - DID of the new custodian
+    /// * `from` - Sender of the authorization
+    /// * `pid` - The old portfolio ID
+    fn accept_portfolio_custody(to: IdentityId, from: IdentityId, pid: PortfolioId) -> DispatchResult;
 
     /// Checks that the custodian is authorized for the portfolio
     ///

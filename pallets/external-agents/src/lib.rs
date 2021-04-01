@@ -156,6 +156,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
         /// - `TooLong` if `perms` had some string or list length that was too long.
+        /// - `NoSuchAG` if `id` does not identify a custom AG.
         ///
         /// # Permissions
         /// * Asset
@@ -192,6 +193,7 @@ decl_module! {
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
+        /// - `NoSuchAG` if `id` does not identify a custom AG.
         /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
         ///
         /// # Permissions
@@ -216,6 +218,11 @@ decl_event! {
         /// (Caller DID, AG's ticker, AG's ID, AG's new permissions)
         GroupPermissionsUpdated(EventDid, Ticker, AGId, ExtrinsicPermissions),
 
+        /// An agent was added.
+        ///
+        /// (Caller/Agent DID, Agent's ticker, Agent's group)
+        AgentAdded(EventDid, Ticker, AgentGroup),
+
         /// An agent was removed.
         ///
         /// (Caller DID, Agent's ticker, Agent's DID)
@@ -237,6 +244,8 @@ decl_error! {
         NoSuchAG,
         /// The agent is not authorized to call the current extrinsic.
         UnauthorizedAgent,
+        /// The provided `agent` is already an agent for the `Ticker`.
+        AlreadyAnAgent,
         /// The provided `agent` is not an agent for the `Ticker`.
         NotAnAgent,
         /// The caller's secondary key does not have the required asset permission.
@@ -247,11 +256,21 @@ decl_error! {
 impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for Module<T> {
     fn accept_become_agent(
         did: IdentityId,
-        auth_id: u64,
+        from: IdentityId,
         ticker: Ticker,
         group: (),
     ) -> DispatchResult {
-        // TODO(Centril): add logic
+        let group = todo!();
+        Self::ensure_agent_permissioned(ticker, from)?;
+        Self::ensure_agent_group_valid(ticker, group)?;
+
+        GroupOfAgent::try_mutate(ticker, did, |slot| -> DispatchResult {
+            ensure!(slot.is_none(), Error::<T>::AlreadyAnAgent);
+            *slot = Some(group);
+            Ok(())
+        })?;
+
+        Self::deposit_event(Event::AgentAdded(did.for_event(), ticker, group));
         Ok(())
     }
 }
@@ -286,12 +305,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
-
-        // Ensure the AG exists.
-        ensure!(
-            (AGId(1)..=AGIdSequence::get(ticker)).contains(&id),
-            Error::<T>::NoSuchAG
-        );
+        Self::ensure_custom_agent_group_exists(ticker, &id)?;
 
         // Commit & emit.
         GroupPermissions::insert(ticker, id, perms.clone());
@@ -313,8 +327,26 @@ impl<T: Trait> Module<T> {
         group: AgentGroup,
     ) -> DispatchResult {
         let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
+        Self::ensure_agent_group_valid(ticker, group)?;
         Self::try_mutate_agents_group(ticker, agent, Some(group))?;
         Self::deposit_event(Event::GroupChanged(did, ticker, agent, group));
+        Ok(())
+    }
+
+    /// Ensure that `group` is a valid agent group for `ticker`.
+    fn ensure_agent_group_valid(ticker: Ticker, group: AgentGroup) -> DispatchResult {
+        if let AgentGroup::Custom(id) = group {
+            Self::ensure_custom_agent_group_exists(ticker, &id)?;
+        }
+        Ok(())
+    }
+
+    /// Ensure that `id` identifies a custom AG of `ticker`.
+    fn ensure_custom_agent_group_exists(ticker: Ticker, id: &AGId) -> DispatchResult {
+        ensure!(
+            (AGId(1)..=AGIdSequence::get(ticker)).contains(id),
+            Error::<T>::NoSuchAG
+        );
         Ok(())
     }
 

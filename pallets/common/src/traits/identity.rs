@@ -100,20 +100,16 @@ pub trait WeightInfo {
 
 /// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
 pub trait IdentityToCorporateAction {
-    /// Accept CAA transfer to `did` with `auth_id` as authorization id.
-    fn accept_corporate_action_agent_transfer(
-        did: IdentityId,
-        auth_id: u64,
-        ticker: Ticker,
-    ) -> DispatchResult;
+    /// Accept CAA transfer to `did` authorized by `from` for `ticker`.
+    fn accept_caa_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
 }
 
 /// The link between the identity and external agents pallet for becoming agent authorization.
 pub trait IdentityToExternalAgents {
-    /// Accept, for `did`, the role as an agent of `ticker` with `auth_id` as authorization id.
+    /// Accept from `from`, for `did`, the role as an agent of `ticker` with `group`.
     fn accept_become_agent(
         did: IdentityId,
-        auth_id: u64,
+        from: IdentityId,
         ticker: Ticker,
         group: (),
     ) -> DispatchResult;

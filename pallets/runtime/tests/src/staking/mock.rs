@@ -493,13 +493,17 @@ impl GroupTrait<Moment> for Test {
 }
 
 impl AssetSubTrait<Balance> for Test {
-    fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_ticker_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
-    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_primary_issuance_agent_transfer(
+        _: IdentityId,
+        _: IdentityId,
+        _: Ticker,
+    ) -> DispatchResult {
         Ok(())
     }
-    fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_asset_ownership_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
@@ -512,13 +516,13 @@ impl AssetSubTrait<Balance> for Test {
 }
 
 impl IdentityToCorporateAction for Test {
-    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64, _: Ticker) -> DispatchResult {
+    fn accept_caa_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
 }
 
 impl IdentityToExternalAgents for Test {
-    fn accept_become_agent(_: IdentityId, _: u64, _: Ticker, _: ()) -> DispatchResult {
+    fn accept_become_agent(_: IdentityId, _: IdentityId, _: Ticker, _: ()) -> DispatchResult {
         Ok(())
     }
 }
@@ -540,7 +544,7 @@ impl MultiSigSubTrait<AccountId> for Test {
 }
 
 impl PortfolioSubTrait<Balance, AccountId> for Test {
-    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_portfolio_custody(_: IdentityId, _: IdentityId, _: PortfolioId) -> DispatchResult {
         unimplemented!()
     }
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {

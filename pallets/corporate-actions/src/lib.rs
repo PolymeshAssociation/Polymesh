@@ -114,7 +114,7 @@ use pallet_asset::{
     self as asset,
     checkpoint::{self, ScheduleId, SchedulePoints, ScheduleRefCount},
 };
-use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
@@ -359,7 +359,6 @@ type Ballot<T> = ballot::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type Distribution<T> = distribution::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = identity::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -883,16 +882,13 @@ decl_error! {
 }
 
 impl<T: Trait> IdentityToCorporateAction for Module<T> {
-    fn accept_corporate_action_agent_transfer(
-        did: IdentityId,
-        auth_id: u64,
+    fn accept_caa_transfer(
+        to: IdentityId,
+        from: IdentityId,
         ticker: Ticker,
     ) -> DispatchResult {
-        // Ensure we have authorization to transfer to `did`...
-        let auth = <Identity<T>>::ensure_authorization(&did.into(), auth_id)?;
-        <Asset<T>>::consume_auth_by_owner(&ticker, did, auth_id)?;
-        // ..and then transfer.
-        Self::change_ca_agent(did, ticker, Some(did));
+        <Asset<T>>::ensure_auth_by_is_owner(&ticker, from)?;
+        Self::change_ca_agent(to, ticker, Some(to));
         Ok(())
     }
 }
