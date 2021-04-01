@@ -478,6 +478,7 @@ impl IdentityTrait for TestStorage {
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = CorporateActions;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -730,6 +731,7 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 pub type Settlement = pallet_settlement::Module<TestStorage>;
 pub type TestUtils = pallet_test_utils::Module<TestStorage>;
+pub type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

@@ -121,8 +121,8 @@ use polymesh_common_utilities::{
     with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, AuthorizationData,
-    DocumentId, EventDid, IdentityId, Moment, Ticker,
+    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, DocumentId, EventDid,
+    IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
 use sp_arithmetic::Permill;
@@ -883,13 +883,13 @@ decl_error! {
 }
 
 impl<T: Trait> IdentityToCorporateAction for Module<T> {
-    fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult {
+    fn accept_corporate_action_agent_transfer(
+        did: IdentityId,
+        auth_id: u64,
+        ticker: Ticker,
+    ) -> DispatchResult {
         // Ensure we have authorization to transfer to `did`...
         let auth = <Identity<T>>::ensure_authorization(&did.into(), auth_id)?;
-        let ticker = match auth.authorization_data {
-            AuthorizationData::TransferCorporateActionAgent(ticker) => ticker,
-            _ => return Err(Error::<T>::AuthNotCAATransfer.into()),
-        };
         <Asset<T>>::consume_auth_by_owner(&ticker, did, auth_id)?;
         // ..and then transfer.
         Self::change_ca_agent(did, ticker, Some(did));

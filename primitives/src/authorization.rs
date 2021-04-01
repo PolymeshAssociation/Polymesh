@@ -57,6 +57,8 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to transfer a token's corporate action agent (CAA).
     /// Must be issued by the current owner of the token.
     TransferCorporateActionAgent(Ticker),
+    /// Authorization to become an agent of the `Ticker` with the `AgentGroup`.
+    BecomeAgent(Ticker, ()),
 }
 
 impl<T> AuthorizationData<T> {
@@ -72,6 +74,7 @@ impl<T> AuthorizationData<T> {
             Self::TransferCorporateActionAgent(..) => {
                 AuthorizationType::TransferCorporateActionAgent
             }
+            Self::BecomeAgent(..) => AuthorizationType::BecomeAgent,
             Self::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
             Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
             Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
@@ -109,6 +112,8 @@ pub enum AuthorizationType {
     NoData,
     /// Authorization to transfer a token's corporate action agent (CAA).
     TransferCorporateActionAgent,
+    /// Authorization to become an agent of a ticker.
+    BecomeAgent,
 }
 
 impl<AccountId> Default for AuthorizationData<AccountId> {

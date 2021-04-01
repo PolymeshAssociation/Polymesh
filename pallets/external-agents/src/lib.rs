@@ -46,8 +46,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_common_utilities::balances::Trait as BalancesTrait;
-use polymesh_primitives::{AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, Ticker};
+use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
@@ -85,7 +84,7 @@ pub trait WeightInfo {
     fn change_group() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + BalancesTrait {
+pub trait Trait: frame_system::Trait + polymesh_common_utilities::balances::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -242,6 +241,18 @@ decl_error! {
         NotAnAgent,
         /// The caller's secondary key does not have the required asset permission.
         SecondaryKeyNotAuthorizedForAsset,
+    }
+}
+
+impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for Module<T> {
+    fn accept_become_agent(
+        did: IdentityId,
+        auth_id: u64,
+        ticker: Ticker,
+        group: (),
+    ) -> DispatchResult {
+        // TODO(Centril): add logic
+        Ok(())
     }
 }
 

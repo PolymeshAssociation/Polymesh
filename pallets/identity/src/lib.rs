@@ -118,8 +118,9 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction, RawEvent,
-            SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
+            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction as _,
+            IdentityToExternalAgents as _, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
+            Trait,
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
@@ -587,8 +588,10 @@ decl_module! {
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(_)) =>
                     T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
-                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(_)) =>
-                    T::CorporateAction::accept_corporate_action_agent_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(ticker)) =>
+                    T::CorporateAction::accept_corporate_action_agent_transfer(did, auth_id, ticker),
+                (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
+                    T::ExternalAgents::accept_become_agent(did, auth_id, ticker, group),
                 (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(_)) =>
                     T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
                 (Signatory::Identity(did), AuthorizationData::PortfolioCustody(_)) =>
@@ -605,6 +608,7 @@ decl_module! {
                     AuthorizationData::TransferTicker(..)
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
+                    | AuthorizationData::BecomeAgent(..)
                     | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::PortfolioCustody(..)
                 ) => Err(Error::<T>::UnknownAuthorization.into())

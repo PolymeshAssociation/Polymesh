@@ -40,7 +40,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
         group::{GroupTrait, InactiveMember},
-        identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+        identity::{IdentityToCorporateAction, IdentityToExternalAgents, Trait as IdentityTrait},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -393,6 +393,7 @@ impl IdentityTrait for Test {
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type CorporateAction = Test;
+    type ExternalAgents = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -511,7 +512,13 @@ impl AssetSubTrait<Balance> for Test {
 }
 
 impl IdentityToCorporateAction for Test {
-    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64, _: Ticker) -> DispatchResult {
+        Ok(())
+    }
+}
+
+impl IdentityToExternalAgents for Test {
+    fn accept_become_agent(_: IdentityId, _: u64, _: Ticker, _: ()) -> DispatchResult {
         Ok(())
     }
 }

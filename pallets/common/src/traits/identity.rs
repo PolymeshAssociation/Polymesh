@@ -101,7 +101,22 @@ pub trait WeightInfo {
 /// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
 pub trait IdentityToCorporateAction {
     /// Accept CAA transfer to `did` with `auth_id` as authorization id.
-    fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult;
+    fn accept_corporate_action_agent_transfer(
+        did: IdentityId,
+        auth_id: u64,
+        ticker: Ticker,
+    ) -> DispatchResult;
+}
+
+/// The link between the identity and external agents pallet for becoming agent authorization.
+pub trait IdentityToExternalAgents {
+    /// Accept, for `did`, the role as an agent of `ticker` with `auth_id` as authorization id.
+    fn accept_become_agent(
+        did: IdentityId,
+        auth_id: u64,
+        ticker: Ticker,
+        group: (),
+    ) -> DispatchResult;
 }
 
 /// The module's configuration trait.
@@ -136,8 +151,12 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
 
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
+
     /// Negotiates between Corporate Actions and the Identity pallet.
     type CorporateAction: IdentityToCorporateAction;
+
+    /// Negotiates between External Agents and the Identity pallet.
+    type ExternalAgents: IdentityToExternalAgents;
 
     /// Identity functions
     type IdentityFn: IdentityFnTrait<Self::AccountId>;
