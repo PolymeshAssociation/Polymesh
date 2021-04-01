@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+    agent::AgentGroup,
     identity_id::IdentityId,
     secondary_key::{Permissions, Signatory},
     PortfolioId, Ticker,
@@ -58,7 +59,7 @@ pub enum AuthorizationData<AccountId> {
     /// Must be issued by the current owner of the token.
     TransferCorporateActionAgent(Ticker),
     /// Authorization to become an agent of the `Ticker` with the `AgentGroup`.
-    BecomeAgent(Ticker, ()),
+    BecomeAgent(Ticker, AgentGroup),
 }
 
 impl<T> AuthorizationData<T> {

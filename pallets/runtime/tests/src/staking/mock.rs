@@ -48,8 +48,9 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
-    InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
+    agent::AgentGroup, identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId,
+    Claim, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey,
+    Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -522,7 +523,12 @@ impl IdentityToCorporateAction for Test {
 }
 
 impl IdentityToExternalAgents for Test {
-    fn accept_become_agent(_: IdentityId, _: IdentityId, _: Ticker, _: ()) -> DispatchResult {
+    fn accept_become_agent(
+        _: IdentityId,
+        _: IdentityId,
+        _: Ticker,
+        _: AgentGroup,
+    ) -> DispatchResult {
         Ok(())
     }
 }

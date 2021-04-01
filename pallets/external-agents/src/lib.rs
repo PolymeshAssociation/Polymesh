@@ -38,7 +38,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -46,36 +45,11 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_identity::PermissionedCallOriginData;
+use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId, Ticker};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
-
-/// A `Ticker`-local Agent Group ID.
-/// By *local*, we mean that the same number might be used for a different `Ticker`
-/// to uniquely identify a different Agent Group.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Encode, Decode, Default, Debug)]
-pub struct AGId(pub u32);
-
-/// The available set of agent groups.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum AgentGroup {
-    /// Has all permissions.
-    Full,
-    /// Custom defined agent group drawn from 2).
-    /// The other groups have hard-coded mappings to `Permissions` in code.
-    Custom(AGId),
-    /// Manages identities of agents themselves.
-    Meta,
-    /// Agent group corresponding to a Corporate Action Agent (CAA) on Polymesh Mainnet v1.
-    PolymeshV1CAA,
-    /// Agent group corresponding to a Primary Issuance Agent (PIA) on Polymesh Mainnet v1.
-    PolymeshV1PIA,
-}
 
 pub trait WeightInfo {
     fn create_group() -> Weight;
@@ -258,9 +232,8 @@ impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for
         did: IdentityId,
         from: IdentityId,
         ticker: Ticker,
-        group: (),
+        group: AgentGroup,
     ) -> DispatchResult {
-        let group = todo!();
         Self::ensure_agent_permissioned(ticker, from)?;
         Self::ensure_agent_group_valid(ticker, group)?;
 

@@ -146,6 +146,9 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
+/// External agents.
+pub mod agent;
+
 /// Asset identifiers.
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
