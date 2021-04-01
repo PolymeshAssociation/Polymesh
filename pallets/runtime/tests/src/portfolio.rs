@@ -68,6 +68,16 @@ fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: 
     ));
 }
 
+macro_rules! assert_owner_is_custodian {
+    ($p:expr) => {{
+        assert_eq!(Portfolio::portfolios_in_custody($p.did, $p), false);
+        assert_eq!(
+            pallet_portfolio::PortfolioCustodian::contains_key(&$p),
+            false
+        );
+    }};
+}
+
 #[test]
 fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
@@ -459,14 +469,7 @@ fn can_take_custody_of_portfolios() {
         // Bob transfers portfolio custody back to Alice.
         set_custodian_ok(bob, owner, owner_user_portfolio);
         // The mapping is removed which means the owner is the custodian.
-        assert_eq!(
-            Portfolio::portfolios_in_custody(owner.did, owner_user_portfolio),
-            false
-        );
-        assert_eq!(
-            pallet_portfolio::PortfolioCustodian::contains_key(&owner_user_portfolio),
-            false
-        );
+        assert_owner_is_custodian!(owner_user_portfolio);
     });
 }
 
@@ -475,26 +478,18 @@ fn quit_portfolio_custody() {
     ExtBuilder::default().build().execute_with(|| {
         let (alice, num) = create_portfolio();
         let bob = User::new(AccountKeyring::Bob);
-
         let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
 
         assert_noop!(
             Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio),
-            AuthorizationError::Unauthorized
+            Error::UnauthorizedCustodian
         );
-        set_custodian_ok(bob, alice, user_portfolio);
+        set_custodian_ok(alice, bob, user_portfolio);
         assert_ok!(Portfolio::quit_portfolio_custody(
             bob.origin(),
             user_portfolio
         ));
         // The mapping is removed which means the owner is the custodian.
-        assert_eq!(
-            Portfolio::portfolios_in_custody(alice.did, user_portfolio),
-            false
-        );
-        assert_eq!(
-            pallet_portfolio::PortfolioCustodian::contains_key(&user_portfolio),
-            false
-        );
+        assert_owner_is_custodian!(user_portfolio);
     });
 }

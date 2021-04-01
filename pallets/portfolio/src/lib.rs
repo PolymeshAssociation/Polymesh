@@ -38,6 +38,7 @@
 //! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
 //! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
+//! - `quit_portfolio_custody`: Returns the custody of the portfolio to the owner unilaterally.
 
 #![feature(const_option)]
 #![cfg_attr(not(feature = "std"), no_std)]
