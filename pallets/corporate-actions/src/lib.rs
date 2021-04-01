@@ -437,6 +437,9 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
+        const MaxTargetIds: u32 = T::MaxTargetIds::get();
+        const MaxDidWhts: u32 = T::MaxDidWhts::get();
+
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion::get(), 1, {
                 use polymesh_primitives::migrate::{Empty, migrate_map};

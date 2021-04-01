@@ -178,6 +178,8 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
 

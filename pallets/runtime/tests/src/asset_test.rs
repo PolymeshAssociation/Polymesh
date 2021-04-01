@@ -230,7 +230,7 @@ fn exceeded_funding_round_name() -> FundingRoundName {
         <TestStorage as AssetTrait>::FundingRoundNameMaxLength::get() + 1;
 
     iter::repeat(b'A')
-        .take(funding_round_max_length)
+        .take(funding_round_max_length as usize)
         .collect::<Vec<_>>()
         .into()
 }
@@ -2411,7 +2411,7 @@ fn create_asset_errors(owner: Public, other: Public) {
 
     let name_max_length = <TestStorage as AssetTrait>::AssetNameMaxLength::get() + 1;
     let exceeded_name = iter::repeat(b'A')
-        .take(name_max_length)
+        .take(name_max_length as usize)
         .collect::<Vec<_>>()
         .into();
     let exceeded_funding_name = exceeded_funding_round_name();
