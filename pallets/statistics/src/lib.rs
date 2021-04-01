@@ -73,6 +73,8 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
+        const MaxTransferManagersPerAsset: u32 = T::MaxTransferManagersPerAsset::get();
+
         /// Adds a new transfer manager.
         ///
         /// # Arguments

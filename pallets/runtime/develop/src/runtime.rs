@@ -118,9 +118,8 @@ parameter_types! {
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: usize = 1024;
-    pub const FundingRoundNameMaxLength: usize = 1024;
-    pub const AllowedGasLimit: u64 = 13_000_000_000;
+    pub const AssetNameMaxLength: u32 = 1024;
+    pub const FundingRoundNameMaxLength: u32 = 1024;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
