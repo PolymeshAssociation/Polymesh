@@ -844,11 +844,11 @@ decl_module! {
             Self::base_add_investor_uniqueness_claim(origin, target, claim, Some(scope), proof.into(), expiry)
         }
 
-        /// Revokes a specific claim using its claim unique index, instead of its
-        /// content.
+        /// Revokes a specific claim using its [Claim Unique Index](/pallet_identity/index.html#claim-unique-index) composed by `target`,
+        /// `claim_type`, and `scope`.
         ///
-        /// Please note that only the `issuer` of the target claim can effectively call this function, because its `DID` is part of claim index.
-       ///
+        /// Please note that `origin` must be the issuer of the target claim.
+        ///
         /// # Errors
         /// - `TargetHasNonZeroBalanceAtScopeId` when you try to revoke a `InvestorUniqueness*`
         /// claim, and `target` identity still have any balance on the given `scope`.
