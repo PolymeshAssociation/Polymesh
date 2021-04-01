@@ -2364,7 +2364,7 @@ fn create_asset_errors(owner: Public, other: Public) {
     let name_max_length = <TestStorage as AssetTrait>::AssetNameMaxLength::get() + 1;
     let input_expected = vec![
         (
-            bytes_of_len(b'A', name_max_length),
+            bytes_of_len(b'A', name_max_length as usize),
             TOTAL_SUPPLY,
             true,
             None,
