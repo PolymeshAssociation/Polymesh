@@ -735,6 +735,8 @@ decl_module! {
             ensure_opt_string_limited::<T>(url.as_deref())?;
             ensure_opt_string_limited::<T>(description.as_deref())?;
 
+            let charge = || T::ProtocolFee::charge_fee(ProtocolOp::PipsPropose);
+
             // Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
@@ -746,15 +748,18 @@ decl_module! {
                 // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-                // Lock the deposit.
-                Self::increase_lock(proposer, deposit)?;
+                // Lock the deposit + charge protocol fees.
+                // Both do check-modify so we need a transaction.
+                with_transaction(|| {
+                    Self::increase_lock(proposer, deposit)?;
+                    charge()
+                })?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
+                // Charge protocol fees even for committee PIPs.
+                charge()?;
             }
-
-            // Charge protocol fees, even for committee PIPs.
-            <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
             // Construct and add PIP to storage.
             let id = Self::next_pip_id();

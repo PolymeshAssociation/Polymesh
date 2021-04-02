@@ -518,7 +518,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1626,7 +1626,9 @@ impl<T: Trait> Module<T> {
         Self::ensure_asset_fresh(&ticker)?;
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <Identity<T>>::consume_auth(ticker_details.owner, Signatory::from(to_did), auth_id)?;
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(ticker_details.owner, &signer, auth_id)?;
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -1701,7 +1703,10 @@ impl<T: Trait> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let owner = Self::token_details(ticker).owner_did;
-        <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(owner, &signer, auth_id)?;
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
+        Ok(())
     }
 
     /// RPC: Function allows external users to know whether the transfer extrinsic
@@ -1845,7 +1850,7 @@ impl<T: Trait> Module<T> {
         Ok(did)
     }
 
-    fn base_create_asset(
+    fn base_create_asset_and_mint(
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
@@ -1855,6 +1860,36 @@ impl<T: Trait> Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
+        with_transaction(|| {
+            let (sender, did) = Self::base_create_asset(
+                origin,
+                name,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                identifiers,
+                funding_round,
+            )?;
+
+            // Mint total supply to PIA
+            if total_supply > Zero::zero() {
+                Self::_mint(&ticker, sender, did, total_supply, None)?
+            }
+            Ok(())
+        })
+    }
+
+    fn base_create_asset(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         ensure!(
             name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
@@ -1972,12 +2007,7 @@ impl<T: Trait> Module<T> {
 
         Self::unverified_update_idents(did, ticker, identifiers);
 
-        // Mint total supply to PIA
-        if total_supply > Zero::zero() {
-            Self::_mint(&ticker, sender, did, total_supply, None)?;
-        }
-
-        Ok(())
+        Ok((sender, did))
     }
 
     fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {
