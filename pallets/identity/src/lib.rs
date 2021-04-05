@@ -487,10 +487,10 @@ decl_module! {
             );
 
             // 1.5 charge fee
-            let _ = T::ChargeTxFeeTarget::charge_fee(
+            T::ChargeTxFeeTarget::charge_fee(
                 proposal.encode().len().try_into().unwrap_or_default(),
-                proposal.get_dispatch_info())
-                    .map_err(|_| Error::<T>::FailedToChargeFee)?;
+                proposal.get_dispatch_info()
+            ).map_err(|_| Error::<T>::FailedToChargeFee)?;
 
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
@@ -962,22 +962,23 @@ impl<T: Trait> Module<T> {
         // Not really needed unless we allow identities to be deleted.
         Self::ensure_id_record_exists(auth.authorized_by)?;
 
-        Self::consume_auth(auth.authorized_by, signer.clone(), auth_id)?;
-
-        Self::base_join_identity(auth.authorized_by, permissions.into(), signer)
+        let auth = Self::check_auth(auth.authorized_by, &signer, auth_id)?;
+        Self::base_join_identity(auth.authorized_by, permissions.into(), &signer)?;
+        Self::unchecked_take_auth(&signer, &auth);
+        Ok(())
     }
 
     /// Joins an identity as signer
     pub fn base_join_identity(
         target_did: IdentityId,
         permissions: Permissions,
-        signer: Signatory<T::AccountId>,
+        signer: &Signatory<T::AccountId>,
     ) -> DispatchResult {
         let charge_fee =
             || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
 
         // Link the secondary key.
-        match &signer {
+        match signer {
             Signatory::Account(key) => {
                 ensure!(
                     Self::can_link_account_key_to_did(key),
@@ -997,23 +998,22 @@ impl<T: Trait> Module<T> {
             Signatory::Identity(_) => charge_fee()?,
         }
 
-        Self::unsafe_join_identity(target_did, permissions, signer)
+        Self::unsafe_join_identity(target_did, permissions, signer);
+        Ok(())
     }
 
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
         target_did: IdentityId,
         permissions: Permissions,
-        signer: Signatory<T::AccountId>,
-    ) -> DispatchResult {
+        signer: &Signatory<T::AccountId>,
+    ) {
         // Link the secondary key.
-        let sk = SecondaryKey::new(signer, permissions);
+        let sk = SecondaryKey::new(signer.clone(), permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {
             identity.add_secondary_keys(iter::once(sk.clone()));
         });
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
-
-        Ok(())
     }
 
     /// Adds an authorization.
@@ -1069,29 +1069,33 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(event(id, acc, auth_id))
     }
 
-    /// Consumes an authorization.
+    /// Consumes an authorization, removing it from storage.
+    pub fn unchecked_take_auth(
+        target: &Signatory<T::AccountId>,
+        auth: &Authorization<T::AccountId, T::Moment>,
+    ) {
+        <Authorizations<T>>::remove(&target, auth.auth_id);
+        <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth.auth_id);
+        Self::deposit_event(RawEvent::AuthorizationConsumed(
+            target.as_identity().cloned(),
+            target.as_account().cloned(),
+            auth.auth_id,
+        ));
+    }
+
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn consume_auth(
+    pub fn check_auth(
         from: IdentityId,
-        target: Signatory<T::AccountId>,
+        target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> DispatchResult {
-        let auth = Self::ensure_authorization(&target, auth_id)?;
+    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
+        let auth = Self::ensure_authorization(target, auth_id)?;
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
-
-        <Authorizations<T>>::remove(&target, auth_id);
-        <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
-
-        Self::deposit_event(RawEvent::AuthorizationConsumed(
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
-            auth_id,
-        ));
-        Ok(())
+        Ok(auth)
     }
 
     pub fn ensure_authorization(
@@ -1145,8 +1149,10 @@ impl<T: Trait> Module<T> {
             rotation_auth.authorization_data
         {
             // consume owner's authorization
-            Self::consume_auth(rotation_for_did, signer, rotation_auth_id)?;
-            Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
+            let auth = Self::check_auth(rotation_for_did, &signer, rotation_auth_id)?;
+            Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)?;
+            Self::unchecked_take_auth(&signer, &auth);
+            Ok(())
         } else {
             Err(Error::<T>::UnknownAuthorization.into())
         }
@@ -1172,22 +1178,24 @@ impl<T: Trait> Module<T> {
 
             match cdd_auth.authorization_data {
                 AuthorizationData::AttestPrimaryKeyRotation(ref attestation_for_did) => {
-                    // Attestor must be a CDD service provider
+                    // Attestor must be a CDD service provider.
                     ensure!(
                         T::CddServiceProviders::is_member(&cdd_auth.authorized_by),
                         Error::<T>::NotCddProviderAttestation
                     );
 
-                    // Make sure authorizations are for the same DID
+                    // Ensure authorizations are for the same DID.
                     ensure!(
                         rotation_for_did == *attestation_for_did,
                         Error::<T>::AuthorizationsNotForSameDids
                     );
 
-                    // consume CDD service provider's authorization
-                    // here we pass the known authorising identity to consume_auth, rather than the expected authorising identity
-                    // as we've already checked the validity above
-                    Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
+                    // Consume CDD service provider's authorization.
+                    // Here we pass the known authorising identity to `check_auth`,
+                    // rather than the expected authorising identity,
+                    // as we've already checked the validity above.
+                    let auth = Self::check_auth(cdd_auth.authorized_by, &signer, cdd_auth_id)?;
+                    Self::unchecked_take_auth(&signer, &auth);
                 }
                 _ => return Err(Error::<T>::UnknownAuthorization.into()),
             }

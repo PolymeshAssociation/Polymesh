@@ -312,8 +312,8 @@ decl_storage! {
             <identity::Module<T>>::unsafe_join_identity(
                 creator_did,
                 Permissions::default(),
-                Signatory::Account(multisig_id.clone())
-            ).expect("cannot link the bridge multisig");
+                &Signatory::Account(multisig_id.clone())
+            );
             debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
             multisig_id
         }): T::AccountId;

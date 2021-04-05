@@ -168,7 +168,7 @@ benchmarks! {
         for x in 0..i {
             let signer = Signatory::Account(account("key", x, SEED));
             signatories.push(signer.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signer)?;
+            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signer);
         }
     }: _(target.origin, signatories.clone())
 
@@ -259,7 +259,7 @@ benchmarks! {
         let new_user = UserBuilder::<T>::default().generate_did().build("key");
         let signatory = Signatory::Identity(new_user.did());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signatory);
 
     }: _(new_user.origin, target.did())
 
@@ -279,7 +279,7 @@ benchmarks! {
         let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
         let boxed_proposal = Box::new(call);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), Signatory::Identity(key.did()))?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &Signatory::Identity(key.did()));
         Module::<T>::set_context_did(Some(key.did()));
     }: _(key.origin, target.did(), boxed_proposal)
 
@@ -299,7 +299,7 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone())?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), &signatory);
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
