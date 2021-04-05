@@ -918,7 +918,7 @@ impl<T: Trait> Module<T> {
         bridge_txs
             .into_iter()
             .filter(|tx| {
-                Self::bridge_tx_details(&tx.recipient, &tx.nonce).status != BridgeTxStatus::Frozen
+                Self::bridge_tx_details(&tx.recipient, &tx.nonce).status == BridgeTxStatus::Frozen
             })
             .for_each(|tx| {
                 Self::update_status(&tx, BridgeTxStatus::Absent);
