@@ -596,7 +596,8 @@ fn check_put_code_flag() {
     let user = AccountKeyring::Charlie.public();
 
     ExtBuilder::default()
-        .regular_users(vec![user])
+        .cdd_providers(vec![AccountKeyring::Dave.public()])
+        .add_regular_users_from_accounts(&[user])
         .build()
         .execute_with(|| check_put_code_flag_ext(user))
 }

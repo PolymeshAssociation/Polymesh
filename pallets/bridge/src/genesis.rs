@@ -1,8 +1,9 @@
-use crate::{GenesisConfig, Trait};
+use crate::{BridgeTxDetail, BridgeTxStatus, GenesisConfig, Trait};
 
 use frame_support::{debug, storage::StorageDoubleMap};
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::{balances::CheckCdd, constants::currency::POLY, Context};
 use polymesh_primitives::{Permissions, Signatory};
+use sp_runtime::traits::Zero;
 use sp_std::convert::TryFrom;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -47,4 +48,40 @@ pub(crate) fn do_controller_genesis<T: Trait>(config: &GenesisConfig<T>) -> T::A
     debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
 
     multisig_id
+}
+
+pub(crate) fn do_bridge_tx_details_genesis<T: Trait>(
+    config: &GenesisConfig<T>,
+) -> Vec<(
+    T::AccountId,
+    u32,
+    BridgeTxDetail<T::Balance, T::BlockNumber>,
+)> {
+    config
+        .complete_txs
+        .iter()
+        .map(|tx| {
+            let recipient = tx.recipient.clone();
+            let detail = BridgeTxDetail {
+                amount: tx.amount,
+                status: BridgeTxStatus::Handled,
+                execution_block: Zero::zero(),
+                tx_hash: tx.tx_hash,
+            };
+            // NB It
+            let recipient_did = T::CddChecker::get_key_cdd_did(&recipient);
+
+            debug::info!(
+            "Credited Genesis bridge transaction to {:?}(did={:?}) with nonce {} for {:?} POLYX",
+            recipient,
+            recipient_did,
+            tx.nonce,
+            tx.amount / T::Balance::from(POLY)
+            );
+
+            crate::Module::<T>::issue(&recipient, &tx.amount, recipient_did)
+                .expect("Minting failed");
+            (recipient, tx.nonce, detail)
+        })
+        .collect::<Vec<_>>()
 }

@@ -52,7 +52,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
         match call {
-            // Register did call. This should be removed before mainnet launch and
+            // Register did call. This should be removed before itn launch and
             // all did registration should go through CDD
             Call::TestUtils(pallet_test_utils::Call::register_did(..)) => Ok(Some(caller.clone())),
             // Call made by a new Account key to accept invitation to become a secondary key

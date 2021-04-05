@@ -44,6 +44,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
     fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
 
     /// Retrieves proposal `address` indices voted on
+
     #[rpc(name = "pips_votedOn")]
     fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
 

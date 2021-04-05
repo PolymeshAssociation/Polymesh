@@ -130,11 +130,13 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + BalancesTrait {
+pub trait Trait: multisig::Trait + BalancesTrait + pallet_base::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
@@ -146,6 +148,7 @@ pub trait Trait: multisig::Trait + BalancesTrait {
 }
 
 /// The status of a bridge transaction.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeTxStatus {
     /// No such transaction in the system.
@@ -170,6 +173,7 @@ impl Default for BridgeTxStatus {
 }
 
 /// A unique lock-and-mint bridge transaction.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTx<Account, Balance> {
     /// A single transaction hash can have multiple locks. This nonce differentiates between them.
@@ -287,8 +291,7 @@ decl_storage! {
 
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
-        BridgeTxDetails get(fn bridge_tx_details):
-            double_map
+        pub BridgeTxDetails get(fn bridge_tx_details) build(genesis::do_bridge_tx_details_genesis): double_map
                 hasher(blake2_128_concat) T::AccountId,
                 hasher(blake2_128_concat) u32
             =>
@@ -325,6 +328,8 @@ decl_storage! {
         config(signers): Vec<Signatory<T::AccountId>>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
+        /// Complete transactions at genesis.
+        config(complete_txs): Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
 }
 
@@ -566,7 +571,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn ensure_controller_set() -> DispatchResult {
-        ensure!(Controller::<T>::exists(), Error::<T>::ControllerNotSet);
+        ensure!(
+            Self::controller() != Default::default(),
+            Error::<T>::ControllerNotSet
+        );
         Ok(())
     }
 
@@ -589,6 +597,7 @@ impl<T: Trait> Module<T> {
         if !is_exempted {
             let (limit, interval_duration) = Self::bridge_limit();
             ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
+
             let current_interval = <system::Module<T>>::block_number() / interval_duration;
             let (bridged, last_interval) = Self::polyx_bridged(did);
             let total_mint = if last_interval == current_interval {
@@ -738,7 +747,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         let ensure_caller = || -> DispatchResult {
-            //TODO: Review admin permissions to handle bridge txs before mainnet
+            //TODO: Review admin permissions to handle bridge txs before itn
             ensure!(
                 sender == &Self::controller() || sender == &Self::admin(),
                 Error::<T>::BadCaller
@@ -813,7 +822,7 @@ impl<T: Trait> Module<T> {
             RawOrigin::Root.into(),
             call,
         ) {
-            <Identity<T>>::emit_unexpected_error(Some(e));
+            pallet_base::emit_unexpected_error::<T>(Some(e));
         } else {
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
             Self::deposit_event(RawEvent::BridgeTxScheduled(

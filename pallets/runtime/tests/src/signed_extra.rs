@@ -1,6 +1,8 @@
 use pallet_group as group;
 use pallet_identity as identity;
-use polymesh_primitives::{AccountId, IdentityId, Index, InvestorUid};
+use polymesh_primitives::{
+    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Index, InvestorUid,
+};
 use polymesh_runtime_develop::{
     runtime::{Call, SignedExtra},
     Runtime,
@@ -51,16 +53,24 @@ fn make_min_storage() -> Result<TestExternalities, String> {
     let identities = accounts
         .iter()
         .enumerate()
-        .map(|(idx, acc)| {
+        .map(|(idx, primary_key)| {
             let did = IdentityId::from(idx as u128);
-            let uid = InvestorUid::from(did.as_ref());
+            let investor = InvestorUid::from(did.as_ref());
+            let issuers = vec![did];
 
-            (acc.clone(), did, did, uid, None)
+            GenesisIdentityRecord {
+                primary_key: primary_key.clone(),
+                issuers,
+                did,
+                investor,
+                ..Default::default()
+            }
         })
         .collect::<Vec<_>>();
+
     let did = identities
         .iter()
-        .map(|(_acc, did, ..)| did.clone())
+        .map(|gen_id| gen_id.did)
         .collect::<Vec<_>>();
 
     let mut storage = frame_system::GenesisConfig::default().build_storage::<Runtime>()?;
@@ -82,7 +92,7 @@ fn make_min_storage() -> Result<TestExternalities, String> {
 
     // Identity
     identity::GenesisConfig::<Runtime> {
-        identities: identities,
+        identities,
         ..Default::default()
     }
     .assimilate_storage(&mut storage)?;

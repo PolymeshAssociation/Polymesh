@@ -13,14 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+pub use node_rpc_runtime_api::asset::{
+    AssetApi as AssetRuntimeApi, BalanceAtResult, CanTransferResult,
+};
+use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, Ticker};
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 
 use codec::Codec;
 use jsonrpc_core::Error;
+use polymesh_primitives::asset::GranularCanTransferResult;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
@@ -42,6 +45,27 @@ pub trait AssetApi<BlockHash, AccountId> {
         value: number::NumberOrHex,
         at: Option<BlockHash>,
     ) -> Result<CanTransferResult>;
+
+    #[rpc(name = "asset_canTransferGranular")]
+    fn can_transfer_granular(
+        &self,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
+        ticker: Ticker,
+        value: number::NumberOrHex,
+        at: Option<BlockHash>,
+    ) -> Result<GranularCanTransferResult>;
+
+    #[rpc(name = "asset_balanceAt")]
+    fn balance_at(
+        &self,
+        ticker: Ticker,
+        checkpoint: CheckpointId,
+        dids: Vec<IdentityId>,
+        at: Option<BlockHash>,
+    ) -> Result<BalanceAtResult>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -100,6 +124,54 @@ where
                 value.into()
             ),
             "Unable to check transfer"
+        )
+    }
+
+    fn can_transfer_granular(
+        &self,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
+        ticker: Ticker,
+        value: number::NumberOrHex,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<GranularCanTransferResult> {
+        // Make sure that value fits into 64 bits.
+        let value: u64 = value.try_into().map_err(|_| Error {
+            code: ErrorCode::InvalidParams,
+            message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
+            data: None,
+        })?;
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer_granular(
+                at,
+                from_custodian,
+                from_portfolio,
+                to_custodian,
+                to_portfolio,
+                &ticker,
+                value.into()
+            ),
+            "Unable to check transfer"
+        )
+    }
+
+    fn balance_at(
+        &self,
+        ticker: Ticker,
+        checkpoint: CheckpointId,
+        dids: Vec<IdentityId>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<BalanceAtResult> {
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .balance_at(at, ticker, checkpoint, dids),
+            "Cannot get balance at checkpoint"
         )
     }
 }
