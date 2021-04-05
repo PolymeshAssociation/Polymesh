@@ -275,7 +275,6 @@ macro_rules! misc_pallet_impls {
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
             type AssetFn = Asset;
-            type AllowedGasLimit = AllowedGasLimit;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
         }

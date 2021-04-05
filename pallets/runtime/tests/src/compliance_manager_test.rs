@@ -6,7 +6,7 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
@@ -310,7 +310,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         ticker,
         1
     )); // OK; latest == 3
-    assert_err!(
+    assert_noop!(
         ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     ); // BAD OK; latest == 3, but 1 was just removed.
@@ -587,7 +587,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     ));
 
     // Failed because trusted issuer identity not exist
-    assert_err!(
+    assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
@@ -856,7 +856,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     };
 
     // Failed because sender is not the owner of the ticker
-    assert_err!(
+    assert_noop!(
         ComplianceManager::change_compliance_requirement(
             receiver_signed.clone(),
             ticker,
@@ -872,7 +872,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     };
 
     // Failed because passed id is not valid
-    assert_err!(
+    assert_noop!(
         ComplianceManager::change_compliance_requirement(
             token_owner_signed.clone(),
             ticker,

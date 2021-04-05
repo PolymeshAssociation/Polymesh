@@ -42,9 +42,8 @@ pub(crate) fn do_controller_genesis<T: Trait>(config: &GenesisConfig<T>) -> T::A
     Identity::<T>::unsafe_join_identity(
         creator_did,
         Permissions::default(),
-        Signatory::Account(multisig_id.clone()),
-    )
-    .expect("cannot link the bridge multisig");
+        &Signatory::Account(multisig_id.clone()),
+    );
     debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
 
     multisig_id
@@ -68,7 +67,6 @@ pub(crate) fn do_bridge_tx_details_genesis<T: Trait>(
                 execution_block: Zero::zero(),
                 tx_hash: tx.tx_hash,
             };
-            // NB It
             let recipient_did = T::CddChecker::get_key_cdd_did(&recipient);
 
             debug::info!(

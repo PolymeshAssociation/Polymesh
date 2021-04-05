@@ -1,5 +1,5 @@
 use super::{
-    asset_test::an_asset,
+    asset_test::{an_asset, max_len, max_len_bytes},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
@@ -10,9 +10,10 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use core::iter;
+use frame_support::{assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, Error};
+use pallet_identity::{self as identity, DidRecords, Error};
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
@@ -22,11 +23,13 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DispatchableName, IdentityClaim,
+    IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId,
+    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
+use sp_core::sr25519::Public;
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
@@ -119,19 +122,17 @@ fn gc_add_remove_cdd_claim() {
         let fetch =
             || Identity::fetch_claim(target_did, ClaimType::CustomerDueDiligence, GC_DID, None);
 
-        assert_ok!(Identity::gc_add_cdd_claim(
-            gc_vmo(),
-            target_did,
-            Some(100u64)
-        ));
+        assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), target_did));
+
+        let cdd_id = CddId::new_v1(target_did, InvestorUid::from(target_did.as_ref()));
         assert_eq!(
             fetch(),
             Some(IdentityClaim {
                 claim_issuer: GC_DID,
                 issuance_date: 0,
                 last_update_date: 0,
-                expiry: Some(100),
-                claim: Claim::default_cdd_id(),
+                expiry: None,
+                claim: Claim::CustomerDueDiligence(cdd_id)
             })
         );
 
@@ -288,7 +289,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
-    assert_err!(
+    assert_noop!(
         Identity::set_permission_to_signer(
             bob.clone(),
             Signatory::Account(bob_key),
@@ -298,7 +299,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
-    assert_err!(
+    assert_noop!(
         Identity::set_permission_to_signer(
             bob,
             Signatory::Account(charlie_key),
@@ -313,6 +314,22 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Signatory::Account(bob_key),
         Permissions::empty().into()
     ));
+}
+
+#[test]
+fn set_permission_to_signer_with_bad_perms() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = AccountKeyring::Bob.public();
+        add_secondary_key(alice.did, Signatory::Account(bob));
+        test_with_bad_perms(alice.did, |perms| {
+            assert_too_long!(Identity::set_permission_to_signer(
+                alice.origin(),
+                Signatory::Account(bob),
+                perms,
+            ));
+        });
+    });
 }
 
 /// It verifies that frozen keys are recovered after `unfreeze` call.
@@ -344,7 +361,7 @@ fn freeze_secondary_keys_with_externalities() {
     );
 
     // Freeze secondary keys: bob & charlie.
-    assert_err!(
+    assert_noop!(
         Identity::freeze_secondary_keys(bob.clone()),
         Error::<TestStorage>::KeyNotAllowed
     );
@@ -366,7 +383,7 @@ fn freeze_secondary_keys_with_externalities() {
 
     // unfreeze all
     // commenting this because `default_identity` feature is not allowing to access None identity.
-    // assert_err!(
+    // assert_noop!(
     //     Identity::unfreeze_secondary_keys(bob.clone()),
     //     DispatchError::Other("Current identity is none and key is not linked to any identity")
     // );
@@ -471,7 +488,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
         )),
         &AccountId32::from(AccountKeyring::Bob.public().0),
     );
-    assert_err!(
+    assert_noop!(
         payer,
         InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
     );
@@ -674,7 +691,7 @@ fn leave_identity_test_with_externalities() {
     // send funds to multisig
     assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
     // multisig tries leaving identity while it has funds
-    assert_err!(
+    assert_noop!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
         Error::<TestStorage>::MultiSigHasBalance
     );
@@ -734,7 +751,7 @@ fn enforce_uniqueness_keys_in_identity() {
         AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
-    assert_err!(
+    assert_noop!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
         Error::<TestStorage>::AlreadyLinked
     );
@@ -779,6 +796,21 @@ fn add_remove_secondary_identities_with_externalities() {
     );
 }
 
+fn secondary_keys_with_auth(
+    keys: &[AccountKeyring],
+    ids: &[IdentityId],
+    auth_encoded: &[u8],
+) -> Vec<SecondaryKeyWithAuth<Public>> {
+    keys.iter()
+        .map(|acc| H512::from(acc.sign(&auth_encoded)))
+        .zip(ids.iter().map(|&id| SecondaryKey::from(id).into()))
+        .map(|(auth_signature, secondary_key)| SecondaryKeyWithAuth {
+            auth_signature,
+            secondary_key,
+        })
+        .collect()
+}
+
 #[test]
 fn one_step_join_id() {
     ExtBuilder::default()
@@ -787,127 +819,190 @@ fn one_step_join_id() {
 }
 
 fn one_step_join_id_with_ext() {
-    let a_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let a_pub = AccountKeyring::Alice.public();
-    let a = Origin::signed(a_pub.clone());
-    let b_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let c_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let d_id = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let a = User::new(AccountKeyring::Alice);
 
     let expires_at = 100u64;
-    let authorization = TargetIdAuthorization {
-        target_id: a_id.clone(),
-        nonce: Identity::offchain_authorization_nonce(a_id),
+    let target_id_auth = |user: User| TargetIdAuthorization {
+        target_id: user.did,
+        nonce: Identity::offchain_authorization_nonce(user.did),
         expires_at,
     };
+    let authorization = target_id_auth(a);
     let auth_encoded = authorization.encode();
 
-    let signatures = [
+    let keys = [
         AccountKeyring::Bob,
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
-    ]
-    .iter()
-    .map(|acc| H512::from(acc.sign(&auth_encoded)))
-    .collect::<Vec<_>>();
-
-    let secondary_keys_with_auth = vec![
-        SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(b_id.clone()).into(),
-            auth_signature: signatures[0].clone(),
-        },
-        SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(c_id.clone()).into(),
-            auth_signature: signatures[1].clone(),
-        },
-        SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(d_id.clone()).into(),
-            auth_signature: signatures[2].clone(),
-        },
     ];
+    let users @ [b, c, _] = keys.map(User::new);
+    let secondary_keys_with_auth =
+        secondary_keys_with_auth(&keys, &users.map(|u| u.did), &auth_encoded);
 
-    assert_ok!(Identity::add_secondary_keys_with_authorization(
-        a.clone(),
-        secondary_keys_with_auth[..2].to_owned(),
-        expires_at
-    ));
+    let add = |user: User, auth| {
+        Identity::add_secondary_keys_with_authorization(user.origin(), auth, expires_at)
+    };
 
-    let secondary_keys = Identity::did_records(a_id).secondary_keys;
-    assert_eq!(
-        secondary_keys.iter().find(|si| **si == b_id).is_some(),
-        true
-    );
-    assert_eq!(
-        secondary_keys.iter().find(|si| **si == c_id).is_some(),
-        true
-    );
+    assert_ok!(add(a, secondary_keys_with_auth[..2].to_owned()));
+
+    let secondary_keys = Identity::did_records(a.did).secondary_keys;
+    let contains = |u: User| secondary_keys.iter().find(|si| **si == u.did).is_some();
+    assert_eq!(contains(b), true);
+    assert_eq!(contains(c), true);
 
     // Check reply attack. Alice's nonce is different now.
     // NOTE: We need to force the increment of account's nonce manually.
-    System::inc_account_nonce(&a_pub);
+    System::inc_account_nonce(a.acc());
 
-    assert_err!(
-        Identity::add_secondary_keys_with_authorization(
-            a.clone(),
-            secondary_keys_with_auth[2..].to_owned(),
-            expires_at
-        ),
+    assert_noop!(
+        add(a, secondary_keys_with_auth[2..].to_owned()),
         Error::<TestStorage>::InvalidAuthorizationSignature
     );
 
     // Check revoke off-chain authorization.
-    let e = Origin::signed(AccountKeyring::Eve.public());
-    let e_id = register_keyring_account(AccountKeyring::Eve).unwrap();
-    let eve_auth = TargetIdAuthorization {
-        target_id: a_id.clone(),
-        nonce: Identity::offchain_authorization_nonce(a_id),
-        expires_at,
-    };
+    let e = User::new(AccountKeyring::Eve);
+    let eve_auth = target_id_auth(a);
     assert_ne!(authorization.nonce, eve_auth.nonce);
 
     let eve_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(e_id).into(),
+        secondary_key: SecondaryKey::from(e.did).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(eve_auth.encode().as_slice())),
     };
 
     assert_ok!(Identity::revoke_offchain_authorization(
-        e,
-        Signatory::Identity(e_id),
+        e.origin(),
+        Signatory::Identity(e.did),
         eve_auth
     ));
-    assert_err!(
-        Identity::add_secondary_keys_with_authorization(
-            a,
-            vec![eve_secondary_key_with_auth],
-            expires_at
-        ),
+    assert_noop!(
+        add(a, vec![eve_secondary_key_with_auth]),
         Error::<TestStorage>::AuthorizationHasBeenRevoked
     );
 
     // Check expire
-    System::inc_account_nonce(&a_pub);
+    System::inc_account_nonce(a.acc());
     Timestamp::set_timestamp(expires_at);
 
-    let f = Origin::signed(AccountKeyring::Ferdie.public());
-    let f_id = register_keyring_account(AccountKeyring::Ferdie).unwrap();
-    let ferdie_auth = TargetIdAuthorization {
-        target_id: a_id.clone(),
-        nonce: Identity::offchain_authorization_nonce(a_id),
-        expires_at,
-    };
+    let f = User::new(AccountKeyring::Ferdie);
+    let ferdie_auth = target_id_auth(a);
     let ferdie_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(f_id.clone()).into(),
+        secondary_key: SecondaryKey::from(f.did).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
     };
 
-    assert_err!(
-        Identity::add_secondary_keys_with_authorization(
-            f,
-            vec![ferdie_secondary_key_with_auth],
-            expires_at
-        ),
+    assert_noop!(
+        add(f, vec![ferdie_secondary_key_with_auth]),
         Error::<TestStorage>::AuthorizationExpired
     );
+}
+
+fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
+    test(Permissions {
+        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
+        ..<_>::default()
+    });
+    test(Permissions {
+        portfolio: SubsetRestriction::elems(
+            (0..=max_len() as u64)
+                .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
+        ),
+        ..<_>::default()
+    });
+    let test = |extrinsic| {
+        test(Permissions {
+            extrinsic,
+            ..<_>::default()
+        })
+    };
+    test(SubsetRestriction::elems(
+        (0..=max_len() as u64)
+            .map(Ticker::generate)
+            .map(PalletName::from)
+            .map(PalletPermissions::entire_pallet),
+    ));
+    test(SubsetRestriction::elem(PalletPermissions::entire_pallet(
+        max_len_bytes(1),
+    )));
+    test(SubsetRestriction::elem(PalletPermissions::new(
+        "".into(),
+        SubsetRestriction::elems(
+            (0..=max_len() as u64)
+                .map(Ticker::generate)
+                .map(DispatchableName::from),
+        ),
+    )));
+    test(SubsetRestriction::elem(PalletPermissions::new(
+        "".into(),
+        SubsetRestriction::elem(max_len_bytes(1)),
+    )));
+}
+
+#[test]
+fn add_secondary_keys_with_authorization_too_many_sks() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let expires_at = 100;
+        let auth = || {
+            let auth = TargetIdAuthorization {
+                target_id: user.did,
+                nonce: Identity::offchain_authorization_nonce(user.did),
+                expires_at,
+            };
+            auth.encode()
+        };
+
+        // Test various length problems in `Permissions`.
+        test_with_bad_perms(bob.did, |perms| {
+            let auth_encoded = auth();
+            let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
+
+            let secondary_key = SecondaryKey::new(bob.did.into(), perms).into();
+            let auths = vec![SecondaryKeyWithAuth {
+                auth_signature,
+                secondary_key,
+            }];
+            assert_too_long!(Identity::add_secondary_keys_with_authorization(
+                user.origin(),
+                auths,
+                expires_at
+            ));
+        });
+
+        // Populate with MAX SKs.
+        DidRecords::<TestStorage>::mutate(user.did, |rec| {
+            let sk = SecondaryKey {
+                signer: Signatory::Account(rec.primary_key),
+                permissions: Permissions::empty(),
+            };
+            rec.secondary_keys = iter::repeat(sk).take(max_len() as usize).collect();
+        });
+
+        // Fail at adding the {MAX + 1}th SK.
+        let auth_encoded = auth();
+        let auths = secondary_keys_with_auth(&[bob.ring], &[bob.did], &auth_encoded);
+        assert_too_long!(Identity::add_secondary_keys_with_authorization(
+            user.origin(),
+            auths,
+            expires_at
+        ));
+    });
+}
+
+#[test]
+fn adding_authorizations_bad_perms() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        test_with_bad_perms(user.did, |perms| {
+            assert_too_long!(Identity::add_authorization(
+                user.origin(),
+                user.did.into(),
+                AuthorizationData::JoinIdentity(perms),
+                None
+            ));
+        });
+    });
 }
 
 #[test]
@@ -1256,7 +1351,7 @@ fn add_identity_signers() {
             None,
         );
 
-        assert_err!(
+        assert_noop!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
             Error::<TestStorage>::AlreadyLinked
         );
@@ -1322,7 +1417,7 @@ fn invalidate_cdd_claims_we() {
     // Move to time 8... CDD_1 is inactive: Its claims are valid.
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
-    assert_err!(
+    assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
@@ -1330,7 +1425,7 @@ fn invalidate_cdd_claims_we() {
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
     Timestamp::set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
-    assert_err!(
+    assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
@@ -1570,7 +1665,7 @@ fn add_investor_uniqueness_claim() {
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let cdd_provider = AccountKeyring::Charlie.public();
-    let ticker = an_asset(alice);
+    let ticker = an_asset(alice, true);
     let initial_balance = Asset::balance_of(ticker, alice.did);
     let add_iu_claim =
         |investor_uid| provide_scope_claim(alice.did, ticker, investor_uid, cdd_provider, Some(1));

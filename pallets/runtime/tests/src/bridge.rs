@@ -4,7 +4,7 @@ use super::{
 };
 
 use frame_support::{
-    assert_err, assert_ok,
+    assert_noop, assert_ok,
     storage::IterableStorageDoubleMap,
     traits::{Currency, OnInitialize},
     weights::Weight,
@@ -139,7 +139,7 @@ fn can_issue_to_identity() {
         assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
 
         let controller = Origin::signed(Bridge::controller());
-        assert_err!(
+        assert_noop!(
             Bridge::handle_bridge_tx(controller, tx),
             Error::ProposalAlreadyHandled
         );
@@ -166,7 +166,7 @@ fn cannot_propose_without_controller() {
         .build()
         .execute_with(|| {
             let bridge_tx = alice_bridge_tx(1_000_000);
-            assert_err!(
+            assert_noop!(
                 Bridge::propose_bridge_tx(Origin::signed(alice), bridge_tx),
                 Error::ControllerNotSet
             );
@@ -178,13 +178,13 @@ fn cannot_call_bridge_callback_extrinsics() {
     test_with_controller(&|_signers, _min_signs_required| {
         let controller = Bridge::controller();
         let no_admin = Origin::signed(AccountKeyring::Bob.public());
-        assert_err!(
+        assert_noop!(
             Bridge::change_controller(no_admin.clone(), controller),
             Error::BadAdmin
         );
 
         let bridge_tx = alice_bridge_tx(1_000_000);
-        assert_err!(
+        assert_noop!(
             Bridge::handle_bridge_tx(no_admin, bridge_tx),
             Error::BadCaller
         );
