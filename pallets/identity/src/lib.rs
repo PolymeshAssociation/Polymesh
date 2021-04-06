@@ -1005,7 +1005,7 @@ impl<T: Trait> Module<T> {
 
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn unsafe_remove_auth(
+    fn unsafe_remove_auth(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
         authorizer: &IdentityId,
@@ -1024,7 +1024,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Consumes an authorization, removing it from storage.
-    pub fn unchecked_take_auth(
+    fn unchecked_take_auth(
         target: &Signatory<T::AccountId>,
         auth: &Authorization<T::AccountId, T::Moment>,
     ) {
@@ -1037,6 +1037,8 @@ impl<T: Trait> Module<T> {
         ));
     }
 
+    /// Given that `auth_by` is the DID that issued an authorization,
+    /// ensure that it matches `from`, or otherwise return an error.
     pub fn ensure_auth_by(auth_by: IdentityId, from: IdentityId) -> DispatchResult {
         ensure!(auth_by == from, AuthorizationError::Unauthorized);
         Ok(())
@@ -1053,7 +1055,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Accepts and executes the ticker transfer.
+    /// Accepts an authorization `auth_id` as `signer`,
+    /// executing `accepter` for case-specific additional validation and storage changes.
+    ///
+    /// Used when encoding one-off authorization-accepting extrinsics,
+    /// as opposed to `accept_authorization`.
     pub fn accept_auth_with(
         signer: &Signatory<T::AccountId>,
         auth_id: u64,
@@ -1066,13 +1072,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn ensure_authorization(
+    /// Return and ensure that there's an authorization `auth_id` for `target`.
+    fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
         Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
+    /// Returns the authorization `auth_id` for `target`, if any.
     fn maybe_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
