@@ -10,11 +10,16 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use core::iter;
-use frame_support::{assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap};
+use frame_support::{
+    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
+    StorageMap,
+};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, DidRecords, Error};
 use polymesh_common_utilities::{
+    protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
         identity::{SecondaryKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
@@ -23,14 +28,13 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DispatchableName, IdentityClaim,
-    IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId,
-    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    investor_zkproof_data::v2, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions,
+    Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
+    Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
-use sp_core::crypto::AccountId32;
-use sp_core::sr25519::Public;
-use sp_core::H512;
+use sp_core::{crypto::AccountId32, sr25519::Public, H512};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
@@ -45,6 +49,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
+type IdentityError = pallet_identity::Error<TestStorage>;
 
 // Identity Test Helper functions
 // =======================================
@@ -1712,4 +1717,89 @@ fn do_add_investor_uniqueness_claim() {
     scope_id_of(new_scope_id);
     aggregate_balance(scope_id, 0);
     aggregate_balance(new_scope_id, asset_balance);
+}
+
+#[test]
+fn add_investor_uniqueness_claim_v2() {
+    let user = AccountKeyring::Alice.public();
+    let user_no_cdd_id = AccountKeyring::Bob.public();
+
+    ExtBuilder::default()
+        .add_regular_users_from_accounts(&[user])
+        .build()
+        .execute_with(|| {
+            // Create an DID without CDD_id.
+            assert_ok!(Identity::_register_did(
+                user_no_cdd_id,
+                vec![],
+                Some(ProtocolOp::IdentityRegisterDid)
+            ));
+
+            // Load test cases and run them.
+            let test_data = add_investor_uniqueness_claim_v2_data(user, user_no_cdd_id);
+            for (idx, (input, expect)) in test_data.into_iter().enumerate() {
+                let (user, scope, claim, proof) = input;
+                let did = Identity::get_identity(&user).unwrap_or_default();
+                let origin = Origin::signed(user);
+                let output = Identity::add_investor_uniqueness_claim_v2(
+                    origin, did, scope, claim, proof.0, None,
+                );
+                assert_eq!(
+                    output, expect,
+                    "Unexpected output at index {}: output: {:?}, expected: {:?}",
+                    idx, output, expect
+                );
+            }
+        });
+}
+
+/// Creates a data set as an input for `do_add_investor_uniqueness_claim_v2`.
+fn add_investor_uniqueness_claim_v2_data(
+    user: Public,
+    user_no_cdd_id: Public,
+) -> Vec<(
+    (Public, Scope, Claim, v2::InvestorZKProofData),
+    DispatchResult,
+)> {
+    let ticker = Ticker::default();
+    let did = Identity::get_identity(&user).unwrap();
+    let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+    let cdd_id = CddId::new_v2(did, investor.clone());
+    let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
+    let claim = Claim::InvestorUniquenessV2(cdd_id);
+    let scope = Scope::Ticker(ticker);
+    let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
+    let invalid_version_claim =
+        Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
+    let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);
+
+    vec![
+        // Invalid claim.
+        (
+            (user, Scope::Ticker(invalid_ticker), claim.clone(), proof),
+            Err(IdentityError::InvalidScopeClaim.into()),
+        ),
+        // Valid ZKProof v2
+        ((user, scope.clone(), claim.clone(), proof), Ok(())),
+        // Not allowed claim.
+        (
+            (user, scope.clone(), Claim::NoData, proof),
+            Err(IdentityError::ClaimVariantNotAllowed.into()),
+        ),
+        // Missing CDD id.
+        (
+            (user_no_cdd_id, scope.clone(), claim.clone(), proof),
+            Err(IdentityError::ConfidentialScopeClaimNotAllowed.into()),
+        ),
+        // Invalid ZKProof
+        (
+            (user, scope.clone(), claim, invalid_proof),
+            Err(IdentityError::InvalidScopeClaim.into()),
+        ),
+        // Claim version does NOT match.
+        (
+            (user, scope.clone(), invalid_version_claim, proof),
+            Err(IdentityError::ClaimAndProofVersionsDoNotMatch.into()),
+        ),
+    ]
 }
