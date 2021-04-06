@@ -882,11 +882,7 @@ decl_error! {
 }
 
 impl<T: Trait> IdentityToCorporateAction for Module<T> {
-    fn accept_caa_transfer(
-        to: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult {
+    fn accept_caa_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
         <Asset<T>>::ensure_auth_by_is_owner(&ticker, from)?;
         Self::change_ca_agent(to, ticker, Some(to));
         Ok(())

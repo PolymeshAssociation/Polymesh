@@ -25,7 +25,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
-    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker,
+    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, Signatory, SmartExtension, Ticker,
 };
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};

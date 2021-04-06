@@ -112,8 +112,8 @@ use polymesh_primitives::{
     migrate::MigrationError,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
-    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]

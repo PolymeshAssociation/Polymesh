@@ -261,7 +261,9 @@ where
         pallet: &PalletName,
         dispatchable: &DispatchableName,
     ) -> bool {
-        self.permissions.extrinsic.sufficient_for(pallet, dispatchable)
+        self.permissions
+            .extrinsic
+            .sufficient_for(pallet, dispatchable)
     }
 
     /// Checks if the given key has permission to access all given portfolios.

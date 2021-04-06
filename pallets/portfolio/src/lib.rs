@@ -581,7 +581,11 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
-    fn accept_portfolio_custody(to: IdentityId, from: IdentityId, pid: PortfolioId) -> DispatchResult {
+    fn accept_portfolio_custody(
+        to: IdentityId,
+        from: IdentityId,
+        pid: PortfolioId,
+    ) -> DispatchResult {
         let curr = PortfolioCustodian::get(&pid).unwrap_or(pid.did);
         <Identity<T>>::ensure_auth_by(from, curr)?;
 
