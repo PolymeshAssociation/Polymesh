@@ -13,10 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-pub use node_rpc_runtime_api::asset::{
-    AssetApi as AssetRuntimeApi, BalanceAtResult, CanTransferResult,
-};
-use polymesh_primitives::{calendar::CheckpointId, IdentityId, PortfolioId, Ticker};
+pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
@@ -57,15 +55,6 @@ pub trait AssetApi<BlockHash, AccountId> {
         value: number::NumberOrHex,
         at: Option<BlockHash>,
     ) -> Result<GranularCanTransferResult>;
-
-    #[rpc(name = "asset_balanceAt")]
-    fn balance_at(
-        &self,
-        ticker: Ticker,
-        checkpoint: CheckpointId,
-        dids: Vec<IdentityId>,
-        at: Option<BlockHash>,
-    ) -> Result<BalanceAtResult>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -156,22 +145,6 @@ where
                 value.into()
             ),
             "Unable to check transfer"
-        )
-    }
-
-    fn balance_at(
-        &self,
-        ticker: Ticker,
-        checkpoint: CheckpointId,
-        dids: Vec<IdentityId>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<BalanceAtResult> {
-        rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .balance_at(at, ticker, checkpoint, dids),
-            "Cannot get balance at checkpoint"
         )
     }
 }

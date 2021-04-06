@@ -831,8 +831,6 @@
             "pip": "PipId",
             "vote": "Vote"
         },
-        "HistoricalVotingByAddress": "Vec<VoteByPip>",
-        "HistoricalVotingById": "Vec<(AccountId, HistoricalVotingByAddress)>",
         "BridgeTxDetail": {
             "amount": "Balance",
             "status": "BridgeTxStatus",
@@ -1193,12 +1191,6 @@
         "TransferManagerResult": {
             "tm": "TransferManager",
             "result": "bool"
-        },
-        "BalanceAtResult": {
-            "_enum": {
-                "Ok": "Vec<Balance>",
-                "Err": "Vec<u8>"
-            }
         }
     },
     "rpc": {
