@@ -33,8 +33,9 @@ sp-runtime = { version = "2.0.1", default-features = false }
 sp-std = { version = "2.0.1", default-features = false }
 sp-version = { version = "2.0.1", default-features = false }
 
-# Only in STD
+# Only Benchmarking 
 frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
+hex = { version = "^0.4.0", default-features = false, features = ["alloc"], optional = true }
 
 [features]
 equalize = []
@@ -67,4 +68,5 @@ runtime-benchmarks = [
     "frame-benchmarking",
     "polymesh-common-utilities/runtime-benchmarks",
     "schnorrkel",
+    "hex",
 ]
