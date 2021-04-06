@@ -1894,23 +1894,5 @@ fn pips_rpcs() {
             vec![pip_id1, pip_id0],
         );
         assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
-
-        let votef = Vote(false, bob_vote_deposit);
-        let votet = Vote(true, bob_vote_deposit);
-        let votes = vec![
-            VoteByPip {
-                pip: pip_id1,
-                vote: votet,
-            },
-            VoteByPip {
-                pip: pip_id0,
-                vote: votef,
-            },
-        ];
-        assert_eq!(Pips::voting_history_by_address(bob.acc()), votes);
-        assert_eq!(
-            Pips::voting_history_by_id(bob.did),
-            vec![(bob.acc(), votes)]
-        );
     });
 }
