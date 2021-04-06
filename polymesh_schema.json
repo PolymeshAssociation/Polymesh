@@ -426,7 +426,8 @@
                 "Exempted": "Scope",
                 "Blocked": "Scope",
                 "InvestorUniqueness": "(Scope, ScopeId, CddId)",
-                "NoData": ""
+                "NoData": "",
+                "InvestorUniquenessV2": "(CddId)"
             }
         },
         "ClaimType": {
@@ -441,7 +442,8 @@
                 "Exempted": "",
                 "Blocked": "",
                 "InvestorUniqueness": "",
-                "NoData": ""
+                "NoData": "",
+                "InvestorUniquenessV2": ""
             }
         },
         "IdentityClaim": {
