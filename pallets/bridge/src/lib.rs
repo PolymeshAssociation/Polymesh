@@ -809,10 +809,7 @@ impl<T: Trait> Module<T> {
     /// Schedules a timelocked transaction call with constant arguments and emits an event on success or
     /// prints an error message on failure.
     // TODO: handle errors.
-    pub(crate) fn schedule_call(
-        block_number: T::BlockNumber,
-        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
-    ) {
+    fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
         if let Err(e) = <T as Trait>::Scheduler::schedule(
