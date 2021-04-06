@@ -37,7 +37,7 @@ function walk(returnType) {
         return;
     }
 
-    // If it's a tupple, call walk over all keys
+    // If it's a tuple, call walk over all keys
     if (returnType.includes(",")) {
         returnType.split(",").forEach(element => {
             walk(element);
