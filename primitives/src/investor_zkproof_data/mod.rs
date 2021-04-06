@@ -13,7 +13,7 @@ pub mod v1;
 pub mod v2;
 
 /// Manages ZKProofs generated with different versions of PIUS.
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Copy, Clone)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum InvestorZKProofData {
     /// Investor ZKProof generated using PIUS v1.
