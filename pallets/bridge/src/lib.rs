@@ -149,7 +149,7 @@ pub trait Trait: multisig::Trait + BalancesTrait + pallet_base::Trait {
 
 /// The status of a bridge transaction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeTxStatus {
     /// No such transaction in the system.
     Absent,

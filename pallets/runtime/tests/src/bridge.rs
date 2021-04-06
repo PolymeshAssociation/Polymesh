@@ -1,5 +1,5 @@
 use super::{
-    storage::{AccountId, Call, TestStorage},
+    storage::{Call, TestStorage},
     ExtBuilder,
 };
 
@@ -9,9 +9,11 @@ use frame_support::{
     traits::{Currency, OnInitialize},
     weights::Weight,
 };
-use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
+use pallet_bridge::{
+    self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
+};
 use sp_core::sr25519::Public;
-use test_client::AccountKeyring;
+use test_client::AccountKeyring::*;
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
@@ -23,13 +25,14 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 
+type BridgeTx = GBridgeTx<Public, u128>;
+type BridgeTxDetail = GBridgeTxDetail<u128, u64>;
+
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
 const WEIGHT_EXPECTED: u64 = 500000210u64;
 
 fn test_with_controller(test: &dyn Fn(&[Public], usize)) {
-    use AccountKeyring::*;
-
     let admin = Alice.public();
     let bob = Bob.public();
     let charlie = Charlie.public();
@@ -52,7 +55,7 @@ fn signed_admin() -> Origin {
     Origin::signed(Bridge::admin())
 }
 
-fn make_bridge_tx(recipient: Public, amount: u128) -> BridgeTx<Public, u128> {
+fn make_bridge_tx(recipient: Public, amount: u128) -> BridgeTx {
     BridgeTx {
         nonce: 1,
         recipient,
@@ -61,35 +64,33 @@ fn make_bridge_tx(recipient: Public, amount: u128) -> BridgeTx<Public, u128> {
     }
 }
 
-fn alice_bridge_tx(amount: u128) -> BridgeTx<Public, u128> {
-    make_bridge_tx(AccountKeyring::Alice.public(), amount)
+fn alice_bridge_tx(amount: u128) -> BridgeTx {
+    make_bridge_tx(Alice.public(), amount)
 }
 
-fn bob_bridge_tx(amount: u128) -> BridgeTx<Public, u128> {
-    make_bridge_tx(AccountKeyring::Bob.public(), amount)
+fn bob_bridge_tx(amount: u128) -> BridgeTx {
+    make_bridge_tx(Bob.public(), amount)
 }
 
-fn proposal_tx(recipient: Public, amount: u128) -> Box<Call> {
+fn proposal_tx(recipient: Public, amount: u128) -> (BridgeTx, Box<Call>) {
     let tx = make_bridge_tx(recipient, amount);
-    let call = bridge::Call::handle_bridge_tx(tx);
-    box Call::Bridge(call)
+    let call = bridge::Call::handle_bridge_tx(tx.clone());
+    (tx, box Call::Bridge(call))
 }
 
 fn alice_proposal_tx(amount: u128) -> Box<Call> {
-    proposal_tx(AccountKeyring::Alice.public(), amount)
+    proposal_tx(Alice.public(), amount).1
 }
 
 fn alice_balance() -> u128 {
-    Balances::total_balance(&AccountKeyring::Alice.public())
+    Balances::total_balance(&Alice.public())
 }
 
-fn alice_tx_details(tx_id: u32) -> BridgeTxDetail<u128, u64> {
-    Bridge::bridge_tx_details(AccountKeyring::Alice.public(), tx_id)
+fn alice_tx_details(tx_id: u32) -> BridgeTxDetail {
+    Bridge::bridge_tx_details(Alice.public(), tx_id)
 }
 
-fn proposals(amount: u128) -> Vec<Box<Call>> {
-    use AccountKeyring::*;
-
+fn proposals(amount: u128) -> Vec<(BridgeTx, Box<Call>)> {
     [Alice, Eve, Ferdie]
         .iter()
         .map(|acc| proposal_tx(acc.public(), amount))
@@ -100,7 +101,7 @@ fn signers_approve_proposal(
     proposal: Call,
     signers: &[Public],
     min_signs_required: usize,
-) -> BridgeTx<Public, u128> {
+) -> BridgeTx {
     let controller = Bridge::controller();
     match proposal {
         Call::Bridge(bridge::Call::handle_bridge_tx(ref tx)) => {
@@ -155,6 +156,12 @@ fn next_unlock_block_number() -> u64 {
     System::block_number() + 1 + Bridge::timelock()
 }
 
+fn ensure_tx_status(recipient: Public, nonce: u32, expected_status: BridgeTxStatus) -> u64 {
+    let tx_details = Bridge::bridge_tx_details(recipient, nonce);
+    assert_eq!(tx_details.status, expected_status);
+    tx_details.execution_block
+}
+
 #[test]
 fn can_issue_to_identity() {
     test_with_controller(&|signers, min_signs_required| {
@@ -176,7 +183,7 @@ fn can_issue_to_identity() {
 #[test]
 fn can_change_controller() {
     test_with_controller(&|_signers, _mins_signs_required| {
-        let controller = AccountKeyring::Bob.public();
+        let controller = Bob.public();
 
         assert_ok!(Bridge::change_controller(signed_admin(), controller));
         assert_eq!(Bridge::controller(), controller);
@@ -185,7 +192,7 @@ fn can_change_controller() {
 
 #[test]
 fn cannot_propose_without_controller() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[alice])
@@ -203,7 +210,7 @@ fn cannot_propose_without_controller() {
 fn cannot_call_bridge_callback_extrinsics() {
     test_with_controller(&|_signers, _min_signs_required| {
         let controller = Bridge::controller();
-        let no_admin = Origin::signed(AccountKeyring::Bob.public());
+        let no_admin = Origin::signed(Bob.public());
         assert_noop!(
             Bridge::change_controller(no_admin.clone(), controller),
             Error::BadAdmin
@@ -223,7 +230,7 @@ fn can_freeze_and_unfreeze_bridge() {
 }
 
 fn do_freeze_and_unfreeze_bridge(signers: &[Public], min_signs_required: usize) {
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
     let admin = signed_admin();
     let proposal = alice_proposal_tx(AMOUNT);
     let timelock = Bridge::timelock();
@@ -234,17 +241,12 @@ fn do_freeze_and_unfreeze_bridge(signers: &[Public], min_signs_required: usize) 
 
     let starting_alices_balance = alice_balance();
     signers_approve_proposal(*proposal, signers, min_signs_required);
-    assert_eq!(
-        Bridge::bridge_tx_details(alice, &1).status,
-        BridgeTxStatus::Absent
-    );
+
+    ensure_tx_status(alice, 1, BridgeTxStatus::Absent);
     advance_block(timelock);
 
     // Weight calculation when bridge is freezed
-    assert_eq!(
-        Bridge::bridge_tx_details(alice, &1).status,
-        BridgeTxStatus::Timelocked
-    );
+    ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
     assert_eq!(next_block(), WEIGHT_EXPECTED);
 
     // Unfreeze the bridge.
@@ -254,13 +256,12 @@ fn do_freeze_and_unfreeze_bridge(signers: &[Public], min_signs_required: usize) 
 
     // Still no issue. The transaction needs to be processed.
     assert_eq!(alice_balance(), starting_alices_balance);
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.status, BridgeTxStatus::Pending(1));
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Pending(1));
 
     // It will be 0 as txn has to wait for X more block to execute.
     assert_eq!(
         advance_block_and_verify_alice_balance(
-            tx_details.execution_block - System::block_number() - 1,
+            execution_block - System::block_number() - 1,
             starting_alices_balance
         ),
         WEIGHT_EXPECTED
@@ -268,10 +269,7 @@ fn do_freeze_and_unfreeze_bridge(signers: &[Public], min_signs_required: usize) 
 
     // Now the tokens are issued.
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
-    assert_eq!(
-        Bridge::bridge_tx_details(alice, &1).status,
-        BridgeTxStatus::Handled
-    );
+    let _ = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
 }
 
 #[test]
@@ -280,7 +278,7 @@ fn can_timelock_txs() {
 }
 
 fn do_timelock_txs(signers: &[Public], min_signs_required: usize) {
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
     let proposal = alice_proposal_tx(AMOUNT);
     let starting_alices_balance = alice_balance();
 
@@ -290,18 +288,16 @@ fn do_timelock_txs(signers: &[Public], min_signs_required: usize) {
     let unlock_block_number = next_unlock_block_number();
 
     // Tx should be timelocked
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.status, BridgeTxStatus::Timelocked);
-    assert_eq!(tx_details.execution_block, unlock_block_number);
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
+    assert_eq!(execution_block, unlock_block_number);
 
     // Alice's banlance should not change until `unlock_block_number`.
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
 
     // Tx was handled.
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.execution_block, unlock_block_number);
-    assert_eq!(tx_details.status, BridgeTxStatus::Handled);
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+    assert_eq!(execution_block, unlock_block_number);
 }
 
 #[test]
@@ -311,7 +307,7 @@ fn can_rate_limit() {
 
 fn do_rate_limit(signers: &[Public], min_signs_required: usize) {
     let rate_limit = 1_000_000_000;
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
     let admin = signed_admin();
     let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
@@ -330,10 +326,7 @@ fn do_rate_limit(signers: &[Public], min_signs_required: usize) {
     // Mint successful after limit is increased
     next_block();
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
-    assert_eq!(
-        Bridge::bridge_tx_details(alice, &1).status,
-        BridgeTxStatus::Handled
-    );
+    ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
 }
 
 #[test]
@@ -342,7 +335,7 @@ fn is_exempted() {
 }
 
 fn do_exempted(signers: &[Public], min_signs_required: usize) {
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
     let alice_did = Identity::key_to_identity_dids(alice);
     let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
@@ -351,9 +344,8 @@ fn do_exempted(signers: &[Public], min_signs_required: usize) {
     signers_approve_proposal(*proposal, signers, min_signs_required);
     next_block();
 
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.status, BridgeTxStatus::Timelocked);
-    assert_eq!(tx_details.execution_block, next_unlock_block_number());
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
+    assert_eq!(execution_block, next_unlock_block_number());
 
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
 
@@ -367,10 +359,7 @@ fn do_exempted(signers: &[Public], min_signs_required: usize) {
 
     // Mint successful after exemption
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
-    assert_eq!(
-        Bridge::bridge_tx_details(alice, &1).status,
-        BridgeTxStatus::Handled
-    );
+    ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
 }
 
@@ -380,7 +369,7 @@ fn can_force_mint() {
 }
 
 fn do_force_mint(signers: &[Public], min_signs_required: usize) {
-    let alice = AccountKeyring::Alice.public();
+    let alice = Alice.public();
     let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
     let timelock = Bridge::timelock();
@@ -389,9 +378,8 @@ fn do_force_mint(signers: &[Public], min_signs_required: usize) {
     next_block();
     let unlock_block_number = next_unlock_block_number();
 
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.status, BridgeTxStatus::Timelocked);
-    assert_eq!(tx_details.execution_block, unlock_block_number);
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
+    assert_eq!(execution_block, unlock_block_number);
 
     advance_block_and_verify_alice_balance(timelock, starting_alices_balance);
 
@@ -401,9 +389,8 @@ fn do_force_mint(signers: &[Public], min_signs_required: usize) {
 
     // Mint successful after force handle
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
-    let tx_details = Bridge::bridge_tx_details(alice, &1);
-    assert_eq!(tx_details.execution_block, unlock_block_number);
-    assert_eq!(tx_details.status, BridgeTxStatus::Handled);
+    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+    assert_eq!(execution_block, unlock_block_number);
 }
 
 #[test]
@@ -447,7 +434,7 @@ fn do_freeze_txs(signers: &[Public], min_signs_required: usize) {
     // Create some txs and register the recipients' balance.
     let txs = proposals(AMOUNT)
         .into_iter()
-        .map(|p| signers_approve_proposal(*p, signers, min_signs_required))
+        .map(|(_, p)| signers_approve_proposal(*p, signers, min_signs_required))
         .collect::<Vec<_>>();
     let init_balances = txs
         .iter()
@@ -468,14 +455,10 @@ fn do_freeze_txs(signers: &[Public], min_signs_required: usize) {
 
     // Double check that first TX is done, and any other is frozen.
     let tx = txs.iter().next().unwrap();
-    assert_eq!(
-        Bridge::bridge_tx_details(tx.recipient, tx.nonce).status,
-        BridgeTxStatus::Handled
-    );
+    ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Handled);
 
     frozen_txs.iter().for_each(|tx| {
-        let tx_details = Bridge::bridge_tx_details(tx.recipient, tx.nonce);
-        assert_eq!(tx_details.status, BridgeTxStatus::Frozen);
+        let _ = ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Frozen);
     });
 
     // Unfreeze frozen TXs
@@ -489,8 +472,7 @@ fn do_freeze_txs(signers: &[Public], min_signs_required: usize) {
     txs.into_iter()
         .zip(init_balances.into_iter())
         .for_each(|(tx, init_balance)| {
-            let tx_details = Bridge::bridge_tx_details(tx.recipient, tx.nonce);
-            assert_eq!(tx_details.status, BridgeTxStatus::Handled);
+            ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Handled);
             assert_eq!(
                 Balances::total_balance(&tx.recipient),
                 init_balance + AMOUNT
@@ -499,10 +481,45 @@ fn do_freeze_txs(signers: &[Public], min_signs_required: usize) {
 }
 
 #[test]
+fn batch_propose_bridge_tx() {
+    test_with_controller(&do_batch_propose_bridge_tx);
+}
+
+fn do_batch_propose_bridge_tx(signers: &[Public], min_signs_required: usize) {
+    let alice = Origin::signed(Alice.public());
+    let (txs, proposals): (Vec<BridgeTx>, Vec<Box<Call>>) = proposals(AMOUNT).into_iter().unzip();
+    let ensure_txs_status = |txs: &[BridgeTx], status: BridgeTxStatus| {
+        txs.iter().for_each(|tx| {
+            let _ = ensure_tx_status(tx.recipient, tx.nonce, status);
+        });
+    };
+
+    assert_ok!(Bridge::batch_propose_bridge_tx(alice, txs.clone()));
+
+    // Proposals should be `Absent`.
+    ensure_txs_status(&txs, BridgeTxStatus::Absent);
+    proposals.into_iter().for_each(|p| {
+        let _ = signers_approve_proposal(*p, signers, min_signs_required);
+    });
+
+    // Advance block
+    advance_block(Bridge::timelock());
+    ensure_txs_status(&txs, BridgeTxStatus::Timelocked);
+
+    // Now proposals should be `Handled`.
+    let last_block = txs
+        .iter()
+        .map(|tx| Bridge::bridge_tx_details(tx.recipient, tx.nonce).execution_block)
+        .max()
+        .unwrap_or_default();
+    let offset = last_block - System::block_number();
+    advance_block(offset);
+    ensure_txs_status(&txs, BridgeTxStatus::Handled);
+}
+
+#[test]
 fn genesis_txs() {
-    let alice = AccountKeyring::Alice.public();
-    let bob = AccountKeyring::Bob.public();
-    let charlie = AccountKeyring::Charlie.public();
+    let (alice, bob, charlie) = (Alice.public(), Bob.public(), Charlie.public());
     let complete_txs = vec![
         BridgeTx {
             nonce: 1,
@@ -527,7 +544,7 @@ fn genesis_txs() {
         .execute_with(|| check_genesis_txs(complete_txs.into_iter()));
 }
 
-fn check_genesis_txs(txs: impl Iterator<Item = BridgeTx<AccountId, u128>>) {
+fn check_genesis_txs(txs: impl Iterator<Item = BridgeTx>) {
     let mut txs: Vec<_> = txs
         .map(|tx| {
             (
