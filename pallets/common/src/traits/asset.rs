@@ -82,6 +82,17 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult;
 
+    fn create_asset_and_mint(
+        origin: Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult;
+
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
 
     #[cfg(feature = "runtime-benchmarks")]

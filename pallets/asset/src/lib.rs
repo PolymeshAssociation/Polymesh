@@ -1085,6 +1085,29 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     }
 
     #[inline]
+    fn create_asset_and_mint(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        Self::create_asset_and_mint(
+            origin,
+            name,
+            ticker,
+            total_supply,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+        )
+    }
+
+    #[inline]
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::base_register_ticker(origin, ticker)
     }
