@@ -8,7 +8,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use frame_system::EventRecord;
 use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
@@ -195,7 +195,7 @@ fn _relay_unhappy_cases() {
         Call::Balances(BalancesCall::transfer(charlie, 59)),
     );
 
-    assert_err!(
+    assert_noop!(
         Utility::relay_tx(
             origin.clone(),
             bob,
@@ -205,7 +205,7 @@ fn _relay_unhappy_cases() {
         Error::InvalidSignature
     );
 
-    assert_err!(
+    assert_noop!(
         Utility::relay_tx(
             origin.clone(),
             bob,
@@ -222,7 +222,7 @@ fn _relay_unhappy_cases() {
         Call::Balances(BalancesCall::transfer(charlie, 59)),
     );
 
-    assert_err!(
+    assert_noop!(
         Utility::relay_tx(
             origin.clone(),
             bob,
@@ -294,7 +294,7 @@ fn batch_secondary_with_permissions() {
 
     // Call a disallowed extrinsic.
     let high_risk_name: PortfolioName = b"high risk".into();
-    assert_err!(
+    assert_noop!(
         Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );

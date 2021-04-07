@@ -16,7 +16,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::Codec;
-use polymesh_primitives::{calendar::CheckpointId, Balance, IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{Balance, IdentityId, PortfolioId, Ticker};
 use sp_std::vec::Vec;
 
 /// The maximum number of DIDs allowed in a `balance_at` RPC query.
@@ -24,7 +24,6 @@ pub const MAX_BALANCE_AT_QUERY_SIZE: usize = 100;
 
 pub type Error = Vec<u8>;
 pub type CanTransferResult = Result<u8, Error>;
-pub type BalanceAtResult = Result<Vec<Balance>, Error>;
 
 sp_api::decl_runtime_apis! {
 
@@ -76,8 +75,5 @@ sp_api::decl_runtime_apis! {
             ticker: &Ticker,
             value: Balance
         ) -> polymesh_primitives::asset::GranularCanTransferResult;
-
-        /// Returns `ticker` balances of `dids` at `checkpoint`.
-        fn balance_at(ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>) -> BalanceAtResult;
     }
 }

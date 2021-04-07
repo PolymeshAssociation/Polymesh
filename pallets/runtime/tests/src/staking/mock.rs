@@ -505,6 +505,9 @@ impl AssetSubTrait<Balance> for Test {
     fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
         0
     }
+    fn scope_id_of(_: &Ticker, _: &IdentityId) -> ScopeId {
+        ScopeId::from(0u128)
+    }
 }
 
 impl IdentityToCorporateAction for Test {

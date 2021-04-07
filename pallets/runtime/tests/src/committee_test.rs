@@ -6,7 +6,7 @@ use super::{
     },
 };
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
+    assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
 };
 use frame_system::{EventRecord, Phase};
@@ -156,7 +156,7 @@ fn preventing_motions_from_non_members_works_we() {
     let _ = register_keyring_account(alice_ring).unwrap();
 
     prepare_proposal(alice_ring);
-    assert_err!(
+    assert_noop!(
         Pips::snapshot(alice_signer.clone()),
         pips::Error::<TestStorage>::NotACommitteeMember
     );
@@ -334,7 +334,7 @@ fn rage_quit_we() {
 
     // Ferdie is NOT a member
     assert_mem(ferdie_did, false);
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
@@ -383,7 +383,7 @@ fn rage_quit_we() {
 
     set_members(vec![alice_did, bob_did, charlie_did]);
     assert_ok!(vote(&bob_signer, false));
-    assert_err!(
+    assert_noop!(
         vote(&bob_signer, false),
         committee::Error::<TestStorage, committee::Instance1>::DuplicateVote
     );
@@ -413,7 +413,7 @@ fn rage_quit_we() {
     abdicate_membership(bob_did, &bob_signer, 2);
     assert_eq!(Committee::voting(&enact_hash), None);
     assert_mem(alice_did, true);
-    assert_err!(
+    assert_noop!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );
@@ -453,12 +453,12 @@ fn release_coordinator_we() {
         Some(IdentityId::from(999))
     );
 
-    assert_err!(
+    assert_noop!(
         Committee::set_release_coordinator(alice.clone(), bob_id),
         DispatchError::BadOrigin
     );
 
-    assert_err!(
+    assert_noop!(
         Committee::set_release_coordinator(gc_vmo(), charlie_id),
         committee::Error::<TestStorage, committee::Instance1>::NotAMember
     );
@@ -547,7 +547,7 @@ fn enact_we() {
 
     // 2. Alice and Bob vote to enact that pip, they are 2/3 of committee.
     assert_ok!(vote(&alice_signer, true));
-    assert_err!(
+    assert_noop!(
         vote(&Origin::signed(dave), true),
         committee::Error::<TestStorage, committee::Instance1>::NotAMember,
     );
@@ -626,7 +626,10 @@ fn expiry_works() {
             MaybeBlock::Some(System::block_number() + 13),
         );
         fast_forward_blocks(13 + 1);
-        assert_err!(
+        // NOTE(Centril): This is intentionally non-transactional.
+        // If a proposal is expired, we will do some storage cleanup,
+        // and that is what changed here.
+        frame_support::assert_err!(
             vote(&alice_signer, true),
             committee::Error::<TestStorage, committee::Instance1>::ProposalExpired
         );

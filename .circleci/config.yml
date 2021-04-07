@@ -11,6 +11,16 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
+  rpc-check:
+    docker:
+      - image: circleci/node:lts-buster
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Ensure valid RPC return types
+          command: node util/rpc_u128_check.js
+          working_directory: ./scripts/cli
   build:
     docker:
       - image: polymathnet/rust:debian-nightly-2021-01-25
@@ -239,3 +249,4 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
+      - rpc-check

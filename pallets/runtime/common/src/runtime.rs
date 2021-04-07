@@ -275,7 +275,6 @@ macro_rules! misc_pallet_impls {
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
             type AssetFn = Asset;
-            type AllowedGasLimit = AllowedGasLimit;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
         }
@@ -469,7 +468,7 @@ macro_rules! runtime_apis {
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_contracts_rpc_runtime_api::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
-        use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+        use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
         use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
 
@@ -737,17 +736,6 @@ macro_rules! runtime_apis {
                 fn voted_on(address: polymesh_primitives::AccountId) -> Vec<u32> {
                     Pips::voted_on(address)
                 }
-
-                /// Retrieve PIPs voted on information by `address` account.
-                fn voting_history_by_address(address: polymesh_primitives::AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
-                    Pips::voting_history_by_address(address)
-
-                }
-
-                /// Retrieve PIPs voted on information by `id` identity (and its secondary items).
-                fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<polymesh_primitives::AccountId, Vote<Balance>> {
-                    Pips::voting_history_by_id(id)
-                }
             }
 
             impl pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<
@@ -831,19 +819,6 @@ macro_rules! runtime_apis {
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
                     Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
-                }
-
-                #[inline]
-                fn balance_at(
-                    ticker: Ticker, checkpoint: CheckpointId, dids: Vec<IdentityId>
-                ) -> rpc_api_asset::BalanceAtResult
-                {
-                    let balances = dids
-                        .into_iter()
-                        .take(rpc_api_asset::MAX_BALANCE_AT_QUERY_SIZE)
-                        .map(|did| Asset::get_balance_at(ticker, did, checkpoint).into())
-                        .collect();
-                    Ok(balances)
                 }
             }
 
