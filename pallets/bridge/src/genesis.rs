@@ -8,7 +8,7 @@ use sp_std::convert::TryFrom;
 
 type Identity<T> = pallet_identity::Module<T>;
 
-pub(crate) fn do_controller_genesis<T: Trait>(config: &GenesisConfig<T>) -> T::AccountId {
+pub(crate) fn controller<T: Trait>(config: &GenesisConfig<T>) -> T::AccountId {
     if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default() {
         panic!("too many signatures required");
     }
@@ -49,7 +49,7 @@ pub(crate) fn do_controller_genesis<T: Trait>(config: &GenesisConfig<T>) -> T::A
     multisig_id
 }
 
-pub(crate) fn do_bridge_tx_details_genesis<T: Trait>(
+pub(crate) fn bridge_tx_details<T: Trait>(
     config: &GenesisConfig<T>,
 ) -> Vec<(
     T::AccountId,

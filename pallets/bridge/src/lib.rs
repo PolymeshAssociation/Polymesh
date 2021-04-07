@@ -287,11 +287,11 @@ decl_storage! {
         /// The multisig account of the bridge controller. The genesis signers accept their
         /// authorizations and are able to get their proposals delivered. The bridge creator
         /// transfers some POLY to their identity.
-        Controller get(fn controller) build(genesis::do_controller_genesis): T::AccountId;
+        Controller get(fn controller) build(genesis::controller): T::AccountId;
 
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
-        pub BridgeTxDetails get(fn bridge_tx_details) build(genesis::do_bridge_tx_details_genesis): double_map
+        pub BridgeTxDetails get(fn bridge_tx_details) build(genesis::bridge_tx_details): double_map
                 hasher(blake2_128_concat) T::AccountId,
                 hasher(blake2_128_concat) u32
             =>
@@ -376,7 +376,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            migration::do_on_runtime_upgrade::<T>()
+            migration::on_runtime_upgrade::<T>()
         }
 
         /// Changes the controller account as admin.
@@ -385,7 +385,7 @@ decl_module! {
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
         #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
-            Self::do_change_controller(origin, controller)
+            Self::base_change_controller(origin, controller)
         }
 
         /// Changes the bridge admin key.
@@ -394,7 +394,7 @@ decl_module! {
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
         #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
-            Self::do_change_admin(origin, admin)
+            Self::base_change_admin(origin, admin)
         }
 
         /// Changes the timelock period.
@@ -403,7 +403,7 @@ decl_module! {
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
         #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
-            Self::do_change_timelock(origin, timelock)
+            Self::base_change_timelock(origin, timelock)
         }
 
         /// Freezes transaction handling in the bridge module if it is not already frozen. When the
@@ -431,7 +431,7 @@ decl_module! {
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
         #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
-            Self::do_change_bridge_limit(origin, amount, duration)
+            Self::base_change_bridge_limit(origin, amount, duration)
         }
 
         /// Changes the bridge limit exempted list.
@@ -440,7 +440,7 @@ decl_module! {
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
         #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
-            Self::do_change_bridge_exempted(origin, exempted)
+            Self::base_change_bridge_exempted(origin, exempted)
         }
 
         /// Forces handling a transaction by bypassing the bridge limit and timelock.
@@ -472,7 +472,7 @@ decl_module! {
         pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
-            Self::do_batch_propose_bridge_tx(origin, bridge_txs)
+            Self::base_batch_propose_bridge_tx(origin, bridge_txs)
         }
 
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
@@ -485,7 +485,7 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            Self::do_propose_bridge_tx(origin, bridge_tx)
+            Self::base_propose_bridge_tx(origin, bridge_tx)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -516,7 +516,7 @@ decl_module! {
             Pays::Yes
         )]
         pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) -> DispatchResult {
-            Self::do_freeze_txs(origin, bridge_txs)
+            Self::base_freeze_txs(origin, bridge_txs)
         }
 
         /// Unfreezes given bridge transactions.
@@ -533,7 +533,7 @@ decl_module! {
             Pays::Yes
         )]
         pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) -> DispatchResult {
-            Self::do_unfreeze_txs(origin, bridge_txs)
+            Self::base_unfreeze_txs(origin, bridge_txs)
         }
 
         /// Root callable extrinsic, used as an internal call to handle a scheduled timelocked bridge transaction.
@@ -830,21 +830,21 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn do_change_controller(origin: T::Origin, controller: T::AccountId) -> DispatchResult {
+    fn base_change_controller(origin: T::Origin, controller: T::AccountId) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Controller<T>>::put(controller.clone());
         Self::deposit_event(RawEvent::ControllerChanged(did, controller));
         Ok(())
     }
 
-    fn do_change_admin(origin: T::Origin, admin: T::AccountId) -> DispatchResult {
+    fn base_change_admin(origin: T::Origin, admin: T::AccountId) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Admin<T>>::put(admin.clone());
         Self::deposit_event(RawEvent::AdminChanged(did, admin));
         Ok(())
     }
 
-    fn do_change_timelock(origin: T::Origin, timelock: T::BlockNumber) -> DispatchResult {
+    fn base_change_timelock(origin: T::Origin, timelock: T::BlockNumber) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Timelock<T>>::put(timelock);
         Self::deposit_event(RawEvent::TimelockChanged(did, timelock));
@@ -866,7 +866,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn do_change_bridge_limit(
+    fn base_change_bridge_limit(
         origin: T::Origin,
         amount: T::Balance,
         duration: T::BlockNumber,
@@ -877,7 +877,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn do_change_bridge_exempted(
+    fn base_change_bridge_exempted(
         origin: T::Origin,
         exempted: Vec<(IdentityId, bool)>,
     ) -> DispatchResult {
@@ -889,7 +889,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn do_freeze_txs(
+    fn base_freeze_txs(
         origin: T::Origin,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
@@ -906,7 +906,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn do_unfreeze_txs(
+    fn base_unfreeze_txs(
         origin: T::Origin,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
@@ -927,7 +927,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn do_batch_propose_bridge_tx(
+    fn base_batch_propose_bridge_tx(
         origin: T::Origin,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
@@ -936,7 +936,7 @@ impl<T: Trait> Module<T> {
         Self::batch_propose_signed_bridge_tx(sender, bridge_txs)
     }
 
-    fn do_propose_bridge_tx(
+    fn base_propose_bridge_tx(
         origin: T::Origin,
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
