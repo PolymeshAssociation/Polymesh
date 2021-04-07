@@ -75,7 +75,6 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         origin: Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,

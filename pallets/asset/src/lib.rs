@@ -558,13 +558,12 @@ decl_module! {
             origin,
             name: AssetName,
             ticker: Ticker,
-            total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset(origin, name, ticker, 0, divisible, asset_type, identifiers, funding_round)
                 .map(|_| ())
         }
 
@@ -1066,7 +1065,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
@@ -1076,7 +1074,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
             origin,
             name,
             ticker,
-            total_supply,
             divisible,
             asset_type,
             identifiers,
@@ -1939,7 +1936,6 @@ impl<T: Trait> Module<T> {
                 origin,
                 name,
                 ticker,
-                total_supply,
                 divisible,
                 asset_type,
                 identifiers,
@@ -1958,7 +1954,6 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
@@ -1985,13 +1980,6 @@ impl<T: Trait> Module<T> {
             primary_did: did,
             secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-
-        // Check total supply here to avoid any later failure
-        Self::ensure_create_asset_parameters(&ticker, total_supply)?;
-        ensure!(
-            divisible || Self::is_unit_multiple(total_supply),
-            Error::<T>::InvalidTotalSupply
-        );
 
         // Ensure its registered by DID or at least expired, thus available.
         let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
