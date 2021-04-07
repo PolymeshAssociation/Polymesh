@@ -900,8 +900,8 @@ decl_event! {
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
-        AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
@@ -2058,7 +2058,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::AssetCreated(
             did,
             ticker,
-            total_supply,
             divisible,
             asset_type,
             did,
