@@ -128,7 +128,7 @@ fn asset_with_ids(
     token: &SecurityToken<u128>,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
-    Asset::create_asset(
+    Asset::create_asset_and_mint(
         owner.origin(),
         token.name.clone(),
         ticker,
@@ -239,7 +239,7 @@ fn issuers_can_create_and_rename_tokens() {
 
         let funding_round_name: FundingRoundName = b"round1".into();
         let create = |supply| {
-            Asset::create_asset(
+            Asset::create_asset_and_mint(
                 owner.origin(),
                 token.name.clone(),
                 ticker,
@@ -1124,7 +1124,7 @@ fn frozen_secondary_keys_create_asset_we() {
 
     // 2. Bob can create token
     let (ticker_1, token_1) = a_token(alice_id);
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::create_asset_and_mint(
         Origin::signed(bob),
         token_1.name.clone(),
         ticker_1,
@@ -1540,7 +1540,7 @@ fn classic_ticker_register_works() {
 
         // Create BETA as an asset and fail to register it.
         classic.ticker = ticker("BETA");
-        assert_ok!(Asset::create_asset(
+        assert_ok!(Asset::create_asset_and_mint(
             alice.origin(),
             b"".into(),
             classic.ticker,
@@ -1802,7 +1802,7 @@ fn classic_ticker_claim_works() {
         let create = |user: User, name: &str, bal_after| {
             let asset = name.try_into().unwrap();
             let ticker = ticker(name);
-            let ret = Asset::create_asset(
+            let ret = Asset::create_asset_and_mint(
                 user.origin(),
                 asset,
                 ticker,
@@ -2389,7 +2389,7 @@ fn create_asset_errors(owner: Public, other: Public) {
     for (name, total_supply, is_divisible, funding_name, expected_err) in input_expected.into_iter()
     {
         assert_noop!(
-            Asset::create_asset(
+            Asset::create_asset_and_mint(
                 o.clone(),
                 name,
                 ticker,
@@ -2405,7 +2405,7 @@ fn create_asset_errors(owner: Public, other: Public) {
 
     assert_ok!(Asset::register_ticker(o2.clone(), ticker));
     assert_noop!(
-        Asset::create_asset(
+        Asset::create_asset_and_mint(
             o.clone(),
             name.clone(),
             ticker,

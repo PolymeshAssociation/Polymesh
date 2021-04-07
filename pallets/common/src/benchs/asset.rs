@@ -72,7 +72,7 @@ where
     let name: AssetName = ticker.as_slice().into();
     let total_supply: Balance = (1_000_000 * POLY).into();
 
-    Asset::create_asset(
+    Asset::create_asset_and_mint(
         owner.origin().into(),
         name,
         ticker,

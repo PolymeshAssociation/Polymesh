@@ -128,6 +128,7 @@ pub trait WeightInfo {
     fn register_ticker() -> Weight;
     fn accept_ticker_transfer() -> Weight;
     fn accept_asset_ownership_transfer() -> Weight;
+    fn create_asset_and_mint(n: u32, i: u32, f: u32) -> Weight;
     fn create_asset(n: u32, i: u32, f: u32) -> Weight;
     fn freeze() -> Weight;
     fn unfreeze() -> Weight;
@@ -503,6 +504,51 @@ decl_module! {
         ///
         /// ## Permissions
         /// * Portfolio
+        #[weight = <T as Trait>::WeightInfo::create_asset_and_mint(
+            name.len() as u32,
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        )]
+        pub fn create_asset_and_mint(
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            total_supply: T::Balance,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>
+        ) -> DispatchResult {
+            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+        }
+
+        /// Initializes a new security token
+        /// makes the initiating account the owner of the security token
+        /// without minting the tokens. Use `issue` to mint the tokens.
+        ///
+        /// # Arguments
+        /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
+        /// * `name` - the name of the token.
+        /// * `ticker` - the ticker symbol of the token.
+        /// * `total_supply` - the total supply of the token.
+        /// * `divisible` - a boolean to identify the divisibility status of the token.
+        /// * `asset_type` - the asset type.
+        /// * `identifiers` - a vector of asset identifiers.
+        /// * `funding_round` - name of the funding round.
+        ///
+        /// ## Errors
+        /// - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
+        /// - `MaxLengthOfAssetNameExceeded` if `name`'s length exceeds `T::AssetNameMaxLength`.
+        /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
+        /// `T::FundingRoundNameMaxLength`.
+        /// - `AssetAlreadyCreated` if asset was already created.
+        /// - `TotalSupplyAboveLimit` if `total_supply > MAX_SUPPLY`.
+        /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
+        /// parameter.
+        /// - `TickerNotAscii` if `ticker` is not yet registered, and contains non-ascii printable characters (from code 32 to 126) or any character after first occurrence of `\0`.
+        ///
+        /// ## Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,
@@ -518,7 +564,8 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+                .map(|_| ())
         }
 
         /// Freezes transfers and minting of a given token.

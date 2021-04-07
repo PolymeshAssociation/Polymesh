@@ -142,7 +142,7 @@ fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
 
 crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
     let currency = Ticker::try_from(b"B" as &[_]).unwrap();
-    Asset::<T>::create_asset(
+    Asset::<T>::create_asset_and_mint(
         owner.origin().into(),
         currency.as_slice().into(),
         currency,
