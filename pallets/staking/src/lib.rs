@@ -1479,6 +1479,9 @@ decl_module! {
         /// Total year rewards that gets paid during fixed reward schedule.
         const FixedYearlyReward: BalanceOf<T> = T::FixedYearlyReward::get();
 
+        /// Minimum amount of POLYX that must be bonded for a new bond.
+        const MinimumBond: BalanceOf<T> = T::MinimumBond::get();
+
         type Error = Error<T>;
 
         fn deposit_event() = default;
