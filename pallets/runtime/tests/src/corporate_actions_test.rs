@@ -1,4 +1,5 @@
 use super::{
+    asset_test::max_len_bytes,
     storage::{
         provide_scope_claim_to_multiple_parties, root, Balance, Checkpoint, MaxDidWhts,
         MaxTargetIds, TestStorage, User,
@@ -1315,8 +1316,10 @@ fn change_meta_works() {
         let id = notice_ca(owner, ticker, Some(1000)).unwrap();
         let change = |meta| Ballot::change_meta(owner.origin(), id, meta);
 
+        // Changing an undefined ballot => error.
         assert_noop!(change(<_>::default()), BallotError::NoSuchBallot);
 
+        // Create a ballot.
         let range = BallotTimeRange {
             start: 4000,
             end: 6000,
@@ -1332,17 +1335,47 @@ fn change_meta_works() {
         ));
         assert_ballot(id, &data);
 
+        // Changing meta works as expected.
         Timestamp::set_timestamp(3999);
         assert_ok!(change(mk_meta()));
         data.meta = Some(mk_meta());
         data.choices = vec![3, 1];
         assert_ballot(id, &data);
 
+        // Test various "too long" aspects.
+        assert_too_long!(change(BallotMeta {
+            title: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                title: max_len_bytes(1),
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                info_link: max_len_bytes(1),
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+        assert_too_long!(change(BallotMeta {
+            motions: vec![Motion {
+                choices: vec![max_len_bytes(1)],
+                ..<_>::default()
+            }],
+            ..<_>::default()
+        }));
+
+        // Too many choices => error.
         assert_noop!(
             change(overflowing_meta()),
             BallotError::NumberOfChoicesOverflow,
         );
 
+        // Set now := start; so voting has already started => error.
         Timestamp::set_timestamp(4000);
         assert_noop!(change(mk_meta()), BallotError::VotingAlreadyStarted);
         assert_ballot(id, &data);
@@ -2061,7 +2094,47 @@ fn dist_claim_works() {
         // No funds left. Baz wants 101 per share but pool provided cannot satisfy that.
         assert_noop!(
             Dist::claim(baz.origin(), id),
-            PError::InsufficientTokensLocked
+            DistError::InsufficientRemainingAmount
+        );
+    });
+}
+
+#[test]
+fn dist_claim_no_remaining() {
+    currency_test(|ticker, currency, [owner, foo, bar]| {
+        // Transfer 500 to `foo` & `bar`.
+        transfer(&ticker, owner, foo);
+        transfer(&ticker, owner, bar);
+
+        let mk_dist = |amount| {
+            let id = dist_ca(owner, ticker, Some(1)).unwrap();
+            assert_ok!(Dist::distribute(
+                owner.origin(),
+                id,
+                None,
+                currency,
+                1_000_000,
+                amount,
+                5,
+                None,
+            ));
+            id
+        };
+
+        // We create two dists.
+        // One has sufficient tokens but we'll claim from the other.
+        // Previously, this would cause `remaining -= benefit` underflow.
+        mk_dist(1_000_000);
+        let id = mk_dist(0);
+
+        Timestamp::set_timestamp(5);
+        assert_noop!(
+            Dist::claim(foo.origin(), id),
+            DistError::InsufficientRemainingAmount
+        );
+        assert_noop!(
+            Dist::push_benefit(owner.origin(), id, bar.did),
+            DistError::InsufficientRemainingAmount
         );
     });
 }
@@ -2119,6 +2192,6 @@ fn dist_claim_existing_checkpoint() {
 }
 
 #[test]
-fn dist_claimscheduled_checkpoint() {
+fn dist_claim_scheduled_checkpoint() {
     dist_claim_cp_test(|ticker, owner| dist_ca(owner, ticker, Some(2000)).unwrap());
 }

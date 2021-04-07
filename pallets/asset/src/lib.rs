@@ -176,15 +176,12 @@ pub trait Trait:
     type UnixTime: UnixTime;
 
     /// Max length for the name of an asset.
-    type AssetNameMaxLength: Get<usize>;
+    type AssetNameMaxLength: Get<u32>;
 
     /// Max length of the funding round name.
-    type FundingRoundNameMaxLength: Get<usize>;
+    type FundingRoundNameMaxLength: Get<u32>;
 
     type AssetFn: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
-
-    /// Maximum gas used for smart extension execution.
-    type AllowedGasLimit: Get<u64>;
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: checkpoint::WeightInfo;
@@ -391,10 +388,12 @@ decl_module! {
 
         type Error = Error<T>;
 
-        const AllowedGasLimit: u64 = T::AllowedGasLimit::get();
-
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
+        const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
+        const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // Migrate `AssetDocuments`.
@@ -519,7 +518,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1109,6 +1108,10 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> T::Balance {
         Self::balance_of_at_scope(scope_id, target)
     }
+
+    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId {
+        Self::scope_id_of(ticker, did)
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
@@ -1627,7 +1630,9 @@ impl<T: Trait> Module<T> {
         Self::ensure_asset_fresh(&ticker)?;
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <Identity<T>>::consume_auth(ticker_details.owner, Signatory::from(to_did), auth_id)?;
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(ticker_details.owner, &signer, auth_id)?;
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -1702,7 +1707,10 @@ impl<T: Trait> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let owner = Self::token_details(ticker).owner_did;
-        <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
+        let signer = Signatory::from(to_did);
+        let auth = <Identity<T>>::check_auth(owner, &signer, auth_id)?;
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
+        Ok(())
     }
 
     /// RPC: Function allows external users to know whether the transfer extrinsic
@@ -1846,7 +1854,7 @@ impl<T: Trait> Module<T> {
         Ok(did)
     }
 
-    fn base_create_asset(
+    fn base_create_asset_and_mint(
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
@@ -1856,15 +1864,47 @@ impl<T: Trait> Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
+        with_transaction(|| {
+            let (sender, did) = Self::base_create_asset(
+                origin,
+                name,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                identifiers,
+                funding_round,
+            )?;
+
+            // Mint total supply to PIA
+            if total_supply > Zero::zero() {
+                Self::_mint(&ticker, sender, did, total_supply, None)?
+            }
+            Ok(())
+        })
+    }
+
+    fn base_create_asset(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         ensure!(
-            name.len() <= T::AssetNameMaxLength::get(),
+            name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
         if let AssetType::Custom(ty) = &asset_type {
             ensure_string_limited::<T>(ty)?;
         }
         ensure!(
-            funding_round.as_ref().map_or(0, |name| name.len())
+            funding_round
+                .as_ref()
+                .map_or(0u32, |name| name.len() as u32)
                 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
@@ -1971,12 +2011,7 @@ impl<T: Trait> Module<T> {
 
         Self::unverified_update_idents(did, ticker, identifiers);
 
-        // Mint total supply to PIA
-        if total_supply > Zero::zero() {
-            Self::_mint(&ticker, sender, did, total_supply, None)?;
-        }
-
-        Ok(())
+        Ok((sender, did))
     }
 
     fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {
@@ -2003,7 +2038,7 @@ impl<T: Trait> Module<T> {
 
     fn base_rename_asset(origin: T::Origin, ticker: Ticker, name: AssetName) -> DispatchResult {
         ensure!(
-            name.len() <= T::AssetNameMaxLength::get(),
+            name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
 
@@ -2121,7 +2156,7 @@ impl<T: Trait> Module<T> {
         name: FundingRoundName,
     ) -> DispatchResult {
         ensure!(
-            name.len() <= T::FundingRoundNameMaxLength::get(),
+            name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
         let did = Self::ensure_perms_owner_asset(origin, &ticker)?;

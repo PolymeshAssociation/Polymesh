@@ -1,9 +1,9 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{register_keyring_account, root, TestStorage},
     ExtBuilder,
 };
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_treasury::{self as treasury, TreasuryTrait};
@@ -26,7 +26,6 @@ fn reimbursement_and_disbursement() {
 }
 
 fn reimbursement_and_disbursement_we() {
-    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let alice_pub = AccountKeyring::Alice.public();
@@ -56,7 +55,7 @@ fn reimbursement_and_disbursement_we() {
     // Providing a random DID to Root, In an ideal world root will have a valid DID
     let before_alice_balance = Balances::free_balance(&alice_pub);
     let before_bob_balance = Balances::free_balance(&bob_pub);
-    assert_ok!(Treasury::disbursement(root.clone(), beneficiaries));
+    assert_ok!(Treasury::disbursement(root(), beneficiaries));
     Context::set_current_identity::<Identity>(None);
     assert_eq!(Treasury::balance(), 400);
     assert_eq!(
@@ -67,7 +66,7 @@ fn reimbursement_and_disbursement_we() {
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Alice cannot make a disbursement to herself.
-    assert_err!(
+    assert_noop!(
         Treasury::disbursement(
             alice_acc,
             vec![Beneficiary {

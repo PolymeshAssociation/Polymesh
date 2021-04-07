@@ -91,12 +91,18 @@ pub enum Claim {
     /// Confidential claim that will allow an investor to justify that it's identity can be
     /// a potential asset holder of given `scope`.
     ///
-    /// All investors must have this claim, which will help the issuer apply compliance rules
+    /// All investors must have this claim (or a `InvestorUniquenessV2`), which will help the issuer apply compliance rules
     /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
     /// investor entity level for a given scope (will always be a `Ticker`).
     InvestorUniqueness(Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
+    /// Confidential claim using latest version from cryptography library.
+    ///
+    /// All investors must have this claim (or a `InvestorUniqueness`), which will help the issuer apply compliance rules
+    /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
+    /// investor entity level for a given scope (will always be a `Ticker`).
+    InvestorUniquenessV2(CddId),
 }
 
 impl Default for Claim {
@@ -119,6 +125,7 @@ impl Claim {
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
             Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
+            Claim::InvestorUniquenessV2(..) => ClaimType::InvestorUniquenessV2,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -136,6 +143,7 @@ impl Claim {
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
             Claim::InvestorUniqueness(ref ticker_scope, ..) => Some(ticker_scope),
+            Claim::InvestorUniquenessV2(..) => None,
             Claim::NoData => None,
         }
     }
@@ -172,6 +180,8 @@ pub enum ClaimType {
     InvestorUniqueness,
     /// Empty type
     NoType,
+    /// New Investor uniqueness claim.
+    InvestorUniquenessV2,
 }
 
 impl Default for ClaimType {
