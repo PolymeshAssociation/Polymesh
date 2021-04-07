@@ -563,7 +563,7 @@ decl_module! {
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, 0, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)
                 .map(|_| ())
         }
 
