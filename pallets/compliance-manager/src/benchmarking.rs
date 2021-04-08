@@ -185,8 +185,8 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
         let req = Module::<T>::asset_compliance(d.ticker).requirements.pop().unwrap();
-        ensure!( req.sender_conditions == d.sender_conditions, "Sender conditions not expected");
-        ensure!( req.receiver_conditions == d.receiver_conditions, "Sender conditions not expected");
+        assert!( req.sender_conditions == d.sender_conditions, "Sender conditions not expected");
+        assert!( req.receiver_conditions == d.receiver_conditions, "Sender conditions not expected");
     }
 
     remove_compliance_requirement {
@@ -207,7 +207,7 @@ benchmarks! {
             .find(|r| r.id == id)
             .is_none();
 
-        ensure!( is_removed, "Compliance requirement was not removed");
+        assert!( is_removed, "Compliance requirement was not removed");
     }
 
     pause_asset_compliance {
@@ -218,7 +218,7 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {
-        ensure!( Module::<T>::asset_compliance(d.ticker).paused == true, "Asset compliance is not paused");
+        assert!( Module::<T>::asset_compliance(d.ticker).paused == true, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
@@ -230,7 +230,7 @@ benchmarks! {
             d.ticker.clone()).unwrap();
     }: _(d.owner.origin, d.ticker)
     verify {
-        ensure!( Module::<T>::asset_compliance(d.ticker).paused == false, "Asset compliance is paused");
+        assert!( Module::<T>::asset_compliance(d.ticker).paused == false, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {
@@ -245,7 +245,7 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, new_issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
-        ensure!(
+        assert!(
             trusted_issuers.contains(&new_issuer),
             "Default trusted claim issuer was not added");
     }
@@ -263,7 +263,7 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, issuer.issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
-        ensure!(
+        assert!(
             !trusted_issuers.contains(&issuer),
             "Default trusted claim issuer was not removed"
         );
@@ -290,7 +290,7 @@ benchmarks! {
             .into_iter()
             .find(|req| req.id == new_req.id)
             .unwrap();
-        ensure!( req == new_req,
+        assert!( req == new_req,
             "Compliance requirement was not updated");
     }
 
@@ -327,7 +327,7 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, asset_compliance.clone())
     verify {
         let reqs = Module::<T>::asset_compliance(d.ticker).requirements;
-        ensure!( reqs == asset_compliance, "Asset compliance was not replaced");
+        assert!( reqs == asset_compliance, "Asset compliance was not replaced");
     }
 
     reset_asset_compliance {
@@ -339,7 +339,7 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {
-        ensure!(
+        assert!(
             Module::<T>::asset_compliance(d.ticker).requirements.is_empty(),
             "Compliance Requeriment was not reset");
     }

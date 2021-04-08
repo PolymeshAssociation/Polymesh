@@ -65,7 +65,7 @@ benchmarks! {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
-        ensure!(TimeRanges::get(ca_id) == Some(RANGE), "ballot not created");
+        assert!(TimeRanges::get(ca_id) == Some(RANGE), "ballot not created");
     }
 
     vote {
@@ -92,14 +92,14 @@ benchmarks! {
         let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
     }: _(owner.origin(), ca_id, votes)
     verify {
-        ensure!(<Results<T>>::get(ca_id) == results, "voting results are wrong")
+        assert!(<Results<T>>::get(ca_id) == results, "voting results are wrong")
     }
 
     change_end {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id, 5000)
     verify {
-        ensure!(TimeRanges::get(ca_id).unwrap().end == 5000, "range not changed");
+        assert!(TimeRanges::get(ca_id).unwrap().end == 5000, "range not changed");
     }
 
     change_meta {
@@ -110,20 +110,20 @@ benchmarks! {
         let meta2 = meta.clone();
     }: _(owner.origin(), ca_id, meta)
     verify {
-        ensure!(Metas::get(ca_id).unwrap() == meta2, "meta not changed");
+        assert!(Metas::get(ca_id).unwrap() == meta2, "meta not changed");
     }
 
     change_rcv {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id, false)
     verify {
-        ensure!(!RCV::get(ca_id), "RCV not changed");
+        assert!(!RCV::get(ca_id), "RCV not changed");
     }
 
     remove_ballot {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id)
     verify {
-        ensure!(TimeRanges::get(ca_id) == None, "ballot not removed");
+        assert!(TimeRanges::get(ca_id) == None, "ballot not removed");
     }
 }

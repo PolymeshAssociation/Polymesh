@@ -80,7 +80,7 @@ benchmarks! {
             },
         };
 
-        // Ensure it will fit in the max complexity.
+        // assert it will fit in the max complexity.
         Module::<T>::set_schedules_max_complexity(
             RawOrigin::Root.into(),
             schedule.period.complexity() * Module::<T>::schedules_max_complexity()

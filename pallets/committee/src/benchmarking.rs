@@ -55,7 +55,7 @@ where
     T: Trait<I>,
     <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
 {
-    ensure!(
+    assert!(
         users.len() > 0,
         "make_proposals_and_vote requires non-empty users"
     );
@@ -63,18 +63,18 @@ where
         let index = Module::<T, I>::proposal_count();
         let proposal = make_proposal::<T, I>(i).0;
         identity::CurrentDid::put(users[0].did());
-        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))?;
+        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal)).unwrap();
         if users.len() > 1 {
             let hash = *Module::<T, I>::proposals()
                 .last()
-                .ok_or("missing last proposal")?;
+                .ok_or("missing last proposal").unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
                 if Module::<T, I>::voting(&hash).is_some() {
                     identity::CurrentDid::put(user.did());
-                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)?;
+                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0).unwrap();
                 }
             }
         }
@@ -94,7 +94,7 @@ where
     let mut dids: Vec<_> = members.iter().map(|m| m.did()).collect();
     dids.sort();
     Module::<T, I>::change_members_sorted(&dids, &[], &dids);
-    make_proposals_and_vote::<T, I>(&members)?;
+    make_proposals_and_vote::<T, I>(&members).unwrap();
     Ok(members)
 }
 
@@ -110,14 +110,14 @@ where
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
-        let votes = Voting::<T, I>::get(&hash).ok_or("cannot get votes")?;
-        ensure!(votes.index == proposal_num, "wrong proposal_num");
-        ensure!(vote == votes.ayes.contains(did), "aye vote missing");
-        ensure!(vote != votes.nays.contains(did), "nay vote missing");
+        let votes = Voting::<T, I>::get(&hash).ok_or("cannot get votes").unwrap();
+        assert!(votes.index == proposal_num, "wrong proposal_num");
+        assert!(vote == votes.ayes.contains(did), "aye vote missing");
+        assert!(vote != votes.nays.contains(did), "nay vote missing");
     } else {
         // The proposal is finalised and removed from storage.
         // TODO: pattern-match an event emitted during proposal finalisation.
-        ensure!(
+        assert!(
             !Voting::<T, I>::contains_key(&hash),
             "executed proposal is not removed"
         );
@@ -140,10 +140,10 @@ benchmarks_instance! {
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_vote_threshold(n, d);
     }: {
-        call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        ensure!(Module::<T, _>::vote_threshold() == (n, d), "incorrect vote threshold");
+        assert!(Module::<T, _>::vote_threshold() == (n, d), "incorrect vote threshold");
     }
 
     set_release_coordinator {
@@ -156,10 +156,10 @@ benchmarks_instance! {
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_release_coordinator(coordinator);
     }: {
-        call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        ensure!(
+        assert!(
             Module::<T, _>::release_coordinator() == Some(coordinator),
             "incorrect release coordinator"
         );
@@ -170,29 +170,29 @@ benchmarks_instance! {
         let origin = T::CommitteeOrigin::successful_origin();
         let call = Call::<T, I>::set_expires_after(maybe_block);
     }: {
-        call.dispatch_bypass_filter(origin)?;
+        call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        ensure!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
+        assert!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
     }
 
     vote_or_propose_new_proposal {
-        let members = make_members_and_proposals::<T, I>()?;
+        let members = make_members_and_proposals::<T, I>().unwrap();
         let last_proposal_num = ProposalCount::<I>::get();
         let (proposal, hash) = make_proposal::<T, I>(PROPOSALS_MAX);
         identity::CurrentDid::put(members[0].did());
     }: vote_or_propose(members[0].origin.clone(), true, Box::new(proposal.clone()))
     verify {
         // The proposal was stored.
-        ensure!(Proposals::<T, I>::get().contains(&hash), "new proposal hash not found");
-        ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "new proposal not found");
+        assert!(Proposals::<T, I>::get().contains(&hash), "new proposal hash not found");
+        assert!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "new proposal not found");
     }
 
     vote_or_propose_existing_proposal {
-        let members = make_members_and_proposals::<T, I>()?;
+        let members = make_members_and_proposals::<T, I>().unwrap();
         let (proposal, hash) = make_proposal::<T, I>(0);
         let proposals = Proposals::<T, I>::get();
-        ensure!(proposals.contains(&hash), "cannot find the first proposal");
+        assert!(proposals.contains(&hash), "cannot find the first proposal");
         identity::CurrentDid::put(members[1].did());
         let member1 = members[1].origin.clone();
         let boxed_proposal = Box::new(proposal.clone());
@@ -200,32 +200,32 @@ benchmarks_instance! {
     verify {
         if COMMITTEE_MEMBERS_MAX <= 4 {
             // Proposal was executed.
-            ensure!(
+            assert!(
                 Module::<T, _>::voting(&hash).is_none(),
                 "votes are present on an executed existing proposal"
             );
         } else {
             // The proposal was stored.
-            ensure!(Proposals::<T, I>::get().contains(&hash), "existing proposal hash not found");
-            ensure!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "existing proposal not found");
+            assert!(Proposals::<T, I>::get().contains(&hash), "existing proposal hash not found");
+            assert!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "existing proposal not found");
         }
     }
 
     vote_aye {
-        let members = make_members_and_proposals::<T, I>()?;
+        let members = make_members_and_proposals::<T, I>().unwrap();
         let hash = make_proposal::<T, I>(PROPOSAL_ALMOST_APPROVED).1;
-        ensure!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
+        assert!(Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not found");
         let member = &members[PROPOSAL_ALMOST_APPROVED as usize + 1];
         let origin = member.origin.clone();
         let did = member.did();
         identity::CurrentDid::put(did);
     }: vote(origin, hash, PROPOSAL_ALMOST_APPROVED, true)
     verify {
-        ensure!(!Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
+        assert!(!Proposals::<T, I>::get().contains(&hash), "vote_aye target proposal not executed");
     }
 
     vote_nay {
-        let members = make_members_and_proposals::<T, I>()?;
+        let members = make_members_and_proposals::<T, I>().unwrap();
         let first_proposal_num = 0;
         let hash = make_proposal::<T, I>(first_proposal_num).1;
         let member = &members[1];
@@ -234,6 +234,6 @@ benchmarks_instance! {
         identity::CurrentDid::put(did);
     }: vote(origin, hash, first_proposal_num, false)
     verify {
-        vote_verify::<T, I>(&did, hash, first_proposal_num, false)?;
+        vote_verify::<T, I>(&did, hash, first_proposal_num, false).unwrap();
     }
 }

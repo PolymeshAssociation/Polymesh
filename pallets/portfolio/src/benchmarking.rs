@@ -45,7 +45,7 @@ benchmarks! {
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
         assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
     }: _(target.origin, next_portfolio_num.clone())
     verify {
@@ -73,7 +73,7 @@ benchmarks! {
             <PortfolioAssetBalances<T>>::insert(&default_portfolio, &ticker, amount);
         }
 
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
 
         assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), amount);
         assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), 0u32.into());
@@ -91,7 +91,7 @@ benchmarks! {
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
-        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone())?;
+        Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
         assert_eq!(Portfolios::get(&did, &next_portfolio_num), portfolio_name);
         let new_name = PortfolioName(vec![66u8; i as usize]);
 

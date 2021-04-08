@@ -460,7 +460,7 @@ benchmarks! {
             AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
-        Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
+        Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id).unwrap();
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)

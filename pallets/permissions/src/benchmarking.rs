@@ -1,7 +1,7 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use frame_support::ensure;
+use frame_support::assert;
 use polymesh_primitives::{DispatchableName, PalletName};
 use sp_std::{iter, prelude::*};
 
@@ -25,8 +25,8 @@ benchmarks! {
         StoreCallMetadata::<T>::set_call_metadata(pallet_name, dispatchable_name);
     }
     verify {
-        ensure!(CurrentPalletName::get() == pallet_name_exp, "Unexpected pallet name");
-        ensure!(CurrentDispatchableName::get() == dispatchable_name_exp, "Unexpected dispatchable name");
+        assert!(CurrentPalletName::get() == pallet_name_exp, "Unexpected pallet name");
+        assert!(CurrentDispatchableName::get() == dispatchable_name_exp, "Unexpected dispatchable name");
     }
 
     clear_call_metadata {
@@ -37,7 +37,7 @@ benchmarks! {
         StoreCallMetadata::<T>::clear_call_metadata();
     }
     verify {
-        ensure!(CurrentPalletName::exists() == false, "Pallet name should not be exist");
-        ensure!(CurrentDispatchableName::exists() == false, "Dispatchable name should not be exist");
+        assert!(CurrentPalletName::exists() == false, "Pallet name should not be exist");
+        assert!(CurrentDispatchableName::exists() == false, "Dispatchable name should not be exist");
     }
 }

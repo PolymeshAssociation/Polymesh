@@ -131,6 +131,6 @@ benchmarks! {
             200u32.into(),
             0u32.into(),
             500u32.into(),
-        )?;
+        ).unwrap();
     }
 }

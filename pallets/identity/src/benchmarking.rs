@@ -149,7 +149,7 @@ benchmarks! {
         for x in 0..i {
             let signer = Signatory::Account(account("key", x, SEED));
             signatories.push(signer.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signer)?;
+            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signer).unwrap();
         }
     }: _(target.origin, signatories.clone())
 
@@ -167,7 +167,7 @@ benchmarks! {
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
-        )?;
+        ).unwrap();
 
         let owner_auth_id =  Module::<T>::add_auth(
             target.did(), signatory,
@@ -177,13 +177,13 @@ benchmarks! {
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
-        ensure!(
+        assert!(
             Module::<T>::cdd_auth_for_primary_key_rotation() == false,
             "CDD auth for primary key rotation is enabled"
         );
     }: _(RawOrigin::Root, true)
     verify {
-        ensure!(
+        assert!(
             Module::<T>::cdd_auth_for_primary_key_rotation() == true,
             "CDD auth for primary key rotation did not change"
         );
@@ -229,7 +229,7 @@ benchmarks! {
 
     }: _(key.origin())
     verify {
-        ensure!(
+        assert!(
             KeyToIdentityIds::<T>::contains_key(key.account) == false,
             "Key was not removed from its identity"
         );
@@ -240,7 +240,7 @@ benchmarks! {
         let new_user = UserBuilder::<T>::default().generate_did().build("key");
         let signatory = Signatory::Identity(new_user.did());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory)?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory).unwrap();
 
     }: _(new_user.origin, target.did())
 
@@ -260,13 +260,13 @@ benchmarks! {
         let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
         let boxed_proposal = Box::new(call);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), Signatory::Identity(key.did()))?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), Signatory::Identity(key.did())).unwrap();
         Module::<T>::set_context_did(Some(key.did()));
     }: _(key.origin, target.did(), boxed_proposal)
 
     revoke_claim {
         let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof.0, Some(666u32.into()))?;
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof.0, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), conf_scope_claim)
 
     set_permission_to_signer {
@@ -274,7 +274,7 @@ benchmarks! {
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone())?;
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone()).unwrap();
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
@@ -283,7 +283,7 @@ benchmarks! {
 
     unfreeze_secondary_keys {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
-        Module::<T>::freeze_secondary_keys(caller.origin.clone().into())?;
+        Module::<T>::freeze_secondary_keys(caller.origin.clone().into()).unwrap();
     }: _(caller.origin)
 
     add_authorization {
