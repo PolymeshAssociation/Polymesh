@@ -2049,11 +2049,7 @@ impl<T: Trait> Module<T> {
         // have InvestorUniqueness claim. This also applies when issuing assets.
         <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did,
-            ticker,
-            divisible,
-            asset_type,
-            did,
+            did, ticker, divisible, asset_type, did,
         ));
 
         // Add funding round name.
