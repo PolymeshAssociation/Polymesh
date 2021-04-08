@@ -1,5 +1,6 @@
 use super::storage::AccountId;
 use crate::TestStorage;
+use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -279,7 +280,7 @@ impl ExtBuilder {
             .map(|(idx, primary_key)| {
                 let did_index = (idx + offset + 1) as u128;
                 let did = IdentityId::from(did_index);
-                let investor = InvestorUid::from(did.as_ref());
+                let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
 
                 GenesisIdentityRecord {
                     primary_key,

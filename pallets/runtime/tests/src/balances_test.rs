@@ -9,7 +9,7 @@ use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawE
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
-    assert_err, assert_ok,
+    assert_noop, assert_ok,
     traits::Currency,
     weights::{DispatchInfo, Weight},
 };
@@ -234,7 +234,7 @@ fn burn_account_balance_works() {
         let total_issuance1 = Balances::total_issuance();
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
-        assert_err!(
+        assert_noop!(
             Balances::burn_account_balance(Origin::signed(alice_pub), fat_finger_burn_amount),
             Error::InsufficientBalance
         );

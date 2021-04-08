@@ -251,16 +251,16 @@ decl_module! {
             with_transaction(|| {
                 // Call underlying function
                 <pallet_contracts::Module<T>>::put_code(origin, code)?;
-                // Update the storage.
-                <TemplateInfo<T>>::insert(code_hash, TemplateDetails {
-                    instantiation_fee,
-                    owner: did,
-                    frozen: false
-                });
-                <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
                 // Charge the protocol fee
                 T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
+            // Update the storage.
+            <TemplateInfo<T>>::insert(code_hash, TemplateDetails {
+                instantiation_fee,
+                owner: did,
+                frozen: false
+            });
+            <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
         }
 
         // Simply forwards to the `call` function in the Contract module.

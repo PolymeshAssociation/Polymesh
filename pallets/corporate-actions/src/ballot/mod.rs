@@ -107,22 +107,22 @@ type CA<T> = ca::Module<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct Motion {
     /// Title of the motion
     pub title: MotionTitle,

@@ -1,4 +1,5 @@
 use super::{
+    asset_test::max_len_bytes,
     storage::{make_account_with_portfolio, TestStorage},
     ExtBuilder,
 };
@@ -25,35 +26,51 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
-#[test]
-fn raise_happy_path_ext() {
+#[track_caller]
+fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
-        .execute_with(raise_happy_path);
+        .execute_with(logic);
+}
+
+#[test]
+fn raise_happy_path_ext() {
+    test(raise_happy_path);
 }
 #[test]
 fn raise_unhappy_path_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(raise_unhappy_path);
+    test(raise_unhappy_path);
 }
 
 #[test]
 fn zero_price_sto_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(zero_price_sto);
+    test(zero_price_sto);
 }
 
 #[test]
 fn invalid_fundraiser_ext() {
-    ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
-        .build()
-        .execute_with(invalid_fundraiser);
+    test(fundraiser_expired);
+}
+
+#[test]
+fn fundraiser_expired_ext() {
+    test(fundraiser_expired);
+}
+
+#[test]
+fn modifying_fundraiser_window_ext() {
+    test(modifying_fundraiser_window);
+}
+
+#[test]
+fn freeze_unfreeze_fundraiser_ext() {
+    test(freeze_unfreeze_fundraiser);
+}
+
+#[test]
+fn stop_fundraiser_ext() {
+    test(stop_fundraiser);
 }
 
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
@@ -164,7 +181,7 @@ fn raise_happy_path() {
 
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
-    let fundraiser_name = FundraiserName::from(vec![1]);
+    let fundraiser_name: FundraiserName = max_len_bytes(0);
     assert_ok!(STO::create_fundraiser(
         alice_signed.clone(),
         alice_portfolio,
@@ -287,23 +304,24 @@ fn raise_unhappy_path() {
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
+    let fundraise = |tiers, venue, name| {
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            alice_portfolio,
+            offering_ticker,
+            alice_portfolio,
+            raise_ticker,
+            tiers,
+            venue,
+            None,
+            None,
+            0,
+            name,
+        )
+    };
+
     let check_fundraiser = |tiers, venue, error: DispatchError| {
-        assert_noop!(
-            STO::create_fundraiser(
-                alice_signed.clone(),
-                alice_portfolio,
-                offering_ticker,
-                alice_portfolio,
-                raise_ticker,
-                tiers,
-                venue,
-                None,
-                None,
-                0,
-                FundraiserName::default()
-            ),
-            error
-        );
+        assert_noop!(fundraise(tiers, venue, <_>::default()), error);
     };
 
     let create_venue = |origin, type_| {
@@ -325,6 +343,9 @@ fn raise_unhappy_path() {
     let check_venue = |id| {
         check_fundraiser(default_tiers.clone(), id, Error::InvalidVenue.into());
     };
+
+    // Name too long.
+    assert_too_long!(fundraise(default_tiers.clone(), 0, max_len_bytes(1)));
 
     // Offering asset not created
     check_fundraiser(default_tiers.clone(), 0, Error::Unauthorized.into());
@@ -541,5 +562,219 @@ fn invalid_fundraiser() {
     assert_noop!(
         create_fundraiser_fn(total_overflow_tiers),
         Error::InvalidPriceTiers
+    );
+}
+
+fn basic_fundraiser() -> (u64, RaiseContext<Origin>) {
+    let context = init_raise_context(1_000_000, Some(1_000_000));
+
+    let venue_counter = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        context.alice_signed.clone(),
+        VenueDetails::default(),
+        vec![AccountKeyring::Alice.public()],
+        VenueType::Sto
+    ));
+    let fundraiser_id = STO::fundraiser_count(context.offering_ticker);
+    assert_ok!(STO::create_fundraiser(
+        context.alice_signed.clone(),
+        context.alice_portfolio,
+        context.offering_ticker,
+        context.alice_portfolio,
+        context.raise_ticker.unwrap(),
+        vec![PriceTier { total: 1, price: 2 }],
+        venue_counter,
+        None,
+        None,
+        0,
+        FundraiserName::default(),
+    ));
+    (fundraiser_id, context)
+}
+
+fn fundraiser_expired() {
+    let (
+        fundraiser_id,
+        RaiseContext {
+            alice_signed,
+            offering_ticker,
+            bob_signed,
+            bob_portfolio,
+            ..
+        },
+    ) = basic_fundraiser();
+
+    assert_ok!(STO::modify_fundraiser_window(
+        alice_signed.clone(),
+        offering_ticker,
+        fundraiser_id,
+        Timestamp::get(),
+        Some(Timestamp::get() + 1)
+    ));
+
+    Timestamp::set_timestamp(Timestamp::get() + 2);
+
+    assert_noop!(
+        STO::modify_fundraiser_window(
+            alice_signed.clone(),
+            offering_ticker,
+            fundraiser_id,
+            Timestamp::get(),
+            None
+        ),
+        Error::FundraiserExpired
+    );
+
+    assert_noop!(
+        STO::invest(
+            bob_signed.clone(),
+            bob_portfolio,
+            bob_portfolio,
+            offering_ticker,
+            fundraiser_id,
+            1000,
+            None,
+            None
+        ),
+        Error::FundraiserExpired
+    );
+}
+
+fn modifying_fundraiser_window() {
+    let (
+        fundraiser_id,
+        RaiseContext {
+            alice_signed,
+            offering_ticker,
+            raise_ticker,
+            ..
+        },
+    ) = basic_fundraiser();
+
+    // Wrong ticker
+    assert_noop!(
+        STO::modify_fundraiser_window(
+            alice_signed.clone(),
+            raise_ticker.unwrap(),
+            fundraiser_id,
+            Timestamp::get(),
+            None
+        ),
+        Error::FundraiserNotFound
+    );
+
+    // Bad fundraiser id
+    assert_noop!(
+        STO::modify_fundraiser_window(
+            alice_signed.clone(),
+            offering_ticker,
+            u64::MAX,
+            Timestamp::get(),
+            None
+        ),
+        Error::FundraiserNotFound
+    );
+
+    let bad_modify_fundraiser_window = |start, end| {
+        STO::modify_fundraiser_window(
+            alice_signed.clone(),
+            offering_ticker,
+            fundraiser_id,
+            start,
+            end,
+        )
+    };
+
+    assert_ok!(bad_modify_fundraiser_window(0, None));
+    assert_ok!(bad_modify_fundraiser_window(Timestamp::get(), None));
+    assert_noop!(
+        bad_modify_fundraiser_window(Timestamp::get() + 1, Some(Timestamp::get())),
+        Error::InvalidOfferingWindow
+    );
+    assert_noop!(
+        bad_modify_fundraiser_window(Timestamp::get() + 1, Some(Timestamp::get() + 1)),
+        Error::InvalidOfferingWindow
+    );
+    assert_ok!(bad_modify_fundraiser_window(
+        Timestamp::get() + 1,
+        Some(Timestamp::get() + 2)
+    ),);
+}
+
+fn freeze_unfreeze_fundraiser() {
+    let (
+        fundraiser_id,
+        RaiseContext {
+            alice_signed,
+            offering_ticker,
+            raise_ticker,
+            ..
+        },
+    ) = basic_fundraiser();
+
+    // Wrong ticker
+    assert_noop!(
+        STO::freeze_fundraiser(alice_signed.clone(), raise_ticker.unwrap(), fundraiser_id,),
+        Error::FundraiserNotFound
+    );
+
+    // Bad fundraiser id
+    assert_noop!(
+        STO::freeze_fundraiser(alice_signed.clone(), offering_ticker, u64::MAX,),
+        Error::FundraiserNotFound
+    );
+
+    assert_ok!(STO::freeze_fundraiser(
+        alice_signed.clone(),
+        offering_ticker,
+        fundraiser_id,
+    ));
+
+    assert_ok!(STO::unfreeze_fundraiser(
+        alice_signed.clone(),
+        offering_ticker,
+        fundraiser_id,
+    ));
+}
+
+fn stop_fundraiser() {
+    let (
+        fundraiser_id,
+        RaiseContext {
+            alice_signed,
+            bob_signed,
+            offering_ticker,
+            raise_ticker,
+            ..
+        },
+    ) = basic_fundraiser();
+
+    // Wrong ticker
+    assert_noop!(
+        STO::stop(alice_signed.clone(), raise_ticker.unwrap(), fundraiser_id,),
+        Error::FundraiserNotFound
+    );
+
+    // Bad fundraiser id
+    assert_noop!(
+        STO::stop(alice_signed.clone(), offering_ticker, u64::MAX),
+        Error::FundraiserNotFound
+    );
+
+    // Unauthorized
+    assert_noop!(
+        STO::stop(bob_signed.clone(), offering_ticker, fundraiser_id),
+        Error::Unauthorized
+    );
+
+    assert_ok!(STO::stop(
+        alice_signed.clone(),
+        offering_ticker,
+        fundraiser_id,
+    ));
+
+    assert_noop!(
+        STO::stop(alice_signed.clone(), offering_ticker, fundraiser_id,),
+        Error::FundraiserClosed
     );
 }

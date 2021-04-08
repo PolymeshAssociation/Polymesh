@@ -75,8 +75,7 @@ mod mock;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
-    dispatch::DispatchResult,
+    assert_noop, assert_ok,
     storage::{IterableStorageMap, StorageDoubleMap, StorageValue},
     traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
@@ -5798,24 +5797,31 @@ fn test_multiple_validators_from_an_entity() {
 #[test]
 fn test_bond_too_small() {
     ExtBuilder::default().build().execute_with(|| {
-        fn bond(stash: AccountId, ctrl: AccountId, val: Balance) -> DispatchResult {
+        let pre_bond = |stash, ctrl, val| {
             let _ = Balances::make_free_balance_be(&stash, val);
             let _ = Balances::make_free_balance_be(&ctrl, val);
             provide_did_to_user(stash);
             add_secondary_key(stash, ctrl);
+        };
+        let bond = |stash, ctrl, val| {
             Staking::bond(
                 Origin::signed(stash),
                 ctrl,
                 val,
                 RewardDestination::Controller,
             )
-        }
+        };
+        let both = |stash, ctrl, val| {
+            pre_bond(stash, ctrl, val);
+            bond(stash, ctrl, val)
+        };
 
-        assert_err!(
+        pre_bond(50, 51, MinimumBond::get() - 1);
+        assert_noop!(
             bond(50, 51, MinimumBond::get() - 1),
             Error::<Test>::BondTooSmall
         );
-        assert_ok!(bond(70, 71, MinimumBond::get()));
-        assert_ok!(bond(90, 91, MinimumBond::get() + 1));
+        assert_ok!(both(70, 71, MinimumBond::get()));
+        assert_ok!(both(90, 91, MinimumBond::get() + 1));
     });
 }
