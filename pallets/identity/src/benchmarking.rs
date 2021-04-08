@@ -285,13 +285,13 @@ benchmarks! {
 
     revoke_claim {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into()))?;
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim)
 
     revoke_claim_by_index {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
         let claim_type = claim.claim_type();
-        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into()))?;
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_permission_to_signer {

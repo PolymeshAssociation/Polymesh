@@ -1,7 +1,6 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use frame_support::assert;
 use polymesh_primitives::{DispatchableName, PalletName};
 use sp_std::{iter, prelude::*};
 
