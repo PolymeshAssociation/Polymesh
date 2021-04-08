@@ -1845,13 +1845,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(ticker: &Ticker, total_supply: T::Balance) -> DispatchResult {
-        Self::ensure_asset_fresh(&ticker)?;
-        Self::ensure_within_max_supply(total_supply)?;
-        Self::ensure_ticker_length(&ticker, &Self::ticker_registration_config())
-    }
-
     /// Ensure asset `ticker` doesn't exist yet.
     fn ensure_asset_fresh(ticker: &Ticker) -> DispatchResult {
         ensure!(
