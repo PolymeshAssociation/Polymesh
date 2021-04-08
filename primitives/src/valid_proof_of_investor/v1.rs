@@ -5,9 +5,14 @@ use confidential_identity_v1::{CompressedRistretto, ProofPublicKey};
 // =========================================================
 
 /// Evaluates if the claim is a valid proof.
-pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
+pub fn evaluate_claim(
+    scope: &Scope,
+    claim: &Claim,
+    id: &IdentityId,
+    proof: &InvestorZKProofData,
+) -> bool {
     match claim {
-        Claim::InvestorUniqueness(scope, scope_id, cdd_id) => {
+        Claim::InvestorUniqueness(_, scope_id, cdd_id) => {
             let message = InvestorZKProofData::make_message(id, scope.as_bytes());
             verify_proof(cdd_id, id, scope_id, scope, proof, &message)
         }
@@ -80,7 +85,8 @@ mod tests {
         let scope_id = InvestorZKProofData::make_scope_id(&asset_ticker.as_slice(), &investor_uid);
 
         let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);
+        let scope = claim.as_scope().unwrap();
 
-        assert!(evaluate_claim(&claim, &investor_id, &proof));
+        assert!(evaluate_claim(scope, &claim, &investor_id, &proof));
     }
 }

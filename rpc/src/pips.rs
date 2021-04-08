@@ -21,8 +21,6 @@ pub use node_rpc_runtime_api::pips::{
     capped::{Vote, VoteCount},
     PipsApi as PipsRuntimeApi,
 };
-use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, VoteByPip};
-use polymesh_primitives::IdentityId;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -47,22 +45,6 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
 
     #[rpc(name = "pips_votedOn")]
     fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
-
-    /// Retrieve historical voting of `who` account.
-    #[rpc(name = "pips_votingHistoryByAddress")]
-    fn voting_history_by_address(
-        &self,
-        address: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<HistoricalVotingByAddress<Vote>>;
-
-    /// Retrieve historical voting of `id` identity.
-    #[rpc(name = "pips_votingHistoryById")]
-    fn voting_history_by_id(
-        &self,
-        id: IdentityId,
-        at: Option<BlockHash>,
-    ) -> Result<HistoricalVotingById<AccountId, Vote>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -126,60 +108,5 @@ where
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.voted_on(at, address),
             "Unable to query `voted_on`."
         )
-    }
-
-    fn voting_history_by_address(
-        &self,
-        address: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVotingByAddress<Vote>> {
-        let history = rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .voting_history_by_address(at, address),
-            "Unable to query `voting_history_by_address`."
-        )?;
-
-        let history = history
-            .into_iter()
-            .map(|hvi| VoteByPip {
-                pip: hvi.pip,
-                vote: Vote::from(hvi.vote),
-            })
-            .collect::<HistoricalVotingByAddress<_>>();
-
-        Ok(history)
-    }
-
-    fn voting_history_by_id(
-        &self,
-        id: IdentityId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVotingById<AccountId, Vote>> {
-        let history = rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .voting_history_by_id(at, id),
-            "Unable to query `voting_history_by_id`."
-        )?;
-
-        let history = history
-            .into_iter()
-            .map(|(address, history)| {
-                let history = history
-                    .into_iter()
-                    .map(|hvi| VoteByPip {
-                        pip: hvi.pip,
-                        vote: Vote::from(hvi.vote),
-                    })
-                    .collect::<Vec<_>>();
-
-                (address, history)
-            })
-            .collect::<HistoricalVotingById<_, _>>();
-
-        Ok(history)
     }
 }

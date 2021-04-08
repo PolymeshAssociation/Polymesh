@@ -1,7 +1,9 @@
 use crate::{
+    asset_test::max_len_bytes,
     ext_builder::MockProtocolBaseFees,
     storage::{
-        account_from, make_account_with_uid, make_account_without_cdd, AccountId, TestStorage, User,
+        account_from, make_account_with_uid, make_account_without_cdd, root, AccountId,
+        TestStorage, User,
     },
     ExtBuilder,
 };
@@ -12,7 +14,6 @@ use frame_support::{
     weights::GetDispatchInfo,
     StorageMap,
 };
-use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_balances as balances;
 use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
@@ -582,12 +583,13 @@ fn check_meta_url_functionality() {
         // Create template of SE.
         create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
+        let change =
+            |url| WrapperContracts::change_template_meta_url(alice.origin(), code_hash, Some(url));
+
         // Change the meta url.
-        assert_ok!(WrapperContracts::change_template_meta_url(
-            alice.origin(),
-            code_hash,
-            Some("http://www.google.com".into())
-        ));
+        assert_ok!(change("http://www.google.com".into()));
+        assert_ok!(change(max_len_bytes(0)));
+        assert_too_long!(change(max_len_bytes(1)));
     });
 }
 
@@ -623,7 +625,37 @@ fn check_put_code_flag_ext(user: Public) {
     );
 
     // Enable and check that anyone now can put code.
-    let root = Origin::from(RawOrigin::Root);
-    assert_ok!(WrapperContracts::set_put_code_flag(root, true));
+    assert_ok!(WrapperContracts::set_put_code_flag(root(), true));
     assert_ok!(put_code(user));
+}
+
+#[test]
+fn put_code_length_limited() {
+    ExtBuilder::default().build().execute_with(|| {
+        assert_ok!(WrapperContracts::set_put_code_flag(root(), true));
+
+        let user = User::new(AccountKeyring::Alice);
+        let (_, wasm) = flipper();
+        let put_code = |meta| -> DispatchResult {
+            WrapperContracts::put_code(user.origin(), meta, 0u128, wasm.clone())
+        };
+        assert_too_long!(put_code(TemplateMetadata {
+            url: Some(max_len_bytes(1)),
+            ..<_>::default()
+        }));
+        assert_too_long!(put_code(TemplateMetadata {
+            se_type: SmartExtensionType::Custom(max_len_bytes(1)),
+            ..<_>::default()
+        }));
+        assert_too_long!(put_code(TemplateMetadata {
+            description: max_len_bytes(1),
+            ..<_>::default()
+        }));
+        assert_ok!(put_code(TemplateMetadata {
+            url: Some(max_len_bytes(0)),
+            se_type: SmartExtensionType::Custom(max_len_bytes(0)),
+            description: max_len_bytes(0),
+            ..<_>::default()
+        }));
+    })
 }

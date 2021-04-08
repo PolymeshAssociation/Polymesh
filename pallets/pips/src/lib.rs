@@ -292,10 +292,6 @@ pub struct VoteByPip<VoteType> {
     pub vote: VoteType,
 }
 
-pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
-pub type HistoricalVotingById<AccountId, VoteType> =
-    Vec<(AccountId, HistoricalVotingByAddress<VoteType>)>;
-
 /// The state a PIP is in.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
@@ -735,6 +731,8 @@ decl_module! {
             ensure_opt_string_limited::<T>(url.as_deref())?;
             ensure_opt_string_limited::<T>(description.as_deref())?;
 
+            let charge = || T::ProtocolFee::charge_fee(ProtocolOp::PipsPropose);
+
             // Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
@@ -746,15 +744,18 @@ decl_module! {
                 // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-                // Lock the deposit.
-                Self::increase_lock(proposer, deposit)?;
+                // Lock the deposit + charge protocol fees.
+                // Both do check-modify so we need a transaction.
+                with_transaction(|| {
+                    Self::increase_lock(proposer, deposit)?;
+                    charge()
+                })?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
+                // Charge protocol fees even for committee PIPs.
+                charge()?;
             }
-
-            // Charge protocol fees, even for committee PIPs.
-            <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
             // Construct and add PIP to storage.
             let id = Self::next_pip_id();
@@ -1419,32 +1420,6 @@ impl<T: Trait> Module<T> {
         <Proposals<T>>::iter()
             .filter_map(|(_, pip)| Self::proposal_vote(pip.id, &address).map(|_| pip.id))
             .collect::<Vec<_>>()
-    }
-
-    /// Retrieve historical voting of `who` account.
-    pub fn voting_history_by_address(
-        who: T::AccountId,
-    ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
-        <Proposals<T>>::iter()
-            .filter_map(|(_, pip)| {
-                Some(VoteByPip {
-                    pip: pip.id,
-                    vote: Self::proposal_vote(pip.id, &who)?,
-                })
-            })
-            .collect::<Vec<_>>()
-    }
-
-    /// Retrieve historical voting of `who` identity.
-    /// It fetches all its keys recursively and it returns the voting history for each of them.
-    pub fn voting_history_by_id(
-        who: IdentityId,
-    ) -> HistoricalVotingById<T::AccountId, Vote<BalanceOf<T>>> {
-        let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
-        flatten_keys
-            .into_iter()
-            .map(|key| (key.clone(), Self::voting_history_by_address(key)))
-            .collect::<HistoricalVotingById<_, _>>()
     }
 
     /// Returns the id to use for the next PIP to be made.

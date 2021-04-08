@@ -529,7 +529,7 @@ decl_module! {
         /// # Arguments
         /// * `multi_sig` - multi sig address
         #[weight = <T as Trait>::WeightInfo::make_multisig_signer()]
-        pub fn make_multisig_signer(origin, multisig: T::AccountId) -> DispatchResult {
+        pub fn make_multisig_signer(origin, multisig: T::AccountId) {
             let sender = ensure_signed(origin)?;
             Self::ensure_ms(&multisig)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -541,8 +541,8 @@ decl_module! {
                     // it instead of b"_".
                     iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
                 ),
-                Signatory::Account(multisig)
-            )
+                &Signatory::Account(multisig)
+            );
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
@@ -1071,7 +1071,8 @@ impl<T: Trait> Module<T> {
 
         let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
 
-        <Identity<T>>::consume_auth(ms_identity, signer.clone(), auth_id)?;
+        let auth = <Identity<T>>::check_auth(ms_identity, &signer, auth_id)?;
+        <Identity<T>>::unchecked_take_auth(&signer, &auth);
         <MultiSigSigners<T>>::insert(multisig.clone(), signer.clone(), signer.clone());
         <NumberOfSigners<T>>::mutate(multisig.clone(), |x| *x += 1u64);
 

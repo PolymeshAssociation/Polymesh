@@ -1,4 +1,5 @@
 use super::{
+    asset_test::max_len_bytes,
     storage::{make_account_with_portfolio, TestStorage},
     ExtBuilder,
 };
@@ -180,7 +181,7 @@ fn raise_happy_path() {
 
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
-    let fundraiser_name = FundraiserName::from(vec![1]);
+    let fundraiser_name: FundraiserName = max_len_bytes(0);
     assert_ok!(STO::create_fundraiser(
         alice_signed.clone(),
         alice_portfolio,
@@ -303,23 +304,24 @@ fn raise_unhappy_path() {
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
+    let fundraise = |tiers, venue, name| {
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            alice_portfolio,
+            offering_ticker,
+            alice_portfolio,
+            raise_ticker,
+            tiers,
+            venue,
+            None,
+            None,
+            0,
+            name,
+        )
+    };
+
     let check_fundraiser = |tiers, venue, error: DispatchError| {
-        assert_noop!(
-            STO::create_fundraiser(
-                alice_signed.clone(),
-                alice_portfolio,
-                offering_ticker,
-                alice_portfolio,
-                raise_ticker,
-                tiers,
-                venue,
-                None,
-                None,
-                0,
-                FundraiserName::default()
-            ),
-            error
-        );
+        assert_noop!(fundraise(tiers, venue, <_>::default()), error);
     };
 
     let create_venue = |origin, type_| {
@@ -341,6 +343,9 @@ fn raise_unhappy_path() {
     let check_venue = |id| {
         check_fundraiser(default_tiers.clone(), id, Error::InvalidVenue.into());
     };
+
+    // Name too long.
+    assert_too_long!(fundraise(default_tiers.clone(), 0, max_len_bytes(1)));
 
     // Offering asset not created
     check_fundraiser(default_tiers.clone(), 0, Error::Unauthorized.into());

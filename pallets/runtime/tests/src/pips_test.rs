@@ -1,5 +1,6 @@
 use super::{
     assert_event_exists,
+    asset_test::max_len_bytes,
     committee_test::{gc_vmo, set_members},
     storage::{
         fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
@@ -491,6 +492,27 @@ fn proposal_details_are_correct() {
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(0, alice.acc(), 60);
+    });
+}
+
+#[test]
+fn proposal_limits_are_enforced() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(42);
+        let proposer = User::new(AccountKeyring::Alice).balance(300);
+        let propose = |url, desc| {
+            proposal(
+                &proposer.origin(),
+                &Proposer::Community(proposer.acc()),
+                make_remark_proposal(),
+                60,
+                Some(url),
+                Some(desc),
+            )
+        };
+        assert_too_long!(propose(max_len_bytes(1), max_len_bytes(0)));
+        assert_too_long!(propose(max_len_bytes(0), max_len_bytes(1)));
+        assert_ok!(propose(max_len_bytes(0), max_len_bytes(0)));
     });
 }
 
@@ -1872,23 +1894,5 @@ fn pips_rpcs() {
             vec![pip_id1, pip_id0],
         );
         assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
-
-        let votef = Vote(false, bob_vote_deposit);
-        let votet = Vote(true, bob_vote_deposit);
-        let votes = vec![
-            VoteByPip {
-                pip: pip_id1,
-                vote: votet,
-            },
-            VoteByPip {
-                pip: pip_id0,
-                vote: votef,
-            },
-        ];
-        assert_eq!(Pips::voting_history_by_address(bob.acc()), votes);
-        assert_eq!(
-            Pips::voting_history_by_id(bob.did),
-            vec![(bob.acc(), votes)]
-        );
     });
 }

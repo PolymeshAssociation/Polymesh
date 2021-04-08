@@ -25,25 +25,28 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, SecondaryKey, Signatory,
+    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
+    Signatory,
 };
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
-fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, PF>(
+fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     name: &'static str,
     make_investor_uid: IF,
     make_cdd_id: CF,
     make_scope_id: SF,
+    make_claim: IUF,
     make_proof: PF,
-) -> (User<T>, Claim, P)
+) -> (User<T>, Scope, Claim, P)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
     IF: Fn(&[u8]) -> InvestorUid,
     CF: Fn(IdentityId, InvestorUid) -> CddId,
     SF: Fn(&[u8], &InvestorUid) -> IdentityId,
     PF: Fn(&IdentityId, &InvestorUid, &Ticker) -> P,
+    IUF: Fn(Scope, ScopeId, CddId) -> Claim,
 {
     let user = UserBuilder::<T>::default().generate_did().build(name);
 
@@ -58,38 +61,54 @@ where
     let ticker = Ticker::default();
     let scope_id = make_scope_id(&ticker.as_slice(), &investor_uid);
 
-    let claim = Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id);
+    let scope = Scope::Ticker(ticker);
+    let claim = make_claim(scope.clone(), scope_id, cdd_id);
     let proof = make_proof(&did, &investor_uid, &ticker);
-    (user, claim, proof)
+    (user, scope, claim, proof)
 }
 
 fn setup_investor_uniqueness_claim_v2<T>(
     name: &'static str,
-) -> (User<T>, Claim, v2::InvestorZKProofData)
+) -> (User<T>, Scope, Claim, v2::InvestorZKProofData)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
         |raw_did| make_investor_uid_v2(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
+        |_scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(cdd_id),
         v2::InvestorZKProofData::new,
     )
 }
 
+// NB As `schnorkell` uses internally a `RNG`, we have to use different `make_proof` for both
+// environments.
+// In `std`, we use directly the constructor from `v1::InvestorZKProofData`.
+// In non `std`, we decode the proof from an hard-coded hexadecimal value, so we avoid the use of
+// `schnorkell` functionality here.
 fn setup_investor_uniqueness_claim_v1<T>(
     name: &'static str,
-) -> (User<T>, Claim, v1::InvestorZKProofData)
+) -> (User<T>, Scope, Claim, v1::InvestorZKProofData)
 where
     T: Trait + TestUtilsFn<AccountIdOf<T>>,
 {
-    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _>(
+    #[cfg(feature = "std")]
+    let make_proof = v1::InvestorZKProofData::new;
+    #[cfg(not(feature = "std"))]
+    let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
+        let mut proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
+    };
+
+    setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
         |raw_did| make_investor_uid_v1(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
-        v1::InvestorZKProofData::new,
+        |scope, scope_id, cdd_id| Claim::InvestorUniqueness(scope, scope_id, cdd_id),
+        make_proof,
     )
 }
 
@@ -149,7 +168,7 @@ benchmarks! {
         for x in 0..i {
             let signer = Signatory::Account(account("key", x, SEED));
             signatories.push(signer.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signer).unwrap();
+            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signer);
         }
     }: _(target.origin, signatories.clone())
 
@@ -240,7 +259,7 @@ benchmarks! {
         let new_user = UserBuilder::<T>::default().generate_did().build("key");
         let signatory = Signatory::Identity(new_user.did());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), signatory).unwrap();
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signatory);
 
     }: _(new_user.origin, target.did())
 
@@ -260,21 +279,27 @@ benchmarks! {
         let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
         let boxed_proposal = Box::new(call);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), Signatory::Identity(key.did())).unwrap();
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &Signatory::Identity(key.did()));
         Module::<T>::set_context_did(Some(key.did()));
     }: _(key.origin, target.did(), boxed_proposal)
 
     revoke_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), conf_scope_claim.clone(), inv_proof.0, Some(666u32.into())).unwrap();
-    }: _(caller.origin, caller.did(), conf_scope_claim)
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into()))?;
+    }: _(caller.origin, caller.did(), claim)
+
+    revoke_claim_by_index {
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+        let claim_type = claim.claim_type();
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into()))?;
+    }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_permission_to_signer {
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account);
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), signatory.clone()).unwrap();
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), &signatory);
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
@@ -359,10 +384,10 @@ benchmarks! {
     }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof, Some(666u32.into()))
+        let (caller, _, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
+    }: _(caller.origin, caller.did(), claim, proof, Some(666u32.into()))
 
     add_investor_uniqueness_claim_v2 {
-        let (caller, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
-    }: _(caller.origin, caller.did(), conf_scope_claim, inv_proof.0, Some(666u32.into()))
+        let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
+    }: _(caller.origin, caller.did(), scope, claim, proof.0, Some(666u32.into()))
 }
