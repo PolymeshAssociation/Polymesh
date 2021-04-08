@@ -18,7 +18,6 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    assert,
     traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
