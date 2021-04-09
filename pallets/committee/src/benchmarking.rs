@@ -63,18 +63,21 @@ where
         let index = Module::<T, I>::proposal_count();
         let proposal = make_proposal::<T, I>(i).0;
         identity::CurrentDid::put(users[0].did());
-        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal)).unwrap();
+        Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
+            .unwrap();
         if users.len() > 1 {
             let hash = *Module::<T, I>::proposals()
                 .last()
-                .ok_or("missing last proposal").unwrap();
+                .ok_or("missing last proposal")
+                .unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
                 // Vote for the proposal if it's not finalised.
                 if Module::<T, I>::voting(&hash).is_some() {
                     identity::CurrentDid::put(user.did());
-                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0).unwrap();
+                    Module::<T, I>::vote(user.origin.clone().into(), hash, index, j % 2 != 0)
+                        .unwrap();
                 }
             }
         }
@@ -110,7 +113,9 @@ where
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
-        let votes = Voting::<T, I>::get(&hash).ok_or("cannot get votes").unwrap();
+        let votes = Voting::<T, I>::get(&hash)
+            .ok_or("cannot get votes")
+            .unwrap();
         assert!(votes.index == proposal_num, "wrong proposal_num");
         assert!(vote == votes.ayes.contains(did), "aye vote missing");
         assert!(vote != votes.nays.contains(did), "nay vote missing");

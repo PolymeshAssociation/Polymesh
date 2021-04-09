@@ -71,8 +71,11 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
             MAX_NOMINATIONS as u32,
             balance,
             false,
-        ).unwrap();
-        let controller = pallet_staking::Module::<T>::bonded(&stash).ok_or("not stash").unwrap();
+        )
+        .unwrap();
+        let controller = pallet_staking::Module::<T>::bonded(&stash)
+            .ok_or("not stash")
+            .unwrap();
         let keys = T::Keys::default();
         let proof: Vec<u8> = vec![0, 1, 2, 3];
 

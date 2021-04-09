@@ -59,7 +59,8 @@ fn generate_multisig_with_extra_signers<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         caller.origin.clone().into(),
         signers.clone(),
         num_of_signers_required.into(),
-    ).unwrap();
+    )
+    .unwrap();
     Ok(multisig)
 }
 
@@ -82,7 +83,8 @@ fn generate_multisig_for_alice_wo_accepting<T: Trait + TestUtilsFn<AccountIdOf<T
         &mut signers,
         total_signers - 1,
         singers_required,
-    ).unwrap();
+    )
+    .unwrap();
     let signer_origin = match signers.last().cloned().unwrap() {
         Signatory::Account(account) => RawOrigin::Signed(account.clone()),
         _ => alice.origin().clone(),
@@ -158,7 +160,8 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
             proposal.clone(),
             None,
             true,
-        ).unwrap();
+        )
+        .unwrap();
     } else {
         <MultiSig<T>>::create_proposal_as_identity(
             alice.origin().into(),
@@ -166,7 +169,8 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
             proposal.clone(),
             None,
             true,
-        ).unwrap();
+        )
+        .unwrap();
     }
     Ok((
         alice,

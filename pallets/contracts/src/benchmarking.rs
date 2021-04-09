@@ -143,7 +143,8 @@ pub fn emulate_blueprint_in_storage<T: Trait>(
         meta_info,
         instantiation_fee.into(),
         wasm_blob,
-    ).unwrap();
+    )
+    .unwrap();
     Ok(code_hash)
 }
 

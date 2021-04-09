@@ -20,10 +20,14 @@ where
     N: AsRef<[u8]>,
 {
     let ticker = match &opt_name {
-        Some(name) => Ticker::try_from(name.as_ref()).map_err(|_| "Invalid ticker name").unwrap(),
+        Some(name) => Ticker::try_from(name.as_ref())
+            .map_err(|_| "Invalid ticker name")
+            .unwrap(),
         _ => Ticker::repeating(b'A'),
     };
-    Asset::register_ticker(owner, ticker).map_err(|_| "Ticker cannot be registered").unwrap();
+    Asset::register_ticker(owner, ticker)
+        .map_err(|_| "Ticker cannot be registered")
+        .unwrap();
 
     Ok(ticker)
 }
@@ -82,7 +86,8 @@ where
         vec![],
         None,
     )
-    .map_err(|_| "Asset cannot be created").unwrap();
+    .map_err(|_| "Asset cannot be created")
+    .unwrap();
 
     Ok(ticker)
 }

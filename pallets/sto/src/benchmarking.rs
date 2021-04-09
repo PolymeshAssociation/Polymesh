@@ -39,7 +39,8 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Ticker>(a, Some(ticker)).unwrap();
+        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Ticker>(a, Some(ticker))
+            .unwrap();
         compliance_setup::<T>(
             complexity,
             ticker,
@@ -77,7 +78,8 @@ fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
         VenueDetails::default(),
         vec![user.account()],
         VenueType::Sto,
-    ).unwrap();
+    )
+    .unwrap();
     Ok(venue_id)
 }
 
@@ -101,7 +103,8 @@ fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         RAISE_TICKER,
         complexity,
         transfer_managers,
-    ).unwrap();
+    )
+    .unwrap();
 
     let venue_id = create_venue(&alice.user).unwrap();
 
@@ -117,7 +120,8 @@ fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         Some(101u32.into()),
         0u32.into(),
         vec![].into(),
-    ).unwrap();
+    )
+    .unwrap();
 
     Ok((alice, bob))
 }

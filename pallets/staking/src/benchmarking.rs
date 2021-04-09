@@ -109,7 +109,8 @@ pub fn create_validator_with_nominators_with_balance<T: Trait + TestUtilsFn<Acco
             create_stash_with_dead_controller::<T>(u32::max_value() - i, INIT_BALANCE).unwrap()
         };
         if i < n {
-            Staking::<T>::nominate(n_controller.origin().into(), vec![stash_lookup.clone()]).unwrap();
+            Staking::<T>::nominate(n_controller.origin().into(), vec![stash_lookup.clone()])
+                .unwrap();
         }
     }
 
@@ -144,7 +145,8 @@ fn payout_stakers_<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         n,
         T::MaxNominatorRewardedPerValidator::get() as u32,
         !alive,
-    ).unwrap();
+    )
+    .unwrap();
     let current_era = CurrentEra::get().unwrap();
     <ErasValidatorPrefs<T>>::insert(
         current_era,

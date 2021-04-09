@@ -127,7 +127,8 @@ fn pips_and_votes_setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
             42u32.into(),
             Some(url.clone()),
             Some(description.clone()),
-        ).unwrap();
+        )
+        .unwrap();
         // Alternate aye and nay voters with every iteration unless only approve votes are cast.
         cast_votes::<T>(i as u32, hi_voters.as_slice(), approve_only || i % 2 == 0).unwrap();
         cast_votes::<T>(i as u32, bye_voters.as_slice(), i % 2 != 0).unwrap();
