@@ -523,9 +523,8 @@ decl_module! {
             Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
         }
 
-        /// Initializes a new security token
-        /// makes the initiating account the owner of the security token
-        /// without minting the tokens. Use `issue` to mint the tokens.
+        /// Initializes a new security token, with the initiating account as its owner.
+        /// The total supply will initially be zero. To mint tokens, use `issue`.
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
