@@ -38,6 +38,7 @@
 //! - `accept_ticker_transfer` - Used to accept a ticker transfer authorization.
 //! - `accept_asset_ownership_transfer` - Used to accept the token transfer authorization.
 //! - `create_asset` - Initializes a new security token.
+//! - `create_asset_and_mint` - Initializes a new security token and mints the tokens.
 //! - `freeze` - Freezes transfers and minting of a given token.
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
@@ -530,7 +531,6 @@ decl_module! {
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `name` - the name of the token.
         /// * `ticker` - the ticker symbol of the token.
-        /// * `total_supply` - the total supply of the token.
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
@@ -542,7 +542,6 @@ decl_module! {
         /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
         /// `T::FundingRoundNameMaxLength`.
         /// - `AssetAlreadyCreated` if asset was already created.
-        /// - `TotalSupplyAboveLimit` if `total_supply > MAX_SUPPLY`.
         /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
         /// parameter.
         /// - `TickerNotAscii` if `ticker` is not yet registered, and contains non-ascii printable characters (from code 32 to 126) or any character after first occurrence of `\0`.
@@ -988,8 +987,6 @@ decl_error! {
         TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
-        /// An invalid total supply.
-        InvalidTotalSupply,
         /// The total supply is above the limit.
         TotalSupplyAboveLimit,
         /// No such token.
@@ -1845,6 +1842,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Performs necessary checks on parameters of `create_asset`.
+    fn ensure_create_asset_parameters(ticker: &Ticker) -> DispatchResult {
+        Self::ensure_asset_fresh(&ticker)?;
+        Self::ensure_ticker_length(&ticker, &Self::ticker_registration_config())
+    }
+
     /// Ensure asset `ticker` doesn't exist yet.
     fn ensure_asset_fresh(ticker: &Ticker) -> DispatchResult {
         ensure!(
@@ -1973,6 +1976,8 @@ impl<T: Trait> Module<T> {
             primary_did: did,
             secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+        Self::ensure_create_asset_parameters(&ticker)?;
 
         // Ensure its registered by DID or at least expired, thus available.
         let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {

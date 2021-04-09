@@ -2382,7 +2382,14 @@ fn create_asset_errors(owner: Public, other: Public) {
             1_000,
             false,
             None,
-            AssetError::InvalidTotalSupply,
+            AssetError::InvalidGranularity,
+        ),
+        (
+            name.clone(),
+            u128::MAX,
+            true,
+            None,
+            AssetError::TotalSupplyAboveLimit,
         ),
     ];
 
