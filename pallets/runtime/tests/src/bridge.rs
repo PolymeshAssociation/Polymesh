@@ -72,7 +72,7 @@ fn bob_bridge_tx(amount: u128) -> BridgeTx {
 fn proposal_tx(recipient: Public, amount: u128) -> (BridgeTx, Box<Call>) {
     let tx = make_bridge_tx(recipient, amount);
     let call = bridge::Call::handle_bridge_tx(tx.clone());
-    (tx, box Call::Bridge(call))
+    (tx, Box::new(Call::Bridge(call)))
 }
 
 fn alice_proposal_tx(amount: u128) -> Box<Call> {
