@@ -34,6 +34,7 @@
 //! - TODO
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(iter_advance_by)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -87,7 +88,7 @@ decl_storage! {
             double_map
                 hasher(blake2_128_concat) Ticker,
                 hasher(twox_64_concat) AGId
-                => ExtrinsicPermissions;
+                => Option<ExtrinsicPermissions>;
     }
 }
 
@@ -158,6 +159,18 @@ decl_module! {
             Self::base_remove_agent(origin, ticker, agent)
         }
 
+        /// Abdicate agentship for `ticker`.
+        ///
+        /// # Arguments
+        /// - `ticker` of which the caller is an agent.
+        ///
+        /// # Errors
+        /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        #[weight = <T as Trait>::WeightInfo::remove_agent()]
+        pub fn abdicate(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_abdicate(origin, ticker)
+        }
+
         /// Change the agent group that `agent` belongs to in `ticker`.
         ///
         /// # Arguments
@@ -222,6 +235,9 @@ decl_error! {
         AlreadyAnAgent,
         /// The provided `agent` is not an agent for the `Ticker`.
         NotAnAgent,
+        /// This agent is the last and it's being removed,
+        /// making the asset orphaned.
+        RemovingLastAgent,
         /// The caller's secondary key does not have the required asset permission.
         SecondaryKeyNotAuthorizedForAsset,
     }
@@ -258,10 +274,9 @@ impl<T: Trait> Module<T> {
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
 
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::try_mutate(ticker, |AGId(id)| {
-            id.checked_add(1)
-                .map(AGId)
-                .ok_or(Error::<T>::LocalAGIdOverflow)
+        let id = AGIdSequence::try_mutate(ticker, |AGId(id)| -> Result<_, DispatchError> {
+            *id = id.checked_add(1).ok_or(Error::<T>::LocalAGIdOverflow)?;
+            Ok(AGId(*id))
         })?;
 
         // Commit & emit.
@@ -290,6 +305,13 @@ impl<T: Trait> Module<T> {
         let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
         Self::try_mutate_agents_group(ticker, agent, None)?;
         Self::deposit_event(Event::AgentRemoved(did, ticker, agent));
+        Ok(())
+    }
+
+    fn base_abdicate(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+        let did = Self::ensure_asset_perms(origin, &ticker)?.primary_did;
+        Self::try_mutate_agents_group(ticker, did, None)?;
+        Self::deposit_event(Event::AgentRemoved(did.for_event(), ticker, did));
         Ok(())
     }
 
@@ -331,9 +353,23 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         GroupOfAgent::try_mutate(ticker, agent, |slot| {
             ensure!(slot.is_some(), Error::<T>::NotAnAgent);
+
+            if group.is_none() {
+                // To remove an agent, there must be >= 2 of them.
+                // N.B. This check is heuristic.
+                // We do not prevent making all agents have non-meta perms.
+                GroupOfAgent::iter_prefix(ticker)
+                    .advance_by(2)
+                    .map_err(|_| Error::<T>::RemovingLastAgent)?;
+            }
+
             *slot = group;
             Ok(())
         })
+    }
+
+    pub fn unchecked_add_agent(ticker: Ticker, did: IdentityId, group: AgentGroup) {
+        GroupOfAgent::insert(ticker, did, group);
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.
@@ -383,7 +419,9 @@ impl<T: Trait> Module<T> {
         match GroupOfAgent::get(ticker, agent) {
             None => ExtrinsicPermissions::empty(),
             Some(AgentGroup::Full) => ExtrinsicPermissions::default(),
-            Some(AgentGroup::Custom(ag_id)) => GroupPermissions::get(ticker, ag_id),
+            Some(AgentGroup::Custom(ag_id)) => {
+                GroupPermissions::get(ticker, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
+            }
             // TODO(Centril): Map these to proper permission sets.
             Some(AgentGroup::Meta) => ExtrinsicPermissions::default(),
             Some(AgentGroup::PolymeshV1CAA) => ExtrinsicPermissions::default(),

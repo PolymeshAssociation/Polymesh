@@ -109,6 +109,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
+    agent::AgentGroup,
     migrate::MigrationError,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
@@ -1978,6 +1979,9 @@ impl<T: Trait> Module<T> {
         FundingRound::insert(ticker, funding_round.unwrap_or_default());
 
         Self::unverified_update_idents(did, ticker, identifiers);
+
+        // Grant owner full agent permissions.
+        <ExternalAgents<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full);
 
         Ok((sender, did))
     }

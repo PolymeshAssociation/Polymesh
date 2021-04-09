@@ -29,9 +29,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName,
-    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
-    SubsetRestriction, Ticker, TransactionError,
+    Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -901,24 +901,7 @@ fn one_step_join_id_with_ext() {
     );
 }
 
-fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
-    test(Permissions {
-        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
-        ..<_>::default()
-    });
-    test(Permissions {
-        portfolio: SubsetRestriction::elems(
-            (0..=max_len() as u64)
-                .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
-        ),
-        ..<_>::default()
-    });
-    let test = |extrinsic| {
-        test(Permissions {
-            extrinsic,
-            ..<_>::default()
-        })
-    };
+crate fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
     test(SubsetRestriction::elems(
         (0..=max_len() as u64)
             .map(Ticker::generate)
@@ -940,6 +923,26 @@ fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
         "".into(),
         SubsetRestriction::elem(max_len_bytes(1)),
     )));
+}
+
+crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
+    test(Permissions {
+        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
+        ..<_>::default()
+    });
+    test(Permissions {
+        portfolio: SubsetRestriction::elems(
+            (0..=max_len() as u64)
+                .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
+        ),
+        ..<_>::default()
+    });
+    test_with_bad_ext_perms(|extrinsic| {
+        test(Permissions {
+            extrinsic,
+            ..<_>::default()
+        })
+    });
 }
 
 #[test]
