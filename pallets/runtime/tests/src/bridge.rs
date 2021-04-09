@@ -1,13 +1,11 @@
 use super::{
+    fast_forward_blocks, next_block,
     storage::{Call, TestStorage},
     ExtBuilder,
 };
 
 use frame_support::{
-    assert_noop, assert_ok,
-    storage::IterableStorageDoubleMap,
-    traits::{Currency, OnInitialize},
-    weights::Weight,
+    assert_noop, assert_ok, storage::IterableStorageDoubleMap, traits::Currency, weights::Weight,
 };
 use pallet_bridge::{
     self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
@@ -47,10 +45,7 @@ fn test_with_controller(test: &dyn Fn(&[Public])) {
         .add_regular_users_from_accounts(&[admin, Eve.public(), Ferdie.public()])
         .set_bridge_controller(admin, [bob, charlie, dave].into(), MIN_SIGNS_REQUIRED)
         .build()
-        .execute_with(|| {
-            let signer_accounts = [bob, charlie, dave];
-            test(&signer_accounts)
-        });
+        .execute_with(|| test(&[bob, charlie, dave]));
 }
 
 fn signed_admin() -> Origin {
@@ -92,11 +87,8 @@ fn alice_tx_details(tx_id: u32) -> BridgeTxDetail {
     Bridge::bridge_tx_details(Alice.public(), tx_id)
 }
 
-fn proposals(amount: u128) -> Vec<(BridgeTx, Box<Call>)> {
-    [Alice, Eve, Ferdie]
-        .iter()
-        .map(|acc| proposal_tx(acc.public(), amount))
-        .collect()
+fn proposals(amount: u128) -> [(BridgeTx, Box<Call>); 3] {
+    [Alice, Eve, Ferdie].map(|acc| proposal_tx(acc.public(), amount))
 }
 
 fn signers_approve_proposal(proposal: Call, signers: &[Public]) -> BridgeTx {
@@ -112,14 +104,15 @@ fn signers_approve_proposal(proposal: Call, signers: &[Public]) -> BridgeTx {
                     tx.clone()
                 ));
 
-                // Fetch proposal ID if unknown.
-                if proposal_id.is_none() {
-                    proposal_id = MultiSig::proposal_ids(&controller, proposal.clone());
-                }
-
                 // Verify approvals.
+                // Fetch proposal ID if unknown.
+                let p_id = proposal_id
+                    .get_or_insert_with(|| {
+                        MultiSig::proposal_ids(&controller, proposal.clone()).unwrap_or_default()
+                    })
+                    .clone();
                 assert_eq!(
-                    MultiSig::proposal_detail(&(controller, proposal_id.unwrap())).approvals,
+                    MultiSig::proposal_detail(&(controller, p_id)).approvals,
                     (i + 1) as u64
                 );
             }
@@ -127,18 +120,6 @@ fn signers_approve_proposal(proposal: Call, signers: &[Public]) -> BridgeTx {
         }
         _ => panic!("Invalid call"),
     }
-}
-
-/// Advances the system `block_number` and run any scheduled task.
-fn next_block() -> Weight {
-    let block_number = System::block_number() + 1;
-    System::set_block_number(block_number);
-    // Call the timelocked tx handler.
-    Scheduler::on_initialize(block_number)
-}
-
-fn advance_block(offset: u64) -> Weight {
-    (0..=offset).map(|_| next_block()).sum()
 }
 
 fn advance_block_and_verify_alice_balance(offset: u64, expected_balance: u128) -> Weight {
@@ -167,7 +148,7 @@ fn can_issue_to_identity() {
         let tx = signers_approve_proposal(*proposal, signers);
 
         // Wait for timelock, and proposal should be handled.
-        advance_block(Bridge::timelock() + 1);
+        fast_forward_blocks(Bridge::timelock() + 1);
         assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
 
         let controller = Origin::signed(Bridge::controller());
@@ -241,7 +222,7 @@ fn do_freeze_and_unfreeze_bridge(signers: &[Public]) {
     signers_approve_proposal(*proposal, signers);
 
     ensure_tx_status(alice, 1, BridgeTxStatus::Absent);
-    advance_block(timelock);
+    fast_forward_blocks(timelock);
 
     // Weight calculation when bridge is freezed
     ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
@@ -430,16 +411,13 @@ fn do_freeze_txs(signers: &[Public]) {
     let no_admin = Origin::signed(*signers.iter().next().unwrap());
 
     // Create some txs and register the recipients' balance.
-    let txs = proposals(AMOUNT)
-        .into_iter()
-        .map(|(_, p)| signers_approve_proposal(*p, signers))
-        .collect::<Vec<_>>();
+    let txs = proposals(AMOUNT).map(|(_, p)| signers_approve_proposal(*p, signers));
     let init_balances = txs
         .iter()
         .map(|tx| Balances::total_balance(&tx.recipient))
         .collect::<Vec<_>>();
 
-    advance_block(Bridge::timelock());
+    fast_forward_blocks(Bridge::timelock());
 
     // Freeze all txs except the first one.
     let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
@@ -467,8 +445,8 @@ fn do_freeze_txs(signers: &[Public]) {
     assert_ok!(Bridge::unfreeze_txs(signed_admin(), frozen_txs));
 
     // Verify that all TXs are done and balances of owner are updated.
-    txs.into_iter()
-        .zip(init_balances.into_iter())
+    txs.iter()
+        .zip(init_balances.iter())
         .for_each(|(tx, init_balance)| {
             ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Handled);
             assert_eq!(
@@ -485,7 +463,8 @@ fn batch_propose_bridge_tx() {
 
 fn do_batch_propose_bridge_tx(signers: &[Public]) {
     let alice = Origin::signed(Alice.public());
-    let (txs, proposals): (Vec<BridgeTx>, Vec<Box<Call>>) = proposals(AMOUNT).into_iter().unzip();
+    let (txs, proposals): (Vec<BridgeTx>, Vec<Box<Call>>) =
+        proposals(AMOUNT).to_vec().into_iter().unzip();
     let ensure_txs_status = |txs: &[BridgeTx], status: BridgeTxStatus| {
         txs.iter().for_each(|tx| {
             let _ = ensure_tx_status(tx.recipient, tx.nonce, status);
@@ -501,7 +480,7 @@ fn do_batch_propose_bridge_tx(signers: &[Public]) {
     });
 
     // Advance block
-    advance_block(Bridge::timelock());
+    fast_forward_blocks(Bridge::timelock());
     ensure_txs_status(&txs, BridgeTxStatus::Timelocked);
 
     // Now proposals should be `Handled`.
@@ -511,7 +490,7 @@ fn do_batch_propose_bridge_tx(signers: &[Public]) {
         .max()
         .unwrap_or_default();
     let offset = last_block - System::block_number();
-    advance_block(offset);
+    fast_forward_blocks(offset);
     ensure_txs_status(&txs, BridgeTxStatus::Handled);
 }
 

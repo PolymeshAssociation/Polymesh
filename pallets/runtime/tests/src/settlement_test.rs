@@ -1,5 +1,6 @@
 use super::{
     asset_test::max_len_bytes,
+    next_block,
     storage::{
         default_portfolio_vec, make_account, make_account_without_cdd,
         provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
@@ -8,9 +9,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_noop, assert_ok, traits::OnInitialize, IterableStorageDoubleMap, StorageMap,
-};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -114,12 +113,6 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
         vec![],
         vec![]
     ));
-}
-
-pub fn next_block() {
-    let block_number = System::block_number() + 1;
-    set_current_block_number(block_number);
-    let _ = Scheduler::on_initialize(block_number);
 }
 
 pub fn set_current_block_number(block: u64) {

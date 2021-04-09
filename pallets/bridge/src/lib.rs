@@ -361,9 +361,8 @@ decl_event! {
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
         /// An event emitted after a vector of transactions is handled. The parameter is a vector of
-        /// nonces of all processed transactions, each with either the "success" code 0 or its
-        /// failure reason (greater than 0).
-        TxsHandled(Vec<(u32, HandledTxStatus)>),
+        /// tuples of recipient account, its nonce, and the status of the processed transaction.
+        TxsHandled(Vec<(AccountId, u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
@@ -719,8 +718,8 @@ impl<T: Trait> Module<T> {
                 true,
             )
         };
-        let stati = Self::apply_handler(propose, bridge_txs);
-        Self::deposit_event(RawEvent::TxsHandled(stati));
+        let txs_result = Self::apply_handler(propose, bridge_txs);
+        Self::deposit_event(RawEvent::TxsHandled(txs_result));
         Ok(())
     }
 
@@ -799,10 +798,10 @@ impl<T: Trait> Module<T> {
     fn apply_handler(
         f: impl Fn(BridgeTx<T::AccountId, T::Balance>) -> DispatchResult,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
-    ) -> Vec<(u32, HandledTxStatus)> {
+    ) -> Vec<(T::AccountId, u32, HandledTxStatus)> {
         bridge_txs
             .into_iter()
-            .map(|tx: BridgeTx<_, _>| (tx.nonce, f(tx).into()))
+            .map(|tx: BridgeTx<_, _>| (tx.recipient.clone(), tx.nonce, f(tx).into()))
             .collect()
     }
 
@@ -912,18 +911,21 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
         let did = Self::ensure_admin_did(origin)?;
-        bridge_txs
+        let txs_result = bridge_txs
             .into_iter()
             .filter(|tx| {
                 Self::bridge_tx_details(&tx.recipient, &tx.nonce).status == BridgeTxStatus::Frozen
             })
-            .for_each(|tx| {
+            .map(|tx| {
                 Self::update_status(&tx, BridgeTxStatus::Absent);
                 Self::deposit_event(RawEvent::UnfrozenTx(did, tx.clone()));
-                if let Err(e) = Self::handle_bridge_tx_now(tx, true, None) {
-                    sp_runtime::print(e);
-                }
-            });
+                let (recipient, nonce) = (tx.recipient.clone(), tx.nonce);
+                let status = Self::handle_bridge_tx_now(tx, true, None).into();
+                (recipient, nonce, status)
+            })
+            .collect::<Vec<_>>();
+
+        Self::deposit_event(RawEvent::TxsHandled(txs_result));
         Ok(())
     }
 
