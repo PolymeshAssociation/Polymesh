@@ -40,7 +40,7 @@ async function issueTokenPerDid(api, accounts, dids) {
     const ticker = await reqImports.generateRandomTicker(api);
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-    const transaction = api.tx.asset.createAsset(
+    const transaction = api.tx.asset.createAssetAndMint(
       ticker, ticker, 1000000, true, 0, [], "abc"
     );
     let tx = await reqImports.sendTx(accounts[i], transaction);

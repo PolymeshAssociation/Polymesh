@@ -299,7 +299,7 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
   if (tickerExist.owner == 0) {
 
 
-    const transaction = api.tx.asset.createAsset(
+    const transaction = api.tx.asset.createAssetAndMint(
       ticker, ticker, amount, true, 0, [], fundingRound
     );
 
