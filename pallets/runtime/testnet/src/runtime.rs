@@ -59,10 +59,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 0,
+    spec_version: 2018,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 0,
+    transaction_version: 7,
 };
 
 parameter_types! {
@@ -120,9 +120,8 @@ parameter_types! {
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: usize = 128;
-    pub const FundingRoundNameMaxLength: usize = 128;
-    pub const AllowedGasLimit: u64 = 13_000_000_000;
+    pub const AssetNameMaxLength: u32 = 128;
+    pub const FundingRoundNameMaxLength: u32 = 128;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;

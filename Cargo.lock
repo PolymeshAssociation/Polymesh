@@ -5250,6 +5250,7 @@ dependencies = [
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "hex",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-permissions 0.1.0",
@@ -6729,7 +6730,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "chrono",
  "ed25519-dalek",

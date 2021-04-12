@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2017,
+    spec_version: 2018,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -119,9 +119,8 @@ parameter_types! {
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: usize = 128;
-    pub const FundingRoundNameMaxLength: usize = 128;
-    pub const AllowedGasLimit: u64 = 13_000_000_000;
+    pub const AssetNameMaxLength: u32 = 128;
+    pub const FundingRoundNameMaxLength: u32 = 128;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
@@ -299,9 +298,10 @@ construct_runtime!(
         // Polymesh Committees
         // CddServiceProviders: Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 8,
+
+        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 10,
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
         CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 9,
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 10,
         TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 11,
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
         TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 12,

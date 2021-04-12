@@ -22,7 +22,7 @@ mod user_builder;
 pub use user_builder::{uid_from_name_and_idx, AccountIdOf, UserBuilder};
 
 mod asset;
-pub use asset::{generate_ticker, make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
 
 pub fn user<T: Trait + TestUtilsFn<<T as SysTrait>::AccountId>>(
     prefix: &'static str,
