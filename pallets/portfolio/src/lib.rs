@@ -358,10 +358,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::quit_portfolio_custody()]
         pub fn quit_portfolio_custody(origin, portfolio_id: PortfolioId) {
-            let PermissionedCallOriginData {
-                primary_did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let primary_did = Identity::<T>::ensure_perms(origin)?;
 
             let custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
 
