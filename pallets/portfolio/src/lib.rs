@@ -348,8 +348,8 @@ decl_module! {
             ));
         }
 
-        /// When called by the custodian of `portfolio_id`, allows to return the custody of the portfolio to
-        /// the portfolio owner unilaterally.
+        /// When called by the custodian of `portfolio_id`,
+        /// allows returning the custody of the portfolio to the portfolio owner unilaterally.
         ///
         /// # Errors
         /// * `UnauthorizedCustodian` if the caller is not the current custodian of `portfolio_id`.
