@@ -22,7 +22,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::PortfolioName;
 use sp_std::{convert::TryFrom, prelude::*};
 
-const PORTFOLIO_NAME_LEN: u32 = 500;
+const PORTFOLIO_NAME_LEN: usize = 500;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
@@ -32,7 +32,7 @@ benchmarks! {
     create_portfolio {
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
-        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
+        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
     }: _(target.origin, portfolio_name.clone())
     verify {
@@ -84,7 +84,7 @@ benchmarks! {
 
     rename_portfolio {
         // Length of portfolio name
-        let i in 1 .. 500;
+        let i in 1 .. PORTFOLIO_NAME_LEN;
 
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
