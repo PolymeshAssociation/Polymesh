@@ -418,13 +418,20 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
     if (fast) {
-      let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.asset.createAssetAndMint(ticker, ticker, 1000000, true, 0, [], "abc", dids[i]);
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
+      await reqImports.sendTransaction(
+          api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i]),
+          accounts[i],
+          {nonce: reqImports.nonces.get(accounts[i].address)}
+      );
+      await reqImports.sendTransaction(
+          api.tx.asset.issue(ticker, 1000000),
+          accounts[i],
+          {nonce: reqImports.nonces.get(accounts[i].address)}
+      );
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.asset.createAssetAndMint(ticker, ticker, 1000000, true, 0, [], "abc", dids[i]);
+      const transaction = api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i]);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
@@ -434,6 +441,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
         fail_type["ISSUE SECURITY TOKEN"]++;
       } else {  completeBar.increment(); }
 
+      await reqImports.sendTx(accounts[i], api.tx.asset.issue(ticker, 1000000))
     }
     reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
     submitBar.increment();

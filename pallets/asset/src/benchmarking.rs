@@ -253,23 +253,6 @@ benchmarks! {
         verify_ownership::<T>(ticker, owner.did(), did, AssetOwnershipRelation::AssetOwned);
     }
 
-    create_asset_and_mint {
-        // Token name length.
-        let n in 1 .. T::AssetNameMaxLength::get() as u32;
-        // Length of the vector of identifiers.
-        let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
-        // Funding round name length.
-        let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
-
-       let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 2 * POLY);
-       let identifiers2 = identifiers.clone();
-       let asset_type = token.asset_type.clone();
-    }: _(origin, name, ticker, token.total_supply, token.divisible, asset_type, identifiers, fundr)
-    verify {
-        assert_eq!(Module::<T>::token_details(ticker), token);
-        assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
-    }
-
     create_asset {
         // Token name length.
         let n in 1 .. T::AssetNameMaxLength::get() as u32;

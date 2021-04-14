@@ -30,14 +30,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(22 as Weight))
             .saturating_add(DbWeight::get().writes(11 as Weight))
     }
-    fn create_asset_and_mint(n: u32, i: u32, f: u32) -> Weight {
-        (476_950_000 as Weight)
-            .saturating_add((13_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add((140_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add((9_000 as Weight).saturating_mul(f as Weight))
-            .saturating_add(DbWeight::get().reads(22 as Weight))
-            .saturating_add(DbWeight::get().writes(11 as Weight))
-    }
     fn freeze() -> Weight {
         (142_131_000 as Weight)
             .saturating_add(DbWeight::get().reads(8 as Weight))

@@ -72,7 +72,7 @@ where
     let name: AssetName = ticker.as_slice().into();
     let total_supply: Balance = (1_000_000 * POLY).into();
 
-    Asset::create_asset_and_mint(
+    Asset::create_asset(
         owner.origin().into(),
         name,
         ticker,
@@ -83,6 +83,18 @@ where
         None,
     )
     .map_err(|_| "Asset cannot be created")?;
+
+    Asset::issue(
+        owner.origin().into(),
+        name,
+        ticker,
+        total_supply,
+        divisible,
+        AssetType::default(),
+        vec![],
+        None,
+    )
+        .map_err(|_| "Asset cannot be created")?;
 
     Ok(ticker)
 }
