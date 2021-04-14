@@ -2085,26 +2085,6 @@ impl<T: Trait> Module<T> {
             .unwrap_or_default()
     }
 
-    /// Get the list of flatten keys fo the given identity.
-    /// It runs recursively over all secondary items.
-    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<T::AccountId> {
-        let sub_identities = Self::flatten_identities(id, max_depth);
-        sub_identities
-            .into_iter()
-            .flat_map(|sub_id| {
-                let identity = <DidRecords<T>>::get(sub_id);
-                identity
-                    .secondary_keys
-                    .into_iter()
-                    .filter_map(|si| match si.signer {
-                        Signatory::Account(key) => Some(key),
-                        _ => None,
-                    })
-                    .chain(core::iter::once(identity.primary_key))
-            })
-            .collect::<Vec<_>>()
-    }
-
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
         origin: <T as frame_system::Trait>::Origin,
