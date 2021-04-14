@@ -97,4 +97,6 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
+
+    fn issue(origin: Origin, ticker: Ticker, total_supply: Balance,) -> DispatchResult;
 }

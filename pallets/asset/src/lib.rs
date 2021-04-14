@@ -1077,6 +1077,10 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         <BalanceOfAtScope<T>>::insert(did, did, current_balance);
         <ScopeIdOf>::insert(ticker, did, did);
     }
+
+    fn issue(origin: T::Origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+        Self::issue(origin, ticker, total_supply)
+    }
 }
 
 impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
