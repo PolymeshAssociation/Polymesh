@@ -152,16 +152,16 @@ pub trait WeightInfo {
 
 /// The module's configuration trait.
 pub trait Trait:
-BalancesTrait
-+ pallet_session::Trait
-+ pallet_statistics::Trait
-+ polymesh_contracts::Trait
-+ pallet_portfolio::Trait
+    BalancesTrait
+    + pallet_session::Trait
+    + pallet_statistics::Trait
+    + polymesh_contracts::Trait
+    + pallet_portfolio::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>>
-    + From<checkpoint::Event<Self>>
-    + Into<<Self as frame_system::Trait>::Event>;
+        + From<checkpoint::Event<Self>>
+        + Into<<Self as frame_system::Trait>::Event>;
 
     type Currency: Currency<Self::AccountId>;
 
@@ -1412,7 +1412,7 @@ impl<T: Trait> Module<T> {
             value,
             Self::primary_issuance_agent_or_owner(&ticker),
         )
-            .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
+        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
 
         if status_code != ERC1400_TRANSFER_SUCCESS {
             return Ok(COMPLIANCE_MANAGER_FAILURE);
@@ -1850,7 +1850,7 @@ impl<T: Trait> Module<T> {
             let no_of_ext = u32::try_from(
                 <Extensions<T>>::get((ticker, SmartExtensionType::TransferManager)).len(),
             )
-                .unwrap_or_default();
+            .unwrap_or_default();
             ensure!(
                 no_of_ext < T::MaxNumberOfTMExtensionForAsset::get(),
                 Error::<T>::MaximumTMExtensionLimitReached
@@ -1972,8 +1972,8 @@ impl<T: Trait> Module<T> {
             // and it was already created on classic.
             if available
                 || ClassicTickers::get(&ticker)
-                .filter(|r| r.is_created)
-                .is_none()
+                    .filter(|r| r.is_created)
+                    .is_none()
             {
                 fees.push(ProtocolOp::AssetCreateAsset);
             }
@@ -2484,7 +2484,7 @@ impl<T: Trait> Module<T> {
             ticker,
             value,
         )
-            .is_err()
+        .is_err()
     }
 
     fn setup_statistics_failures(
@@ -2516,7 +2516,7 @@ impl<T: Trait> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             token.total_supply,
         )
-            .is_err()
+        .is_err()
     }
 
     fn statistics_failures_granular(
