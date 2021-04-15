@@ -57,6 +57,8 @@ macro_rules! assert_owner_is_custodian {
             false
         );
     }};
+}
+
 #[test]
 fn portfolio_name_too_long() {
     ExtBuilder::default().build().execute_with(|| {
@@ -475,9 +477,6 @@ fn quit_portfolio_custody() {
             bob.origin(),
             user_portfolio
         ));
-        let auth_id = add_auth(bob, owner);
-        assert_ok!(Identity::accept_authorization(owner.origin(), auth_id));
-        assert!(has_custody(owner));
         // The mapping is removed which means the owner is the custodian.
         assert_owner_is_custodian!(user_portfolio);
     });
