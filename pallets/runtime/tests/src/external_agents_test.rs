@@ -1,4 +1,4 @@
-use crate::asset_test::{a_token, basic_asset};
+use crate::asset_test::{a_token, an_asset, basic_asset};
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
@@ -7,18 +7,23 @@ use pallet_external_agents::{AGIdSequence, GroupOfAgent};
 use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
-    PalletPermissions, SubsetRestriction,
+    AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
 };
 use test_client::AccountKeyring;
 
 type EA = pallet_external_agents::Module<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
+type Id = pallet_identity::Module<TestStorage>;
 
 fn set_extrinsic(name: &str) {
     StoreCallMetadata::<TestStorage>::set_call_metadata(
         b"pallet_external_agent".into(),
         name.into(),
     );
+}
+
+fn make_perms(pallet: &str) -> ExtrinsicPermissions {
+    SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
 }
 
 #[test]
@@ -59,8 +64,6 @@ fn create_group_set_perms_works() {
         AGIdSequence::insert(ticker, AGId::default());
 
         // Add a group successfully.
-        let make_perms =
-            |p: &str| SubsetRestriction::elem(PalletPermissions::entire_pallet(p.into()));
         let perms = make_perms("foo");
         assert_ok!(create(perms.clone()));
         assert_eq!(Some(perms), EA::permissions(ticker, AGId(1)));
@@ -172,5 +175,41 @@ fn remove_abdicate_change_works() {
         assert_ok!(EA::create_group(owner.origin(), ticker, <_>::default()));
         assert_ok!(change_1());
         assert_group(owner, Some(ag));
+    });
+}
+
+#[test]
+fn add_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let other = User::new(AccountKeyring::Bob);
+        let ticker = an_asset(owner, false);
+
+        // We only test the specifics of `BecomeAgent` here,
+        // under the assumption that the generic auth infra is tested elsewhere.
+        let add = |from: User, to: User, group| {
+            let data = AuthorizationData::BecomeAgent(ticker, group);
+            let sig = Signatory::Identity(to.did);
+            Id::add_auth(from.did, sig, data, None)
+        };
+        let accept = |to: User, id| Id::accept_authorization(to.origin(), id);
+
+        // Other is not an agent, so auths from them are not valid.
+        let id = add(other, owner, AgentGroup::Full);
+        assert_noop!(accept(owner, id), Error::UnauthorizedAgent);
+
+        // CAG is not valid.
+        let add_one = || add(owner, other, AgentGroup::Custom(AGId(1)));
+        let id = add_one();
+        assert_noop!(accept(other, id), Error::NoSuchAG);
+
+        // Make a CAG & Other an agent of it.
+        let perms = make_perms("pallet_external_agent");
+        assert_ok!(EA::create_group(owner.origin(), ticker, perms));
+        assert_ok!(accept(other, add_one()));
+
+        // Just made them an agent, cannot do it again.
+        let id = add_one();
+        assert_noop!(accept(other, id), Error::AlreadyAnAgent);
     });
 }

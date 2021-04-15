@@ -107,9 +107,9 @@ use polymesh_common_utilities::{
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
+    agent::AgentGroup,
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
-    agent::AgentGroup,
     migrate::MigrationError,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
