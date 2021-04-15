@@ -97,7 +97,7 @@ fn init(token_name: &[u8], ticker: Ticker, keyring: Public) -> u64 {
 }
 
 fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         Origin::signed(keyring),
         token_name.into(),
         ticker,
