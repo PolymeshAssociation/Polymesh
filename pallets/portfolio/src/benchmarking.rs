@@ -16,11 +16,11 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{generate_ticker, AccountIdOf, UserBuilder},
+    benchs::{AccountIdOf, UserBuilder},
     TestUtilsFn,
 };
 use polymesh_primitives::PortfolioName;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 const PORTFOLIO_NAME_LEN: usize = 500;
 
@@ -56,7 +56,7 @@ benchmarks! {
         let a in 1 .. 500;
         let mut items = Vec::with_capacity(a as usize);
         let target = UserBuilder::<T>::default().generate_did().build("target");
-        let first_ticker = Ticker::try_from(generate_ticker(0u64).as_slice()).unwrap();
+        let first_ticker = Ticker::generate_into(0u64);
         let amount = T::Balance::from(10u32);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
@@ -64,7 +64,7 @@ benchmarks! {
         let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
         for x in 0..a as u64 {
-            let ticker = Ticker::try_from(generate_ticker(x).as_slice()).unwrap();
+            let ticker = Ticker::generate_into(x);
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,

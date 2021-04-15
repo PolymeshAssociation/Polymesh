@@ -56,6 +56,9 @@ pub trait AssetSubTrait<Balance> {
     /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
     /// * `target` - The `IdentityId` whose balance needs to be queried.
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
+
+    /// Returns the `ScopeId` for a given `ticker` and `did`.
+    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId;
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {

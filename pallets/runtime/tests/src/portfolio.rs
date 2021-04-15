@@ -1,16 +1,16 @@
 use super::{
+    asset_test::{a_token, basic_asset, max_len_bytes},
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_noop, assert_ok, StorageMap};
 use pallet_asset::SecurityToken;
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, AuthorizationError, PortfolioId, PortfolioName,
-    PortfolioNumber, Signatory, Ticker,
+    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
+    Ticker,
 };
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = pallet_asset::Module<TestStorage>;
@@ -19,34 +19,15 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 
-fn create_token() -> (SecurityToken<u128>, Ticker) {
-    let owner_signed = Origin::signed(AccountKeyring::Alice.public());
-    let owner_did = Identity::get_identity(&AccountKeyring::Alice.public()).unwrap();
-    let total_supply = 1_000_000u128;
-    let token = SecurityToken {
-        name: vec![b'A'].into(),
-        owner_did,
-        total_supply,
-        divisible: true,
-        asset_type: AssetType::default(),
-        ..Default::default()
-    };
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
-        owner_signed.clone(),
-        token.name.clone(),
-        ticker,
-        token.total_supply,
-        token.divisible,
-        token.asset_type.clone(),
-        vec![],
-        None,
-    ));
-    (token, ticker)
+fn create_token() -> (Ticker, SecurityToken<u128>) {
+    let owner = User::existing(AccountKeyring::Alice);
+    let r = a_token(owner.did);
+    assert_ok!(basic_asset(owner, r.0, &r.1));
+    r
 }
 
 fn create_portfolio() -> (User, PortfolioNumber) {
-    let owner = User::new(AccountKeyring::Alice).balance(1_000);
+    let owner = User::new(AccountKeyring::Alice);
     let name = PortfolioName::from([42u8].to_vec());
     let num = Portfolio::next_portfolio_number(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
@@ -76,6 +57,19 @@ macro_rules! assert_owner_is_custodian {
             false
         );
     }};
+#[test]
+fn portfolio_name_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let id = Portfolio::next_portfolio_number(owner.did);
+        let create = |name| Portfolio::create_portfolio(owner.origin(), name);
+        let rename = |name| Portfolio::rename_portfolio(owner.origin(), id, name);
+        assert_too_long!(create(max_len_bytes(1)));
+        assert_ok!(create(max_len_bytes(0)));
+        assert_too_long!(rename(max_len_bytes(1)));
+        assert_ok!(rename(b"".into()));
+        assert_ok!(rename(max_len_bytes(0)));
+    });
 }
 
 #[test]
@@ -101,7 +95,7 @@ fn can_create_rename_delete_portfolio() {
 fn can_recover_funds_from_deleted_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (token, ticker) = create_token();
+        let (ticker, token) = create_token();
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
@@ -156,7 +150,7 @@ fn can_move_asset_from_portfolio() {
 fn do_move_asset_from_portfolio() {
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
-    let (token, ticker) = create_token();
+    let (ticker, token) = create_token();
     assert_eq!(
         Portfolio::default_portfolio_balance(owner.did, &ticker),
         token.total_supply,
@@ -170,7 +164,7 @@ fn do_move_asset_from_portfolio() {
     let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
     // Attempt to move more than the total supply.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -182,7 +176,7 @@ fn do_move_asset_from_portfolio() {
         ),
         Error::InsufficientPortfolioBalance
     );
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &owner_user_portfolio,
@@ -193,7 +187,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move to the same portfolio.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -202,7 +196,7 @@ fn do_move_asset_from_portfolio() {
         ),
         Error::DestinationIsSamePortfolio
     );
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &owner_default_portfolio,
@@ -213,7 +207,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move to a non-existent portfolio.
-    assert_err!(
+    assert_noop!(
         Portfolio::ensure_portfolio_transfer_validity(
             &owner_default_portfolio,
             &PortfolioId::user_portfolio(owner.did, PortfolioNumber(666)),
@@ -224,7 +218,7 @@ fn do_move_asset_from_portfolio() {
     );
 
     // Attempt to move by another identity.
-    assert_err!(
+    assert_noop!(
         Portfolio::move_portfolio_funds(
             bob.origin(),
             owner_default_portfolio,
@@ -265,7 +259,7 @@ fn do_move_asset_from_portfolio() {
 fn can_lock_unlock_assets() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (token, ticker) = create_token();
+        let (ticker, token) = create_token();
         assert_eq!(
             Portfolio::default_portfolio_balance(owner.did, &ticker),
             token.total_supply,
@@ -389,6 +383,8 @@ fn can_take_custody_of_portfolios() {
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
+        let has_custody = |u: User| Portfolio::portfolios_in_custody(u.did, owner_user_portfolio);
+
         // Custody of all portfolios is with the owner identity by default
         assert_ok!(Portfolio::ensure_portfolio_custody(
             owner_default_portfolio,
@@ -403,18 +399,15 @@ fn can_take_custody_of_portfolios() {
             None
         );
         assert_eq!(Portfolio::portfolio_custodian(owner_user_portfolio), None);
-        assert_eq!(
-            Portfolio::portfolios_in_custody(bob.did, owner_user_portfolio),
-            false
-        );
+        assert!(!has_custody(bob));
 
         // Bob can not issue authorization for custody transfer of a portfolio they don't have custody of
-        let mut auth_id = Identity::add_auth(
-            bob.did,
-            Signatory::from(bob.did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
+        let add_auth = |from: User, target: User| {
+            let auth = AuthorizationData::PortfolioCustody(owner_user_portfolio);
+            Identity::add_auth(from.did, Signatory::from(target.did), auth, None)
+        };
+
+        let auth_id = add_auth(bob, bob);
         assert_noop!(
             Identity::accept_authorization(bob.origin(), auth_id),
             AuthorizationError::Unauthorized
@@ -427,7 +420,8 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Can accept a valid custody transfer auth
-        set_custodian_ok(owner, bob, owner_user_portfolio);
+        let auth_id = add_auth(owner, bob);
+        assert_ok!(Identity::accept_authorization(bob.origin(), auth_id));
 
         assert_ok!(Portfolio::ensure_portfolio_custody(
             owner_default_portfolio,
@@ -437,7 +431,7 @@ fn can_take_custody_of_portfolios() {
             owner_user_portfolio,
             bob.did
         ));
-        assert_err!(
+        assert_noop!(
             Portfolio::ensure_portfolio_custody(owner_user_portfolio, owner.did),
             Error::UnauthorizedCustodian
         );
@@ -449,18 +443,10 @@ fn can_take_custody_of_portfolios() {
             Portfolio::portfolio_custodian(owner_user_portfolio),
             Some(bob.did)
         );
-        assert_eq!(
-            Portfolio::portfolios_in_custody(bob.did, owner_user_portfolio),
-            true
-        );
+        assert!(has_custody(bob));
 
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
-        auth_id = Identity::add_auth(
-            owner.did,
-            Signatory::from(owner.did),
-            AuthorizationData::PortfolioCustody(owner_user_portfolio),
-            None,
-        );
+        let auth_id = add_auth(owner, owner);
         assert_noop!(
             Identity::accept_authorization(owner.origin(), auth_id),
             AuthorizationError::Unauthorized
@@ -489,6 +475,9 @@ fn quit_portfolio_custody() {
             bob.origin(),
             user_portfolio
         ));
+        let auth_id = add_auth(bob, owner);
+        assert_ok!(Identity::accept_authorization(owner.origin(), auth_id));
+        assert!(has_custody(owner));
         // The mapping is removed which means the owner is the custodian.
         assert_owner_is_custodian!(user_portfolio);
     });
