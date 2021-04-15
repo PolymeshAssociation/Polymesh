@@ -1639,12 +1639,12 @@ impl<T: Trait> Module<T> {
 
     /// Accepts and executes the ticker transfer.
     pub fn base_accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        <Identity<T>>::accept_auth_with(&to_did.into(), auth_id, |auth| {
-            let ticker = match auth.authorization_data {
-                AuthorizationData::TransferTicker(ticker) => ticker,
+        <Identity<T>>::accept_auth_with(&to_did.into(), auth_id, |data, auth_by| {
+            let ticker = match data {
+                AuthorizationData::TransferTicker(t) => t,
                 _ => fail!(Error::<T>::NoTickerTransferAuth),
             };
-            <Self as AssetSubTrait<_>>::accept_ticker_transfer(to_did, auth.authorized_by, ticker)
+            <Self as AssetSubTrait<_>>::accept_ticker_transfer(to_did, auth_by, ticker)
         })
     }
 
@@ -1658,31 +1658,23 @@ impl<T: Trait> Module<T> {
 
     /// Accept and process a primary issuance agent transfer.
     pub fn base_accept_primary_issuance_agent_transfer(to: IdentityId, id: u64) -> DispatchResult {
-        <Identity<T>>::accept_auth_with(&to.into(), id, |auth| {
-            let ticker = match auth.authorization_data {
-                AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
+        <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
+            let ticker = match data {
+                AuthorizationData::TransferPrimaryIssuanceAgent(t) => t,
                 _ => fail!(Error::<T>::NoPrimaryIssuanceAgentTransferAuth),
             };
-            <Self as AssetSubTrait<_>>::accept_primary_issuance_agent_transfer(
-                to,
-                auth.authorized_by,
-                ticker,
-            )
+            <Self as AssetSubTrait<_>>::accept_primary_issuance_agent_transfer(to, auth_by, ticker)
         })
     }
 
     /// Accept and process a token ownership transfer.
     pub fn base_accept_token_ownership_transfer(to: IdentityId, id: u64) -> DispatchResult {
-        <Identity<T>>::accept_auth_with(&to.into(), id, |auth| {
-            let ticker = match auth.authorization_data {
-                AuthorizationData::TransferAssetOwnership(ticker) => ticker,
+        <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
+            let ticker = match data {
+                AuthorizationData::TransferAssetOwnership(t) => t,
                 _ => fail!(Error::<T>::NotTickerOwnershipTransferAuth),
             };
-            <Self as AssetSubTrait<_>>::accept_asset_ownership_transfer(
-                to,
-                auth.authorized_by,
-                ticker,
-            )
+            <Self as AssetSubTrait<_>>::accept_asset_ownership_transfer(to, auth_by, ticker)
         })
     }
 

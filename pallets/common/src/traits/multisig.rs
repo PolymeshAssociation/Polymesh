@@ -34,7 +34,7 @@ pub trait MultiSigSubTrait<AccountId> {
     fn accept_multisig_signer(
         signer: Signatory<AccountId>,
         from: IdentityId,
-        multisig: &AccountId,
+        multisig: AccountId,
     ) -> DispatchResult;
 
     /// Fetches signers of a multisig

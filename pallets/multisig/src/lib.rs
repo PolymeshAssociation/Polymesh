@@ -1029,12 +1029,12 @@ impl<T: Trait> Module<T> {
         signer: Signatory<T::AccountId>,
         auth_id: u64,
     ) -> DispatchResult {
-        <Identity<T>>::accept_auth_with(&signer, auth_id, |auth| {
-            let ms = match &auth.authorization_data {
+        <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| {
+            let ms = match data {
                 AuthorizationData::AddMultiSigSigner(ms) => Ok(ms),
                 _ => Err(Error::<T>::NotAMultisigAuth),
             }?;
-            Self::accept_multisig_signer(signer.clone(), auth.authorized_by, ms)
+            Self::accept_multisig_signer(signer.clone(), auth_by, ms)
         })
     }
 
@@ -1090,17 +1090,17 @@ impl<T: Trait> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn accept_multisig_signer(
         signer: Signatory<T::AccountId>,
         from: IdentityId,
-        multisig: &T::AccountId,
+        multisig: T::AccountId,
     ) -> DispatchResult {
-        Self::ensure_ms(multisig)?;
+        Self::ensure_ms(&multisig)?;
 
         ensure!(
-            Self::is_changing_signers_allowed(multisig),
+            Self::is_changing_signers_allowed(&multisig),
             Error::<T>::ChangeNotAllowed
         );
 
         ensure!(
-            !<MultiSigSigners<T>>::contains_key(multisig, &signer),
+            !<MultiSigSigners<T>>::contains_key(&multisig, &signer),
             Error::<T>::AlreadyASigner
         );
 
@@ -1117,23 +1117,19 @@ impl<T: Trait> MultiSigSubTrait<T::AccountId> for Module<T> {
             );
             // Don't allow a multisig to add itself as a signer to itself
             // NB - you can add a multisig as a signer to a different multisig
-            ensure!(key != multisig, Error::<T>::SignerAlreadyLinked);
+            ensure!(key != &multisig, Error::<T>::SignerAlreadyLinked);
         }
 
         let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
         <Identity<T>>::ensure_auth_by(ms_identity, from)?;
 
-        <MultiSigSigners<T>>::insert(multisig, &signer, signer.clone());
-        <NumberOfSigners<T>>::mutate(multisig, |x| *x += 1u64);
+        <MultiSigSigners<T>>::insert(&multisig, &signer, signer.clone());
+        <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
         if let Signatory::Account(key) = &signer {
             <KeyToMultiSig<T>>::insert(key, multisig.clone());
         }
-        Self::deposit_event(RawEvent::MultiSigSignerAdded(
-            ms_identity,
-            multisig.clone(),
-            signer,
-        ));
+        Self::deposit_event(RawEvent::MultiSigSignerAdded(ms_identity, multisig, signer));
         Ok(())
     }
 

@@ -202,13 +202,10 @@ pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
+pub use authorization::{Authorization, AuthorizationData, AuthorizationError, AuthorizationType};
+
 /// Pub Traits
 pub mod traits;
-pub use authorization::AuthIdentifier;
-pub use authorization::Authorization;
-pub use authorization::AuthorizationData;
-pub use authorization::AuthorizationError;
-pub use authorization::AuthorizationType;
 
 pub mod ticker;
 pub use ticker::Ticker;

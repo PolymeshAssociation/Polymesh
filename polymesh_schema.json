@@ -664,10 +664,6 @@
                 "TransferCorporateActionAgent": "Ticker"
             }
         },
-        "AuthIdentifier": {
-            "signatory": "Signatory",
-            "auth_id": "u64"
-        },
         "SmartExtensionType": {
             "_enum": {
                 "TransferManager": "",

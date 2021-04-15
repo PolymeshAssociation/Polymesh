@@ -537,7 +537,7 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(
         _: Signatory<AccountId>,
         _: IdentityId,
-        _: &AccountId,
+        _: AccountId,
     ) -> DispatchResult {
         unimplemented!()
     }

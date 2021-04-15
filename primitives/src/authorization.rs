@@ -14,10 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    agent::AgentGroup,
-    identity_id::IdentityId,
-    secondary_key::{Permissions, Signatory},
-    PortfolioId, Ticker,
+    agent::AgentGroup, identity_id::IdentityId, secondary_key::Permissions, PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -163,7 +160,3 @@ pub struct Authorization<AccountId, Moment> {
     /// Authorization id of this authorization
     pub auth_id: u64,
 }
-
-/// Data required to fetch and authorization
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct AuthIdentifier<AccountId: Ord>(pub Signatory<AccountId>, pub u64);
