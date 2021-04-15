@@ -292,6 +292,63 @@ fn genesis_processed_data(
     (identities, stakers, complete_txs)
 }
 
+fn dev_genesis_processed_data(
+    initial_authorities: &Vec<InitialAuth>,
+    key_bridge_locks: Vec<BridgeLockId>,
+) -> (
+    GenesisIdentityRecord<AccountId>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
+    Vec<BridgeTx<AccountId, u128>>,
+) {
+    let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
+
+    let mut stakers = Vec::with_capacity(initial_authorities.len());
+    for (stash, controller, ..) in initial_authorities {
+        stakers.push((
+            IdentityId::from(1),
+            stash.clone(),
+            controller.clone(),
+            BOOTSTRAP_STASH / 2,
+            pallet_staking::StakerStatus::Validator,
+        ));
+        identity
+            .secondary_keys
+            .push(SecondaryKey::from_account_id(stash.clone()));
+        identity
+            .secondary_keys
+            .push(SecondaryKey::from_account_id(controller.clone()));
+    }
+
+    // Accumulate bridge transactions
+    let complete_txs: Vec<_> = key_bridge_locks
+        .iter()
+        .cloned()
+        .zip(
+            identity
+                .secondary_keys
+                .iter()
+                .map(|sk| sk.signer.as_account().unwrap().clone()),
+        )
+        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
+            nonce,
+            recipient,
+            amount: BOOTSTRAP_STASH,
+            tx_hash,
+        })
+        .collect();
+
+    // The 0th key is the primary key
+    identity.secondary_keys.remove(0);
+
+    (identity, stakers, complete_txs)
+}
+
 fn bridge_signers() -> Vec<Signatory<AccountId>> {
     let signer =
         |seed| Signatory::Account(AccountId::from(get_from_seed::<sr25519::Public>(seed).0));
@@ -414,27 +471,17 @@ pub mod general {
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
         enable_println: bool,
-        treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let (mut identities, stakers, complete_txs) = genesis_processed_data(
-            &initial_authorities,
-            root_key.clone(),
-            treasury_bridge_lock,
-            key_bridge_locks,
-        );
-
-        // Add an issuer to issue a CDD claim during identity genesis config.
-        for id in &mut identities {
-            id.issuers = vec![IdentityId::from(1)];
-        }
+        let (identity, stakers, complete_txs) =
+            dev_genesis_processed_data(&initial_authorities, key_bridge_locks);
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
             pallet_checkpoint: Some(checkpoint!()),
             pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities,
+                identities: vec![identity],
                 ..Default::default()
             }),
             pallet_balances: Some(Default::default()),
@@ -467,16 +514,16 @@ pub mod general {
                 },
             }),
             // Governance Council:
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)),
+            pallet_group_Instance1: Some(group_membership!(1)),
             pallet_committee_Instance1: Some(committee!(1)),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
+            pallet_group_Instance2: Some(group_membership!(1)),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3)),
-            pallet_committee_Instance3: Some(committee!(3)),
+            pallet_group_Instance3: Some(group_membership!(1)),
+            pallet_committee_Instance3: Some(committee!(1)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(3)),
-            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_group_Instance4: Some(group_membership!(1)),
+            pallet_committee_Instance4: Some(committee!(1)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
@@ -491,7 +538,6 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
         )
     }
@@ -523,7 +569,6 @@ pub mod general {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
         )
     }
@@ -560,11 +605,6 @@ pub mod testnet {
             key_bridge_locks,
         );
 
-        // Add an issuer to issue a CDD claim during identity genesis config.
-        for id in &mut identities {
-            id.issuers = vec![IdentityId::from(1)];
-        }
-
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
             pallet_asset: Some(asset!()),
@@ -599,16 +639,16 @@ pub mod testnet {
                 },
             }),
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),
+            pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
+            pallet_committee_Instance1: Some(committee!(1, (2, 4))),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3)),
+            pallet_group_Instance2: Some(group_membership!(1, 2, 3, 5)),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3)), // admin
-            pallet_committee_Instance3: Some(committee!(3)),
+            pallet_group_Instance3: Some(group_membership!(3, 5)),
+            pallet_committee_Instance3: Some(committee!(5)),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(3)), // admin
-            pallet_committee_Instance4: Some(committee!(3)),
+            pallet_group_Instance4: Some(group_membership!(1, 5)),
+            pallet_committee_Instance4: Some(committee!(5)),
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
