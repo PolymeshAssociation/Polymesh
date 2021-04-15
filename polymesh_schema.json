@@ -1189,6 +1189,16 @@
         "TransferManagerResult": {
             "tm": "TransferManager",
             "result": "bool"
+        },
+        "AGId": "u32",
+        "AgentGroup": {
+            "_enum": {
+                "Full": "",
+                "Custom": "AGId",
+                "Meta": "",
+                "PolymeshV1CAA": "",
+                "PolymeshV1PIA": ""
+            }
         }
     },
     "rpc": {
