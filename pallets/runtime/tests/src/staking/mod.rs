@@ -5769,8 +5769,8 @@ fn test_multiple_validators_from_an_entity() {
                 Error::<Test>::HitIntendedValidatorCount
             );
 
-            // Can change commission of existing nodes
-            // even after hitting the operator node limit
+            // Can change commission of existing nodes,
+            // even after hitting the operator node limit.
             ValidatorCommissionCap::put(Perbill::one());
             assert_ok!(Staking::validate(
                 Origin::signed(51),
