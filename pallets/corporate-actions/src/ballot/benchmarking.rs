@@ -92,7 +92,7 @@ benchmarks! {
         let results = votes.iter().map(|v| v.power).collect::<Vec<_>>();
     }: _(owner.origin(), ca_id, votes)
     verify {
-        assert!(<Results<T>>::get(ca_id) == results, "voting results are wrong")
+        assert_eq!(<Results<T>>::get(ca_id), results, "voting results are wrong")
     }
 
     change_end {
