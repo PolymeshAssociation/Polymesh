@@ -241,7 +241,7 @@ benchmarks! {
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "").unwrap();
     }: _(creator.origin, code_hash, url.clone())
     verify {
-        assert!(Module::<T>::get_metadata_of(code_hash).url == url, "Contracts_change_template_meta_url: Failed to change the url of template");
+        assert_eq!(Module::<T>::get_metadata_of(code_hash).url, url, "Contracts_change_template_meta_url: Failed to change the url of template");
     }
 
     // No catalyst.
