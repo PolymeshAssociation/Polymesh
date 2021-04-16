@@ -300,14 +300,10 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
   let tickerExist = await api.query.asset.tickers(ticker);
 
   if (tickerExist.owner == 0) {
-
-
-    const transaction = api.tx.asset.createAsset(
-      ticker, ticker, amount, true, 0, [], fundingRound
-    );
-
-    await sendTx(accounts[0], transaction);
-
+    await sendTx(accounts[0], api.tx.asset.createAsset(
+        ticker, ticker, true, 0, [], fundingRound
+    ));
+    await sendTx(accounts[0], api.tx.asset.issue(ticker, amount));
   } else {
     console.log("ticker exists already");
   }
