@@ -116,9 +116,9 @@ where
         let votes = Voting::<T, I>::get(&hash)
             .ok_or("cannot get votes")
             .unwrap();
-        assert!(votes.index == proposal_num, "wrong proposal_num");
-        assert!(vote == votes.ayes.contains(did), "aye vote missing");
-        assert!(vote != votes.nays.contains(did), "nay vote missing");
+        assert_eq!(votes.index, proposal_num, "wrong proposal_num");
+        assert_eq!(vote, votes.ayes.contains(did), "aye vote missing");
+        assert_ne!(vote, votes.nays.contains(did), "nay vote missing");
     } else {
         // The proposal is finalised and removed from storage.
         // TODO: pattern-match an event emitted during proposal finalisation.
