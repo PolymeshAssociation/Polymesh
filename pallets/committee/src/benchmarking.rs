@@ -148,7 +148,7 @@ benchmarks_instance! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert!(Module::<T, _>::vote_threshold() == (n, d), "incorrect vote threshold");
+        assert_eq!(Module::<T, _>::vote_threshold(), (n, d), "incorrect vote threshold");
     }
 
     set_release_coordinator {
