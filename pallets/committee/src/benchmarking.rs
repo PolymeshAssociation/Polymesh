@@ -164,8 +164,8 @@ benchmarks_instance! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert!(
-            Module::<T, _>::release_coordinator() == Some(coordinator),
+        assert_eq!(
+            Module::<T, _>::release_coordinator(), Some(coordinator),
             "incorrect release coordinator"
         );
     }
