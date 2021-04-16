@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, UserBuilder},
@@ -84,7 +85,7 @@ benchmarks! {
 
     rename_portfolio {
         // Length of portfolio name
-        let i in 1 .. PORTFOLIO_NAME_LEN;
+        let i in 1 .. PORTFOLIO_NAME_LEN.try_into().unwrap();
 
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
