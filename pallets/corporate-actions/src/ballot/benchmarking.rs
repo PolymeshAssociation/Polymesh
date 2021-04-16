@@ -65,7 +65,7 @@ benchmarks! {
         let (owner, ca_id) = setup_ca::<T>(CAKind::IssuerNotice);
     }: _(owner.origin(), ca_id, RANGE, meta, true)
     verify {
-        assert!(TimeRanges::get(ca_id) == Some(RANGE), "ballot not created");
+        assert_eq!(TimeRanges::get(ca_id), Some(RANGE), "ballot not created");
     }
 
     vote {
