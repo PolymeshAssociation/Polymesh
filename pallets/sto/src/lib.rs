@@ -31,16 +31,14 @@ use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_portfolio::{self as portfolio, Trait as PortfolioTrait};
+use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::{
-    self as settlement, Leg, ReceiptDetails, SettlementType, Trait as SettlementTrait, VenueInfo,
-    VenueType,
+    self as settlement, Leg, ReceiptDetails, SettlementType, VenueInfo, VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
-    traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
+    traits::{asset::AssetFnTrait, identity, portfolio},
     with_transaction, CommonTrait,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -55,8 +53,8 @@ pub const MAX_TIERS: usize = 10;
 
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
-type Identity<T> = identity::Module<T>;
-type Portfolio<T> = portfolio::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
+type Portfolio<T> = pallet_portfolio::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
 
@@ -163,7 +161,7 @@ pub trait WeightInfo {
 }
 
 pub trait Trait:
-    frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait
+    frame_system::Trait + identity::Trait + settlement::Trait + portfolio::Trait + pallet_base::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

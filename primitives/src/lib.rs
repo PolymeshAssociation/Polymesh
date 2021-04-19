@@ -254,6 +254,8 @@ pub mod compliance_manager;
 /// Host functions.
 pub mod host_functions;
 
+pub mod ethereum;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

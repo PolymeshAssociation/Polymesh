@@ -22,19 +22,20 @@ pub mod benchmarking;
 use codec::Encode;
 use core::mem;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
-    weights::{DispatchClass::Operational, Weight},
+    weights::DispatchClass::Operational,
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
+pub use polymesh_common_utilities::traits::contracts::{Event, Trait, WeightInfo};
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::contracts::RawEvent,
     with_transaction,
 };
 use polymesh_primitives::{
@@ -83,27 +84,6 @@ where
     }
 }
 
-pub trait WeightInfo {
-    fn put_code(l: u32, u: u32, d: u32) -> Weight;
-    fn instantiate() -> Weight;
-    fn freeze_instantiation() -> Weight;
-    fn unfreeze_instantiation() -> Weight;
-    fn transfer_template_ownership() -> Weight;
-    fn change_template_fees() -> Weight;
-    fn change_template_meta_url(u: u32) -> Weight;
-    fn update_schedule() -> Weight;
-    fn set_put_code_flag() -> Weight;
-}
-
-pub trait Trait: pallet_contracts::Trait + IdentityTrait + pallet_base::Trait {
-    /// Event type
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    /// Percentage distribution of instantiation fee to the validators and treasury.
-    type NetworkShareInFee: Get<Perbill>;
-    /// Weight information for extrinsic in this pallet.
-    type WeightInfo: WeightInfo;
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
@@ -138,39 +118,6 @@ decl_error! {
         InsufficientMaxFee,
         /// `put_code` extrinsic is disabled. See `set_put_code_flag` extrinsic.
         PutCodeIsNotAllowed,
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-        where
-        Balance = BalanceOf<T>,
-        CodeHash = <T as frame_system::Trait>::Hash,
-    {
-        /// Emitted when instantiation fee of a template get changed.
-        /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee.
-        InstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
-        /// Emitted when the instantiation of the template get frozen.
-        /// IdentityId of the owner, Code hash of the template.
-        InstantiationFreezed(IdentityId, CodeHash),
-        /// Emitted when the instantiation of the template gets un-frozen.
-        /// IdentityId of the owner, Code hash of the template.
-        InstantiationUnFreezed(IdentityId, CodeHash),
-        /// Emitted when the template ownership get transferred.
-        /// IdentityId of the owner, Code hash of the template, IdentityId of the new owner of the template.
-        TemplateOwnershipTransferred(IdentityId, CodeHash, IdentityId),
-        /// Emitted when the template usage fees gets changed.
-        /// IdentityId of the owner, Code hash of the template,Old usage fee, New usage fee.
-        TemplateUsageFeeChanged(IdentityId, CodeHash, Balance, Balance),
-        /// Emitted when the template instantiation fees gets changed.
-        /// IdentityId of the owner, Code hash of the template, Old instantiation fee, New instantiation fee.
-        TemplateInstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
-        /// Emitted when the template meta url get changed.
-        /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
-        TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
-        /// Executing `put_code` has been enabled or disabled.
-        /// (new flag state)
-        PutCodeFlagChanged(bool),
     }
 }
 

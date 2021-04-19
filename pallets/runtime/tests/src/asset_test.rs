@@ -17,13 +17,10 @@ use frame_support::{
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
-use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset,
-    checkpoint::{ScheduleId, StoredSchedule},
-    AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers,
-    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
-    Trait as AssetTrait,
+    self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
+    ClassicTickers, ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig,
+    Tickers, Trait as AssetTrait,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -31,10 +28,15 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    constants::*, protocol_fee::ProtocolOp, traits::balances::Memo, traits::CddAndFeeDetails as _,
+    constants::*,
+    protocol_fee::ProtocolOp,
+    traits::balances::Memo,
+    traits::checkpoint::{ScheduleId, StoredSchedule},
+    traits::CddAndFeeDetails as _,
     SystematicIssuers,
 };
 use polymesh_contracts::NonceBasedAddressDeterminer;
+use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName},
     calendar::{

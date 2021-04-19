@@ -63,7 +63,6 @@ use frame_support::{
     IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
-use pallet_asset as asset;
 use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -71,7 +70,7 @@ use polymesh_common_utilities::{
         queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
         schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
-    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
+    traits::{asset, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -84,7 +83,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
-type Asset<T> = asset::Module<T>;
+type Asset<T> = pallet_asset::Module<T>;
 
 pub trait Trait:
     frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>

@@ -110,14 +110,13 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_asset::{
-    self as asset,
-    checkpoint::{self, ScheduleId, SchedulePoints, ScheduleRefCount},
-};
+use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+    traits::asset,
+    traits::checkpoint::ScheduleId,
     with_transaction, GC_DID,
 };
 use polymesh_primitives::{
@@ -354,7 +353,7 @@ pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Tr
     type DistWeightInfo: distribution::WeightInfo;
 }
 
-type Asset<T> = asset::Module<T>;
+type Asset<T> = pallet_asset::Module<T>;
 type Ballot<T> = ballot::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type Distribution<T> = distribution::Module<T>;

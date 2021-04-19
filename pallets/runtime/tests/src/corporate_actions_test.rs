@@ -13,7 +13,6 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
-use pallet_asset::checkpoint::{ScheduleId, StoredSchedule};
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
@@ -23,6 +22,7 @@ use pallet_corporate_actions::{
     Tax,
 };
 use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,

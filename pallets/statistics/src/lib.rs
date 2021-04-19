@@ -18,35 +18,15 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get, weights::Weight,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
-use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
+use polymesh_common_utilities::asset::AssetFnTrait;
+pub use polymesh_common_utilities::traits::statistics::{Event, Trait, WeightInfo};
 use polymesh_primitives::{
     statistics::{Counter, Percentage, TransferManager, TransferManagerResult},
-    IdentityId, ScopeId, Ticker,
+    ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
-
-/// The main trait for statistics module
-pub trait Trait: frame_system::Trait + IdentityTrait {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    /// Asset module
-    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
-    /// Maximum transfer managers that can be enabled for an Asset
-    type MaxTransferManagersPerAsset: Get<u32>;
-    /// Weights for extrinsics
-    type WeightInfo: WeightInfo;
-}
-
-/// Weight info for extrinsics
-pub trait WeightInfo {
-    fn add_transfer_manager() -> Weight;
-    fn remove_transfer_manager() -> Weight;
-    fn add_exempted_entities(i: u32) -> Weight;
-    fn remove_exempted_entities(i: u32) -> Weight;
-}
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
@@ -331,19 +311,6 @@ impl<T: Trait> Module<T> {
         InvestorCountPerAsset::insert(ticker, count);
     }
 }
-
-decl_event!(
-    pub enum Event {
-        /// A new transfer manager was added.
-        TransferManagerAdded(IdentityId, Ticker, TransferManager),
-        /// An existing transfer manager was removed.
-        TransferManagerRemoved(IdentityId, Ticker, TransferManager),
-        /// `ScopeId`s were added to the exemption list.
-        ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-        /// `ScopeId`s were removed from the exemption list.
-        ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-    }
-);
 
 decl_error! {
     /// Statistics module errors.

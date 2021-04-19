@@ -48,13 +48,13 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    storage::StorageValue, weights::Weight, IterableStorageDoubleMap,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, storage::StorageValue,
+    weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
-};
+use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+pub use polymesh_common_utilities::traits::portfolio::{Event, RawEvent, Trait, WeightInfo};
+use polymesh_common_utilities::CommonTrait;
 use polymesh_primitives::{
     identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
@@ -73,19 +73,6 @@ pub struct MovePortfolioItem<Balance> {
     pub ticker: Ticker,
     /// The balance of the asset to be moved.
     pub amount: Balance,
-}
-
-pub trait WeightInfo {
-    fn create_portfolio() -> Weight;
-    fn delete_portfolio() -> Weight;
-    fn move_portfolio_funds(i: u32) -> Weight;
-    fn rename_portfolio(i: u32) -> Weight;
-    fn quit_portfolio_custody() -> Weight;
-}
-
-pub trait Trait: CommonTrait + IdentityTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -118,61 +105,6 @@ decl_storage! {
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
-    }
-}
-
-decl_event! {
-    pub enum Event<T> where
-        Balance = <T as CommonTrait>::Balance,
-    {
-        /// The portfolio has been successfully created.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
-        /// The portfolio has been successfully removed.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        PortfolioDeleted(IdentityId, PortfolioNumber),
-        /// A token amount has been moved from one portfolio to another.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * source portfolio
-        /// * destination portfolio
-        /// * asset ticker
-        /// * asset balance that was moved
-        MovedBetweenPortfolios(
-            IdentityId,
-            PortfolioId,
-            PortfolioId,
-            Ticker,
-            Balance
-        ),
-        /// The portfolio identified with `num` has been renamed to `name`.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
-        /// All non-default portfolio numbers and names of a DID.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * vector of number-name pairs
-        UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
-        /// Custody of a portfolio has been given to a different identity
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio id
-        /// * portfolio custodian did
-        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
     }
 }
 

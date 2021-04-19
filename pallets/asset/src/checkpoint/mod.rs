@@ -45,22 +45,25 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnixTime,
     weights::Weight,
 };
 use frame_system::ensure_root;
+pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
+use polymesh_common_utilities::traits::checkpoint::{
+    ScheduleId, StoredSchedule, StoredScheduleOld,
+};
 use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    CommonTrait, GC_DID,
+    GC_DID,
 };
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
     storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
 };
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -68,31 +71,6 @@ use sp_std::prelude::*;
 use crate::Trait;
 
 type Asset<T> = crate::Module<T>;
-
-/// ID of a `StoredSchedule`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct ScheduleId(pub u64);
-
-/// One or more scheduled checkpoints in the future.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, Migrate)]
-pub struct StoredSchedule {
-    /// A series of checkpoints in the future defined by the schedule.
-    pub schedule: CheckpointSchedule,
-    /// The ID of the schedule itself.
-    /// Not to be confused for a checkpoint's ID.
-    pub id: ScheduleId,
-    /// When the next checkpoint is due to be created.
-    /// Used as a cache for more efficient sorting.
-    pub at: Moment,
-    /// Number of CPs that the schedule may create
-    /// before it is evicted from the schedule set.
-    ///
-    /// The value `0` is special cased to mean infinity.
-    #[migrate_with(0)]
-    pub remaining: u32,
-}
 
 /// Input specification for a checkpoint schedule.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -204,13 +182,6 @@ decl_storage! {
     }
 }
 
-pub trait WeightInfo {
-    fn create_checkpoint() -> Weight;
-    fn set_schedules_max_complexity() -> Weight;
-    fn create_schedule(existing_schedules: u32) -> Weight;
-    fn remove_schedule(existing_schedules: u32) -> Weight;
-}
-
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
@@ -281,7 +252,7 @@ decl_module! {
         pub fn set_schedules_max_complexity(origin, max_complexity: u64) {
             ensure_root(origin)?;
             SchedulesMaxComplexity::put(max_complexity);
-            Self::deposit_event(RawEvent::MaximumSchedulesComplexityChanged(GC_DID, max_complexity));
+            Self::deposit_event(Event::<T>::MaximumSchedulesComplexityChanged(GC_DID, max_complexity));
         }
 
         /// Creates a schedule generating checkpoints
@@ -348,35 +319,8 @@ decl_module! {
             ScheduleRefCount::remove(ticker, id);
 
             // Emit event.
-            Self::deposit_event(RawEvent::ScheduleRemoved(owner, ticker, schedule));
+            Self::deposit_event(Event::<T>::ScheduleRemoved(owner, ticker, schedule));
         }
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        Balance = <T as CommonTrait>::Balance,
-    {
-        /// A checkpoint was created.
-        ///
-        /// (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)
-        CheckpointCreated(Option<EventDid>, Ticker, CheckpointId, Balance, Moment),
-
-        /// The maximum complexity for an arbitrary ticker's schedule set was changed.
-        ///
-        /// (GC DID, the new maximum)
-        MaximumSchedulesComplexityChanged(IdentityId, u64),
-
-        /// A checkpoint schedule was created.
-        ///
-        /// (caller DID, ticker, schedule)
-        ScheduleCreated(EventDid, Ticker, StoredSchedule),
-
-        /// A checkpoint schedule was removed.
-        ///
-        /// (caller DID, ticker, schedule)
-        ScheduleRemoved(IdentityId, Ticker, StoredSchedule),
     }
 }
 
@@ -639,7 +583,7 @@ impl<T: Trait> Module<T> {
 
         ScheduleRefCount::insert(ticker, id, ref_count);
         ScheduleIdSequence::insert(ticker, id);
-        Self::deposit_event(RawEvent::ScheduleCreated(did, ticker, schedule));
+        Self::deposit_event(Event::<T>::ScheduleCreated(did, ticker, schedule));
         Ok(schedule)
     }
 
@@ -672,7 +616,7 @@ impl<T: Trait> Module<T> {
         Timestamps::insert(ticker, id, at);
 
         // Emit event & we're done.
-        Self::deposit_event(RawEvent::CheckpointCreated(actor, ticker, id, supply, at));
+        Self::deposit_event(Event::<T>::CheckpointCreated(actor, ticker, id, supply, at));
     }
 
     /// Verify that `needed` amount of `CheckpointId`s can be reserved,

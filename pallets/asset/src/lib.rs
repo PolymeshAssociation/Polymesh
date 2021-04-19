@@ -80,41 +80,38 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 pub mod checkpoint;
-pub mod ethereum;
 
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
-use ethereum::{EcdsaSignature, EthereumAddress};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
-    traits::{Currency, Get, UnixTime},
-    weights::Weight,
+    traits::Get,
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
+pub use polymesh_common_utilities::traits::asset::{Event, RawEvent, Trait, WeightInfo};
 use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetSubTrait},
-    balances::Trait as BalancesTrait,
+    asset::{AssetFnTrait, AssetMigrationError, AssetSubTrait},
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction, CommonTrait, Context, SystematicIssuers,
+    with_transaction, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
-    migrate::MigrationError,
+    ethereum::{self, EcdsaSignature, EthereumAddress},
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
     DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -125,70 +122,6 @@ type Checkpoint<T> = checkpoint::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
-
-pub trait WeightInfo {
-    fn register_ticker() -> Weight;
-    fn accept_ticker_transfer() -> Weight;
-    fn accept_asset_ownership_transfer() -> Weight;
-    fn create_asset(n: u32, i: u32, f: u32) -> Weight;
-    fn freeze() -> Weight;
-    fn unfreeze() -> Weight;
-    fn rename_asset(n: u32) -> Weight;
-    fn issue() -> Weight;
-    fn redeem() -> Weight;
-    fn make_divisible() -> Weight;
-    fn add_documents(d: u32) -> Weight;
-    fn remove_documents(d: u32) -> Weight;
-    fn set_funding_round(f: u32) -> Weight;
-    fn update_identifiers(i: u32) -> Weight;
-    fn remove_primary_issuance_agent() -> Weight;
-    fn claim_classic_ticker() -> Weight;
-    fn reserve_classic_ticker() -> Weight;
-    fn add_extension() -> Weight;
-    fn remove_smart_extension() -> Weight;
-    fn archive_extension() -> Weight;
-    fn unarchive_extension() -> Weight;
-    fn accept_primary_issuance_agent_transfer() -> Weight;
-    fn controller_transfer() -> Weight;
-}
-
-/// The module's configuration trait.
-pub trait Trait:
-    BalancesTrait
-    + pallet_external_agents::Trait
-    + pallet_session::Trait
-    + pallet_statistics::Trait
-    + polymesh_contracts::Trait
-    + pallet_portfolio::Trait
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>>
-        + From<checkpoint::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
-
-    type Currency: Currency<Self::AccountId>;
-
-    type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
-
-    /// Maximum number of smart extensions can attach to an asset.
-    /// This hard limit is set to avoid the cases where an asset transfer
-    /// gas usage go beyond the block gas limit.
-    type MaxNumberOfTMExtensionForAsset: Get<u32>;
-
-    /// Time used in computation of checkpoints.
-    type UnixTime: UnixTime;
-
-    /// Max length for the name of an asset.
-    type AssetNameMaxLength: Get<u32>;
-
-    /// Max length of the funding round name.
-    type FundingRoundNameMaxLength: Get<u32>;
-
-    type AssetFn: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
-
-    type WeightInfo: WeightInfo;
-    type CPWeightInfo: checkpoint::WeightInfo;
-}
 
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -377,13 +310,6 @@ decl_storage! {
 }
 
 type Identity<T> = identity::Module<T>;
-
-/// Errors of migration on this pallet.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum AssetMigrationError {
-    /// Migration of document fails on the given ticker and document id.
-    AssetDocumentFail(Ticker, DocumentId),
-}
 
 // Public interface for this runtime module.
 decl_module! {
@@ -834,87 +760,6 @@ decl_module! {
         pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, from_portfolio: PortfolioId) -> DispatchResult {
             Self::base_controller_transfer(origin, ticker, value, from_portfolio)
         }
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        Balance = <T as CommonTrait>::Balance,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
-        AccountId = <T as frame_system::Trait>::AccountId,
-    {
-        /// Event for transfer of tokens.
-        /// caller DID, ticker, from portfolio, to portfolio, value
-        Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
-        /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
-        /// Emit when tokens get redeemed.
-        /// caller DID, ticker,  from DID, value
-        Redeemed(IdentityId, Ticker, IdentityId, Balance),
-        /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID
-        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId),
-        /// Event emitted when any token identifiers are updated.
-        /// caller DID, ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
-        /// Event for change in divisibility.
-        /// caller DID, ticker, divisibility
-        DivisibilityChanged(IdentityId, Ticker, bool),
-        /// An additional event to Transfer; emitted when `transfer_with_data` is called.
-        /// caller DID , ticker, from DID, to DID, value, data
-        TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
-        /// is_issuable() output
-        /// ticker, return value (true if issuable)
-        IsIssuable(Ticker, bool),
-        /// Emit when ticker is registered.
-        /// caller DID / ticker owner did, ticker, ticker owner, expiry
-        TickerRegistered(IdentityId, Ticker, Option<Moment>),
-        /// Emit when ticker is transferred.
-        /// caller DID / ticker transferred to DID, ticker, from
-        TickerTransferred(IdentityId, Ticker, IdentityId),
-        /// Emit when token ownership is transferred.
-        /// caller DID / token ownership transferred to DID, ticker, from
-        AssetOwnershipTransferred(IdentityId, Ticker, IdentityId),
-        /// An event emitted when an asset is frozen.
-        /// Parameter: caller DID, ticker.
-        AssetFrozen(IdentityId, Ticker),
-        /// An event emitted when an asset is unfrozen.
-        /// Parameter: caller DID, ticker.
-        AssetUnfrozen(IdentityId, Ticker),
-        /// An event emitted when a token is renamed.
-        /// Parameters: caller DID, ticker, new token name.
-        AssetRenamed(IdentityId, Ticker, AssetName),
-        /// An event carrying the name of the current funding round of a ticker.
-        /// Parameters: caller DID, ticker, funding round name.
-        FundingRoundSet(IdentityId, Ticker, FundingRoundName),
-        /// Emitted when extension is added successfully.
-        /// caller DID, ticker, extension AccountId, extension name, type of smart Extension
-        ExtensionAdded(IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionArchived(IdentityId, Ticker, AccountId),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionUnArchived(IdentityId, Ticker, AccountId),
-        /// An event emitted when the primary issuance agent of an asset is transferred.
-        /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
-        /// A new document attached to an asset
-        DocumentAdded(IdentityId, Ticker, DocumentId, Document),
-        /// A document removed from an asset
-        DocumentRemoved(IdentityId, Ticker, DocumentId),
-        /// A extension got removed.
-        /// caller DID, ticker, AccountId
-        ExtensionRemoved(IdentityId, Ticker, AccountId),
-        /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
-        /// Migration error event.
-        MigrationFailure(MigrationError<AssetMigrationError>),
-        /// Event for when a forced transfer takes place.
-        /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
-        ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
     }
 }
 

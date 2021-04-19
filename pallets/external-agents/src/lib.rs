@@ -40,31 +40,17 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::Weight,
 };
 use pallet_identity::PermissionedCallOriginData;
+pub use polymesh_common_utilities::traits::external_agents::{Event, Trait, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
-use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId, Ticker};
+use polymesh_primitives::{ExtrinsicPermissions, IdentityId, Ticker};
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
-
-pub trait WeightInfo {
-    fn create_group() -> Weight;
-    fn set_group_permissions() -> Weight;
-    fn remove_agent() -> Weight;
-    fn change_group() -> Weight;
-}
-
-pub trait Trait: frame_system::Trait + polymesh_common_utilities::balances::Trait {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-
-    type WeightInfo: WeightInfo;
-}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ExternalAgent {
@@ -190,35 +176,6 @@ decl_module! {
         pub fn change_group(origin, ticker: Ticker, agent: IdentityId, group: AgentGroup) -> DispatchResult {
             Self::base_change_group(origin, ticker, agent, group)
         }
-    }
-}
-
-decl_event! {
-    pub enum Event {
-        /// An Agent Group was created.
-        ///
-        /// (Caller DID, AG's ticker, AG's ID, AG's permissions)
-        GroupCreated(EventDid, Ticker, AGId, ExtrinsicPermissions),
-
-        /// An Agent Group's permissions was updated.
-        ///
-        /// (Caller DID, AG's ticker, AG's ID, AG's new permissions)
-        GroupPermissionsUpdated(EventDid, Ticker, AGId, ExtrinsicPermissions),
-
-        /// An agent was added.
-        ///
-        /// (Caller/Agent DID, Agent's ticker, Agent's group)
-        AgentAdded(EventDid, Ticker, AgentGroup),
-
-        /// An agent was removed.
-        ///
-        /// (Caller DID, Agent's ticker, Agent's DID)
-        AgentRemoved(EventDid, Ticker, IdentityId),
-
-        /// An agent's group was changed.
-        ///
-        /// (Caller DID, Agent's ticker, Agent's DID, The new group of the agent)
-        GroupChanged(EventDid, Ticker, IdentityId, AgentGroup),
     }
 }
 
