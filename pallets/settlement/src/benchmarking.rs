@@ -186,8 +186,9 @@ fn verify_add_instruction<T: Trait>(
     v_id: u64,
     s_type: SettlementType<T::BlockNumber>,
 ) -> DispatchResult {
-    assert!(
-        Module::<T>::instruction_counter() == 2,
+    assert_eq!(
+        Module::<T>::instruction_counter(),
+        2,
         "Instruction counter not increased"
     );
     let Instruction {
@@ -745,7 +746,7 @@ benchmarks! {
     }: _(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
-            assert!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
+            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
         }
     }
 
@@ -762,7 +763,7 @@ benchmarks! {
     }: reject_instruction(origin, instruction_id, s_portfolios, l.into())
     verify {
         for p in portfolios.iter() {
-            assert!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
+            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
         }
     }
 
@@ -776,7 +777,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(to.account), instruction_id, to_portfolios, legs_count)
     verify {
         for p in portfolios_to.iter() {
-            assert!(Module::<T>::affirms_received(instruction_id, p) == AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
+            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
         }
     }
 
@@ -798,7 +799,7 @@ benchmarks! {
         let s_receipt = receipt.clone();
     }: _(origin, instruction_id, s_receipt)
     verify {
-        assert!(Module::<T>::instruction_leg_status(instruction_id, leg_id) ==  LegStatus::ExecutionToBeSkipped(
+        assert_eq!(Module::<T>::instruction_leg_status(instruction_id, leg_id),  LegStatus::ExecutionToBeSkipped(
             receipt.signer,
             receipt.receipt_uid,
         ), "Settlement: Fail to unclaim the receipt");
@@ -821,7 +822,7 @@ benchmarks! {
     }: _(origin, instruction_id, s_receipt_details, s_portfolios, r)
     verify {
         for (i, receipt) in receipt_details.iter().enumerate() {
-            assert!(Module::<T>::instruction_leg_status(instruction_id, i as u64) ==  LegStatus::ExecutionToBeSkipped(
+            assert_eq!(Module::<T>::instruction_leg_status(instruction_id, i as u64),  LegStatus::ExecutionToBeSkipped(
                 receipt.signer.clone(),
                 receipt.receipt_uid,
             ), "Settlement: Fail to affirm with receipts");

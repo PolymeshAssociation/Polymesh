@@ -67,7 +67,7 @@ benchmarks! {
         tms.push(last_tm.clone());
     }: _(owner.origin, ticker, last_tm)
     verify {
-        assert!(Module::<T>::transfer_managers(ticker) == tms);
+        assert_eq!(Module::<T>::transfer_managers(ticker), tms);
     }
 
     remove_transfer_manager {
@@ -75,7 +75,7 @@ benchmarks! {
         let last_tm = tms.pop().expect("MaxTransferManagersPerAsset should be greater than zero");
     }: _(owner.origin, ticker, last_tm)
     verify {
-        assert!(Module::<T>::transfer_managers(ticker) == tms);
+        assert_eq!(Module::<T>::transfer_managers(ticker), tms);
     }
 
     add_exempted_entities {

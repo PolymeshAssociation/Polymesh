@@ -203,7 +203,7 @@ benchmarks! {
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0, 100u32.into(), Some(101u32.into()))
     verify {
-        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101u32.into()), "modify_fundraiser_window");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {

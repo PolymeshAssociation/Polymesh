@@ -99,7 +99,7 @@ benchmarks! {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id, 5000)
     verify {
-        assert!(TimeRanges::get(ca_id).unwrap().end == 5000, "range not changed");
+        assert_eq!(TimeRanges::get(ca_id).unwrap().end, 5000, "range not changed");
     }
 
     change_meta {
@@ -110,7 +110,7 @@ benchmarks! {
         let meta2 = meta.clone();
     }: _(owner.origin(), ca_id, meta)
     verify {
-        assert!(Metas::get(ca_id).unwrap() == meta2, "meta not changed");
+        assert_eq!(Metas::get(ca_id).unwrap(), meta2, "meta not changed");
     }
 
     change_rcv {
@@ -124,6 +124,6 @@ benchmarks! {
         let (owner, ca_id) = attach::<T>(0, 0);
     }: _(owner.origin(), ca_id)
     verify {
-        assert!(TimeRanges::get(ca_id) == None, "ballot not removed");
+        assert_eq!(TimeRanges::get(ca_id), None, "ballot not removed");
     }
 }

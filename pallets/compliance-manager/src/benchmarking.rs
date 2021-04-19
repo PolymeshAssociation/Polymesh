@@ -150,8 +150,8 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
 impl<T: Trait> ComplianceRequirementBuilder<T> {
     /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
-        assert!(
-            self.has_been_added == false,
+        assert_eq!(
+            self.has_been_added, false,
             "Compliance has been added before"
         );
         Module::<T>::add_compliance_requirement(
@@ -185,8 +185,8 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, d.sender_conditions.clone(), d.receiver_conditions.clone())
     verify {
         let req = Module::<T>::asset_compliance(d.ticker).requirements.pop().unwrap();
-        assert!( req.sender_conditions == d.sender_conditions, "Sender conditions not expected");
-        assert!( req.receiver_conditions == d.receiver_conditions, "Sender conditions not expected");
+        assert_eq!( req.sender_conditions, d.sender_conditions, "Sender conditions not expected");
+        assert_eq!( req.receiver_conditions, d.receiver_conditions, "Sender conditions not expected");
     }
 
     remove_compliance_requirement {
@@ -218,7 +218,7 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {
-        assert!( Module::<T>::asset_compliance(d.ticker).paused == true, "Asset compliance is not paused");
+        assert_eq!( Module::<T>::asset_compliance(d.ticker).paused, true, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
@@ -230,7 +230,7 @@ benchmarks! {
             d.ticker.clone()).unwrap();
     }: _(d.owner.origin, d.ticker)
     verify {
-        assert!( Module::<T>::asset_compliance(d.ticker).paused == false, "Asset compliance is paused");
+        assert_eq!( Module::<T>::asset_compliance(d.ticker).paused, false, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {
@@ -290,7 +290,7 @@ benchmarks! {
             .into_iter()
             .find(|req| req.id == new_req.id)
             .unwrap();
-        assert!( req == new_req,
+        assert_eq!( req, new_req,
             "Compliance requirement was not updated");
     }
 
@@ -327,7 +327,7 @@ benchmarks! {
     }: _(d.owner.origin, d.ticker, asset_compliance.clone())
     verify {
         let reqs = Module::<T>::asset_compliance(d.ticker).requirements;
-        assert!( reqs == asset_compliance, "Asset compliance was not replaced");
+        assert_eq!( reqs, asset_compliance, "Asset compliance was not replaced");
     }
 
     reset_asset_compliance {

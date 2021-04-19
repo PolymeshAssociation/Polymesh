@@ -102,7 +102,7 @@ impl<T: Trait> UserBuilder<T> {
     }
 
     pub fn become_cdd_provider(self) -> Self {
-        assert!(self.generate_did == true || self.did.is_some());
+        assert_eq!(self.generate_did, true || self.did.is_some());
         self_update!(self, as_cdd_provider, true)
     }
 
@@ -111,7 +111,7 @@ impl<T: Trait> UserBuilder<T> {
     }
 
     pub fn did(self, did: IdentityId) -> Self {
-        assert!(self.generate_did == false);
+        assert_eq!(self.generate_did, false);
         let mut new = self;
         new.did = Some(did);
         new.generate_did = false;

@@ -66,9 +66,7 @@ where
         Module::<T, I>::vote_or_propose(users[0].origin.clone().into(), true, Box::new(proposal))
             .unwrap();
         if users.len() > 1 {
-            let hash = *Module::<T, I>::proposals()
-                .last()
-                .unwrap();
+            let hash = *Module::<T, I>::proposals().last().unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
             for (j, user) in users.iter().skip(1).take(i as usize).enumerate() {
@@ -175,7 +173,7 @@ benchmarks_instance! {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert!(Module::<T, _>::expires_after() == maybe_block, "incorrect expiration");
+        assert_eq!(Module::<T, _>::expires_after(), maybe_block, "incorrect expiration");
     }
 
     vote_or_propose_new_proposal {
@@ -187,7 +185,7 @@ benchmarks_instance! {
     verify {
         // The proposal was stored.
         assert!(Proposals::<T, I>::get().contains(&hash), "new proposal hash not found");
-        assert!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "new proposal not found");
+        assert_eq!(ProposalOf::<T, I>::get(&hash), Some(proposal), "new proposal not found");
     }
 
     vote_or_propose_existing_proposal {
@@ -209,7 +207,7 @@ benchmarks_instance! {
         } else {
             // The proposal was stored.
             assert!(Proposals::<T, I>::get().contains(&hash), "existing proposal hash not found");
-            assert!(ProposalOf::<T, I>::get(&hash) == Some(proposal), "existing proposal not found");
+            assert_eq!(ProposalOf::<T, I>::get(&hash), Some(proposal), "existing proposal not found");
         }
     }
 

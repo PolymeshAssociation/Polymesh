@@ -196,14 +196,14 @@ benchmarks! {
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
-        assert!(
-            Module::<T>::cdd_auth_for_primary_key_rotation() == false,
+        assert_eq!(
+            Module::<T>::cdd_auth_for_primary_key_rotation(), false,
             "CDD auth for primary key rotation is enabled"
         );
     }: _(RawOrigin::Root, true)
     verify {
-        assert!(
-            Module::<T>::cdd_auth_for_primary_key_rotation() == true,
+        assert_eq!(
+            Module::<T>::cdd_auth_for_primary_key_rotation(), true,
             "CDD auth for primary key rotation did not change"
         );
     }
@@ -248,8 +248,8 @@ benchmarks! {
 
     }: _(key.origin())
     verify {
-        assert!(
-            KeyToIdentityIds::<T>::contains_key(key.account) == false,
+        assert_eq!(
+            KeyToIdentityIds::<T>::contains_key(key.account), false,
             "Key was not removed from its identity"
         );
     }

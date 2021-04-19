@@ -220,7 +220,7 @@ benchmarks! {
         let new_owner = UserBuilder::<T>::default().generate_did().build("newOwner");
     }: _(creator.origin, code_hash, new_owner.did())
     verify {
-        assert!(Module::<T>::get_template_details(code_hash).owner == new_owner.did(), "Contracts_transfer_template_ownership: Failed to transfer ownership");
+        assert_eq!(Module::<T>::get_template_details(code_hash).owner, new_owner.did(), "Contracts_transfer_template_ownership: Failed to transfer ownership");
     }
 
     // No catalyst.
@@ -229,8 +229,8 @@ benchmarks! {
         let code_hash = emulate_blueprint_in_storage::<T>(100, creator.origin.clone(), "").unwrap();
     }: _(creator.origin, code_hash, Some(500u32.into()), Some(650u32.into()))
     verify {
-        assert!(Module::<T>::get_template_details(code_hash).get_instantiation_fee() == 500u32.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
-        assert!(Module::<T>::get_metadata_of(code_hash).usage_fee == 650u32.into(), "Contracts_change_template_fees: Failed to change the usage fees");
+        assert_eq!(Module::<T>::get_template_details(code_hash).get_instantiation_fee(), 500u32.into(), "Contracts_change_template_fees: Failed to change the instantiation fees");
+        assert_eq!(Module::<T>::get_metadata_of(code_hash).usage_fee, 650u32.into(), "Contracts_change_template_fees: Failed to change the usage fees");
     }
 
     change_template_meta_url {

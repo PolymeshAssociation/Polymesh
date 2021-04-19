@@ -119,7 +119,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait + TestUtilsFn<Acco
     // Start a new Era
     let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
 
-    assert!(new_validators.len() == 1);
+    assert_eq!(new_validators.len(), 1);
 
     // Give Era Points
     let reward = EraRewardPoints::<T::AccountId> {
@@ -254,7 +254,7 @@ benchmarks! {
     verify {
         let pref = Staking::<T>::permissioned_identity(stash.did());
         assert!(pref.is_some(), "fail to add a permissioned identity");
-        assert!(pref.unwrap().intended_count == 1, "fail to set a incorrect intended count");
+        assert_eq!(pref.unwrap().intended_count, 1, "fail to set a incorrect intended count");
     }
 
     remove_permissioned_validator {
@@ -451,7 +451,7 @@ benchmarks! {
         let session_index = SessionIndex::one();
     }: {
         let validators = Staking::<T>::new_era(session_index).ok_or("`new_era` failed").unwrap();
-        assert!(validators.len() == v as usize);
+        assert_eq!(validators.len(), v as usize);
     }
 
     do_slash {
@@ -485,7 +485,7 @@ benchmarks! {
         create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
         // Start a new Era
         let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
-        assert!(new_validators.len() == v as usize);
+        assert_eq!(new_validators.len(), v as usize);
 
         let current_era = CurrentEra::get().unwrap();
         let mut points_total = 0;
@@ -724,7 +724,7 @@ benchmarks! {
 
     }: _(RawOrigin::Root, SlashingSwitch::ValidatorAndNominator)
     verify {
-        assert!(Staking::<T>::slashing_allowed_for() == SlashingSwitch::ValidatorAndNominator, "Incorrect value set");
+        assert_eq!(Staking::<T>::slashing_allowed_for(), SlashingSwitch::ValidatorAndNominator, "Incorrect value set");
     }
 
     update_permissioned_validator_intended_count {
@@ -733,7 +733,7 @@ benchmarks! {
         add_perm_validator::<T>(stash_id, Some(1));
     }: _(RawOrigin::Root, stash_id, 2)
     verify {
-        assert!(Staking::<T>::permissioned_identity(stash_id).unwrap().intended_count == 2, "Unable to update intended validator count");
+        assert_eq!(Staking::<T>::permissioned_identity(stash_id).unwrap().intended_count, 2, "Unable to update intended validator count");
     }
 
     increase_validator_count {
