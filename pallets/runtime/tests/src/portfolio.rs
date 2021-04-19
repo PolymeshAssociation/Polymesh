@@ -36,6 +36,29 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     (owner, num)
 }
 
+fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: PortfolioId) {
+    let auth_id = Identity::add_auth(
+        current_custodian.did,
+        Signatory::from(new_custodian.did),
+        AuthorizationData::PortfolioCustody(portfolio_id),
+        None,
+    );
+    assert_ok!(Identity::accept_authorization(
+        new_custodian.origin(),
+        auth_id
+    ));
+}
+
+macro_rules! assert_owner_is_custodian {
+    ($p:expr) => {{
+        assert_eq!(Portfolio::portfolios_in_custody($p.did, $p), false);
+        assert_eq!(
+            pallet_portfolio::PortfolioCustodian::contains_key(&$p),
+            false
+        );
+    }};
+}
+
 #[test]
 fn portfolio_name_too_long() {
     ExtBuilder::default().build().execute_with(|| {
@@ -432,13 +455,29 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Bob transfers portfolio custody back to Alice.
-        let auth_id = add_auth(bob, owner);
-        assert_ok!(Identity::accept_authorization(owner.origin(), auth_id));
-        assert!(has_custody(owner));
+        set_custodian_ok(bob, owner, owner_user_portfolio);
         // The mapping is removed which means the owner is the custodian.
-        assert_eq!(
-            pallet_portfolio::PortfolioCustodian::contains_key(&owner_user_portfolio),
-            false
+        assert_owner_is_custodian!(owner_user_portfolio);
+    });
+}
+
+#[test]
+fn quit_portfolio_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (alice, num) = create_portfolio();
+        let bob = User::new(AccountKeyring::Bob);
+        let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
+
+        assert_noop!(
+            Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio),
+            Error::UnauthorizedCustodian
         );
+        set_custodian_ok(alice, bob, user_portfolio);
+        assert_ok!(Portfolio::quit_portfolio_custody(
+            bob.origin(),
+            user_portfolio
+        ));
+        // The mapping is removed which means the owner is the custodian.
+        assert_owner_is_custodian!(user_portfolio);
     });
 }
