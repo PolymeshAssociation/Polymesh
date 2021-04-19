@@ -112,9 +112,7 @@ where
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
-        let votes = Voting::<T, I>::get(&hash)
-            .ok_or("cannot get votes")
-            .unwrap();
+        let votes = Voting::<T, I>::get(&hash).unwrap();
         assert_eq!(votes.index, proposal_num, "wrong proposal_num");
         assert_eq!(vote, votes.ayes.contains(did), "aye vote missing");
         assert_ne!(vote, votes.nays.contains(did), "nay vote missing");
