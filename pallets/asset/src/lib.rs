@@ -75,7 +75,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(bool_to_option, or_patterns, const_option)]
+#![feature(bool_to_option, const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -100,6 +100,7 @@ use polymesh_common_utilities::{
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::contracts::ContractsFn,
     with_transaction, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -251,7 +252,8 @@ pub struct ClassicTickerRegistration {
 storage_migration_ver!(3);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Asset {
+    trait Store for Module<T: Trait> as Asset
+    {
         /// Ticker registration details.
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
@@ -1580,9 +1582,9 @@ impl<T: Trait> Module<T> {
     }
 
     // Return bool to know whether the given extension is compatible with the supported version of asset.
-    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: &T::AccountId) -> bool {
+    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: T::AccountId) -> bool {
         // Access version.
-        let ext_version = <polymesh_contracts::Module<T>>::extension_info(extension_id).version;
+        let ext_version = T::ContractsFn::extension_info(extension_id).version;
         Self::compatible_extension_version(ext_type) == ext_version
     }
 
@@ -1949,7 +1951,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the version compatibility with the asset.
         ensure!(
-            Self::is_ext_compatible(&details.extension_type, &details.extension_id),
+            Self::is_ext_compatible(&details.extension_type, details.extension_id.clone()),
             Error::<T>::IncompatibleExtensionVersion
         );
         // Ensure the hard limit on the count of maximum transfer manager an asset can have.

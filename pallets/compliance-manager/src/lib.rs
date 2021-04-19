@@ -112,11 +112,9 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait + EATrait
-{
+pub trait Trait: pallet_timestamp::Config + frame_system::Config + IdentityTrait + EATrait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Asset module
     type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;

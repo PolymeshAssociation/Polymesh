@@ -134,7 +134,7 @@ pub trait WeightInfo {
 pub trait Trait:
     crate::balances::Trait
     + external_agents::Trait
-    + pallet_session::Trait
+    + pallet_session::Config
     + statistics::Trait
     + contracts::Trait
     + portfolio::Trait
@@ -142,7 +142,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>>
         + From<checkpoint::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
+        + Into<<Self as frame_system::Config>::Event>;
 
     type Currency: Currency<Self::AccountId>;
 
@@ -166,6 +166,8 @@ pub trait Trait:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
+
+    type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Errors of migration on this pallet.
@@ -179,8 +181,8 @@ decl_event! {
     pub enum Event<T>
     where
         Balance = <T as CommonTrait>::Balance,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
-        AccountId = <T as frame_system::Trait>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event for transfer of tokens.
         /// caller DID, ticker, from portfolio, to portfolio, value

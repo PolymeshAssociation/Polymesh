@@ -7,7 +7,7 @@ use frame_support::{assert_noop, assert_ok};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp, traits::transaction_payment::CddAndFeeDetails,
 };
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;
 type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;

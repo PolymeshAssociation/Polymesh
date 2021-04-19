@@ -16,9 +16,9 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     FixedPointNumber,
 };
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
-fn call() -> <TestStorage as frame_system::Trait>::Call {
+fn call() -> <TestStorage as frame_system::Config>::Call {
     Call::Balances(BalancesCall::transfer(AccountKeyring::Alice.public(), 69))
 }
 
@@ -154,7 +154,7 @@ fn signed_extension_transaction_payment_is_bounded() {
             assert_eq!(
                 Balances::free_balance(&user),
                 (free_user
-                    - <TestStorage as frame_system::Trait>::MaximumBlockWeight::get() as u128)
+                    - <TestStorage as frame_system::Config>::MaximumBlockWeight::get() as u128)
                     as u128
             );
         });

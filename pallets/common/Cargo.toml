@@ -13,26 +13,26 @@ serde = { version = "1.0.112", default-features = false }
 serde_derive = { version = "1.0.112", optional = true, default-features = false}
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
-pallet-session = { version = "2.0.1", default-features = false }
-pallet-contracts = { version = "2.0.1", default-features = false }
-pallet-timestamp = { version = "2.0.1", default-features = false }
-sp-api = { version = "2.0.1", default-features = false }
-sp-arithmetic = { version = "2.0.1", default-features = false }
-sp-core = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
+pallet-contracts = { version = "3.0.0", default-features = false }
+pallet-session = { version = "3.0.0", default-features = false }
+pallet-timestamp = { version = "3.0.0", default-features = false }
+sp-api = { version = "3.0.0", default-features = false }
+sp-arithmetic = { version = "3.0.0", default-features = false }
+sp-core = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
 
 # Benchmarks
-frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
+frame-benchmarking = { version = "=3.0.0", default-features = false, optional = true }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2" }
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 
 [features]
 default = ["std", "equalize"]

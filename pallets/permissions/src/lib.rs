@@ -119,11 +119,11 @@ impl<T: Trait> StoreCallMetadata<T> {
 impl<T> SignedExtension for StoreCallMetadata<T>
 where
     T: Trait + Send + Sync,
-    <T as frame_system::Trait>::Call: GetCallMetadata,
+    <T as frame_system::Config>::Call: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type AccountId = T::AccountId;
-    type Call = <T as frame_system::Trait>::Call;
+    type Call = <T as frame_system::Config>::Call;
     type AdditionalSigned = ();
     type Pre = ();
 

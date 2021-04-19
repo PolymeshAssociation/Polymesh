@@ -25,7 +25,7 @@ use pallet_pips::{
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
 use sp_core::sr25519::Public;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -39,7 +39,7 @@ type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 macro_rules! assert_last_event {
     ($event:pat) => {

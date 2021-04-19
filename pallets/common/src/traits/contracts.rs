@@ -3,7 +3,7 @@ use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use pallet_contracts::BalanceOf;
-use polymesh_primitives::{IdentityId, MetaUrl};
+use polymesh_primitives::{ExtensionAttributes, IdentityId, MetaUrl};
 use sp_runtime::Perbill;
 
 pub trait WeightInfo {
@@ -18,9 +18,9 @@ pub trait WeightInfo {
     fn set_put_code_flag() -> Weight;
 }
 
-pub trait Trait: pallet_contracts::Trait + identity::Trait + base::Trait {
+pub trait Trait: pallet_contracts::Config + identity::Trait + base::Trait {
     /// Event type
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
     type NetworkShareInFee: Get<Perbill>;
     /// Weight information for extrinsic in this pallet.
@@ -31,7 +31,7 @@ decl_event! {
     pub enum Event<T>
         where
         Balance = BalanceOf<T>,
-        CodeHash = <T as frame_system::Trait>::Hash,
+        CodeHash = <T as frame_system::Config>::Hash,
     {
         /// Emitted when instantiation fee of a template get changed.
         /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee.
@@ -58,4 +58,8 @@ decl_event! {
         /// (new flag state)
         PutCodeFlagChanged(bool),
     }
+}
+
+pub trait ContractsFn<AccountId, Balance> {
+    fn extension_info(acc: AccountId) -> ExtensionAttributes<Balance>;
 }

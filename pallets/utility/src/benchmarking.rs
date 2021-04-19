@@ -23,7 +23,7 @@ fn make_transfer_calls<T: Trait>(
     to: T::AccountId,
     amount: u128,
 ) -> Vec<<T as Trait>::Call> {
-    let idx = <T as frame_system::Trait>::Lookup::unlookup(to);
+    let idx = <T as frame_system::Config>::Lookup::unlookup(to);
     let call: <T as Trait>::Call = BalancesCall::transfer(idx, amount.into()).into();
     vec![call; c as usize]
 }

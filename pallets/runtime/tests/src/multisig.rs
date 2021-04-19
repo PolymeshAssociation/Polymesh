@@ -10,13 +10,13 @@ use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{PalletPermissions, Permissions, SecondaryKey, Signatory};
 use sp_core::sr25519::Public;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Error = multisig::Error<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;

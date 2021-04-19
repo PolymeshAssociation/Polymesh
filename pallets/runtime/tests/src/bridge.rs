@@ -7,11 +7,7 @@ use super::{
 use frame_support::{
     assert_noop, assert_ok, storage::IterableStorageDoubleMap, traits::Currency, weights::Weight,
 };
-use pallet_bridge::{
-    self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
-};
-use sp_core::sr25519::Public;
-use test_client::AccountKeyring::*;
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
@@ -19,7 +15,7 @@ type Error = bridge::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 

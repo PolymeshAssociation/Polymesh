@@ -120,24 +120,22 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::{
-    traits::{
-        balances::{CheckCdd, Trait as BalancesTrait},
-        identity::Trait as IdentityTrait,
-        CommonTrait,
-    },
+    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
+use sp_runtime::traits::{CheckedAdd, MaybeSerializeDeserialize, One, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + BalancesTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Trait:
+    multisig::Trait + scheduler::Config + pallet_balances::Config + pallet_base::Trait
+{
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
     type Scheduler: ScheduleAnon<
@@ -287,11 +285,68 @@ decl_storage! {
         /// The multisig account of the bridge controller. The genesis signers accept their
         /// authorizations and are able to get their proposals delivered. The bridge creator
         /// transfers some POLY to their identity.
-        Controller get(fn controller) build(genesis::controller): T::AccountId;
+        Controller get(fn controller) build(|config: &GenesisConfig<T>| {
+            use polymesh_primitives::Permissions;
+            use frame_support::debug;
+
+            if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
+            {
+                panic!("too many signatures required");
+            }
+            if config.signatures_required == 0 {
+                // Default to the empty signer set.
+                return Default::default();
+            }
+            let multisig_id = <multisig::Module<T>>::create_multisig_account(
+                config.creator.clone(),
+                config.signers.as_slice(),
+                config.signatures_required
+            ).expect("cannot create the bridge multisig");
+            debug::info!("Created bridge multisig {}", multisig_id);
+            for signer in &config.signers {
+                debug::info!("Accepting bridge signer auth for {:?}", signer);
+                let last_auth = <identity::Authorizations<T>>::iter_prefix_values(signer)
+                    .next()
+                    .expect("cannot find bridge signer auth")
+                    .auth_id;
+                <multisig::Module<T>>::unsafe_accept_multisig_signer(signer.clone(), last_auth)
+                    .expect("cannot accept bridge signer auth");
+            }
+            let creator_did = Context::current_identity_or::<identity::Module<T>>(&config.creator)
+                .expect("bridge creator account has no identity");
+            <identity::Module<T>>::unsafe_join_identity(
+                creator_did,
+                Permissions::default(),
+                &Signatory::Account(multisig_id.clone())
+            );
+            debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
+            multisig_id
+        }): T::AccountId;
 
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
-        pub BridgeTxDetails get(fn bridge_tx_details) build(genesis::bridge_tx_details): double_map
+        pub BridgeTxDetails get(fn bridge_tx_details) build(|config: &GenesisConfig<T>| {
+            use polymesh_common_utilities::constants::currency::POLY;
+
+            // Record the transactions in genesis.
+            config.complete_txs.iter().map(|tx| {
+                let recipient = tx.recipient.clone();
+                let detail = BridgeTxDetail {
+                    amount: tx.amount,
+                    status: BridgeTxStatus::Handled,
+                    execution_block: Zero::zero(),
+                    tx_hash: tx.tx_hash,
+                };
+                frame_support::debug::info!(
+                    "Credited Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
+                    recipient,
+                    tx.nonce,
+                    tx.amount / T::Balance::from(POLY)
+                );
+                Module::<T>::issue(&recipient, &tx.amount).expect("Minting failed");
+                (recipient, tx.nonce, detail)
+            }).collect::<Vec<_>>()
+        }): double_map
                 hasher(blake2_128_concat) T::AccountId,
                 hasher(blake2_128_concat) u32
             =>
@@ -336,9 +391,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = <T as CommonTrait>::Balance,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         /// Confirmation of a signer set change.
         ControllerChanged(IdentityId, AccountId),
@@ -369,7 +424,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -553,7 +608,10 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
     pub fn controller_key() -> T::AccountId {
         Self::controller()
     }
@@ -582,16 +640,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Issues the transacted amount to the recipient.
-    fn issue(
-        recipient: &T::AccountId,
-        amount: &T::Balance,
-        exempted_did: Option<IdentityId>,
-    ) -> DispatchResult {
-        let did = exempted_did
-            .clone()
-            .or_else(|| T::CddChecker::get_key_cdd_did(&recipient))
-            .ok_or(Error::<T>::NoValidCdd)?;
-        let is_exempted = exempted_did.is_some() || Self::bridge_exempted(did);
+    fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
+        let did = T::CddChecker::get_key_cdd_did(&recipient).ok_or(Error::<T>::NoValidCdd)?;
 
         if !is_exempted {
             let (limit, interval_duration) = Self::bridge_limit();

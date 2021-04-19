@@ -55,7 +55,7 @@
 //! use frame_support::{decl_module, dispatch};
 //! use frame_system::ensure_root;
 //!
-//! pub trait Trait: frame_system::Trait {}
+//! pub trait Trait: frame_system::Config {}
 //!
 //! decl_module! {
 //!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -103,9 +103,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// A sudo-able call.
     type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
@@ -230,7 +230,7 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// A sudo just took place. \[result\]
         Sudid(DispatchResult),

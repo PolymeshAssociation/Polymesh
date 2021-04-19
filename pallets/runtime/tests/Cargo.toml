@@ -29,7 +29,7 @@ pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { version = "2.0.1", default-features = false }
+pallet-staking-reward-curve = { version = "3.0.0", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -42,8 +42,8 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -60,30 +60,30 @@ env_logger = "0.7"
 serde_json = '1.0.48'
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-sp-arithmetic = { version = "2.0.1", default-features = false }
-sp-staking = { version = "2.0.1", default-features = false }
-sp-npos-elections = { version = "2.0.1", default-features = false}
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+sp-core = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-arithmetic = { version = "3.0.0", default-features = false }
+sp-staking = { version = "3.0.0", default-features = false }
+sp-npos-elections = { version = "3.0.0", default-features = false}
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
 
-pallet-timestamp = { version = "2.0.1", default-features = false }
-pallet-authorship = { version = "2.0.1", default-features = false }
-pallet-session = { version = "2.0.1", default-features = false, features = ["historical"] }
-pallet-randomness-collective-flip = { version = "2.0.1", default-features = false }
-pallet-babe = { version = "2.0.1", default-features = false }
-pallet-scheduler = { version = "2.0.1", default-features = false }
+pallet-timestamp = { version = "3.0.0", default-features = false }
+pallet-authorship = { version = "3.0.0", default-features = false }
+pallet-session = { version = "3.0.0", default-features = false, features = ["historical"] }
+pallet-randomness-collective-flip = { version = "3.0.0", default-features = false }
+pallet-babe = { version = "3.0.0", default-features = false }
+pallet-scheduler = { version = "3.0.0", default-features = false }
 
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 
-frame-benchmarking = { version = "2.0.1", optional = true }
+frame-benchmarking = { version = "=3.0.0", optional = true }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
-substrate-test-utils = { version = "2.0.1", optional = true }
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0", optional = true }
+substrate-test-utils = { version = "3.0.0", optional = true }
 polymesh-weights = { path = "../../weights", default-features = false }
 
 [dev-dependencies]
@@ -155,7 +155,7 @@ std = [
     "sp-staking/std",
     "sp-std/std",
     "substrate-test-utils",
-    "test_client",
+    "substrate-test-runtime-client",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

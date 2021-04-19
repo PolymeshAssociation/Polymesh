@@ -23,9 +23,19 @@ macro_rules! misc_pallet_impls {
             ApplyExtrinsicResult, MultiSignature,
         };
 
-        impl frame_system::Trait for Runtime {
+        impl frame_system::Config for Runtime {
             /// The basic call filter to use in dispatchable.
             type BaseCallFilter = ();
+            /// Block & extrinsics weights: base values and limits.
+            type BlockWeights = polymesh_runtime_common::RuntimeBlockWeights;
+            /// The maximum length of a block (in bytes).
+            type BlockLength = polymesh_runtime_common::RuntimeBlockLength;
+            /// The designated SS85 prefix of this chain.
+            ///
+            /// This replaces the "ss58Format" property declared in the chain spec. Reason is
+            /// that the runtime should know about the prefix in order to make use of it as
+            /// an identifier of the chain.
+            type SS58Prefix = polymesh_runtime_common::SS58Prefix;
             /// The identifier used to distinguish between accounts.
             type AccountId = polymesh_primitives::AccountId;
             /// The aggregated dispatch type that is available for extrinsics.
@@ -49,24 +59,8 @@ macro_rules! misc_pallet_impls {
             type Origin = Origin;
             /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
             type BlockHashCount = polymesh_runtime_common::BlockHashCount;
-            /// Maximum weight of each block.
-            type MaximumBlockWeight = polymesh_runtime_common::MaximumBlockWeight;
             /// The weight of database operations that the runtime can invoke.
             type DbWeight = polymesh_runtime_common::RocksDbWeight;
-            /// The weight of the overhead invoked on the block import process, independent of the
-            /// extrinsics included in that block.
-            type BlockExecutionWeight = polymesh_runtime_common::BlockExecutionWeight;
-            /// The base weight of any extrinsic processed by the runtime, independent of the
-            /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
-            type ExtrinsicBaseWeight = polymesh_runtime_common::ExtrinsicBaseWeight;
-            /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-            /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
-            /// initialize cost).
-            type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
-            /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
-            type MaximumBlockLength = polymesh_runtime_common::MaximumBlockLength;
-            /// Portion of the block weight that is available to all normal transactions.
-            type AvailableBlockRatio = polymesh_runtime_common::AvailableBlockRatio;
             /// Version of the runtime.
             type Version = Version;
             /// Converts a module to the index of the module in `construct_runtime!`.
@@ -89,7 +83,7 @@ macro_rules! misc_pallet_impls {
             type MaxLen = MaxLen;
         }
 
-        impl pallet_babe::Trait for Runtime {
+        impl pallet_babe::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
             type EpochDuration = EpochDuration;
             type ExpectedBlockTime = ExpectedBlockTime;
@@ -107,11 +101,14 @@ macro_rules! misc_pallet_impls {
                 pallet_babe::AuthorityId,
             )>>::IdentificationTuple;
 
-            type HandleEquivocation =
-                pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
+            type HandleEquivocation = pallet_babe::EquivocationHandler<
+                Self::KeyOwnerIdentification,
+                Offences,
+                ReportLongevity,
+            >;
         }
 
-        impl pallet_indices::Trait for Runtime {
+        impl pallet_indices::Config for Runtime {
             type AccountIndex = polymesh_primitives::AccountIndex;
             type Currency = Balances;
             type Deposit = IndexDeposit;
@@ -119,9 +116,10 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
         }
 
-        impl pallet_transaction_payment::Trait for Runtime {
+        impl pallet_transaction_payment::Config for Runtime {
             type Currency = Balances;
-            type OnTransactionPayment = DealWithFees;
+            type OnChargeTransaction =
+                pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
             type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type FeeMultiplierUpdate = ();
@@ -137,7 +135,7 @@ macro_rules! misc_pallet_impls {
             type BlockRewardsReserve = pallet_balances::Module<Runtime>;
         }
 
-        impl pallet_balances::Trait for Runtime {
+        impl pallet_balances::Config for Runtime {
             type MaxLocks = MaxLocks;
             type DustRemoval = ();
             type Event = Event;
@@ -154,7 +152,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
         }
 
-        impl pallet_timestamp::Trait for Runtime {
+        impl pallet_timestamp::Config for Runtime {
             type Moment = polymesh_primitives::Moment;
             type OnTimestampSet = Babe;
             type MinimumPeriod = MinimumPeriod;
@@ -162,7 +160,7 @@ macro_rules! misc_pallet_impls {
         }
 
         // TODO: substrate#2986 implement this properly
-        impl pallet_authorship::Trait for Runtime {
+        impl pallet_authorship::Config for Runtime {
             type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
             type UncleGenerations = UncleGenerations;
             type FilterUncle = ();
@@ -178,7 +176,7 @@ macro_rules! misc_pallet_impls {
             }
         }
 
-        impl pallet_session::Trait for Runtime {
+        impl pallet_session::Config for Runtime {
             type Event = Event;
             type ValidatorId = polymesh_primitives::AccountId;
             type ValidatorIdOf = pallet_staking::StashOf<Self>;
@@ -192,7 +190,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
         }
 
-        impl pallet_session::historical::Trait for Runtime {
+        impl pallet_session::historical::Config for Runtime {
             type FullIdentification = pallet_staking::Exposure<
                 polymesh_primitives::AccountId,
                 polymesh_primitives::Balance,
@@ -200,10 +198,10 @@ macro_rules! misc_pallet_impls {
             type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
         }
 
-        impl pallet_staking::Trait for Runtime {
+        impl pallet_staking::Config for Runtime {
             type Currency = Balances;
             type UnixTime = Timestamp;
-            type CurrencyToVote = polymesh_runtime_common::impls::CurrencyToVoteHandler<Self>;
+            type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
             type RewardRemainder = ();
             type Event = Event;
             type Slash = Treasury; // send the slashed funds to the treasury.
@@ -232,16 +230,13 @@ macro_rules! misc_pallet_impls {
             type FixedYearlyReward = FixedYearlyReward;
             type PalletsOrigin = OriginCaller;
             type MinimumBond = MinimumBond;
+            // The unsigned solution weight targeted by the OCW. We set it to the maximum possible value of
+            // a single extrinsic.
+            type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
             type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
         }
 
-        impl pallet_authority_discovery::Trait for Runtime {}
-
-        impl pallet_finality_tracker::Trait for Runtime {
-            type OnFinalizationStalled = ();
-            type WindowSize = WindowSize;
-            type ReportLatency = ReportLatency;
-        }
+        impl pallet_authority_discovery::Config for Runtime {}
 
         impl pallet_sudo::Trait for Runtime {
             type Event = Event;
@@ -282,6 +277,7 @@ macro_rules! misc_pallet_impls {
             type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
+            type ContractsFn = polymesh_contracts::Module<Runtime>;
         }
 
         impl polymesh_contracts::Trait for Runtime {
@@ -289,24 +285,26 @@ macro_rules! misc_pallet_impls {
             type NetworkShareInFee = NetworkShareInFee;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
-        impl pallet_contracts::Trait for Runtime {
+        impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
             type Randomness = RandomnessCollectiveFlip;
             type Currency = Balances;
             type Event = Event;
-            type DetermineContractAddress =
-                polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
-            type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
             type RentPayment = ();
-            type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
+            type SignedClaimHandicap = polymesh_runtime_common::SignedClaimHandicap;
             type TombstoneDeposit = TombstoneDeposit;
-            type StorageSizeOffset = pallet_contracts::DefaultStorageSizeOffset;
-            type RentByteFee = RentByteFee;
-            type RentDepositOffset = RentDepositOffset;
+            type DepositPerContract = polymesh_runtime_common::DepositPerContract;
+            type DepositPerStorageByte = polymesh_runtime_common::DepositPerStorageByte;
+            type DepositPerStorageItem = polymesh_runtime_common::DepositPerStorageItem;
+            type RentFraction = RentFraction;
             type SurchargeReward = SurchargeReward;
-            type MaxDepth = pallet_contracts::DefaultMaxDepth;
-            type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
+            type MaxDepth = polymesh_runtime_common::ContractsMaxDepth;
+            type MaxValueSize = polymesh_runtime_common::ContractsMaxValueSize;
             type WeightPrice = pallet_transaction_payment::Module<Self>;
+            type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
+            type ChainExtension = ();
+            type DeletionQueueDepth = DeletionQueueDepth;
+            type DeletionWeightLimit = DeletionWeightLimit;
         }
 
         impl pallet_compliance_manager::Trait for Runtime {
@@ -338,7 +336,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
         }
 
-        impl pallet_scheduler::Trait for Runtime {
+        impl pallet_scheduler::Config for Runtime {
             type Event = Event;
             type Origin = Origin;
             type PalletsOrigin = OriginCaller;
@@ -349,7 +347,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
         }
 
-        impl pallet_offences::Trait for Runtime {
+        impl pallet_offences::Config for Runtime {
             type Event = Event;
             type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
             type OnOffenceHandler = Staking;
@@ -358,16 +356,17 @@ macro_rules! misc_pallet_impls {
 
         type GrandpaKey = (sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId);
 
-        impl pallet_im_online::Trait for Runtime {
+        impl pallet_im_online::Config for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
             type Event = Event;
+            type ValidatorSet = Historical;
             type UnsignedPriority = ImOnlineUnsignedPriority;
             type ReportUnresponsiveness = Offences;
             type SessionDuration = SessionDuration;
             type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
         }
 
-        impl pallet_grandpa::Trait for Runtime {
+        impl pallet_grandpa::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
             type Event = Event;
             type Call = Call;
@@ -380,8 +379,11 @@ macro_rules! misc_pallet_impls {
             type KeyOwnerIdentification =
                 <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<GrandpaKey>>::IdentificationTuple;
 
-            type HandleEquivocation =
-                pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
+            type HandleEquivocation = pallet_grandpa::EquivocationHandler<
+                Self::KeyOwnerIdentification,
+                Offences,
+                ReportLongevity,
+            >;
         }
 
         impl pallet_treasury::Trait for Runtime {
@@ -471,7 +473,7 @@ macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        use pallet_contracts_rpc_runtime_api::ContractExecResult;
+        use pallet_contracts_primitives::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -620,12 +622,20 @@ macro_rules! runtime_apis {
                     }
                 }
 
-                fn current_epoch_start() -> sp_consensus_babe::SlotNumber {
+                fn current_epoch_start() -> sp_consensus_babe::Slot{
                     Babe::current_epoch_start()
                 }
 
+                fn current_epoch() -> sp_consensus_babe::Epoch {
+                    Babe::current_epoch()
+                }
+
+                fn next_epoch() -> sp_consensus_babe::Epoch {
+                    Babe::next_epoch()
+                }
+
                 fn generate_key_ownership_proof(
-                    _slot_number: sp_consensus_babe::SlotNumber,
+                    _slot: sp_consensus_babe::Slot,
                     authority_id: sp_consensus_babe::AuthorityId,
                 ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
                     use codec::Encode;
@@ -670,16 +680,7 @@ macro_rules! runtime_apis {
                     gas_limit: u64,
                     input_data: Vec<u8>,
                 ) -> ContractExecResult {
-                    let (exec_result, gas_consumed) =
-                    BaseContracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
-                    match exec_result {
-                        Ok(v) => ContractExecResult::Success {
-                            flags: v.flags.bits(),
-                            data: v.data,
-                            gas_consumed: gas_consumed,
-                        },
-                        Err(_) => ContractExecResult::Error,
-                    }
+                    BaseContracts::bare_call(origin, dest.into(), value, gas_limit, input_data)
                 }
 
                 fn get_storage(

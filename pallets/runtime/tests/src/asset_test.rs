@@ -55,7 +55,7 @@ use sp_std::{
     convert::{From, TryFrom, TryInto},
     iter,
 };
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -65,7 +65,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;

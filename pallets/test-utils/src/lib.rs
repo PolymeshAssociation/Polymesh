@@ -68,7 +68,7 @@ pub trait WeightInfo {
 }
 
 pub trait Trait: IdentityTrait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
 }
@@ -76,7 +76,7 @@ pub trait Trait: IdentityTrait {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// A new mocked `InvestorUid` has been created for the given Identity.
         /// (Target DID, New InvestorUid)

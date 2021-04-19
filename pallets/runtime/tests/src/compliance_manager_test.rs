@@ -27,7 +27,7 @@ use polymesh_primitives::{
     PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{convert::TryFrom, prelude::*};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -36,7 +36,7 @@ type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
