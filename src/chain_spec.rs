@@ -264,7 +264,7 @@ fn genesis_processed_data(
         let mut push_key = |key: &AccountId| {
             identities[3]
                 .secondary_keys
-                .push(SecondaryKey::from_account_id(key.clone()));
+                .push(SecondaryKey::from_account_id_with_full_perms(key.clone()));
             keys.push(key.clone());
         };
         push_key(stash);
@@ -319,10 +319,12 @@ fn dev_genesis_processed_data(
         ));
         identity
             .secondary_keys
-            .push(SecondaryKey::from_account_id(stash.clone()));
+            .push(SecondaryKey::from_account_id_with_full_perms(stash.clone()));
         identity
             .secondary_keys
-            .push(SecondaryKey::from_account_id(controller.clone()));
+            .push(SecondaryKey::from_account_id_with_full_perms(
+                controller.clone(),
+            ));
     }
 
     // Accumulate bridge transactions
@@ -598,7 +600,7 @@ pub mod testnet {
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
-        let (mut identities, stakers, complete_txs) = genesis_processed_data(
+        let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,

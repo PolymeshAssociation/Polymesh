@@ -227,8 +227,17 @@ where
     pub fn from_account_id(s: AccountId) -> Self {
         Self {
             signer: Signatory::Account(s),
-            // Full permissions.
+            // No permissions.
             permissions: Permissions::empty(),
+        }
+    }
+
+    /// Creates a [`SecondaryKey`] with full permissions from an `AccountId`.
+    pub fn from_account_id_with_full_perms(s: AccountId) -> Self {
+        Self {
+            signer: Signatory::Account(s),
+            // Full permissions.
+            permissions: Permissions::default(),
         }
     }
 
