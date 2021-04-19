@@ -340,7 +340,7 @@ fn dev_genesis_processed_data(
         .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
-            amount: BOOTSTRAP_STASH,
+            amount: BOOTSTRAP_TREASURY,
             tx_hash,
         })
         .collect();
