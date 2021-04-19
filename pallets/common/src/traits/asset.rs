@@ -75,6 +75,16 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         origin: Origin,
         name: AssetName,
         ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult;
+
+    fn create_asset_and_mint(
+        origin: Origin,
+        name: AssetName,
+        ticker: Ticker,
         total_supply: Balance,
         divisible: bool,
         asset_type: AssetType,
@@ -87,4 +97,6 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
+
+    fn issue(origin: Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult;
 }

@@ -12,7 +12,7 @@ use sp_std::prelude::*;
 /// The new token is a _divisible_ one with 1_000_000 units.
 pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     let ticker = Ticker::try_from(name.as_slice()).unwrap();
-    T::Asset::create_asset(
+    T::Asset::create_asset_and_mint(
         owner.origin.clone().into(),
         name.into(),
         ticker.clone(),

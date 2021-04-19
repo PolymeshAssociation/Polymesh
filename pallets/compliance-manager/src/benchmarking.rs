@@ -72,7 +72,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
-    T::Asset::create_asset(
+    T::Asset::create_asset_and_mint(
         owner.origin.clone().into(),
         token.name.clone(),
         ticker.clone(),
