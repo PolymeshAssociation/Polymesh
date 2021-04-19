@@ -68,7 +68,6 @@ where
         if users.len() > 1 {
             let hash = *Module::<T, I>::proposals()
                 .last()
-                .ok_or("missing last proposal")
                 .unwrap();
             // cast min(user.len(), N) - 1 additional votes for proposal #N
             // alternating nay, aye, nay, aye...
