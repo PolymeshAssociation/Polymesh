@@ -64,7 +64,7 @@ use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
-    balances::{CheckCdd, Trait as BalancesTrait},
+    balances::CheckCdd,
     identity::{AuthorizationNonce, Trait as IdentityTrait},
     with_transaction,
 };
@@ -74,9 +74,9 @@ use sp_std::prelude::*;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
+pub trait Trait: frame_system::Config + IdentityTrait + pallet_balances::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// The overarching call type.
     type Call: Parameter

@@ -31,7 +31,7 @@ use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -42,7 +42,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;

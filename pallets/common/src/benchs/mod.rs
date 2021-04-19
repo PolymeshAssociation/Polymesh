@@ -15,7 +15,7 @@
 
 mod user;
 use crate::traits::{identity::Trait, TestUtilsFn};
-use frame_system::Trait as SysTrait;
+use frame_system::Config as SysTrait;
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;

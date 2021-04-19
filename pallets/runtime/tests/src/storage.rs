@@ -64,7 +64,7 @@ use sp_runtime::{
 use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
 use std::convert::From;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 impl_opaque_keys! {
     pub struct MockSessionKeys {
@@ -216,7 +216,7 @@ parameter_types! {
 }
 
 pub type NegativeImbalance<T> =
-    <balances::Module<T> as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees<T>(sp_std::marker::PhantomData<T>);
 
@@ -228,7 +228,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees<TestStorage> 
     }
 }
 
-impl frame_system::Trait for TestStorage {
+impl frame_system::Config for TestStorage {
     /// The basic call filter to use in dispatchable.
     type BaseCallFilter = ();
     /// The identifier used to distinguish between accounts.
@@ -317,7 +317,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
 }
 
-impl pallet_timestamp::Trait for TestStorage {
+impl pallet_timestamp::Config for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -443,7 +443,7 @@ impl group::Trait<group::Instance2> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
+pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
 /// Voting majority origin for `Instance`.
 type VMO<Instance> = committee::EnsureThresholdMet<AccountId, Instance>;
@@ -727,7 +727,7 @@ pub type TestUtils = pallet_test_utils::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let uid = InvestorUid::from(format!("{}", id).as_str());
     make_account_with_uid(id, uid)
 }
@@ -735,7 +735,7 @@ pub fn make_account(
 pub fn make_account_with_portfolio(
     id: AccountId,
 ) -> (
-    <TestStorage as frame_system::Trait>::Origin,
+    <TestStorage as frame_system::Config>::Origin,
     IdentityId,
     PortfolioId,
 ) {
@@ -750,7 +750,7 @@ pub fn make_account_with_scope(
     cdd_provider: AccountId,
 ) -> Result<
     (
-        <TestStorage as frame_system::Trait>::Origin,
+        <TestStorage as frame_system::Config>::Origin,
         IdentityId,
         ScopeId,
     ),
@@ -765,7 +765,7 @@ pub fn make_account_with_scope(
 pub fn make_account_with_uid(
     id: AccountId,
     uid: InvestorUid,
-) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, uid, 1_000_000)
 }
 
@@ -774,7 +774,7 @@ pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
     balance: <TestStorage as CommonTrait>::Balance,
-) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
@@ -806,7 +806,7 @@ pub fn make_account_with_balance(
 
 pub fn make_account_without_cdd(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
     let did = Identity::_register_did(id.clone(), vec![], None).expect("did");

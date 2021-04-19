@@ -83,7 +83,7 @@ pub trait WeightInfo {
 }
 
 pub trait Trait: CommonTrait + IdentityTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type WeightInfo: WeightInfo;
 }
 

@@ -83,10 +83,7 @@
 //! - `end_block` - executes scheduled proposals
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
-#![feature(or_patterns)]
-#![feature(bool_to_option)]
-#![feature(associated_type_bounds)]
+#![feature(const_option, bool_to_option, associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -166,7 +163,7 @@ pub trait WeightInfo {
 
 /// Balance
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A wrapper for a proposal url.
 #[derive(
@@ -391,8 +388,8 @@ type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
-    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
-    + pallet_timestamp::Trait
+    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
+    + pallet_timestamp::Config
     + IdentityTrait
     + CommonTrait
     + pallet_base::Trait
@@ -404,7 +401,7 @@ pub trait Trait:
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
-    type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+    type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Config>::Moment>;
 
     /// Voting majority origin for Technical Committee.
     type TechnicalCommitteeVMO: EnsureOrigin<Self::Origin>;
@@ -413,7 +410,7 @@ pub trait Trait:
     type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     /// Weight calaculation.
     type WeightInfo: WeightInfo;
@@ -424,7 +421,7 @@ pub trait Trait:
     /// different.
     type Scheduler: ScheduleNamed<
         Self::BlockNumber,
-        <Self as frame_system::Trait>::Call,
+        <Self as frame_system::Config>::Call,
         Self::SchedulerOrigin,
     >;
 }
@@ -515,8 +512,8 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
-        <T as frame_system::Trait>::AccountId,
-        <T as frame_system::Trait>::BlockNumber,
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
     {
         /// Pruning Historical PIPs is enabled or disabled (caller DID, old value, new value)
         HistoricalPipsPruned(IdentityId, bool, bool),

@@ -21,6 +21,7 @@
 
 use blake2::{Blake2b, Digest};
 use confidential_identity_v1::Scalar as ScalarV1;
+use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -61,6 +62,9 @@ pub type Hash = sp_core::H256;
 
 /// Index of a transaction in the relay chain. 32-bit should be plenty.
 pub type Index = u32;
+
+/// Alias for Gas.
+pub type Gas = Weight;
 
 /// App-specific crypto used for reporting equivocation/misbehavior in BABE and
 /// GRANDPA. Any rewards for misbehavior reporting will be paid out to this

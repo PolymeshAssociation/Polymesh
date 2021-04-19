@@ -12,17 +12,19 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
+use pallet_contracts::WeightInfo;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
-use polymesh_primitives::{Balance, BlockNumber, Moment};
+use polymesh_primitives::{Balance, BlockNumber, Gas, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
+    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance, RuntimeBlockWeights,
+    AVERAGE_ON_INITIALIZE_RATIO,
 };
 use sp_core::u32_trait::{_1, _4};
 use sp_runtime::transaction_validity::TransactionPriority;
@@ -38,9 +40,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use frame_support::StorageValue;
-pub use frame_system::Call as SystemCall;
+pub use frame_system::{limits::BlockWeights, Call as SystemCall};
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
@@ -69,6 +70,7 @@ parameter_types! {
     /// Assume 10% of weight for average on_initialize calls.
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
         .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
+
     pub const Version: RuntimeVersion = VERSION;
 
     // Frame:
@@ -105,6 +107,8 @@ parameter_types! {
     pub const TombstoneDeposit: Balance = 0;
     pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
+    /// Reward that is received by the party whose touch has led
+    /// to removal of a contract.
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 
     // Offences:
@@ -113,10 +117,6 @@ parameter_types! {
     // I'm online:
     pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-
-    // Finality tracker:
-    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
-    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
@@ -139,6 +139,18 @@ parameter_types! {
 
     // Identity:
     pub const InitialPOLYX: Balance = 0;
+
+    /// The fraction of the deposit that should be used as rent per block.
+    pub RentFraction: Perbill = Perbill::from_rational_approximation(1u32, 30 * DAYS);
+    // The lazy deletion runs inside on_initialize.
+    pub DeletionWeightLimit: Weight = AVERAGE_ON_INITIALIZE_RATIO *
+        RuntimeBlockWeights::get().max_block;
+    // The weight needed for decoding the queue should be less or equal than a fifth
+    // of the overall weight dedicated to the lazy deletion.
+    pub DeletionQueueDepth: u32 = ((DeletionWeightLimit::get() / (
+                <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(1) -
+                <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(0)
+                )) / 5) as u32;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -178,6 +190,9 @@ parameter_types! {
     pub const MinimumBond: Balance = 1 * POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+
+    pub const ReportLongevity: u64 =
+        BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
@@ -312,7 +327,6 @@ construct_runtime!(
 
         // Session: Genesis config deps: System.
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
-        FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent} = 11,
         Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
         ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
@@ -325,7 +339,7 @@ construct_runtime!(
         MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
+        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
 
         // Polymesh Governance Committees

@@ -16,14 +16,14 @@ use pallet_balances as balances;
 use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 

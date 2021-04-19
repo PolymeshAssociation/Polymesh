@@ -75,7 +75,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(bool_to_option, or_patterns, const_option)]
+#![feature(bool_to_option, const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -100,10 +100,10 @@ use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
-    balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::contracts::ContractsFn,
     with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -152,16 +152,15 @@ pub trait WeightInfo {
 
 /// The module's configuration trait.
 pub trait Trait:
-    BalancesTrait
-    + pallet_session::Trait
+    pallet_balances::Config
+    + pallet_session::Config
     + pallet_statistics::Trait
-    + polymesh_contracts::Trait
     + pallet_portfolio::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>>
         + From<checkpoint::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
+        + Into<<Self as frame_system::Config>::Event>;
 
     type Currency: Currency<Self::AccountId>;
 
@@ -185,6 +184,8 @@ pub trait Trait:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: checkpoint::WeightInfo;
+
+    type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Ownership status of a ticker/token.
@@ -279,7 +280,8 @@ pub struct ClassicTickerRegistration {
 storage_migration_ver!(2);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Asset {
+    trait Store for Module<T: Trait> as Asset
+    {
         /// Ticker registration details.
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
@@ -841,8 +843,8 @@ decl_event! {
     pub enum Event<T>
     where
         Balance = <T as CommonTrait>::Balance,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
-        AccountId = <T as frame_system::Trait>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event for transfer of tokens.
         /// caller DID, ticker, from portfolio, to portfolio, value
@@ -1816,9 +1818,9 @@ impl<T: Trait> Module<T> {
     }
 
     // Return bool to know whether the given extension is compatible with the supported version of asset.
-    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: &T::AccountId) -> bool {
+    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: T::AccountId) -> bool {
         // Access version.
-        let ext_version = <polymesh_contracts::Module<T>>::extension_info(extension_id).version;
+        let ext_version = T::ContractsFn::extension_info(extension_id).version;
         Self::compatible_extension_version(ext_type) == ext_version
     }
 
@@ -2198,7 +2200,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the version compatibility with the asset.
         ensure!(
-            Self::is_ext_compatible(&details.extension_type, &details.extension_id),
+            Self::is_ext_compatible(&details.extension_type, details.extension_id.clone()),
             Error::<T>::IncompatibleExtensionVersion
         );
         // Ensure the hard limit on the count of maximum transfer manager an asset can have.

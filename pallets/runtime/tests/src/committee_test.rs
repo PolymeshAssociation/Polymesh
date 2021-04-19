@@ -19,14 +19,14 @@ use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Pips = pips::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
 fn motions_basic_environment_works() {
@@ -98,7 +98,7 @@ fn enact_snapshot_results_call() -> Call {
 
 fn hash_enact_snapshot_results() -> H256 {
     let call = enact_snapshot_results_call();
-    <TestStorage as frame_system::Trait>::Hashing::hash_of(&call)
+    <TestStorage as frame_system::Config>::Hashing::hash_of(&call)
 }
 
 fn vote(who: &Origin, approve: bool) -> DispatchResult {
@@ -509,7 +509,7 @@ fn release_coordinator_majority_we() {
     );
 
     // Bob votes for themselves, this time *via hash*.
-    let hash = <TestStorage as frame_system::Trait>::Hashing::hash_of(&call);
+    let hash = <TestStorage as frame_system::Config>::Hashing::hash_of(&call);
     assert_ok!(Committee::vote(bob, hash, 0, true));
 
     // Now we have a new RC.

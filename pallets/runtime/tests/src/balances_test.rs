@@ -17,12 +17,12 @@ use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid};
 use sp_runtime::traits::SignedExtension;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Error = balances::Error<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.

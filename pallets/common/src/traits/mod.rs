@@ -35,7 +35,7 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait CommonTrait: frame_system::Trait + PermissionChecker {
+pub trait CommonTrait: frame_system::Config + PermissionChecker {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -72,6 +72,8 @@ pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
+pub mod contracts;
+pub use contracts::ContractsFn;
 
 pub trait TestUtilsFn<AccountId> {
     /// Creates a new did and attaches a CDD claim to it.
@@ -94,9 +96,9 @@ pub mod base {
         }
     }
 
-    pub trait Trait: frame_system::Trait {
+    pub trait Trait: frame_system::Config {
         /// The overarching event type.
-        type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+        type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
         /// The maximum length governing `TooLong`.
         ///

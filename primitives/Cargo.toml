@@ -15,23 +15,23 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 
 # Crypto 
 blake2 = { version = "0.9.0", default-features = false }
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "MESH-1569/pius_v2_integration" }
-confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "confidential-identity-b1.1.3" }
+confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false }
 
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
-sp-application-crypto = { version = "2.0.1", default-features = false, optional = true }
-sp-arithmetic = { version = "2.0.1", default-features = false }
-sp-core = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-sp-runtime-interface = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
-sp-version = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
+sp-application-crypto = { version = "3.0.0", default-features = false, optional = true }
+sp-arithmetic = { version = "3.0.0", default-features = false }
+sp-core = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-runtime-interface = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+sp-version = { version = "3.0.0", default-features = false }
 
 [dev-dependencies]
 hex = { version = "^0.4.0", default-features = false }

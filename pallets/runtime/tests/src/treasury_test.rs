@@ -10,12 +10,12 @@ use pallet_treasury::{self as treasury, TreasuryTrait};
 use polymesh_common_utilities::Context;
 use polymesh_primitives::Beneficiary;
 use sp_runtime::DispatchError;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type Treasury = treasury::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
 fn reimbursement_and_disbursement() {

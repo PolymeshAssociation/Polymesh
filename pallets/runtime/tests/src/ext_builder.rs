@@ -17,7 +17,7 @@ use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
 use sp_std::{cell::RefCell, convert::From, iter};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;

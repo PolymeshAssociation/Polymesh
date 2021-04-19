@@ -14,9 +14,9 @@ use sp_io::TestExternalities;
 use sp_runtime::{generic, traits::SignedExtension};
 use sp_std::convert::From;
 
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
-pub fn make_call() -> (<Runtime as frame_system::Trait>::Call, usize) {
+pub fn make_call() -> (<Runtime as frame_system::Config>::Call, usize) {
     (Call::System(frame_system::Call::remark(vec![])), 10)
 }
 

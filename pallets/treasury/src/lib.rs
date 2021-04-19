@@ -38,13 +38,13 @@ pub mod benchmarking;
 
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID, traits::balances::Trait as BalancesTrait, Context, GC_DID,
+    constants::TREASURY_MODULE_ID, traits::identity::Trait as IdentityTrait, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -54,13 +54,13 @@ pub type ProposalIndex = u32;
 
 type Identity<T> = identity::Module<T>;
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-pub trait Trait: frame_system::Trait + BalancesTrait {
+pub trait Trait: frame_system::Config + IdentityTrait {
     // The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The native currency.
     type Currency: Currency<Self::AccountId>;
     /// Weight information for extrinsics in the identity pallet.
@@ -162,7 +162,7 @@ impl<T: Trait> Module<T> {
         let _ = T::Currency::withdraw(
             &Self::account_id(),
             amount,
-            WithdrawReason::Transfer.into(),
+            WithdrawReasons::TRANSFER.into(),
             ExistenceRequirement::AllowDeath,
         );
         let primary_key = Identity::<T>::did_records(target).primary_key;

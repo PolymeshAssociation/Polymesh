@@ -111,11 +111,9 @@ use sp_std::{
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait
-{
+pub trait Trait: pallet_timestamp::Config + frame_system::Config + IdentityTrait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Asset module
     type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;

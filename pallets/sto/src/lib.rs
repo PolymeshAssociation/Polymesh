@@ -38,7 +38,7 @@ use pallet_settlement::{
     self as settlement, Leg, ReceiptDetails, SettlementType, Trait as SettlementTrait, VenueInfo,
     VenueType,
 };
-use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
+use pallet_timestamp::{self as timestamp, Config as TimestampTrait};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
@@ -164,10 +164,10 @@ pub trait WeightInfo {
 }
 
 pub trait Trait:
-    frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait
+    frame_system::Config + IdentityTrait + SettlementTrait + PortfolioTrait + pallet_base::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Weight information for extrinsic of the sto pallet.
     type WeightInfo: WeightInfo;
 }
@@ -250,7 +250,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -567,7 +567,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn set_frozen(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         offering_asset: Ticker,
         fundraiser_id: u64,
         frozen: bool,
@@ -589,7 +589,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `origin` is permissioned, returning its DID.
     fn ensure_perms(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         asset: &Ticker,
     ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
         let PermissionedCallOriginData {
@@ -603,7 +603,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `origin` is permissioned and the PIA, returning its DID.
     fn ensure_perms_pia(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         asset: &Ticker,
     ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
         let (primary_did, secondary_key) = Self::ensure_perms(origin, asset)?;

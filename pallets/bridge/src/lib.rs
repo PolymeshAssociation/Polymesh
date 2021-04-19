@@ -100,7 +100,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::StorageDoubleMap,
@@ -116,25 +116,22 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
-    constants::currency::POLY,
-    traits::{
-        balances::{CheckCdd, Trait as BalancesTrait},
-        identity::Trait as IdentityTrait,
-        CommonTrait,
-    },
+    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
 use polymesh_primitives::{storage_migrate_on, storage_migration_ver, IdentityId, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, One, Zero};
+use sp_runtime::traits::{CheckedAdd, MaybeSerializeDeserialize, One, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + scheduler::Trait + BalancesTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Trait:
+    multisig::Trait + scheduler::Config + pallet_balances::Config + pallet_base::Trait
+{
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
     type Scheduler: ScheduleAnon<
@@ -283,6 +280,7 @@ decl_storage! {
         /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             use polymesh_primitives::Permissions;
+            use frame_support::debug;
 
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
@@ -321,6 +319,8 @@ decl_storage! {
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
         pub BridgeTxDetails get(fn bridge_tx_details) build(|config: &GenesisConfig<T>| {
+            use polymesh_common_utilities::constants::currency::POLY;
+
             // Record the transactions in genesis.
             config.complete_txs.iter().map(|tx| {
                 let recipient = tx.recipient.clone();
@@ -330,7 +330,7 @@ decl_storage! {
                     execution_block: Zero::zero(),
                     tx_hash: tx.tx_hash,
                 };
-                debug::info!(
+                frame_support::debug::info!(
                     "Credited Genesis bridge transaction to {:?} with nonce {} for {:?} POLYX",
                     recipient,
                     tx.nonce,
@@ -384,9 +384,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = <T as CommonTrait>::Balance,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         /// Confirmation of a signer set change.
         ControllerChanged(IdentityId, AccountId),
@@ -418,7 +418,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -614,20 +614,23 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
     pub fn controller_key() -> T::AccountId {
         Self::controller()
     }
 
     fn ensure_admin_did(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
     ) -> Result<IdentityId, DispatchError> {
         let sender = Self::ensure_admin(origin)?;
         Context::current_identity_or::<Identity<T>>(&sender)
     }
 
     fn ensure_admin(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
     ) -> Result<T::AccountId, DispatchError> {
         let sender = ensure_signed(origin)?;
         ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -646,7 +649,7 @@ impl<T: Trait> Module<T> {
         <BridgeTxDetails<T>>::mutate(&tx.recipient, &tx.nonce, |detail| detail.status = status);
     }
 
-    /// Issues the transacted amount to the recipient.
+    ///Issues the transacted amount to the recipient.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
         let did = T::CddChecker::get_key_cdd_did(&recipient).ok_or(Error::<T>::NoValidCdd)?;
 

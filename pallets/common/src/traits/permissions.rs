@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use polymesh_primitives::{DispatchableName, IdentityId, PalletName, SecondaryKey};
 
 /// Permissions module configuration trait.
-pub trait PermissionChecker: frame_system::Trait {
+pub trait PermissionChecker: frame_system::Config {
     /// The type that implements the permission check function.
     type Checker: CheckAccountCallPermissions<Self::AccountId>;
 }

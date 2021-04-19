@@ -719,7 +719,7 @@ impl<T: Trait> Module<T> {
 fn add_schedule(ss: &mut Vec<StoredSchedule>, schedule: StoredSchedule) {
     // `Ok(_)` is unreachable at runtime as adding a schedule with the same ID twice won't happen.
     // However, we do this to simplify, as the comparison against IDs affords us sorting stability.
-    let Err(i) | Ok(i) =
+    let (Err(i) | Ok(i)) =
         ss.binary_search_by(|s| s.at.cmp(&schedule.at).then(s.id.cmp(&schedule.id)));
     ss.insert(i, schedule);
 }

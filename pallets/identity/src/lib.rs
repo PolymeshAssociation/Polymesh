@@ -83,7 +83,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns, const_option, bool_to_option)]
+#![feature(const_option, bool_to_option)]
 
 pub mod types;
 pub use types::{
@@ -131,7 +131,6 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord,
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
@@ -211,7 +210,7 @@ decl_storage! {
     }
     add_extra_genesis {
         // Identities at genesis.
-        config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
+        config(identities): Vec<polymesh_primitives::identity_id::GenesisIdentityRecord<T::AccountId>>;
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
@@ -2027,7 +2026,7 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn register_systematic_id(issuer: SystematicIssuers)
     where
-        <T as frame_system::Trait>::AccountId: core::fmt::Display,
+        <T as frame_system::Config>::AccountId: core::fmt::Display,
     {
         let acc = issuer.as_module_id().into_account();
         let id = issuer.as_id();
@@ -2087,7 +2086,7 @@ impl<T: Trait> Module<T> {
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
         let AccountCallPermissionsData {

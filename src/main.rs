@@ -9,6 +9,6 @@ mod service;
 mod cli;
 mod command;
 
-fn main() -> command::Result<()> {
+fn main() -> Result<(), sc_cli::Error> {
     command::run()
 }

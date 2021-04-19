@@ -20,7 +20,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{
         BalanceStatus as Status, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
-        OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons,
+        OnUnbalanced, StoredMap, WithdrawReasons,
     },
     weights::Weight,
 };
@@ -91,9 +91,9 @@ pub enum Reasons {
 
 impl From<WithdrawReasons> for Reasons {
     fn from(r: WithdrawReasons) -> Reasons {
-        if r == WithdrawReasons::from(WithdrawReason::TransactionPayment) {
+        if r == WithdrawReasons::from(WithdrawReasons::TRANSACTION_PAYMENT) {
             Reasons::Fee
-        } else if r.contains(WithdrawReason::TransactionPayment) {
+        } else if r.contains(WithdrawReasons::TRANSACTION_PAYMENT) {
             Reasons::All
         } else {
             Reasons::Misc
@@ -113,7 +113,7 @@ impl BitOr for Reasons {
 
 decl_event!(
     pub enum Event<T> where
-    <T as system::Trait>::AccountId,
+    <T as system::Config>::AccountId,
     <T as CommonTrait>::Balance
     {
          /// An account was created with some free balance. \[did, account, free_balance]
@@ -146,21 +146,18 @@ pub trait WeightInfo {
 }
 
 pub trait Trait: IdentityTrait {
-    /// The means of storing the balances of an account.
-    type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
-
     /// Handler for the unbalanced reduction when removing a dust account.
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
     type ExistentialDeposit: Get<<Self as CommonTrait>::Balance>;
 
-    /// Used to check if an account is linked to a CDD'd identity
-    type CddChecker: CheckCdd<Self::AccountId>;
+    /// The means of storing the balances of an account.
+    type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
 
     /// Weight information for extrinsics in this pallet.
     type WeightInfo: WeightInfo;
@@ -168,6 +165,9 @@ pub trait Trait: IdentityTrait {
     /// The maximum number of locks that should exist on an account.
     /// Not strictly enforced, but used for weight estimation.
     type MaxLocks: Get<u32>;
+
+    /// Used to check if an account is linked to a CDD'd identity
+    type CddChecker: CheckCdd<Self::AccountId>;
 }
 
 pub trait BalancesTrait<A, B, NI> {

@@ -26,19 +26,19 @@ use polymesh_primitives::{
 };
 use sp_core::sr25519::Public;
 use sp_runtime::{traits::Hash, Perbill};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 const GAS_LIMIT: Gas = 10_000_000_000;
 
 type Balances = balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type WrapperContracts = polymesh_contracts::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Contracts = pallet_contracts::Module<TestStorage>;
 type WrapperContractsError = polymesh_contracts::Error<TestStorage>;
 type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
 type PermissionError = permissions::Error<TestStorage>;
-type Hashing = <TestStorage as frame_system::Trait>::Hashing;
+type Hashing = <TestStorage as frame_system::Config>::Hashing;
 type CodeHash = <Hashing as Hash>::Output;
 
 /// Load a given wasm module represented by a .wat file and returns a wasm binary contents along

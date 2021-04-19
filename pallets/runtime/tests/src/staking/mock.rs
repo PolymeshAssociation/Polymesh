@@ -249,7 +249,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
 }
-impl frame_system::Trait for Test {
+impl frame_system::Config for Test {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Index = AccountIndex;
@@ -352,7 +352,7 @@ impl pallet_authorship::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -1609,7 +1609,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 
 pub fn make_account_with_uid(
     id: AccountId,
-) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000, None)
 }
 
@@ -1618,7 +1618,7 @@ pub fn make_account_with_balance(
     id: AccountId,
     balance: <Test as CommonTrait>::Balance,
     expiry: Option<Moment>,
-) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
     let uid = create_investor_uid(id);

@@ -14,9 +14,9 @@ use polymesh_primitives::{
 use sp_arithmetic::Permill;
 use sp_core::sr25519::Public;
 use sp_std::convert::TryFrom;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = asset::Module<TestStorage>;
 type Statistic = statistics::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;

@@ -18,7 +18,7 @@ use polymesh_primitives::{
     PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory, SubsetRestriction,
 };
 use sp_core::sr25519::{Public, Signature};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 

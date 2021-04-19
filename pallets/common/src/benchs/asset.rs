@@ -35,7 +35,7 @@ pub fn make_asset<Asset, Identity, Balance, Acc, Origin, N>(
 where
     Asset: AssetFnTrait<Balance, Acc, Origin>,
     Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
+    Origin: From<RawOrigin<<Identity as frame_system::Config>::AccountId>>,
     Balance: From<u128>,
     N: AsRef<[u8]>,
 {
@@ -49,7 +49,7 @@ pub fn make_indivisible_asset<Asset, Identity, Balance, Acc, Origin, N>(
 where
     Asset: AssetFnTrait<Balance, Acc, Origin>,
     Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
+    Origin: From<RawOrigin<<Identity as frame_system::Config>::AccountId>>,
     Balance: From<u128>,
     N: AsRef<[u8]>,
 {
@@ -64,7 +64,7 @@ fn make_base_asset<Asset, Identity, Balance, Acc, Origin, N>(
 where
     Asset: AssetFnTrait<Balance, Acc, Origin>,
     Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
+    Origin: From<RawOrigin<<Identity as frame_system::Config>::AccountId>>,
     Balance: From<u128>,
     N: AsRef<[u8]>,
 {

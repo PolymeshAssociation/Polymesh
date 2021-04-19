@@ -13,12 +13,12 @@ use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
 fn cdd_checks() {

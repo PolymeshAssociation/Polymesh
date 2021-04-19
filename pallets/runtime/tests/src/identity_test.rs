@@ -37,7 +37,7 @@ use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 type AuthorizationsGiven = identity::AuthorizationsGiven<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
@@ -47,7 +47,7 @@ type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
 type IdentityError = pallet_identity::Error<TestStorage>;
 
