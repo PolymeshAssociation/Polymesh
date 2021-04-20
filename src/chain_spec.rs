@@ -295,6 +295,7 @@ fn genesis_processed_data(
 fn dev_genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
     key_bridge_locks: Vec<BridgeLockId>,
+    other_funded_accounts: Vec<AccountId>,
 ) -> (
     GenesisIdentityRecord<AccountId>,
     Vec<(
@@ -325,6 +326,12 @@ fn dev_genesis_processed_data(
             .push(SecondaryKey::from_account_id_with_full_perms(
                 controller.clone(),
             ));
+    }
+
+    for account in other_funded_accounts {
+        identity
+            .secondary_keys
+            .push(SecondaryKey::from_account_id_with_full_perms(account));
     }
 
     // Accumulate bridge transactions
@@ -474,9 +481,13 @@ pub mod general {
         root_key: AccountId,
         enable_println: bool,
         key_bridge_locks: Vec<BridgeLockId>,
+        other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
-        let (identity, stakers, complete_txs) =
-            dev_genesis_processed_data(&initial_authorities, key_bridge_locks);
+        let (identity, stakers, complete_txs) = dev_genesis_processed_data(
+            &initial_authorities,
+            key_bridge_locks,
+            other_funded_accounts,
+        );
 
         rt::runtime::GenesisConfig {
             frame_system: Some(frame(rt::WASM_BINARY)),
@@ -541,6 +552,12 @@ pub mod general {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::generate_bridge_locks(20),
+            vec![
+                seeded_acc_id("Bob"),
+                seeded_acc_id("Charlie"),
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Eve"),
+            ],
         )
     }
 
@@ -572,6 +589,11 @@ pub mod general {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::generate_bridge_locks(20),
+            vec![
+                seeded_acc_id("Charlie"),
+                seeded_acc_id("Dave"),
+                seeded_acc_id("Eve"),
+            ],
         )
     }
 
