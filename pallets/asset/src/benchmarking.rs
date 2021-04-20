@@ -170,6 +170,40 @@ fn set_config<T: Trait>() {
     });
 }
 
+fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::AccountId>>(
+    n: u32,
+    i: u32,
+    f: u32,
+    total_supply: u128,
+) -> (
+    RawOrigin<T::AccountId>,
+    AssetName,
+    Ticker,
+    SecurityToken<T::Balance>,
+    Vec<AssetIdentifier>,
+    Option<FundingRoundName>,
+) {
+    set_config::<T>();
+    let ticker = Ticker::repeating(b'A');
+    let name = AssetName::from(vec![b'N'; n as usize].as_slice());
+
+    let identifiers: Vec<_> = iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap())
+        .take(i as usize)
+        .collect();
+    let fundr = Some(FundingRoundName::from(vec![b'F'; f as usize].as_slice()));
+    let owner = owner::<T>();
+
+    let token = SecurityToken {
+        name: name.clone(),
+        owner_did: owner.did(),
+        total_supply: total_supply.into(),
+        divisible: true,
+        asset_type: AssetType::default(),
+        primary_issuance_agent: None,
+    };
+    (owner.origin, name, ticker, token, identifiers, fundr)
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -228,28 +262,10 @@ benchmarks! {
         // Funding round name length.
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
-        set_config::<T>();
-        let ticker = Ticker::repeating(b'A');
-        let name = AssetName::from(vec![b'N'; n as usize].as_slice());
-
-        let identifiers: Vec<_> = iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap())
-            .take(i as usize)
-            .collect();
-        let identifiers2 = identifiers.clone();
-        let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let owner = owner::<T>();
-        let total_supply: T::Balance = 1_000_000u32.into();
-
-        let asset_type = AssetType::default();
-        let token = SecurityToken {
-            name: name.clone(),
-            owner_did: owner.did(),
-            total_supply: total_supply.clone(),
-            divisible: true,
-            asset_type: asset_type.clone(),
-            primary_issuance_agent: None,
-        };
-    }: _(owner.origin, name, ticker, total_supply, token.divisible, asset_type, identifiers, Some(fundr))
+       let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 0);
+       let identifiers2 = identifiers.clone();
+       let asset_type = token.asset_type.clone();
+    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr)
     verify {
         assert_eq!(Module::<T>::token_details(ticker), token);
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);

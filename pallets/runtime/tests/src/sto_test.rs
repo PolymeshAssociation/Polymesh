@@ -74,7 +74,7 @@ fn stop_fundraiser_ext() {
 }
 
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         origin,
         vec![b'A'].into(),
         ticker,
