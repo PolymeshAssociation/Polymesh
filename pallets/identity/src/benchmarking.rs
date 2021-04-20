@@ -98,7 +98,7 @@ where
     let make_proof = v1::InvestorZKProofData::new;
     #[cfg(not(feature = "std"))]
     let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
-        let mut proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        let proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
         <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
     };
 

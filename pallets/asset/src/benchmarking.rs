@@ -19,7 +19,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{self, AccountIdOf, User, UserBuilder},
+    benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     TestUtilsFn,
 };
@@ -35,23 +35,6 @@ const MAX_DOC_URI: usize = 4096;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
-
-pub fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
-        .expect("Ticker cannot be created")
-}
-
-fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
-        .expect("Asset cannot be created")
-}
-
-pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(
-        owner, None,
-    )
-    .expect("Indivisible asset cannot be created")
-}
 
 pub fn make_document() -> Document {
     Document {
@@ -113,7 +96,7 @@ fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> (User<T>, Ticker, T::AccountId) {
     let owner = owner::<T>();
-    let ticker = make_asset::<T>(&owner);
+    let ticker = make_asset::<T>(&owner, None).unwrap();
     let ext_details = make_extension::<T>(is_archive);
     let ext_id = ext_details.extension_id.clone();
     Module::<T>::add_extension(owner.origin().into(), ticker, ext_details)
@@ -145,7 +128,7 @@ fn owner<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
 
 pub fn owned_ticker<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = owner::<T>();
-    let ticker = make_asset::<T>(&owner);
+    let ticker = make_asset::<T>(&owner, None).unwrap();
     (owner, ticker)
 }
 
@@ -220,7 +203,7 @@ benchmarks! {
 
     accept_ticker_transfer {
         let owner = owner::<T>();
-        let ticker = make_ticker::<T>(owner.origin().into());
+        let ticker = make_ticker::<T>(owner.origin().into(), None).unwrap();
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
         let did = new_owner.did();
 
@@ -317,7 +300,7 @@ benchmarks! {
 
     make_divisible {
         let owner = owner::<T>();
-        let ticker = make_indivisible_asset::<T>(&owner);
+        let ticker = make_indivisible_asset::<T>(&owner, None).unwrap();
     }: _(owner.origin, ticker)
     verify {
         assert_eq!(Module::<T>::token_details(ticker).divisible, true);

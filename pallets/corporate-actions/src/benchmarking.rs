@@ -41,9 +41,7 @@ fn setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
-    let ticker =
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(&owner, None)
-            .expect("Asset cannot be created");
+    let ticker = make_asset::<T>(&owner, None).expect("Asset cannot be created");
     (owner, ticker)
 }
 

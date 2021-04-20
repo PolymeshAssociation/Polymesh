@@ -129,8 +129,8 @@ use polymesh_common_utilities::{
     },
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
+use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord,
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,

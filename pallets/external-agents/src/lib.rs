@@ -102,7 +102,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::create_group()]
+        #[weight = <T as Trait>::WeightInfo::create_group(perms.elems_len().unwrap_or(0) as u32)]
         pub fn create_group(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_create_group(origin, ticker, perms)
         }
@@ -122,7 +122,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::set_group_permissions()]
+        #[weight = <T as Trait>::WeightInfo::set_group_permissions(perms.elems_len().unwrap_or(0) as u32)]
         pub fn set_group_permissions(origin, ticker: Ticker, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_set_group_permissions(origin, ticker, id, perms)
         }
@@ -152,7 +152,7 @@ decl_module! {
         ///
         /// # Errors
         /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
-        #[weight = <T as Trait>::WeightInfo::remove_agent()]
+        #[weight = <T as Trait>::WeightInfo::abdicate()]
         pub fn abdicate(origin, ticker: Ticker) -> DispatchResult {
             Self::base_abdicate(origin, ticker)
         }
@@ -172,7 +172,10 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::remove_agent()]
+        #[weight = match group {
+            AgentGroup::Custom(_) => <T as Trait>::WeightInfo::change_group_custom(),
+            _ => <T as Trait>::WeightInfo::change_group_builtin(),
+        }]
         pub fn change_group(origin, ticker: Ticker, agent: IdentityId, group: AgentGroup) -> DispatchResult {
             Self::base_change_group(origin, ticker, agent, group)
         }

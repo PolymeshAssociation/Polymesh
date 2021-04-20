@@ -6,6 +6,7 @@ use polymesh_common_utilities::{
     traits::TestUtilsFn,
 };
 use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::IdentityId;
 use sp_std::prelude::*;
 
 /// Create a new token with name `name` on behalf of `owner`.

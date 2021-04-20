@@ -3,10 +3,12 @@ use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId, Ticker};
 
 pub trait WeightInfo {
-    fn create_group() -> Weight;
-    fn set_group_permissions() -> Weight;
+    fn create_group(p: u32) -> Weight;
+    fn set_group_permissions(p: u32) -> Weight;
     fn remove_agent() -> Weight;
-    fn change_group() -> Weight;
+    fn abdicate() -> Weight;
+    fn change_group_builtin() -> Weight;
+    fn change_group_custom() -> Weight;
 }
 
 pub trait Trait: frame_system::Trait + crate::balances::Trait {
