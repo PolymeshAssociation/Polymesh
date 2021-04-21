@@ -15,23 +15,37 @@
 
 //! # External Agents Module
 //!
-//! The External Agents module is TODO
+//! The External Agents module provides extrinsics for managing the set of
+//! agents for an asset, what groups those agents belong to,
+//! and what permissions a group affords the agent.
+//!
+//! This is split into two categories, a) managing groups, b) managing agents.
+//! In the former we find `create_group` and `set_group_permissions`
+//! and in the latter we find `remove_agent`, `abdicate`, `change_group`,
+//! as well as hooks for the Identity module, that,
+//! via authorizations enable the addition of agents.
+//!
+//! Finally, the module provides functions for ensuring that an agent is permissioned.
+//! These functions are then used by other pallets where relevant.
 //!
 //! ## Overview
 //!
 //! The External Agents module provides functions for:
 //!
-//! - TODO
+//! - Adding and altering custom agent groups.
+//! - Managing the external agents of an asset.
+//! - Ensuring that an agent has sufficient permissions for an extrinsic.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! - TODO
-//!
-//! ### Public Functions
-//!
-//! - TODO
+//! - `create_group` creates a custom agent group (CAG) for a asset,
+//!   resolving to a certain set of permissions.
+//! - `set_group_permissions` changes the permissions a CAG resolves to for a asset.
+//! - `remove_agent` removes an agent from an asset.
+//! - `abdicate` removes the caller as an agent from an asset.
+//! - `change_group` changes the agent group an asset belongs to.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(iter_advance_by)]
