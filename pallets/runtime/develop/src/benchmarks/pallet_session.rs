@@ -73,9 +73,8 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
             false,
         )
         .unwrap();
-        let controller = pallet_staking::Module::<T>::bonded(&stash)
-            .ok_or("not stash")
-            .unwrap();
+        let controller = pallet_staking::Module::<T>::bonded(&stash).expect("not stash");
+
         let keys = T::Keys::default();
         let proof: Vec<u8> = vec![0, 1, 2, 3];
 

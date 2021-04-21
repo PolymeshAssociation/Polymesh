@@ -185,11 +185,11 @@ benchmarks! {
     bond_extra {
         let (stash, controller) = create_stash_controller::<T>(5, INIT_BALANCE).unwrap();
         let max_additional = 2_000_000u32;
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
         let original_bonded: BalanceOf<T> = ledger.active;
     }: _(stash.origin(), max_additional.into())
     verify {
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created after").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created after");
         let new_bonded: BalanceOf<T> = ledger.active;
         assert!(original_bonded < new_bonded);
     }
@@ -197,11 +197,11 @@ benchmarks! {
     unbond {
         let (_, controller) = create_stash_controller::<T>(500, INIT_BALANCE).unwrap();
         let amount = 20u32;
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
         let original_bonded: BalanceOf<T> = ledger.active;
     }: _(controller.origin(), amount.into())
     verify {
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created after").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created after");
         let new_bonded: BalanceOf<T> = ledger.active;
         assert!(original_bonded > new_bonded);
     }
@@ -215,11 +215,11 @@ benchmarks! {
         let amount = 50u32; // Half of total
         Staking::<T>::unbond(controller.origin().into(), amount.into()).unwrap();
         CurrentEra::put(EraIndex::max_value());
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
         let original_total: BalanceOf<T> = ledger.total;
     }: withdraw_unbonded(controller.origin(), s)
     verify {
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created after").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created after");
         let new_total: BalanceOf<T> = ledger.total;
         assert!(original_total > new_total);
     }
@@ -233,7 +233,7 @@ benchmarks! {
         let amount = INIT_BALANCE;
         Staking::<T>::unbond(controller.origin().into(), amount.into()).unwrap();
         CurrentEra::put(EraIndex::max_value());
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created before").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
         let original_total: BalanceOf<T> = ledger.total;
     }: withdraw_unbonded(controller.origin(), s)
     verify {
@@ -410,7 +410,7 @@ benchmarks! {
         let original_bonded: BalanceOf<T> = staking_ledger.active;
     }: _(controller.origin(), (l + 100).into())
     verify {
-        let ledger = Ledger::<T>::get(&controller.account()).ok_or("ledger not created after").unwrap();
+        let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created after");
         let new_bonded: BalanceOf<T> = ledger.active;
         assert!(original_bonded < new_bonded);
     }
@@ -450,7 +450,7 @@ benchmarks! {
         create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
         let session_index = SessionIndex::one();
     }: {
-        let validators = Staking::<T>::new_era(session_index).ok_or("`new_era` failed").unwrap();
+        let validators = Staking::<T>::new_era(session_index).expect("`new_era` failed");
         assert_eq!(validators.len(), v as usize);
     }
 
