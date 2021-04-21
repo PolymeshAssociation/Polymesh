@@ -5080,37 +5080,18 @@ dependencies = [
 name = "pallet-external-agents"
 version = "0.1.0"
 dependencies = [
- "arrayvec 0.5.2",
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "hex-literal 0.2.1",
- "libsecp256k1",
- "pallet-balances 0.1.0",
- "pallet-base",
- "pallet-contracts 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-identity 0.1.0",
  "pallet-permissions 0.1.0",
- "pallet-portfolio 0.1.0",
- "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "pallet-statistics 0.1.0",
- "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "parity-scale-codec",
  "polymesh-common-utilities 0.1.0",
- "polymesh-contracts 0.1.0",
  "polymesh-primitives 2.0.0",
  "polymesh-primitives-derive 0.1.0",
- "rustc-hex",
  "serde",
  "serde_derive",
- "serde_json",
- "sp-api 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-arithmetic 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-core 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-io 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-runtime 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
- "sp-version 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
 ]
 
 [[package]]
