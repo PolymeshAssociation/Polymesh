@@ -85,9 +85,10 @@
             "pallet_name": "PalletName",
             "dispatchable_names": "Option<Vec<DispatchableName>>"
         },
+        "ExtrinsicPermissions": "Option<Vec<PalletPermissions>>",
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
-            "extrinsic": "Option<Vec<PalletPermissions>>",
+            "extrinsic": "ExtrinsicPermissions",
             "portfolio": "Option<Vec<PortfolioId>>"
         },
         "LegacyPalletPermissions": {
