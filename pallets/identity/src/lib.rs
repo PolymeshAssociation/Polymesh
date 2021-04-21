@@ -462,7 +462,7 @@ decl_module! {
 
         /// Creates a call on behalf of another DID.
         #[weight = <T as Trait>::WeightInfo::forwarded_call().saturating_add(proposal.get_dispatch_info().weight)]
-        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
+        pub fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let PermissionedCallOriginData {
                 sender,
                 primary_did,

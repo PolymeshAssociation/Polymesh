@@ -1803,3 +1803,48 @@ fn add_investor_uniqueness_claim_v2_data(
         ),
     ]
 }
+
+#[test]
+fn ext_forwarded_call() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Charlie.public()])
+        .build()
+        .execute_with(|| forwarded_call());
+}
+
+fn forwarded_call() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let call: Box<<TestStorage as IdentityTrait>::Proposal> =
+        Box::new(frame_system::Call::<TestStorage>::remark(vec![]).into());
+
+    assert_noop!(
+        Identity::forwarded_call(bob.origin(), alice.did(), call.clone()),
+        IdentityError::CurrentIdentityCannotBeForwarded
+    );
+
+    assert_ok!(Identity::add_authorization(
+        alice.origin(),
+        bob.did().into(),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None
+    ));
+    let auth_id = get_last_auth_id(&bob.did().into());
+
+    assert_ok!(Identity::join_identity(bob.did().into(), auth_id));
+
+    assert_noop!(
+        Identity::forwarded_call(
+            bob.origin(),
+            alice.did(),
+            Box::new(pallet_identity::Call::forwarded_call(alice.did(), call.clone()).into())
+        ),
+        IdentityError::RecursionNotAllowed
+    );
+
+    assert_ok!(Identity::forwarded_call(
+        bob.origin(),
+        alice.did(),
+        call.clone()
+    ),);
+}
