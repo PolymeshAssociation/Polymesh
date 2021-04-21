@@ -83,7 +83,7 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
 }
 
 pub trait WeightInfo {
-    fn create_portfolio(i: u32) -> Weight;
+    fn create_portfolio() -> Weight;
     fn delete_portfolio() -> Weight;
     fn move_portfolio_funds(i: u32) -> Weight;
     fn rename_portfolio(i: u32) -> Weight;

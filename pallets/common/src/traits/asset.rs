@@ -193,8 +193,6 @@ pub enum AssetMigrationError {
     AssetDocumentFail(Ticker, DocumentId),
 }
 
-
-
 decl_event! {
     pub enum Event<T>
     where
