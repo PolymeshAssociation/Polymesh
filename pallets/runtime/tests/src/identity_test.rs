@@ -1899,7 +1899,16 @@ fn leave_identity_as_identity() {
     let charlie = User::new(AccountKeyring::Charlie);
 
     setup_join_identity(&alice, &bob);
-    assert_noop!(Identity::leave_identity_as_identity(alice.origin(), alice.did()), IdentityError::NotASigner);
-    assert_noop!(Identity::leave_identity_as_identity(charlie.origin(), alice.did()), IdentityError::NotASigner);
-    assert_ok!(Identity::leave_identity_as_identity(bob.origin(), alice.did()));
+    assert_noop!(
+        Identity::leave_identity_as_identity(alice.origin(), alice.did()),
+        IdentityError::NotASigner
+    );
+    assert_noop!(
+        Identity::leave_identity_as_identity(charlie.origin(), alice.did()),
+        IdentityError::NotASigner
+    );
+    assert_ok!(Identity::leave_identity_as_identity(
+        bob.origin(),
+        alice.did()
+    ));
 }
