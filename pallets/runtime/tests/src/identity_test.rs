@@ -13,8 +13,8 @@ use codec::Encode;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use core::iter;
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
-    StorageMap,
+    assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
+    StorageDoubleMap, StorageMap,
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, DidRecords, Error};
@@ -28,10 +28,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
-    DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions,
-    Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
-    Ticker, TransactionError,
+    investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName,
+    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
+    SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -1804,10 +1804,20 @@ fn add_investor_uniqueness_claim_v2_data(
     ]
 }
 
+fn setup_join_identity(source: &User, target: &User) {
+    assert_ok!(Identity::add_authorization(
+        source.origin(),
+        target.did().into(),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None
+    ));
+    let auth_id = get_last_auth_id(&target.did().into());
+    assert_ok!(Identity::join_identity(target.did().into(), auth_id));
+}
+
 #[test]
 fn ext_forwarded_call() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Charlie.public()])
         .build()
         .execute_with(|| forwarded_call());
 }
@@ -1823,15 +1833,7 @@ fn forwarded_call() {
         IdentityError::CurrentIdentityCannotBeForwarded
     );
 
-    assert_ok!(Identity::add_authorization(
-        alice.origin(),
-        bob.did().into(),
-        AuthorizationData::JoinIdentity(Permissions::default()),
-        None
-    ));
-    let auth_id = get_last_auth_id(&bob.did().into());
-
-    assert_ok!(Identity::join_identity(bob.did().into(), auth_id));
+    setup_join_identity(&alice, &bob);
 
     assert_noop!(
         Identity::forwarded_call(
@@ -1846,5 +1848,58 @@ fn forwarded_call() {
         bob.origin(),
         alice.did(),
         call.clone()
-    ),);
+    ));
+}
+
+#[test]
+fn ext_join_identity_as_identity() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| join_identity_as_identity());
+}
+
+fn join_identity_as_identity() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+
+    assert_noop!(
+        Identity::join_identity_as_identity(bob.origin(), 0),
+        "Authorization does not exist"
+    );
+
+    let create_and_accept_auth = |source: User, target: User, data| {
+        assert_ok!(Identity::add_authorization(
+            source.origin(),
+            target.did().into(),
+            data,
+            None
+        ));
+        let auth_id = get_last_auth_id(&target.did().into());
+        Identity::join_identity_as_identity(target.origin(), auth_id)
+    };
+
+    assert_err!(
+        create_and_accept_auth(alice, bob, AuthorizationData::Custom(Ticker::default())),
+        AuthorizationError::Invalid
+    );
+
+    setup_join_identity(&alice, &bob);
+}
+
+#[test]
+fn ext_leave_identity_as_identity() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| leave_identity_as_identity());
+}
+
+fn leave_identity_as_identity() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
+
+    setup_join_identity(&alice, &bob);
+    assert_noop!(Identity::leave_identity_as_identity(alice.origin(), alice.did()), IdentityError::NotASigner);
+    assert_noop!(Identity::leave_identity_as_identity(charlie.origin(), alice.did()), IdentityError::NotASigner);
+    assert_ok!(Identity::leave_identity_as_identity(bob.origin(), alice.did()));
 }
