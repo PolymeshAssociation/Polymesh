@@ -150,10 +150,7 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
 impl<T: Trait> ComplianceRequirementBuilder<T> {
     /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
-        assert_eq!(
-            self.has_been_added, false,
-            "Compliance has been added before"
-        );
+        assert!(!self.has_been_added, "Compliance has been added before");
         Module::<T>::add_compliance_requirement(
             self.info.owner.origin.clone().into(),
             self.info.ticker.clone(),
@@ -218,7 +215,7 @@ benchmarks! {
             .add_compliance_requirement().build();
     }: _(d.owner.origin, d.ticker)
     verify {
-        assert_eq!( Module::<T>::asset_compliance(d.ticker).paused, true, "Asset compliance is not paused");
+        assert!( Module::<T>::asset_compliance(d.ticker).paused, "Asset compliance is not paused");
     }
 
     resume_asset_compliance {
@@ -230,7 +227,7 @@ benchmarks! {
             d.ticker.clone()).unwrap();
     }: _(d.owner.origin, d.ticker)
     verify {
-        assert_eq!( Module::<T>::asset_compliance(d.ticker).paused, false, "Asset compliance is paused");
+        assert!( !Module::<T>::asset_compliance(d.ticker).paused, "Asset compliance is paused");
     }
 
     add_default_trusted_claim_issuer {

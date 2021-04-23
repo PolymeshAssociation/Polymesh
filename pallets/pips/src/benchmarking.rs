@@ -158,10 +158,11 @@ fn enact_call<T: Trait>(num_approves: usize, num_rejects: usize, num_skips: usiz
 
 fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchResult {
     let meta = Module::<T>::proposal_metadata(0).unwrap();
-    assert!(0 == meta.id, "incorrect meta.id");
-    assert!(Some(url) == meta.url, "incorrect meta.url");
-    assert!(
-        Some(description) == meta.description,
+    assert_eq!(0, meta.id, "incorrect meta.id");
+    assert_eq!(Some(url), meta.url, "incorrect meta.url");
+    assert_eq!(
+        Some(description),
+        meta.description,
         "incorrect meta.description"
     );
     Ok(())
@@ -191,7 +192,7 @@ benchmarks! {
         let deposit = 42u32.into();
     }: _(origin, deposit)
     verify {
-        assert!(deposit == MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
+        assert_eq!(deposit, MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
     }
 
     set_default_enactment_period {
@@ -199,7 +200,7 @@ benchmarks! {
         let period = 42u32.into();
     }: _(origin, period)
     verify {
-        assert!(period == DefaultEnactmentPeriod::<T>::get(), "incorrect DefaultEnactmentPeriod");
+        assert_eq!(period, DefaultEnactmentPeriod::<T>::get(), "incorrect DefaultEnactmentPeriod");
     }
 
     set_pending_pip_expiry {
@@ -207,7 +208,7 @@ benchmarks! {
         let maybe_block = MaybeBlock::Some(42u32.into());
     }: _(origin, maybe_block)
     verify {
-        assert!(maybe_block == PendingPipExpiry::<T>::get(), "incorrect PendingPipExpiry");
+        assert_eq!(maybe_block, PendingPipExpiry::<T>::get(), "incorrect PendingPipExpiry");
     }
 
     set_max_pip_skip_count {
@@ -215,7 +216,7 @@ benchmarks! {
         let count = 42.try_into().unwrap();
     }: _(origin, count)
     verify {
-        assert!(count == MaxPipSkipCount::get(), "incorrect MaxPipSkipCount");
+        assert_eq!(count, MaxPipSkipCount::get(), "incorrect MaxPipSkipCount");
     }
 
     set_active_pip_limit {
@@ -223,7 +224,7 @@ benchmarks! {
         let pip_limit = 42;
     }: _(origin, pip_limit)
     verify {
-        assert!(pip_limit == ActivePipLimit::get(), "incorrect ActivePipLimit");
+        assert_eq!(pip_limit, ActivePipLimit::get(), "incorrect ActivePipLimit");
     }
 
     propose_from_community {
@@ -313,7 +314,7 @@ benchmarks! {
             Some(url),
             Some(description)
         ).unwrap();
-        assert!(deposit == Deposits::<T>::get(&0, &user.account()).amount, "incorrect deposit in reject_proposal");
+        assert_eq!(deposit, Deposits::<T>::get(&0, &user.account()).amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::reject_proposal(0);
     }: {
@@ -422,8 +423,8 @@ benchmarks! {
         enact_call.dispatch_bypass_filter(enact_origin).unwrap();
     }
     verify {
-        assert!(
-            Module::<T>::snapshot_queue().len() == PROPOSALS_NUM - (a + r + s) as usize,
+        assert_eq!(
+            Module::<T>::snapshot_queue().len(), PROPOSALS_NUM - (a + r + s) as usize,
             "incorrect snapshot queue after enact_snapshot_results"
         );
     }

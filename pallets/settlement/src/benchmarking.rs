@@ -535,8 +535,8 @@ benchmarks! {
         }
     }: _(origin, venue_details, signers, venue_type)
     verify {
-        assert!(matches!(Module::<T>::venue_counter(), 2), "Invalid venue counter");
-        assert!(matches!(Module::<T>::user_venues(did.unwrap()).into_iter().last(), Some(1)), "Invalid venue id");
+        assert_eq!(Module::<T>::venue_counter(), 2, "Invalid venue counter");
+        assert_eq!(Module::<T>::user_venues(did.unwrap()).into_iter().last(), Some(1), "Invalid venue id");
         assert!(Module::<T>::venue_info(1).is_some(), "Incorrect venue info set");
     }
 
@@ -553,7 +553,7 @@ benchmarks! {
     }: _(origin, venue_id, Some(venue_details), Some(venue_type))
     verify {
         let updated_venue_details = Module::<T>::venue_info(1).unwrap();
-        assert!(matches!(updated_venue_details.venue_type, VenueType::Sto), "Incorrect venue type value");
+        assert_eq!(updated_venue_details.venue_type, VenueType::Sto, "Incorrect venue type value");
         assert!(matches!(updated_venue_details.details, venue_details), "Incorrect venue details");
     }
 
@@ -880,10 +880,10 @@ benchmarks! {
         // }
     }: _(origin, instruction_id, l)
     verify {
-        // assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
+        // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
         let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
         let traded_amount = before_transfer_balance - after_transfer_balance;
         let expected_transfer_amount = first_leg.amount;
-        assert!(matches!(traded_amount, expected_transfer_amount),"Settlement: Failed to execute the instruction");
+        assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
 }
