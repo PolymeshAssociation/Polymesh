@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use std::ops::Sub;
+
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -44,30 +46,54 @@ pub trait LatticeOrd {
 /// The type of subsets of an open set of elements of type `A` where the whole set is always
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
-///
-/// The meaning of the parameter:
-/// - `None`: no restrictions, the whole set.
-/// - `Some(elems)`: the subset of elements in `elems`.
-///    A particular case is the empty set where `elems` is empty.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SubsetRestriction<A: Ord>(pub Option<BTreeSet<A>>);
+pub enum SubsetRestriction<A: Ord> {
+    /// No restrictions, the whole set.
+    Whole,
+    /// Exactly these elements, and no others.
+    These(BTreeSet<A>),
+    /// The whole set except these elements.
+    Except(BTreeSet<A>),
+}
+
+impl<A: Ord> Default for SubsetRestriction<A> {
+    fn default() -> Self {
+        Self::Whole
+    }
+}
 
 impl<A> LatticeOrd for SubsetRestriction<A>
 where
     A: Clone + Ord + PartialEq,
 {
     fn lattice_cmp(&self, other: &Self) -> LatticeOrdering {
-        match (&self.0, &other.0) {
-            (None, None) => LatticeOrdering::Equal,
-            (_, None) => LatticeOrdering::Less,
-            (None, _) => LatticeOrdering::Greater,
-            (Some(a), Some(b)) => match (a.is_subset(b), b.is_subset(a)) {
-                (true, true) => LatticeOrdering::Equal,
-                (true, false) => LatticeOrdering::Less,
-                (false, true) => LatticeOrdering::Greater,
-                _ => LatticeOrdering::Incomparable,
-            },
+        let left = match self {
+            Self::Except(es) if es.is_empty() => &Self::Whole,
+            x => x,
+        };
+        let right = match other {
+            Self::Except(es) if es.is_empty() => &Self::Whole,
+            x => x,
+        };
+        let cmp_same = |a: &BTreeSet<_>, b: &BTreeSet<_>| match (a.is_subset(b), b.is_subset(a)) {
+            (true, true) => LatticeOrdering::Equal,
+            (true, false) => LatticeOrdering::Less,
+            (false, true) => LatticeOrdering::Greater,
+            _ => LatticeOrdering::Incomparable,
+        };
+        let cmp_diff = |a: &BTreeSet<_>, b: &BTreeSet<_>| match a.intersection(b).next() {
+            Some(_) => LatticeOrdering::Incomparable,
+            None => LatticeOrdering::Less,
+        };
+        match (left, right) {
+            (Self::Whole, Self::Whole) => LatticeOrdering::Equal,
+            (_, Self::Whole) => LatticeOrdering::Less,
+            (Self::Whole, _) => LatticeOrdering::Greater,
+            (Self::These(a), Self::These(b)) => cmp_same(a, b),
+            (Self::Except(a), Self::Except(b)) => cmp_same(b, a),
+            (Self::These(a), Self::Except(b)) => cmp_diff(a, b),
+            (Self::Except(a), Self::These(b)) => cmp_diff(b, a),
         }
     }
 }
@@ -78,17 +104,17 @@ where
 {
     /// Constructs the empty subset.
     pub fn empty() -> Self {
-        Self(Some(BTreeSet::new()))
+        Self::These(BTreeSet::new())
     }
 
     /// Constructs a subset with one element.
     pub fn elem(a: A) -> Self {
-        Self(Some(BTreeSet::from_iter(iter::once(a))))
+        Self::elems(iter::once(a))
     }
 
     /// Constructs a subset from an iterator over elements.
     pub fn elems(it: impl IntoIterator<Item = A>) -> Self {
-        Self(Some(BTreeSet::from_iter(it)))
+        Self::These(BTreeSet::from_iter(it))
     }
 
     /// Computes whether the first subset is greater than or equal to the second subset.
@@ -99,22 +125,36 @@ where
         )
     }
 
-    /// Returns the number of elements in the subset if known. Otherwise returns `None`.
-    pub fn elems_len(&self) -> Option<usize> {
-        self.0.as_ref().map(|elems| elems.len())
+    /// Returns the complexity of the subset.
+    pub fn complexity(&self) -> usize {
+        self.inner().map_or(0, |es| es.len())
+    }
+
+    /// Returns the inner describing finite sets if any.
+    pub fn inner(&self) -> Option<&BTreeSet<A>> {
+        match self {
+            Self::Whole => None,
+            Self::These(es) | Self::Except(es) => Some(es),
+        }
     }
 
     /// Set union operation on `self` and `other`.
     pub fn union(&self, other: &Self) -> Self {
-        match (&self.0, &other.0) {
-            (None, _) | (_, None) => Self(None),
-            (Some(elems1), Some(elems2)) => Self(Some(elems1.union(elems2).cloned().collect())),
+        match (self, other) {
+            (Self::Whole, _) | (_, Self::Whole) => Self::Whole,
+            (Self::These(l), Self::These(r)) => Self::These(l.union(&r).cloned().collect()),
+            (Self::Except(l), Self::Except(r)) => {
+                Self::Except(l.intersection(&r).cloned().collect())
+            }
+            (Self::These(l), Self::Except(r)) | (Self::Except(r), Self::These(l)) => {
+                Self::Except(r.sub(&l))
+            }
         }
     }
 
     /// Checks whether there is no restriction.
     pub fn is_unrestricted(&self) -> bool {
-        self.0.is_none()
+        matches!(self, Self::Whole)
     }
 }
 

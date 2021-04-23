@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::BTreeSet;
+
 use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -25,12 +27,18 @@ use sp_std::{
 /// Asset permissions.
 pub type AssetPermissions = SubsetRestriction<Ticker>;
 
-/// A permission to call
+/// A permission to call:
 ///
-/// - specific functions, using `SubsetRestriction(Some(_))`, or
+/// - specific functions, using `SubsetRestriction::These(_)`, or
 ///
-/// - all functions, using `SubsetRestriction(None)`
+/// - all but a specific set, using `SubsetRestriction::Except(_)`, or
 ///
+/// - all functions, using `SubsetRestriction::Whole`
+///
+/// within some pallet.
+pub type DispatchableNames = SubsetRestriction<DispatchableName>;
+
+/// A permission to call a set of functions, as described by `dispatchable_names`,
 /// within a given pallet `pallet_name`.
 #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -38,7 +46,7 @@ pub struct PalletPermissions {
     /// The name of a pallet.
     pub pallet_name: PalletName,
     /// A subset of function names within the pallet.
-    pub dispatchable_names: SubsetRestriction<DispatchableName>,
+    pub dispatchable_names: DispatchableNames,
 }
 
 impl PalletPermissions {
@@ -57,7 +65,7 @@ impl PalletPermissions {
     pub fn entire_pallet(pallet_name: PalletName) -> Self {
         PalletPermissions {
             pallet_name,
-            dispatchable_names: SubsetRestriction(None),
+            dispatchable_names: SubsetRestriction::Whole,
         }
     }
 }
@@ -68,17 +76,20 @@ pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 impl ExtrinsicPermissions {
     /// Returns `true` iff this permission set permits calling `pallet::dispatchable`.
     pub fn sufficient_for(&self, pallet: &PalletName, dispatchable: &DispatchableName) -> bool {
-        match &self.0 {
-            None => true,
-            Some(perms) => perms.iter().any(|perm| {
-                if &perm.pallet_name != pallet {
-                    return false;
-                }
-                match &perm.dispatchable_names.0 {
-                    None => true,
-                    Some(funcs) => funcs.contains(dispatchable),
-                }
-            }),
+        let matches_any = |perms: &BTreeSet<PalletPermissions>| perms.iter().any(|perm| {
+            if &perm.pallet_name != pallet {
+                return false;
+            }
+            match &perm.dispatchable_names {
+                SubsetRestriction::Whole => true,
+                SubsetRestriction::These(funcs) => funcs.contains(dispatchable),
+                SubsetRestriction::Except(funcs) => !funcs.contains(dispatchable),
+            }
+        });
+        match self {
+            SubsetRestriction::Whole => true,
+            SubsetRestriction::These(perms) => matches_any(perms),
+            SubsetRestriction::Except(perms) => !matches_any(perms),
         }
     }
 }
@@ -118,7 +129,7 @@ impl Permissions {
     ) -> Self {
         Self {
             asset: SubsetRestriction::empty(),
-            extrinsic: SubsetRestriction(Some(pallet_permissions.into_iter().collect())),
+            extrinsic: SubsetRestriction::These(pallet_permissions.into_iter().collect()),
             portfolio: SubsetRestriction::empty(),
         }
     }
@@ -126,9 +137,9 @@ impl Permissions {
     /// Adds extra extrinsic permissions to `self` for just one pallet. The result is stored in
     /// `self`.
     pub fn add_pallet_permissions(&mut self, pallet_permissions: PalletPermissions) {
-        self.extrinsic = self.extrinsic.union(&SubsetRestriction(Some(
+        self.extrinsic = self.extrinsic.union(&SubsetRestriction::These(
             iter::once(pallet_permissions).collect(),
-        )));
+        ));
     }
 }
 
@@ -395,38 +406,6 @@ pub mod api {
         pub permissions: Permissions,
     }
 
-    impl From<PalletPermissions> for LegacyPalletPermissions {
-        fn from(p: PalletPermissions) -> LegacyPalletPermissions {
-            LegacyPalletPermissions {
-                pallet_name: p.pallet_name,
-                total: p.dispatchable_names.0.is_none(),
-                dispatchable_names: if let Some(elems) = p.dispatchable_names.0 {
-                    elems.into_iter().collect()
-                } else {
-                    Default::default()
-                },
-            }
-        }
-    }
-
-    impl From<ExtrinsicPermissions> for LegacyExtrinsicPermissions {
-        fn from(p: ExtrinsicPermissions) -> LegacyExtrinsicPermissions {
-            LegacyExtrinsicPermissions(
-                p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()),
-            )
-        }
-    }
-
-    impl From<Permissions> for LegacyPermissions {
-        fn from(p: Permissions) -> LegacyPermissions {
-            LegacyPermissions {
-                asset: p.asset,
-                extrinsic: p.extrinsic.into(),
-                portfolio: p.portfolio,
-            }
-        }
-    }
-
     impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId>
     where
         AccountId: Encode + Decode,
@@ -443,18 +422,21 @@ pub mod api {
         fn from(p: LegacyPalletPermissions) -> PalletPermissions {
             PalletPermissions {
                 pallet_name: p.pallet_name,
-                dispatchable_names: SubsetRestriction(if !p.total {
-                    Some(p.dispatchable_names.into_iter().collect())
+                dispatchable_names: if !p.total {
+                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
                 } else {
-                    Default::default()
-                }),
+                    SubsetRestriction::Whole
+                },
             }
         }
     }
 
     impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
         fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
-            SubsetRestriction(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
+            match p.0 {
+                Some(elems) => SubsetRestriction::These(elems.into_iter().map(|e| e.into()).collect()),
+                None => SubsetRestriction::Whole,
+            }
         }
     }
 

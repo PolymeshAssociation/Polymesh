@@ -81,15 +81,42 @@
         },
         "PalletName": "Text",
         "DispatchableName": "Text",
+        "AssetPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<Ticker>",
+                "Except": "Vec<Ticker>"
+            }
+        },
+        "PortfolioPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<PortfolioId>",
+                "Except": "Vec<PortfolioId>"
+            }
+        },
+        "DispatchableNames": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<DispatchableName>",
+                "Except": "Vec<DispatchableName>"
+            }
+        },
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "dispatchable_names": "Option<Vec<DispatchableName>>"
+            "dispatchable_names": "DispatchableNames"
         },
-        "ExtrinsicPermissions": "Option<Vec<PalletPermissions>>",
+        "ExtrinsicPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<PalletPermissions>",
+                "Except": "Vec<PalletPermissions>"
+            }
+        },
         "Permissions": {
-            "asset": "Option<Vec<Ticker>>",
+            "asset": "AssetPermissions",
             "extrinsic": "ExtrinsicPermissions",
-            "portfolio": "Option<Vec<PortfolioId>>"
+            "portfolio": "PortfolioPermissions"
         },
         "LegacyPalletPermissions": {
             "pallet_name": "PalletName",

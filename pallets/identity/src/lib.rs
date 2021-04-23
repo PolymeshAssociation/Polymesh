@@ -136,8 +136,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
     AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
     DispatchableName, ExtrinsicPermissions, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, PalletName, Permissions, Scope, ScopeId, SecondaryKey, Signatory,
-    SubsetRestriction, Ticker,
+    InvestorUid, PalletName, Permissions, Scope, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -1534,22 +1533,18 @@ impl<T: Trait> Module<T> {
 
     /// Ensures length limits are enforced in `perms`.
     fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
-        if let Some(len) = perms.asset.elems_len() {
-            ensure_length_ok::<T>(len)?;
-        }
-        if let Some(len) = perms.portfolio.elems_len() {
-            ensure_length_ok::<T>(len)?;
-        }
+        ensure_length_ok::<T>(perms.asset.complexity())?;
+        ensure_length_ok::<T>(perms.portfolio.complexity())?;
         Self::ensure_extrinsic_perms_length_limited(&perms.extrinsic)
     }
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
-        if let SubsetRestriction(Some(set)) = &perms {
+        if let Some(set) = perms.inner() {
             ensure_length_ok::<T>(set.len())?;
             for elem in set {
                 ensure_string_limited::<T>(&elem.pallet_name)?;
-                if let SubsetRestriction(Some(set)) = &elem.dispatchable_names {
+                if let Some(set) = elem.dispatchable_names.inner() {
                     ensure_length_ok::<T>(set.len())?;
                     for elem in set {
                         ensure_string_limited::<T>(elem)?;

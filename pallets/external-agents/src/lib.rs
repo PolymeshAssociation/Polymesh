@@ -116,7 +116,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::create_group(perms.elems_len().unwrap_or(0) as u32)]
+        #[weight = <T as Trait>::WeightInfo::create_group(perms.complexity() as u32)]
         pub fn create_group(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_create_group(origin, ticker, perms)
         }
@@ -136,7 +136,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::set_group_permissions(perms.elems_len().unwrap_or(0) as u32)]
+        #[weight = <T as Trait>::WeightInfo::set_group_permissions(perms.complexity() as u32)]
         pub fn set_group_permissions(origin, ticker: Ticker, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_set_group_permissions(origin, ticker, id, perms)
         }
