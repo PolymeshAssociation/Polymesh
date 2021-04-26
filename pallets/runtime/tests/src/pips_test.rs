@@ -148,12 +148,20 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 
 fn alice_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    standard_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+    standard_proposal(
+        &Origin::signed(acc.clone()),
+        &Proposer::Community(acc),
+        deposit,
+    )
 }
 
 fn alice_remark_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    remark_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+    remark_proposal(
+        &Origin::signed(acc.clone()),
+        &Proposer::Community(acc),
+        deposit,
+    )
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
@@ -571,13 +579,13 @@ fn vote_bond_additional_deposit_works() {
         let amount = init_amount + then_amount;
 
         let acc = AccountKeyring::Alice.to_account_id();
-        let signer = Origin::signed(acc);
-        assert_balance(acc, init_free, 0);
+        let signer = Origin::signed(acc.clone());
+        assert_balance(acc.clone(), init_free, 0);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_balance(acc.clone(), init_free, init_amount);
         assert_ok!(Pips::vote(signer, 0, true, amount));
-        assert_balance(acc, init_free, amount);
+        assert_balance(acc.clone(), init_free, amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, amount);
     });
@@ -635,13 +643,13 @@ fn vote_unbond_deposit_works() {
         let then_amount = 100;
 
         let acc = AccountKeyring::Alice.to_account_id();
-        let signer = Origin::signed(acc);
+        let signer = Origin::signed(acc.clone());
         assert_eq!(Balances::free_balance(&acc), init_free);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_balance(acc.clone(), init_free, init_amount);
         assert_ok!(Pips::vote(signer, 0, true, then_amount));
-        assert_balance(acc, init_free, then_amount);
+        assert_balance(acc.clone(), init_free, then_amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, then_amount);
     });
@@ -766,18 +774,18 @@ fn vote_works() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let alice_acc = AccountKeyring::Alice.to_account_id();
         let bob_acc = AccountKeyring::Bob.to_account_id();
-        let bob = Origin::signed(bob_acc);
+        let bob = Origin::signed(bob_acc.clone());
         let charlie_acc = AccountKeyring::Charlie.to_account_id();
-        let charlie = Origin::signed(charlie_acc);
+        let charlie = Origin::signed(charlie_acc.clone());
         assert_ok!(alice_proposal(100));
-        assert_balance(bob_acc, 2000, 0);
-        assert_balance(charlie_acc, 3000, 0);
+        assert_balance(bob_acc.clone(), 2000, 0);
+        assert_balance(charlie_acc.clone(), 3000, 0);
         assert_ok!(Pips::vote(bob, 0, false, 1337));
         assert_last_event!(Event::Voted(.., false, 1337));
         assert_ok!(Pips::vote(charlie, 0, true, 2441));
         assert_last_event!(Event::Voted(.., true, 2441));
-        assert_balance(bob_acc, 2000, 1337);
-        assert_balance(charlie_acc, 3000, 2441);
+        assert_balance(bob_acc.clone(), 2000, 1337);
+        assert_balance(charlie_acc.clone(), 3000, 2441);
         assert_vote_details(
             0,
             VotingResult {
@@ -792,7 +800,7 @@ fn vote_works() {
                     amount: 100,
                 },
                 DepositInfo {
-                    owner: bob_acc,
+                    owner: bob_acc.clone(),
                     amount: 1337,
                 },
                 DepositInfo {

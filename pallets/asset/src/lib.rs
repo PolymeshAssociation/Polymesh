@@ -478,15 +478,13 @@ decl_module! {
             Self::base_accept_token_ownership_transfer(to_did, auth_id)
         }
 
-        /// Initializes a new security token
-        /// makes the initiating account the owner of the security token
-        /// & the balance of the owner is set to total supply.
+        /// Initializes a new security token, with the initiating account as its owner.
+        /// The total supply will initially be zero. To mint tokens, use `issue`.
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `name` - the name of the token.
         /// * `ticker` - the ticker symbol of the token.
-        /// * `total_supply` - the total supply of the token.
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
@@ -498,7 +496,6 @@ decl_module! {
         /// - `FundingRoundNameMaxLengthExceeded` if the name of the funding round is longer that
         /// `T::FundingRoundNameMaxLength`.
         /// - `AssetAlreadyCreated` if asset was already created.
-        /// - `TotalSupplyAboveLimit` if `total_supply > MAX_SUPPLY`.
         /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
         /// parameter.
         /// - `TickerNotAscii` if `ticker` is not yet registered, and contains non-ascii printable characters (from code 32 to 126) or any character after first occurrence of `\0`.
@@ -514,13 +511,13 @@ decl_module! {
             origin,
             name: AssetName,
             ticker: Ticker,
-            total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            Self::base_create_asset_and_mint(origin, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round)
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)
+                .map(|_| ())
         }
 
         /// Freezes transfers and minting of a given token.
@@ -856,8 +853,8 @@ decl_event! {
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
-        AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
@@ -944,8 +941,6 @@ decl_error! {
         TickerNotAscii,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
-        /// An invalid total supply.
-        InvalidTotalSupply,
         /// The total supply is above the limit.
         TotalSupplyAboveLimit,
         /// No such token.
@@ -1021,13 +1016,34 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
         Self::create_asset(
+            origin,
+            name,
+            ticker,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+        )
+    }
+
+    #[inline]
+    fn create_asset_and_mint(
+        origin: T::Origin,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+    ) -> DispatchResult {
+        Self::base_create_asset_and_mint(
             origin,
             name,
             ticker,
@@ -1062,6 +1078,10 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         <AggregateBalance<T>>::insert(ticker, &did, current_balance);
         <BalanceOfAtScope<T>>::insert(did, did, current_balance);
         <ScopeIdOf>::insert(ticker, did, did);
+    }
+
+    fn issue(origin: T::Origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+        Self::issue(origin, ticker, total_supply)
     }
 }
 
@@ -1781,9 +1801,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Performs necessary checks on parameters of `create_asset`.
-    fn ensure_create_asset_parameters(ticker: &Ticker, total_supply: T::Balance) -> DispatchResult {
+    fn ensure_create_asset_parameters(ticker: &Ticker) -> DispatchResult {
         Self::ensure_asset_fresh(&ticker)?;
-        Self::ensure_within_max_supply(total_supply)?;
         Self::ensure_ticker_length(&ticker, &Self::ticker_registration_config())
     }
 
@@ -1856,7 +1875,7 @@ impl<T: Trait> Module<T> {
         Ok(did)
     }
 
-    fn base_create_asset_and_mint(
+    pub fn base_create_asset_and_mint(
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
@@ -1871,7 +1890,6 @@ impl<T: Trait> Module<T> {
                 origin,
                 name,
                 ticker,
-                total_supply,
                 divisible,
                 asset_type,
                 identifiers,
@@ -1890,7 +1908,6 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         name: AssetName,
         ticker: Ticker,
-        total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
@@ -1918,12 +1935,7 @@ impl<T: Trait> Module<T> {
             secondary_key,
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-        // Check total supply here to avoid any later failure
-        Self::ensure_create_asset_parameters(&ticker, total_supply)?;
-        ensure!(
-            divisible || Self::is_unit_multiple(total_supply),
-            Error::<T>::InvalidTotalSupply
-        );
+        Self::ensure_create_asset_parameters(&ticker)?;
 
         // Ensure its registered by DID or at least expired, thus available.
         let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
@@ -2000,12 +2012,7 @@ impl<T: Trait> Module<T> {
         // have InvestorUniqueness claim. This also applies when issuing assets.
         <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did,
-            ticker,
-            total_supply,
-            divisible,
-            asset_type,
-            did,
+            did, ticker, divisible, asset_type, did,
         ));
 
         // Add funding round name.

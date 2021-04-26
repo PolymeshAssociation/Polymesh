@@ -62,7 +62,7 @@ pub fn create_se_template(
     let wasm_length_weight = 1426500000;
 
     // Set payer in context
-    TestStorage::set_payer_context(Some(template_creator));
+    TestStorage::set_payer_context(Some(template_creator.clone()));
 
     // Create smart extension metadata
     let se_meta_data = TemplateMetadata {
@@ -129,7 +129,7 @@ pub fn create_contract_instance(
 ) -> DispatchResultWithPostInfo {
     let input_data = hex!("0222FF18");
     // Set payer of the transaction
-    TestStorage::set_payer_context(Some(instance_creator));
+    TestStorage::set_payer_context(Some(instance_creator.clone()));
 
     // Access the extension nonce.
     let current_extension_nonce = WrapperContracts::extension_nonce();
@@ -190,12 +190,12 @@ fn check_put_code_functionality() {
     execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
         let alice = AccountKeyring::Alice.to_account_id();
         // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
+        let (_, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
         // Get the balance of the Alice.
-        let alice_balance = free(alice);
+        let alice_balance = free(alice.clone());
 
-        create_se_template(alice, alice_did, 0, code_hash, wasm);
+        create_se_template(alice.clone(), alice_did, 0, code_hash, wasm);
 
         // Check the storage of the base pallet.
         assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
@@ -281,7 +281,7 @@ fn allow_network_share_deduction() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // Create instance of contract.
         assert_ok!(create_contract_instance(
@@ -375,7 +375,7 @@ fn check_behavior_when_instantiation_fee_changes() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // create instance of contract
         assert_ok!(create_contract_instance(
@@ -606,7 +606,7 @@ fn check_put_code_flag() {
 
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
-        .add_regular_users_from_accounts(&[user])
+        .add_regular_users_from_accounts(&[user.clone()])
         .build()
         .execute_with(|| check_put_code_flag_ext(user))
 }
@@ -628,11 +628,14 @@ fn check_put_code_flag_ext(user: AccountId) {
     };
 
     // Flag is disable, so `put_code` should fail.
-    assert_noop!(put_code(user), WrapperContractsError::PutCodeIsNotAllowed);
+    assert_noop!(
+        put_code(user.clone()),
+        WrapperContractsError::PutCodeIsNotAllowed
+    );
 
     // Non GC member cannot update the flag.
     assert_noop!(
-        WrapperContracts::set_put_code_flag(Origin::signed(user), true),
+        WrapperContracts::set_put_code_flag(Origin::signed(user.clone()), true),
         DispatchError::BadOrigin
     );
 

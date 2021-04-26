@@ -23,8 +23,8 @@ type Error = statistics::Error<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
-    assert_ok!(Asset::create_asset(
-        Origin::signed(keyring),
+    assert_ok!(Asset::base_create_asset_and_mint(
+        Origin::signed(keyring.clone()),
         token_name.into(),
         ticker,
         1_000_000,
@@ -88,7 +88,7 @@ fn investor_count_with_ext() {
 
     let identifiers = Vec::new();
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         alice_signed.clone(),
         token.name.clone(),
         ticker,

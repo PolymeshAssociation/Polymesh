@@ -74,7 +74,7 @@ fn stop_fundraiser_ext() {
 }
 
 fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         origin,
         vec![b'A'].into(),
         ticker,
@@ -119,12 +119,12 @@ fn init_raise_context(
     // Register tokens
     let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
     create_asset(alice_signed.clone(), offering_ticker, offering_supply);
-    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve.clone());
 
     let raise_ticker = raise_supply_opt.map(|raise_supply| {
         let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
         create_asset(alice_signed.clone(), raise_ticker, raise_supply);
-        provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
+        provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve.clone());
         raise_ticker
     });
 
@@ -301,7 +301,7 @@ fn raise_unhappy_path() {
 
     // Provide scope claim to both the parties of the transaction.
     let eve = AccountKeyring::Eve.to_account_id();
-    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve.clone());
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
     let fundraise = |tiers, venue, name| {

@@ -518,8 +518,8 @@ fn operational_tx_with_tip() {
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![cdd_provider])
-        .governance_committee(vec![gc_member])
+        .cdd_providers(vec![cdd_provider.clone()])
+        .governance_committee(vec![gc_member.clone()])
         .build()
         .execute_with(|| operational_tx_with_tip_ext(cdd_provider, gc_member));
 }

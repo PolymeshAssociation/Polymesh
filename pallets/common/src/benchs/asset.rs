@@ -74,15 +74,17 @@ where
 
     Asset::create_asset(
         owner.origin().into(),
-        name,
+        name.clone(),
         ticker,
-        total_supply,
         divisible,
         AssetType::default(),
         vec![],
         None,
     )
     .map_err(|_| "Asset cannot be created")?;
+
+    Asset::issue(owner.origin().into(), ticker, total_supply)
+        .map_err(|_| "Asset cannot be issued")?;
 
     Ok(ticker)
 }

@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, UserBuilder},
@@ -22,18 +23,17 @@ use polymesh_common_utilities::{
 use polymesh_primitives::PortfolioName;
 use sp_std::prelude::*;
 
+const PORTFOLIO_NAME_LEN: usize = 500;
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 
     create_portfolio {
-        // Length of portfolio name
-        let i in 1 .. 500;
-
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
-        let portfolio_name = PortfolioName(vec![65u8; i as usize]);
+        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
     }: _(target.origin, portfolio_name.clone())
     verify {
@@ -85,7 +85,7 @@ benchmarks! {
 
     rename_portfolio {
         // Length of portfolio name
-        let i in 1 .. 500;
+        let i in 1 .. PORTFOLIO_NAME_LEN.try_into().unwrap();
 
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();
@@ -98,5 +98,30 @@ benchmarks! {
     }: _(target.origin, next_portfolio_num.clone(), new_name.clone())
     verify {
         assert_eq!(Portfolios::get(&did, &next_portfolio_num), new_name);
+    }
+
+    quit_portfolio_custody {
+        let owner = UserBuilder::<T>::default().generate_did().build("owner");
+        let custodian = UserBuilder::<T>::default().generate_did().build("custodian");
+        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
+        let next_portfolio_num = NextPortfolioNumber::get(&owner.did());
+        Module::<T>::create_portfolio(owner.origin.clone().into(), portfolio_name.clone())?;
+        let user_portfolio = PortfolioId::user_portfolio(owner.did(), next_portfolio_num.clone());
+
+        // Transfer the custody of the portfolio from `owner` to `custodian`.
+        let auth_id = identity::Module::<T>::add_auth(
+            owner.did(),
+            Signatory::from(custodian.did()),
+            AuthorizationData::PortfolioCustody(user_portfolio),
+            None,
+        );
+        identity::Module::<T>::accept_authorization(custodian.origin.clone().into(), auth_id)?;
+
+        assert_eq!(PortfolioCustodian::get(&user_portfolio), Some(custodian.did()));
+        assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), true);
+    }: _(custodian.origin.clone(), user_portfolio)
+    verify {
+        assert_eq!(PortfolioCustodian::get(&user_portfolio), None);
+        assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), false);
     }
 }

@@ -1,5 +1,6 @@
 use super::{
     asset_test::max_len_bytes,
+    next_block,
     storage::{
         default_portfolio_vec, make_account, make_account_without_cdd,
         provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_vec,
@@ -8,9 +9,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_noop, assert_ok, traits::OnInitialize, IterableStorageDoubleMap, StorageMap,
-};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -85,10 +84,10 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
 }
 
 fn init(token_name: &[u8], ticker: Ticker, keyring: AccountId) -> u64 {
-    create_token(token_name, ticker, keyring);
+    create_token(token_name, ticker, keyring.clone());
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         VenueDetails::default(),
         vec![keyring],
         VenueType::Other
@@ -97,8 +96,8 @@ fn init(token_name: &[u8], ticker: Ticker, keyring: AccountId) -> u64 {
 }
 
 fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
-    assert_ok!(Asset::create_asset(
-        Origin::signed(keyring),
+    assert_ok!(Asset::base_create_asset_and_mint(
+        Origin::signed(keyring.clone()),
         token_name.into(),
         ticker,
         100_000,
@@ -113,12 +112,6 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
         vec![],
         vec![]
     ));
-}
-
-pub fn next_block() {
-    let block_number: BlockNumber = System::block_number() + 1;
-    set_current_block_number(block_number);
-    let _ = Scheduler::on_initialize(block_number);
 }
 
 pub fn set_current_block_number(block: BlockNumber) {
@@ -505,7 +498,7 @@ fn token_swap() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Provide scope claim to parties involved in a instruction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -741,7 +734,7 @@ fn claiming_receipt() {
             let bob_init_balance2 = Asset::balance_of(&ticker2, bob_did);
 
             // Provide scope claims to multiple parties of a transactions.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             let amount = 100u128;
@@ -1261,7 +1254,7 @@ fn settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Before authorization need to provide the scope claim for both the parties of a transaction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -1858,7 +1851,7 @@ fn basic_fuzzing() {
                             provide_scope_claim_to_multiple_parties(
                                 &[dids[j], dids[k]],
                                 tickers[i * 4 + j],
-                                eve,
+                                eve.clone(),
                             );
                             legs.push(Leg {
                                 from: PortfolioId::default_portfolio(dids[j]),
@@ -2411,7 +2404,7 @@ fn test_weights_for_settlement_transaction() {
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.to_account_id();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
             let bob = AccountKeyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
@@ -2422,7 +2415,7 @@ fn test_weights_for_settlement_transaction() {
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
 
-            let venue_counter = init(token_name, ticker, alice);
+            let venue_counter = init(token_name, ticker, alice.clone());
             let instruction_counter = Settlement::instruction_counter();
 
             let dave = AccountKeyring::Dave.to_account_id();
