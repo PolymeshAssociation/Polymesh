@@ -27,9 +27,14 @@
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
-use frame_support::{decl_error, decl_module, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
 
 pub use polymesh_common_utilities::traits::base::{Event, Trait};
+
+decl_storage! {
+    trait Store for Module<T: Trait> as base {
+    }
+}
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -70,3 +75,5 @@ pub fn ensure_opt_string_limited<T: Trait>(s: Option<&[u8]>) -> DispatchResult {
         Some(s) => ensure_string_limited::<T>(s),
     }
 }
+
+impl<T: Trait> frame_support::traits::IntegrityTest for Module<T> {}

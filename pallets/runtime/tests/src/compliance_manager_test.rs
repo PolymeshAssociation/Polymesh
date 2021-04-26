@@ -87,7 +87,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, Ide
 
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
     assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(owner.public()),
+        Origin::signed(owner.to_account_id()),
         token.name.clone(),
         ticker,
         token.total_supply,
@@ -110,11 +110,11 @@ fn should_add_and_verify_compliance_requirement() {
 fn should_add_and_verify_compliance_requirement_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_acc = AccountKeyring::Alice.to_account_id();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let eve = AccountKeyring::Eve.public();
+    let eve = AccountKeyring::Eve.to_account_id();
     let cdd_signed = Origin::signed(eve);
     let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
@@ -142,11 +142,11 @@ fn should_add_and_verify_compliance_requirement_we() {
         vec![],
         None,
     ));
-    let claim_issuer_acc = AccountKeyring::Bob.public();
+    let claim_issuer_acc = AccountKeyring::Bob.to_account_id();
     Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-    let claim_issuer_signed = Origin::signed(AccountKeyring::Bob.public());
+    let claim_issuer_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
     let claim_issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.to_account_id());
     let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     assert_ok!(Identity::add_claim(
@@ -330,8 +330,8 @@ fn should_replace_asset_compliance() {
 }
 
 fn should_replace_asset_compliance_we() {
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_acc = AccountKeyring::Alice.to_account_id();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
@@ -398,8 +398,8 @@ fn should_reset_asset_compliance() {
 }
 
 fn should_reset_asset_compliance_we() {
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_acc = AccountKeyring::Alice.to_account_id();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
@@ -448,17 +448,17 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
 }
 
 fn pause_resume_asset_compliance_we() {
     // 0. Create accounts
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_acc = AccountKeyring::Alice.to_account_id();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
+    let receiver_signed = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. A token representing 1M shares
@@ -512,7 +512,7 @@ fn pause_resume_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[token_owner_did, receiver_did],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 5. Verify pause/resume mechanism.
@@ -548,14 +548,14 @@ fn should_successfully_add_and_use_default_issuers() {
 fn should_successfully_add_and_use_default_issuers_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let trusted_issuer_signed = Origin::signed(AccountKeyring::Charlie.public());
+    let trusted_issuer_signed = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let trusted_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+    let eve_signed = Origin::signed(AccountKeyring::Eve.to_account_id());
     let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
-    let ferdie_signed = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_signed = Origin::signed(AccountKeyring::Ferdie.to_account_id());
     let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
@@ -684,7 +684,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     provide_scope_claim_to_multiple_parties(
         &[token_owner_did, receiver_did],
         ticker,
-        AccountKeyring::Charlie.public(),
+        AccountKeyring::Charlie.to_account_id(),
     );
 
     // Right claim, but Eve not trusted for this asset.
@@ -708,13 +708,13 @@ fn should_modify_vector_of_trusted_issuer() {
 fn should_modify_vector_of_trusted_issuer_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let trusted_issuer_signed_1 = Origin::signed(AccountKeyring::Charlie.public());
+    let trusted_issuer_signed_1 = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let trusted_issuer_did_1 = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let trusted_issuer_signed_2 = Origin::signed(AccountKeyring::Ferdie.public());
+    let trusted_issuer_signed_2 = Origin::signed(AccountKeyring::Ferdie.to_account_id());
     let trusted_issuer_did_2 = register_keyring_account(AccountKeyring::Ferdie).unwrap();
-    let receiver_signed = Origin::signed(AccountKeyring::Dave.public());
+    let receiver_signed = Origin::signed(AccountKeyring::Dave.to_account_id());
     let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
     // Providing a random DID to root but in real world Root should posses a DID
@@ -817,7 +817,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     provide_scope_claim_to_multiple_parties(
         &[token_owner_did, receiver_did],
         ticker,
-        AccountKeyring::Charlie.public(),
+        AccountKeyring::Charlie.to_account_id(),
     );
 
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
@@ -899,15 +899,15 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
 fn jurisdiction_asset_compliance_we() {
     // 0. Create accounts
-    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
     let token_owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
+    let cdd_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
@@ -934,7 +934,7 @@ fn jurisdiction_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[token_owner_id, user_id],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 2. Set up compliance requirements for Asset transfer.
@@ -982,15 +982,15 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
 fn scope_asset_compliance_we() {
     // 0. Create accounts
     let owner = AccountKeyring::Alice;
-    let owner_signed = Origin::signed(owner.public());
-    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
+    let owner_signed = Origin::signed(owner.to_account_id());
+    let cdd_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
@@ -1000,7 +1000,7 @@ fn scope_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner_did, user_id],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 2. Set up compliance requirements for Asset transfer.
@@ -1031,15 +1031,15 @@ fn scope_asset_compliance_we() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::One.public()])
+        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
 /// Is any of: KYC’d, Affiliate, Accredited, Exempted
 fn cm_test_case_9_we() {
     // 0. Create accounts
-    let owner = Origin::signed(AccountKeyring::Alice.public());
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let owner = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let issuer = Origin::signed(AccountKeyring::Bob.to_account_id());
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
@@ -1072,7 +1072,7 @@ fn cm_test_case_9_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner_did, charlie, dave, eve, ferdie],
         ticker,
-        AccountKeyring::One.public(),
+        AccountKeyring::One.to_account_id(),
     );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
@@ -1127,7 +1127,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -1135,10 +1135,10 @@ fn cm_test_case_11() {
 // Is any of: KYC’d, Affiliate, Accredited, Exempted, is none of: Jurisdiction=x, y, z,
 fn cm_test_case_11_we() {
     // 0. Create accounts
-    let owner = Origin::signed(AccountKeyring::Alice.public());
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let owner = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let issuer = Origin::signed(AccountKeyring::Bob.to_account_id());
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let ferdie = AccountKeyring::Ferdie.public();
+    let ferdie = AccountKeyring::Ferdie.to_account_id();
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![b'A'].into());
@@ -1240,7 +1240,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1248,8 +1248,8 @@ fn cm_test_case_13() {
 // Must be KYC’d, is any of: Affiliate, Exempted, Accredited, is none of: Jurisdiction=x, y, z, etc.
 fn cm_test_case_13_we() {
     // 0. Create accounts
-    let owner = Origin::signed(AccountKeyring::Alice.public());
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
+    let owner = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let issuer = Origin::signed(AccountKeyring::Bob.to_account_id());
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
@@ -1293,7 +1293,7 @@ fn cm_test_case_13_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner_did, charlie, dave, eve],
         ticker,
-        AccountKeyring::Ferdie.public(),
+        AccountKeyring::Ferdie.to_account_id(),
     );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
@@ -1365,16 +1365,16 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
 
 fn can_verify_restriction_with_primary_issuance_agent_we() {
-    let owner = AccountKeyring::Alice.public();
+    let owner = AccountKeyring::Alice.to_account_id();
     let owner_origin = Origin::signed(owner);
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let issuer = AccountKeyring::Bob.public();
+    let issuer = AccountKeyring::Bob.to_account_id();
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![b'A'].into();
@@ -1405,7 +1405,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner_id, random_guy_id, issuer_id],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // No compliance requirement is present, compliance should fail
@@ -1450,7 +1450,7 @@ fn should_limit_compliance_requirement_complexity() {
 }
 
 fn should_limit_compliance_requirements_complexity_we() {
-    let token_owner_acc = AccountKeyring::Alice.public();
+    let token_owner_acc = AccountKeyring::Alice.to_account_id();
     let token_owner_signed = Origin::signed(token_owner_acc.clone());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
@@ -1529,8 +1529,8 @@ fn should_limit_compliance_requirements_complexity_we() {
 fn check_new_return_type_of_rpc() {
     ExtBuilder::default().build().execute_with(|| {
         // 0. Create accounts
-        let token_owner_acc = AccountKeyring::Alice.public();
-        let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_acc = AccountKeyring::Alice.to_account_id();
+        let token_owner_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 

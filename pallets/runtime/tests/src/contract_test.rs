@@ -2,29 +2,27 @@ use crate::{
     asset_test::max_len_bytes,
     ext_builder::MockProtocolBaseFees,
     storage::{
-        account_from, make_account_with_uid, make_account_without_cdd, root, AccountId,
-        TestStorage, User,
+        account_from, make_account_with_uid, make_account_without_cdd, root, TestStorage, User,
     },
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResultWithPostInfo},
     weights::GetDispatchInfo,
     StorageMap,
 };
 use hex_literal::hex;
 use pallet_balances as balances;
-use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
+use pallet_contracts::{ContractInfoOf, Gas};
 use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
+use polymesh_contracts::Call as ContractsCall;
 use polymesh_contracts::MetadataOfTemplate;
-use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
-    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
+    AccountId, IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
-use sp_core::sr25519::Public;
 use sp_runtime::{traits::Hash, Perbill};
 use substrate_test_runtime_client::AccountKeyring;
 
@@ -76,21 +74,32 @@ pub fn create_se_template(
     };
 
     // verify the weight value of the put_code extrinsic.
-    let weight_of_extrinsic = ContractsCall::<TestStorage>::put_code(
+    let subsistence = Contracts::subsistence_threshold();
+    let data = vec![];
+    let salt = vec![];
+    let weight_of_extrinsic = ContractsCall::<TestStorage>::instantiate_with_code(
+        subsistence,
+        GAS_LIMIT,
+        wasm.clone(),
+        data.clone(),
+        salt.clone(),
         se_meta_data.clone(),
         instantiation_fee,
-        wasm.clone(),
     )
     .get_dispatch_info()
     .weight;
     assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
 
     // Execute `put_code`
-    assert_ok!(WrapperContracts::put_code(
+    assert_ok!(WrapperContracts::instantiate_with_code(
         Origin::signed(template_creator),
+        subsistence,
+        GAS_LIMIT,
+        wasm,
+        data,
+        salt,
         se_meta_data.clone(),
         instantiation_fee,
-        wasm
     ));
 
     // Expected data provide by the runtime.
@@ -126,12 +135,14 @@ pub fn create_contract_instance(
     let current_extension_nonce = WrapperContracts::extension_nonce();
 
     // create a instance
+    let salt = vec![];
     let result = WrapperContracts::instantiate(
         Origin::signed(instance_creator),
         100,
         GAS_LIMIT,
         code_hash,
         input_data.to_vec(),
+        salt,
         max_fee,
     );
 
@@ -177,7 +188,7 @@ fn check_put_code_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
     execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
-        let alice = AccountKeyring::Alice.public();
+        let alice = AccountKeyring::Alice.to_account_id();
         // Create Alice account & the identity for her.
         let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
@@ -236,13 +247,7 @@ fn check_instantiation_functionality() {
         assert_eq!(alice_balance + instantiation_fee, free(alice.acc()));
 
         // Generate the contract address.
-        let addr_for = || {
-            NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-                &code_hash,
-                &input_data.to_vec(),
-                &bob.acc(),
-            )
-        };
+        let addr_for = || Contracts::contract_address(&bob.acc(), &code_hash, &[]);
         let flipper_address_1 = addr_for();
 
         // Check whether the contract creation allowed or not with same constructor data.
@@ -452,7 +457,7 @@ fn validate_transfer_template_ownership_functionality() {
 
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
@@ -461,7 +466,7 @@ fn validate_transfer_template_ownership_functionality() {
             let alice = User::new(AccountKeyring::Alice);
 
             // Create Bob account & the identity for her.
-            let bob = AccountKeyring::Bob.public();
+            let bob = AccountKeyring::Bob.to_account_id();
             let bob_uid = InvestorUid::from("bob_take_1");
             let (_, bob_did) = make_account_with_uid(bob, bob_uid).unwrap();
 
@@ -524,12 +529,19 @@ fn check_transaction_rollback_functionality_for_put_code() {
         };
 
         // Execute `put_code`
+        let subsistence = Contracts::subsistence_threshold();
+        let data = vec![];
+        let salt = vec![];
         assert_noop!(
-            WrapperContracts::put_code(
+            WrapperContracts::instantiate_with_code(
                 alice.origin(),
+                subsistence,
+                GAS_LIMIT,
+                wasm,
+                data,
+                salt,
                 se_meta_data.clone(),
                 instantiation_fee,
-                wasm
             ),
             ProtocolFeeError::InsufficientAccountBalance
         );
@@ -560,12 +572,7 @@ fn check_transaction_rollback_functionality_for_instantiation() {
         );
 
         // Generate the contract address.
-        let flipper_address_1 = NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-            &code_hash,
-            &input_data.to_vec(),
-            &bob.acc(),
-        );
-
+        let flipper_address_1 = Contracts::contract_address(&bob.acc(), &code_hash, &[]);
         assert!(!ContractInfoOf::<TestStorage>::contains_key(
             flipper_address_1
         ));
@@ -595,23 +602,28 @@ fn check_meta_url_functionality() {
 
 #[test]
 fn check_put_code_flag() {
-    let user = AccountKeyring::Charlie.public();
+    let user = AccountKeyring::Charlie.to_account_id();
 
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
+        .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
         .add_regular_users_from_accounts(&[user])
         .build()
         .execute_with(|| check_put_code_flag_ext(user))
 }
 
-fn check_put_code_flag_ext(user: Public) {
+fn check_put_code_flag_ext(user: AccountId) {
     let (_, wasm) = flipper();
-    let put_code = |acc: Public| -> DispatchResult {
-        WrapperContracts::put_code(
+    let subsistence = Contracts::subsistence_threshold();
+    let put_code = |acc: AccountId| -> DispatchResultWithPostInfo {
+        WrapperContracts::instantiate_with_code(
             Origin::signed(acc),
+            subsistence,
+            GAS_LIMIT,
+            wasm.clone(),
+            vec![],
+            vec![],
             TemplateMetadata::default(),
             0u128,
-            wasm.clone(),
         )
     };
 
@@ -636,8 +648,18 @@ fn put_code_length_limited() {
 
         let user = User::new(AccountKeyring::Alice);
         let (_, wasm) = flipper();
-        let put_code = |meta| -> DispatchResult {
-            WrapperContracts::put_code(user.origin(), meta, 0u128, wasm.clone())
+        let subsistence = Contracts::subsistence_threshold();
+        let put_code = |meta| -> DispatchResultWithPostInfo {
+            WrapperContracts::instantiate_with_code(
+                user.origin(),
+                subsistence,
+                GAS_LIMIT,
+                wasm.clone(),
+                vec![],
+                vec![],
+                meta,
+                0u128,
+            )
         };
         assert_too_long!(put_code(TemplateMetadata {
             url: Some(max_len_bytes(1)),

@@ -16,7 +16,11 @@ type Identity = identity::Module<TestStorage>;
 
 #[test]
 fn query_membership_works() {
-    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let committee = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
 
     ExtBuilder::default()
         .governance_committee(committee)
@@ -34,7 +38,7 @@ fn query_membership_works() {
 
 #[test]
 fn add_member_works() {
-    let committee = [AccountKeyring::Alice.public()].to_vec();
+    let committee = [AccountKeyring::Alice.to_account_id()].to_vec();
     ExtBuilder::default()
         .governance_committee(committee)
         .build()
@@ -43,7 +47,7 @@ fn add_member_works() {
 
 fn add_member_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Bob.public());
+    let non_root = Origin::signed(AccountKeyring::Bob.to_account_id());
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
@@ -71,11 +75,11 @@ fn add_member_works_we() {
 #[test]
 fn active_limit_works() {
     ExtBuilder::default()
-        .governance_committee([AccountKeyring::Alice.public()].to_vec())
+        .governance_committee([AccountKeyring::Alice.to_account_id()].to_vec())
         .build()
         .execute_with(|| {
             let root = Origin::from(frame_system::RawOrigin::Root);
-            let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signer = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
 
             assert_ok!(CommitteeGroup::add_member(
@@ -147,7 +151,11 @@ fn active_limit_works() {
 
 #[test]
 fn remove_member_works() {
-    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let committee = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
 
     ExtBuilder::default()
         .governance_committee(committee)
@@ -157,7 +165,7 @@ fn remove_member_works() {
 
 fn remove_member_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Charlie.public());
+    let non_root = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
@@ -179,7 +187,11 @@ fn remove_member_works_we() {
 
 #[test]
 fn swap_member_works() {
-    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let committee = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
 
     ExtBuilder::default()
         .governance_committee(committee)
@@ -189,7 +201,7 @@ fn swap_member_works() {
 
 fn swap_member_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Charlie.public());
+    let non_root = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
@@ -220,7 +232,11 @@ fn swap_member_works_we() {
 
 #[test]
 fn reset_members_works() {
-    let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let committee = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
     ExtBuilder::default()
         .governance_committee(committee)
         .build()
@@ -229,7 +245,7 @@ fn reset_members_works() {
 
 fn reset_members_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let non_root = Origin::signed(AccountKeyring::Bob.public());
+    let non_root = Origin::signed(AccountKeyring::Bob.to_account_id());
     let new_committee = (4..=6).map(IdentityId::from).collect::<Vec<_>>();
     assert_noop!(
         CommitteeGroup::reset_members(non_root, new_committee.clone()),
@@ -248,13 +264,13 @@ fn rage_quit_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
     // 1. Add members to committee
-    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_signer = Origin::signed(AccountKeyring::Alice.to_account_id());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_signer = Origin::signed(AccountKeyring::Bob.to_account_id());
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_signer = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.to_account_id());
     let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     // 0. Threshold is 2/3

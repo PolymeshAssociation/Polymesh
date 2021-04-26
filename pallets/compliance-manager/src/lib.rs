@@ -90,7 +90,6 @@ use pallet_external_agents::Trait as EATrait;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
     asset::AssetFnTrait,
-    balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     identity::Trait as IdentityTrait,

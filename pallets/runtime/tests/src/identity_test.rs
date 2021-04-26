@@ -34,7 +34,7 @@ use polymesh_primitives::{
     SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
-use sp_core::{crypto::AccountId32, sr25519::Public, H512};
+use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
 use substrate_test_runtime_client::AccountKeyring;
@@ -94,13 +94,13 @@ macro_rules! assert_add_cdd_claim {
 fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let owner_signer = Signatory::Account(AccountKeyring::Alice.public());
+        let owner_signer = Signatory::Account(AccountKeyring::Alice.to_account_id());
 
         let a_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let a = Origin::signed(AccountKeyring::Bob.public());
+        let a = Origin::signed(AccountKeyring::Bob.to_account_id());
         let b_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        let charlie_key = AccountKeyring::Charlie.public();
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
         let charlie_signer = Signatory::Account(charlie_key);
 
         add_secondary_key(a_did, charlie_signer);
@@ -151,9 +151,9 @@ fn revoking_claims() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let _issuer = Origin::signed(AccountKeyring::Bob.public());
+        let _issuer = Origin::signed(AccountKeyring::Bob.to_account_id());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let claim_issuer = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let scope = Scope::from(IdentityId::from(0));
 
         assert_ok!(Identity::add_claim(
@@ -190,9 +190,9 @@ fn revoking_batch_claims() {
     ExtBuilder::default().build().execute_with(|| {
         let _owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let _issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let _issuer = Origin::signed(AccountKeyring::Bob.public());
+        let _issuer = Origin::signed(AccountKeyring::Bob.to_account_id());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
+        let claim_issuer = Origin::signed(AccountKeyring::Charlie.to_account_id());
         let scope = Scope::from(IdentityId::from(0));
 
         assert_ok!(Identity::add_claim(
@@ -272,11 +272,11 @@ fn only_primary_key_can_add_secondary_key_permissions() {
         .execute_with(&only_primary_key_can_add_secondary_key_permissions_with_externalities);
 }
 fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
-    let bob_key = AccountKeyring::Bob.public();
-    let charlie_key = AccountKeyring::Charlie.public();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
 
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
     add_secondary_key(alice_did, Signatory::Account(bob_key));
@@ -325,7 +325,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
 fn set_permission_to_signer_with_bad_perms() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let bob = AccountKeyring::Bob.public();
+        let bob = AccountKeyring::Bob.to_account_id();
         add_secondary_key(alice.did, Signatory::Account(bob));
         test_with_bad_perms(alice.did, |perms| {
             assert_too_long!(Identity::set_permission_to_signer(
@@ -348,14 +348,14 @@ fn freeze_secondary_keys_test() {
 
 fn freeze_secondary_keys_with_externalities() {
     let (bob_key, charlie_key, dave_key) = (
-        AccountKeyring::Bob.public(),
-        AccountKeyring::Charlie.public(),
-        AccountKeyring::Dave.public(),
+        AccountKeyring::Bob.to_account_id(),
+        AccountKeyring::Charlie.to_account_id(),
+        AccountKeyring::Dave.to_account_id(),
     );
     // Add secondary keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
 
     add_secondary_key(alice_did, Signatory::Account(bob_key));
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
@@ -411,8 +411,8 @@ fn remove_frozen_secondary_keys_test() {
 
 fn remove_frozen_secondary_keys_with_externalities() {
     let (bob_key, charlie_key) = (
-        AccountKeyring::Bob.public(),
-        AccountKeyring::Charlie.public(),
+        AccountKeyring::Bob.to_account_id(),
+        AccountKeyring::Charlie.to_account_id(),
     );
 
     let charlie_secondary_key =
@@ -420,7 +420,7 @@ fn remove_frozen_secondary_keys_with_externalities() {
 
     // Add secondary keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
     add_secondary_key(alice_did, Signatory::Account(bob_key));
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
@@ -448,9 +448,9 @@ fn frozen_secondary_keys_cdd_verification_test() {
 
 fn frozen_secondary_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and secondary key from Bob.
-    let alice = AccountKeyring::Alice.public();
-    let bob = AccountKeyring::Bob.public();
-    let charlie = AccountKeyring::Charlie.public();
+    let alice = AccountKeyring::Alice.to_account_id();
+    let bob = AccountKeyring::Bob.to_account_id();
+    let charlie = AccountKeyring::Charlie.to_account_id();
     TestStorage::set_payer_context(Some(alice));
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     TestStorage::set_payer_context(Some(charlie));
@@ -458,13 +458,13 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     assert_eq!(Balances::free_balance(charlie), 100);
 
     // 1. Add Bob as signatory to Alice ID.
-    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
+    let bob_signatory = Signatory::Account(AccountKeyring::Bob.to_account_id());
     TestStorage::set_payer_context(Some(alice));
 
     add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
-        bob,
+        bob.into(),
         25_000,
         None
     ));
@@ -474,7 +474,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     TestStorage::set_payer_context(Some(bob));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
-        charlie,
+        charlie.into(),
         1_000,
         None
     ));
@@ -491,7 +491,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
             1_000,
             None,
         )),
-        &AccountId32::from(AccountKeyring::Bob.public().0),
+        &AccountKeyring::Bob.to_account_id(),
     );
     assert_noop!(
         payer,
@@ -503,7 +503,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     // 5. Alice still can make transfers.
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
-        charlie,
+        charlie.into(),
         1_000,
         None
     ));
@@ -513,7 +513,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     assert_ok!(Identity::unfreeze_secondary_keys(Origin::signed(alice)));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
-        charlie,
+        charlie.into(),
         1_000,
         None
     ));
@@ -529,15 +529,15 @@ fn remove_secondary_keys_test() {
 }
 
 fn remove_secondary_keys_test_with_externalities() {
-    let bob_key = AccountKeyring::Bob.public();
-    let alice_key = AccountKeyring::Alice.public();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let alice_key = AccountKeyring::Alice.to_account_id();
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let dave_key = AccountKeyring::Dave.public();
+    let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
@@ -555,7 +555,11 @@ fn remove_secondary_keys_test_with_externalities() {
     add_secondary_key(alice_did, Signatory::Account(musig_address));
 
     // Fund the multisig
-    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
+    assert_ok!(Balances::transfer(
+        alice.clone(),
+        musig_address.clone().into(),
+        1
+    ));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
@@ -606,7 +610,7 @@ fn remove_secondary_keys_test_with_externalities() {
     // Transfer funds back to Alice
     assert_ok!(Balances::transfer(
         Origin::signed(musig_address.clone()),
-        alice_key.clone(),
+        alice_key.clone().into(),
         1
     ));
 
@@ -637,20 +641,20 @@ fn leave_identity_test() {
 }
 
 fn leave_identity_test_with_externalities() {
-    let bob_key = AccountKeyring::Bob.public();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let alice_key = AccountKeyring::Alice.public();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let alice_key = AccountKeyring::Alice.to_account_id();
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
     let bob_secondary_key = SecondaryKey::new(Signatory::Account(bob_key), Permissions::default());
     let charlie_secondary_key =
         SecondaryKey::new(Signatory::Identity(charlie_did), Permissions::default());
     let alice_secondary_keys = vec![bob_secondary_key, charlie_secondary_key.clone()];
-    let dave_key = AccountKeyring::Dave.public();
+    let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
@@ -694,7 +698,11 @@ fn leave_identity_test_with_externalities() {
 
     add_secondary_key(alice_did, Signatory::Account(musig_address));
     // send funds to multisig
-    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
+    assert_ok!(Balances::transfer(
+        alice.clone(),
+        musig_address.clone().into(),
+        1
+    ));
     // multisig tries leaving identity while it has funds
     assert_noop!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
@@ -714,7 +722,7 @@ fn leave_identity_test_with_externalities() {
     // send funds back to alice from multisig
     assert_ok!(Balances::transfer(
         Origin::signed(musig_address.clone()),
-        alice_key.clone(),
+        alice_key.clone().into(),
         1
     ));
 
@@ -748,16 +756,19 @@ fn enforce_uniqueness_keys_in_identity() {
     let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // Check external signed key uniqueness.
-    let charlie_key = AccountKeyring::Charlie.public();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
     add_secondary_key(alice_id, Signatory::Account(charlie_key));
     let auth_id = Identity::add_auth(
         alice_id,
-        Signatory::Account(AccountKeyring::Bob.public()),
+        Signatory::Account(AccountKeyring::Bob.to_account_id()),
         AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
     assert_noop!(
-        Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
+        Identity::join_identity(
+            Signatory::Account(AccountKeyring::Bob.to_account_id()),
+            auth_id
+        ),
         Error::<TestStorage>::AlreadyLinked
     );
 }
@@ -772,7 +783,7 @@ fn add_remove_secondary_identities() {
 
 fn add_remove_secondary_identities_with_externalities() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
@@ -805,7 +816,7 @@ fn secondary_keys_with_auth(
     keys: &[AccountKeyring],
     ids: &[IdentityId],
     auth_encoded: &[u8],
-) -> Vec<SecondaryKeyWithAuth<Public>> {
+) -> Vec<SecondaryKeyWithAuth<AccountId>> {
     keys.iter()
         .map(|acc| H512::from(acc.sign(&auth_encoded)))
         .zip(ids.iter().map(|&id| SecondaryKey::from(id).into()))
@@ -1072,7 +1083,7 @@ fn adding_authorizations() {
 fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
         let auth_id = Identity::add_auth(
@@ -1104,18 +1115,18 @@ fn removing_authorizations() {
 fn changing_primary_key() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| changing_primary_key_we());
 }
 
 fn changing_primary_key_we() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_key = AccountKeyring::Alice.public();
+    let alice_key = AccountKeyring::Alice.to_account_id();
 
     let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let new_key = AccountKeyring::Bob.public();
-    let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+    let new_key = AccountKeyring::Bob.to_account_id();
+    let new_key_origin = Origin::signed(AccountKeyring::Bob.to_account_id());
 
     // Primary key matches Alice's key
     assert_eq!(Identity::did_records(alice_did).primary_key, alice_key);
@@ -1138,7 +1149,7 @@ fn changing_primary_key_we() {
     // Alice's primary key is now Bob's
     assert_eq!(
         Identity::did_records(alice_did).primary_key,
-        AccountKeyring::Bob.public()
+        AccountKeyring::Bob.to_account_id()
     );
 }
 
@@ -1146,18 +1157,18 @@ fn changing_primary_key_we() {
 fn changing_primary_key_with_cdd_auth() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| changing_primary_key_with_cdd_auth_we());
 }
 
 fn changing_primary_key_with_cdd_auth_we() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_key = AccountKeyring::Alice.public();
+    let alice_key = AccountKeyring::Alice.to_account_id();
 
     let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let new_key = AccountKeyring::Bob.public();
-    let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+    let new_key = AccountKeyring::Bob.to_account_id();
+    let new_key_origin = Origin::signed(AccountKeyring::Bob.to_account_id());
 
     let cdd_did = get_identity_id(AccountKeyring::Eve).unwrap();
 
@@ -1205,7 +1216,7 @@ fn changing_primary_key_with_cdd_auth_we() {
     // Alice's primary key is now Bob's
     assert_eq!(
         Identity::did_records(alice_did).primary_key,
-        AccountKeyring::Bob.public()
+        AccountKeyring::Bob.to_account_id()
     );
 }
 
@@ -1215,20 +1226,20 @@ fn cdd_register_did_test() {
         .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
-            AccountKeyring::Eve.public(),
-            AccountKeyring::Ferdie.public(),
+            AccountKeyring::Eve.to_account_id(),
+            AccountKeyring::Ferdie.to_account_id(),
         ])
         .build()
         .execute_with(|| cdd_register_did_test_we());
 }
 
 fn cdd_register_did_test_we() {
-    let cdd1 = Origin::signed(AccountKeyring::Eve.public());
-    let cdd2 = Origin::signed(AccountKeyring::Ferdie.public());
-    let non_id = Origin::signed(AccountKeyring::Charlie.public());
+    let cdd1 = Origin::signed(AccountKeyring::Eve.to_account_id());
+    let cdd2 = Origin::signed(AccountKeyring::Ferdie.to_account_id());
+    let non_id = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    let alice = AccountKeyring::Alice.public();
-    let bob_acc = AccountKeyring::Bob.public();
+    let alice = AccountKeyring::Alice.to_account_id();
+    let bob_acc = AccountKeyring::Bob.to_account_id();
 
     // CDD 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(cdd1.clone(), alice, vec![]));
@@ -1253,8 +1264,8 @@ fn cdd_register_did_test_we() {
     // Register with secondary_keys
     // ==============================================
     // Register Charlie with secondary keys.
-    let charlie = AccountKeyring::Charlie.public();
-    let dave = AccountKeyring::Dave.public();
+    let charlie = AccountKeyring::Charlie.to_account_id();
+    let dave = AccountKeyring::Dave.to_account_id();
     let dave_si = SecondaryKey::from_account_id(dave.clone());
     let alice_si = SecondaryKey::from(alice_id);
     let secondary_keys = vec![dave_si.clone().into(), alice_si.clone().into()];
@@ -1303,10 +1314,10 @@ fn add_identity_signers() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let _alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
+        let _alice_acc_signer = Signatory::Account(AccountKeyring::Alice.to_account_id());
         let bob_identity_signer = Signatory::from(bob_did);
-        let _charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
-        let dave_acc_signer = Signatory::Account(AccountKeyring::Dave.public());
+        let _charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.to_account_id());
+        let dave_acc_signer = Signatory::Account(AccountKeyring::Dave.to_account_id());
 
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_did,
@@ -1366,7 +1377,7 @@ fn add_identity_signers() {
 
         let alice_secondary_keys = Identity::did_records(alice_did).secondary_keys;
         let charlie_secondary_keys = Identity::did_records(charlie_did).secondary_keys;
-        let mut dave_sk = SecondaryKey::from_account_id(AccountKeyring::Dave.public());
+        let mut dave_sk = SecondaryKey::from_account_id(AccountKeyring::Dave.to_account_id());
         // Correct the permissions to ones set by `add_secondary_key`.
         dave_sk.permissions = Permissions::default();
         assert!(alice_secondary_keys
@@ -1394,8 +1405,8 @@ fn invalidate_cdd_claims() {
         .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
-            AccountKeyring::Eve.public(),
-            AccountKeyring::Ferdie.public(),
+            AccountKeyring::Eve.to_account_id(),
+            AccountKeyring::Ferdie.to_account_id(),
         ])
         .build()
         .execute_with(invalidate_cdd_claims_we);
@@ -1403,9 +1414,9 @@ fn invalidate_cdd_claims() {
 
 fn invalidate_cdd_claims_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let cdd = AccountKeyring::Eve.public();
-    let alice_acc = AccountKeyring::Alice.public();
-    let bob_acc = AccountKeyring::Bob.public();
+    let cdd = AccountKeyring::Eve.to_account_id();
+    let alice_acc = AccountKeyring::Alice.to_account_id();
+    let bob_acc = AccountKeyring::Bob.to_account_id();
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(cdd),
         alice_acc,
@@ -1441,7 +1452,11 @@ fn invalidate_cdd_claims_we() {
 
 #[test]
 fn cdd_provider_with_systematic_cdd_claims() {
-    let cdd_providers = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let cdd_providers = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
 
     ExtBuilder::default()
         .monied(true)
@@ -1474,8 +1489,8 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
 
     // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
     // Then remove that DID from CDD provides, it should keep its previous CDD claim.
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let charlie_acc = AccountKeyring::Charlie.public();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let charlie_acc = AccountKeyring::Charlie.to_account_id();
 
     // 3.1. Add CDD claim to Charlie, by Alice.
     assert_ok!(Identity::cdd_register_did(
@@ -1503,10 +1518,14 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
 
 #[test]
 fn gc_with_systematic_cdd_claims() {
-    let cdd_providers = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let cdd_providers = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
     let governance_committee = [
-        AccountKeyring::Charlie.public(),
-        AccountKeyring::Dave.public(),
+        AccountKeyring::Charlie.to_account_id(),
+        AccountKeyring::Dave.to_account_id(),
     ]
     .to_vec();
 
@@ -1543,8 +1562,8 @@ fn gc_with_systematic_cdd_claims_we() {
 
     // 3. Add DID with CDD claim to CDD providers, and check that systematic CDD claim was added.
     // Then remove that DID from CDD provides, it should keep its previous CDD claim.
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let ferdie_acc = AccountKeyring::Ferdie.public();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let ferdie_acc = AccountKeyring::Ferdie.to_account_id();
 
     // 3.1. Add CDD claim to Ferdie, by Alice.
     assert_ok!(Identity::cdd_register_did(
@@ -1572,8 +1591,11 @@ fn gc_with_systematic_cdd_claims_we() {
 
 #[test]
 fn gc_and_cdd_with_systematic_cdd_claims() {
-    let gc_and_cdd_providers =
-        [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
+    let gc_and_cdd_providers = [
+        AccountKeyring::Alice.to_account_id(),
+        AccountKeyring::Bob.to_account_id(),
+    ]
+    .to_vec();
 
     ExtBuilder::default()
         .monied(true)
@@ -1609,15 +1631,15 @@ fn add_permission_with_secondary_key() {
         .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
-            AccountKeyring::Eve.public(),
-            AccountKeyring::Ferdie.public(),
+            AccountKeyring::Eve.to_account_id(),
+            AccountKeyring::Ferdie.to_account_id(),
         ])
         .build()
         .execute_with(|| {
-            let cdd_1_acc = AccountKeyring::Eve.public();
-            let alice_acc = AccountKeyring::Alice.public();
-            let bob_acc = AccountKeyring::Bob.public();
-            let charlie_acc = AccountKeyring::Charlie.public();
+            let cdd_1_acc = AccountKeyring::Eve.to_account_id();
+            let alice_acc = AccountKeyring::Alice.to_account_id();
+            let bob_acc = AccountKeyring::Bob.to_account_id();
+            let charlie_acc = AccountKeyring::Charlie.to_account_id();
 
             // SecondaryKey added
             let sig_1 = SecondaryKey {
@@ -1665,14 +1687,14 @@ fn add_permission_with_secondary_key() {
 #[test]
 fn add_investor_uniqueness_claim() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Charlie.public()])
+        .cdd_providers(vec![AccountKeyring::Charlie.to_account_id()])
         .build()
         .execute_with(do_add_investor_uniqueness_claim);
 }
 
 fn do_add_investor_uniqueness_claim() {
     let alice = User::new(AccountKeyring::Alice);
-    let cdd_provider = AccountKeyring::Charlie.public();
+    let cdd_provider = AccountKeyring::Charlie.to_account_id();
     let ticker = an_asset(alice, true);
     let initial_balance = Asset::balance_of(ticker, alice.did);
     let add_iu_claim =
@@ -1724,8 +1746,8 @@ fn do_add_investor_uniqueness_claim() {
 
 #[test]
 fn add_investor_uniqueness_claim_v2() {
-    let user = AccountKeyring::Alice.public();
-    let user_no_cdd_id = AccountKeyring::Bob.public();
+    let user = AccountKeyring::Alice.to_account_id();
+    let user_no_cdd_id = AccountKeyring::Bob.to_account_id();
 
     ExtBuilder::default()
         .add_regular_users_from_accounts(&[user])
@@ -1758,10 +1780,10 @@ fn add_investor_uniqueness_claim_v2() {
 
 /// Creates a data set as an input for `do_add_investor_uniqueness_claim_v2`.
 fn add_investor_uniqueness_claim_v2_data(
-    user: Public,
-    user_no_cdd_id: Public,
+    user: AccountId,
+    user_no_cdd_id: AccountId,
 ) -> Vec<(
-    (Public, Scope, Claim, v2::InvestorZKProofData),
+    (AccountId, Scope, Claim, v2::InvestorZKProofData),
     DispatchResult,
 )> {
     let ticker = Ticker::default();

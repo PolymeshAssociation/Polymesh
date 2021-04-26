@@ -1,6 +1,8 @@
 use super::{
-    fast_forward_blocks, next_block,
-    storage::{Call, TestStorage},
+    storage::{
+        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance, Call,
+        TestStorage,
+    },
     ExtBuilder,
 };
 
@@ -8,6 +10,9 @@ use frame_support::{
     assert_noop, assert_ok, storage::IterableStorageDoubleMap, traits::Currency, weights::Weight,
 };
 use pallet_bridge::{self as bridge, BridgeTx, BridgeTxDetail, BridgeTxStatus};
+use pallet_multisig as multisig;
+use polymesh_primitives::{AccountId, Signatory};
+use substrate_test_runtime_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
@@ -41,151 +46,195 @@ fn test_with_controller(test: &dyn Fn(&[Public])) {
         .add_regular_users_from_accounts(&[admin, Eve.public(), Ferdie.public()])
         .set_bridge_controller(admin, [bob, charlie, dave].into(), MIN_SIGNS_REQUIRED)
         .build()
-        .execute_with(|| test(&[bob, charlie, dave]));
+        .execute_with(can_issue_to_identity_we);
 }
 
-fn signed_admin() -> Origin {
-    Origin::signed(Bridge::admin())
-}
+fn can_issue_to_identity_we() {
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-fn make_bridge_tx(recipient: Public, amount: u128) -> BridgeTx {
-    BridgeTx {
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let dave_key = AccountKeyring::Dave.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
+    let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
+
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::Account(bob_key.clone()),
+            Signatory::Account(charlie_key.clone()),
+            Signatory::Account(dave_key.clone())
+        ],
+        2,
+    ));
+
+    assert_eq!(MultiSig::ms_signs_required(controller.clone()), 2);
+
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        bob.clone(),
+        get_last_auth_id(&Signatory::Account(bob_key.clone()))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        charlie.clone(),
+        get_last_auth_id(&Signatory::Account(charlie_key.clone()))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        dave.clone(),
+        get_last_auth_id(&Signatory::Account(dave_key.clone()))
+    ));
+
+    assert_eq!(
+        MultiSig::ms_signers(controller.clone(), Signatory::Account(bob_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller.clone(), Signatory::Account(charlie_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller.clone(), Signatory::Account(dave_key)),
+        true
+    );
+
+    let admin = frame_system::RawOrigin::Signed(Default::default());
+    assert_ok!(Bridge::change_bridge_limit(
+        Origin::from(admin.clone()),
+        1_000_000_000_000_000_000_000_000,
+        1
+    ));
+    assert_ok!(Bridge::change_controller(
+        Origin::from(admin.clone()),
+        controller.clone()
+    ));
+    assert_eq!(Bridge::controller(), controller);
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
         nonce: 1,
-        recipient,
+        recipient: AccountKeyring::Alice.to_account_id(),
         amount,
         tx_hash: Default::default(),
-    }
-}
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 0);
+    assert_tx_approvals_and_next_block!(controller.clone(), 1, 0);
 
-fn alice_bridge_tx(amount: u128) -> BridgeTx {
-    make_bridge_tx(Alice.public(), amount)
-}
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 1);
+    assert_tx_approvals_and_next_block!(controller.clone(), 1, 0);
+    let alices_balance = Balances::total_balance(&AccountKeyring::Alice.to_account_id());
 
-fn bob_bridge_tx(amount: u128) -> BridgeTx {
-    make_bridge_tx(Bob.public(), amount)
-}
+    assert_eq!(
+        MultiSig::proposal_ids(&controller, proposal.clone()),
+        Some(0)
+    );
+    assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 2);
+    assert_tx_approvals_and_next_block!(controller.clone(), 1, 0);
 
-fn proposal_tx(recipient: Public, amount: u128) -> (BridgeTx, Box<Call>) {
-    let tx = make_bridge_tx(recipient, amount);
-    let call = bridge::Call::handle_bridge_tx(tx.clone());
-    (tx, Box::new(Call::Bridge(call)))
-}
-
-fn alice_proposal_tx(amount: u128) -> Box<Call> {
-    proposal_tx(Alice.public(), amount).1
-}
-
-fn alice_balance() -> u128 {
-    Balances::total_balance(&Alice.public())
-}
-
-fn alice_tx_details(tx_id: u32) -> BridgeTxDetail {
-    Bridge::bridge_tx_details(Alice.public(), tx_id)
-}
-
-fn proposals(amount: u128) -> [(BridgeTx, Box<Call>); 3] {
-    [Alice, Eve, Ferdie].map(|acc| proposal_tx(acc.public(), amount))
-}
-
-fn signers_approve_proposal(proposal: Call, signers: &[Public]) -> BridgeTx {
-    let controller = Bridge::controller();
-    match proposal {
-        Call::Bridge(bridge::Call::handle_bridge_tx(ref tx)) => {
-            let mut proposal_id = None;
-
-            // Use minimun number of signs to approve it.
-            for i in 0..(MIN_SIGNS_REQUIRED as usize) {
-                assert_ok!(Bridge::propose_bridge_tx(
-                    Origin::signed(signers[i]),
-                    tx.clone()
-                ));
-
-                // Verify approvals.
-                // Fetch proposal ID if unknown.
-                let p_id = proposal_id
-                    .get_or_insert_with(|| {
-                        MultiSig::proposal_ids(&controller, proposal.clone()).unwrap_or_default()
-                    })
-                    .clone();
-                assert_eq!(
-                    MultiSig::proposal_detail(&(controller, p_id)).approvals,
-                    (i + 1) as u64
-                );
-            }
-            return tx.clone();
-        }
-        _ => panic!("Invalid call"),
-    }
-}
-
-fn advance_block_and_verify_alice_balance(offset: u64, expected_balance: u128) -> Weight {
-    (0..=offset)
-        .map(|_| {
-            assert_eq!(alice_balance(), expected_balance);
-            next_block()
-        })
-        .sum()
-}
-
-fn next_unlock_block_number() -> u64 {
-    System::block_number() + 1 + Bridge::timelock()
-}
-
-fn ensure_tx_status(recipient: Public, nonce: u32, expected_status: BridgeTxStatus) -> u64 {
-    let tx_details = Bridge::bridge_tx_details(recipient, nonce);
-    assert_eq!(tx_details.status, expected_status);
-    tx_details.execution_block
-}
-
-#[test]
-fn can_issue_to_identity() {
-    test_with_controller(&|signers| {
-        let proposal = alice_proposal_tx(AMOUNT);
-        let tx = signers_approve_proposal(*proposal, signers);
-
-        // Wait for timelock, and proposal should be handled.
-        fast_forward_blocks(Bridge::timelock() + 1);
-        assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
-
-        let controller = Origin::signed(Bridge::controller());
-        assert_noop!(
-            Bridge::handle_bridge_tx(controller, tx),
-            Error::ProposalAlreadyHandled
-        );
-    });
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
+    let new_alices_balance = Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    assert_eq!(new_alices_balance, alices_balance + amount);
+    // Attempt to handle the same transaction again.
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
+    assert_noop!(
+        Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
+        Error::ProposalAlreadyHandled
+    );
 }
 
 #[test]
 fn can_change_controller() {
-    test_with_controller(&|_signers| {
-        let controller = Bob.public();
+    ExtBuilder::default().build().execute_with(|| {
+        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(Bridge::change_controller(signed_admin(), controller));
+        let bob_key = AccountKeyring::Bob.to_account_id();
+        let charlie_key = AccountKeyring::Charlie.to_account_id();
+        let dave_key = AccountKeyring::Dave.to_account_id();
+        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
+        let dave = Origin::signed(AccountKeyring::Dave.to_account_id());
+
+        let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![
+                Signatory::Account(bob_key.clone()),
+                Signatory::Account(charlie_key.clone()),
+                Signatory::Account(dave_key.clone())
+            ],
+            2,
+        ));
+
+        assert_eq!(MultiSig::ms_signs_required(controller.clone()), 2);
+
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+            bob.clone(),
+            get_last_auth_id(&Signatory::Account(bob_key.clone()))
+        ));
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+            charlie.clone(),
+            get_last_auth_id(&Signatory::Account(charlie_key.clone()))
+        ));
+        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+            dave.clone(),
+            get_last_auth_id(&Signatory::Account(dave_key.clone()))
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(controller.clone(), Signatory::Account(bob_key)),
+            true
+        );
+        assert_eq!(
+            MultiSig::ms_signers(controller.clone(), Signatory::Account(charlie_key)),
+            true
+        );
+        assert_eq!(
+            MultiSig::ms_signers(controller.clone(), Signatory::Account(dave_key)),
+            true
+        );
+        let admin = frame_system::RawOrigin::Signed(Default::default());
+        assert_ok!(Bridge::change_controller(
+            Origin::from(admin),
+            controller.clone()
+        ));
         assert_eq!(Bridge::controller(), controller);
     });
 }
 
 #[test]
 fn cannot_propose_without_controller() {
-    let alice = Alice.public();
-
-    ExtBuilder::default()
-        .add_regular_users_from_accounts(&[alice])
-        .build()
-        .execute_with(|| {
-            let bridge_tx = alice_bridge_tx(1_000_000);
-            assert_noop!(
-                Bridge::propose_bridge_tx(Origin::signed(alice), bridge_tx),
-                Error::ControllerNotSet
-            );
-        });
+    ExtBuilder::default().build().execute_with(|| {
+        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let amount = 1_000_000;
+        let bridge_tx = BridgeTx {
+            nonce: 1,
+            recipient: AccountKeyring::Alice.to_account_id(),
+            amount,
+            tx_hash: Default::default(),
+        };
+        assert_noop!(
+            Bridge::propose_bridge_tx(alice, bridge_tx),
+            Error::ControllerNotSet,
+        );
+    });
 }
 
 #[test]
 fn cannot_call_bridge_callback_extrinsics() {
-    test_with_controller(&|_signers| {
-        let controller = Bridge::controller();
-        let no_admin = Origin::signed(Bob.public());
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_account = AccountKeyring::Alice.to_account_id();
+        let alice = Origin::signed(alice_account.clone());
         assert_noop!(
             Bridge::change_controller(no_admin.clone(), controller),
             Error::BadAdmin
@@ -196,6 +245,13 @@ fn cannot_call_bridge_callback_extrinsics() {
             Bridge::handle_bridge_tx(no_admin, bridge_tx),
             Error::BadCaller
         );
+        let bridge_tx = BridgeTx {
+            nonce: 1,
+            recipient: AccountKeyring::Alice.to_account_id(),
+            amount: 1_000_000,
+            tx_hash: Default::default(),
+        };
+        assert_noop!(Bridge::handle_bridge_tx(alice, bridge_tx), Error::BadCaller);
     });
 }
 
@@ -204,22 +260,86 @@ fn can_freeze_and_unfreeze_bridge() {
     test_with_controller(&do_freeze_and_unfreeze_bridge)
 }
 
-fn do_freeze_and_unfreeze_bridge(signers: &[Public]) {
-    let alice = Alice.public();
-    let admin = signed_admin();
-    let proposal = alice_proposal_tx(AMOUNT);
-    let timelock = Bridge::timelock();
+fn do_freeze_and_unfreeze_bridge() {
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
+
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::Account(bob_key.clone()),
+            Signatory::Account(charlie_key.clone()),
+        ],
+        2,
+    ));
+
+    assert_eq!(MultiSig::ms_signs_required(controller.clone()), 2);
+
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        bob.clone(),
+        get_last_auth_id(&Signatory::Account(bob_key.clone()))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        charlie.clone(),
+        get_last_auth_id(&Signatory::Account(charlie_key.clone()))
+    ));
+
+    assert_eq!(
+        MultiSig::ms_signers(controller.clone(), Signatory::Account(bob_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller.clone(), Signatory::Account(charlie_key)),
+        true
+    );
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
+    assert_ok!(Bridge::change_controller(admin.clone(), controller.clone()));
+    assert_eq!(Bridge::controller(), controller.clone());
+    let amount = 1_000_000_000_000_000_000_000;
+    assert_ok!(Bridge::change_bridge_limit(
+        admin.clone(),
+        1_000_000_000_000_000_000_000_000,
+        1
+    ));
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: AccountKeyring::Alice.to_account_id(),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 0);
+    // First propose the transaction using the bridge API.
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     // Freeze the bridge with the transaction still in flight.
     assert_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
-
-    let starting_alices_balance = alice_balance();
-    signers_approve_proposal(*proposal, signers);
-
-    ensure_tx_status(alice, 1, BridgeTxStatus::Absent);
-    fast_forward_blocks(timelock);
-
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 1);
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    let starting_alices_balance = alices_balance();
+    assert_eq!(
+        MultiSig::proposal_ids(&controller, proposal.clone()),
+        Some(0)
+    );
+    // Approve the transaction bypassing the bridge API. The transaction will be handled but scheduled for later
+    assert_ok!(MultiSig::approve_as_key(charlie, controller.clone(), 0));
+    assert_tx_approvals_and_next_block!(controller.clone(), 0, 2);
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
+    // The tokens were not issued because the transaction is frozen.
+    assert_eq!(alices_balance(), starting_alices_balance);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
     // Weight calculation when bridge is freezed
     ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
     assert_eq!(next_block(), WEIGHT_EXPECTED);
@@ -230,16 +350,24 @@ fn do_freeze_and_unfreeze_bridge(signers: &[Public]) {
     next_block();
 
     // Still no issue. The transaction needs to be processed.
-    assert_eq!(alice_balance(), starting_alices_balance);
-    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Pending(1));
+    assert_eq!(alices_balance(), starting_alices_balance);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Pending(1)
+    );
+    // It will be 0 as txn has to wait for 1 more block to execute.
+    assert_eq!(next_block(), 0);
+    assert_eq!(next_block(), 500000210);
 
     // It will be 0 as txn has to wait for X more block to execute.
     assert_eq!(
-        advance_block_and_verify_alice_balance(
-            execution_block - System::block_number() - 1,
-            starting_alices_balance
-        ),
-        WEIGHT_EXPECTED
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
+    // Attempt to handle the same transaction again.
+    assert_noop!(
+        Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
+        Error::ProposalAlreadyHandled
     );
 
     // Now the tokens are issued.
@@ -252,27 +380,103 @@ fn can_timelock_txs() {
     test_with_controller(&do_timelock_txs)
 }
 
-fn do_timelock_txs(signers: &[Public]) {
-    let alice = Alice.public();
-    let proposal = alice_proposal_tx(AMOUNT);
-    let starting_alices_balance = alice_balance();
+fn do_timelock_txs() {
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-    // Approves the `proposal` by `signers`.
-    signers_approve_proposal(*proposal, signers);
-    next_block();
-    let unlock_block_number = next_unlock_block_number();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    // Tx should be timelocked
-    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
-    assert_eq!(execution_block, unlock_block_number);
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::Account(bob_key.clone()),
+            Signatory::Account(charlie_key)
+        ],
+        1,
+    ));
 
     // Alice's banlance should not change until `unlock_block_number`.
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
 
-    // Tx was handled.
-    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
-    assert_eq!(execution_block, unlock_block_number);
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        bob.clone(),
+        get_last_auth_id(&Signatory::Account(bob_key.clone()))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        charlie.clone(),
+        get_last_auth_id(&Signatory::Account(charlie_key))
+    ));
+
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
+        true
+    );
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
+    assert_ok!(Bridge::change_controller(admin.clone(), controller));
+    assert_eq!(Bridge::controller(), controller);
+    assert_ok!(Bridge::change_bridge_limit(
+        admin.clone(),
+        1_000_000_000_000_000_000_000_000,
+        1
+    ));
+    let timelock = 3;
+    assert_ok!(Bridge::change_timelock(admin.clone(), timelock));
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: AccountKeyring::Alice.to_account_id(),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    let starting_alices_balance = alices_balance();
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
+    let first_block_number = System::block_number();
+    let unlock_block_number = first_block_number + timelock + 1;
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
+    );
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(System::block_number(), unlock_block_number);
+    assert_eq!(alices_balance(), starting_alices_balance + amount);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
 }
 
 #[test]
@@ -280,28 +484,98 @@ fn can_rate_limit() {
     test_with_controller(&do_rate_limit);
 }
 
-fn do_rate_limit(signers: &[Public]) {
-    let rate_limit = 1_000_000_000;
-    let alice = Alice.public();
-    let admin = signed_admin();
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
-    let starting_alices_balance = alice_balance();
+fn do_rate_limit() {
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-    // Set up limit and timeclock.
-    assert_ok!(Bridge::change_bridge_limit(admin.clone(), rate_limit, 1));
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    // Send the proposal... and it should not issue due to the current rate_limit.
-    signers_approve_proposal(*proposal, signers);
-    advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::Account(bob_key.clone()),
+            Signatory::Account(charlie_key.clone())
+        ],
+        1,
+    ));
 
+    assert_eq!(MultiSig::ms_signs_required(controller), 1);
+
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        bob.clone(),
+        get_last_auth_id(&Signatory::Account(bob_key.clone()))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        charlie.clone(),
+        get_last_auth_id(&Signatory::Account(charlie_key.clone()))
+    ));
+
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
+        true
+    );
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
+    assert_ok!(Bridge::change_controller(admin.clone(), controller));
+    assert_eq!(Bridge::controller(), controller);
+    assert_ok!(Bridge::change_bridge_limit(admin.clone(), 1_000_000_000, 1));
+    let timelock = 3;
+    assert_ok!(Bridge::change_timelock(admin.clone(), timelock));
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: AccountKeyring::Alice.to_account_id(),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    let starting_alices_balance = alices_balance();
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
+    let first_block_number = System::block_number();
+    let unlock_block_number = first_block_number + timelock + 1;
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
+    );
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(System::block_number(), unlock_block_number);
     // Still no issue, rate limit reached
     assert_eq!(alice_balance(), starting_alices_balance);
     assert_ok!(Bridge::change_bridge_limit(admin, AMOUNT_OVER_LIMIT + 1, 1));
 
     // Mint successful after limit is increased
-    next_block();
-    assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
-    ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+    assert_eq!(alices_balance(), starting_alices_balance + amount);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
 }
 
 #[test]
@@ -309,21 +583,87 @@ fn is_exempted() {
     test_with_controller(&do_exempted)
 }
 
-fn do_exempted(signers: &[Public]) {
-    let alice = Alice.public();
-    let alice_did = Identity::key_to_identity_dids(alice);
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
-    let starting_alices_balance = alice_balance();
+fn do_exempted() {
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-    // Send and approve the proposal.
-    signers_approve_proposal(*proposal, signers);
-    next_block();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
-    assert_eq!(execution_block, next_unlock_block_number());
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![
+            Signatory::Account(bob_key),
+            Signatory::Account(charlie_key.clone())
+        ],
+        1,
+    ));
 
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
 
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        bob.clone(),
+        get_last_auth_id(&Signatory::Account(bob_key))
+    ));
+    assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        charlie.clone(),
+        get_last_auth_id(&Signatory::Account(charlie_key.clone()))
+    ));
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
+        true
+    );
+    assert_eq!(
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
+        true
+    );
+    assert_ok!(Bridge::change_controller(admin.clone(), controller));
+    assert_eq!(Bridge::controller(), controller);
+    assert_ok!(Bridge::change_bridge_limit(admin.clone(), 1_000_000_000, 1));
+    let timelock = 3;
+    assert_ok!(Bridge::change_timelock(admin.clone(), timelock));
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: AccountKeyring::Alice.to_account_id(),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    let starting_alices_balance = alices_balance();
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
+    let first_block_number = System::block_number();
+    let unlock_block_number = first_block_number + timelock + 1;
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
+    );
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(System::block_number(), unlock_block_number);
     // Still no issue, rate limit reached
     assert_eq!(alice_balance(), starting_alices_balance);
     assert_ok!(Bridge::change_bridge_exempted(
@@ -333,9 +673,11 @@ fn do_exempted(signers: &[Public]) {
     next_block();
 
     // Mint successful after exemption
-    advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
-    ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
-    assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
+    assert_eq!(alices_balance(), starting_alices_balance + amount);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
 }
 
 #[test]
@@ -343,18 +685,22 @@ fn can_force_mint() {
     test_with_controller(&do_force_mint);
 }
 
-fn do_force_mint(signers: &[Public]) {
-    let alice = Alice.public();
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
-    let starting_alices_balance = alice_balance();
-    let timelock = Bridge::timelock();
+fn do_force_mint() {
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
 
-    let tx = signers_approve_proposal(*proposal, signers);
-    next_block();
-    let unlock_block_number = next_unlock_block_number();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let charlie_key = AccountKeyring::Charlie.to_account_id();
+    let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+    let charlie = Origin::signed(AccountKeyring::Charlie.to_account_id());
 
-    let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Timelocked);
-    assert_eq!(execution_block, unlock_block_number);
+    let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key)],
+        1,
+    ));
 
     advance_block_and_verify_alice_balance(timelock, starting_alices_balance);
 
@@ -368,131 +714,73 @@ fn do_force_mint(signers: &[Public]) {
     assert_eq!(execution_block, unlock_block_number);
 }
 
-#[test]
-fn change_admin() {
-    test_with_controller(&|signers| {
-        let new_admin = *signers.iter().next().unwrap();
-        assert_ne!(new_admin, Bridge::admin());
-
-        assert_noop!(
-            Bridge::change_admin(Origin::signed(new_admin), new_admin),
-            Error::BadAdmin
-        );
-        assert_ok!(Bridge::change_admin(signed_admin(), new_admin));
-        assert_eq!(Bridge::admin(), new_admin);
-    });
-}
-
-#[test]
-fn change_timelock() {
-    test_with_controller(&|signers| {
-        let no_admin = Origin::signed(*signers.iter().next().unwrap());
-        let new_timelock = Bridge::timelock() * 2;
-
-        assert_noop!(
-            Bridge::change_timelock(no_admin, new_timelock),
-            Error::BadAdmin
-        );
-        assert_ok!(Bridge::change_timelock(signed_admin(), new_timelock));
-        assert_eq!(Bridge::timelock(), new_timelock);
-    });
-}
-
-#[test]
-fn freeze_txs() {
-    test_with_controller(&do_freeze_txs);
-}
-
-fn do_freeze_txs(signers: &[Public]) {
-    let no_admin = Origin::signed(*signers.iter().next().unwrap());
-
-    // Create some txs and register the recipients' balance.
-    let txs = proposals(AMOUNT).map(|(_, p)| signers_approve_proposal(*p, signers));
-    let init_balances = txs
-        .iter()
-        .map(|tx| Balances::total_balance(&tx.recipient))
-        .collect::<Vec<_>>();
-
-    fast_forward_blocks(Bridge::timelock());
-
-    // Freeze all txs except the first one.
-    let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
-    assert!(!frozen_txs.is_empty());
-    assert_noop!(
-        Bridge::freeze_txs(no_admin.clone(), frozen_txs.clone()),
-        Error::BadAdmin
+    assert_ok!(Bridge::change_controller(admin.clone(), controller));
+    assert_eq!(Bridge::controller(), controller);
+    assert_ok!(Bridge::change_bridge_limit(admin.clone(), 1_000_000_000, 1));
+    let timelock = 3;
+    assert_ok!(Bridge::change_timelock(admin.clone(), timelock));
+    let amount = 1_000_000_000_000_000_000_000;
+    let bridge_tx = BridgeTx {
+        nonce: 1,
+        recipient: AccountKeyring::Alice.to_account_id(),
+        amount,
+        tx_hash: Default::default(),
+    };
+    let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
+        bridge_tx.clone(),
+    )));
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.to_account_id());
+    let starting_alices_balance = alices_balance();
+    assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
+    assert_tx_approvals_and_next_block!(controller, 0, 0);
+    assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
+    assert_tx_approvals_and_next_block!(controller, 0, 1);
+    let first_block_number = System::block_number();
+    let unlock_block_number = first_block_number + timelock + 1;
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
     );
     assert_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
     next_block();
-
-    // Double check that first TX is done, and any other is frozen.
-    let tx = txs.iter().next().unwrap();
-    ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Handled);
-
-    frozen_txs.iter().for_each(|tx| {
-        let _ = ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Frozen);
-    });
-
-    // Unfreeze frozen TXs
-    assert_noop!(
-        Bridge::unfreeze_txs(no_admin, frozen_txs.clone()),
-        Error::BadAdmin
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(alices_balance(), starting_alices_balance);
+    next_block();
+    assert_eq!(System::block_number(), unlock_block_number);
+    // Still no issue, rate limit reached
+    assert_eq!(alices_balance(), starting_alices_balance);
+    assert_ok!(Bridge::force_handle_bridge_tx(
+        admin.clone(),
+        bridge_tx.clone()
+    ));
+    // Mint successful after force handle
+    assert_eq!(alices_balance(), starting_alices_balance + amount);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).execution_block,
+        unlock_block_number
     );
-    assert_ok!(Bridge::unfreeze_txs(signed_admin(), frozen_txs));
-
-    // Verify that all TXs are done and balances of owner are updated.
-    txs.iter()
-        .zip(init_balances.iter())
-        .for_each(|(tx, init_balance)| {
-            ensure_tx_status(tx.recipient, tx.nonce, BridgeTxStatus::Handled);
-            assert_eq!(
-                Balances::total_balance(&tx.recipient),
-                init_balance + AMOUNT
-            );
-        });
-}
-
-#[test]
-fn batch_propose_bridge_tx() {
-    test_with_controller(&do_batch_propose_bridge_tx);
-}
-
-fn do_batch_propose_bridge_tx(signers: &[Public]) {
-    let alice = Origin::signed(Alice.public());
-    let (txs, proposals): (Vec<BridgeTx>, Vec<Box<Call>>) =
-        proposals(AMOUNT).to_vec().into_iter().unzip();
-    let ensure_txs_status = |txs: &[BridgeTx], status: BridgeTxStatus| {
-        txs.iter().for_each(|tx| {
-            let _ = ensure_tx_status(tx.recipient, tx.nonce, status);
-        });
-    };
-
-    assert_ok!(Bridge::batch_propose_bridge_tx(alice, txs.clone()));
-
-    // Proposals should be `Absent`.
-    ensure_txs_status(&txs, BridgeTxStatus::Absent);
-    proposals.into_iter().for_each(|p| {
-        let _ = signers_approve_proposal(*p, signers);
-    });
-
-    // Advance block
-    fast_forward_blocks(Bridge::timelock());
-    ensure_txs_status(&txs, BridgeTxStatus::Timelocked);
-
-    // Now proposals should be `Handled`.
-    let last_block = txs
-        .iter()
-        .map(|tx| Bridge::bridge_tx_details(tx.recipient, tx.nonce).execution_block)
-        .max()
-        .unwrap_or_default();
-    let offset = last_block - System::block_number();
-    fast_forward_blocks(offset);
-    ensure_txs_status(&txs, BridgeTxStatus::Handled);
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Alice.to_account_id(), &1).status,
+        BridgeTxStatus::Handled
+    );
 }
 
 #[test]
 fn genesis_txs() {
-    let (alice, bob, charlie) = (Alice.public(), Bob.public(), Charlie.public());
+    let alice = AccountKeyring::Alice.to_account_id();
+    let bob = AccountKeyring::Bob.to_account_id();
+    let charlie = AccountKeyring::Charlie.to_account_id();
     let complete_txs = vec![
         BridgeTx {
             nonce: 1,

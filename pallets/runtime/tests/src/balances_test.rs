@@ -2,10 +2,10 @@ use super::{
     storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
-use pallet_balances as balances;
+use pallet_balances::{self as balances, Event as BalancesRawEvent};
 use pallet_identity as identity;
 use pallet_test_utils as test_utils;
-use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
+use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
@@ -43,7 +43,7 @@ fn signed_extension_charge_transaction_payment_work() {
         .build()
         .execute_with(|| {
             let len = 10;
-            let alice_pub = AccountKeyring::Alice.public();
+            let alice_pub = AccountKeyring::Alice.to_account_id();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
             let call = runtime::Call::TestUtils(test_utils::Call::register_did(
@@ -106,12 +106,12 @@ fn tipping_fails() {
 fn mint_subsidy_works() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(|| {
             let brr = Balances::block_rewards_reserve();
             assert_eq!(Balances::free_balance(&brr), 0);
-            let alice = AccountKeyring::Alice.public();
+            let alice = AccountKeyring::Alice.to_account_id();
             // Create Eve's identity for `Balances::deposit_block_reward_reserve_balance`.
             let _ = register_keyring_account(AccountKeyring::Eve).unwrap();
             let mut balance_alice = Balances::free_balance(&alice);
@@ -125,7 +125,7 @@ fn mint_subsidy_works() {
             balance_alice = balance_alice + 10;
 
             // Funding BRR
-            let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+            let eve_signed = Origin::signed(AccountKeyring::Eve.to_account_id());
             assert_ok!(Balances::deposit_block_reward_reserve_balance(
                 eve_signed, 500,
             ));
@@ -160,7 +160,7 @@ fn mint_subsidy_works() {
 fn issue_must_work() {
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(|| {
             // Create Eve's identity for `Balances::deposit_block_reward_reserve_balance`.
@@ -174,7 +174,7 @@ fn issue_must_work() {
             let brr = Balances::block_rewards_reserve();
             assert_eq!(Balances::free_balance(&brr), 0);
             let mut ti = Balances::total_issuance();
-            let _alice = AccountKeyring::Alice.public();
+            let _alice = AccountKeyring::Alice.to_account_id();
 
             // When there is no balance in BRR, issuance should increase total supply
             // NOTE: dropping negative imbalance is equivalent to burning. It will decrease total supply.
@@ -184,7 +184,7 @@ fn issue_must_work() {
             assert_eq!(Balances::total_issuance(), ti);
 
             // Funding BRR
-            let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+            let eve_signed = Origin::signed(AccountKeyring::Eve.to_account_id());
             assert_ok!(Balances::deposit_block_reward_reserve_balance(
                 eve_signed, 500,
             ));
@@ -220,13 +220,13 @@ fn issue_must_work() {
 #[test]
 fn burn_account_balance_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice_pub = AccountKeyring::Alice.public();
+        let alice_pub = AccountKeyring::Alice.to_account_id();
         let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
         let burn_amount = 100_000;
         assert_ok!(Balances::burn_account_balance(
-            Origin::signed(alice_pub),
+            Origin::signed(alice_pub.clone()),
             burn_amount
         ));
         let alice_free_balance1 = Balances::free_balance(&alice_pub);
@@ -235,7 +235,10 @@ fn burn_account_balance_works() {
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
         assert_noop!(
-            Balances::burn_account_balance(Origin::signed(alice_pub), fat_finger_burn_amount),
+            Balances::burn_account_balance(
+                Origin::signed(alice_pub.clone()),
+                fat_finger_burn_amount
+            ),
             Error::InsufficientBalance
         );
         let alice_free_balance2 = Balances::free_balance(&alice_pub);
@@ -252,43 +255,43 @@ fn transfer_with_memo() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(transfer_with_memo_we);
 }
 
 fn transfer_with_memo_we() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.to_account_id();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let bob = AccountKeyring::Bob.public();
+    let bob = AccountKeyring::Bob.to_account_id();
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     let memo_1 = Some(Memo([7u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice),
-        bob,
+        Origin::signed(alice.clone()),
+        bob.clone().into(),
         100,
         memo_1.clone()
     ),);
     Balances::make_free_balance_be(&bob, 0);
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice),
-        bob,
+        Origin::signed(alice.clone()),
+        bob.clone().into(),
         100,
         memo_1.clone()
     ));
     System::set_block_number(2);
     let memo_2 = Some(Memo([42u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice),
-        bob,
+        Origin::signed(alice.clone()),
+        bob.clone().into(),
         200,
         memo_2.clone()
     ));
 
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice),
-        bob,
+        Origin::signed(alice.clone()),
+        bob.clone().into(),
         300,
         None
     ));
@@ -296,11 +299,11 @@ fn transfer_with_memo_we() {
     let expected_events = vec![
         EventRecord {
             phase: Phase::Initialization,
-            event: EventTest::balances(BalancesRawEvent::Transfer(
+            event: EventTest::pallet_balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
-                alice,
+                alice.clone(),
                 Some(bob_id),
-                bob,
+                bob.clone(),
                 200,
                 memo_2,
             )),
@@ -308,7 +311,7 @@ fn transfer_with_memo_we() {
         },
         EventRecord {
             phase: Phase::Initialization,
-            event: EventTest::balances(BalancesRawEvent::Transfer(
+            event: EventTest::pallet_balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,
                 Some(bob_id),

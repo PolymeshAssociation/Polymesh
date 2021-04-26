@@ -24,7 +24,7 @@ use pallet_pips::{
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
-use sp_core::sr25519::Public;
+use polymesh_primitives::{AccountId, BlockNumber};
 use substrate_test_runtime_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
@@ -49,7 +49,7 @@ macro_rules! assert_last_event {
         assert!(matches!(
             &*System::events(),
             [.., EventRecord {
-                event: EventTest::pips($event),
+                event: EventTest::pallet_pips($event),
                 ..
             }]
             if $cond
@@ -88,7 +88,7 @@ fn make_proposal(value: u64) -> Call {
 
 fn proposal(
     signer: &Origin,
-    proposer: &Proposer<Public>,
+    proposer: &Proposer<AccountId>,
     proposal: Call,
     deposit: u128,
     url: Option<Url>,
@@ -114,13 +114,17 @@ fn proposal(
 
 fn standard_proposal(
     signer: &Origin,
-    proposer: &Proposer<Public>,
+    proposer: &Proposer<AccountId>,
     deposit: u128,
 ) -> DispatchResult {
     proposal(signer, proposer, make_proposal(42), deposit, None, None)
 }
 
-fn remark_proposal(signer: &Origin, proposer: &Proposer<Public>, deposit: u128) -> DispatchResult {
+fn remark_proposal(
+    signer: &Origin,
+    proposer: &Proposer<AccountId>,
+    deposit: u128,
+) -> DispatchResult {
     proposal(
         signer,
         proposer,
@@ -131,7 +135,7 @@ fn remark_proposal(signer: &Origin, proposer: &Proposer<Public>, deposit: u128) 
     )
 }
 
-const THE_COMMITTEE: Proposer<Public> = Proposer::Committee(pallet_pips::Committee::Upgrade);
+const THE_COMMITTEE: Proposer<AccountId> = Proposer::Committee(pallet_pips::Committee::Upgrade);
 
 fn committee_proposal(deposit: u128) -> DispatchResult {
     standard_proposal(
@@ -143,12 +147,12 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 }
 
 fn alice_proposal(deposit: u128) -> DispatchResult {
-    let acc = AccountKeyring::Alice.public();
+    let acc = AccountKeyring::Alice.to_account_id();
     standard_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
 }
 
 fn alice_remark_proposal(deposit: u128) -> DispatchResult {
-    let acc = AccountKeyring::Alice.public();
+    let acc = AccountKeyring::Alice.to_account_id();
     remark_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
 }
 
@@ -168,7 +172,7 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     }
 }
 
-pub fn assert_balance(acc: Public, free: u128, locked: u128) {
+pub fn assert_balance(acc: AccountId, free: u128, locked: u128) {
     assert_eq!(Balances::free_balance(&acc), free);
     assert_eq!(Balances::usable_balance(&acc), free - locked);
 }
@@ -218,7 +222,7 @@ fn updating_pips_variables_works() {
 fn updating_pips_variables_only_root() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        let signer = Origin::signed(AccountKeyring::Alice.public());
+        let signer = Origin::signed(AccountKeyring::Alice.to_account_id());
         System::reset_events();
 
         assert_noop!(
@@ -423,7 +427,7 @@ fn skip_limit_works() {
 fn assert_vote_details(
     id: PipId,
     results: VotingResult<u128>,
-    deposits: Vec<DepositInfo<Public, u128>>,
+    deposits: Vec<DepositInfo<AccountId, u128>>,
     votes: Vec<Vote<u128>>,
 ) {
     assert_eq!(results, Pips::proposal_result(id));
@@ -434,7 +438,7 @@ fn assert_vote_details(
     assert_eq!(votes, Votes::iter_prefix_values(id).collect::<Vec<_>>());
 }
 
-fn assert_votes(id: PipId, owner: Public, amount: u128) {
+fn assert_votes(id: PipId, owner: AccountId, amount: u128) {
     assert_vote_details(
         id,
         VotingResult {
@@ -529,7 +533,7 @@ fn propose_committee_pip_only_zero_deposit() {
 fn vote_no_such_proposal() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        let signer = Origin::signed(AccountKeyring::Bob.public());
+        let signer = Origin::signed(AccountKeyring::Bob.to_account_id());
         assert_no_pip!(Pips::vote(signer, 0, false, 0));
     });
 }
@@ -566,7 +570,7 @@ fn vote_bond_additional_deposit_works() {
         let then_amount = 137;
         let amount = init_amount + then_amount;
 
-        let acc = AccountKeyring::Alice.public();
+        let acc = AccountKeyring::Alice.to_account_id();
         let signer = Origin::signed(acc);
         assert_balance(acc, init_free, 0);
 
@@ -630,7 +634,7 @@ fn vote_unbond_deposit_works() {
         let init_amount = 200;
         let then_amount = 100;
 
-        let acc = AccountKeyring::Alice.public();
+        let acc = AccountKeyring::Alice.to_account_id();
         let signer = Origin::signed(acc);
         assert_eq!(Balances::free_balance(&acc), init_free);
 
@@ -648,7 +652,7 @@ fn vote_on_community_only() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(committee_proposal(0));
-        let signer = Origin::signed(AccountKeyring::Alice.public());
+        let signer = Origin::signed(AccountKeyring::Alice.to_account_id());
         assert_noop!(Pips::vote(signer, 0, false, 0), Error::NotFromCommunity);
     });
 }
@@ -658,7 +662,7 @@ fn vote_duplicate_ok() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let signer = Origin::signed(AccountKeyring::Alice.public());
+        let signer = Origin::signed(AccountKeyring::Alice.to_account_id());
 
         assert_ok!(alice_proposal(42));
         assert_eq!(
@@ -745,7 +749,7 @@ fn vote_insufficient_reserve() {
         .execute_with(|| {
             System::set_block_number(1);
             assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-            let signer = Origin::signed(AccountKeyring::Bob.public());
+            let signer = Origin::signed(AccountKeyring::Bob.to_account_id());
             assert_ok!(alice_proposal(0));
             assert_noop!(
                 Pips::vote(signer.clone(), 0, false, 50),
@@ -760,10 +764,10 @@ fn vote_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let alice_acc = AccountKeyring::Alice.public();
-        let bob_acc = AccountKeyring::Bob.public();
+        let alice_acc = AccountKeyring::Alice.to_account_id();
+        let bob_acc = AccountKeyring::Bob.to_account_id();
         let bob = Origin::signed(bob_acc);
-        let charlie_acc = AccountKeyring::Charlie.public();
+        let charlie_acc = AccountKeyring::Charlie.to_account_id();
         let charlie = Origin::signed(charlie_acc);
         assert_ok!(alice_proposal(100));
         assert_balance(bob_acc, 2000, 0);
@@ -1036,7 +1040,7 @@ fn rejected_proposal() -> PipId {
     next_id
 }
 
-fn expired_proposal(expiry: u64) -> PipId {
+fn expired_proposal(expiry: BlockNumber) -> PipId {
     let next_id = Pips::pip_id_sequence();
 
     // Save old config data and set new ones for expiry.
@@ -1890,7 +1894,7 @@ fn pips_rpcs() {
             }
         );
         assert_eq!(
-            Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.public())),
+            Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.to_account_id())),
             vec![pip_id1, pip_id0],
         );
         assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);

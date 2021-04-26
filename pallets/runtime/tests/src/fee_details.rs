@@ -11,7 +11,6 @@ use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
-use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use substrate_test_runtime_client::AccountKeyring;
 
@@ -23,22 +22,22 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 #[test]
 fn cdd_checks() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Bob.public()])
+        .cdd_providers(vec![AccountKeyring::Bob.to_account_id()])
         .monied(true)
         .build()
         .execute_with(|| {
             // alice does not have cdd
             let (alice_signed, _) =
-                make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
-            let alice_account = AccountId32::from(AccountKeyring::Alice.public().0);
-            let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
+                make_account_without_cdd(AccountKeyring::Alice.to_account_id()).unwrap();
+            let alice_account = AccountKeyring::Alice.to_account_id();
+            let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.to_account_id());
             let alice_account_signatory = Signatory::Account(alice_account.clone());
 
             // charlie has valid cdd
-            let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
+            let charlie_signed = Origin::signed(AccountKeyring::Charlie.to_account_id());
             let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            let charlie_account = AccountId32::from(AccountKeyring::Charlie.public().0);
-            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
+            let charlie_account = AccountKeyring::Charlie.to_account_id();
+            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.to_account_id());
             let charlie_account_signatory = Signatory::Account(charlie_account.clone());
 
             // register did bypasses cdd checks
@@ -50,7 +49,7 @@ fn cdd_checks() {
                     )),
                     &alice_account
                 ),
-                Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))
+                Ok(Some(AccountKeyring::Alice.to_account_id()))
             );
 
             // reset current identity context which is set as a side effect of get_valid_payer
@@ -153,7 +152,7 @@ fn cdd_checks() {
                     )),
                     &alice_account
                 ),
-                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
             // reset current identity context which is set as a side effect of get_valid_payer
@@ -162,7 +161,7 @@ fn cdd_checks() {
             // create an authorisation where the target has a CDD claim and the issuer does not
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![Signatory::Account(AccountKeyring::Charlie.public())],
+                vec![Signatory::Account(AccountKeyring::Charlie.to_account_id())],
                 1,
             ));
             let charlie_auth_id = get_last_auth_id(&charlie_key_signatory);
@@ -190,7 +189,7 @@ fn cdd_checks() {
                     )),
                     &charlie_account
                 ),
-                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
             // reset current identity context which is set as a side effect of get_valid_payer
@@ -200,7 +199,7 @@ fn cdd_checks() {
             // fee must be paid by multisig creator
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![Signatory::Account(AccountKeyring::Alice.public())],
+                vec![Signatory::Account(AccountKeyring::Alice.to_account_id())],
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
@@ -210,7 +209,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
                     &alice_account
                 ),
-                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
 
             // normal tx with cdd should succeed
@@ -219,7 +218,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
                     &charlie_account
                 ),
-                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
+                Ok(Some(AccountKeyring::Charlie.to_account_id()))
             );
         });
 }
