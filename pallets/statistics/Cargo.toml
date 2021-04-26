@@ -33,7 +33,7 @@ frame-benchmarking = { version = "=3.0.0", default-features = false, optional = 
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
 
 [features]
 equalize = []

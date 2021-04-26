@@ -116,7 +116,6 @@ use pallet_asset::{
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait,
     identity::{IdentityToCorporateAction, Trait as IdentityTrait},
     with_transaction, GC_DID,
 };

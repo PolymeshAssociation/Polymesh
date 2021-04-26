@@ -28,10 +28,10 @@ fn can_charge_fee_batch() {
         let _ =
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
-        TestStorage::set_payer_context(Some(AccountKeyring::Alice.public()));
+        TestStorage::set_payer_context(Some(AccountKeyring::Alice.to_account_id()));
         assert_eq!(
             TestStorage::get_payer_from_context(),
-            Some(AccountKeyring::Alice.public())
+            Some(AccountKeyring::Alice.to_account_id())
         );
         assert_ok!(ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7));
         assert_noop!(

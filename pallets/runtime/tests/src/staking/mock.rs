@@ -16,15 +16,16 @@
 // limitations under the License.
 
 //! Test utilities
+
 use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
-use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{
-        Contains, Currency, FindAuthor, Get, Imbalance, OnFinalize, OnInitialize, OnUnbalanced,
+        Contains, Currency, FindAuthor, GenesisBuild, Get, Imbalance, KeyOwnerProofSystem,
+        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler,
     },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
@@ -53,8 +54,8 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
-    VoteWeight,
+    reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
+    StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -105,7 +106,7 @@ thread_local! {
 
 /// Another session handler struct to test on_disabled.
 pub struct OtherSessionHandler;
-impl pallet_session::OneSessionHandler<AccountId> for OtherSessionHandler {
+impl OneSessionHandler<AccountId> for OtherSessionHandler {
     type Key = UintAuthorityId;
 
     fn on_genesis_session<'a, I: 'a>(_: I)
@@ -251,6 +252,9 @@ parameter_types! {
 }
 impl frame_system::Config for Test {
     type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = RocksDbWeight;
     type Origin = Origin;
     type Index = AccountIndex;
     type BlockNumber = BlockNumber;
@@ -262,19 +266,13 @@ impl frame_system::Config for Test {
     type Header = Header;
     type Event = MetaEvent;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type DbWeight = RocksDbWeight;
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type MaximumBlockLength = MaximumBlockLength;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = polymesh_runtime_develop::runtime::PalletInfo;
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
 impl pallet_base::Trait for Test {
@@ -288,7 +286,7 @@ impl CommonTrait for Test {
     type BlockRewardsReserve = balances::Module<Test>;
 }
 
-impl balances::Trait for Test {
+impl balances::Config for Test {
     type DustRemoval = ();
     type Event = MetaEvent;
     type ExistentialDeposit = ExistentialDeposit;
@@ -308,7 +306,7 @@ sp_runtime::impl_opaque_keys! {
         pub other: OtherSessionHandler,
     }
 }
-impl pallet_session::Trait for Test {
+impl pallet_session::Config for Test {
     type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
     type Keys = SessionKeys;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -321,7 +319,7 @@ impl pallet_session::Trait for Test {
     type WeightInfo = ();
 }
 
-impl pallet_session::historical::Trait for Test {
+impl pallet_session::historical::Config for Test {
     type FullIdentification = Exposure<AccountId, Balance>;
     type FullIdentificationOf = ExposureOf<Test>;
 }
@@ -343,7 +341,7 @@ impl pallet_treasury::Trait for Test {
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
-impl pallet_authorship::Trait for Test {
+impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
@@ -404,7 +402,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 }
 
-impl pallet_scheduler::Trait for Test {
+impl pallet_scheduler::Config for Test {
     type Event = MetaEvent;
     type Origin = Origin;
     type PalletsOrigin = OriginCaller;
@@ -581,7 +579,7 @@ impl From<pallet_babe::Call<Test>> for Call {
     }
 }
 
-impl pallet_babe::Trait for Test {
+impl pallet_babe::Config for Test {
     type WeightInfo = ();
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
@@ -596,7 +594,8 @@ impl pallet_babe::Trait for Test {
         KeyTypeId,
         pallet_babe::AuthorityId,
     )>>::IdentificationTuple;
-    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
+    type HandleEquivocation =
+        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ()>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -649,10 +648,10 @@ impl Contains<u64> for TwoThousand {
     }
 }
 
-impl Trait for Test {
+impl Config for Test {
     type Currency = Balances;
     type UnixTime = Timestamp;
-    type CurrencyToVote = CurrencyToVoteHandler;
+    type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
     type RewardRemainder = RewardRemainderMock;
     type Event = MetaEvent;
     type Slash = ();
@@ -670,6 +669,8 @@ impl Trait for Test {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = UnsignedPriority;
+    type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
+    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -681,7 +682,6 @@ impl Trait for Test {
     type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
     type FixedYearlyReward = FixedYearlyReward;
     type MinimumBond = MinimumBond;
-    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -1275,7 +1275,7 @@ pub(crate) fn start_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
     inflation::compute_total_payout(
-        <Test as Trait>::RewardCurve::get(),
+        <Test as Config>::RewardCurve::get(),
         Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance(),
         duration,
@@ -1286,7 +1286,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 }
 
 pub fn reward_all_elected() {
-    let rewards = <Test as Trait>::SessionInterface::validators()
+    let rewards = <Test as Config>::SessionInterface::validators()
         .into_iter()
         .map(|v| (v, 1));
 
@@ -1425,10 +1425,10 @@ pub(crate) fn horrible_phragmen_with_post_processing(
     // Ensure that this result is worse than seq-phragmen. Otherwise, it should not have been used
     // for testing.
     let score = {
-        let (_, _, better_score) = prepare_submission_with(true, 0, |_| {});
+        let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-        let support = build_support_map::<AccountId>(&winners, &staked_assignment).0;
-        let score = evaluate_support(&support);
+        let support = to_support_map::<AccountId>(&winners, &staked_assignment).unwrap();
+        let score = support.evaluate();
 
         assert!(sp_npos_elections::is_score_better::<Perbill>(
             better_score,
@@ -1480,6 +1480,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
 // Note: this should always logically reproduce [`offchain_election::prepare_submission`], yet we
 // cannot do it since we want to have `tweak` injected into the process.
 pub(crate) fn prepare_submission_with(
+    compute_real_score: bool,
     do_reduce: bool,
     iterations: usize,
     tweak: impl FnOnce(&mut Vec<StakedAssignment<AccountId>>),
@@ -1488,26 +1489,13 @@ pub(crate) fn prepare_submission_with(
     let sp_npos_elections::ElectionResult {
         winners,
         assignments,
-    } = Staking::do_phragmen::<OffchainAccuracy>().unwrap();
+    } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
     let winners = sp_npos_elections::to_without_backing(winners);
 
-    let stake_of = |who: &AccountId| -> VoteWeight {
-        <CurrencyToVoteHandler as Convert<Balance, VoteWeight>>::convert(
-            Staking::slashable_balance_of(&who),
-        )
-    };
-
-    let mut staked = sp_npos_elections::assignment_ratio_to_staked(assignments, stake_of);
-    let (mut support_map, _) = build_support_map::<AccountId>(&winners, &staked);
-
-    if iterations > 0 {
-        sp_npos_elections::balance_solution(
-            &mut staked,
-            &mut support_map,
-            Zero::zero(),
-            iterations,
-        );
-    }
+    let mut staked = sp_npos_elections::assignment_ratio_to_staked(
+        assignments,
+        Staking::slashable_balance_of_fn(),
+    );
 
     // apply custom tweaks. awesome for testing.
     tweak(&mut staked);
@@ -1541,23 +1529,21 @@ pub(crate) fn prepare_submission_with(
     let assignments_reduced = sp_npos_elections::assignment_staked_to_ratio(staked);
 
     // re-compute score by converting, yet again, into staked type
-    let score = {
+    let score = if compute_real_score {
         let staked = sp_npos_elections::assignment_ratio_to_staked(
             assignments_reduced.clone(),
-            Staking::slashable_balance_of_vote_weight,
+            Staking::slashable_balance_of_fn(),
         );
 
-        let (support_map, _) =
-            build_support_map::<AccountId>(winners.as_slice(), staked.as_slice());
-        evaluate_support::<AccountId>(&support_map)
+        let support_map =
+            to_support_map::<AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
+        support_map.evaluate()
+    } else {
+        Default::default()
     };
 
     let compact =
         CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
-            .map_err(|e| {
-                println!("error in compact: {:?}", e);
-                e
-            })
             .expect("Failed to create compact");
 
     // winner ids to index
@@ -1580,7 +1566,6 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
     // reward validators
     for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
         let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-
         assert_ok!(Staking::payout_stakers(
             Origin::signed(1337),
             ledger.stash,

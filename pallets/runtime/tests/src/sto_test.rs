@@ -29,7 +29,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 #[track_caller]
 fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(logic);
 }
@@ -111,10 +111,10 @@ fn init_raise_context(
     raise_supply_opt: Option<u128>,
 ) -> RaiseContext<Origin> {
     let (alice_signed, alice_did, alice_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Alice.public());
+        make_account_with_portfolio(AccountKeyring::Alice.to_account_id());
     let (bob_signed, bob_did, bob_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Bob.public());
-    let eve = AccountKeyring::Eve.public();
+        make_account_with_portfolio(AccountKeyring::Bob.to_account_id());
+    let eve = AccountKeyring::Eve.to_account_id();
 
     // Register tokens
     let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
@@ -169,7 +169,7 @@ fn raise_happy_path() {
     assert_ok!(Settlement::create_venue(
         alice_signed.clone(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.public()],
+        vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
 
@@ -292,15 +292,15 @@ fn raise_happy_path() {
 
 fn raise_unhappy_path() {
     let (alice_signed, alice_did, alice_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Alice.public());
+        make_account_with_portfolio(AccountKeyring::Alice.to_account_id());
     let (bob_signed, bob_did, bob_portfolio) =
-        make_account_with_portfolio(AccountKeyring::Bob.public());
+        make_account_with_portfolio(AccountKeyring::Bob.to_account_id());
 
     let offering_ticker = Ticker::try_from(&[b'C'][..]).unwrap();
     let raise_ticker = Ticker::try_from(&[b'D'][..]).unwrap();
 
     // Provide scope claim to both the parties of the transaction.
-    let eve = AccountKeyring::Eve.public();
+    let eve = AccountKeyring::Eve.to_account_id();
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], offering_ticker, eve);
     provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], raise_ticker, eve);
 
@@ -329,7 +329,7 @@ fn raise_unhappy_path() {
         assert_ok!(Settlement::create_venue(
             origin,
             VenueDetails::default(),
-            vec![AccountKeyring::Alice.public()],
+            vec![AccountKeyring::Alice.to_account_id()],
             type_
         ));
         bad_venue
@@ -509,7 +509,7 @@ fn invalid_fundraiser() {
     assert_ok!(Settlement::create_venue(
         alice_signed.clone(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.public()],
+        vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
 
@@ -572,7 +572,7 @@ fn basic_fundraiser() -> (u64, RaiseContext<Origin>) {
     assert_ok!(Settlement::create_venue(
         context.alice_signed.clone(),
         VenueDetails::default(),
-        vec![AccountKeyring::Alice.public()],
+        vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
     let fundraiser_id = STO::fundraiser_count(context.offering_ticker);

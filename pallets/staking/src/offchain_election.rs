@@ -450,81 +450,53 @@ mod test {
 
     struct Staking;
 
+    macro_rules! unimplemented_weight_fn {
+        ($name:ident $(,$arg_type:tt)*) => {
+            fn $name( $(_:$arg_type,)*) -> Weight {
+                unimplemented!()
+            }
+        };
+    }
+
     impl crate::WeightInfo for Staking {
-        fn bond() -> Weight {
-            unimplemented!()
-        }
-        fn bond_extra() -> Weight {
-            unimplemented!()
-        }
-        fn unbond() -> Weight {
-            unimplemented!()
-        }
-        fn withdraw_unbonded_update(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn withdraw_unbonded_kill(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn validate() -> Weight {
-            unimplemented!()
-        }
-        fn nominate(n: u32) -> Weight {
-            unimplemented!()
-        }
-        fn chill() -> Weight {
-            unimplemented!()
-        }
-        fn set_payee() -> Weight {
-            unimplemented!()
-        }
-        fn set_controller() -> Weight {
-            unimplemented!()
-        }
-        fn set_validator_count() -> Weight {
-            unimplemented!()
-        }
-        fn force_no_eras() -> Weight {
-            unimplemented!()
-        }
-        fn force_new_era() -> Weight {
-            unimplemented!()
-        }
-        fn force_new_era_always() -> Weight {
-            unimplemented!()
-        }
-        fn set_invulnerables(v: u32) -> Weight {
-            unimplemented!()
-        }
-        fn force_unstake(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn cancel_deferred_slash(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn payout_stakers_dead_controller(n: u32) -> Weight {
-            unimplemented!()
-        }
-        fn payout_stakers_alive_staked(n: u32) -> Weight {
-            unimplemented!()
-        }
-        fn rebond(l: u32) -> Weight {
-            unimplemented!()
-        }
-        fn set_history_depth(e: u32) -> Weight {
-            unimplemented!()
-        }
-        fn reap_stash(s: u32) -> Weight {
-            unimplemented!()
-        }
-        fn new_era(v: u32, n: u32) -> Weight {
-            unimplemented!()
-        }
+        unimplemented_weight_fn!(bond);
+        unimplemented_weight_fn!(bond_extra);
+        unimplemented_weight_fn!(unbond);
+        unimplemented_weight_fn!(validate);
+        unimplemented_weight_fn!(chill);
+        unimplemented_weight_fn!(set_payee);
+        unimplemented_weight_fn!(set_controller);
+        unimplemented_weight_fn!(set_validator_count);
+        unimplemented_weight_fn!(force_no_eras);
+        unimplemented_weight_fn!(force_new_era);
+        unimplemented_weight_fn!(force_new_era_always);
+        unimplemented_weight_fn!(set_min_bond_threshold);
+        unimplemented_weight_fn!(add_permissioned_validator);
+        unimplemented_weight_fn!(remove_permissioned_validator);
+        unimplemented_weight_fn!(set_commission_cap, u32);
+        unimplemented_weight_fn!(do_slash, u32);
+        unimplemented_weight_fn!(withdraw_unbonded_update, u32);
+        unimplemented_weight_fn!(withdraw_unbonded_kill, u32);
+        unimplemented_weight_fn!(nominate, u32);
+        unimplemented_weight_fn!(set_invulnerables, u32);
+        unimplemented_weight_fn!(force_unstake, u32);
+        unimplemented_weight_fn!(cancel_deferred_slash, u32);
+        unimplemented_weight_fn!(rebond, u32);
+        unimplemented_weight_fn!(set_history_depth, u32);
+        unimplemented_weight_fn!(reap_stash, u32);
+        unimplemented_weight_fn!(payout_stakers, u32);
+        unimplemented_weight_fn!(payout_stakers_alive_controller);
+        unimplemented_weight_fn!(payout_all, u32, u32);
+        unimplemented_weight_fn!(new_era, u32, u32);
+        unimplemented_weight_fn!(submit_solution_initial, u32, u32, u32);
+        unimplemented_weight_fn!(submit_solution_weaker, u32);
+        unimplemented_weight_fn!(change_slashing_allowed_for);
+        unimplemented_weight_fn!(update_permissioned_validator_intended_count);
+        unimplemented_weight_fn!(scale_validator_count);
+        unimplemented_weight_fn!(increase_validator_count);
+
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
             (0 * v + 0 * n + 1000 * a + 0 * w) as Weight
-        }
-        fn kick(w: u32) -> Weight {
-            unimplemented!()
         }
     }
 
