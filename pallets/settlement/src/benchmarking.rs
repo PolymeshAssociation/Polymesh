@@ -545,6 +545,7 @@ benchmarks! {
         // Variations for the venue_details length.
         let d in 1 .. MAX_VENUE_DETAILS_LENGTH;
         let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
+        let venue_details2 = venue_details.clone();
         // Venue type.
         let venue_type = VenueType::Sto;
         let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
@@ -554,7 +555,7 @@ benchmarks! {
     verify {
         let updated_venue_details = Module::<T>::venue_info(1).unwrap();
         assert_eq!(updated_venue_details.venue_type, VenueType::Sto, "Incorrect venue type value");
-        assert!(matches!(updated_venue_details.details, venue_details), "Incorrect venue details");
+        assert_eq!(updated_venue_details.details, venue_details2, "Incorrect venue details");
     }
 
 

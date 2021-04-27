@@ -184,7 +184,7 @@ benchmarks! {
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Frozen, "freeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
@@ -196,7 +196,7 @@ benchmarks! {
         ).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Live, "unfreeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {

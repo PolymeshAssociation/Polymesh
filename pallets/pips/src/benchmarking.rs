@@ -170,7 +170,7 @@ fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchRe
 
 fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> DispatchResult {
     if Proposals::<T>::contains_key(&0) {
-        assert!(state == Module::<T>::proposals(&0).unwrap().state, err);
+        assert_eq!(state, Module::<T>::proposals(&0).unwrap().state, "{}", err);
     }
     Ok(())
 }
