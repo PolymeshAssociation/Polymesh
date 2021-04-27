@@ -107,6 +107,16 @@ where
         Self::These(BTreeSet::new())
     }
 
+    /// Constructs a subset with everything but one element.
+    pub fn except(a: A) -> Self {
+        Self::excepts(iter::once(a))
+    }
+
+    /// Constructs a subset with everything but these elements.
+    pub fn excepts(it: impl IntoIterator<Item = A>) -> Self {
+        Self::Except(BTreeSet::from_iter(it))
+    }
+
     /// Constructs a subset with one element.
     pub fn elem(a: A) -> Self {
         Self::elems(iter::once(a))

@@ -19,7 +19,7 @@ pub enum AgentGroup {
     /// The other groups have hard-coded mappings to `Permissions` in code.
     Custom(AGId),
     /// Manages identities of agents themselves.
-    Meta,
+    ExceptMeta,
     /// Agent group corresponding to a Corporate Action Agent (CAA) on Polymesh Mainnet v1.
     PolymeshV1CAA,
     /// Agent group corresponding to a Primary Issuance Agent (PIA) on Polymesh Mainnet v1.

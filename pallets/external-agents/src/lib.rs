@@ -49,10 +49,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(iter_advance_by)]
+#![feature(array_value_iter)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use core::array::IntoIter;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -61,7 +63,9 @@ use frame_support::{
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Event, Trait, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
-use polymesh_primitives::{ExtrinsicPermissions, IdentityId, Ticker};
+use polymesh_primitives::{
+    ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
+};
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
@@ -390,16 +394,46 @@ impl<T: Trait> Module<T> {
 
     /// Returns `agent`'s permission set in `ticker`.
     fn agent_permissions(ticker: Ticker, agent: IdentityId) -> ExtrinsicPermissions {
+        let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
+        let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
+        fn elems<const N: usize>(elems: [PalletPermissions; N]) -> ExtrinsicPermissions {
+            ExtrinsicPermissions::elems(IntoIter::new(elems))
+        }
         match GroupOfAgent::get(ticker, agent) {
             None => ExtrinsicPermissions::empty(),
             Some(AgentGroup::Full) => ExtrinsicPermissions::default(),
             Some(AgentGroup::Custom(ag_id)) => {
                 GroupPermissions::get(ticker, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
             }
-            // TODO(Centril): Map these to proper permission sets.
-            Some(AgentGroup::Meta) => ExtrinsicPermissions::default(),
-            Some(AgentGroup::PolymeshV1CAA) => ExtrinsicPermissions::default(),
-            Some(AgentGroup::PolymeshV1PIA) => ExtrinsicPermissions::default(),
+            // Anything but extrinsics in this pallet & `accept_authorization`.
+            Some(AgentGroup::ExceptMeta) => elems([
+                // `Identity::accept_authorization` needs to be excluded.
+                in_pallet(
+                    "Identity",
+                    SubsetRestriction::elem("accept_authorization".into()),
+                ),
+                // `ExternalAgents` needs to be excluded.
+                pallet("ExternalAgents"),
+            ]),
+            // Pallets `CorporateAction`, `CorporateBallot`, and `CapitalDistribution`.
+            Some(AgentGroup::PolymeshV1CAA) => elems([
+                pallet("CorporateAction"),
+                pallet("CorporateBallot"),
+                pallet("CapitalDistribution"),
+            ]),
+            Some(AgentGroup::PolymeshV1PIA) => elems([
+                // All in `Sto` except `Sto::invest`.
+                in_pallet("Sto", SubsetRestriction::except("invest".into())),
+                // Asset::{issue, redeem, controller_transfer}.
+                in_pallet(
+                    "Asset",
+                    SubsetRestriction::elems(IntoIter::new([
+                        "issue".into(),
+                        "redeem".into(),
+                        "controller_transfer".into(),
+                    ])),
+                ),
+            ]),
         }
     }
 }

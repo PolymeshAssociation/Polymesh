@@ -162,9 +162,9 @@ fn remove_abdicate_change_works() {
         grant(other, AgentGroup::Custom(AGId(0)));
         assert_ok!(abdicate(other));
 
-        // Owner changes to Meta group, sucessfully.
-        assert_ok!(change(owner, owner.did, AgentGroup::Meta));
-        assert_group(owner, Some(AgentGroup::Meta));
+        // Owner changes to `Full` group, sucessfully.
+        assert_ok!(change(owner, owner.did, AgentGroup::Full));
+        assert_group(owner, Some(AgentGroup::Full));
 
         // Owner changes to a group that doesn't exist.
         let ag = AgentGroup::Custom(AGId(1));
