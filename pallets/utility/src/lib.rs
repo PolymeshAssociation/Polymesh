@@ -225,20 +225,27 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root_or_signed::<T>(origin.clone())?;
-            Self::deposit_event(match with_transaction(|| {
+
+            let batch_tx = with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
-                    if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
+                    let call_dispath_result = with_call_metadata(call.get_call_metadata(), || {
                         dispatch_call::<T>(origin.clone(), is_root, call)
-                    }) {
+                    });
+
+                    if let Err(e) = call_dispath_result {
                         // Abort the batch.
                         return Err((index as u32, e.error));
                     }
                 }
                 Ok(())
-            }) {
-                Ok(()) => Event::BatchCompleted,
-                Err((i, e)) => Event::BatchInterrupted(i, e)
             });
+
+            let event = match batch_tx {
+                Ok(_) => Event::BatchCompleted,
+                Err((i, e)) => Event::BatchInterrupted(i, e)
+            };
+
+            Self::deposit_event(event);
         }
 
         /// Dispatch multiple calls from the sender's origin.

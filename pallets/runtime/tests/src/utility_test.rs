@@ -28,7 +28,7 @@ fn transfer(to: AccountId, amount: u128) -> Call {
 }
 
 const ERROR: DispatchError = DispatchError::Module {
-    index: 0,
+    index: 4,
     error: 2,
     message: None,
 };
