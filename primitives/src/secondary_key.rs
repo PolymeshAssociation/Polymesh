@@ -13,13 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::BTreeSet;
-
 use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
+    collections::btree_set::BTreeSet,
     cmp::{Ord, Ordering, PartialOrd},
     iter,
 };
@@ -76,16 +75,18 @@ pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 impl ExtrinsicPermissions {
     /// Returns `true` iff this permission set permits calling `pallet::dispatchable`.
     pub fn sufficient_for(&self, pallet: &PalletName, dispatchable: &DispatchableName) -> bool {
-        let matches_any = |perms: &BTreeSet<PalletPermissions>| perms.iter().any(|perm| {
-            if &perm.pallet_name != pallet {
-                return false;
-            }
-            match &perm.dispatchable_names {
-                SubsetRestriction::Whole => true,
-                SubsetRestriction::These(funcs) => funcs.contains(dispatchable),
-                SubsetRestriction::Except(funcs) => !funcs.contains(dispatchable),
-            }
-        });
+        let matches_any = |perms: &BTreeSet<PalletPermissions>| {
+            perms.iter().any(|perm| {
+                if &perm.pallet_name != pallet {
+                    return false;
+                }
+                match &perm.dispatchable_names {
+                    SubsetRestriction::Whole => true,
+                    SubsetRestriction::These(funcs) => funcs.contains(dispatchable),
+                    SubsetRestriction::Except(funcs) => !funcs.contains(dispatchable),
+                }
+            })
+        };
         match self {
             SubsetRestriction::Whole => true,
             SubsetRestriction::These(perms) => matches_any(perms),
@@ -434,7 +435,9 @@ pub mod api {
     impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
         fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
             match p.0 {
-                Some(elems) => SubsetRestriction::These(elems.into_iter().map(|e| e.into()).collect()),
+                Some(elems) => {
+                    SubsetRestriction::These(elems.into_iter().map(|e| e.into()).collect())
+                }
                 None => SubsetRestriction::Whole,
             }
         }
