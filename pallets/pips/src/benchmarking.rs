@@ -466,8 +466,8 @@ benchmarks! {
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
         Module::<T>::snapshot(origin0.into()).unwrap();
 
-        assert!(
-            ProposalState::Pending == Module::<T>::proposals(&0).unwrap().state,
+        assert_eq!(
+            ProposalState::Pending, Module::<T>::proposals(&0).unwrap().state,
             "incorrect proposal state before expiration"
         );
         let origin = RawOrigin::Root;
