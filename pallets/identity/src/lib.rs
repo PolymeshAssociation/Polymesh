@@ -67,7 +67,6 @@
 //! - `join_identity_as_key` - Join an identity as a secondary key.
 //! - `join_identity_as_identity` - Join an identity as a secondary identity.
 //! - `add_claim` - Adds a new claim record or edits an existing one.
-//! - `forwarded_call` - Creates a call on behalf of another DID.
 //! - `revoke_claim` - Marks the specified claim as revoked.
 //! - `revoke_claim_by_index` - Revoke a claim identified by its index.
 //! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
