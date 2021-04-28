@@ -460,55 +460,6 @@ decl_module! {
             }
         }
 
-        /// Creates a call on behalf of another DID.
-        #[weight = <T as Trait>::WeightInfo::forwarded_call().saturating_add(proposal.get_dispatch_info().weight)]
-        pub fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
-
-            // 1. Constraints.
-            // 1.2. Check that primary_did is a secondary key of target_did
-            ensure!(
-                Self::is_signer_authorized(target_did, &Signatory::Identity(primary_did)),
-                Error::<T>::CurrentIdentityCannotBeForwarded
-            );
-
-            // 1.3. Check that target_did has a CDD.
-            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
-
-            // 1.4 Check that the forwarded call is not recursive
-            let metadata = proposal.get_call_metadata();
-            ensure!(
-                !(metadata.pallet_name == "Identity" && metadata.function_name == "forwarded_call"),
-                Error::<T>::RecursionNotAllowed
-            );
-
-            // 1.5 charge fee
-            T::ChargeTxFeeTarget::charge_fee(
-                proposal.encode().len().try_into().unwrap_or_default(),
-                proposal.get_dispatch_info()
-            ).map_err(|_| Error::<T>::FailedToChargeFee)?;
-
-            // 2. Actions
-            T::CddHandler::set_current_identity(&target_did);
-
-            Self::deposit_event(RawEvent::ForwardedCall(primary_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
-
-            // Also set current_did roles when acting as a secondary key for target_did
-            // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = RawOrigin::Signed(sender).into();
-            let actual_weight = with_call_metadata(proposal.get_call_metadata(), || proposal.dispatch(new_origin))
-                .unwrap_or_else(|e| e.post_info)
-                .actual_weight;
-
-            // If actual_weight retrieve from the proposal is `None` then refunds = 0
-            // otherwise refunds = ((500_000_000 + proposal.get_dispatch_info().weight) - `actual_weight of proposal + 500_000_000`).
-            Ok((actual_weight.map(|w| w + 500_000_000)).into())
-        }
-
         /// Marks the specified claim as revoked.
         #[weight = (<T as Trait>::WeightInfo::revoke_claim(), revoke_claim_class(claim.claim_type()))]
         pub fn revoke_claim(origin, target: IdentityId, claim: Claim) -> DispatchResult {
