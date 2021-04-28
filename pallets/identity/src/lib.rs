@@ -96,21 +96,20 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use confidential_identity::ScopeClaimProof;
-use core::convert::{From, TryInto};
+use core::convert::From;
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure, fail,
-    traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
+    traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
-        GetDispatchInfo, Pays, Weight,
+        Pays, Weight,
     },
     StorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_base::{ensure_length_ok, ensure_string_limited};
-use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -124,7 +123,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
@@ -142,8 +141,7 @@ use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
-        AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
-        Verify, Zero,
+        AccountIdConversion, CheckedAdd, Hash, IdentifyAccount, SaturatedConversion, Verify, Zero,
     },
     AnySignature,
 };
