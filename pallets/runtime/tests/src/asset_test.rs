@@ -157,12 +157,10 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
 fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
     let (code_hash, wasm) = flipper();
 
-    // Create SE template.
+    // Create SE template and instantiate with empty salt.
     if create_instance {
         create_se_template(creator.acc(), creator.did, 0, code_hash, wasm);
     }
-    // Create SE instance.
-    assert_ok!(create_contract_instance(creator.acc(), code_hash, 0, false));
 
     Contracts::contract_address(&creator.acc(), &code_hash, &[])
 }
@@ -925,22 +923,25 @@ fn smart_ext_test(logic: impl FnOnce(User, Ticker)) {
 fn add_extension_limited() {
     smart_ext_test(|owner, ticker| {
         let id = setup_se_template(owner, true);
-        let add_ext = |ty, name| {
+        let add_ext = |ty: &Vec<u8>, name: &Vec<u8>| {
             let details = SmartExtension {
-                extension_type: SmartExtensionType::Custom(ty),
-                extension_name: name,
-                extension_id: id,
+                extension_type: SmartExtensionType::Custom(ty.clone().into()),
+                extension_name: name.clone().into(),
+                extension_id: id.clone().into(),
                 is_archive: false,
             };
             Asset::add_extension(owner.origin(), ticker.clone(), details)
         };
-        assert_too_long!(add_ext.clone()(max_len_bytes(1), max_len_bytes(0)));
-        assert_too_long!(add_ext.clone()(max_len_bytes(0), max_len_bytes(1)));
+        let id: Vec<u8> = max_len_bytes(0);
+        let invalid_id: Vec<u8> = max_len_bytes(1);
+
+        assert_too_long!(add_ext(&invalid_id, &id));
+        assert_too_long!(add_ext(&id, &invalid_id));
         pallet_asset::CompatibleSmartExtVersion::insert(
-            SmartExtensionType::Custom(max_len_bytes(0)),
+            SmartExtensionType::Custom(id.clone().into()),
             5000,
         );
-        assert_ok!(add_ext(max_len_bytes(0), max_len_bytes(0)));
+        assert_ok!(add_ext(&id, &id));
     });
 }
 

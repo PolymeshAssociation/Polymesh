@@ -63,8 +63,8 @@ pub trait WeightInfo {
     fn set_put_code_flag() -> Weight;
 }
 
-const INSTANTIATE_WITH_CODE_EXTRA: u64 = 50_000_000;
-const INSTANTIATE_EXTRA: u64 = 500_000_000;
+pub const INSTANTIATE_WITH_CODE_EXTRA: u64 = 50_000_000;
+pub const INSTANTIATE_EXTRA: u64 = 500_000_000;
 
 pub trait Trait: pallet_contracts::Config + IdentityTrait + pallet_base::Trait {
     /// Event type
@@ -227,7 +227,7 @@ decl_module! {
             instantiation_fee: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             ensure!(Self::is_put_code_enabled(), Error::<T>::PutCodeIsNotAllowed);
-            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let p_origin = Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
 
             // Ensure strings are limited in length.
             ensure_string_limited::<T>(&meta_info.description)?;
@@ -240,23 +240,27 @@ decl_module! {
             // Generate the code_hash here as well because there is no way
             // to read it directly from the upstream `pallet-contracts` module.
             let code_hash = T::Hashing::hash(&code);
+            let contract_address = Contracts::<T>::contract_address(&p_origin.sender, &code_hash, &salt);
 
             // Rollback the `put_code()` if user is not able to pay the protocol-fee.
             let post_info = with_transaction(|| -> DispatchResultWithPostInfo {
-                // Charge the protocol fee
-                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
+                // Charge the protocol fee, update nonce, and instantiate the code.
 
-                // Call underlying function
+                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
+                ExtensionNonce::mutate(|n| *n = *n + 1u64);
                 Contracts::<T>::instantiate_with_code(origin, endowment, gas_limit, code, data, salt)
             })?;
 
             // Update the storage.
-            <TemplateInfo<T>>::insert(code_hash, TemplateDetails {
+            <TemplateInfo<T>>::insert(&code_hash, TemplateDetails {
                 instantiation_fee,
-                owner: did,
+                owner: p_origin.primary_did.clone(),
                 frozen: false
             });
-            <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
+            <MetadataOfTemplate<T>>::insert(&code_hash, meta_info);
+
+            // Update the usage fee for the extension instance.
+            <ExtensionInfo<T>>::insert(contract_address, Self::ext_details(&code_hash));
 
             Ok(post_info)
         }

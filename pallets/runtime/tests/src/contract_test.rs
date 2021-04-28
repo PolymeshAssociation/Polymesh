@@ -18,8 +18,7 @@ use pallet_balances as balances;
 use pallet_contracts::{ContractInfoOf, Gas};
 use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
-use polymesh_contracts::Call as ContractsCall;
-use polymesh_contracts::MetadataOfTemplate;
+use polymesh_contracts::{Call as ContractsCall, MetadataOfTemplate, INSTANTIATE_WITH_CODE_EXTRA};
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
@@ -59,7 +58,7 @@ pub fn create_se_template(
     code_hash: CodeHash,
     wasm: Vec<u8>,
 ) {
-    let wasm_length_weight = 1426500000;
+    let wasm_length_weight = 11_608_392_000;
 
     // Set payer in context
     TestStorage::set_payer_context(Some(template_creator.clone()));
@@ -88,7 +87,10 @@ pub fn create_se_template(
     )
     .get_dispatch_info()
     .weight;
-    assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
+    assert_eq!(
+        wasm_length_weight + INSTANTIATE_WITH_CODE_EXTRA,
+        weight_of_extrinsic
+    );
 
     // Execute `put_code`
     assert_ok!(WrapperContracts::instantiate_with_code(
@@ -124,6 +126,7 @@ pub fn create_se_template(
 pub fn create_contract_instance(
     instance_creator: AccountId,
     code_hash: CodeHash,
+    salt: Vec<u8>,
     max_fee: u128,
     fail: bool,
 ) -> DispatchResultWithPostInfo {
@@ -135,7 +138,6 @@ pub fn create_contract_instance(
     let current_extension_nonce = WrapperContracts::extension_nonce();
 
     // create a instance
-    let salt = vec![];
     let result = WrapperContracts::instantiate(
         Origin::signed(instance_creator),
         100,
@@ -146,7 +148,7 @@ pub fn create_contract_instance(
         max_fee,
     );
 
-    if !fail {
+    if result.is_ok() && !fail {
         assert_eq!(
             WrapperContracts::extension_nonce(),
             current_extension_nonce + 1
@@ -237,7 +239,14 @@ fn check_instantiation_functionality() {
         let bob_balance = free(bob.acc());
 
         // Create instance of contract.
-        let result = create_contract_instance(bob.acc(), code_hash, instantiation_fee, false);
+        let salt_1 = &b"1"[..];
+        let result = create_contract_instance(
+            bob.acc(),
+            code_hash,
+            salt_1.to_vec(),
+            instantiation_fee,
+            false,
+        );
         // Verify the actual weight of the extrinsic.
         assert!(result.unwrap().actual_weight.unwrap() > extrinsic_wrapper_weight);
 
@@ -247,20 +256,22 @@ fn check_instantiation_functionality() {
         assert_eq!(alice_balance + instantiation_fee, free(alice.acc()));
 
         // Generate the contract address.
-        let addr_for = || Contracts::contract_address(&bob.acc(), &code_hash, &[]);
-        let flipper_address_1 = addr_for();
+        let addr_for = |salt| Contracts::contract_address(&bob.acc(), &code_hash, salt);
+        let flipper_address_1 = addr_for(&salt_1);
 
         // Check whether the contract creation allowed or not with same constructor data.
         // It should be as contract creation is depend on the nonce of the account.
+        let salt_2 = &b"2"[..];
         assert_ok!(create_contract_instance(
             bob.acc(),
             code_hash,
+            salt_2.to_vec(),
             instantiation_fee,
             false
         ));
 
         // Verify that contract address is different.
-        assert!(flipper_address_1 != addr_for());
+        assert!(flipper_address_1 != addr_for(salt_2));
     });
 }
 
@@ -284,9 +295,11 @@ fn allow_network_share_deduction() {
         let fee_collector_balance = free(fee_collector.clone());
 
         // Create instance of contract.
+        let salt = b"1".to_vec();
         assert_ok!(create_contract_instance(
             bob.acc(),
             code_hash,
+            salt,
             inst_fee,
             false
         ));
@@ -378,9 +391,11 @@ fn check_behavior_when_instantiation_fee_changes() {
         let fee_collector_balance = free(fee_collector.clone());
 
         // create instance of contract
+        let salt = b"1".to_vec();
         assert_ok!(create_contract_instance(
             bob.acc(),
             code_hash,
+            salt,
             new_instantiation_fee,
             false
         ));
@@ -424,9 +439,12 @@ fn check_freeze_unfreeze_functionality() {
         assert_noop!(freeze(), WrapperContractsError::InstantiationAlreadyFrozen);
 
         // Instantiation should fail.
-        let create = |fee, fail| create_contract_instance(bob.acc(), code_hash, fee, fail);
+        let salt = &b"1"[..];
+        let create = |fee, fail, salt: &[u8]| {
+            create_contract_instance(bob.acc(), code_hash, salt.to_vec(), fee, fail)
+        };
         assert_noop!(
-            create(instantiation_fee, true),
+            create(instantiation_fee, true, salt),
             WrapperContractsError::InstantiationIsNotAllowed
         );
 
@@ -443,10 +461,13 @@ fn check_freeze_unfreeze_functionality() {
         );
 
         // Instantiation should fail if we max_fee is less than the instantiation fee.
-        assert_noop!(create(500, true), WrapperContractsError::InsufficientMaxFee);
+        assert_noop!(
+            create(500, true, salt),
+            WrapperContractsError::InsufficientMaxFee
+        );
 
         // Instantiation should passed
-        assert_ok!(create(instantiation_fee, false));
+        assert_ok!(create(instantiation_fee, false, salt));
     });
 }
 
@@ -566,8 +587,9 @@ fn check_transaction_rollback_functionality_for_instantiation() {
         create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
         // create instance of contract
+        let salt = b"1".to_vec();
         assert_noop!(
-            create_contract_instance(bob.acc(), code_hash, instantiation_fee, true),
+            create_contract_instance(bob.acc(), code_hash, salt, instantiation_fee, true),
             ProtocolFeeError::InsufficientAccountBalance
         );
 
