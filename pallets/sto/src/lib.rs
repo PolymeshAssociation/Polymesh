@@ -38,7 +38,7 @@ use pallet_settlement::{
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
-    traits::{asset::AssetFnTrait, identity, portfolio},
+    traits::{identity, portfolio},
     with_transaction, CommonTrait,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -46,12 +46,10 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use frame_support::weights::Weight;
 use polymesh_primitives::{EventDid, IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
-use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub const MAX_TIERS: usize = 10;
 
-type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -287,8 +285,8 @@ decl_module! {
             let PermissionedCallOriginData {
                 primary_did: did,
                 secondary_key,
-                sender: _,
-            } = Self::ensure_perms_pia(origin, &offering_asset)?;
+                ..
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?;
 
             VenueInfo::get(venue_id)
                 .filter(|v| v.creator == did && v.venue_type == VenueType::Sto)
@@ -511,7 +509,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let did = Self::ensure_perms_pia(origin, &offering_asset)?.primary_did.for_event();
+            let did = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?.primary_did.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -538,15 +536,13 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
-            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
-
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
 
-            ensure!(
-                <Asset<T>>::primary_issuance_agent_or_owner(&offering_asset) == did || fundraiser.creator == did,
-                Error::<T>::Unauthorized
-            );
+            let did = <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
+            if fundraiser.creator != did {
+                 <ExternalAgents<T>>::ensure_agent_permissioned(offering_asset, did)?;
+            }
 
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
@@ -573,7 +569,8 @@ impl<T: Trait> Module<T> {
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
-        let did = Self::ensure_perms_pia(origin, &offering_asset)?.primary_did;
+        let did =
+            <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?.primary_did;
         let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
             .ok_or(Error::<T>::FundraiserNotFound)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
@@ -586,18 +583,5 @@ impl<T: Trait> Module<T> {
         }
         <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
         Ok(())
-    }
-
-    /// Ensure that `origin` is permissioned and the PIA, returning its DID.
-    fn ensure_perms_pia(
-        origin: T::Origin,
-        asset: &Ticker,
-    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
-        let data = <ExternalAgents<T>>::ensure_asset_perms(origin, asset)?;
-        ensure!(
-            <Asset<T>>::primary_issuance_agent_or_owner(asset) == data.primary_did,
-            Error::<T>::Unauthorized
-        );
-        Ok(data)
     }
 }

@@ -181,7 +181,6 @@ fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::Account
         total_supply: total_supply.into(),
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_agent: None,
     };
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
@@ -396,13 +395,6 @@ benchmarks! {
         assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id2)), false);
     }
 
-    remove_primary_issuance_agent {
-        let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin, ticker)
-    verify {
-        assert_eq!(Module::<T>::token_details(ticker).primary_issuance_agent, None);
-    }
-
     claim_classic_ticker {
         let owner = owner::<T>();
         let did = owner.did();
@@ -434,21 +426,6 @@ benchmarks! {
         assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
     }
 
-    accept_primary_issuance_agent_transfer {
-        let (owner, ticker) = owned_ticker::<T>();
-        let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
-
-        let auth_id = identity::Module::<T>::add_auth(
-            owner.did(),
-            Signatory::from(pia.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            None,
-        );
-    }: _(pia.origin, auth_id)
-    verify {
-        assert_eq!(Module::<T>::token_details(&ticker).primary_issuance_agent, pia.did);
-    }
-
     controller_transfer {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
@@ -456,10 +433,10 @@ benchmarks! {
         let auth_id = identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(pia.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
+            AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
         );
-        Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id).unwrap();
+        identity::Module::<T>::accept_authorization(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)

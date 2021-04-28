@@ -118,7 +118,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction as _,
+            AuthorizationNonce, IdentityFnTrait,
             IdentityToExternalAgents as _, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
             Trait,
         },
@@ -588,10 +588,6 @@ decl_module! {
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
-                (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(ticker)) =>
-                    T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, from, ticker),
-                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(ticker)) =>
-                    T::CorporateAction::accept_caa_transfer(did, from, ticker),
                 (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
                     T::ExternalAgents::accept_become_agent(did, from, ticker, group),
                 (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(ticker)) =>
@@ -604,12 +600,12 @@ decl_module! {
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
                     | AuthorizationData::NoData
+                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
+                    | AuthorizationData::TransferCorporateActionAgent(..)
                 )
                 | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
                 | (Signatory::Account(_),
                     AuthorizationData::TransferTicker(..)
-                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
-                    | AuthorizationData::TransferCorporateActionAgent(..)
                     | AuthorizationData::BecomeAgent(..)
                     | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::PortfolioCustody(..)

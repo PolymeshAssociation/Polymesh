@@ -10,6 +10,7 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::TrustedIssuer;
+use frame_support::dispatch::DispatchError;
 
 const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
 const RAISE_TICKER: Ticker = Ticker::repeating(b'B');

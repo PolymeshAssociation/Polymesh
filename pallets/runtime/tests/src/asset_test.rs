@@ -69,6 +69,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
+type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type StoreCallMetadata = pallet_permissions::StoreCallMetadata<TestStorage>;
@@ -103,7 +104,6 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u12
         total_supply: TOTAL_SUPPLY,
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_agent: None,
         ..Default::default()
     };
     (ticker, token)
@@ -348,7 +348,7 @@ fn issuers_can_redeem_tokens() {
 
             assert_noop!(
                 Asset::redeem(bob.origin(), ticker, token.total_supply),
-                AssetError::Unauthorized
+                EAError::UnauthorizedAgent
             );
 
             assert_noop!(
@@ -636,62 +636,6 @@ fn controller_transfer() {
             assert_eq!(balance_of(owner.did), balance_owner + 100);
             assert_eq!(balance_of(alice.did), balance_alice - 100);
         })
-}
-
-#[test]
-fn transfer_primary_issuance_agent() {
-    ExtBuilder::default().build().execute_with(|| {
-        set_time_to_now();
-
-        let owner = User::new(AccountKeyring::Alice);
-        let pia = User::new(AccountKeyring::Bob);
-
-        // Create asset.
-        let (ticker, token) = a_token(owner.did);
-        assert_ok!(basic_asset(owner, ticker, &token));
-
-        assert!(!Asset::is_ticker_available(&ticker));
-        assert_eq!(Asset::token_details(&ticker), token);
-
-        let add_auth = |from: User, target: User, expiry| {
-            let data = AuthorizationData::TransferPrimaryIssuanceAgent(ticker);
-            Identity::add_auth(from.did, Signatory::from(target.did), data, expiry)
-        };
-
-        let auth_id = add_auth(owner, pia, Some(now() - 100));
-
-        assert_noop!(
-            Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
-            "Authorization expired"
-        );
-        assert_eq!(Asset::token_details(&ticker), token);
-
-        let auth_id = add_auth(owner, owner, None);
-
-        assert_noop!(
-            Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
-            "Authorization does not exist"
-        );
-        assert_eq!(Asset::token_details(&ticker), token);
-
-        let auth_id = add_auth(pia, pia, None);
-
-        assert_noop!(
-            Asset::accept_primary_issuance_agent_transfer(pia.origin(), auth_id),
-            "Illegal use of Authorization"
-        );
-        assert_eq!(Asset::token_details(&ticker), token);
-
-        let auth_id = add_auth(owner, pia, None);
-
-        assert_ok!(Asset::accept_primary_issuance_agent_transfer(
-            pia.origin(),
-            auth_id
-        ));
-        let mut new_token = token.clone();
-        new_token.primary_issuance_agent = Some(pia.did);
-        assert_eq!(Asset::token_details(&ticker), new_token);
-    })
 }
 
 #[test]
@@ -1250,43 +1194,6 @@ fn test_can_transfer_rpc() {
                 ERC1400_TRANSFER_SUCCESS
             );
         })
-}
-
-#[test]
-fn can_set_primary_issuance_agent() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(can_set_primary_issuance_agent_we);
-}
-
-fn can_set_primary_issuance_agent_we() {
-    let owner = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
-
-    assert_ok!(Balances::transfer_with_memo(
-        owner.origin(),
-        bob.acc(),
-        1_000,
-        Some(Memo::from("Bob funding"))
-    ));
-    let (ticker, mut token) = a_token(owner.did);
-    token.primary_issuance_agent = Some(bob.did);
-    assert_ok!(basic_asset(owner, ticker, &token));
-
-    let auth_id = Identity::add_auth(
-        token.owner_did,
-        Signatory::from(bob.did),
-        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-        None,
-    );
-    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
-        bob.origin(),
-        auth_id
-    ));
-    assert_eq!(Asset::token_details(ticker), token);
-    assert_ok!(Asset::remove_primary_issuance_agent(owner.origin(), ticker));
-    token.primary_issuance_agent = None;
-    assert_eq!(Asset::token_details(ticker), token);
 }
 
 #[test]

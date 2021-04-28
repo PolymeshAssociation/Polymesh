@@ -248,7 +248,9 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         perms: ExtrinsicPermissions,
     ) -> DispatchResult {
-        let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
+        let did = Self::ensure_agent_asset_perms(origin, ticker)?
+            .primary_did
+            .for_event();
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
 
         // Fetch the AG id & advance the sequence.
@@ -269,7 +271,7 @@ impl<T: Trait> Module<T> {
         id: AGId,
         perms: ExtrinsicPermissions,
     ) -> DispatchResult {
-        let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
+        let did = Self::ensure_agent_asset_perms(origin, ticker)?.primary_did.for_event();
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
         Self::ensure_custom_agent_group_exists(ticker, &id)?;
 
@@ -280,7 +282,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn base_remove_agent(origin: T::Origin, ticker: Ticker, agent: IdentityId) -> DispatchResult {
-        let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
+        let did = Self::ensure_agent_asset_perms(origin, ticker)?.primary_did.for_event();
         Self::try_mutate_agents_group(ticker, agent, None)?;
         Self::deposit_event(Event::AgentRemoved(did, ticker, agent));
         Ok(())
@@ -299,7 +301,7 @@ impl<T: Trait> Module<T> {
         agent: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        let did = Self::ensure_agent_asset_perms(origin, ticker)?.for_event();
+        let did = Self::ensure_agent_asset_perms(origin, ticker)?.primary_did.for_event();
         Self::ensure_agent_group_valid(ticker, group)?;
         Self::try_mutate_agents_group(ticker, agent, Some(group))?;
         Self::deposit_event(Event::GroupChanged(did, ticker, agent, group));
@@ -351,13 +353,13 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.
-    fn ensure_agent_asset_perms(
+    pub fn ensure_agent_asset_perms(
         origin: T::Origin,
         ticker: Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        let agent = Self::ensure_asset_perms(origin, &ticker)?.primary_did;
-        Self::ensure_agent_permissioned(ticker, agent)?;
-        Ok(agent)
+    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
+        let data = Self::ensure_asset_perms(origin, &ticker)?;
+        Self::ensure_agent_permissioned(ticker, data.primary_did)?;
+        Ok(data)
     }
 
     /// Ensure that `origin` is permissioned for this call
@@ -434,6 +436,13 @@ impl<T: Trait> Module<T> {
                     ])),
                 ),
             ]),
+        }
+    }
+
+    /// Add `agent` for `ticker` unless it already is.
+    pub fn add_agent_if_not(ticker: Ticker, agent: IdentityId, group: AgentGroup) {
+        if let None = Self::agents(ticker, agent) {
+            Self::unchecked_add_agent(ticker, agent, group);
         }
     }
 }

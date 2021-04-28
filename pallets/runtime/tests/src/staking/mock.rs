@@ -40,7 +40,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
         group::{GroupTrait, InactiveMember},
-        identity::{IdentityToCorporateAction, IdentityToExternalAgents, Trait as IdentityTrait},
+        identity::{IdentityToExternalAgents, Trait as IdentityTrait},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -393,7 +393,6 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = Test;
     type ExternalAgents = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
@@ -497,13 +496,6 @@ impl AssetSubTrait<Balance> for Test {
     fn accept_ticker_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
-    fn accept_primary_issuance_agent_transfer(
-        _: IdentityId,
-        _: IdentityId,
-        _: Ticker,
-    ) -> DispatchResult {
-        Ok(())
-    }
     fn accept_asset_ownership_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
@@ -513,12 +505,6 @@ impl AssetSubTrait<Balance> for Test {
     }
     fn scope_id_of(_: &Ticker, _: &IdentityId) -> ScopeId {
         ScopeId::from(0u128)
-    }
-}
-
-impl IdentityToCorporateAction for Test {
-    fn accept_caa_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
-        Ok(())
     }
 }
 

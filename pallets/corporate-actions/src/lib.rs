@@ -18,11 +18,8 @@
 //! The corporate actions module provides functionality for handling corporate actions (CAs) on-chain.
 //!
 //! Any CA is associated with an asset,
-//! so most module dispatchables must be called by the corporate action agent (CAA).
-//! The CAA could either be the asset's owner, or some specific identity authorized by the owner.
-//! Should the CAA be distinct from the owner, then only the CAA may initiate CAs.
-//! If for any reason, a CAA needs to be relieved from their responsibilities,
-//! they may be removed using `reset_caa`, in which case the CAA again becomes the owner.
+//! so most module dispatchables must be called by a corporate action agent (CAA).
+//! Who the CAAs are is handled via the external agents system.
 //!
 //! The starting point of any CA begins with executing `initiate_corporate_action`,
 //! provided with the associated ticker, what sort of CA it is, e.g., a notice or a benefit,
@@ -76,8 +73,6 @@
 //!
 //! - `set_max_details_length(origin, length)` sets the maximum `length` in bytes for the `details` of any CA.
 //!    Must be called via the PIP process.
-//! - `reset_caa(origin, ticker)` relieves the current CAA from their duties,
-//!    resetting it back to the asset owner. Must be called by the asset owner.
 //! - `set_default_targets(origin, ticker, targets)` sets the default `targets`
 //!    for all CAs associated with `ticker`.
 //! - `set_default_withholding_tax(origin, ticker, tax)` sets the default withholding tax
@@ -106,22 +101,23 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    migration::StorageKeyIterator,
     traits::Get,
     weights::Weight,
+    Blake2_128Concat,
 };
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
-use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
-    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     traits::asset,
     traits::checkpoint::ScheduleId,
     with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migrate_on, storage_migration_ver, DocumentId, EventDid,
-    IdentityId, Moment, Ticker,
+    agent::AgentGroup, calendar::CheckpointId, storage_migrate_on, storage_migration_ver,
+    DocumentId, EventDid, IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
 use sp_arithmetic::Permill;
@@ -316,7 +312,6 @@ pub struct CAId {
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
     fn set_max_details_length() -> Weight;
-    fn reset_caa() -> Weight;
     fn set_default_targets(i: u32) -> Weight;
     fn set_default_withholding_tax() -> Weight;
     fn set_did_withholding_tax(existing_overrides: u32) -> Weight;
@@ -370,16 +365,6 @@ decl_storage! {
         /// [graphemes]: https://en.wikipedia.org/wiki/Grapheme
         pub MaxDetailsLength get(fn max_details_length) config(): u32;
 
-        /// A corporate action agent (CAA) of a ticker, if specified,
-        /// that may be different from the asset owner (AO).
-        /// If `None`, the AO is the CAA.
-        ///
-        /// The CAA may be distict from the AO because the CAA may require a money services license,
-        /// and the assets would need to originate from the CAA's identity, not the AO's identity.
-        ///
-        /// (ticker => did?)
-        pub Agent get(fn agent): map hasher(blake2_128_concat) Ticker => Option<IdentityId>;
-
         /// The identities targeted by default for CAs for this ticker,
         /// either to be excluded or included.
         ///
@@ -426,7 +411,7 @@ decl_storage! {
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 // Public interface for this runtime module.
 decl_module! {
@@ -445,6 +430,14 @@ decl_module! {
                 migrate_map::<CorporateActionOld, _>(b"CorporateActions", b"CorporateActions", |_| Empty);
             });
 
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
+                    .drain()
+                    .for_each(|(ticker, agent)| {
+                        ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA);
+                    });
+            });
+
             0
         }
 
@@ -457,23 +450,6 @@ decl_module! {
             Self::deposit_event(Event::MaxDetailsLengthChanged(GC_DID, length));
         }
 
-        /// Reset the CAA of `ticker` to its owner.
-        ///
-        /// ## Arguments
-        /// - `origin` which must be a signer for the asset owner's DID.
-        /// - `ticker` for which the CAA is reset.
-        ///
-        /// ## Errors
-        /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
-        ///
-        /// # Permissions
-        /// * Asset
-        #[weight = <T as Trait>::WeightInfo::reset_caa()]
-        pub fn reset_caa(origin, ticker: Ticker) {
-            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
-            Self::change_ca_agent(did, ticker, None);
-        }
-
         /// Set the default CA `TargetIdentities` to `targets`.
         ///
         /// ## Arguments
@@ -482,7 +458,7 @@ decl_module! {
         /// - `targets` the default target identities for a CA.
         ///
         /// ## Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `TooManyTargetIds` if `targets.identities.len() > T::MaxTargetIds::get()`.
         ///
         /// # Permissions
@@ -509,7 +485,7 @@ decl_module! {
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
         /// ## Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         ///
         /// # Permissions
         /// * Asset
@@ -531,7 +507,7 @@ decl_module! {
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
         /// ## Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `TooManyDidTaxes` if `Some(tax)` and adding the override would go over the limit `MaxDidWhts`.
         ///
         /// # Permissions
@@ -575,7 +551,7 @@ decl_module! {
         ///
         /// # Errors
         /// - `DetailsTooLong` if `details.len()` goes beyond `max_details_length`.
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
@@ -690,7 +666,7 @@ decl_module! {
         /// - `docs` to associate with the CA with `id`.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - `NoSuchDoc` if any of `docs` does not identify an existing document.
         ///
@@ -723,7 +699,7 @@ decl_module! {
         /// - `ca_id` of the CA to remove.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         ///
         /// # Permissions
@@ -766,7 +742,7 @@ decl_module! {
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchCA` if `id` does not identify an existing CA.
         /// - When `record_date.is_some()`, other errors due to checkpoint scheduling may occur.
         ///
@@ -845,8 +821,6 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The signer is not authorized to act as a CAA for this asset.
-        UnauthorizedAsAgent,
         /// The authorization type is not to transfer the CAA to another DID.
         AuthNotCAATransfer,
         /// The `details` of a CA exceeded the max allowed length.
@@ -877,14 +851,6 @@ decl_error! {
         DeclDateInFuture,
         /// CA does not target the DID.
         NotTargetedByCA,
-    }
-}
-
-impl<T: Trait> IdentityToCorporateAction for Module<T> {
-    fn accept_caa_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
-        <Asset<T>>::ensure_auth_by_is_owner(&ticker, from)?;
-        Self::change_ca_agent(to, ticker, Some(to));
-        Ok(())
     }
 }
 
@@ -1013,38 +979,8 @@ impl<T: Trait> Module<T> {
         CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
     }
 
-    /// Change `ticker`'s CAA to `new_caa` and emit an event.
-    fn change_ca_agent(did: IdentityId, ticker: Ticker, new_caa: Option<IdentityId>) {
-        // Transfer CAA status to `did`.
-        Agent::mutate(ticker, |caa| *caa = new_caa);
-
-        // Emit event.
-        let new_caa = new_caa.unwrap_or_else(|| <Asset<T>>::token_details(ticker).owner_did);
-        Self::deposit_event(Event::CAATransferred(did, ticker, new_caa));
-    }
-
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
-    /// When `origin` is unsigned, `BadOrigin` occurs.
-    /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
-    /// If the caller is a secondary key, it should have the relevant asset permission.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        Self::ensure_ca_agent_with_perms(origin, ticker).map(|x| x.primary_did)
-    }
-
-    /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
-    /// When `origin` is unsigned, `BadOrigin` occurs.
-    /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
-    fn ensure_ca_agent_with_perms(
-        origin: T::Origin,
-        ticker: Ticker,
-    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
-        let data = <ExternalAgents<T>>::ensure_asset_perms(origin, &ticker)?;
-        let did = data.primary_did;
-        ensure!(
-            Self::agent(ticker)
-                .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
-            Error::<T>::UnauthorizedAsAgent
-        );
-        Ok(data)
+        <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker).map(|x| x.primary_did)
     }
 }

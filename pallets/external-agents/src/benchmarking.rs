@@ -102,8 +102,8 @@ benchmarks! {
 
     change_group_builtin {
         let (owner, other, ticker) = setup_removal::<T>();
-    }: change_group(owner.origin(), ticker, other.did(), AgentGroup::Meta)
+    }: change_group(owner.origin(), ticker, other.did(), AgentGroup::ExceptMeta)
     verify {
-        assert_eq!(Some(AgentGroup::Meta), GroupOfAgent::get(ticker, other.did()));
+        assert_eq!(Some(AgentGroup::ExceptMeta), GroupOfAgent::get(ticker, other.did()));
     }
 }

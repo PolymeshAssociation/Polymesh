@@ -1056,7 +1056,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "PrimaryIssuanceAgent": "",
+                "ExternalAgent": "",
                 "Specific": "IdentityId"
             }
         },

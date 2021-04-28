@@ -98,12 +98,6 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 }
 
-/// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
-pub trait IdentityToCorporateAction {
-    /// Accept CAA transfer to `did` authorized by `from` for `ticker`.
-    fn accept_caa_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
-}
-
 /// The link between the identity and external agents pallet for becoming agent authorization.
 pub trait IdentityToExternalAgents {
     /// Accept from `from`, for `did`, the role as an agent of `ticker` with `group`.
@@ -147,9 +141,6 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
 
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
-
-    /// Negotiates between Corporate Actions and the Identity pallet.
-    type CorporateAction: IdentityToCorporateAction;
 
     /// Negotiates between External Agents and the Identity pallet.
     type ExternalAgents: IdentityToExternalAgents;

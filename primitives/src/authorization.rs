@@ -34,8 +34,7 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
-    /// Authorization to transfer a token's primary issuance agent.
-    /// Must be issued by the current owner of the token
+    /// Not in use anymore.
     TransferPrimaryIssuanceAgent(Ticker),
     /// Add a signer to multisig
     /// Must be issued to the identity that created the ms (and therefore owns it permanently)
@@ -52,8 +51,7 @@ pub enum AuthorizationData<AccountId> {
     Custom(Ticker),
     /// No authorization data
     NoData,
-    /// Authorization to transfer a token's corporate action agent (CAA).
-    /// Must be issued by the current owner of the token.
+    /// Not in use anymore.
     TransferCorporateActionAgent(Ticker),
     /// Authorization to become an agent of the `Ticker` with the `AgentGroup`.
     BecomeAgent(Ticker, AgentGroup),
@@ -108,7 +106,7 @@ pub enum AuthorizationType {
     Custom,
     /// Undefined authorization.
     NoData,
-    /// Authorization to transfer a token's corporate action agent (CAA).
+    /// Not in use anymore.
     TransferCorporateActionAgent,
     /// Authorization to become an agent of a ticker.
     BecomeAgent,

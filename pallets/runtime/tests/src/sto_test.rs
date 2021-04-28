@@ -21,6 +21,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type STO = sto::Module<TestStorage>;
 type Error = sto::Error<TestStorage>;
+type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
@@ -348,7 +349,7 @@ fn raise_unhappy_path() {
     assert_too_long!(fundraise(default_tiers.clone(), 0, max_len_bytes(1)));
 
     // Offering asset not created
-    check_fundraiser(default_tiers.clone(), 0, Error::Unauthorized.into());
+    check_fundraiser(default_tiers.clone(), 0, EAError::UnauthorizedAgent.into());
 
     create_asset(alice_signed.clone(), offering_ticker, 1_000_000);
 
@@ -764,7 +765,7 @@ fn stop_fundraiser() {
     // Unauthorized
     assert_noop!(
         STO::stop(bob_signed.clone(), offering_ticker, fundraiser_id),
-        Error::Unauthorized
+        EAError::UnauthorizedAgent
     );
 
     assert_ok!(STO::stop(

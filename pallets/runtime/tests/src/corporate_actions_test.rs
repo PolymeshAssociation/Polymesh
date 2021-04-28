@@ -16,7 +16,7 @@ use frame_support::{
 use pallet_corporate_actions::{
     ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
-    Agent, CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
+    CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
@@ -27,6 +27,7 @@ use polymesh_primitives::{
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
+    agent::AgentGroup,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;
@@ -36,6 +37,7 @@ type System = frame_system::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
+type EA = pallet_external_agents::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
@@ -49,6 +51,7 @@ type BallotError = ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
+type EAError = pallet_external_agents::Error<TestStorage>;
 type Votes = ballot::Votes<TestStorage>;
 type Custodian = pallet_portfolio::PortfolioCustodian;
 
@@ -110,7 +113,7 @@ fn create_asset(ticker: &[u8], owner: User) -> Ticker {
 
 fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
     let sig: Signatory<_> = to.did.into();
-    let data = AuthorizationData::TransferCorporateActionAgent(ticker);
+    let data = AuthorizationData::BecomeAgent(ticker, AgentGroup::Full);
     assert_ok!(Identity::add_authorization(from.origin(), sig, data, None));
     Authorizations::iter_prefix_values(sig)
         .next()
@@ -120,7 +123,9 @@ fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
 
 fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     let auth_id = add_caa_auth(ticker, from, to);
-    Identity::accept_authorization(to.origin(), auth_id)
+    Identity::accept_authorization(to.origin(), auth_id)?;
+    EA::abdicate(from.origin(), ticker)?;
+    Ok(())
 }
 
 type CAResult = Result<CorporateAction, DispatchError>;
@@ -290,44 +295,30 @@ fn only_caa_authorized() {
         // Ensures passing for owner, but not to-be-CAA (Bob) and other.
         let owner_can_do_it = || {
             checks!(owner, assert_ok);
-            checks!(caa, assert_noop, Error::UnauthorizedAsAgent);
-            checks!(other, assert_noop, Error::UnauthorizedAsAgent);
+            checks!(caa, assert_noop, EAError::UnauthorizedAgent);
+            checks!(other, assert_noop, EAError::UnauthorizedAgent);
         };
         // Ensures passing for Bob (the CAA), not owner, and not other.
         let caa_can_do_it = || {
             checks!(caa, assert_ok);
-            checks!(owner, assert_noop, Error::UnauthorizedAsAgent);
-            checks!(other, assert_noop, Error::UnauthorizedAsAgent);
+            checks!(owner, assert_noop, EAError::UnauthorizedAgent);
+            checks!(other, assert_noop, EAError::UnauthorizedAgent);
         };
-        let transfer_caa = |caa| {
-            assert_ok!(transfer_caa(ticker, owner, caa));
+        let transfer_caa = |from, to| {
+            assert_ok!(transfer_caa(ticker, from, to));
         };
 
         // We start with owner being CAA.
         owner_can_do_it();
         // Transfer CAA to Bob.
-        transfer_caa(caa);
+        transfer_caa(owner, caa);
         caa_can_do_it();
         // Demonstrate that CAA can be transferred back.
-        transfer_caa(owner);
+        transfer_caa(caa, owner);
         owner_can_do_it();
         // Transfer to Bob again.
-        transfer_caa(caa);
+        transfer_caa(owner, caa);
         caa_can_do_it();
-        // Finally reset; ensuring that CAA is owner.
-        assert_ok!(CA::reset_caa(owner.origin(), ticker));
-        owner_can_do_it();
-    });
-}
-
-#[test]
-fn only_owner_reset() {
-    test(|ticker, [owner, caa, other]| {
-        assert_ok!(transfer_caa(ticker, owner, caa));
-        let reset = |caller: User| CA::reset_caa(caller.origin(), ticker);
-        assert_ok!(reset(owner));
-        assert_noop!(reset(caa), AssetError::Unauthorized);
-        assert_noop!(reset(other), AssetError::Unauthorized);
     });
 }
 
@@ -337,7 +328,7 @@ fn only_owner_caa_invite() {
         let auth_id = add_caa_auth(ticker, other, caa);
         assert_noop!(
             Identity::accept_authorization(caa.origin(), auth_id),
-            "Illegal use of Authorization"
+            EAError::UnauthorizedAgent
         );
     });
 }
@@ -1840,7 +1831,7 @@ fn dist_distribute_works() {
         assert_ok!(dist(id, 5000));
 
         // Test sufficient currency balance.
-        Agent::insert(ticker, other.did);
+        assert_ok!(transfer_caa(ticker, owner, other));
         transfer(&currency, owner, other);
         let id = dist_ca(other, ticker, Some(5)).unwrap();
         let dist =
@@ -1912,7 +1903,7 @@ fn dist_reclaim_works() {
         // Dist creator different from CAA.
         transfer(&currency, owner, other);
         let id = dist_ca(owner, ticker, Some(1)).unwrap();
-        Agent::insert(ticker, other.did);
+        assert_ok!(transfer_caa(ticker, owner, other));
         assert_ok!(Dist::distribute(
             other.origin(),
             id,
@@ -1923,7 +1914,7 @@ fn dist_reclaim_works() {
             5,
             Some(6)
         ));
-        Agent::insert(ticker, owner.did);
+        assert_ok!(transfer_caa(ticker, other, owner));
         assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
 
         // Not expired yet.
@@ -1931,7 +1922,7 @@ fn dist_reclaim_works() {
         assert_noop!(reclaim(id, other), DistError::NotExpired);
 
         // Test successful behavior.
-        Agent::insert(ticker, other.did);
+        assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);

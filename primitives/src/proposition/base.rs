@@ -7,17 +7,17 @@ use codec::{Decode, Encode};
 // TargetIdentityProposition
 // ======================================================
 
-/// It matches `id` with primary issuance agent in the context.
+/// Matches the contained `identity` against the `id` in the context.
 #[derive(Clone, Debug)]
-pub struct TargetIdentityProposition<'a> {
-    /// IdentityId we want to check.
-    pub identity: &'a IdentityId,
+pub struct IsIdentityProposition {
+    /// Identity to check against the one in the context.
+    pub identity: IdentityId,
 }
 
-impl<C> Proposition<C> for TargetIdentityProposition<'_> {
+impl<C> Proposition<C> for IsIdentityProposition {
     #[inline]
     fn evaluate(&self, context: Context<C>) -> bool {
-        context.id == *self.identity
+        context.id == self.identity
     }
 }
 
@@ -174,6 +174,13 @@ mod tests {
     use std::vec::IntoIter;
 
     type Iter = IntoIter<Claim>;
+
+    struct Dummy;
+    impl<C> Proposition<C> for Dummy {
+        fn evaluate(&self, _: Context<C>) -> bool {
+            false
+        }
+    }
 
     fn mk_ctx(claims: Vec<Claim>) -> Context<Iter> {
         Context {

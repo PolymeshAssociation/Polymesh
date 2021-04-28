@@ -41,18 +41,6 @@ pub trait AssetSubTrait<Balance> {
     /// * `ticker` that is being transferred.
     fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
 
-    /// Accept and process a primary issuance agent transfer
-    ///
-    /// # Arguments
-    /// * `to` did of the receiver.
-    /// * `from` sender of the authorization.
-    /// * `ticker` that is being altered.
-    fn accept_primary_issuance_agent_transfer(
-        to: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult;
-
     /// Accept and process a token ownership transfer
     ///
     /// # Arguments
@@ -87,8 +75,7 @@ pub trait AssetSubTrait<Balance> {
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-    /// Get the PIA of a token if it's assigned or else the owner of the token.
-    fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
+
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_owner_perms(origin: Origin, ticker: &Ticker) -> Result<IdentityId, DispatchError>;
 
@@ -137,14 +124,12 @@ pub trait WeightInfo {
     fn remove_documents(d: u32) -> Weight;
     fn set_funding_round(f: u32) -> Weight;
     fn update_identifiers(i: u32) -> Weight;
-    fn remove_primary_issuance_agent() -> Weight;
     fn claim_classic_ticker() -> Weight;
     fn reserve_classic_ticker() -> Weight;
     fn add_extension() -> Weight;
     fn remove_smart_extension() -> Weight;
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
-    fn accept_primary_issuance_agent_transfer() -> Weight;
     fn controller_transfer() -> Weight;
 }
 
@@ -254,9 +239,6 @@ decl_event! {
         /// Emitted when extension get archived.
         /// caller DID, ticker, AccountId
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
-        /// An event emitted when the primary issuance agent of an asset is transferred.
-        /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset

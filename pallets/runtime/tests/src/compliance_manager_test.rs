@@ -18,6 +18,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
+    agent::AgentGroup,
     asset::{AssetName, AssetType},
     compliance_manager::{
         AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
@@ -581,10 +582,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
+    /*
     assert_ok!(Asset::remove_primary_issuance_agent(
         token_owner_signed.clone(),
         ticker
     ));
+    */
 
     // Failed because trusted issuer identity not exist
     assert_noop!(
@@ -1388,10 +1391,10 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let auth_id = Identity::add_auth(
         owner_id,
         Signatory::from(issuer_id),
-        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
+        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
     );
-    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
+    assert_ok!(Identity::accept_authorization(
         Origin::signed(issuer),
         auth_id
     ));
@@ -1406,16 +1409,17 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount, issuer_id),
+        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount),
         ERC1400_TRANSFER_FAILURE
     );
 
-    // Add compliance requirement that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
+    // Add compliance requirement that requires sender to be primary issuance agent (dynamic)
+    // and receiver to be a specific random_guy_id.
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_origin,
         ticker,
         vec![Condition {
-            condition_type: ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent),
+            condition_type: ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
             issuers: vec![],
         }],
         vec![Condition {
@@ -1424,41 +1428,17 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         }]
     ));
 
+    let verify =
+        |from, to| ComplianceManager::verify_restriction(&ticker, Some(from), Some(to), amount);
+
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(issuer_id),
-            Some(random_guy_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_SUCCESS
-    );
+    assert_ok!(verify(issuer_id, random_guy_id), ERC1400_TRANSFER_SUCCESS);
 
     // From primary issuance agent to owner should fail
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(issuer_id),
-            Some(owner_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
+    assert_ok!(verify(issuer_id, owner_id), ERC1400_TRANSFER_FAILURE);
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(random_guy_id),
-            Some(issuer_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
+    assert_ok!(verify(random_guy_id, issuer_id), ERC1400_TRANSFER_FAILURE);
 }
 
 #[test]

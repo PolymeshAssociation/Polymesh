@@ -28,8 +28,6 @@ pub struct Context<C> {
     /// It could be the sender DID during the evaluation of sender's conditions or
     /// the receiver DID on a receiver's condition evaluation.
     pub id: IdentityId,
-    /// Identity of the primary_issuance_agent of the token
-    pub primary_issuance_agent: IdentityId,
 }
 
 // Proposition Trait
@@ -74,26 +72,12 @@ pub trait Proposition<C> {
 /// Base and simple propositions
 pub mod base;
 pub use base::{
-    AndProposition, AnyProposition, ExistentialProposition, NotProposition, OrProposition,
-    TargetIdentityProposition,
+    AndProposition, AnyProposition, ExistentialProposition, IsIdentityProposition, NotProposition,
+    OrProposition,
 };
 
 // Helper functions
 // ======================================
-
-/// It creates a proposition to evaluate the matching of `id` with primary_issuance_agent in the context.
-#[inline]
-pub fn equals<'a>(
-    id: &'a TargetIdentity,
-    primary_issuance_agent: &'a IdentityId,
-) -> TargetIdentityProposition<'a> {
-    match id {
-        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityProposition {
-            identity: primary_issuance_agent,
-        },
-        TargetIdentity::Specific(identity) => TargetIdentityProposition { identity },
-    }
-}
 
 /// It creates a proposition to evaluate the existential of `claim` in the context.
 #[inline]
@@ -114,14 +98,19 @@ pub fn not<P: Proposition<C>, C>(proposition: P) -> NotProposition<P> {
 }
 
 /// Helper function to run propositions from a context.
-pub fn run<C: Iterator<Item = Claim>>(condition: &Condition, context: Context<C>) -> bool {
+pub fn run<C: Iterator<Item = Claim>, E: Proposition<C>>(
+    condition: &Condition,
+    context: Context<C>,
+    ea_prop: E,
+) -> bool {
     match &condition.condition_type {
         ConditionType::IsPresent(claim) => exists(claim).evaluate(context),
         ConditionType::IsAbsent(claim) => not::<_, C>(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(claims) => not::<_, C>(any(claims)).evaluate(context),
-        ConditionType::IsIdentity(id) => {
-            equals(id, &context.primary_issuance_agent.clone()).evaluate(context)
+        ConditionType::IsIdentity(TargetIdentity::Specific(id)) => {
+            IsIdentityProposition { identity: *id }.evaluate(context)
         }
+        ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => ea_prop.evaluate(context),
     }
 }
