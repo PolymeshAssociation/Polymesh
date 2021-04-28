@@ -1816,42 +1816,6 @@ fn setup_join_identity(source: &User, target: &User) {
 }
 
 #[test]
-fn ext_forwarded_call() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(|| forwarded_call());
-}
-
-fn forwarded_call() {
-    let alice = User::new(AccountKeyring::Alice);
-    let bob = User::new(AccountKeyring::Bob);
-    let call: Box<<TestStorage as IdentityTrait>::Proposal> =
-        Box::new(frame_system::Call::<TestStorage>::remark(vec![]).into());
-
-    assert_noop!(
-        Identity::forwarded_call(bob.origin(), alice.did(), call.clone()),
-        IdentityError::CurrentIdentityCannotBeForwarded
-    );
-
-    setup_join_identity(&alice, &bob);
-
-    assert_noop!(
-        Identity::forwarded_call(
-            bob.origin(),
-            alice.did(),
-            Box::new(pallet_identity::Call::forwarded_call(alice.did(), call.clone()).into())
-        ),
-        IdentityError::RecursionNotAllowed
-    );
-
-    assert_ok!(Identity::forwarded_call(
-        bob.origin(),
-        alice.did(),
-        call.clone()
-    ));
-}
-
-#[test]
 fn ext_join_identity_as_identity() {
     ExtBuilder::default()
         .build()
