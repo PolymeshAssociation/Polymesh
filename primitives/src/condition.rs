@@ -25,7 +25,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 /// It defines a static/dynamic identity
 pub enum TargetIdentity {
     /// Current primary issuance agent of an asset. Resolved dynamically.
@@ -37,7 +37,7 @@ pub enum TargetIdentity {
 /// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
     IsPresent(Claim),
@@ -51,9 +51,22 @@ pub enum ConditionType {
     IsIdentity(TargetIdentity),
 }
 
+impl ConditionType {
+    fn complexity(&self) -> usize {
+        match self {
+            ConditionType::IsIdentity(..)
+            | ConditionType::IsPresent(..)
+            | ConditionType::IsAbsent(..) => 1,
+            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
+                claims.len()
+            }
+        }
+    }
+}
+
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TrustedFor {
     /// Issuer is trusted for any `ClaimType`.
     Any,
@@ -63,7 +76,7 @@ pub enum TrustedFor {
 
 /// A trusted issuer for a certain compliance `Condition` and what `ClaimType`s is trusted for.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TrustedIssuer {
     /// The issuer trusted for the `Condition` or for the `Ticker`,
     /// depending on where `TrustedClaimIssuer` is included.
@@ -118,7 +131,7 @@ impl Migrate for TrustedIssuerOld {
 
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate, Hash)]
 pub struct Condition {
     /// Type of condition.
     pub condition_type: ConditionType,
@@ -127,7 +140,6 @@ pub struct Condition {
     pub issuers: Vec<TrustedIssuer>,
 }
 
-#[allow(missing_docs)]
 impl Condition {
     /// Generate condition on the basis of `condition_type` & `issuers`.
     pub fn new(condition_type: ConditionType, issuers: Vec<TrustedIssuer>) -> Self {
@@ -144,25 +156,15 @@ impl Condition {
             issuers.iter().copied().map(TrustedIssuer::from).collect(),
         )
     }
+
+    /// Returns worst case complexity of a condition
+    pub fn complexity(&self) -> (usize, usize) {
+        (self.condition_type.complexity(), self.issuers.len())
+    }
 }
 
 impl From<ConditionType> for Condition {
     fn from(condition_type: ConditionType) -> Self {
         Condition::new(condition_type, Vec::new())
-    }
-}
-
-impl Condition {
-    /// Returns worst case complexity of a condition
-    pub fn complexity(&self) -> (usize, usize) {
-        let claims_count = match self.condition_type {
-            ConditionType::IsIdentity(..)
-            | ConditionType::IsPresent(..)
-            | ConditionType::IsAbsent(..) => 1,
-            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
-                claims.len()
-            }
-        };
-        (claims_count, self.issuers.len())
     }
 }

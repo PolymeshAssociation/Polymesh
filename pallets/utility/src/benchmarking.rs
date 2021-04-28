@@ -1,7 +1,10 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use pallet_balances::{self as balances, Call as BalancesCall};
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    traits::TestUtilsFn,
+};
 use sp_core::sr25519::Signature;
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::MultiSignature;
@@ -31,7 +34,7 @@ fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128)
     assert_eq!(acc_balance, expected_balance.into())
 }
 
-fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
+fn make_relay_tx_users<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
     let alice = UserBuilder::<T>::default()
         .balance(1_000_000u32)
         .generate_did()
@@ -44,7 +47,7 @@ fn make_relay_tx_users<T: Trait>() -> (User<T>, User<T>) {
     (alice, bob)
 }
 
-fn remark_call_builder<T: Trait>(
+fn remark_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     signer: &User<T>,
     _: T::AccountId,
 ) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
@@ -64,7 +67,7 @@ fn remark_call_builder<T: Trait>(
     (call, encoded)
 }
 
-fn transfer_call_builder<T: Trait>(
+fn transfer_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     signer: &User<T>,
     target: T::AccountId,
 ) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
@@ -85,6 +88,8 @@ fn transfer_call_builder<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _ {}
 
     batch {

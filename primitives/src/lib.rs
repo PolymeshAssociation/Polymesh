@@ -20,7 +20,7 @@
 #![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
-use confidential_identity::Scalar;
+use confidential_identity_v1::Scalar as ScalarV1;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -46,6 +46,9 @@ pub type Signature = MultiSignature;
 
 /// Alias to an sr25519 or ed25519 key.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// Alias for `EnsureRoot<AccountId>`.
+pub type EnsureRoot = frame_system::EnsureRoot<AccountId>;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them.
 pub type AccountIndex = u32;
@@ -109,7 +112,7 @@ impl From<(u32, u32)> for PosRatio {
 }
 
 /// It creates a scalar from the blake2_512 hash of `data` parameter.
-pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
+pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> ScalarV1 {
     let mut hash = [0u8; 64];
     hash.copy_from_slice(
         Blake2b::default()
@@ -117,7 +120,7 @@ pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
             .finalize()
             .as_slice(),
     );
-    Scalar::from_bytes_mod_order_wide(&hash)
+    ScalarV1::from_bytes_mod_order_wide(&hash)
 }
 
 /// The balance of an account.
@@ -232,7 +235,6 @@ pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Pr
 
 /// For confidential stuff.
 pub mod valid_proof_of_investor;
-pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;
@@ -242,6 +244,15 @@ pub mod crypto;
 
 /// Asset type definitions.
 pub mod asset;
+
+/// Statistics type definitions.
+pub mod statistics;
+
+/// Compliance manager type definitions.
+pub mod compliance_manager;
+
+/// Host functions.
+pub mod host_functions;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

@@ -16,8 +16,7 @@
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName},
-    calendar::CheckpointId,
-    AssetIdentifier, IdentityId, PortfolioId, ScopeId, Ticker,
+    AssetIdentifier, IdentityId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
@@ -42,13 +41,14 @@ pub trait AssetSubTrait<Balance> {
     /// * `auth_id` Authorization id of the authorization created by current token owner
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
 
-    /// Update balance of given IdentityId under the scopeId.
+    /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
+    /// to any previous valid `old_scope_ids`.
     ///
     /// # Arguments
-    /// * `of` - The `ScopeId` of the given `IdentityId`.
+    /// * `scope_id` - The new `ScopeId` of `target_did` and `ticker`.
     /// * `target_did` - The `IdentityId` whose balance needs to be updated.
     /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
-    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult;
+    fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker);
 
     /// Returns balance for a given scope id and target DID.
     ///
@@ -56,24 +56,15 @@ pub trait AssetSubTrait<Balance> {
     /// * `scope_id` - The `ScopeId` of the given `IdentityId`.
     /// * `target` - The `IdentityId` whose balance needs to be queried.
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
+
+    /// Returns the `ScopeId` for a given `ticker` and `did`.
+    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId;
 }
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
-    fn total_supply(ticker: &Ticker) -> Balance;
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-    /// Check if an Identity is the owner of a ticker.
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    /// Get an Identity's balance of a token at a particular checkpoint.
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: CheckpointId) -> Balance;
     /// Get the PIA of a token if it's assigned or else the owner of the token.
     fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId;
-    /// Transfer an asset from one portfolio to another.
-    fn base_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: Balance,
-    ) -> DispatchResult;
     /// Ensure that the caller has the required extrinsic and asset permissions.
     fn ensure_perms_owner_asset(
         origin: Origin,
@@ -92,6 +83,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
     ) -> DispatchResult;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
+
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);

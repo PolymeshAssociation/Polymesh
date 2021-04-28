@@ -4,11 +4,12 @@ use super::{
 };
 use pallet_balances as balances;
 use pallet_identity as identity;
+use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
-    assert_err, assert_ok,
+    assert_noop, assert_ok,
     traits::Currency,
     weights::{DispatchInfo, Weight},
 };
@@ -45,7 +46,7 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.public();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::Identity(identity::Call::register_did(
+            let call = runtime::Call::TestUtils(test_utils::Call::register_did(
                 InvestorUid::default(),
                 vec![],
             ));
@@ -83,7 +84,7 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(
+            let call = runtime::Call::TestUtils(test_utils::Call::register_did(
                 InvestorUid::default(),
                 vec![],
             ));
@@ -233,7 +234,7 @@ fn burn_account_balance_works() {
         let total_issuance1 = Balances::total_issuance();
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
-        assert_err!(
+        assert_noop!(
             Balances::burn_account_balance(Origin::signed(alice_pub), fat_finger_burn_amount),
             Error::InsufficientBalance
         );

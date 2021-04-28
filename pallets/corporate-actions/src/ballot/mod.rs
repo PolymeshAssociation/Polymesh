@@ -90,6 +90,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_asset::checkpoint;
+use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_common_utilities::CommonTrait;
@@ -106,22 +107,22 @@ type CA<T> = ca::Module<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
 pub struct Motion {
     /// Title of the motion
     pub title: MotionTitle,
@@ -320,6 +321,7 @@ decl_module! {
         /// - `RecordDateAfterStart` if `date > range.start` where `date` is the CA's record date.
         /// - `AlreadyExists` if there's a ballot already.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
+        /// - `TooLong` if any of the embedded strings in `meta` are too long.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
         #[weight = <T as Trait>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
         pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
@@ -334,6 +336,7 @@ decl_module! {
 
             // Compute number-of-choices-in-motion cache.
             let choices = Self::derive_motion_num_choices(&meta.motions)?;
+            Self::ensure_meta_lengths_limited(&meta)?;
 
             // Charge protocol fee.
             T::ProtocolFee::charge_fee(ProtocolOp::BallotAttachBallot)?;
@@ -495,6 +498,7 @@ decl_module! {
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
+        /// - `TooLong` if any of the embedded strings in `meta` are too long.
         #[weight = <T as Trait>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
         pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
             // Ensure origin is CAA, a ballot exists, start is in the future.
@@ -503,6 +507,7 @@ decl_module! {
 
             // Compute number-of-choices-in-motion cache.
             let choices = Self::derive_motion_num_choices(&meta.motions)?;
+            Self::ensure_meta_lengths_limited(&meta)?;
 
             // Commit metadata to storage + emit event.
             MotionNumChoices::insert(ca_id, choices);
@@ -638,6 +643,19 @@ impl<T: Trait> Module<T> {
 
         // Emit event.
         Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Ok(())
+    }
+
+    /// Ensure that no string embedded within `meta` is too long.
+    fn ensure_meta_lengths_limited(meta: &BallotMeta) -> DispatchResult {
+        ensure_string_limited::<T>(&meta.title)?;
+        for motion in &meta.motions {
+            ensure_string_limited::<T>(&motion.title)?;
+            ensure_string_limited::<T>(&motion.info_link)?;
+            for choice in &motion.choices {
+                ensure_string_limited::<T>(choice)?;
+            }
+        }
         Ok(())
     }
 

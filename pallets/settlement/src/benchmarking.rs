@@ -18,28 +18,24 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
-use pallet_asset::{BalanceOf, SecurityToken, Tokens};
 use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
-use pallet_statistics::TransferManager;
 use polymesh_common_utilities::{
-    benchs::{self, generate_ticker, user, User, UserBuilder},
+    benchs::{self, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     traits::asset::AssetFnTrait,
+    TestUtilsFn,
 };
 use polymesh_primitives::{
-    asset::{AssetName, AssetType},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
-    PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker, TrustedIssuer,
+    statistics::TransferManager, Claim, Condition, ConditionType, CountryCode, IdentityId,
+    PortfolioId, PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker,
+    TrustedIssuer,
 };
 use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
-
-#[cfg(not(feature = "std"))]
-use hex_literal::hex;
 
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
@@ -116,22 +112,8 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 }
 
 // create asset
-fn create_asset_<T: Trait>(owner_did: IdentityId) -> Result<Ticker, DispatchError> {
-    let ticker = Ticker::try_from(generate_ticker(8u64).as_slice()).unwrap();
-    let name = AssetName::from(vec![b'N'; 8 as usize].as_slice());
-    let total_supply: T::Balance = 90000u32.into();
-    let token = SecurityToken {
-        name,
-        total_supply,
-        owner_did,
-        divisible: true,
-        asset_type: AssetType::EquityCommon,
-        primary_issuance_agent: None,
-    };
-    <Tokens<T>>::insert(ticker, token);
-    <BalanceOf<T>>::insert(ticker, owner_did, total_supply);
-    Portfolio::<T>::set_default_portfolio_balance(owner_did, &ticker, total_supply);
-    Ok(ticker)
+fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
+    make_asset::<T>(owner, Some(Ticker::generate(8u64)))
 }
 
 // fund portfolio
@@ -139,7 +121,7 @@ fn fund_portfolio<T: Trait>(portfolio: &PortfolioId, ticker: &Ticker, amount: T:
     <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
 }
 
-fn setup_leg_and_portfolio<T: Trait>(
+fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
@@ -148,7 +130,7 @@ fn setup_leg_and_portfolio<T: Trait>(
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
     let variance = index + 1;
-    let ticker = Ticker::try_from(generate_ticker(variance.into()).as_slice()).unwrap();
+    let ticker = Ticker::generate_into(variance.into());
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
@@ -162,7 +144,7 @@ fn setup_leg_and_portfolio<T: Trait>(
     sender_portfolios.push(portfolio_from);
 }
 
-fn generate_portfolio<T: Trait>(
+fn generate_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     portfolio_to: &'static str,
     pseudo_random_no: u32,
     user: Option<UserData<T>>,
@@ -188,12 +170,14 @@ fn generate_portfolio<T: Trait>(
     PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
-fn populate_legs_for_instruction<T: Trait>(index: u32, legs: &mut Vec<Leg<T::Balance>>) {
-    let ticker = Ticker::try_from(generate_ticker(index.into()).as_slice()).unwrap();
+fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+    index: u32,
+    legs: &mut Vec<Leg<T::Balance>>,
+) {
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
-        asset: ticker,
+        asset: Ticker::generate_into(index.into()),
         amount: 100u32.into(),
     });
 }
@@ -236,7 +220,7 @@ fn verify_add_and_affirm_instruction<T: Trait>(
     Ok(())
 }
 
-fn emulate_add_instruction<T: Trait>(
+fn emulate_add_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
     create_portfolios: bool,
 ) -> Result<
@@ -290,7 +274,7 @@ fn emulate_add_instruction<T: Trait>(
     ))
 }
 
-fn emulate_portfolios<T: Trait>(
+fn emulate_portfolios<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     sender: Option<UserData<T>>,
     receiver: Option<UserData<T>>,
     ticker: Ticker,
@@ -390,7 +374,7 @@ pub fn compliance_setup<T: Trait>(
     .expect("Failed to add the asset compliance");
 }
 
-fn setup_affirm_instruction<T: Trait>(
+fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
 ) -> (
     Vec<PortfolioId>,
@@ -412,7 +396,7 @@ fn setup_affirm_instruction<T: Trait>(
     let to_data = UserData::from(to);
 
     for n in 0..l {
-        tickers.push(make_asset::<T>(&from, Some(generate_ticker(n as u64 + 1))));
+        tickers.push(make_asset::<T>(&from, Some(Ticker::generate(n as u64 + 1))));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),
@@ -468,7 +452,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
         .expect("Settlement: Fail to add the smart extension to a given asset");
 }
 
-fn create_receipt_details<T: Trait>(
+fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg<T::Balance>,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
@@ -531,6 +515,8 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
     _{}
 
     create_venue {
@@ -629,9 +615,9 @@ benchmarks! {
 
     set_venue_filtering {
         // Constant time function. It is only for allow venue filtering.
-        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
-    }: _(origin, ticker, true)
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
+    }: _(user.origin, ticker, true)
     verify {
         ensure!(Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
@@ -639,9 +625,9 @@ benchmarks! {
 
     set_venue_filtering_disallow {
         // Constant time function. It is only for disallowing venue filtering.
-        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
-    }: set_venue_filtering(origin, ticker, false)
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
+    }: set_venue_filtering(user.origin, ticker, false)
     verify {
         ensure!(!Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
@@ -650,14 +636,14 @@ benchmarks! {
     allow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
         }
         let s_venues = venues.clone();
-    }: _(origin, ticker, s_venues)
+    }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -668,14 +654,14 @@ benchmarks! {
     disallow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let User {account, origin, did, .. } = UserBuilder::<T>::default().generate_did().build("creator");
-        let ticker = create_asset_::<T>(did.unwrap())?;
+        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
             venues.push(i.into());
         }
         let s_venues = venues.clone();
-    }: _(origin, ticker, s_venues)
+    }: _(user.origin, ticker, s_venues)
     verify {
         for v in venues.iter() {
             ensure!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
@@ -802,7 +788,7 @@ benchmarks! {
         // Add instruction
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone())?;
         let instruction_id = 1;
-        let ticker = Ticker::try_from(generate_ticker(1u64).as_slice()).unwrap();
+        let ticker = Ticker::generate_into(1u64);
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
         let leg_id = 0;
         let amount = 100u128;

@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 pallet-balances = { path = "../balances", default-features = false }
+pallet-base = { path = "../base", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
@@ -16,33 +17,32 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 either = { version = "1.6.1", default-features = false }
 
 # Cryptography
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "MESH-1569/pius_v2_integration" }
+confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
+frame-support = { version = "2.0.1", default-features = false }
+frame-system = { version = "2.0.1", default-features = false }
+pallet-timestamp = { version = "2.0.1", default-features = false }
+sp-api = { version = "2.0.1", default-features = false }
+sp-core = { version = "2.0.1", default-features = false }
+sp-io = { version = "2.0.1", default-features = false }
+sp-runtime = { version = "2.0.1", default-features = false }
+sp-std = { version = "2.0.1", default-features = false }
+sp-version = { version = "2.0.1", default-features = false }
 
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-1" }
-
-# Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-1", optional = true }
+# Only Benchmarking 
+frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
+hex = { version = "^0.4.0", default-features = false, features = ["alloc"], optional = true }
 
 [features]
 equalize = []
 default = ["std", "equalize"]
 no_cdd = []
 running-ci = []
-no_std = [
-    "confidential_identity/u64_backend",
-]
+no_std = [ "confidential_identity/u64_backend", ]
 only-staking = []
 std = [
     "codec/std",
@@ -68,4 +68,5 @@ runtime-benchmarks = [
     "frame-benchmarking",
     "polymesh-common-utilities/runtime-benchmarks",
     "schnorrkel",
+    "hex",
 ]

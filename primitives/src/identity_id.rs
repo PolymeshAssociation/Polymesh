@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::EventOnly;
+use crate::{cdd_id::InvestorUid, AccountId, EventOnly, SecondaryKey};
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
@@ -29,6 +29,36 @@ const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
 const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
+
+/// The record to initialize an identity in the chain spec.
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
+    /// Identity primary key.
+    pub primary_key: AccountId,
+    /// Secondary keys with permissions.
+    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+    /// issuers DIDs.
+    pub issuers: Vec<IdentityId>,
+    /// own DID.
+    pub did: IdentityId,
+    /// Investor UID.
+    pub investor: InvestorUid,
+    /// CDD claim expiry
+    pub cdd_claim_expiry: Option<u64>,
+}
+
+impl GenesisIdentityRecord<AccountId> {
+    /// Creates a new CDD less `GenesisIdentityRecord` from a nonce and the primary key
+    pub fn new(nonce: u8, primary_key: AccountId) -> Self {
+        Self {
+            primary_key,                              // No CDD claim will be issued
+            did: IdentityId::from(nonce as u128),     // Identity = 0xi000...0000
+            investor: InvestorUid::from([nonce; 16]), // Irrelevant since no CDD claim is issued
+            ..Default::default()
+        }
+    }
+}
 
 /// Polymesh Identifier ID.
 /// It is stored internally as an `u128` but it can be load from string with the following format:
@@ -269,6 +299,22 @@ impl PortfolioId {
             kind: PortfolioKind::User(num),
         }
     }
+}
+
+/// Result of a portfolio validity check.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortfolioValidityResult {
+    /// Receiver portfolio is the same portfolio as the sender.
+    pub receiver_is_same_portfolio: bool,
+    /// Sender portfolio does not exist.
+    pub sender_portfolio_does_not_exist: bool,
+    /// Receiver portfolio does not exist.
+    pub receiver_portfolio_does_not_exist: bool,
+    /// Sender does not have sufficient balance.
+    pub sender_insufficient_balance: bool,
+    /// Final evaluation result.
+    pub result: bool,
 }
 
 #[cfg(test)]

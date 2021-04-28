@@ -1,5 +1,6 @@
 use super::{
     assert_event_exists,
+    asset_test::max_len_bytes,
     committee_test::{gc_vmo, set_members},
     storage::{
         fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
@@ -19,7 +20,7 @@ use pallet_group as group;
 use pallet_pips::{
     self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
     Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
-    VotingResult,
+    VoteByPip, VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};
@@ -491,6 +492,27 @@ fn proposal_details_are_correct() {
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(0, alice.acc(), 60);
+    });
+}
+
+#[test]
+fn proposal_limits_are_enforced() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(42);
+        let proposer = User::new(AccountKeyring::Alice).balance(300);
+        let propose = |url, desc| {
+            proposal(
+                &proposer.origin(),
+                &Proposer::Community(proposer.acc()),
+                make_remark_proposal(),
+                60,
+                Some(url),
+                Some(desc),
+            )
+        };
+        assert_too_long!(propose(max_len_bytes(1), max_len_bytes(0)));
+        assert_too_long!(propose(max_len_bytes(0), max_len_bytes(1)));
+        assert_ok!(propose(max_len_bytes(0), max_len_bytes(0)));
     });
 }
 
@@ -1832,5 +1854,45 @@ fn live_queue_off_by_one_insertion_regression_test2() {
             Pips::live_queue(),
             vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
         );
+    });
+}
+
+#[test]
+fn pips_rpcs() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        System::set_block_number(1);
+        // Create two community proposals with IDs 0 and 1.
+        assert_ok!(alice_proposal(0));
+        assert_ok!(alice_proposal(0));
+        let pip_id0 = 0;
+        let pip_id1 = 1;
+
+        let bob_vote_deposit = 100;
+        let charlie_vote_deposit = 200;
+        assert_ok!(Pips::vote(bob.origin(), pip_id0, false, bob_vote_deposit));
+        assert_ok!(Pips::vote(bob.origin(), pip_id1, true, bob_vote_deposit));
+        assert_ok!(Pips::vote(
+            charlie.origin(),
+            pip_id0,
+            true,
+            charlie_vote_deposit
+        ));
+
+        assert_eq!(
+            Pips::get_votes(pip_id0),
+            VoteCount::ProposalFound {
+                ayes: charlie_vote_deposit,
+                nays: bob_vote_deposit,
+            }
+        );
+        assert_eq!(
+            Pips::proposed_by(Proposer::Community(AccountKeyring::Alice.public())),
+            vec![pip_id1, pip_id0],
+        );
+        assert_eq!(Pips::voted_on(bob.acc()), vec![pip_id1, pip_id0]);
     });
 }

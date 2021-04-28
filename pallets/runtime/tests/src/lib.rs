@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![feature(crate_visibility_modifier)]
+#![feature(bindings_after_at, bool_to_option, array_map)]
 
 pub mod storage;
 pub use storage::{
@@ -12,6 +13,7 @@ pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
 #[cfg(test)]
+#[macro_use]
 mod asset_test;
 #[cfg(test)]
 mod balances_test;
@@ -21,8 +23,6 @@ mod bridge;
 mod committee_test;
 #[cfg(test)]
 mod compliance_manager_test;
-#[cfg(test)]
-mod confidential_test;
 #[cfg(test)]
 mod contract_test;
 #[cfg(test)]

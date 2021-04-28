@@ -772,7 +772,7 @@ fn double_staking_should_fail() {
     // * an account already bonded as stash cannot nominate.
     // * an account already bonded as controller can nominate.
     ExtBuilder::default().build_and_execute(|| {
-        let arbitrary_value = 5;
+        let arbitrary_value = MinimumBond::get();
         // 2 = controller, 1 stashed => ok
         assert_ok!(Staking::bond(
             Origin::signed(1),
@@ -805,7 +805,7 @@ fn double_controlling_should_fail() {
     // should test (in the same order):
     // * an account already bonded as controller CANNOT be reused as the controller of another account.
     ExtBuilder::default().build_and_execute(|| {
-        let arbitrary_value = 5;
+        let arbitrary_value = MinimumBond::get();
         // 2 = controller, 1 stashed => ok
         assert_ok!(Staking::bond(
             Origin::signed(1),
@@ -2034,10 +2034,10 @@ fn bond_with_no_staked_value() {
             assert_ok!(Staking::bond(
                 Origin::signed(1),
                 2,
-                5,
+                MinimumBond::get(),
                 RewardDestination::Controller
             ));
-            assert_eq!(Balances::locks(&1)[0].amount, 5);
+            assert_eq!(Balances::locks(&1)[0].amount, MinimumBond::get());
 
             // Polymesh -note -> Below check wouldn't be succeded as exesential deposit hard coded to 0
             // unbonding even 1 will cause all to be unbonded.
@@ -2046,8 +2046,8 @@ fn bond_with_no_staked_value() {
                 Staking::ledger(2),
                 Some(StakingLedger {
                     stash: 1,
-                    active: 4,
-                    total: 5,
+                    active: MinimumBond::get() - 1,
+                    total: MinimumBond::get(),
                     unlocking: vec![UnlockChunk { value: 1, era: 3 }],
                     claimed_rewards: vec![],
                 })
@@ -2059,7 +2059,7 @@ fn bond_with_no_staked_value() {
             // not yet removed.
             assert_ok!(Staking::withdraw_unbonded(Origin::signed(2), 0));
             assert!(Staking::ledger(2).is_some());
-            assert_eq!(Balances::locks(&1)[0].amount, 5);
+            assert_eq!(Balances::locks(&1)[0].amount, MinimumBond::get());
 
             mock::start_era(3);
 
@@ -2094,7 +2094,7 @@ fn bond_with_little_staked_value_bounded() {
             assert_ok!(Staking::bond(
                 Origin::signed(1),
                 2,
-                1,
+                MinimumBond::get(),
                 RewardDestination::Controller
             ));
             add_secondary_key(1, 2);
@@ -5792,4 +5792,36 @@ fn test_multiple_validators_from_an_entity() {
             assert_ok!(Staking::chill(Origin::signed(61)));
             assert_permissioned_identity_prefs!(entity_id, 3, 2);
         });
+}
+
+#[test]
+fn test_bond_too_small() {
+    ExtBuilder::default().build().execute_with(|| {
+        let pre_bond = |stash, ctrl, val| {
+            let _ = Balances::make_free_balance_be(&stash, val);
+            let _ = Balances::make_free_balance_be(&ctrl, val);
+            provide_did_to_user(stash);
+            add_secondary_key(stash, ctrl);
+        };
+        let bond = |stash, ctrl, val| {
+            Staking::bond(
+                Origin::signed(stash),
+                ctrl,
+                val,
+                RewardDestination::Controller,
+            )
+        };
+        let both = |stash, ctrl, val| {
+            pre_bond(stash, ctrl, val);
+            bond(stash, ctrl, val)
+        };
+
+        pre_bond(50, 51, MinimumBond::get() - 1);
+        assert_noop!(
+            bond(50, 51, MinimumBond::get() - 1),
+            Error::<Test>::BondTooSmall
+        );
+        assert_ok!(both(70, 71, MinimumBond::get()));
+        assert_ok!(both(90, 91, MinimumBond::get() + 1));
+    });
 }
