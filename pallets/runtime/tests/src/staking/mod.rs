@@ -3998,7 +3998,11 @@ mod offchain_phragmen {
                 let (mut compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // index 4 doesn't exist.
-                compact.push_votes1((3, 4));
+                compact.votes1.iter_mut().for_each(|(_, vidx)| {
+                    if *vidx == 1 {
+                        *vidx = 4
+                    }
+                });
 
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
@@ -4050,16 +4054,31 @@ mod offchain_phragmen {
                 assert_eq!(Staking::snapshot_nominators().unwrap().len(), 5 + 4);
                 assert_eq!(Staking::snapshot_validators().unwrap().len(), 4);
                 let (compact, winners, score) = prepare_submission_with(false, true, 2, |a| {
+                    // swap all 11 and 41s in the distribution with non-winners. Note that it is
+                    // important that the count of winners and the count of unique targets remain
+                    // valid.
                     a.iter_mut()
-                        .find(|x| x.who == 5)
-                        // all 3 cannot be among the winners. Although, all of them are validator
-                        // candidates.
-                        .map(|x| x.distribution = vec![(21, 50), (41, 30), (31, 20)]);
+                        .for_each(|StakedAssignment { who, distribution }| {
+                            distribution.iter_mut().for_each(|(t, _)| {
+                                if *t == 41 {
+                                    *t = 31
+                                } else {
+                                    *t = 21
+                                }
+                                // if it is self vote, correct that.
+                                if *who == 41 {
+                                    *who = 31
+                                }
+                                if *who == 11 {
+                                    *who = 21
+                                }
+                            })
+                        });
                 });
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::OffchainElectionBogusEdge,
+                    Error::<Test>::OffchainElectionBogusNomination,
                 );
             })
     }

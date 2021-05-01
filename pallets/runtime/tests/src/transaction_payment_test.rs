@@ -246,9 +246,7 @@ fn query_info_works() {
                 RuntimeDispatchInfo {
                     weight: info.weight,
                     class: info.class,
-                    partial_fee: 5 * 2 /* base * weight_fee */
-                           + len as u128  /* len * 1 */
-                           + info.weight.min(MaximumBlockWeight::get()) as u128 * 2 * 3 / 2 /* weight */
+                    partial_fee: 34599
                 },
             );
         });
@@ -277,18 +275,24 @@ fn compute_fee_works_without_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
             // Tip + base fee works
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 69), 169);
+            assert_eq!(
+                TransactionPayment::compute_fee(0, &dispatch_info, 69),
+                30068
+            );
             // Len (byte fee) + base fee works
-            assert_eq!(TransactionPayment::compute_fee(42, &dispatch_info, 0), 520);
+            assert_eq!(
+                TransactionPayment::compute_fee(42, &dispatch_info, 0),
+                34199
+            );
             // Weight fee + base fee works
             let dispatch_info = DispatchInfo {
                 weight: 1000,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 1100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
         });
 }
 
@@ -307,7 +311,7 @@ fn compute_fee_works_with_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
 
             // Everything works together :)
             let dispatch_info = DispatchInfo {
@@ -318,7 +322,7 @@ fn compute_fee_works_with_multiplier() {
             // 123 weight, 456 length, 100 base
             assert_eq!(
                 TransactionPayment::compute_fee(456, &dispatch_info, 789),
-                100 + (3 * 123 / 2) + 4560 + 789,
+                76388
             );
         });
 }
@@ -339,7 +343,7 @@ fn compute_fee_works_with_negative_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
 
             // Everything works together.
             let dispatch_info = DispatchInfo {
@@ -350,7 +354,7 @@ fn compute_fee_works_with_negative_multiplier() {
             // 123 weight, 456 length, 100 base
             assert_eq!(
                 TransactionPayment::compute_fee(456, &dispatch_info, 789),
-                100 + (123 / 2) + 4560 + 789,
+                76388
             );
         });
 }
@@ -503,7 +507,7 @@ fn normal_tx_with_tip_ext() {
         .pre_dispatch(&user, &call, &normal_info, len)
         .map(|_| ())
         .unwrap_err();
-    assert!(pre_err == expected_err);
+    assert_eq!(pre_err, expected_err);
 
     // Valid normal tx.
     assert!(ChargeTransactionPayment::<TestStorage>::from(0)
