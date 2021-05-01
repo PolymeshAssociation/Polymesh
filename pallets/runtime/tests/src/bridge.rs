@@ -28,7 +28,8 @@ type BridgeTxDetail = GBridgeTxDetail<u128, BlockNumber>;
 
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
-const WEIGHT_EXPECTED: u64 = 500000210u64;
+// const WEIGHT_EXPECTED: u64 = 500_000_210u64;
+const WEIGHT_EXPECTED: u64 = 950_000_000u64;
 const MIN_SIGNS_REQUIRED: u64 = 2;
 
 fn test_with_controller(test: &dyn Fn(&[AccountId])) {

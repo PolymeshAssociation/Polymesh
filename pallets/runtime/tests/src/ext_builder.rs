@@ -39,6 +39,7 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
+#[derive(Clone)]
 pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
 
 impl Default for MockProtocolBaseFees {

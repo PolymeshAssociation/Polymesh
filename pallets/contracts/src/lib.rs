@@ -315,6 +315,7 @@ decl_module! {
                 let fee = (instantiation_fee.saturated_into::<u128>()).into();
                 let owner_pk = Self::get_primary_key(&template_details.owner);
                 T::ProtocolFee::charge_extension_instantiation_fee(fee, owner_pk, T::NetworkShareInFee::get())?;
+                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
 
                 // Generate the contract address. Generating here to avoid cloning of the vec.
                 // transmit the call to the base `pallet-contracts` module.

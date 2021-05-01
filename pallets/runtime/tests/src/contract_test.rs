@@ -101,7 +101,7 @@ pub fn create_se_template(
         data,
         salt,
         se_meta_data.clone(),
-        instantiation_fee,
+        instantiation_fee
     ));
 
     // Expected data provide by the runtime.
@@ -189,7 +189,7 @@ fn free(acc: AccountId) -> u128 {
 fn check_put_code_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
+    execute_externalities_with_wasm(0, protocol_fee.clone(), |wasm, code_hash| {
         let alice = AccountKeyring::Alice.to_account_id();
         // Create Alice account & the identity for her.
         let (_, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
@@ -208,7 +208,7 @@ fn check_put_code_functionality() {
         ]);
 
         // Check for protocol fee deduction.
-        assert_eq!(free(alice), alice_balance - fee_deducted);
+        assert_eq!(free(alice), alice_balance - fee_deducted - 16);
 
         // Balance of fee collector
         assert_eq!(free(account_from(5000)), fee_deducted);
@@ -222,8 +222,7 @@ fn check_put_code_functionality() {
 fn check_instantiation_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
-        let input_data = hex!("0222FF18");
+    execute_externalities_with_wasm(0, protocol_fee.clone(), |wasm, code_hash| {
         let extrinsic_wrapper_weight = 500_000_000;
         let instantiation_fee = 99999;
 
@@ -252,7 +251,12 @@ fn check_instantiation_functionality() {
 
         // Verify whether the instantiation fee deducted properly or not.
         // Alice balance should increased by `instantiation_fee` and Bob balance should be decreased by the same amount.
-        assert_eq!(bob_balance - free(bob.acc()), instantiation_fee + 100); // 100 for instantiation.
+        assert_eq!(
+            bob_balance - free(bob.acc()),
+            instantiation_fee
+                .saturating_add(100) // 100 for instantiation.
+                .saturating_add(put_code_fee(&protocol_fee))
+        ); // Protocol fee
         assert_eq!(alice_balance + instantiation_fee, free(alice.acc()));
 
         // Generate the contract address.
@@ -275,11 +279,21 @@ fn check_instantiation_functionality() {
     });
 }
 
+fn put_code_fee(fees: &MockProtocolBaseFees) -> u128 {
+    fees.0
+        .iter()
+        .find_map(|(op, fee)| match op {
+            ProtocolOp::ContractsPutCode => Some(fee.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
 #[test]
 fn allow_network_share_deduction() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(25, protocol_fee, |wasm, code_hash| {
+    execute_externalities_with_wasm(25, protocol_fee.clone(), |wasm, code_hash| {
         let inst_fee = 5000;
         let fee_collector = account_from(5000);
 
@@ -296,13 +310,8 @@ fn allow_network_share_deduction() {
 
         // Create instance of contract.
         let salt = b"1".to_vec();
-        assert_ok!(create_contract_instance(
-            bob.acc(),
-            code_hash,
-            salt,
-            inst_fee,
-            false
-        ));
+        let dispath_res = create_contract_instance(bob.acc(), code_hash, salt, inst_fee, false);
+        assert_ok!(dispath_res);
 
         // Check the fee division.
         // 25 % of fee should be consumed by the network and 75% should be transferred to template owner.
@@ -311,9 +320,11 @@ fn allow_network_share_deduction() {
             alice_balance.saturating_add(Perbill::from_percent(75) * inst_fee),
             free(alice.acc())
         );
-        // 25% check
+        // 25% check + Protocol Fee
         assert_eq!(
-            fee_collector_balance.saturating_add(Perbill::from_percent(25) * inst_fee),
+            fee_collector_balance
+                .saturating_add(Perbill::from_percent(25) * inst_fee)
+                .saturating_add(put_code_fee(&protocol_fee)),
             free(fee_collector)
         );
     });
@@ -321,7 +332,8 @@ fn allow_network_share_deduction() {
 
 #[test]
 fn check_behavior_when_instantiation_fee_changes() {
-    execute_externalities_with_wasm(30, <_>::default(), |wasm, code_hash| {
+    let protocol_fee: MockProtocolBaseFees = Default::default();
+    execute_externalities_with_wasm(30, protocol_fee.clone(), |wasm, code_hash| {
         let instantiation_fee = 5000;
         let fee_collector = account_from(5000);
 
@@ -407,9 +419,11 @@ fn check_behavior_when_instantiation_fee_changes() {
             alice_balance.saturating_add(Perbill::from_percent(70) * new_instantiation_fee),
             free(alice.acc())
         );
-        // 30% check
+        // 30% check + protocol fee
         assert_eq!(
-            fee_collector_balance.saturating_add(Perbill::from_percent(30) * new_instantiation_fee),
+            fee_collector_balance
+                .saturating_add(Perbill::from_percent(30) * new_instantiation_fee)
+                .saturating_add(put_code_fee(&protocol_fee)),
             free(fee_collector)
         );
     });
@@ -578,7 +592,6 @@ fn check_transaction_rollback_functionality_for_instantiation() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
     execute_externalities_with_wasm(30, protocol_fee, |wasm, code_hash| {
-        let input_data = hex!("0222FF18");
         let instantiation_fee = 10000000000;
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -627,6 +640,7 @@ fn check_put_code_flag() {
     let user = AccountKeyring::Charlie.to_account_id();
 
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
         .add_regular_users_from_accounts(&[user.clone()])
         .build()
@@ -645,7 +659,7 @@ fn check_put_code_flag_ext(user: AccountId) {
             vec![],
             vec![],
             TemplateMetadata::default(),
-            0u128,
+            99999,
         )
     };
 
