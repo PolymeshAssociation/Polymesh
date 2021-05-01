@@ -471,6 +471,7 @@ where
             // the adjustable part of the fee.
             let unadjusted_weight_fee = Self::weight_to_fee(weight);
             let multiplier = Self::next_fee_multiplier();
+
             // final adjusted weight fee.
             let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -560,7 +561,7 @@ where
         let payer_key =
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
         let liquidity_info =
-            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
+            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee_with_call(
                 &payer_key, call, info, fee, tip,
             )?;
 
@@ -693,19 +694,13 @@ where
     BalanceOf<T>: FixedPointOperand,
     T::Call: Dispatchable<Info = DispatchInfo>,
 {
-    fn charge_fee(_len: u32, _info: DispatchInfoOf<T::Call>) -> TransactionValidity {
-        /*
+    fn charge_fee(len: u32, info: DispatchInfoOf<T::Call>) -> TransactionValidity {
         let fee = Self::compute_fee(len as u32, &info, 0u32.into());
-        if let Some(account) = T::CddHandler::get_payer_from_context() {
-            let imbalance = T::Currency::withdraw(
-                &account,
-                fee,
-                WithdrawReasons::TRANSACTION_PAYMENT.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment)?;
-            T::OnTransactionPayment::on_unbalanced(imbalance);
-        }*/
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            T::OnChargeTransaction::charge_fee(&payer, fee)?;
+            /*let imbalance = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(&payer, None, None, fee, tip)?;
+            T::OnTransactionPayment::on_unbalanced(imbalance);*/
+        }
         Ok(ValidTransaction::default())
     }
 }

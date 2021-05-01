@@ -22,10 +22,10 @@ use chrono::prelude::Utc;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    parameter_types,
     traits::{
         Contains, Currency, FindAuthor, GenesisBuild, Get, Imbalance, KeyOwnerProofSystem,
-        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler,
+        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SplitTwoWays,
     },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
@@ -36,7 +36,7 @@ use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
 use polymesh_common_utilities::{
-    constants::currency::POLY,
+    constants::currency::*,
     traits::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
@@ -53,15 +53,19 @@ use polymesh_primitives::{
     Claim, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey,
     Signatory, Ticker,
 };
-use sp_core::H256;
+use sp_core::{
+    u32_trait::{_1, _4},
+    H256,
+};
 use sp_npos_elections::{
     reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
     StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
-    testing::{Header, TestSignature, TestXt, UintAuthorityId},
-    traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
+    generic,
+    testing::{TestSignature, TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, Convert, IdentityLookup, SaturatedConversion, StaticLookup, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId, Perbill, Permill,
 };
@@ -192,41 +196,8 @@ impl Get<u32> for MaxIterations {
     }
 }
 
-impl_outer_origin! {
-    pub enum Origin for Test  where system = frame_system {}
-}
-
-type Pips = pallet_pips::Module<Test>;
-
-impl_outer_dispatch! {
-    pub enum Call for Test where origin: Origin {
-        staking::Staking,
-        pallet_pips::Pips,
-        frame_system::System,
-        pallet_scheduler::Scheduler,
-    }
-}
-
 use frame_system as system;
 use pallet_balances as balances;
-use pallet_session as session;
-
-impl_outer_event! {
-    pub enum MetaEvent for Test {
-        system<T>,
-        balances<T>,
-        session,
-        pallet_base,
-        pallet_pips<T>,
-        pallet_treasury<T>,
-        staking<T>,
-        protocol_fee<T>,
-        identity<T>,
-        group Instance2<T>,
-        pallet_scheduler<T>,
-        pallet_test_utils<T>,
-    }
-}
 
 /// Author of block is always 11
 pub struct Author11;
@@ -239,9 +210,52 @@ impl FindAuthor<AccountId> for Author11 {
     }
 }
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Test;
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+/// Block type as expected by this runtime.
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+/// The address format for describing accounts.
+pub type Address = <Indices as StaticLookup>::Source;
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
+    frame_system::CheckSpecVersion<Test>,
+    frame_system::CheckTxVersion<Test>,
+    frame_system::CheckGenesis<Test>,
+    frame_system::CheckEra<Test>,
+    frame_system::CheckNonce<Test>,
+    polymesh_extensions::CheckWeight<Test>,
+    pallet_transaction_payment::ChargeTransactionPayment<Test>,
+    pallet_permissions::StoreCallMetadata<Test>,
+);
+
+/// Unchecked extrinsic type as expected by this runtime.
+pub type UncheckedExtrinsic =
+    generic::UncheckedExtrinsic<Address, Call, polymesh_primitives::Signature, SignedExtra>;
+
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = polymesh_primitives::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        TransactionPayment: pallet_transaction_payment::{Module, Storage},
+        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
+        Staking: staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+        Treasury: pallet_treasury::{Module, Call, Event<T>},
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
+        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> },
+        Base: pallet_base::{Module, Call, Event},
+    }
+);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -250,6 +264,9 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::one();
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
+
+    // Indices:
+    pub const IndexDeposit: Balance = DOLLARS;
 }
 impl frame_system::Config for Test {
     type BaseCallFilter = ();
@@ -265,10 +282,10 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = MetaEvent;
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
     type Version = ();
-    type PalletInfo = polymesh_runtime_develop::runtime::PalletInfo;
+    type PalletInfo = PalletInfo;
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -276,8 +293,41 @@ impl frame_system::Config for Test {
     type SS58Prefix = ();
 }
 
+impl pallet_indices::Config for Test {
+    type AccountIndex = polymesh_primitives::AccountIndex;
+    type Currency = Balances;
+    type Deposit = IndexDeposit;
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
+}
+
+pub type NegativeImbalance<T> =
+    <balances::Module<T> as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;
+
+/// Splits fees 80/20 between treasury and block author.
+pub type DealWithFees = SplitTwoWays<
+    Balance,
+    NegativeImbalance<Test>,
+    _4,
+    Treasury, // 4 parts (80%) goes to the treasury.
+    _1,
+    Author<Test>, // 1 part (20%) goes to the block author.
+>;
+
+impl pallet_transaction_payment::Config for Test {
+    type Currency = Balances;
+    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
+    type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
+    type WeightToFee = polymesh_runtime_common::WeightToFee;
+    type FeeMultiplierUpdate = ();
+    type CddHandler = Test;
+    type GovernanceCommittee = crate::storage::Committee;
+    type CddProviders = CddServiceProviders;
+    type Identity = Identity;
+}
+
 impl pallet_base::Trait for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type MaxLen = MaxLen;
 }
 
@@ -289,7 +339,7 @@ impl CommonTrait for Test {
 
 impl balances::Config for Test {
     type DustRemoval = ();
-    type Event = MetaEvent;
+    type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type CddChecker = Test;
@@ -312,7 +362,7 @@ impl pallet_session::Config for Test {
     type Keys = SessionKeys;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (OtherSessionHandler,);
-    type Event = MetaEvent;
+    type Event = Event;
     type ValidatorId = AccountId;
     type ValidatorIdOf = StashOf<Test>;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -331,13 +381,13 @@ impl pallet_pips::Trait for Test {
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type Event = MetaEvent;
+    type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
 }
 
 impl pallet_treasury::Trait for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
@@ -359,7 +409,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl group::Trait<group::Instance2> for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -371,18 +421,18 @@ impl group::Trait<group::Instance2> for Test {
 }
 
 impl protocol_fee::Trait for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
     type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
 impl IdentityTrait for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type Proposal = Call;
     type MultiSig = Test;
     type Portfolio = Test;
-    type CddServiceProviders = group::Module<Test, group::Instance2>;
+    type CddServiceProviders = CddServiceProviders;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
@@ -404,7 +454,7 @@ parameter_types! {
 }
 
 impl pallet_scheduler::Config for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type Origin = Origin;
     type PalletsOrigin = OriginCaller;
     type Call = Call;
@@ -415,8 +465,21 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_test_utils::Trait for Test {
-    type Event = MetaEvent;
+    type Event = Event;
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+}
+
+pub struct Author<R>(sp_std::marker::PhantomData<R>);
+
+impl<R> OnUnbalanced<NegativeImbalance<R>> for Author<R>
+where
+    R: balances::Config + pallet_authorship::Config,
+    <R as system::Config>::AccountId: From<AccountId>,
+    <R as system::Config>::AccountId: Into<AccountId>,
+{
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+        <balances::Module<R>>::resolve_creating(&<pallet_authorship::Module<R>>::author(), amount);
+    }
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -660,7 +723,7 @@ impl Config for Test {
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
     type RewardRemainder = RewardRemainderMock;
-    type Event = MetaEvent;
+    type Event = Event;
     type Slash = ();
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
@@ -1013,15 +1076,7 @@ impl ExtBuilder {
     }
 }
 
-pub type System = frame_system::Module<Test>;
-pub type Balances = balances::Module<Test>;
-pub type Session = pallet_session::Module<Test>;
-pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
-pub type Staking = pallet_staking::Module<Test>;
-pub type Identity = identity::Module<Test>;
-pub type Scheduler = pallet_scheduler::Module<Test>;
-pub type TestUtils = pallet_test_utils::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
@@ -1581,18 +1636,21 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
     }
 }
 
-pub(crate) fn staking_events() -> Vec<Event<Test>> {
+pub(crate) fn staking_events() -> Vec<Event> {
+    /*
     System::events()
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let MetaEvent::staking(inner) = e {
+            if let Event::staking(inner) = e {
                 Some(inner)
             } else {
                 None
             }
         })
         .collect()
+        */
+    vec![]
 }
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {

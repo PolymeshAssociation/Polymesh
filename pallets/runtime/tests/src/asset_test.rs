@@ -1,5 +1,5 @@
 use crate::{
-    contract_test::{create_contract_instance, create_se_template, flipper},
+    contract_test::{create_se_template, flipper},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{

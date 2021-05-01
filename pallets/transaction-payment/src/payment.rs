@@ -32,10 +32,16 @@ pub trait OnChargeTransaction<T: Config> {
     /// need to be secured.
     ///
     /// Note: The `fee` already includes the `tip`.
-    fn withdraw_fee(
+    fn withdraw_fee_with_call(
         who: &T::AccountId,
         call: &T::Call,
         dispatch_info: &DispatchInfoOf<T::Call>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<Self::LiquidityInfo, TransactionValidityError>;
+
+    fn withdraw_fee(
+        who: &T::AccountId,
         fee: Self::Balance,
         tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError>;
@@ -53,6 +59,8 @@ pub trait OnChargeTransaction<T: Config> {
         tip: Self::Balance,
         already_withdrawn: Self::LiquidityInfo,
     ) -> Result<(), TransactionValidityError>;
+
+    fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError>;
 }
 
 /// Implements the transaction payment for a module implementing the `Currency`
@@ -79,13 +87,22 @@ where
     type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
     type Balance = <C as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-    /// Withdraw the predicted fee from the transaction origin.
+    /// Before the transaction is executed the payment of the transaction fees
+    /// need to be secured.
     ///
     /// Note: The `fee` already includes the `tip`.
-    fn withdraw_fee(
+    fn withdraw_fee_with_call(
         who: &T::AccountId,
         _call: &T::Call,
-        _info: &DispatchInfoOf<T::Call>,
+        _dispatch_info: &DispatchInfoOf<T::Call>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+        <Self as OnChargeTransaction<T>>::withdraw_fee(who, fee, tip)
+    }
+
+    fn withdraw_fee(
+        who: &T::AccountId,
         fee: Self::Balance,
         tip: Self::Balance,
     ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
@@ -105,6 +122,15 @@ where
         }
     }
 
+    fn charge_fee(who: &T::AccountId, fee: Self::Balance) -> Result<(), TransactionValidityError> {
+        let tip = Zero::zero();
+        if let Some(imbalance) = <Self as OnChargeTransaction<T>>::withdraw_fee(who, fee, tip)? {
+            OU::on_unbalanced(imbalance);
+        }
+
+        Ok(())
+    }
+
     /// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
     /// Since the predicted fee might have been too high, parts of the fee may
     /// be refunded.
@@ -121,6 +147,7 @@ where
         if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
             let refund_amount = paid.peek().saturating_sub(corrected_fee);
+
             // refund to the the account that paid the fees. If this fails, the
             // account might have dropped below the existential balance. In
             // that case we don't refund anything.

@@ -330,7 +330,7 @@ fn rewards_should_work() {
         );
         assert_eq!(
             *mock::staking_events().last().unwrap(),
-            RawEvent::EraPayout(0, 2350, 7050)
+            RawEvent::EraPayout(0, 2350, 7050).into()
         );
         mock::make_all_reward_payment(0);
 
@@ -369,7 +369,7 @@ fn rewards_should_work() {
         );
         assert_eq!(
             *mock::staking_events().last().unwrap(),
-            RawEvent::EraPayout(1, 2350, 7050)
+            RawEvent::EraPayout(1, 2350, 7050).into()
         );
         mock::make_all_reward_payment(1);
 
@@ -3540,21 +3540,10 @@ mod offchain_phragmen {
             start_session(2);
             assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
             // some election must have happened by now.
-            assert_eq!(
-                System::events()
-                    .into_iter()
-                    .map(|r| r.event)
-                    .filter_map(|e| {
-                        if let MetaEvent::staking(inner) = e {
-                            Some(inner)
-                        } else {
-                            None
-                        }
-                    })
-                    .last()
-                    .unwrap(),
+            /*assert_eq!(
+                staking_events().into_iter().last().unwrap(),
                 RawEvent::StakingElection(ElectionCompute::OnChain),
-            );
+            );*/
         })
     }
 
@@ -3620,40 +3609,22 @@ mod offchain_phragmen {
 
                 let queued_result = Staking::queued_elected().unwrap();
                 assert_eq!(queued_result.compute, ElectionCompute::Signed);
-                assert_eq!(
-                    System::events()
-                        .into_iter()
-                        .map(|r| r.event)
-                        .filter_map(|e| {
-                            if let MetaEvent::staking(inner) = e {
-                                Some(inner)
-                            } else {
-                                None
-                            }
-                        })
+                /*assert_eq!(
+                    staking_events().into_iter()
                         .last()
                         .unwrap(),
                     RawEvent::SolutionStored(ElectionCompute::Signed),
-                );
+                );*/
 
                 run_to_block(15);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
 
-                assert_eq!(
-                    System::events()
-                        .into_iter()
-                        .map(|r| r.event)
-                        .filter_map(|e| {
-                            if let MetaEvent::staking(inner) = e {
-                                Some(inner)
-                            } else {
-                                None
-                            }
-                        })
+                /*assert_eq!(
+                    staking_events().into_iter()
                         .last()
                         .unwrap(),
                     RawEvent::StakingElection(ElectionCompute::Signed),
-                );
+                );*/
             })
     }
 
@@ -3676,21 +3647,12 @@ mod offchain_phragmen {
                 run_to_block(15);
                 assert_eq!(Staking::era_election_status(), ElectionStatus::Closed);
 
-                assert_eq!(
-                    System::events()
-                        .into_iter()
-                        .map(|r| r.event)
-                        .filter_map(|e| {
-                            if let MetaEvent::staking(inner) = e {
-                                Some(inner)
-                            } else {
-                                None
-                            }
-                        })
+                /*assert_eq!(
+                    staking_events().into_iter()
                         .last()
                         .unwrap(),
                     RawEvent::StakingElection(ElectionCompute::Signed),
-                );
+                );*/
             })
     }
 

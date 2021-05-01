@@ -5,7 +5,7 @@ use super::ext_builder::{
 use codec::Encode;
 use frame_support::{
     assert_ok, debug, parameter_types,
-    traits::{Currency, KeyOwnerProofSystem, OnInitialize, Randomness, SplitTwoWays},
+    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, Randomness},
     weights::{
         DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
@@ -44,7 +44,7 @@ use polymesh_primitives::{
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
     PortfolioNumber, Scope, ScopeId,
 };
-use polymesh_runtime_common::{impls::Author, merge_active_and_inactive, runtime::VMO};
+use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
 use polymesh_runtime_develop::{
     constants::time::{EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK},
     runtime::{DeletionQueueDepth, DeletionWeightLimit, RentFraction},
@@ -53,7 +53,6 @@ use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
-    u32_trait::{_1, _4},
     H256,
 };
 use sp_runtime::{
@@ -314,6 +313,19 @@ parameter_types! {
         write: 100,
     };
     pub FeeCollector: AccountId = account_from(5000);
+}
+
+pub struct DealWithFees;
+
+impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+        let target = account_from(5000);
+        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
+        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+    }
+}
+
+parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
@@ -357,16 +369,6 @@ thread_local! {
 
 pub type NegativeImbalance<T> =
     <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-
-/// Splits fees 80/20 between treasury and block author.
-pub type DealWithFees = SplitTwoWays<
-    Balance,
-    NegativeImbalance<Runtime>,
-    _4,
-    Treasury, // 4 parts (80%) goes to the treasury.
-    _1,
-    Author<Runtime>, // 1 part (20%) goes to the block author.
->;
 
 impl ChargeTxFee for TestStorage {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
