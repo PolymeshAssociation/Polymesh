@@ -573,12 +573,12 @@ fn vote_bond_additional_deposit_works() {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
-        let init_free = 1000;
+        let acc = AccountKeyring::Alice.to_account_id();
+        let init_free = Balances::free_balance(&acc);
         let init_amount = 300;
         let then_amount = 137;
         let amount = init_amount + then_amount;
 
-        let acc = AccountKeyring::Alice.to_account_id();
         let signer = Origin::signed(acc.clone());
         assert_balance(acc.clone(), init_free, 0);
 
@@ -638,11 +638,11 @@ fn vote_unbond_deposit_works() {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
-        let init_free = 1000;
+        let acc = AccountKeyring::Alice.to_account_id();
+        let init_free = Balances::free_balance(&acc);
         let init_amount = 200;
         let then_amount = 100;
 
-        let acc = AccountKeyring::Alice.to_account_id();
         let signer = Origin::signed(acc.clone());
         assert_eq!(Balances::free_balance(&acc), init_free);
 
@@ -775,17 +775,20 @@ fn vote_works() {
         let alice_acc = AccountKeyring::Alice.to_account_id();
         let bob_acc = AccountKeyring::Bob.to_account_id();
         let bob = Origin::signed(bob_acc.clone());
+        let bob_balance = Balances::free_balance(&bob_acc);
         let charlie_acc = AccountKeyring::Charlie.to_account_id();
+        let charlie_balance = Balances::free_balance(&charlie_acc);
         let charlie = Origin::signed(charlie_acc.clone());
+
         assert_ok!(alice_proposal(100));
-        assert_balance(bob_acc.clone(), 2000, 0);
-        assert_balance(charlie_acc.clone(), 3000, 0);
+        assert_balance(bob_acc.clone(), bob_balance, 0);
+        assert_balance(charlie_acc.clone(), charlie_balance, 0);
         assert_ok!(Pips::vote(bob, 0, false, 1337));
         assert_last_event!(Event::Voted(.., false, 1337));
         assert_ok!(Pips::vote(charlie, 0, true, 2441));
         assert_last_event!(Event::Voted(.., true, 2441));
-        assert_balance(bob_acc.clone(), 2000, 1337);
-        assert_balance(charlie_acc.clone(), 3000, 2441);
+        assert_balance(bob_acc.clone(), bob_balance, 1337);
+        assert_balance(charlie_acc.clone(), charlie_balance, 2441);
         assert_vote_details(
             0,
             VotingResult {

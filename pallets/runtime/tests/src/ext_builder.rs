@@ -8,7 +8,9 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
+use polymesh_common_utilities::{
+    constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
+};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, BlockNumber, Identity,
     IdentityId, PosRatio, Signatory, SmartExtensionType,
@@ -301,19 +303,19 @@ impl ExtBuilder {
             vec![
                 (
                     AccountKeyring::Alice.to_account_id(),
-                    1_000 * self.balance_factor,
+                    1_000 * POLY * self.balance_factor,
                 ),
                 (
                     AccountKeyring::Bob.to_account_id(),
-                    2_000 * self.balance_factor,
+                    2_000 * POLY * self.balance_factor,
                 ),
                 (
                     AccountKeyring::Charlie.to_account_id(),
-                    3_000 * self.balance_factor,
+                    3_000 * POLY * self.balance_factor,
                 ),
                 (
                     AccountKeyring::Dave.to_account_id(),
-                    4_000 * self.balance_factor,
+                    4_000 * POLY * self.balance_factor,
                 ),
                 // CDD Accounts
                 (AccountKeyring::Eve.to_account_id(), 1_000_000),

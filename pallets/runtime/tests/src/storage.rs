@@ -105,24 +105,6 @@ impl From<UintAuthorityId> for MockSessionKeys {
 }
 
 type Runtime = TestStorage;
-/*
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-    frame_system::CheckSpecVersion<Runtime>,
-    frame_system::CheckTxVersion<Runtime>,
-    frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
-    frame_system::CheckNonce<Runtime>,
-    polymesh_extensions::CheckWeight<Runtime>,
-    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_permissions::StoreCallMetadata<Runtime>,
-);
-/// The address format for describing accounts.
-pub type Address = <Indices as StaticLookup>::Source;
-/// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, polymesh_primitives::Signature, SignedExtra>;
-/// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;*/
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'_> = curve!(

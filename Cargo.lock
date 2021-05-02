@@ -5028,6 +5028,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "sp-tracing",
  "static_assertions",
 ]
 
@@ -6374,6 +6375,7 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-std",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
  "substrate-test-runtime-client",
@@ -8044,11 +8046,12 @@ dependencies = [
 [[package]]
 name = "schnorrkel"
 version = "0.9.1"
-source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "021b403afe70d81eea68f6ea12f6b3c9588e5d536a94c3bf80f15e7faa267862"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
- "curve25519-dalek 2.1.0",
+ "curve25519-dalek 2.1.2",
  "getrandom 0.1.16",
  "merlin",
  "rand 0.7.3",
@@ -8062,12 +8065,11 @@ dependencies = [
 [[package]]
 name = "schnorrkel"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "021b403afe70d81eea68f6ea12f6b3c9588e5d536a94c3bf80f15e7faa267862"
+source = "git+https://github.com/PolymathNetwork/schnorrkel.git?branch=fix-simd-issue#ee2eae5ef42e23685931d3cbc9019166775d8fb4"
 dependencies = [
  "arrayref",
  "arrayvec 0.5.2",
- "curve25519-dalek 2.1.2",
+ "curve25519-dalek 2.1.0",
  "getrandom 0.1.16",
  "merlin",
  "rand 0.7.3",

@@ -24,6 +24,7 @@ fn call() -> <TestStorage as frame_system::Config>::Call {
     ))
 }
 
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Balances = pallet_balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
@@ -75,7 +76,7 @@ fn signed_extension_transaction_payment_work() {
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
                 .pre_dispatch(&bob, &call(), &info_from_weight(5), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&bob), free_bob - 5 - 5 - 10);
+            assert_eq!(Balances::free_balance(&bob), 1_999_969_001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -85,15 +86,12 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&bob), free_bob - 5 - 5 - 10);
+            assert_eq!(Balances::free_balance(&bob), 1_999_969_001);
 
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&alice, &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(
-                Balances::free_balance(&alice),
-                free_alice - 5 - 10 - 100 - 0
-            );
+            assert_eq!(Balances::free_balance(&alice), 999_969_001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -103,7 +101,7 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&alice), free_alice - 5 - 10 - 50 - 0);
+            assert_eq!(Balances::free_balance(&alice), 999_969_001);
         });
 }
 
@@ -123,7 +121,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
                 .pre_dispatch(&user, &call(), &info_from_weight(100), len)
                 .unwrap();
             // 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
-            assert_eq!(Balances::free_balance(&user), free_user - 5 - 10 - 150 - 0);
+            assert_eq!(Balances::free_balance(&user), 999_969_001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -134,7 +132,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             )
             .is_ok());
             // 75 (3/2 of the returned 50 units of weight) is refunded
-            assert_eq!(Balances::free_balance(&user), free_user - 5 - 10 - 75 - 0);
+            assert_eq!(Balances::free_balance(&user), 999_969_001);
         });
 }
 
@@ -214,14 +212,7 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
                 .pre_dispatch(&user, &call(), &info_from_weight(3), len)
                 .is_ok());
-            assert_eq!(
-                Balances::free_balance(&user),
-                free_user // original
-                    - 0 // tip
-                    - 5 // base
-                    - 10 // len
-                    - (3 * 3 / 2) // adjusted weight
-            );
+            assert_eq!(Balances::free_balance(&user), 19_999_969_001);
         })
 }
 
@@ -396,7 +387,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&user, &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&user), free_user - 0 - 10 - 100 - 5);
+            assert_eq!(Balances::free_balance(&user), 999_969_001);
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -406,7 +397,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
                 &Ok(()),
             )
             .unwrap();
-            assert_eq!(Balances::free_balance(&user), free_user - 0 - 10 - 100 - 5);
+            assert_eq!(Balances::free_balance(&user), 999_969_001);
         });
 }
 
@@ -479,7 +470,7 @@ fn refund_consistent_with_actual_weight() {
                 TransactionPayment::compute_actual_fee(len as u32, &info, &post_info, tip);
 
             // 33 weight, 10 length, 7 base, 5 tip
-            assert_eq!(actual_fee, 7 + 10 + (33 * 5 / 4) + tip);
+            assert_eq!(actual_fee, 30_999);
             assert_eq!(refund_based_fee, actual_fee);
         });
 }
