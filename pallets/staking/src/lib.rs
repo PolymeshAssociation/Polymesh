@@ -456,7 +456,7 @@ pub struct EraRewardPoints<AccountId: Ord> {
 }
 
 /// Indicates the initial status of the staker.
-#[derive(RuntimeDebug)]
+#[derive(RuntimeDebug, Clone)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum StakerStatus<AccountId> {
     /// Chilling.

@@ -5115,6 +5115,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "sp-tracing",
  "static_assertions",
 ]
 
@@ -6471,6 +6472,7 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-std",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
  "substrate-test-runtime-client",
