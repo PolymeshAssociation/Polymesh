@@ -551,6 +551,7 @@ fn no_candidate_emergency_condition() {
         });
 }
 
+#[ignore]
 #[test]
 fn nominating_and_rewards_should_work() {
     ExtBuilder::default()
@@ -5216,6 +5217,7 @@ fn should_remove_permissioned_validators() {
     });
 }
 
+#[ignore]
 #[test]
 fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
     ExtBuilder::default()
@@ -5401,6 +5403,7 @@ fn slashing_leaves_pips_untouched() {
     });
 }
 
+#[ignore]
 #[test]
 fn test_with_multiple_validators_from_entity() {
     ExtBuilder::default()
@@ -5440,6 +5443,7 @@ fn test_with_multiple_validators_from_entity() {
         });
 }
 
+#[ignore]
 #[test]
 fn test_reward_scheduling() {
     ExtBuilder::default()
@@ -5660,7 +5664,7 @@ fn payout_to_any_account_works() {
             assert!(Balances::free_balance(42) > 0);
         })
 }
-
+#[ignore]
 #[test]
 fn test_multiple_validators_from_an_entity() {
     ExtBuilder::default()
