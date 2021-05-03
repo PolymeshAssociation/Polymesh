@@ -118,7 +118,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Checkpoint<T> = checkpoint::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type EA<T> = pallet_external_agents::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
@@ -378,13 +378,15 @@ decl_module! {
             });
 
             storage_migrate_on!(StorageVersion::get(), 3, {
+                // TODO(Centril): Make owners full EAs.
+
                 use crate::migrate::SecurityTokenOld;
                 use polymesh_primitives::migrate::migrate_map_keys_and_value;
                 migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
                     b"Asset", b"Tokens", b"Tokens",
                     |ticker: Ticker, token: SecurityTokenOld<T::Balance>| {
                         if let Some(pia) = token.primary_issuance_agent {
-                            ExternalAgents::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA);
+                            EA::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA);
                         }
                         token.migrate(Empty).map(|t| (ticker, t))
                     },
@@ -859,11 +861,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         Self::balance_of(ticker, &who)
     }
 
-    fn ensure_owner_perms(origin: T::Origin, ticker: &Ticker) -> Result<IdentityId, DispatchError> {
-        Self::ensure_owner_perms(origin, ticker)
-    }
-
-    #[inline]
     fn create_asset(
         origin: T::Origin,
         name: AssetName,
@@ -884,7 +881,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         )
     }
 
-    #[inline]
     fn create_asset_and_mint(
         origin: T::Origin,
         name: AssetName,
@@ -907,7 +903,6 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
         )
     }
 
-    #[inline]
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::base_register_ticker(origin, ticker)
     }
@@ -940,7 +935,9 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
 impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
     fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
         Self::ensure_asset_fresh(&ticker)?;
-        let owner = Self::ensure_auth_by_is_owner(&ticker, from)?;
+
+        let owner = Self::ticker_registration(&ticker).owner;
+        <Identity<T>>::ensure_auth_by(from, owner)?;
 
         Self::transfer_ticker(ticker, to, owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -953,8 +950,9 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
         ticker: Ticker,
     ) -> DispatchResult {
         Self::ensure_asset_exists(&ticker)?;
-        let owner = Self::ensure_auth_by_is_owner(&ticker, from)?;
+        <EA<T>>::ensure_agent_permissioned(ticker, from)?;
 
+        let owner = Self::ticker_registration(&ticker).owner;
         AssetOwnershipRelations::remove(owner, ticker);
         AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
         <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
@@ -1041,26 +1039,13 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
-        let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
+        let data = <EA<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
         // Ensure the PIA has not assigned custody of their default portfolio and that caller is permissioned.
         let portfolio = PortfolioId::default_portfolio(data.primary_did);
         let skey = data.secondary_key.as_ref();
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
         Ok(data)
-    }
-
-    /// Ensure that `origin` is permissioned for this call, its identity is `ticker`'s owner and,
-    /// the secondary key has relevant asset permissions.
-    pub fn ensure_owner_perms(
-        origin: T::Origin,
-        ticker: &Ticker,
-    ) -> Result<IdentityId, DispatchError> {
-        // Ensure that the caller has extrinsic permission + SK has asset permission.
-        let did = <ExternalAgents<T>>::ensure_asset_perms(origin, ticker)?.primary_did;
-        // Ensure that the caller's did is the owner of the token.
-        Self::ensure_owner(ticker, did)?;
-        Ok(did)
     }
 
     /// Ensure that `did` is the owner of `ticker`.
@@ -1493,15 +1478,6 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    fn ensure_auth_by_is_owner(
-        ticker: &Ticker,
-        auth_by: IdentityId,
-    ) -> Result<IdentityId, DispatchError> {
-        let owner = Self::ticker_registration(&ticker).owner;
-        <Identity<T>>::ensure_auth_by(auth_by, owner)?;
-        Ok(owner)
-    }
-
     /// RPC: Function allows external users to know whether the transfer extrinsic
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
@@ -1634,7 +1610,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Self::ensure_owner_perms(origin, ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, *ticker)?;
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),
             Error::<T>::NoSuchSmartExtension
@@ -1787,24 +1763,21 @@ impl<T: Trait> Module<T> {
         Self::unverified_update_idents(did, ticker, identifiers);
 
         // Grant owner full agent permissions.
-        <ExternalAgents<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full);
+        <EA<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full);
 
         Ok((sender, did))
     }
 
     fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {
-        let sender_did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_exists(&ticker)?;
 
         let (event, error) = match freeze {
             true => (
-                RawEvent::AssetFrozen(sender_did, ticker),
+                RawEvent::AssetFrozen(did, ticker),
                 Error::<T>::AlreadyFrozen,
             ),
-            false => (
-                RawEvent::AssetUnfrozen(sender_did, ticker),
-                Error::<T>::NotFrozen,
-            ),
+            false => (RawEvent::AssetUnfrozen(did, ticker), Error::<T>::NotFrozen),
         };
 
         ensure!(Self::frozen(&ticker) != freeze, error);
@@ -1821,10 +1794,10 @@ impl<T: Trait> Module<T> {
         );
 
         // Verify the ownership of token.
-        let sender_did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_exists(&ticker)?;
         <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
-        Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
+        Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
         Ok(())
     }
 
@@ -1874,7 +1847,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn base_make_divisible(origin: T::Origin, ticker: Ticker) -> DispatchResult {
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
 
         <Tokens<T>>::try_mutate(&ticker, |token| -> DispatchResult {
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
@@ -1890,7 +1863,7 @@ impl<T: Trait> Module<T> {
         docs: Vec<Document>,
         ticker: Ticker,
     ) -> DispatchResult {
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
 
         // Ensure strings are limited.
         for doc in &docs {
@@ -1920,7 +1893,7 @@ impl<T: Trait> Module<T> {
         ids: Vec<DocumentId>,
         ticker: Ticker,
     ) -> DispatchResult {
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
         for id in ids {
             AssetDocuments::remove(ticker, id);
             Self::deposit_event(RawEvent::DocumentRemoved(did, ticker, id));
@@ -1937,7 +1910,7 @@ impl<T: Trait> Module<T> {
             name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
             Error::<T>::FundingRoundNameMaxLengthExceeded
         );
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
 
         FundingRound::insert(ticker, name.clone());
         Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
@@ -1950,7 +1923,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_idents_valid(&identifiers)?;
         Self::unverified_update_idents(did, ticker, identifiers);
         Ok(())
@@ -1961,7 +1934,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         details: SmartExtension<T::AccountId>,
     ) -> DispatchResult {
-        let did = Self::ensure_owner_perms(origin, &ticker)?;
+        let did = <EA<T>>::ensure_perms(origin, ticker)?;
 
         // Enforce length limits.
         ensure_string_limited::<T>(&details.extension_name)?;

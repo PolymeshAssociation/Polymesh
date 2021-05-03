@@ -84,6 +84,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
 type Asset<T> = pallet_asset::Module<T>;
+type EA<T> = pallet_external_agents::Module<T>;
 
 pub trait Trait:
     frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
@@ -751,7 +752,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
-            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             if enabled {
                 VenueFiltering::insert(ticker, enabled);
             } else {
@@ -769,7 +770,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::insert(&ticker, venue, true);
             }
@@ -785,7 +786,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::remove(&ticker, venue);
             }

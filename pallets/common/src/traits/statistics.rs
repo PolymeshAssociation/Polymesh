@@ -7,7 +7,9 @@ use polymesh_primitives::{IdentityId, ScopeId, Ticker};
 use sp_std::vec::Vec;
 
 /// The main trait for statistics module
-pub trait Trait: frame_system::Trait + crate::traits::identity::Trait {
+pub trait Trait:
+    frame_system::Trait + crate::traits::identity::Trait + crate::traits::external_agents::Trait
+{
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
     /// Asset module

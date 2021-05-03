@@ -20,13 +20,14 @@ pub mod benchmarking;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
-use polymesh_common_utilities::asset::AssetFnTrait;
 pub use polymesh_common_utilities::traits::statistics::{Event, Trait, WeightInfo};
 use polymesh_primitives::{
     statistics::{Counter, Percentage, TransferManager, TransferManagerResult},
     ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
+
+type EA<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
@@ -71,7 +72,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_transfer_manager()]
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
-            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
                 ensure!((transfer_managers.len() as u32) < T::MaxTransferManagersPerAsset::get(), Error::<T>::TransferManagersLimitReached);
                 ensure!(!transfer_managers.contains(&new_transfer_manager), Error::<T>::DuplicateTransferManager);
@@ -96,7 +97,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_transfer_manager()]
         pub fn remove_transfer_manager(origin, ticker: Ticker, transfer_manager: TransferManager) {
-            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
                 let before = transfer_managers.len();
                 transfer_managers.retain(|tm| *tm != transfer_manager);
@@ -121,7 +122,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_exempted_entities(exempted_entities.len() as u32)]
         pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
-            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &exempted_entities {
                 ExemptEntities::insert(&ticker_tm, entity, true);
@@ -144,7 +145,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_exempted_entities(entities.len() as u32)]
         pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
-            let did = T::Asset::ensure_owner_perms(origin, &ticker)?;
+            let did = <EA<T>>::ensure_perms(origin, ticker)?;
             let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &entities {
                 ExemptEntities::remove(&ticker_tm, entity);

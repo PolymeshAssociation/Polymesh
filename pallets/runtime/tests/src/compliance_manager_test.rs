@@ -7,7 +7,7 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_asset::{self as asset, Error as AssetError, SecurityToken};
+use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
@@ -32,11 +32,12 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
@@ -858,14 +859,14 @@ fn should_modify_vector_of_trusted_issuer_we() {
         id: 1,
     };
 
-    // Failed because sender is not the owner of the ticker
+    // Failed because sender is not an agent of the ticker
     assert_noop!(
         ComplianceManager::change_compliance_requirement(
             receiver_signed.clone(),
             ticker,
             compliance_requirement.clone()
         ),
-        AssetError::<TestStorage>::Unauthorized
+        EAError::UnauthorizedAgent
     );
 
     let compliance_requirement_failure = ComplianceRequirement {

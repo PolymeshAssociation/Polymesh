@@ -118,9 +118,8 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityFnTrait,
-            IdentityToExternalAgents as _, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
-            Trait,
+            AuthorizationNonce, IdentityFnTrait, IdentityToExternalAgents as _, RawEvent,
+            SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,

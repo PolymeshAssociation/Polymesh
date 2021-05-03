@@ -18,8 +18,8 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
-    collections::btree_set::BTreeSet,
     cmp::{Ord, Ordering, PartialOrd},
+    collections::btree_set::BTreeSet,
     iter,
 };
 

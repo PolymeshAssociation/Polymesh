@@ -24,10 +24,10 @@ use pallet_corporate_actions::{
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::{
+    agent::AgentGroup,
     calendar::{CheckpointId, CheckpointSchedule},
     AuthorizationData, Document, DocumentId, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Signatory, Ticker,
-    agent::AgentGroup,
 };
 use sp_arithmetic::Permill;
 use std::convert::TryInto;

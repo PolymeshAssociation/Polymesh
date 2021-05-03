@@ -509,7 +509,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let did = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?.primary_did.for_event();
+            let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
 
             <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
@@ -569,8 +569,7 @@ impl<T: Trait> Module<T> {
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
-        let did =
-            <ExternalAgents<T>>::ensure_agent_asset_perms(origin, offering_asset)?.primary_did;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
         let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
             .ok_or(Error::<T>::FundraiserNotFound)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);

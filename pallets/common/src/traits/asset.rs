@@ -19,7 +19,7 @@ use crate::traits::{
 use crate::CommonTrait;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use polymesh_primitives::asset::{AssetName, AssetType, FundingRoundName};
@@ -75,9 +75,6 @@ pub trait AssetSubTrait<Balance> {
 
 pub trait AssetFnTrait<Balance, Account, Origin> {
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
-
-    /// Ensure that the caller has the required extrinsic and asset permissions.
-    fn ensure_owner_perms(origin: Origin, ticker: &Ticker) -> Result<IdentityId, DispatchError>;
 
     fn create_asset(
         origin: Origin,

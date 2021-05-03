@@ -1,5 +1,6 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
+use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
 use pallet_settlement::{
     benchmarking::{add_transfer_managers, compliance_setup},
@@ -10,7 +11,6 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::TrustedIssuer;
-use frame_support::dispatch::DispatchError;
 
 const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
 const RAISE_TICKER: Ticker = Ticker::repeating(b'B');

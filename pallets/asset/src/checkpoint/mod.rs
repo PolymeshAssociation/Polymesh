@@ -71,6 +71,7 @@ use sp_std::prelude::*;
 use crate::Trait;
 
 type Asset<T> = crate::Module<T>;
+type EA<T> = pallet_external_agents::Module<T>;
 
 /// Input specification for a checkpoint schedule.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -231,11 +232,11 @@ decl_module! {
         /// - `ticker` to create the checkpoint for.
         ///
         /// # Errors
-        /// - `Unauthorized` if the DID of `origin` doesn't own `ticker`.
+        /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
-            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?.for_event();
+            let owner = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
             Self::create_at_by(owner, ticker, Self::now_unix())?;
         }
 
@@ -266,7 +267,7 @@ decl_module! {
         /// - `schedule` that will generate checkpoints.
         ///
         /// # Errors
-        /// - `Unauthorized` if the DID of `origin` doesn't own `ticker`.
+        /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
         /// - `ScheduleDurationTooShort` if the schedule duration is too short.
         /// - `InsufficientAccountBalance` if the protocol fee could not be charged.
         /// - `ScheduleOverflow` if the schedule ID counter would overflow.
@@ -281,7 +282,7 @@ decl_module! {
             ticker: Ticker,
             schedule: ScheduleSpec,
         ) {
-            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?.for_event();
+            let owner = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
             Self::create_schedule_base(owner, ticker, schedule, 0)?;
         }
 
@@ -293,7 +294,7 @@ decl_module! {
         /// - `id` of the schedule, when it was created by `created_schedule`.
         ///
         /// # Errors
-        /// - `Unauthorized` if the caller doesn't own the asset.
+        /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
         /// - `NoCheckpointSchedule` if `id` does not identify a schedule for this `ticker`.
         /// - `ScheduleNotRemovable` if `id` exists but is not removable.
         ///
@@ -305,7 +306,7 @@ decl_module! {
             ticker: Ticker,
             id: ScheduleId,
         ) {
-            let owner = <Asset<T>>::ensure_owner_perms(origin, &ticker)?;
+            let owner = <EA<T>>::ensure_perms(origin, ticker)?;
 
             // If the ID matches and schedule is removable, it should be removed.
             let schedule = Schedules::try_mutate(&ticker, |ss| {

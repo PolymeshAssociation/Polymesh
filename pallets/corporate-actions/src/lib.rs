@@ -109,11 +109,8 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait,
-    identity::Trait as IdentityTrait,
-    traits::asset,
-    traits::checkpoint::ScheduleId,
-    with_transaction, GC_DID,
+    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, traits::asset,
+    traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
     agent::AgentGroup, calendar::CheckpointId, storage_migrate_on, storage_migration_ver,
@@ -352,7 +349,7 @@ type Asset<T> = pallet_asset::Module<T>;
 type Ballot<T> = ballot::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type Distribution<T> = distribution::Module<T>;
-type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type EA<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -434,7 +431,7 @@ decl_module! {
                 StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
                     .drain()
                     .for_each(|(ticker, agent)| {
-                        ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA);
+                        EA::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA);
                     });
             });
 
@@ -465,7 +462,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
-            let caa = Self::ensure_ca_agent(origin, ticker)?;
+            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
 
             Self::ensure_target_ids_limited(&targets)?;
 
@@ -480,7 +477,7 @@ decl_module! {
         /// Set the default withholding tax for all DIDs and CAs relevant to this `ticker`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ticker` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
@@ -491,7 +488,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
-            let caa = Self::ensure_ca_agent(origin, ticker)?;
+            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
             DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
         }
@@ -501,7 +498,7 @@ decl_module! {
         /// Otherwise, if `None`, the default withholding tax will be used.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ticker` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
@@ -514,7 +511,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
-            let caa = Self::ensure_ca_agent(origin, ticker)?;
+            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
             DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
@@ -535,7 +532,7 @@ decl_module! {
         /// Initiates a CA for `ticker` of `kind` with `details` and other provided arguments.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
         /// - `decl_date` of CA bring initialized.
@@ -591,7 +588,7 @@ decl_module! {
                 .ok_or(Error::<T>::DetailsTooLong)?;
 
             // Ensure that CAA is calling.
-            let caa = Self::ensure_ca_agent(origin, ticker)?.for_event();
+            let caa = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
 
             // Ensure that the next local CA ID doesn't overflow.
             let local_id = CAIdSequence::get(ticker);
@@ -661,7 +658,7 @@ decl_module! {
         /// Once both exist, they can now be linked together.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `id` of the CA to associate with `docs`.
         /// - `docs` to associate with the CA with `id`.
         ///
@@ -675,7 +672,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
-            let caa = Self::ensure_ca_agent(origin, id.ticker)?;
+            let caa = <EA<T>>::ensure_perms(origin, id.ticker)?;
             Self::ensure_ca_exists(id)?;
             for doc in &docs {
                 <Asset<T>>::ensure_doc_exists(&id.ticker, doc)?;
@@ -695,7 +692,7 @@ decl_module! {
         /// `strong_ref_count(schedule_id)` decremented.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ca_id` of the CA to remove.
         ///
         /// # Errors
@@ -708,7 +705,7 @@ decl_module! {
             .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
-            let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let caa = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
 
             // Remove associated services.
@@ -736,7 +733,7 @@ decl_module! {
         /// Changes the record date of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ca_id` of the CA to alter.
         /// - `record_date`, if any, to calculate the impact of the CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
@@ -752,7 +749,7 @@ decl_module! {
             .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
-            let caa = Self::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let caa = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
             with_transaction(|| -> DispatchResult {
@@ -977,10 +974,5 @@ impl<T: Trait> Module<T> {
     /// Ensure that a CA with `id` exists, returning it, and erroring otherwise.
     fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
         CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
-    }
-
-    /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
-    fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker).map(|x| x.primary_did)
     }
 }

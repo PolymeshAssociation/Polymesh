@@ -38,6 +38,7 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
+    agent::AgentGroup,
     asset::{AssetName, AssetType, FundingRoundName},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
@@ -69,6 +70,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
+type EA = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
@@ -273,11 +275,11 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(has_ticker_record(ticker));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
-        // Unauthorized identities cannot rename the token.
+        // Unauthorized agents cannot rename the token.
         let eve = User::new(AccountKeyring::Eve);
         assert_noop!(
             Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
-            AssetError::Unauthorized
+            EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
@@ -691,9 +693,11 @@ fn transfer_token_ownership() {
             AssetOwnershipRelation::AssetOwned
         );
 
+        EA::unchecked_add_agent(ticker, alice.did, AgentGroup::Full);
+        assert_ok!(EA::abdicate(owner.origin(), ticker));
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
-            "Illegal use of Authorization"
+            EAError::UnauthorizedAgent
         );
 
         let mut auth_id = Identity::add_auth(
@@ -1014,7 +1018,7 @@ fn freeze_unfreeze_asset() {
 
         assert_noop!(
             Asset::freeze(bob.origin(), ticker),
-            AssetError::Unauthorized
+            EAError::UnauthorizedAgent
         );
         assert_noop!(
             Asset::unfreeze(owner.origin(), ticker),
@@ -1033,12 +1037,18 @@ fn freeze_unfreeze_asset() {
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
-
         assert_ok!(Asset::accept_asset_ownership_transfer(
             bob.origin(),
             auth_id
         ));
 
+        // Not enough; bob needs to become an agent.
+        assert_noop!(
+            Asset::unfreeze(bob.origin(), ticker),
+            EAError::UnauthorizedAgent
+        );
+
+        EA::unchecked_add_agent(ticker, bob.did, AgentGroup::Full);
         assert_ok!(Asset::unfreeze(bob.origin(), ticker));
         assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });
