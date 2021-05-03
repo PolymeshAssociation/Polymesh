@@ -180,13 +180,14 @@ crate fn set_ca_targets<T: Trait + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: 
 }
 
 fn check_ca_created<T: Trait>(ca_id: CAId) -> DispatchResult {
-    ensure!(CAIdSequence::get(ca_id.ticker).0 == 1, "CA not created");
+    assert_eq!(CAIdSequence::get(ca_id.ticker).0, 1, "CA not created");
     Ok(())
 }
 
 fn check_ca_exists<T: Trait>(ca_id: CAId) -> DispatchResult {
-    ensure!(
-        CorporateActions::get(ca_id.ticker, ca_id.local_id) == None,
+    assert_eq!(
+        CorporateActions::get(ca_id.ticker, ca_id.local_id),
+        None,
         "CA not removed"
     );
     Ok(())
@@ -198,7 +199,7 @@ fn check_rd<T: Trait>(ca_id: CAId) -> DispatchResult {
         .record_date
         .unwrap()
         .date;
-    ensure!(rd == 3000, "CA not removed");
+    assert_eq!(rd, 3000, "CA not removed");
     Ok(())
 }
 
@@ -209,7 +210,7 @@ benchmarks! {
 
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
-        ensure!(MaxDetailsLength::get() == 100, "Wrong length set");
+        assert_eq!(MaxDetailsLength::get(), 100, "Wrong length set");
     }
 
     reset_caa {
@@ -220,7 +221,7 @@ benchmarks! {
         Agent::insert(ticker, caa.did());
     }: _(owner.origin(), ticker)
     verify {
-        ensure!(Agent::get(ticker) == None, "CAA not reset.");
+        assert_eq!(Agent::get(ticker), None, "CAA not reset.");
     }
 
     set_default_targets {
@@ -231,14 +232,14 @@ benchmarks! {
         let targets2 = targets.clone();
     }: _(owner.origin(), ticker, targets)
     verify {
-        ensure!(DefaultTargetIdentities::get(ticker) == targets2.dedup(), "Default targets not set");
+        assert_eq!(DefaultTargetIdentities::get(ticker), targets2.dedup(), "Default targets not set");
     }
 
     set_default_withholding_tax {
         let (owner, ticker) = setup::<T>();
     }: _(owner.origin(), ticker, TAX)
     verify {
-        ensure!(DefaultWithholdingTax::get(ticker) == TAX, "Default WHT not set");
+        assert_eq!(DefaultWithholdingTax::get(ticker), TAX, "Default WHT not set");
     }
 
     set_did_withholding_tax {
@@ -251,7 +252,7 @@ benchmarks! {
     verify {
         whts.push((last, TAX));
         whts.sort_by_key(|(did, _)| *did);
-        ensure!(DidWithholdingTax::get(ticker) == whts, "Wrong DID WHTs");
+        assert_eq!(DidWithholdingTax::get(ticker), whts, "Wrong DID WHTs");
     }
 
     initiate_corporate_action_use_defaults {
@@ -267,7 +268,7 @@ benchmarks! {
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, None, None, None
     )
     verify {
-        ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
+        assert_eq!(CAIdSequence::get(ticker).0, 1, "CA not created");
     }
 
     initiate_corporate_action_provided {
@@ -282,7 +283,7 @@ benchmarks! {
         owner.origin(), ticker, CAKind::Other, 1000, RD_SPEC, details, targets, Some(TAX), whts
     )
     verify {
-        ensure!(CAIdSequence::get(ticker).0 == 1, "CA not created");
+        assert_eq!(CAIdSequence::get(ticker).0, 1, "CA not created");
     }
 
     link_ca_doc {
@@ -298,7 +299,7 @@ benchmarks! {
         let ca_id = CAId { ticker, local_id: LocalCAId(0) };
     }: _(owner.origin(), ca_id, ids)
     verify {
-        ensure!(CADocLink::get(ca_id) == ids2, "Docs not linked")
+        assert_eq!(CADocLink::get(ca_id), ids2, "Docs not linked")
     }
 
     remove_ca_with_ballot {
@@ -306,8 +307,8 @@ benchmarks! {
         attach(&owner, ca_id);
     }: remove_ca(owner.origin(), ca_id)
     verify {
-        check_ca_created::<T>(ca_id)?;
-        check_ca_exists::<T>(ca_id)?;
+        check_ca_created::<T>(ca_id).unwrap();
+        check_ca_exists::<T>(ca_id).unwrap();
     }
 
     remove_ca_with_dist {
@@ -315,8 +316,8 @@ benchmarks! {
         distribute(&owner, ca_id);
     }: remove_ca(owner.origin(), ca_id)
     verify {
-        check_ca_created::<T>(ca_id)?;
-        check_ca_exists::<T>(ca_id)?;
+        check_ca_created::<T>(ca_id).unwrap();
+        check_ca_exists::<T>(ca_id).unwrap();
     }
 
     change_record_date_with_ballot {
@@ -324,8 +325,8 @@ benchmarks! {
         attach(&owner, ca_id);
     }: change_record_date(owner.origin(), ca_id, RD_SPEC2)
     verify {
-        check_ca_created::<T>(ca_id)?;
-        check_rd::<T>(ca_id)?;
+        check_ca_created::<T>(ca_id).unwrap();
+        check_rd::<T>(ca_id).unwrap();
     }
 
     change_record_date_with_dist {
@@ -333,7 +334,7 @@ benchmarks! {
         distribute(&owner, ca_id);
     }: change_record_date(owner.origin(), ca_id, RD_SPEC2)
     verify {
-        check_ca_created::<T>(ca_id)?;
-        check_rd::<T>(ca_id)?;
+        check_ca_created::<T>(ca_id).unwrap();
+        check_rd::<T>(ca_id).unwrap();
     }
 }
