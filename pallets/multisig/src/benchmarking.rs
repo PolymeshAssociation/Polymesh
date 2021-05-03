@@ -59,7 +59,8 @@ fn generate_multisig_with_extra_signers<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         caller.origin.clone().into(),
         signers.clone(),
         num_of_signers_required.into(),
-    )?;
+    )
+    .unwrap();
     Ok(multisig)
 }
 
@@ -82,7 +83,8 @@ fn generate_multisig_for_alice_wo_accepting<T: Trait + TestUtilsFn<AccountIdOf<T
         &mut signers,
         total_signers - 1,
         singers_required,
-    )?;
+    )
+    .unwrap();
     let signer_origin = match signers.last().cloned().unwrap() {
         Signatory::Account(account) => RawOrigin::Signed(account.clone()),
         _ => alice.origin().clone(),
@@ -101,10 +103,10 @@ fn generate_multisig_for_alice<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     singers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
     let (alice, multisig, signers, signer_origin, multisig_origin) =
-        generate_multisig_for_alice_wo_accepting::<T>(total_signers, singers_required)?;
+        generate_multisig_for_alice_wo_accepting::<T>(total_signers, singers_required).unwrap();
     for signer in &signers {
         let auth_id = get_last_auth_id::<T>(signer);
-        <MultiSig<T>>::unsafe_accept_multisig_signer(signer.clone(), auth_id)?;
+        <MultiSig<T>>::unsafe_accept_multisig_signer(signer.clone(), auth_id).unwrap();
     }
     Ok((
         alice,
@@ -130,7 +132,7 @@ fn generate_multisig_and_proposal_for_alice<T: Trait + TestUtilsFn<AccountIdOf<T
     singers_required: u32,
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
     let (alice, multisig, signers, signer_origin, _) =
-        generate_multisig_for_alice::<T>(total_signers, singers_required)?;
+        generate_multisig_for_alice::<T>(total_signers, singers_required).unwrap();
     let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
     let proposal = Box::new(frame_system::Call::<T>::remark(vec![]).into());
     Ok((
@@ -150,7 +152,7 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
     create_as_key: bool,
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
     let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) =
-        generate_multisig_and_proposal_for_alice::<T>(total_signers, singers_required)?;
+        generate_multisig_and_proposal_for_alice::<T>(total_signers, singers_required).unwrap();
     if create_as_key {
         <MultiSig<T>>::create_proposal_as_key(
             signer_origin.clone().into(),
@@ -158,7 +160,8 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
             proposal.clone(),
             None,
             true,
-        )?;
+        )
+        .unwrap();
     } else {
         <MultiSig<T>>::create_proposal_as_identity(
             alice.origin().into(),
@@ -166,7 +169,8 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
             proposal.clone(),
             None,
             true,
-        )?;
+        )
+        .unwrap();
     }
     Ok((
         alice,
@@ -179,19 +183,19 @@ fn generate_multisig_and_create_proposal<T: Trait + TestUtilsFn<AccountIdOf<T>>>
     ))
 }
 
-macro_rules! ensure_proposal_created {
+macro_rules! assert_proposal_created {
     ($proposal_id:ident, $multisig:ident) => {
         assert!($proposal_id < <MultiSig<T>>::ms_tx_done($multisig));
     };
 }
 
-macro_rules! ensure_vote_cast {
+macro_rules! assert_vote_cast {
     ($proposal_id:ident, $multisig:ident, $signatory:expr) => {
         assert!(<MultiSig<T>>::votes(($multisig, $signatory, $proposal_id)));
     };
 }
 
-macro_rules! ensure_number_of_signers {
+macro_rules! assert_number_of_signers {
     ($expected_number:expr, $multisig:expr) => {
         assert!(<NumberOfSigners<T>>::get($multisig) == $expected_number);
     };
@@ -207,88 +211,88 @@ benchmarks! {
     create_multisig {
         // Number of signers
         let i in 1 .. MAX_SIGNERS;
-        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1)?;
+        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(i, 1).unwrap();
     }: _(alice.origin(), signers, i as u64)
     verify {
-        ensure!(<MultiSigToIdentity<T>>::contains_key(multisig), "create_multisig");
+        assert!(<MultiSigToIdentity<T>>::contains_key(multisig), "create_multisig");
     }
 
     create_or_approve_proposal_as_identity {
-        let (alice, multisig, signers, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
+        let (alice, multisig, signers, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1).unwrap();
     }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
-        ensure_proposal_created!(proposal_id, multisig);
+        assert_proposal_created!(proposal_id, multisig);
     }
 
     create_or_approve_proposal_as_key {
-        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
+        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
     }: _(signer_origin, ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
-        ensure_proposal_created!(proposal_id, multisig);
+        assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_identity {
-        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1)?;
+        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(1, 1).unwrap();
     }: _(alice.origin(), ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
-        ensure_proposal_created!(proposal_id, multisig);
+        assert_proposal_created!(proposal_id, multisig);
     }
 
     create_proposal_as_key {
-        let (_, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1)?;
+        let (_, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_proposal_for_alice::<T>(2, 1).unwrap();
     }: _(signer_origin, ephemeral_multisig, proposal, Some(1337u32.into()), true)
     verify {
-        ensure_proposal_created!(proposal_id, multisig);
+        assert_proposal_created!(proposal_id, multisig);
     }
 
     approve_as_identity {
-        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true)?;
+        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true).unwrap();
     }: _(alice.origin(), ephemeral_multisig, proposal_id)
     verify {
-        ensure_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
+        assert_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
     }
 
     approve_as_key {
-        let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false)?;
+        let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false).unwrap();
     }: _(signer_origin, ephemeral_multisig, proposal_id)
     verify {
-        ensure_vote_cast!(proposal_id, multisig, signers.last().unwrap());
+        assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     reject_as_identity {
-        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true)?;
+        let (alice, multisig, _, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, true).unwrap();
     }: _(alice.origin(), ephemeral_multisig, proposal_id)
     verify {
-        ensure_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
+        assert_vote_cast!(proposal_id, multisig, Signatory::from(alice.did()));
     }
 
     reject_as_key {
-        let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false)?;
+        let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(2, 2, false).unwrap();
     }: _(signer_origin, ephemeral_multisig, proposal_id)
     verify {
-        ensure_vote_cast!(proposal_id, multisig, signers.last().unwrap());
+        assert_vote_cast!(proposal_id, multisig, signers.last().unwrap());
     }
 
     accept_multisig_signer_as_identity {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice_wo_accepting::<T>(1, 1)?;
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice_wo_accepting::<T>(1, 1).unwrap();
         let alice_auth_id = get_last_auth_id::<T>(&Signatory::from(alice.did()));
-        ensure_number_of_signers!(0, multisig.clone());
+        assert_number_of_signers!(0, multisig.clone());
     }: _(alice.origin(), alice_auth_id)
     verify {
-        ensure_number_of_signers!(1, multisig);
+        assert_number_of_signers!(1, multisig);
     }
 
     accept_multisig_signer_as_key {
-        let (alice, multisig, signers, signer_origin, _) = generate_multisig_for_alice_wo_accepting::<T>(2, 1)?;
+        let (alice, multisig, signers, signer_origin, _) = generate_multisig_for_alice_wo_accepting::<T>(2, 1).unwrap();
         let signer_auth_id = get_last_auth_id::<T>(&signers.last().unwrap());
-        ensure_number_of_signers!(0, multisig.clone());
+        assert_number_of_signers!(0, multisig.clone());
     }: _(signer_origin, signer_auth_id)
     verify {
-        ensure_number_of_signers!(1, multisig);
+        assert_number_of_signers!(1, multisig);
     }
 
     add_multisig_signer {
-        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1)?;
+        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let bob = Signatory::Account(<UserBuilder<T>>::default().build("bob").account());
         let ephemeral_bob = bob.clone();
         let original_last_auth = get_last_auth_id::<T>(&bob);
@@ -298,19 +302,19 @@ benchmarks! {
     }
 
     remove_multisig_signer {
-        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 1)?;
-        ensure_number_of_signers!(2, multisig.clone());
+        let (alice, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 1).unwrap();
+        assert_number_of_signers!(2, multisig.clone());
         let alice_signer = Signatory::from(alice.did());
     }: _(multisig_origin, alice_signer)
     verify {
-        ensure_number_of_signers!(1, multisig);
+        assert_number_of_signers!(1, multisig);
     }
 
     add_multisig_signers_via_creator {
         // Number of signers
         let i in 1 .. MAX_SIGNERS;
 
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1)?;
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let mut signers = vec![];
         generate_signers::<T>(&mut signers, i as usize);
         let last_signer = signers.last().cloned().unwrap();
@@ -324,24 +328,24 @@ benchmarks! {
         // Number of signers
         let i in 1 .. MAX_SIGNERS;
 
-        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(1 + i, 1)?;
+        let (alice, multisig, signers, _, _) = generate_multisig_for_alice::<T>(1 + i, 1).unwrap();
         let signers_to_remove = signers[1..].to_vec();
-        ensure_number_of_signers!(1 + i as u64, multisig.clone());
+        assert_number_of_signers!(1 + i as u64, multisig.clone());
         let ephemeral_multisig = multisig.clone();
     }: _(alice.origin(), ephemeral_multisig, signers_to_remove)
     verify {
-        ensure_number_of_signers!(1, multisig.clone());
+        assert_number_of_signers!(1, multisig.clone());
     }
 
     change_sigs_required {
-        let (_, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2)?;
+        let (_, multisig, _, _, multisig_origin) = generate_multisig_for_alice::<T>(2, 2).unwrap();
     }: _(multisig_origin, 1)
     verify {
         assert!(<MultiSigSignsRequired<T>>::get(&multisig) == 1);
     }
 
     make_multisig_signer {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1)?;
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let ephemeral_multisig = multisig.clone();
         let ms_signer = Signatory::Account(multisig);
     }: _(alice.origin(), ephemeral_multisig)
@@ -350,7 +354,7 @@ benchmarks! {
     }
 
     make_multisig_primary {
-        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1)?;
+        let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let ephemeral_multisig = multisig.clone();
     }: _(alice.origin(), ephemeral_multisig, None)
     verify {
@@ -358,7 +362,7 @@ benchmarks! {
     }
 
     execute_scheduled_proposal {
-        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(1, 1, false)?;
+        let (alice, multisig, _, _, proposal_id, proposal, ephemeral_multisig) = generate_multisig_and_create_proposal::<T>(1, 1, false).unwrap();
         let ephemeral_proposal_id = proposal_id.clone();
     }: _(RawOrigin::Root, ephemeral_multisig, ephemeral_proposal_id, alice.did(), 0)
     verify {
