@@ -378,13 +378,13 @@ decl_module! {
             });
 
             storage_migrate_on!(StorageVersion::get(), 3, {
-                // TODO(Centril): Make owners full EAs.
-
                 use crate::migrate::SecurityTokenOld;
                 use polymesh_primitives::migrate::migrate_map_keys_and_value;
                 migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
                     b"Asset", b"Tokens", b"Tokens",
                     |ticker: Ticker, token: SecurityTokenOld<T::Balance>| {
+                        EA::<T>::add_agent_if_not(ticker, token.owner_did, AgentGroup::Full);
+
                         if let Some(pia) = token.primary_issuance_agent {
                             EA::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA);
                         }
