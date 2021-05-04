@@ -1,40 +1,19 @@
 use crate::*;
-use core::convert::TryFrom;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    traits::TestUtilsFn,
+    benchs::{make_asset, AccountIdOf, User, UserBuilder},
+    traits::{asset::Trait as Asset, TestUtilsFn},
 };
-use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::IdentityId;
 use sp_std::prelude::*;
 
-/// Create a new token with name `name` on behalf of `owner`.
-/// The new token is a _divisible_ one with 1_000_000 units.
-pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
-    let ticker = Ticker::try_from(name.as_slice()).unwrap();
-    T::Asset::create_asset_and_mint(
-        owner.origin.clone().into(),
-        name.into(),
-        ticker.clone(),
-        1_000_000u32.into(),
-        true,
-        AssetType::default(),
-        Vec::new(),
-        None,
-    )
-    .expect("Cannot create an asset");
-
-    ticker
-}
-
-fn init_ticker<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+fn init_ticker<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
-    let ticker = make_token::<T>(&owner, b"1".to_vec());
+    let ticker = make_asset::<T>(&owner, Some(b"1"));
     (owner, ticker)
 }
 
-fn init_ctm<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn init_ctm<T: Trait + Asset + TestUtilsFn<AccountIdOf<T>>>(
     max_transfer_manager_per_asset: u32,
 ) -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
@@ -56,7 +35,7 @@ mod limits {
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: Asset, T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

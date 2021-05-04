@@ -40,7 +40,7 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        make_asset::<T>(a, Some(ticker.as_slice())).unwrap();
+        make_asset::<T>(a, Some(ticker.as_slice()));
         compliance_setup::<T>(
             complexity,
             ticker,

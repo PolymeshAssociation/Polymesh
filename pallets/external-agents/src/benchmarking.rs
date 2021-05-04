@@ -27,7 +27,7 @@ const MAX_PALLETS: u32 = 1000;
 
 fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = user("owner", SEED);
-    let ticker = make_asset::<T>(&owner, None).expect("Asset cannot be created");
+    let ticker = make_asset::<T>(&owner, None);
     (owner, ticker)
 }
 

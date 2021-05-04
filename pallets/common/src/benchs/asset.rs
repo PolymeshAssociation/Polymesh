@@ -18,8 +18,7 @@ pub fn make_ticker<T: Trait>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticke
         _ => Ticker::repeating(b'A'),
     };
     T::AssetFn::register_ticker(owner, ticker).expect("Ticker cannot be registered");
-
-    Ok(ticker)
+    ticker
 }
 
 pub fn make_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
@@ -31,7 +30,7 @@ pub fn make_indivisible_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) ->
 }
 
 fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
-    let ticker = make_ticker::<T>(owner.origin().into(), name).unwrap();
+    let ticker = make_ticker::<T>(owner.origin().into(), name);
     let name: AssetName = ticker.as_slice().into();
 
     T::AssetFn::create_asset(
@@ -45,7 +44,7 @@ fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, name: Option<&[u8
     )
     .expect("Asset cannot be created");
 
-    T::AssetFn::issue(owner.origin().into(), ticker, 1_000_000 * POLY).unwrap();
+    T::AssetFn::issue(owner.origin().into(), ticker, (1_000_000 * POLY).into()).unwrap();
 
     ticker
 }

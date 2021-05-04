@@ -108,7 +108,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 
 // create asset
 fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
-    make_asset::<T>(owner, Some(&Ticker::generate(8u64))).unwrap()
+    make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
 }
 
 // fund portfolio
@@ -392,7 +392,10 @@ fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     let to_data = UserData::from(to);
 
     for n in 0..l {
-        tickers.push(make_asset::<T>(&from, Some(&Ticker::generate(n as u64 + 1))).unwrap());
+        tickers.push(make_asset::<T>(
+            &from,
+            Some(&Ticker::generate(n as u64 + 1)),
+        ));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),
