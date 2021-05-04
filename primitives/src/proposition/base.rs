@@ -186,7 +186,6 @@ mod tests {
         Context {
             claims: claims.into_iter(),
             id: <_>::default(),
-            primary_issuance_agent: <_>::default(),
         }
     }
 
@@ -252,7 +251,7 @@ mod tests {
         let check = |expected, context: &Context<Iter>| {
             let out = !conditions
                 .iter()
-                .any(|condition| !proposition::run(&condition, context.clone()));
+                .any(|condition| !proposition::run(&condition, context.clone(), |_| false));
             assert_eq!(out, expected);
         };
 
@@ -294,22 +293,21 @@ mod tests {
         check(false, &context);
 
         let identity1 = IdentityId::from(1);
-        let identity2 = IdentityId::from(2);
         assert!(proposition::run(
-            &ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent).into(),
+            &ConditionType::IsIdentity(TargetIdentity::ExternalAgent).into(),
             Context {
                 id: identity1,
-                primary_issuance_agent: identity1,
                 claims: vec![].into_iter(),
-            }
+            },
+            |context: Context<_>| context.id == identity1,
         ));
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             Context {
                 id: identity1,
-                primary_issuance_agent: identity2,
                 claims: vec![].into_iter(),
-            }
+            },
+            |_| false,
         ));
     }
 }

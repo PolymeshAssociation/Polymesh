@@ -69,6 +69,12 @@ pub trait Proposition<C> {
     }
 }
 
+impl<C, F: Fn(Context<C>) -> bool> Proposition<C> for F {
+    fn evaluate(&self, context: Context<C>) -> bool {
+        self(context)
+    }
+}
+
 /// Base and simple propositions
 pub mod base;
 pub use base::{

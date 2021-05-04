@@ -482,7 +482,7 @@ mod tests {
 
         let rk3_permissions = Permissions {
             asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
-            extrinsic: SubsetRestriction(None),
+            extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
             ))),
@@ -513,7 +513,7 @@ mod tests {
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {
             asset: SubsetRestriction::elem(ticker1),
-            extrinsic: SubsetRestriction(None),
+            extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());

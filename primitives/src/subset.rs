@@ -176,10 +176,10 @@ mod tests {
         let t: SubsetRestriction<bool> = SubsetRestriction::elem(true);
         let f: SubsetRestriction<bool> = SubsetRestriction::elem(false);
         let tf: SubsetRestriction<bool> =
-            SubsetRestriction(Some(vec![true, false].into_iter().collect()));
+            SubsetRestriction::These(vec![true, false].into_iter().collect());
         let ft: SubsetRestriction<bool> =
-            SubsetRestriction(Some(vec![false, true].into_iter().collect()));
-        let all = SubsetRestriction(None);
+            SubsetRestriction::These(vec![false, true].into_iter().collect());
+        let all = SubsetRestriction::Whole;
         assert_eq!(t.lattice_cmp(&t), LatticeOrdering::Equal);
         assert_eq!(t.lattice_cmp(&tf), LatticeOrdering::Less);
         assert_eq!(f.lattice_cmp(&tf), LatticeOrdering::Less);
