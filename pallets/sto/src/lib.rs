@@ -61,8 +61,7 @@ type Portfolio<T> = portfolio::Module<T>;
 type Asset<T> = asset::Module<T>;
 
 /// Status of a Fundraiser.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord, Debug)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
