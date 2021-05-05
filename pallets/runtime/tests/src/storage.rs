@@ -177,10 +177,6 @@ impl User {
     pub fn uid(&self) -> InvestorUid {
         create_investor_uid(self.acc())
     }
-
-    pub fn did(&self) -> IdentityId {
-        self.did.clone()
-    }
 }
 
 // For testing the module, we construct most of a mock runtime. This means
