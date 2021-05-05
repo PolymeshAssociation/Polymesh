@@ -3,7 +3,7 @@ use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
-use pallet_external_agents::{AGIdSequence, GroupOfAgent};
+use pallet_external_agents::{AGIdSequence, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
@@ -188,7 +188,9 @@ fn remove_abdicate_change_works() {
 fn add_works() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
-        let other = User::new(AccountKeyring::Bob);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let dave = User::new(AccountKeyring::Dave);
         let ticker = an_asset(owner, false);
 
         // We only test the specifics of `BecomeAgent` here,
@@ -199,23 +201,42 @@ fn add_works() {
             Id::add_auth(from.did, sig, data, None)
         };
         let accept = |to: User, id| Id::accept_authorization(to.origin(), id);
+        let check_num = |n| assert_eq!(EA::num_full_agents(ticker), n);
+
+        check_num(1);
 
         // Other is not an agent, so auths from them are not valid.
-        let id = add(other, owner, AgentGroup::Full);
+        let id = add(bob, owner, AgentGroup::Full);
         assert_noop!(accept(owner, id), Error::UnauthorizedAgent);
+        check_num(1);
 
         // CAG is not valid.
-        let add_one = || add(owner, other, AgentGroup::Custom(AGId(1)));
-        let id = add_one();
-        assert_noop!(accept(other, id), Error::NoSuchAG);
+        let add_bob = || add(owner, bob, AgentGroup::Custom(AGId(1)));
+        let accept_bob = |id| {
+            let r = accept(bob, id);
+            check_num(1);
+            r
+        };
+        let id = add_bob();
+        assert_noop!(accept_bob(id), Error::NoSuchAG);
 
         // Make a CAG & Other an agent of it.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(EA::create_group(owner.origin(), ticker, perms));
-        assert_ok!(accept(other, add_one()));
+        assert_ok!(accept_bob(add_bob()));
 
         // Just made them an agent, cannot do it again.
-        let id = add_one();
-        assert_noop!(accept(other, id), Error::AlreadyAnAgent);
+        let id = add_bob();
+        assert_noop!(accept_bob(id), Error::AlreadyAnAgent);
+
+        // Add another full agent and make sure count is incremented.
+        let id = add(owner, charlie, AgentGroup::Full);
+        assert_ok!(accept(charlie, id));
+        check_num(2);
+
+        // Force the count to overflow and test for graceful error.
+        NumFullAgents::insert(ticker, u32::MAX);
+        let id = add(owner, dave, AgentGroup::Full);
+        assert_noop!(accept(dave, id), Error::NumFullAgentsOverflow);
     });
 }

@@ -366,10 +366,10 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         group: AgentGroup,
     ) -> DispatchResult {
-        GroupOfAgent::insert(ticker, did, group);
         if let AgentGroup::Full = group {
             Self::inc_full_count(ticker)?;
         }
+        GroupOfAgent::insert(ticker, did, group);
         Ok(())
     }
 
@@ -398,7 +398,7 @@ impl<T: Trait> Module<T> {
     /// Increase the full agent count,
     fn inc_full_count(ticker: Ticker) -> DispatchResult {
         NumFullAgents::try_mutate(ticker, |n| {
-            *n = n.checked_add(1).ok_or(Error::<T>::RemovingLastFullAgent)?;
+            *n = n.checked_add(1).ok_or(Error::<T>::NumFullAgentsOverflow)?;
             Ok(())
         })
     }
