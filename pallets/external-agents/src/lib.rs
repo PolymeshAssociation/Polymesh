@@ -385,6 +385,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Decrement the full agent count, or error on < 1.
     fn dec_full_count(ticker: Ticker) -> DispatchResult {
         NumFullAgents::try_mutate(ticker, |n| {
             *n = n
@@ -395,7 +396,7 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Increase the full agent count,
+    /// Increment the full agent count, or error on overflow.
     fn inc_full_count(ticker: Ticker) -> DispatchResult {
         NumFullAgents::try_mutate(ticker, |n| {
             *n = n.checked_add(1).ok_or(Error::<T>::NumFullAgentsOverflow)?;
