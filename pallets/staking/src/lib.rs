@@ -851,7 +851,7 @@ pub trait WeightInfo {
     fn force_unstake(s: u32) -> Weight;
     fn cancel_deferred_slash(s: u32) -> Weight;
     fn payout_stakers(n: u32) -> Weight;
-    fn payout_stakers_alive_controller() -> Weight;
+    fn payout_stakers_alive_controller(n: u32) -> Weight;
     fn rebond(l: u32) -> Weight;
     fn set_history_depth(e: u32) -> Weight;
     fn reap_stash(s: u32) -> Weight;

@@ -114,12 +114,12 @@ pub fn create_validator_with_nominators_with_balance<T: Trait + TestUtilsFn<Acco
         }
     }
 
-    ValidatorCount::put(1);
+    ValidatorCount::put(2);
 
     // Start a new Era
     let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
 
-    assert_eq!(new_validators.len(), 1);
+    assert_eq!(new_validators.len(), 2);
 
     // Give Era Points
     let reward = EraRewardPoints::<T::AccountId> {
