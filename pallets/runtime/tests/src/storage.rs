@@ -863,16 +863,22 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
     identity::Authorizations::<TestStorage>::iter_prefix_values(to).collect::<Vec<_>>()
 }
 
-pub fn fast_forward_to_block(n: u64) {
-    let next_block = System::block_number() + 1;
-    (next_block..=n).for_each(|block| {
-        System::set_block_number(block);
-        Scheduler::on_initialize(block);
-    });
+/// Advances the system `block_number` and run any scheduled task.
+pub fn next_block() -> Weight {
+    let block_number = frame_system::Module::<TestStorage>::block_number() + 1;
+    frame_system::Module::<TestStorage>::set_block_number(block_number);
+
+    // Call the timelocked tx handler.
+    pallet_scheduler::Module::<TestStorage>::on_initialize(block_number)
 }
 
-pub fn fast_forward_blocks(n: u64) {
-    fast_forward_to_block(n + System::block_number());
+pub fn fast_forward_to_block(n: u64) -> Weight {
+    let i = System::block_number();
+    (i..=n).map(|_| next_block()).sum()
+}
+
+pub fn fast_forward_blocks(offset: u64) -> Weight {
+    fast_forward_to_block(offset + System::block_number())
 }
 
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential

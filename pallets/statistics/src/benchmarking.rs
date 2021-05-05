@@ -12,7 +12,7 @@ use sp_std::prelude::*;
 /// The new token is a _divisible_ one with 1_000_000 units.
 pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     let ticker = Ticker::try_from(name.as_slice()).unwrap();
-    T::Asset::create_asset(
+    T::Asset::create_asset_and_mint(
         owner.origin.clone().into(),
         name.into(),
         ticker.clone(),
@@ -67,7 +67,7 @@ benchmarks! {
         tms.push(last_tm.clone());
     }: _(owner.origin, ticker, last_tm)
     verify {
-        assert!(Module::<T>::transfer_managers(ticker) == tms);
+        assert_eq!(Module::<T>::transfer_managers(ticker), tms);
     }
 
     remove_transfer_manager {
@@ -75,7 +75,7 @@ benchmarks! {
         let last_tm = tms.pop().expect("MaxTransferManagersPerAsset should be greater than zero");
     }: _(owner.origin, ticker, last_tm)
     verify {
-        assert!(Module::<T>::transfer_managers(ticker) == tms);
+        assert_eq!(Module::<T>::transfer_managers(ticker), tms);
     }
 
     add_exempted_entities {
@@ -131,6 +131,6 @@ benchmarks! {
             200u32.into(),
             0u32.into(),
             500u32.into(),
-        )?;
+        ).unwrap();
     }
 }

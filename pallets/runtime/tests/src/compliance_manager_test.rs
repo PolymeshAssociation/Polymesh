@@ -84,7 +84,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, Ide
     };
 
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         Origin::signed(owner.public()),
         token.name.clone(),
         ticker,
@@ -130,7 +130,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -345,7 +345,7 @@ fn should_replace_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -413,7 +413,7 @@ fn should_reset_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -472,7 +472,7 @@ fn pause_resume_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -570,7 +570,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -731,7 +731,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -915,7 +915,7 @@ fn jurisdiction_asset_compliance_we() {
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -1375,7 +1375,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![b'A'].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         owner_origin.clone(),
         token_name,
         ticker,
@@ -1487,7 +1487,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -1566,7 +1566,7 @@ fn check_new_return_type_of_rpc() {
         Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
         // 2. Share issuance is successful
-        assert_ok!(Asset::create_asset(
+        assert_ok!(Asset::base_create_asset_and_mint(
             token_owner_signed.clone(),
             token.name.clone(),
             ticker,
