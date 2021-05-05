@@ -87,6 +87,11 @@ decl_storage! {
                 hasher(twox_64_concat) IdentityId
                 => Option<AgentGroup>;
 
+        /// Maps a `Ticker` to the number of `Full` agents for it.
+        pub NumFullAgents get(fn num_full_agents):
+            map hasher(blake2_128_concat) Ticker
+                => u32;
+
         /// For custom AGs of a `Ticker`, maps to what permissions an agent in that AG would have.
         pub GroupPermissions get(fn permissions):
             double_map
@@ -154,6 +159,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
         /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        /// - `RemovingLastFullAgent` if `agent` is the last full one.
         ///
         /// # Permissions
         /// * Asset
@@ -169,7 +175,11 @@ decl_module! {
         /// - `ticker` of which the caller is an agent.
         ///
         /// # Errors
-        /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        /// - `NotAnAgent` if the caller is not an agent of `ticker`.
+        /// - `RemovingLastFullAgent` if the caller is the last full agent.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Trait>::WeightInfo::abdicate()]
         pub fn abdicate(origin, ticker: Ticker) -> DispatchResult {
             Self::base_abdicate(origin, ticker)
@@ -186,6 +196,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
         /// - `NoSuchAG` if `id` does not identify a custom AG.
         /// - `NotAnAgent` if `agent` is not an agent of `ticker`.
+        /// - `RemovingLastFullAgent` if `agent` was a `Full` one and is being demoted.
         ///
         /// # Permissions
         /// * Asset
@@ -213,9 +224,12 @@ decl_error! {
         AlreadyAnAgent,
         /// The provided `agent` is not an agent for the `Ticker`.
         NotAnAgent,
-        /// This agent is the last and it's being removed,
+        /// This agent is the last full one, and it's being removed,
         /// making the asset orphaned.
-        RemovingLastAgent,
+        RemovingLastFullAgent,
+        /// The counter for full agents will overflow.
+        /// This should never happen in practice, but is theoretically possible.
+        NumFullAgentsOverflow,
         /// The caller's secondary key does not have the required asset permission.
         SecondaryKeyNotAuthorizedForAsset,
     }
@@ -230,13 +244,12 @@ impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for
     ) -> DispatchResult {
         Self::ensure_agent_permissioned(ticker, from)?;
         Self::ensure_agent_group_valid(ticker, group)?;
+        ensure!(
+            GroupOfAgent::get(ticker, did).is_none(),
+            Error::<T>::AlreadyAnAgent
+        );
 
-        GroupOfAgent::try_mutate(ticker, did, |slot| -> DispatchResult {
-            ensure!(slot.is_none(), Error::<T>::AlreadyAnAgent);
-            *slot = Some(group);
-            Ok(())
-        })?;
-
+        Self::unchecked_add_agent(ticker, did, group)?;
         Self::deposit_event(Event::AgentAdded(did.for_event(), ticker, group));
         Ok(())
     }
@@ -332,13 +345,15 @@ impl<T: Trait> Module<T> {
         GroupOfAgent::try_mutate(ticker, agent, |slot| {
             ensure!(slot.is_some(), Error::<T>::NotAnAgent);
 
-            if group.is_none() {
-                // To remove an agent, there must be >= 2 of them.
-                // N.B. This check is heuristic.
-                // We do not prevent making all agents have non-meta perms.
-                GroupOfAgent::iter_prefix(ticker)
-                    .advance_by(2)
-                    .map_err(|_| Error::<T>::RemovingLastAgent)?;
+            match (*slot, group) {
+                // Identity transition. No change in count.
+                (Some(AgentGroup::Full), Some(AgentGroup::Full)) => {}
+                // Demotion / Removal. Count is decrementing.
+                (Some(AgentGroup::Full), _) => Self::dec_full_count(ticker)?,
+                // Promotion. Count is incrementing.
+                (_, Some(AgentGroup::Full)) => Self::inc_full_count(ticker)?,
+                // Just a change in groups.
+                _ => {}
             }
 
             *slot = group;
@@ -346,8 +361,46 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    pub fn unchecked_add_agent(ticker: Ticker, did: IdentityId, group: AgentGroup) {
+    pub fn unchecked_add_agent(
+        ticker: Ticker,
+        did: IdentityId,
+        group: AgentGroup,
+    ) -> DispatchResult {
         GroupOfAgent::insert(ticker, did, group);
+        if let AgentGroup::Full = group {
+            Self::inc_full_count(ticker)?;
+        }
+        Ok(())
+    }
+
+    /// Add `agent` for `ticker` unless it already is.
+    pub fn add_agent_if_not(
+        ticker: Ticker,
+        agent: IdentityId,
+        group: AgentGroup,
+    ) -> DispatchResult {
+        if let None = Self::agents(ticker, agent) {
+            Self::unchecked_add_agent(ticker, agent, group)?;
+        }
+        Ok(())
+    }
+
+    fn dec_full_count(ticker: Ticker) -> DispatchResult {
+        NumFullAgents::try_mutate(ticker, |n| {
+            *n = n
+                .checked_sub(1)
+                .filter(|&x| x > 0)
+                .ok_or(Error::<T>::RemovingLastFullAgent)?;
+            Ok(())
+        })
+    }
+
+    /// Increase the full agent count,
+    fn inc_full_count(ticker: Ticker) -> DispatchResult {
+        NumFullAgents::try_mutate(ticker, |n| {
+            *n = n.checked_add(1).ok_or(Error::<T>::RemovingLastFullAgent)?;
+            Ok(())
+        })
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.
@@ -439,13 +492,6 @@ impl<T: Trait> Module<T> {
                     ])),
                 ),
             ]),
-        }
-    }
-
-    /// Add `agent` for `ticker` unless it already is.
-    pub fn add_agent_if_not(ticker: Ticker, agent: IdentityId, group: AgentGroup) {
-        if let None = Self::agents(ticker, agent) {
-            Self::unchecked_add_agent(ticker, agent, group);
         }
     }
 }

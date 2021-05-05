@@ -103,7 +103,7 @@ fn remove_abdicate_change_works() {
         let change = |u: User, a, g| EA::change_group(u.origin(), ticker, a, g);
 
         // Granting helpers:
-        let grant = |u: User, group| GroupOfAgent::insert(ticker, u.did, group);
+        let grant = |u: User, group| EA::unchecked_add_agent(ticker, u.did, group).unwrap();
         let grant_full = |u| grant(u, AgentGroup::Full);
 
         // Asserts that `u` isn't an agent.
@@ -130,8 +130,8 @@ fn remove_abdicate_change_works() {
         );
 
         // Cannot remove the last agent.
-        assert_noop!(remove(owner, owner.did), Error::RemovingLastAgent);
-        assert_noop!(abdicate(owner), Error::RemovingLastAgent);
+        assert_noop!(remove(owner, owner.did), Error::RemovingLastFullAgent);
+        assert_noop!(abdicate(owner), Error::RemovingLastFullAgent);
 
         // Add another agent.
         grant_full(other);
@@ -141,8 +141,8 @@ fn remove_abdicate_change_works() {
         assert_not_agent(owner);
 
         // Now removing other doesn't work.
-        assert_noop!(remove(other, other.did), Error::RemovingLastAgent);
-        assert_noop!(abdicate(other), Error::RemovingLastAgent);
+        assert_noop!(remove(other, other.did), Error::RemovingLastFullAgent);
+        assert_noop!(abdicate(other), Error::RemovingLastFullAgent);
 
         // Reinstate owner.
         grant_full(owner);
@@ -171,8 +171,14 @@ fn remove_abdicate_change_works() {
         let change_1 = || change(owner, owner.did, ag);
         assert_noop!(change_1(), Error::NoSuchAG);
 
-        // Make that AG, and now we can change to it.
+        // Make that AG.
         assert_ok!(EA::create_group(owner.origin(), ticker, <_>::default()));
+
+        // Cannot change to it yet, as there would be no full agents left.
+        assert_noop!(change_1(), Error::RemovingLastFullAgent);
+
+        // Make other a full agent again, so we can demote owner.
+        grant_full(other);
         assert_ok!(change_1());
         assert_group(owner, Some(ag));
     });

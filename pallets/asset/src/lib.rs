@@ -383,10 +383,10 @@ decl_module! {
                 migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
                     b"Asset", b"Tokens", b"Tokens",
                     |ticker: Ticker, token: SecurityTokenOld<T::Balance>| {
-                        EA::<T>::add_agent_if_not(ticker, token.owner_did, AgentGroup::Full);
+                        EA::<T>::add_agent_if_not(ticker, token.owner_did, AgentGroup::Full).unwrap();
 
                         if let Some(pia) = token.primary_issuance_agent {
-                            EA::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA);
+                            EA::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA).unwrap();
                         }
                         token.migrate(Empty).map(|t| (ticker, t))
                     },
@@ -1763,7 +1763,7 @@ impl<T: Trait> Module<T> {
         Self::unverified_update_idents(did, ticker, identifiers);
 
         // Grant owner full agent permissions.
-        <EA<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full);
+        <EA<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full).unwrap();
 
         Ok((sender, did))
     }

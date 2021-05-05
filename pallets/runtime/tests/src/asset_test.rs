@@ -693,7 +693,7 @@ fn transfer_token_ownership() {
             AssetOwnershipRelation::AssetOwned
         );
 
-        EA::unchecked_add_agent(ticker, alice.did, AgentGroup::Full);
+        assert_ok!(EA::unchecked_add_agent(ticker, alice.did, AgentGroup::Full));
         assert_ok!(EA::abdicate(owner.origin(), ticker));
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
@@ -1048,7 +1048,7 @@ fn freeze_unfreeze_asset() {
             EAError::UnauthorizedAgent
         );
 
-        EA::unchecked_add_agent(ticker, bob.did, AgentGroup::Full);
+        assert_ok!(EA::unchecked_add_agent(ticker, bob.did, AgentGroup::Full));
         assert_ok!(Asset::unfreeze(bob.origin(), ticker));
         assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });

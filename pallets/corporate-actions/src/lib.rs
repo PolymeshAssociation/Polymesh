@@ -431,7 +431,7 @@ decl_module! {
                 StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
                     .drain()
                     .for_each(|(ticker, agent)| {
-                        EA::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA);
+                        EA::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
                     });
             });
 
