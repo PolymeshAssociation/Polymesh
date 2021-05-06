@@ -13,8 +13,8 @@ use codec::Encode;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use core::iter;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
-    StorageDoubleMap, StorageMap,
+    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
+    StorageMap,
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, DidRecords, Error};
@@ -1826,19 +1826,16 @@ fn ext_join_identity_as_identity() {
             "Authorization does not exist"
         );
 
-        let create_and_accept_auth = |source: User, target: User, data| {
-            assert_ok!(Identity::add_authorization(
-                source.origin(),
-                target.did.into(),
-                data,
-                None
-            ));
-            let auth_id = get_last_auth_id(&target.did.into());
-            Identity::join_identity_as_identity(target.origin(), auth_id)
-        };
+        assert_ok!(Identity::add_authorization(
+            alice.origin(),
+            bob.did.into(),
+            AuthorizationData::Custom(Ticker::default()),
+            None
+        ));
 
-        assert_err!(
-            create_and_accept_auth(alice, bob, AuthorizationData::Custom(Ticker::default())),
+        let auth_id = get_last_auth_id(&bob.did.into());
+        assert_noop!(
+            Identity::join_identity_as_identity(bob.origin(), auth_id),
             AuthorizationError::Invalid
         );
 
