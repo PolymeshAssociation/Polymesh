@@ -186,7 +186,7 @@ benchmarks! {
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
-        )?;
+        ).unwrap();
 
         let owner_auth_id =  Module::<T>::add_auth(
             target.did(), signatory,
@@ -196,14 +196,14 @@ benchmarks! {
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
-        ensure!(
-            Module::<T>::cdd_auth_for_primary_key_rotation() == false,
+        assert!(
+            !Module::<T>::cdd_auth_for_primary_key_rotation(),
             "CDD auth for primary key rotation is enabled"
         );
     }: _(RawOrigin::Root, true)
     verify {
-        ensure!(
-            Module::<T>::cdd_auth_for_primary_key_rotation() == true,
+        assert!(
+            Module::<T>::cdd_auth_for_primary_key_rotation(),
             "CDD auth for primary key rotation did not change"
         );
     }
@@ -248,8 +248,8 @@ benchmarks! {
 
     }: _(key.origin())
     verify {
-        ensure!(
-            KeyToIdentityIds::<T>::contains_key(key.account) == false,
+        assert!(
+            !KeyToIdentityIds::<T>::contains_key(key.account),
             "Key was not removed from its identity"
         );
     }
@@ -272,13 +272,13 @@ benchmarks! {
 
     revoke_claim {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
-        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into()))?;
+        Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim)
 
     revoke_claim_by_index {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
         let claim_type = claim.claim_type();
-        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into()))?;
+        Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_permission_to_signer {
@@ -295,7 +295,7 @@ benchmarks! {
 
     unfreeze_secondary_keys {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
-        Module::<T>::freeze_secondary_keys(caller.origin.clone().into())?;
+        Module::<T>::freeze_secondary_keys(caller.origin.clone().into()).unwrap();
     }: _(caller.origin)
 
     add_authorization {
