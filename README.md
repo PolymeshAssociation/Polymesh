@@ -11,6 +11,10 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 <https://polymath.network/polymesh-whitepaper>
 
+# Audit
+
+See the `audit` folder for details of audits undertaken on the Polymesh code base.
+
 # Public Testnets
 
 There are two public testnets being run for Polymesh - the Alcyone testnet, and the Incentivised Testnet. These are entirely distinct networks (different block numbers, different operators), although both based on the same codebase and versioning.
