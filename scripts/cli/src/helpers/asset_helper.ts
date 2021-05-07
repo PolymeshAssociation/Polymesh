@@ -34,7 +34,7 @@ export async function issueTokenToDid(
 	assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 	const tickerData = await api.query.asset.tickers(ticker);
 
-	if (tickerData.owner) {
+	if (!tickerData.owner.isEmpty) {
 		const transaction = api.tx.asset.createAsset(
 			ticker,
 			ticker,
