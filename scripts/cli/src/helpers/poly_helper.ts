@@ -3,10 +3,6 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Transfers Poly to KeyringPair
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair} receiver - KeyringPair
- * @param {number} amount - Transfer amount
- * @return {Promise<void>}
  */
 export async function distributePoly(signer: KeyringPair, receiver: KeyringPair, amount: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -17,10 +13,6 @@ export async function distributePoly(signer: KeyringPair, receiver: KeyringPair,
 
 /**
  * @description Transfers Poly to KeyringPair Array
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair[]} receivers - KeyringPair[]
- * @param {number} amount - Transfer amount
- * @return {Promise<void>}
  */
 export async function distributePolyBatch(
 	signer: KeyringPair,

@@ -5,8 +5,6 @@ import type { IdentityId } from "../interfaces";
 
 /**
  * @description Returns the next portfolio number
- * @param {IdentityId} did - IdentityId
- * @return {Promise<number>}
  */
 export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
 	const api = await ApiSingleton.getInstance();
@@ -15,9 +13,6 @@ export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
 
 /**
  * @description Creates a portfolio
- * @param {KeyringPair} signer - KeyringPair
- * @param {string} name - Name of portfolio
- * @return {Promise<boolean>}
  */
 export async function createPortfolio(signer: KeyringPair, name: string): Promise<boolean> {
 	const api = await ApiSingleton.getInstance();
@@ -35,11 +30,6 @@ export async function createPortfolio(signer: KeyringPair, name: string): Promis
 
 /**
  * @description Moves portfolio funds
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair} primaryKey - KeyringPair
- * @param {Ticker} ticker - Ticker to be moved
- * @param {number} amount - Amount to move
- * @return {Promise<boolean>}
  */
 export async function movePortfolioFunds(
 	signer: KeyringPair,

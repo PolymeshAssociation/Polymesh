@@ -4,9 +4,6 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Propose a Bridge Transaction
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair} alice - KeyringPair
- * @return {Promise<void>}
  */
 export async function bridgeTransfer(signer: KeyringPair, alice: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -24,8 +21,6 @@ export async function bridgeTransfer(signer: KeyringPair, alice: KeyringPair): P
 
 /**
  * @description Freeze a Bridge Transaction
- * @param {KeyringPair} signer - KeyringPair
- * @return {Promise<void>}
  */
 export async function freezeTransaction(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -35,8 +30,6 @@ export async function freezeTransaction(signer: KeyringPair): Promise<void> {
 
 /**
  * @description Unfreeze a Bridge Transaction
- * @param {KeyringPair} signer - KeyringPair
- * @return {Promise<void>}
  */
 export async function unfreezeTransaction(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();

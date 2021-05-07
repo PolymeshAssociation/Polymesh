@@ -5,8 +5,6 @@ import type { IdentityId } from "../interfaces";
 
 /**
  * @description Creates a Venue
- * @param {KeyringPair} signer - KeyringPair
- * @return {Promise<number>}
  */
 export async function createVenue(signer: KeyringPair): Promise<number> {
 	const api = await ApiSingleton.getInstance();
@@ -19,13 +17,6 @@ export async function createVenue(signer: KeyringPair): Promise<number> {
 
 /**
  * @description Adds an Instruction
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} venueCounter - Venue Id
- * @param {IdentityId} signerDid - IdentityId
- * @param {IdentityId} receiverDid - IdentityId
- * @param {ticker} ticker - Ticker
- * @param {number} amount - Amount to be transferred
- * @return {Promise<number>}
  */
 export async function addInstruction(
 	signer: KeyringPair,
@@ -52,11 +43,6 @@ export async function addInstruction(
 
 /**
  * @description Affirms an Instruction
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} instructionCounter - Instruction Id
- * @param {IdentityId} did - IdentityId
- * @param {number} legCounter - Number of legs
- * @return {Promise<void>}
  */
 export async function affirmInstruction(
 	signer: KeyringPair,
@@ -71,10 +57,6 @@ export async function affirmInstruction(
 
 /**
  * @description Withdraws a Instruction
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} instructionCounter - Instruction Id
- * @param {IdentityId} did - IdentityId
- * @return {Promise<void>}
  */
 export async function withdrawInstruction(
 	signer: KeyringPair,
@@ -88,10 +70,6 @@ export async function withdrawInstruction(
 
 /**
  * @description Rejects a Instruction
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} instructionCounter - Instruction Id
- * @param {IdentityId} did - IdentityId
- * @return {Promise<void>}
  */
 export async function rejectInstruction(
 	signer: KeyringPair,
@@ -105,13 +83,6 @@ export async function rejectInstruction(
 
 /**
  * @description Adds a group Instruction
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} venueCounter - number
- * @param {IdentityId[]} group - IdentityId[]
- * @param {Ticker} ticker - Ticker
- * @param {Ticker} ticker2 - Ticker
- * @param {number} amount - number
- * @return {Promise<number>}
  */
 export async function addGroupInstruction(
 	signer: KeyringPair,

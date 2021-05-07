@@ -5,9 +5,6 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Attaches a secondary key to each DID
- * @param {KeyringPair[]} signers - KeyringPair[]
- * @param {KeyringPair[]} receivers - KeyringPair[]
- * @return {Promise<void>}
  */
 export async function addSecondaryKeys(signers: KeyringPair[], receivers: KeyringPair[]): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -33,10 +30,6 @@ export async function addSecondaryKeys(signers: KeyringPair[], receivers: Keyrin
 
 /**
  * @description Attaches a secondary key to each DID
- * @param {KeyringPair} signer - KeyringPair
- * @param {Signatory[]} signatories - Array of signatories
- * @param {number} numOfSigners - Number of signers
- * @return {Promise<void>}
  */
 export async function createMultiSig(
 	signer: KeyringPair,

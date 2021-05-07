@@ -24,10 +24,6 @@ const receiverConditions1 = senderConditions1;
 
 /**
  * @description Creates claim compliance for an asset
- * @param {KeyringPair} signer - KeyringPair
- * @param {IdentityId} did - IdentityId
- * @param {Ticker} ticker - Ticker
- * @return {Promise<void>}
  */
 export async function createClaimCompliance(signer: KeyringPair, did: IdentityId, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -46,9 +42,6 @@ export async function createClaimCompliance(signer: KeyringPair, did: IdentityId
 
 /**
  * @description Creates claim compliance for an asset
- * @param {KeyringPair} signer - KeyringPair
- * @param {Ticker} ticker - Ticker
- * @return {Promise<void>}
  */
 export async function addComplianceRequirement(sender: KeyringPair, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();

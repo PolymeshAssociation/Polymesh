@@ -5,9 +5,6 @@ import { nextPortfolioNumber } from "../helpers/portfolio_helper";
 
 /**
  * @description Adds ticker to ticker array
- * @param {Ticker} ticker - Ticker
- * @param {Ticker[]} assetArray - An array of Tickers
- * @return {void}
  */
 export function setAsset(ticker: Ticker, assetArray: Ticker[]): void {
 	assetArray.push(ticker);
@@ -15,13 +12,6 @@ export function setAsset(ticker: Ticker, assetArray: Ticker[]): void {
 
 /**
  * @description Adds document to document array
- * @param {Document[]}  docArray - An array of Documents
- * @param {string} uri - URI
- * @param {DocumentHash} contentHash - Hash type
- * @param {DocumentName} name - Name of the Document
- * @param {string=} docType - Type of Document
- * @param {number=} filingDate - number
- * @return {void}
  */
 export function setDoc(
 	docArray: Document[],
@@ -42,10 +32,6 @@ export function setDoc(
 
 /**
  * @description Adds portfolio to portfolioArray
- * @param {PortfolioId[]} portfolioArray - An array of PortfolioIds
- * @param {KeyringPair} receiver - KeyringPair
- * @param {"Default" | "User"} type - Type of Portfolio
- * @return {Promise<void>}
  */
 export async function setPortfolio(
 	portfolioArray: PortfolioId[],
@@ -76,10 +62,6 @@ export async function setPortfolio(
 
 /**
  * @description Adds extrinsic to extrinsic array
- * @param {LegacyPalletPermissions[]} extrinsicArray - An array of LegacyPalletPermissions
- * @param {string} palletName - The name of the Pallet
- * @param {string} dispatchName - the name of the dispatchable
- * @return {void}
  */
 export function setExtrinsic(
 	extrinsicArray: LegacyPalletPermissions[],

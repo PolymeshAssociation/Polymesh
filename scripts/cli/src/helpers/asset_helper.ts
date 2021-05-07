@@ -6,10 +6,6 @@ import type { IdentityId } from "../interfaces";
 
 /**
  * @description Adds Documents for a given token
- * @param {KeyringPair} signer - KeyringPair
- * @param {Ticker} ticker - Ticker
- * @param {Document[]} docs - An array of Documents
- * @return {Promise<boolean>}
  */
 export async function addDocuments(signer: KeyringPair, ticker: Ticker, docs: Document[]): Promise<boolean> {
 	try {
@@ -27,11 +23,6 @@ export async function addDocuments(signer: KeyringPair, ticker: Ticker, docs: Do
 
 /**
  * @description Issues a token to an Identity
- * @param {KeyringPair} signer - KeyringPair
- * @param {Ticker} ticker - Ticker
- * @param {number} amount - Token amount
- * @param {string} fundingRound - Funding Round
- * @return {Promise<void>}
  */
 export async function issueTokenToDid(
 	signer: KeyringPair,
@@ -61,9 +52,6 @@ export async function issueTokenToDid(
 
 /**
  * @description Mints an Asset
- * @param {KeyringPair} signer - KeyringPair
- * @param {Ticker} ticker - Ticker
- * @return {Promise<void>}
  */
 export async function mintingAsset(signer: KeyringPair, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -73,9 +61,6 @@ export async function mintingAsset(signer: KeyringPair, ticker: Ticker): Promise
 
 /**
  * @description Gets the Asset balance
- * @param {Ticker} ticker - Ticker
- * @param {IdentityId} did - Token amount
- * @return {Promise<number>}
  */
 export async function assetBalance(ticker: Ticker, did: IdentityId): Promise<number> {
 	const api = await ApiSingleton.getInstance();

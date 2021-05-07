@@ -5,15 +5,8 @@ import type { LegacyPalletPermissions, PortfolioId, Ticker, Permissions, Expiry 
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
 
-// TODO Refactor function to deal with all the possible claim types and their values
 /**
  * @description Adds a Claim to an Identity
- * @param {KeyringPair} signer - KeyringPair
- * @param {IdentityId} did - IdentityId
- * @param {string} claimType - Type of Claim
- * @param {any} claimValue - Claim value
- * @param {Expiry=} expiry -
- * @return {Promise<void>}
  */
 export async function addClaimsToDids(
 	signer: KeyringPair,
@@ -31,12 +24,6 @@ export async function addClaimsToDids(
 
 /**
  * @description Sets permission to signer key
- * @param {KeyringPair[]} signers - An array of KeyringPairs
- * @param {KeyringPair[]} receivers - An array of KeyringPairs
- * @param {LegacyPalletPermissions[]} extrinsic - An array of LegacyPalletPermissions
- * @param {PortfolioId[]} portfolio - An array of PortfolioIds
- * @param {Ticker[]} asset - An array of Tickers
- * @return {Promise<void>}
  */
 export async function setPermissionToSigner(
 	signers: KeyringPair[],
@@ -63,9 +50,6 @@ export async function setPermissionToSigner(
 
 /**
  * @description Authorizes the joining of secondary keys to a DID
- * @param {KeyringPair[]} signers - An array of KeyringPairs
- * @param {KeyringPair[]} receivers - An array of KeyringPairs
- * @return {Promise<void>} 
  */
 export async function authorizeJoinToIdentities(
 	signers: KeyringPair[],
@@ -91,9 +75,6 @@ export async function authorizeJoinToIdentities(
 
 /**
  * @description Creates an Identity for KeyringPairs.
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair[]} receivers - An array of KeyringPairs
- * @return {Promise<IdentityId[]>} Creates an array of identities
  */
 export async function createIdentities(signer: KeyringPair, receivers: KeyringPair[]): Promise<IdentityId[]> {
 	return createIdentitiesWithExpiry(signer, receivers, []);

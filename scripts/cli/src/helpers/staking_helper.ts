@@ -5,11 +5,6 @@ import BN from "bn.js";
 
 /**
  * @description Take the origin account as a stash and lock up `value` of its balance.
- * @param {KeyringPair} signer - KeyringPair
- * @param {KeyringPair} controller - KeyringPair
- * @param {number} value - Amount to bond
- * @param {string} payee - RewardDestination
- * @return {Promise<void>}
  */
 export async function bond(signer: KeyringPair, controller: KeyringPair, value: number, payee: string): Promise<void> {
 	const api = await ApiSingleton.getInstance();

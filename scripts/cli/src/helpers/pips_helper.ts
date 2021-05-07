@@ -5,9 +5,6 @@ import { sendTx, ApiSingleton } from "../util/init";
 
 /**
  * @description Sets the default enactment period for a PIP
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} duration - Blocknumber
- * @return {Promise<void>}
  */
 export async function setDefaultEnactmentPeriod(signer: KeyringPair, duration: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -17,7 +14,6 @@ export async function setDefaultEnactmentPeriod(signer: KeyringPair, duration: n
 
 /**
  * @description Returns Id to keep track of PIPs
- * @return {Promise<number>}
  */
 export async function pipIdSequence(): Promise<number> {
 	const api = await ApiSingleton.getInstance();
@@ -26,8 +22,6 @@ export async function pipIdSequence(): Promise<number> {
 
 /**
  * @description Sets active PIP limit
- * @param {number} pipLimit - number
- * @return {Promise<SubmittableExtrinsic<"promise", ISubmittableResult>>}
  */
 export async function setActivePipLimit(
 	pipLimit: number
@@ -38,12 +32,6 @@ export async function setActivePipLimit(
 
 /**
  * @description Creates a proposal
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} proposal
- * @param {number} deposit - number
- * @param {string=} url - Proposal URL link
- * @param {string=} description - Proposal description
- * @return {Promise<void>}
  */
 export async function propose(
 	signer: KeyringPair,
@@ -59,8 +47,6 @@ export async function propose(
 
 /**
  * @description Create a Snapshot
- * @param {KeyringPair} signer - KeyringPair
- * @return {Promise<void>}
  */
 export async function snapshot(signer: KeyringPair): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -70,9 +56,6 @@ export async function snapshot(signer: KeyringPair): Promise<void> {
 
 /**
  * @description Enacts `snapshotResult` for the PIPs in the snapshot queue.
- * @param {number} pipId - number
- * @param {object} snapshotResult
- * @return {Promise<SubmittableExtrinsic<"promise", ISubmittableResult>>}
  */
 export async function enactSnapshotResults(
 	pipId: number,
@@ -84,8 +67,6 @@ export async function enactSnapshotResults(
 
 /**
  * @description Reject the proposal
- * @param {number} pipId - number
- * @return {Promise<SubmittableExtrinsic<"promise", ISubmittableResult>>}
  */
 export async function rejectProposal(pipId: number): Promise<SubmittableExtrinsic<"promise", ISubmittableResult>> {
 	const api = await ApiSingleton.getInstance();
@@ -94,9 +75,6 @@ export async function rejectProposal(pipId: number): Promise<SubmittableExtrinsi
 
 /**
  * @description Reschedules a proposal
- * @param {KeyringPair} signer - KeyringPair
- * @param {number} pipId - number
- * @return {Promise<void>}
  */
 export async function rescheduleProposal(signer: KeyringPair, pipId: number): Promise<void> {
 	const api = await ApiSingleton.getInstance();
@@ -106,9 +84,6 @@ export async function rescheduleProposal(signer: KeyringPair, pipId: number): Pr
 
 /**
  * @description Vote Result
- * @param {KeyringPair[]} signers - KeyringPair[]
- * @param {SubmittableExtrinsic<"promise", ISubmittableResult>} tx - SubmittableExtrinsic
- * @return {Promise<void>}
  */
 export async function voteResult(
 	signers: KeyringPair[],
