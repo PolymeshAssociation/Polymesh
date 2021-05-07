@@ -71,8 +71,10 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
             MAX_NOMINATIONS as u32,
             balance,
             false,
-        )?;
-        let controller = pallet_staking::Module::<T>::bonded(&stash).ok_or("not stash")?;
+        )
+        .unwrap();
+        let controller = pallet_staking::Module::<T>::bonded(&stash).expect("not stash");
+
         let keys = T::Keys::default();
         let proof: Vec<u8> = vec![0, 1, 2, 3];
 
@@ -99,16 +101,16 @@ benchmarks! {
 
     set_keys {
         let n = MAX_NOMINATIONS as u32;
-        let validator = ValidatorInfo::<T>::build(n)?;
+        let validator = ValidatorInfo::<T>::build(n).unwrap();
 
     }: _(RawOrigin::Signed(validator.controller), validator.keys, validator.proof)
 
     purge_keys {
         let n = MAX_NOMINATIONS as u32;
-        let validator = ValidatorInfo::<T>::build(n)?;
+        let validator = ValidatorInfo::<T>::build(n).unwrap();
         let controller = RawOrigin::Signed(validator.controller.clone());
 
-        Session::<T>::set_keys(controller.clone().into(), validator.keys, validator.proof)?;
+        Session::<T>::set_keys(controller.clone().into(), validator.keys, validator.proof).unwrap();
 
     }: _(controller)
 }
