@@ -26,13 +26,16 @@ use sp_std::{
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LatticeOrdering {
-    /// Inclusion of the first subset into the second subset.
+    /// Inclusion of the first subset `A` into the second subset `B`.
+    /// That is, `A ⊂ B`.
     Less,
-    /// Set equality.
+    /// Set equality, `A = B`.
     Equal,
     /// The subsets are pairwise different.
+    /// That is, `A ⊈ B ∧ B ⊈ A`.
     Incomparable,
-    /// Inclusion of the second subset into the first subset.
+    /// Inclusion of the second subset `B` into the first subset `A`.
+    /// That is, `B ⊂ A`.
     Greater,
 }
 
@@ -67,6 +70,7 @@ where
     A: Clone + Ord + PartialEq,
 {
     fn lattice_cmp(&self, other: &Self) -> LatticeOrdering {
+        // Normalize `U \ {}` to just `U`.
         let left = match self {
             Self::Except(es) if es.is_empty() => &Self::Whole,
             x => x,
@@ -75,24 +79,48 @@ where
             Self::Except(es) if es.is_empty() => &Self::Whole,
             x => x,
         };
+        // See note below (1).
         let cmp_same = |a: &BTreeSet<_>, b: &BTreeSet<_>| match (a.is_subset(b), b.is_subset(a)) {
             (true, true) => LatticeOrdering::Equal,
             (true, false) => LatticeOrdering::Less,
             (false, true) => LatticeOrdering::Greater,
             _ => LatticeOrdering::Incomparable,
         };
-        let cmp_diff = |a: &BTreeSet<_>, b: &BTreeSet<_>| match a.intersection(b).next() {
+        // See note below (2).
+        let cmp_diff = |a: &BTreeSet<_>, b: &BTreeSet<_>, n| match a.intersection(b).next() {
             Some(_) => LatticeOrdering::Incomparable,
-            None => LatticeOrdering::Less,
+            None => n,
         };
         match (left, right) {
+            // Trivially, `U = U` holds.
             (Self::Whole, Self::Whole) => LatticeOrdering::Equal,
+            // `A ⊂ U`, except when `A = U`, but as noted in (3) we don't account for that here.
             (_, Self::Whole) => LatticeOrdering::Less,
+            // Same as above, but with `A` and `B` flipped.
             (Self::Whole, _) => LatticeOrdering::Greater,
+            // There are 4 cases here, as identitifed in `cmp_same` (1):
+            // 1. `A ⊆ B` and `B ⊆ A`, so exactly `A = B`.
+            // 2. `A ⊆ B` and `B ⊈ A`, so `A ⊂ B`.
+            // 3. `A ⊈ B` and `B ⊆ A`, so `B ⊂ A`.
+            // 4. `A ⊈ B` and `B ⊈ A`, so they are incomparable.
             (Self::These(a), Self::These(b)) => cmp_same(a, b),
+            // Same as above, but with `A` and `B` flipped.
             (Self::Except(a), Self::Except(b)) => cmp_same(b, a),
-            (Self::These(a), Self::Except(b)) => cmp_diff(a, b),
-            (Self::Except(a), Self::These(b)) => cmp_diff(b, a),
+            // (2) Consider `A = {1, 2}` and `B = U \ {3}`.
+            // We have that `A ∩ B = B`, hence `A ⊂ B`.
+            //
+            // If on the other hand, `B` excludes some element in `A`,
+            // which happens when the intersection against the "inner set" `b` of `B` is non-empty,
+            // then `A ⊈ B` wherefore the sets are incomparable.
+            //
+            // (3) For finite universes `U`, `Equal` is possible iff `B = U \ {}`
+            // and every element in `U` is explicitly listed in `A`,
+            // e.g., `A = { true, false }` for `bool`.
+            // While this is theoretically possible, it is not accounted for in the code here.
+            // Moreover, this branch isn't reached, as prior normalization gave us `B = Whole`.
+            (Self::These(a), Self::Except(b)) => cmp_diff(a, b, LatticeOrdering::Less),
+            // Same as above, but with `A` and `B` flipped.
+            (Self::Except(a), Self::These(b)) => cmp_diff(a, b, LatticeOrdering::Greater),
         }
     }
 }
