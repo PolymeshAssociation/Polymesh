@@ -119,6 +119,8 @@ pub enum InstructionStatus {
     Unknown,
     /// Instruction is pending execution
     Pending,
+    /// Instruction has failed execution
+    Failed,
 }
 
 impl Default for InstructionStatus {
@@ -377,6 +379,8 @@ decl_event!(
         VenueUnauthorized(IdentityId, Ticker, u64),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
+        /// Instruction is rescheduled.
+        InstructionRescheduled(IdentityId, u64),
     }
 );
 
@@ -393,6 +397,8 @@ decl_error! {
         InstructionNotAffirmed,
         /// Provided instruction is not pending execution.
         InstructionNotPending,
+        /// Provided instruction is not failing execution.
+        InstructionNotFailed,
         /// Provided leg is not pending execution.
         LegNotPending,
         /// Signer is not authorized by the venue.
@@ -813,7 +819,46 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
         fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
             ensure_root(origin)?;
-            Self::execute_instruction(instruction_id)?;
+            Self::execute_instruction_retryable(instruction_id)?;
+        }
+
+        /// Reschedules a failed instruction
+        ///
+        /// # Arguments
+        /// * `instruction_id` - Target instruction id to reschedule.
+        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        pub fn reschedule_instruction(origin, instruction_id: u64) {
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            let details = Self::instruction_details(instruction_id);
+            ensure!(
+                details.status == InstructionStatus::Failed,
+                Error::<T>::InstructionNotFailed
+            );
+            if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
+                ensure!(
+                    value_date >= trade_date,
+                    Error::<T>::InstructionDatesInvalid
+                );
+            }
+
+            // Reset legs to pending along with the instruction itself
+            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+            legs.iter().for_each(|(leg_id, _)| <InstructionLegStatus<T>>::mutate(
+                instruction_id,
+                leg_id,
+                |leg| *leg = LegStatus::ExecutionPending
+            ));
+            <InstructionDetails<T>>::mutate(instruction_id, |details| details.status = InstructionStatus::Pending);
+
+            // Schedule instruction to be executed in the next block.
+            let execution_at = system::Module::<T>::block_number() + One::one();
+            Self::schedule_instruction(instruction_id, execution_at, legs.len() as u32);
+
+            Self::deposit_event(RawEvent::InstructionRescheduled(primary_did, instruction_id));
         }
     }
 }
@@ -1017,6 +1062,18 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    fn execute_instruction_retryable(instruction_id: u64) -> Result<u32, DispatchError> {
+        let result = Self::execute_instruction(instruction_id);
+        if result.is_ok() {
+            Self::prune_instruction(instruction_id);
+        } else {
+            <InstructionDetails<T>>::mutate(instruction_id, |details| {
+                details.status = InstructionStatus::Failed
+            });
+        }
+        result
+    }
+
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
         let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
@@ -1096,18 +1153,17 @@ impl<T: Trait> Module<T> {
             }
         };
 
-        // Clean up instruction details to reduce chain bloat
+        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
+    }
+
+    fn prune_instruction(instruction_id: u64) {
+        let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
         <InstructionLegs<T>>::remove_prefix(instruction_id);
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
-        Self::prune_user_affirmations(&legs, instruction_id);
 
-        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
-    }
-
-    fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in legs {
