@@ -349,7 +349,7 @@ type Asset<T> = pallet_asset::Module<T>;
 type Ballot<T> = ballot::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
 type Distribution<T> = distribution::Module<T>;
-type EA<T> = pallet_external_agents::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as CorporateAction {
@@ -431,7 +431,7 @@ decl_module! {
                 StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
                     .drain()
                     .for_each(|(ticker, agent)| {
-                        EA::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
+                        ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
                     });
             });
 
@@ -462,7 +462,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
-            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             Self::ensure_target_ids_limited(&targets)?;
 
@@ -488,7 +488,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
-            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
         }
@@ -511,7 +511,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
-            let caa = <EA<T>>::ensure_perms(origin, ticker)?;
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
@@ -588,7 +588,7 @@ decl_module! {
                 .ok_or(Error::<T>::DetailsTooLong)?;
 
             // Ensure that CAA is calling.
-            let caa = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
             // Ensure that the next local CA ID doesn't overflow.
             let local_id = CAIdSequence::get(ticker);
@@ -672,7 +672,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
-            let caa = <EA<T>>::ensure_perms(origin, id.ticker)?;
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, id.ticker)?;
             Self::ensure_ca_exists(id)?;
             for doc in &docs {
                 <Asset<T>>::ensure_doc_exists(&id.ticker, doc)?;
@@ -705,7 +705,7 @@ decl_module! {
             .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
-            let caa = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
 
             // Remove associated services.
@@ -749,7 +749,7 @@ decl_module! {
             .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
-            let caa = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
             with_transaction(|| -> DispatchResult {

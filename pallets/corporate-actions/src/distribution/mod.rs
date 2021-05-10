@@ -92,7 +92,7 @@ use sp_std::prelude::*;
 
 type Asset<T> = asset::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
-type EA<T> = pallet_external_agents::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type CA<T> = ca::Module<T>;
 type Identity<T> = identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -236,7 +236,7 @@ decl_module! {
                 primary_did: caa,
                 secondary_key,
                 ..
-            } = <EA<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
             <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
             <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
@@ -330,7 +330,7 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Trait>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
-            let agent = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             Self::transfer_benefit(agent, holder, ca_id)?;
         }
 
@@ -380,7 +380,7 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            let caa = <EA<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
             Self::remove_distribution_base(caa, ca_id, &dist)?;
         }

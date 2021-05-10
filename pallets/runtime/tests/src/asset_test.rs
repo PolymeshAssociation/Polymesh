@@ -70,7 +70,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Module<TestStorage>;
-type EA = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
@@ -693,8 +693,12 @@ fn transfer_token_ownership() {
             AssetOwnershipRelation::AssetOwned
         );
 
-        assert_ok!(EA::unchecked_add_agent(ticker, alice.did, AgentGroup::Full));
-        assert_ok!(EA::abdicate(owner.origin(), ticker));
+        assert_ok!(ExternalAgents::unchecked_add_agent(
+            ticker,
+            alice.did,
+            AgentGroup::Full
+        ));
+        assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
             EAError::UnauthorizedAgent
@@ -1048,7 +1052,11 @@ fn freeze_unfreeze_asset() {
             EAError::UnauthorizedAgent
         );
 
-        assert_ok!(EA::unchecked_add_agent(ticker, bob.did, AgentGroup::Full));
+        assert_ok!(ExternalAgents::unchecked_add_agent(
+            ticker,
+            bob.did,
+            AgentGroup::Full
+        ));
         assert_ok!(Asset::unfreeze(bob.origin(), ticker));
         assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });

@@ -71,7 +71,7 @@ use sp_std::prelude::*;
 use crate::Trait;
 
 type Asset<T> = crate::Module<T>;
-type EA<T> = pallet_external_agents::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// Input specification for a checkpoint schedule.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -236,7 +236,7 @@ decl_module! {
         /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
-            let owner = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
+            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
             Self::create_at_by(owner, ticker, Self::now_unix())?;
         }
 
@@ -282,7 +282,7 @@ decl_module! {
             ticker: Ticker,
             schedule: ScheduleSpec,
         ) {
-            let owner = <EA<T>>::ensure_perms(origin, ticker)?.for_event();
+            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
             Self::create_schedule_base(owner, ticker, schedule, 0)?;
         }
 
@@ -306,7 +306,7 @@ decl_module! {
             ticker: Ticker,
             id: ScheduleId,
         ) {
-            let owner = <EA<T>>::ensure_perms(origin, ticker)?;
+            let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             // If the ID matches and schedule is removable, it should be removed.
             let schedule = Schedules::try_mutate(&ticker, |ss| {

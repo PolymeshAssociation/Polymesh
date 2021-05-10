@@ -11,7 +11,7 @@ use polymesh_primitives::{
 };
 use test_client::AccountKeyring;
 
-type EA = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
 type Id = pallet_identity::Module<TestStorage>;
 
@@ -32,8 +32,9 @@ fn create_group_set_perms_works() {
         let owner = User::new(AccountKeyring::Alice);
         let (ticker, token) = a_token(owner.did);
 
-        let create = |perms| EA::create_group(owner.origin(), ticker, perms);
-        let set = |id, perms| EA::set_group_permissions(owner.origin(), ticker, id, perms);
+        let create = |perms| ExternalAgents::create_group(owner.origin(), ticker, perms);
+        let set =
+            |id, perms| ExternalAgents::set_group_permissions(owner.origin(), ticker, id, perms);
 
         // No asset made, so no agents, so the "owner" is unauthorized now.
         assert_noop!(create(<_>::default()), Error::UnauthorizedAgent);
@@ -48,8 +49,9 @@ fn create_group_set_perms_works() {
 
         // Still, `other` doesn't have agent permissions.
         let other = User::new(AccountKeyring::Bob);
-        let other_create = |perms| EA::create_group(other.origin(), ticker, perms);
-        let other_set = |id, perms| EA::set_group_permissions(other.origin(), ticker, id, perms);
+        let other_create = |perms| ExternalAgents::create_group(other.origin(), ticker, perms);
+        let other_set =
+            |id, perms| ExternalAgents::set_group_permissions(other.origin(), ticker, id, perms);
         assert_noop!(other_create(<_>::default()), Error::UnauthorizedAgent);
         assert_noop!(other_set(AGId(1), <_>::default()), Error::UnauthorizedAgent);
 
@@ -66,13 +68,13 @@ fn create_group_set_perms_works() {
         // Add a group successfully.
         let perms = make_perms("foo");
         assert_ok!(create(perms.clone()));
-        assert_eq!(Some(perms), EA::permissions(ticker, AGId(1)));
-        assert_eq!(AGId(1), EA::agent_group_id_sequence(ticker));
+        assert_eq!(Some(perms), ExternalAgents::permissions(ticker, AGId(1)));
+        assert_eq!(AGId(1), ExternalAgents::agent_group_id_sequence(ticker));
 
         // Now that the group does exist, modify its perms.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(set(AGId(1), perms.clone()));
-        assert_eq!(Some(perms), EA::permissions(ticker, AGId(1)));
+        assert_eq!(Some(perms), ExternalAgents::permissions(ticker, AGId(1)));
 
         // Below we also test agent permissions checking logic.
 
@@ -98,12 +100,13 @@ fn remove_abdicate_change_works() {
         let (ticker, token) = a_token(owner.did);
 
         // Extrinsics under test:
-        let remove = |u: User, who| EA::remove_agent(u.origin(), ticker, who);
-        let abdicate = |u: User| EA::abdicate(u.origin(), ticker);
-        let change = |u: User, a, g| EA::change_group(u.origin(), ticker, a, g);
+        let remove = |u: User, who| ExternalAgents::remove_agent(u.origin(), ticker, who);
+        let abdicate = |u: User| ExternalAgents::abdicate(u.origin(), ticker);
+        let change = |u: User, a, g| ExternalAgents::change_group(u.origin(), ticker, a, g);
 
         // Granting helpers:
-        let grant = |u: User, group| EA::unchecked_add_agent(ticker, u.did, group).unwrap();
+        let grant =
+            |u: User, group| ExternalAgents::unchecked_add_agent(ticker, u.did, group).unwrap();
         let grant_full = |u| grant(u, AgentGroup::Full);
 
         // Asserts that `u` isn't an agent.
@@ -172,7 +175,11 @@ fn remove_abdicate_change_works() {
         assert_noop!(change_1(), Error::NoSuchAG);
 
         // Make that AG.
-        assert_ok!(EA::create_group(owner.origin(), ticker, <_>::default()));
+        assert_ok!(ExternalAgents::create_group(
+            owner.origin(),
+            ticker,
+            <_>::default()
+        ));
 
         // Cannot change to it yet, as there would be no full agents left.
         assert_noop!(change_1(), Error::RemovingLastFullAgent);
@@ -201,7 +208,7 @@ fn add_works() {
             Id::add_auth(from.did, sig, data, None)
         };
         let accept = |to: User, id| Id::accept_authorization(to.origin(), id);
-        let check_num = |n| assert_eq!(EA::num_full_agents(ticker), n);
+        let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(ticker), n);
 
         check_num(1);
 
@@ -222,7 +229,7 @@ fn add_works() {
 
         // Make a CAG & Other an agent of it.
         let perms = make_perms("pallet_external_agent");
-        assert_ok!(EA::create_group(owner.origin(), ticker, perms));
+        assert_ok!(ExternalAgents::create_group(owner.origin(), ticker, perms));
         assert_ok!(accept_bob(add_bob()));
 
         // Just made them an agent, cannot do it again.

@@ -37,7 +37,7 @@ type System = frame_system::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
-type EA = pallet_external_agents::Module<TestStorage>;
+type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
@@ -124,7 +124,7 @@ fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
 fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     let auth_id = add_caa_auth(ticker, from, to);
     Identity::accept_authorization(to.origin(), auth_id)?;
-    EA::abdicate(from.origin(), ticker)?;
+    ExternalAgents::abdicate(from.origin(), ticker)?;
     Ok(())
 }
 
