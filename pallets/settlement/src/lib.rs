@@ -1085,7 +1085,6 @@ impl<T: Trait> Module<T> {
         legs.sort_by_key(|leg| leg.0);
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
-        let mut result = DispatchResult::Ok(());
         if Self::instruction_affirms_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
@@ -1094,66 +1093,64 @@ impl<T: Trait> Module<T> {
                 SettlementDID.as_id(),
                 instruction_id,
             ));
-            result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-        } else {
-            // Verify that the venue still has the required permissions for the tokens involved.
-            let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
-            let venue_id = Self::instruction_details(instruction_id).venue_id;
-            for ticker in &tickers {
-                if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, venue_id) {
-                    Self::deposit_event(RawEvent::VenueUnauthorized(
-                        SettlementDID.as_id(),
-                        *ticker,
-                        venue_id,
-                    ));
-                    result = DispatchResult::Err(Error::<T>::UnauthorizedVenue.into());
+            Self::prune_instruction(instruction_id);
+            return Err(Error::<T>::InstructionFailed.into());
+        }
+        // Verify that the venue still has the required permissions for the tokens involved.
+        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
+        let venue_id = Self::instruction_details(instruction_id).venue_id;
+        for ticker in &tickers {
+            if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, venue_id) {
+                Self::deposit_event(RawEvent::VenueUnauthorized(
+                    SettlementDID.as_id(),
+                    *ticker,
+                    venue_id,
+                ));
+                return Err(Error::<T>::UnauthorizedVenue.into());
+            }
+        }
+
+        match with_transaction(|| {
+            for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
+                let status = Self::instruction_leg_status(instruction_id, leg_id);
+                status == LegStatus::ExecutionPending
+            }) {
+                if <Asset<T>>::base_transfer(
+                    leg_details.from,
+                    leg_details.to,
+                    &leg_details.asset,
+                    leg_details.amount,
+                )
+                .is_err()
+                {
+                    return Err(leg_id);
                 }
             }
-
-            if result.is_ok() {
-                match with_transaction(|| {
-                    for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
-                        let status = Self::instruction_leg_status(instruction_id, leg_id);
-                        status == LegStatus::ExecutionPending
-                    }) {
-                        if <Asset<T>>::base_transfer(
-                            leg_details.from,
-                            leg_details.to,
-                            &leg_details.asset,
-                            leg_details.amount,
-                        )
-                        .is_err()
-                        {
-                            return Err(leg_id);
-                        }
-                    }
-                    Ok(())
-                }) {
-                    Ok(_) => {
-                        Self::deposit_event(RawEvent::InstructionExecuted(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                        ));
-                    }
-                    Err(leg_id) => {
-                        Self::deposit_event(RawEvent::LegFailedExecution(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                            leg_id.clone(),
-                        ));
-                        Self::deposit_event(RawEvent::InstructionFailed(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                        ));
-                        // We need to unclaim receipts for the failed transaction so that they can be reused
-                        Self::unsafe_unclaim_receipts(instruction_id, &legs);
-                        result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-                    }
-                }
+            Ok(())
+        }) {
+            Ok(_) => {
+                Self::deposit_event(RawEvent::InstructionExecuted(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
             }
-        };
+            Err(leg_id) => {
+                Self::deposit_event(RawEvent::LegFailedExecution(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                    leg_id.clone(),
+                ));
+                Self::deposit_event(RawEvent::InstructionFailed(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
+                // We need to unclaim receipts for the failed transaction so that they can be reused
+                Self::unsafe_unclaim_receipts(instruction_id, &legs);
+                return Err(Error::<T>::InstructionFailed.into());
+            }
+        }
 
-        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
+        Ok(instructions_processed)
     }
 
     fn prune_instruction(instruction_id: u64) {
