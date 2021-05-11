@@ -1821,11 +1821,13 @@ fn ext_join_identity_as_identity() {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
+        // Check non-exist authorization
         assert_noop!(
             Identity::join_identity_as_identity(bob.origin(), 0),
             "Authorization does not exist"
         );
 
+        // Add add authorization to later accept
         assert_ok!(Identity::add_authorization(
             alice.origin(),
             bob.did.into(),
@@ -1833,6 +1835,7 @@ fn ext_join_identity_as_identity() {
             None
         ));
 
+        // Try joining with wrong authorization type
         let auth_id = get_last_auth_id(&bob.did.into());
         assert_noop!(
             Identity::join_identity_as_identity(bob.origin(), auth_id),
@@ -1858,7 +1861,9 @@ fn ext_leave_identity_as_identity() {
             );
         };
 
+        // Try to leave own identity
         leave(alice.origin(), alice.did);
+        // Try to leave a identity that has no signers
         leave(charlie.origin(), alice.did);
         assert_ok!(Identity::leave_identity_as_identity(
             bob.origin(),
