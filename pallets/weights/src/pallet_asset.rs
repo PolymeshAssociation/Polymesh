@@ -106,11 +106,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    fn remove_primary_issuance_agent() -> Weight {
-        (135_788_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
     fn claim_classic_ticker() -> Weight {
         (421_669_000 as Weight)
             .saturating_add(DbWeight::get().reads(9 as Weight))
@@ -119,11 +114,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
     fn reserve_classic_ticker() -> Weight {
         (103_041_000 as Weight)
             .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    fn accept_primary_issuance_agent_transfer() -> Weight {
-        (213_269_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
     fn controller_transfer() -> Weight {

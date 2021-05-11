@@ -48,6 +48,7 @@ impl<'de> Deserialize<'de> for EthereumAddress {
     }
 }
 
+/// A signed message according to the Ethereum protocol.
 #[derive(Encode, Decode, Clone)]
 pub struct EcdsaSignature(pub [u8; 65]);
 

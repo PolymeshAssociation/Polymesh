@@ -63,7 +63,6 @@ use frame_support::{
     IterableStorageDoubleMap, StorageHasher, Twox128,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
-use pallet_asset as asset;
 use pallet_base::ensure_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -71,7 +70,7 @@ use polymesh_common_utilities::{
         queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
         schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
-    traits::{identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
+    traits::{asset, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -84,7 +83,8 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Module<T>;
-type Asset<T> = asset::Module<T>;
+type Asset<T> = pallet_asset::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 pub trait Trait:
     frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
@@ -752,7 +752,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             if enabled {
                 VenueFiltering::insert(ticker, enabled);
             } else {
@@ -770,7 +770,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::insert(&ticker, venue, true);
             }
@@ -786,7 +786,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
-            let did = <Asset<T>>::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::remove(&ticker, venue);
             }

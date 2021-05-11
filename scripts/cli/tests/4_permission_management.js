@@ -25,7 +25,7 @@ async function main() {
   let portfolios = [];
   let assets = [];
   let documents = [];
-  
+
   await reqImports.distributePolyBatch(api, [primary_keys[0]], reqImports.transfer_amount, alice);
   await reqImports.issueTokenPerDid(api, [primary_keys[0]], ticker, 1000000, null);
   await addSecondaryKeys(api, primary_keys, secondary_keys);
@@ -94,7 +94,7 @@ async function addDocuments(api, ticker, docs, signer) {
 }
 
 async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amount) {
-  try {   
+  try {
     const primaryKeyDid = await reqImports.getDid(api, primary_key);
     const secondaryKeyDid = await reqImports.getDid(api, secondary_key);
     const portfolioNum = (await nextPortfolioNumber(api, secondaryKeyDid)) - 1;
@@ -103,19 +103,19 @@ async function movePortfolioFunds(api, primary_key, secondary_key, ticker, amoun
       did: primaryKeyDid,
       kind: 'Default'
     }
-    
+
     const to = {
       did: secondaryKeyDid,
       kind: {User: portfolioNum}
     }
-    
+
     const items = [
       {
         ticker,
         amount
       }
     ]
-    
+
     const transaction = api.tx.portfolio.movePortfolioFunds(from, to, items);
     let tx = await reqImports.sendTx(secondary_key, transaction);
     if(tx !== -1) reqImports.fail_count--;
@@ -133,7 +133,7 @@ async function setPortfolio(api, portfolioArray, key, type) {
   let keyDid = await reqImports.getDid(api, key);
 
   switch(type) {
-    case 'user': 
+    case 'user':
       const portfolioNum = (await nextPortfolioNumber(api, keyDid)) - 1;
       let userPortfolio = {
         did: keyDid,
@@ -178,9 +178,9 @@ async function setPermissionToSigner(api, accounts, secondary_accounts, extrinsi
 async function addSecondaryKeys(api, accounts, secondary_accounts) {
   const emptyPermissions =
   {
-    "asset": [],
-    "extrinsic": [],
-    "portfolio": []
+    "asset": { "These": [] },
+    "extrinsic": { "These": [] },
+    "portfolio": { "These": [] }
   };
 
   for (let i = 0; i < accounts.length; i++) {

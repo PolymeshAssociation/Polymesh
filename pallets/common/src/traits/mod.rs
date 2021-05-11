@@ -61,7 +61,10 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 pub mod asset;
 pub mod balances;
+pub mod checkpoint;
 pub mod compliance_manager;
+pub mod contracts;
+pub mod external_agents;
 pub mod governance_group;
 pub mod group;
 pub mod identity;
@@ -72,6 +75,7 @@ pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
+pub mod statistics;
 
 pub trait TestUtilsFn<AccountId> {
     /// Creates a new did and attaches a CDD claim to it.

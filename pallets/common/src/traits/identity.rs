@@ -33,8 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
-    IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
+    agent::AgentGroup, secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName,
+    IdentityClaim, IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -98,10 +98,15 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 }
 
-/// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
-pub trait IdentityToCorporateAction {
-    /// Accept CAA transfer to `did` with `auth_id` as authorization id.
-    fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult;
+/// The link between the identity and external agents pallet for becoming agent authorization.
+pub trait IdentityToExternalAgents {
+    /// Accept from `from`, for `did`, the role as an agent of `ticker` with `group`.
+    fn accept_become_agent(
+        did: IdentityId,
+        from: IdentityId,
+        ticker: Ticker,
+        group: AgentGroup,
+    ) -> DispatchResult;
 }
 
 /// The module's configuration trait.
@@ -136,8 +141,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
 
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
-    /// Negotiates between Corporate Actions and the Identity pallet.
-    type CorporateAction: IdentityToCorporateAction;
+
+    /// Negotiates between External Agents and the Identity pallet.
+    type ExternalAgents: IdentityToExternalAgents;
 
     /// Identity functions
     type IdentityFn: IdentityFnTrait<Self::AccountId>;

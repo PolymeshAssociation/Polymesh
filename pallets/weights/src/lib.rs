@@ -27,6 +27,7 @@ pub mod pallet_committee;
 pub mod pallet_compliance_manager;
 pub mod pallet_corporate_actions;
 pub mod pallet_corporate_ballot;
+pub mod pallet_external_agents;
 pub mod pallet_grandpa;
 pub mod pallet_group;
 pub mod pallet_identity;

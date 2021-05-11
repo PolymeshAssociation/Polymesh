@@ -194,7 +194,7 @@ impl polymesh_common_utilities::traits::identity::Trait for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateAction;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -376,6 +376,7 @@ construct_runtime!(
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
     }
 );
 
@@ -426,9 +427,10 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
+            add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
-            add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
+            add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);

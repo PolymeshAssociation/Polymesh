@@ -118,7 +118,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityFnTrait, IdentityToCorporateAction, RawEvent,
+            AuthorizationNonce, IdentityFnTrait, IdentityToExternalAgents as _, RawEvent,
             SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
@@ -128,14 +128,14 @@ use polymesh_common_utilities::{
     },
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
+use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord,
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
     AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim, ClaimType,
-    DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, PalletName,
-    Permissions, Scope, ScopeId, SecondaryKey, Signatory, SubsetRestriction, Ticker,
+    DispatchableName, ExtrinsicPermissions, Identity as DidRecord, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, Permissions, Scope, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -578,36 +578,41 @@ decl_module! {
             let (auth, signer) = Self::ensure_authorization(&signer_did, auth_id)
                 .map(|a| (a, signer_did))
                 .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
+            let from = auth.authorized_by;
 
-            match (signer, auth.authorization_data) {
-                (sig, AuthorizationData::AddMultiSigSigner(_)) => T::MultiSig::accept_multisig_signer(sig, auth_id),
+            Self::ensure_auth_unexpired(auth.expiry)?;
+
+            match (signer.clone(), auth.authorization_data) {
+                (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
-                (Signatory::Identity(did), AuthorizationData::TransferTicker(_)) =>
-                    T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
-                (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(_)) =>
-                    T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
-                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(_)) =>
-                    T::CorporateAction::accept_corporate_action_agent_transfer(did, auth_id),
-                (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(_)) =>
-                    T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
-                (Signatory::Identity(did), AuthorizationData::PortfolioCustody(_)) =>
-                    T::Portfolio::accept_portfolio_custody(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
+                    T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
+                (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
+                    T::ExternalAgents::accept_become_agent(did, from, ticker, group),
+                (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(ticker)) =>
+                    T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, from, ticker),
+                (Signatory::Identity(did), AuthorizationData::PortfolioCustody(pid)) =>
+                    T::Portfolio::accept_portfolio_custody(did, from, pid),
                 (Signatory::Account(key), AuthorizationData::RotatePrimaryKey(_)) =>
-                    Self::accept_primary_key_rotation(key , auth_id, None),
+                    Self::unsafe_primary_key_rotation(key, from, None),
                 (_,
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
                     | AuthorizationData::NoData
+                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
+                    | AuthorizationData::TransferCorporateActionAgent(..)
                 )
                 | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
                 | (Signatory::Account(_),
                     AuthorizationData::TransferTicker(..)
-                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
-                    | AuthorizationData::TransferCorporateActionAgent(..)
+                    | AuthorizationData::BecomeAgent(..)
                     | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::PortfolioCustody(..)
                 ) => Err(Error::<T>::UnknownAuthorization.into())
-            }
+            }?;
+
+            Self::unchecked_take_auth(&signer, auth_id, auth.authorized_by);
+            Ok(())
         }
 
         /// It adds secondary keys to target identity `id`.
@@ -904,20 +909,15 @@ impl<T: Trait> Module<T> {
 
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
-        let auth = Self::ensure_authorization(&signer, auth_id)?;
-
-        let permissions = match auth.authorization_data {
-            AuthorizationData::JoinIdentity(permissions) => Ok(permissions),
-            _ => Err(AuthorizationError::Invalid),
-        }?;
-
-        // Not really needed unless we allow identities to be deleted.
-        Self::ensure_id_record_exists(auth.authorized_by)?;
-
-        let auth = Self::check_auth(auth.authorized_by, &signer, auth_id)?;
-        Self::base_join_identity(auth.authorized_by, permissions.into(), &signer)?;
-        Self::unchecked_take_auth(&signer, &auth);
-        Ok(())
+        Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
+            let permissions = match data {
+                AuthorizationData::JoinIdentity(p) => Ok(p),
+                _ => Err(AuthorizationError::Invalid),
+            }?;
+            // Not really needed unless we allow identities to be deleted.
+            Self::ensure_id_record_exists(auth_by)?;
+            Self::base_join_identity(auth_by, permissions.into(), &signer)
+        })
     }
 
     /// Joins an identity as signer
@@ -1011,7 +1011,7 @@ impl<T: Trait> Module<T> {
 
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn unsafe_remove_auth(
+    fn unsafe_remove_auth(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
         authorizer: &IdentityId,
@@ -1030,63 +1030,70 @@ impl<T: Trait> Module<T> {
     }
 
     /// Consumes an authorization, removing it from storage.
-    pub fn unchecked_take_auth(
+    fn unchecked_take_auth(
         target: &Signatory<T::AccountId>,
-        auth: &Authorization<T::AccountId, T::Moment>,
+        auth_id: u64,
+        authorized_by: IdentityId,
     ) {
-        <Authorizations<T>>::remove(&target, auth.auth_id);
-        <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth.auth_id);
+        <Authorizations<T>>::remove(&target, auth_id);
+        <AuthorizationsGiven<T>>::remove(authorized_by, auth_id);
         Self::deposit_event(RawEvent::AuthorizationConsumed(
             target.as_identity().cloned(),
             target.as_account().cloned(),
-            auth.auth_id,
+            auth_id,
         ));
     }
 
-    /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn check_auth(
-        from: IdentityId,
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        let auth = Self::ensure_authorization(target, auth_id)?;
-        ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
-        if let Some(expiry) = auth.expiry {
+    /// Given that `auth_by` is the DID that issued an authorization,
+    /// ensure that it matches `from`, or otherwise return an error.
+    pub fn ensure_auth_by(auth_by: IdentityId, from: IdentityId) -> DispatchResult {
+        ensure!(auth_by == from, AuthorizationError::Unauthorized);
+        Ok(())
+    }
+
+    /// Ensure that `expiry`, if provided, is in the future.
+    fn ensure_auth_unexpired(
+        expiry: Option<<T as pallet_timestamp::Trait>::Moment>,
+    ) -> DispatchResult {
+        if let Some(expiry) = expiry {
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
-        Ok(auth)
+        Ok(())
     }
 
-    pub fn ensure_authorization(
+    /// Accepts an authorization `auth_id` as `signer`,
+    /// executing `accepter` for case-specific additional validation and storage changes.
+    ///
+    /// Used when encoding one-off authorization-accepting extrinsics,
+    /// as opposed to `accept_authorization`.
+    pub fn accept_auth_with(
+        signer: &Signatory<T::AccountId>,
+        auth_id: u64,
+        accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
+    ) -> DispatchResult {
+        let auth = Self::ensure_authorization(signer, auth_id)?;
+        Self::ensure_auth_unexpired(auth.expiry)?;
+        accepter(auth.authorization_data, auth.authorized_by)?;
+        Self::unchecked_take_auth(signer, auth.auth_id, auth.authorized_by);
+        Ok(())
+    }
+
+    /// Return and ensure that there's an authorization `auth_id` for `target`.
+    fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
         Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
+    /// Returns the authorization `auth_id` for `target`, if any.
     fn maybe_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        if Self::has_authorization(target, auth_id) {
-            Some(Self::get_authorization(target, auth_id))
-        } else {
-            None
-        }
-    }
-
-    /// Returns `true` if `target` has the given `auth_id`.
-    fn has_authorization(target: &Signatory<T::AccountId>, auth_id: u64) -> bool {
         <Authorizations<T>>::contains_key(target, auth_id)
-    }
-
-    /// Fetches a particular authorization.
-    pub fn get_authorization(
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Authorization<T::AccountId, T::Moment> {
-        <Authorizations<T>>::get(target, auth_id)
+            .then(|| <Authorizations<T>>::get(target, auth_id))
     }
 
     /// Accepts a primary key rotation.
@@ -1096,26 +1103,13 @@ impl<T: Trait> Module<T> {
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
         let signer = Signatory::Account(sender.clone());
-        // ensure authorization is present
-        ensure!(
-            Self::has_authorization(&signer, rotation_auth_id),
-            Error::<T>::InvalidAuthorizationFromOwner
-        );
-
-        // Accept authorization from the owner
-        let rotation_auth = Self::get_authorization(&signer, rotation_auth_id);
-
-        if let AuthorizationData::RotatePrimaryKey(rotation_for_did) =
-            rotation_auth.authorization_data
-        {
-            // consume owner's authorization
-            let auth = Self::check_auth(rotation_for_did, &signer, rotation_auth_id)?;
-            Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)?;
-            Self::unchecked_take_auth(&signer, &auth);
-            Ok(())
-        } else {
-            Err(Error::<T>::UnknownAuthorization.into())
-        }
+        Self::accept_auth_with(&signer, rotation_auth_id, |data, _| {
+            let rotation_for_did = match data {
+                AuthorizationData::RotatePrimaryKey(r) => r,
+                _ => fail!(Error::<T>::UnknownAuthorization),
+            };
+            Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
+        })
     }
 
     /// Processes primary key rotation.
@@ -1126,39 +1120,27 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // Aceept authorization from CDD service provider
         if Self::cdd_auth_for_primary_key_rotation() {
-            let cdd_auth_id = optional_cdd_auth_id
+            let auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
             let signer = Signatory::Account(sender.clone());
-            ensure!(
-                Self::has_authorization(&signer, cdd_auth_id),
-                Error::<T>::InvalidAuthorizationFromCddProvider
-            );
-            let cdd_auth = <Authorizations<T>>::get(&signer, cdd_auth_id);
-
-            match cdd_auth.authorization_data {
-                AuthorizationData::AttestPrimaryKeyRotation(ref attestation_for_did) => {
-                    // Attestor must be a CDD service provider.
-                    ensure!(
-                        T::CddServiceProviders::is_member(&cdd_auth.authorized_by),
-                        Error::<T>::NotCddProviderAttestation
-                    );
-
-                    // Ensure authorizations are for the same DID.
-                    ensure!(
-                        rotation_for_did == *attestation_for_did,
-                        Error::<T>::AuthorizationsNotForSameDids
-                    );
-
-                    // Consume CDD service provider's authorization.
-                    // Here we pass the known authorising identity to `check_auth`,
-                    // rather than the expected authorising identity,
-                    // as we've already checked the validity above.
-                    let auth = Self::check_auth(cdd_auth.authorized_by, &signer, cdd_auth_id)?;
-                    Self::unchecked_take_auth(&signer, &auth);
-                }
-                _ => return Err(Error::<T>::UnknownAuthorization.into()),
-            }
+            Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
+                let attestation_for_did = match data {
+                    AuthorizationData::AttestPrimaryKeyRotation(a) => a,
+                    _ => fail!(Error::<T>::UnknownAuthorization),
+                };
+                // Attestor must be a CDD service provider.
+                ensure!(
+                    T::CddServiceProviders::is_member(&auth_by),
+                    Error::<T>::NotCddProviderAttestation
+                );
+                // Ensure authorizations are for the same DID.
+                ensure!(
+                    rotation_for_did == attestation_for_did,
+                    Error::<T>::AuthorizationsNotForSameDids
+                );
+                Ok(())
+            })?;
         }
 
         ensure!(
@@ -1554,18 +1536,20 @@ impl<T: Trait> Module<T> {
         Ok(did)
     }
 
+    /// Ensures length limits are enforced in `perms`.
     fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
-        if let Some(len) = perms.asset.elems_len() {
-            ensure_length_ok::<T>(len)?;
-        }
-        if let Some(len) = perms.portfolio.elems_len() {
-            ensure_length_ok::<T>(len)?;
-        }
-        if let SubsetRestriction(Some(set)) = &perms.extrinsic {
+        ensure_length_ok::<T>(perms.asset.complexity())?;
+        ensure_length_ok::<T>(perms.portfolio.complexity())?;
+        Self::ensure_extrinsic_perms_length_limited(&perms.extrinsic)
+    }
+
+    /// Ensures length limits are enforced in `perms`.
+    pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
+        if let Some(set) = perms.inner() {
             ensure_length_ok::<T>(set.len())?;
             for elem in set {
                 ensure_string_limited::<T>(&elem.pallet_name)?;
-                if let SubsetRestriction(Some(set)) = &elem.dispatchable_names {
+                if let Some(set) = elem.dispatchable_names.inner() {
                     ensure_length_ok::<T>(set.len())?;
                     for elem in set {
                         ensure_string_limited::<T>(elem)?;

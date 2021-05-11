@@ -86,7 +86,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_base::ensure_length_ok;
-use pallet_identity as identity;
+use pallet_external_agents::Trait as EATrait;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
     asset::AssetFnTrait,
@@ -101,18 +101,19 @@ use polymesh_primitives::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
     proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
-    IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    Context, IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
 
-type Identity<T> = identity::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait + EATrait
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
@@ -205,7 +206,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             // Bundle as a requirement.
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
@@ -240,7 +241,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
                 let before = requirements.len();
@@ -266,7 +267,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -296,7 +297,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             AssetCompliances::remove(ticker);
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
         }
@@ -340,7 +341,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
 
             // Ensure the new `issuer` is limited; the existing ones we have previously checked.
@@ -377,7 +378,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
                 let len = issuers.len();
                 issuers.retain(|ti| ti.issuer != issuer);
@@ -401,7 +402,7 @@ decl_module! {
             new_req.receiver_conditions.len() as u32,
         )]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -493,7 +494,6 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
-        primary_issuance_agent: IdentityId,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
@@ -514,11 +514,7 @@ impl<T: Trait> Module<T> {
             ConditionType::IsIdentity(_) => Right(core::iter::empty()),
         };
 
-        proposition::Context {
-            claims,
-            id,
-            primary_issuance_agent,
-        }
+        proposition::Context { claims, id }
     }
 
     /// Loads the context for each condition in `conditions` and verifies that all of them evaluate to `true`.
@@ -526,12 +522,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
-        primary_issuance_agent: IdentityId,
     ) -> bool {
         let slot = &mut None;
-        conditions.iter().all(|condition| {
-            Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent, slot)
-        })
+        conditions
+            .iter()
+            .all(|condition| Self::is_condition_satisfied(ticker, did, condition, slot))
     }
 
     /// Checks whether the given condition is satisfied or not.
@@ -539,11 +534,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         condition: &Condition,
-        primary_issuance_agent: IdentityId,
         slot: &mut Option<Vec<TrustedIssuer>>,
     ) -> bool {
-        let context = Self::fetch_context(did, ticker, slot, &condition, primary_issuance_agent);
-        proposition::run(&condition, context)
+        let context = Self::fetch_context(did, ticker, slot, &condition);
+        let any_ea = |ctx: Context<_>| ExternalAgents::<T>::agents(ticker, ctx.id).is_some();
+        proposition::run(&condition, context, any_ea)
     }
 
     /// Returns whether all conditions, in their proper context, hold when evaluated.
@@ -553,14 +548,10 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut [ConditionResult],
-        primary_issuance_agent: IdentityId,
     ) -> bool {
-        conditions.iter_mut().fold(true, |result, condition| {
-            let cond = &condition.condition;
-            let issuers = &mut None;
-            let context = Self::fetch_context(did, ticker, issuers, cond, primary_issuance_agent);
-            condition.result = proposition::run(cond, context);
-            result & condition.result
+        conditions.iter_mut().fold(true, |overall, res| {
+            res.result = Self::is_condition_satisfied(ticker, did, &res.condition, &mut None);
+            overall & res.result
         })
     }
 
@@ -570,7 +561,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {
-        let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
         Ok(did)
     }
@@ -644,8 +635,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        _value: T::Balance,
-        primary_issuance_agent: IdentityId,
+        _: T::Balance,
     ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
@@ -653,26 +643,16 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
 
-        for requirement in asset_compliance.requirements {
+        for req in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                if !Self::are_all_conditions_satisfied(
-                    ticker,
-                    from_did,
-                    &requirement.sender_conditions,
-                    primary_issuance_agent,
-                ) {
+                if !Self::are_all_conditions_satisfied(ticker, from_did, &req.sender_conditions) {
                     // Skips checking receiver conditions because sender conditions are not satisfied.
                     continue;
                 }
             }
 
             if let Some(to_did) = to_did_opt {
-                if Self::are_all_conditions_satisfied(
-                    ticker,
-                    to_did,
-                    &requirement.receiver_conditions,
-                    primary_issuance_agent,
-                ) {
+                if Self::are_all_conditions_satisfied(ticker, to_did, &req.receiver_conditions) {
                     // All conditions satisfied, return early
                     return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
@@ -689,39 +669,24 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
     ) -> AssetComplianceResult {
-        let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(ticker);
-        let asset_compliance = Self::asset_compliance(ticker);
+        let mut compliance_with_results =
+            AssetComplianceResult::from(Self::asset_compliance(ticker));
 
-        let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-
-        for requirements in &mut asset_compliance_with_results.requirements {
-            if let Some(from_did) = from_did_opt {
-                // Evaluate all sender conditions
-                if !Self::evaluate_conditions(
-                    ticker,
-                    from_did,
-                    &mut requirements.sender_conditions,
-                    primary_issuance_agent,
-                ) {
-                    // If the result of any of the sender conditions was false, set this requirements result to false.
-                    requirements.result = false;
-                }
+        // Evaluates all conditions.
+        // False result in any of the conditions => False requirement result.
+        let eval = |did: Option<_>, conds| {
+            did.filter(|did| !Self::evaluate_conditions(ticker, *did, conds))
+                .is_some()
+        };
+        for req in &mut compliance_with_results.requirements {
+            if eval(from_did_opt, &mut req.sender_conditions) {
+                req.result = false;
             }
-            if let Some(to_did) = to_did_opt {
-                // Evaluate all receiver conditions
-                if !Self::evaluate_conditions(
-                    ticker,
-                    to_did,
-                    &mut requirements.receiver_conditions,
-                    primary_issuance_agent,
-                ) {
-                    // If the result of any of the receiver conditions was false, set this requirements result to false.
-                    requirements.result = false;
-                }
+            if eval(to_did_opt, &mut req.receiver_conditions) {
+                req.result = false;
             }
-
-            asset_compliance_with_results.result |= requirements.result;
+            compliance_with_results.result |= req.result;
         }
-        asset_compliance_with_results
+        compliance_with_results
     }
 }

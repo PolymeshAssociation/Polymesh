@@ -195,7 +195,7 @@ impl polymesh_common_utilities::traits::identity::Trait for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateAction;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -354,6 +354,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 43,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
         Base: pallet_base::{Module, Call, Event} = 45,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
     }
 );
 
