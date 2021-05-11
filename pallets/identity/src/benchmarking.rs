@@ -270,19 +270,6 @@ benchmarks! {
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
     }: _(caller.origin, target.did(), claim, Some(666u32.into()))
 
-    forwarded_call {
-        // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
-        // The weight of the forwarded call must be added to the weight calculated by this benchmark.
-        let target = UserBuilder::<T>::default().generate_did().build("target");
-        let key = UserBuilder::<T>::default().generate_did().build("key");
-
-        let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
-        let boxed_proposal = Box::new(call);
-
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &Signatory::Identity(key.did()));
-        Module::<T>::set_context_did(Some(key.did()));
-    }: _(key.origin, target.did(), boxed_proposal)
-
     revoke_claim {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");
         Module::<T>::add_investor_uniqueness_claim(caller.origin.clone().into(), caller.did(), claim.clone(), proof, Some(666u32.into())).unwrap();

@@ -30,11 +30,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AssetPermissions, AuthorizationData, AuthorizationError,
-    AuthorizationType, CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
-    TransactionError,
+    investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName,
+    PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory,
+    SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -1998,7 +1997,7 @@ fn add_investor_uniqueness_claim() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Charlie.public()])
         .build()
-        .execute_with(|| do_add_investor_uniqueness_claim());
+        .execute_with(do_add_investor_uniqueness_claim);
 }
 
 fn do_add_investor_uniqueness_claim() {
@@ -2136,4 +2135,63 @@ fn add_investor_uniqueness_claim_v2_data(
             Err(Error::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
+}
+
+fn setup_join_identity(source: &User, target: &User) {
+    assert_ok!(Identity::add_authorization(
+        source.origin(),
+        target.did.into(),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None
+    ));
+    let auth_id = get_last_auth_id(&target.did.into());
+    assert_ok!(Identity::join_identity(target.did.into(), auth_id));
+}
+
+#[test]
+fn ext_join_identity_as_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        // Check non-exist authorization
+        assert_noop!(
+            Identity::join_identity_as_identity(bob.origin(), 0),
+            "Authorization does not exist"
+        );
+
+        // Add add authorization to later accept
+        assert_ok!(Identity::add_authorization(
+            alice.origin(),
+            bob.did.into(),
+            AuthorizationData::Custom(Ticker::default()),
+            None
+        ));
+
+        // Try joining with wrong authorization type
+        let auth_id = get_last_auth_id(&bob.did.into());
+        assert_noop!(
+            Identity::join_identity_as_identity(bob.origin(), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        setup_join_identity(&alice, &bob);
+    });
+}
+#[test]
+fn ext_leave_identity_as_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        setup_join_identity(&alice, &bob);
+
+        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
+        // Try to leave own identity
+        assert_noop!(leave(alice), IdentityError::NotASigner);
+        // Try to leave a identity that has no signers
+        assert_noop!(leave(charlie), IdentityError::NotASigner);
+        assert_ok!(leave(bob));
+    });
 }

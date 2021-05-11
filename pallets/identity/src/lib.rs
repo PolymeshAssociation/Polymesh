@@ -67,7 +67,6 @@
 //! - `join_identity_as_key` - Join an identity as a secondary key.
 //! - `join_identity_as_identity` - Join an identity as a secondary identity.
 //! - `add_claim` - Adds a new claim record or edits an existing one.
-//! - `forwarded_call` - Creates a call on behalf of another DID.
 //! - `revoke_claim` - Marks the specified claim as revoked.
 //! - `revoke_claim_by_index` - Revoke a claim identified by its index.
 //! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
@@ -97,21 +96,20 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use confidential_identity::ScopeClaimProof;
-use core::convert::{From, TryInto};
+use core::convert::From;
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult},
     ensure, fail,
-    traits::{ChangeMembers, Currency, EnsureOrigin, Get, GetCallMetadata, InitializeMembers},
+    traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
-        GetDispatchInfo, Pays, Weight,
+        Pays, Weight,
     },
     StorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_base::{ensure_length_ok, ensure_string_limited};
-use pallet_permissions::with_call_metadata;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -125,7 +123,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
@@ -143,8 +141,7 @@ use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
-        AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
-        Verify, Zero,
+        AccountIdConversion, CheckedAdd, Hash, IdentifyAccount, SaturatedConversion, Verify, Zero,
     },
     AnySignature,
 };
@@ -458,55 +455,6 @@ decl_module! {
                     Ok(())
                 }
             }
-        }
-
-        /// Creates a call on behalf of another DID.
-        #[weight = <T as Trait>::WeightInfo::forwarded_call().saturating_add(proposal.get_dispatch_info().weight)]
-        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
-
-            // 1. Constraints.
-            // 1.2. Check that primary_did is a secondary key of target_did
-            ensure!(
-                Self::is_signer_authorized(target_did, &Signatory::Identity(primary_did)),
-                Error::<T>::CurrentIdentityCannotBeForwarded
-            );
-
-            // 1.3. Check that target_did has a CDD.
-            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
-
-            // 1.4 Check that the forwarded call is not recursive
-            let metadata = proposal.get_call_metadata();
-            ensure!(
-                !(metadata.pallet_name == "Identity" && metadata.function_name == "forwarded_call"),
-                Error::<T>::RecursionNotAllowed
-            );
-
-            // 1.5 charge fee
-            T::ChargeTxFeeTarget::charge_fee(
-                proposal.encode().len().try_into().unwrap_or_default(),
-                proposal.get_dispatch_info()
-            ).map_err(|_| Error::<T>::FailedToChargeFee)?;
-
-            // 2. Actions
-            T::CddHandler::set_current_identity(&target_did);
-
-            Self::deposit_event(RawEvent::ForwardedCall(primary_did.clone(), target_did.clone(), metadata.pallet_name.as_bytes().into(), metadata.function_name.as_bytes().into()));
-
-            // Also set current_did roles when acting as a secondary key for target_did
-            // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = RawOrigin::Signed(sender).into();
-            let actual_weight = with_call_metadata(proposal.get_call_metadata(), || proposal.dispatch(new_origin))
-                .unwrap_or_else(|e| e.post_info)
-                .actual_weight;
-
-            // If actual_weight retrieve from the proposal is `None` then refunds = 0
-            // otherwise refunds = ((500_000_000 + proposal.get_dispatch_info().weight) - `actual_weight of proposal + 500_000_000`).
-            Ok((actual_weight.map(|w| w + 500_000_000)).into())
         }
 
         /// Marks the specified claim as revoked.

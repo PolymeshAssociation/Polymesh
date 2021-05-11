@@ -86,7 +86,6 @@ pub trait WeightInfo {
     fn leave_identity_as_key() -> Weight;
     fn leave_identity_as_identity() -> Weight;
     fn add_claim() -> Weight;
-    fn forwarded_call() -> Weight;
     fn revoke_claim() -> Weight;
     fn set_permission_to_signer() -> Weight;
     fn freeze_secondary_keys() -> Weight;
