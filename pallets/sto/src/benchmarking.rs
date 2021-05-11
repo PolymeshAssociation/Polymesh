@@ -1,5 +1,6 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
+use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
 use pallet_settlement::{
     benchmarking::{add_transfer_managers, compliance_setup},
@@ -16,7 +17,7 @@ const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
 
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
-pub type Identity<T> = identity::Module<T>;
+pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
@@ -39,8 +40,7 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Ticker>(a, Some(ticker))
-            .unwrap();
+        make_asset::<T>(a, Some(ticker.as_slice()));
         compliance_setup::<T>(
             complexity,
             ticker,

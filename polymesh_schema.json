@@ -81,14 +81,42 @@
         },
         "PalletName": "Text",
         "DispatchableName": "Text",
+        "AssetPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<Ticker>",
+                "Except": "Vec<Ticker>"
+            }
+        },
+        "PortfolioPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<PortfolioId>",
+                "Except": "Vec<PortfolioId>"
+            }
+        },
+        "DispatchableNames": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<DispatchableName>",
+                "Except": "Vec<DispatchableName>"
+            }
+        },
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "dispatchable_names": "Option<Vec<DispatchableName>>"
+            "dispatchable_names": "DispatchableNames"
+        },
+        "ExtrinsicPermissions": {
+            "_enum": {
+                "Whole": "",
+                "These": "Vec<PalletPermissions>",
+                "Except": "Vec<PalletPermissions>"
+            }
         },
         "Permissions": {
-            "asset": "Option<Vec<Ticker>>",
-            "extrinsic": "Option<Vec<PalletPermissions>>",
-            "portfolio": "Option<Vec<PortfolioId>>"
+            "asset": "AssetPermissions",
+            "extrinsic": "ExtrinsicPermissions",
+            "portfolio": "PortfolioPermissions"
         },
         "LegacyPalletPermissions": {
             "pallet_name": "PalletName",
@@ -664,10 +692,6 @@
                 "TransferCorporateActionAgent": "Ticker"
             }
         },
-        "AuthIdentifier": {
-            "signatory": "Signatory",
-            "auth_id": "u64"
-        },
         "SmartExtensionType": {
             "_enum": {
                 "TransferManager": "",
@@ -1032,7 +1056,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "PrimaryIssuanceAgent": "",
+                "ExternalAgent": "",
                 "Specific": "IdentityId"
             }
         },
@@ -1193,6 +1217,16 @@
         "TransferManagerResult": {
             "tm": "TransferManager",
             "result": "bool"
+        },
+        "AGId": "u32",
+        "AgentGroup": {
+            "_enum": {
+                "Full": "",
+                "Custom": "AGId",
+                "Meta": "",
+                "PolymeshV1CAA": "",
+                "PolymeshV1PIA": ""
+            }
         }
     },
     "rpc": {

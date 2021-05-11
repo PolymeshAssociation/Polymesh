@@ -48,17 +48,16 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    storage::StorageValue, weights::Weight, IterableStorageDoubleMap,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, storage::StorageValue,
+    weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait, traits::portfolio::PortfolioSubTrait, CommonTrait,
-};
+use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+pub use polymesh_common_utilities::traits::portfolio::{Event, RawEvent, Trait, WeightInfo};
+use polymesh_common_utilities::CommonTrait;
 use polymesh_primitives::{
-    identity_id::PortfolioValidityResult, storage_migration_ver, AuthorizationData,
-    AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Signatory, Ticker,
+    identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};
@@ -74,19 +73,6 @@ pub struct MovePortfolioItem<Balance> {
     pub ticker: Ticker,
     /// The balance of the asset to be moved.
     pub amount: Balance,
-}
-
-pub trait WeightInfo {
-    fn create_portfolio() -> Weight;
-    fn delete_portfolio() -> Weight;
-    fn move_portfolio_funds(i: u32) -> Weight;
-    fn rename_portfolio(i: u32) -> Weight;
-    fn quit_portfolio_custody() -> Weight;
-}
-
-pub trait Trait: CommonTrait + IdentityTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -122,61 +108,6 @@ decl_storage! {
     }
 }
 
-decl_event! {
-    pub enum Event<T> where
-        Balance = <T as CommonTrait>::Balance,
-    {
-        /// The portfolio has been successfully created.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
-        /// The portfolio has been successfully removed.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        PortfolioDeleted(IdentityId, PortfolioNumber),
-        /// A token amount has been moved from one portfolio to another.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * source portfolio
-        /// * destination portfolio
-        /// * asset ticker
-        /// * asset balance that was moved
-        MovedBetweenPortfolios(
-            IdentityId,
-            PortfolioId,
-            PortfolioId,
-            Ticker,
-            Balance
-        ),
-        /// The portfolio identified with `num` has been renamed to `name`.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio number
-        /// * portfolio name
-        PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
-        /// All non-default portfolio numbers and names of a DID.
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * vector of number-name pairs
-        UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
-        /// Custody of a portfolio has been given to a different identity
-        ///
-        /// # Parameters
-        /// * origin DID
-        /// * portfolio id
-        /// * portfolio custodian did
-        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
-    }
-}
-
 decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The portfolio doesn't exist.
@@ -191,8 +122,6 @@ decl_error! {
         SecondaryKeyNotAuthorizedForPortfolio,
         /// The porfolio's custody is with someone other than the caller.
         UnauthorizedCustodian,
-        /// The authorization is for something other than portfolio custody
-        IrrelevantAuthorization,
         /// Can not unlock more tokens than what are locked
         InsufficientTokensLocked,
         /// The portfolio still has some asset balance left
@@ -584,48 +513,25 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
-    /// Accepts custody of a portfolio. The authorization must have been issued by the current custodian.
-    ///
-    /// # Errors
-    /// * `AuthorizationError::Invalid` if auth_id reference an invalid authorization id
-    /// * `AuthorizationError::Unauthorized` if identity who created the authorization is not the current custodian
-    /// * `AuthorizationError::Expired` if the authorization has expired
-    /// * `IrrelevantAuthorization` if the authorization is for something other than a portfolio custody
-    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
-            AuthorizationError::Invalid
-        );
+    fn accept_portfolio_custody(
+        to: IdentityId,
+        from: IdentityId,
+        pid: PortfolioId,
+    ) -> DispatchResult {
+        let curr = PortfolioCustodian::get(&pid).unwrap_or(pid.did);
+        <Identity<T>>::ensure_auth_by(from, curr)?;
 
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(new_custodian), auth_id);
-
-        let portfolio_id = match auth.authorization_data {
-            AuthorizationData::PortfolioCustody(pid) => pid,
-            // Since this function is only called by the Identity pallet after making this check, this line will never be triggered.
-            // Being defensive here anyway since we might want to expose this function via other forms some day.
-            _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
-        };
-
-        let current_custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
-        let signer = Signatory::from(new_custodian);
-        let auth = <identity::Module<T>>::check_auth(current_custodian, &signer, auth_id)?;
-        <identity::Module<T>>::unchecked_take_auth(&signer, &auth);
-
-        // Transfer custody of `portfolio_id` over to `new_custodian`, removing it from `current_custodian`.
-        PortfoliosInCustody::remove(&current_custodian, &portfolio_id);
-        if portfolio_id.did == new_custodian {
+        // Transfer custody of `pid` over to `to`, removing it from `curr`.
+        PortfoliosInCustody::remove(&curr, &pid);
+        if pid.did == to {
             // Set the custodian to the default value `None` meaning that the owner is the custodian.
-            PortfolioCustodian::remove(&portfolio_id);
+            PortfolioCustodian::remove(&pid);
         } else {
-            PortfolioCustodian::insert(&portfolio_id, new_custodian);
-            PortfoliosInCustody::insert(&new_custodian, &portfolio_id, true);
+            PortfolioCustodian::insert(&pid, to);
+            PortfoliosInCustody::insert(&to, &pid, true);
         }
 
-        Self::deposit_event(RawEvent::PortfolioCustodianChanged(
-            new_custodian,
-            portfolio_id,
-            new_custodian,
-        ));
+        Self::deposit_event(RawEvent::PortfolioCustodianChanged(to, pid, to));
         Ok(())
     }
 
