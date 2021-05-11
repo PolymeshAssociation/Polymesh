@@ -1851,18 +1851,9 @@ fn ext_leave_identity_as_identity() {
 
         setup_join_identity(&alice, &bob);
 
-        let leave = |origin, did| {
-            assert_noop!(
-                Identity::leave_identity_as_identity(origin, did),
-                IdentityError::NotASigner
-            );
-        };
-
-        leave(alice.origin(), alice.did);
-        leave(charlie.origin(), alice.did);
-        assert_ok!(Identity::leave_identity_as_identity(
-            bob.origin(),
-            alice.did
-        ));
+        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
+        assert_noop!(leave(alice), IdentityError::NotASigner);
+        assert_noop!(leave(charlie), IdentityError::NotASigner);
+        assert_ok!(leave(bob));
     });
 }
