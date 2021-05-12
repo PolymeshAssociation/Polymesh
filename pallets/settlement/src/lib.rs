@@ -822,7 +822,7 @@ decl_module! {
             Self::execute_instruction_retryable(instruction_id)?;
         }
 
-        /// Reschedules a failed instruction
+        /// Reschedules a failed instruction.
         ///
         /// # Arguments
         /// * `instruction_id` - Target instruction id to reschedule.
