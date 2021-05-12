@@ -833,18 +833,6 @@ decl_module! {
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            let details = Self::instruction_details(instruction_id);
-            ensure!(
-                details.status == InstructionStatus::Failed,
-                Error::<T>::InstructionNotFailed
-            );
-            if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
-                ensure!(
-                    value_date >= trade_date,
-                    Error::<T>::InstructionDatesInvalid
-                );
-            }
-
             // Reset legs to pending along with the instruction itself
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
             legs.iter().for_each(|(leg_id, _)| <InstructionLegStatus<T>>::mutate(
