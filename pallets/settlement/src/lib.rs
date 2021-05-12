@@ -1152,7 +1152,6 @@ impl<T: Trait> Module<T> {
 
     fn prune_instruction(instruction_id: u64) {
         let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
-        <InstructionLegs<T>>::remove_prefix(instruction_id);
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
