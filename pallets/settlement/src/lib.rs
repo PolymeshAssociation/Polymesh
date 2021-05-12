@@ -822,16 +822,13 @@ decl_module! {
             Self::execute_instruction_retryable(instruction_id)?;
         }
 
-        /// Reschedules a failed instruction
+        /// Reschedules a failed instruction.
         ///
         /// # Arguments
         /// * `instruction_id` - Target instruction id to reschedule.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
-            let PermissionedCallOriginData {
-                primary_did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             // Reset legs to pending along with the instruction itself
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
@@ -1143,7 +1140,6 @@ impl<T: Trait> Module<T> {
 
     fn prune_instruction(instruction_id: u64) {
         let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
-        <InstructionLegs<T>>::remove_prefix(instruction_id);
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
