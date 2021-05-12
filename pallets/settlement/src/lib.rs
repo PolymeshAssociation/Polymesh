@@ -828,10 +828,7 @@ decl_module! {
         /// * `instruction_id` - Target instruction id to reschedule.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
-            let PermissionedCallOriginData {
-                primary_did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             let details = Self::instruction_details(instruction_id);
             ensure!(
