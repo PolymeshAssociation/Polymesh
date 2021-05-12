@@ -830,20 +830,13 @@ decl_module! {
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
-            // Reset legs to pending along with the instruction itself
-            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
-            legs.iter().for_each(|(leg_id, _)| <InstructionLegStatus<T>>::mutate(
-                instruction_id,
-                leg_id,
-                |leg| *leg = LegStatus::ExecutionPending
-            ));
             <InstructionDetails<T>>::mutate(instruction_id, |details| details.status = InstructionStatus::Pending);
 
             // Schedule instruction to be executed in the next block.
             let execution_at = system::Module::<T>::block_number() + One::one();
-            Self::schedule_instruction(instruction_id, execution_at, legs.len() as u32);
+            Self::schedule_instruction(instruction_id, execution_at, <InstructionLegs<T>>::iter_prefix(instruction_id).count() as u32);
 
-            Self::deposit_event(RawEvent::InstructionRescheduled(primary_did, instruction_id));
+            Self::deposit_event(RawEvent::InstructionRescheduled(did, instruction_id));
         }
     }
 }

@@ -1628,18 +1628,8 @@ fn failed_execution() {
 
         // Instruction should've settled
         assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(alice_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Unknown
-        );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(bob_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Unknown
+            Settlement::instruction_details(instruction_counter).status,
+            InstructionStatus::Failed
         );
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
