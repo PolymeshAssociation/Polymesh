@@ -17,6 +17,7 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use frame_support::storage::IterableStorageMap;
+use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;

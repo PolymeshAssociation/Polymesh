@@ -10,11 +10,6 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     fn set_max_details_length() -> Weight {
         (33_748_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn reset_caa() -> Weight {
-        (153_048_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
     fn set_default_targets(t: u32) -> Weight {
         (196_760_000 as Weight)
             .saturating_add((597_000 as Weight).saturating_mul(t as Weight))

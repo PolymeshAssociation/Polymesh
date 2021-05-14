@@ -20,7 +20,7 @@ use polymesh_common_utilities::{
     benchs::{AccountIdOf, UserBuilder},
     TestUtilsFn,
 };
-use polymesh_primitives::PortfolioName;
+use polymesh_primitives::{AuthorizationData, PortfolioName, Signatory};
 use sp_std::prelude::*;
 
 const PORTFOLIO_NAME_LEN: usize = 500;

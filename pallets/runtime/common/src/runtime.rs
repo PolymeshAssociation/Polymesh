@@ -266,6 +266,11 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
         }
 
+        impl pallet_external_agents::Trait for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
+        }
+
         impl pallet_asset::Trait for Runtime {
             type Event = Event;
             type Currency = Balances;

@@ -60,11 +60,6 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn forwarded_call() -> Weight {
-        (207_616_000 as Weight)
-            .saturating_add(DbWeight::get().reads(14 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
     fn revoke_claim() -> Weight {
         (159_965_000 as Weight)
             .saturating_add(DbWeight::get().reads(8 as Weight))
