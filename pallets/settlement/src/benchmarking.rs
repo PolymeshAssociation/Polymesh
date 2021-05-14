@@ -24,6 +24,7 @@ use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
     benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
+    constants::ENSURED_MAX_LEN,
     traits::asset::AssetFnTrait,
     TestUtilsFn,
 };
@@ -40,7 +41,7 @@ use sp_std::prelude::*;
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 
-const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
+const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
 const MAX_LEGS_IN_INSTRUCTION: u32 = 25;

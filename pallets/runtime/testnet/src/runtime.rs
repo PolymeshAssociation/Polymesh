@@ -292,6 +292,7 @@ construct_runtime!(
         Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
 
         // Balance: Genesis config dependencies: System.
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
@@ -301,10 +302,13 @@ construct_runtime!(
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // CddServiceProviders: Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+
+        // Bridge: Genesis config deps: Multisig, Identity,
+        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
@@ -322,7 +326,6 @@ construct_runtime!(
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
@@ -344,14 +347,9 @@ construct_runtime!(
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
-        //Polymesh
-        ////////////
-
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
 
-        // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
