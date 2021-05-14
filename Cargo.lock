@@ -4043,7 +4043,7 @@ dependencies = [
  "frame-system",
  "node-testing",
  "pallet-balances 0.1.0",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-indices",
@@ -4343,7 +4343,7 @@ dependencies = [
  "libsecp256k1",
  "pallet-balances 0.1.0",
  "pallet-base",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-external-agents",
  "pallet-identity",
  "pallet-permissions",
@@ -4555,27 +4555,6 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0#764d63d0fa805758145221816a00e45a77d96bda"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-contracts-primitives 2.0.1",
- "pallet-contracts-proc-macro 0.1.0",
- "parity-scale-codec 2.1.1",
- "parity-wasm 0.41.0",
- "pwasm-utils 0.16.0",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-sandbox 0.9.0 (git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0)",
- "sp-std",
- "wasmi-validation",
-]
-
-[[package]]
-name = "pallet-contracts"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0979c1dd82fc56a87b37311006fe56f406de027c24591353058e9e9fc56487c"
@@ -4583,14 +4562,15 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-contracts-primitives 3.0.0",
- "pallet-contracts-proc-macro 3.0.0",
+ "pallet-contracts-proc-macro",
  "parity-scale-codec 2.1.1",
  "parity-wasm 0.41.0",
  "pwasm-utils 0.16.0",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-sandbox 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-sandbox",
  "sp-std",
  "wasmi-validation",
 ]
@@ -4616,16 +4596,6 @@ dependencies = [
  "parity-scale-codec 2.1.1",
  "sp-runtime",
  "sp-std",
-]
-
-[[package]]
-name = "pallet-contracts-proc-macro"
-version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0#764d63d0fa805758145221816a00e45a77d96bda"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -5069,7 +5039,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-external-agents",
  "pallet-identity",
  "pallet-portfolio",
@@ -5903,7 +5873,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-bridge",
  "pallet-committee",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -5984,7 +5954,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "lazy_static",
- "pallet-contracts 3.0.0",
+ "pallet-contracts",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 2.1.1",
@@ -6010,7 +5980,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-base",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-identity",
  "pallet-protocol-fee",
  "parity-scale-codec 2.1.1",
@@ -6125,7 +6095,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
+ "pallet-contracts",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
@@ -6165,8 +6135,8 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
- "pallet-contracts-primitives 2.0.1",
+ "pallet-contracts",
+ "pallet-contracts-primitives 3.0.0",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -6244,8 +6214,8 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
- "pallet-contracts-primitives 2.0.1",
+ "pallet-contracts",
+ "pallet-contracts-primitives 3.0.0",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -6324,8 +6294,8 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
- "pallet-contracts-primitives 2.0.1",
+ "pallet-contracts",
+ "pallet-contracts-primitives 3.0.0",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -6412,8 +6382,8 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-contracts 2.0.1",
- "pallet-contracts-primitives 2.0.1",
+ "pallet-contracts",
+ "pallet-contracts-primitives 3.0.0",
  "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
@@ -9077,18 +9047,6 @@ dependencies = [
  "sp-io",
  "sp-std",
  "sp-wasm-interface",
-]
-
-[[package]]
-name = "sp-sandbox"
-version = "0.9.0"
-source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0#764d63d0fa805758145221816a00e45a77d96bda"
-dependencies = [
- "parity-scale-codec 2.1.1",
- "sp-core",
- "sp-io",
- "sp-std",
- "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -10992,3 +10950,8 @@ dependencies = [
  "itertools 0.9.0",
  "libc",
 ]
+
+[[patch.unused]]
+name = "pallet-contracts"
+version = "2.0.1"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0#764d63d0fa805758145221816a00e45a77d96bda"

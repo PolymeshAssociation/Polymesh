@@ -1041,7 +1041,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `expiry`, if provided, is in the future.
     fn ensure_auth_unexpired(
-        expiry: Option<<T as pallet_timestamp::Trait>::Moment>,
+        expiry: Option<<T as pallet_timestamp::Config>::Moment>,
     ) -> DispatchResult {
         if let Some(expiry) = expiry {
             let now = <pallet_timestamp::Module<T>>::get();

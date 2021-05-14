@@ -76,8 +76,8 @@ sp-block-builder = { version = "3.0.0", default-features = false }
 sp-arithmetic = { version = "3.0.0", default-features = false }
 
 pallet-authorship = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "2.0.1", default-features = false }
-pallet-contracts-primitives = { version = "2.0.1", default-features = false}
+pallet-contracts = { version = "3.0.0", default-features = false }
+pallet-contracts-primitives = { version = "3.0.0", default-features = false}
 pallet-executive = { package = "frame-executive", version = "3.0.0", default-features = false }
 pallet-grandpa = { version = "3.0.0", default-features = false }
 pallet-im-online = { version = "3.0.0", default-features = false }

@@ -212,7 +212,7 @@ decl_module! {
         }
 
         // Simply forwards to the `call` function in the Contract module.
-        #[weight = <T as pallet_contracts::Config>::WeightInfo::call().saturating_add(*gas_limit)]
+        #[weight = <T as pallet_contracts::Config>::WeightInfo::call(<T as pallet_contracts::Config>::Schedule::get().limits.code_len / 1024).saturating_add(*gas_limit)]
         pub fn call(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,

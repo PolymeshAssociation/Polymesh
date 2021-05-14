@@ -167,7 +167,7 @@ pub trait Trait:
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
-    type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
+    type ContractsFn: crate::ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Errors of migration on this pallet.

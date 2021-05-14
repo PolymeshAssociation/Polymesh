@@ -11,7 +11,7 @@ serde = { version = "1.0.104", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "2.0.1", default-features = false }
+pallet-contracts = { version = "3.0.0", default-features = false }
 sp-core = { version = "3.0.0", default-features = false }
 sp-io = { version = "3.0.0", default-features = false }
 sp-runtime = { version = "3.0.0", default-features = false }
