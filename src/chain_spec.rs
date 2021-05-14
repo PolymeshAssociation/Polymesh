@@ -310,6 +310,14 @@ fn dev_genesis_processed_data(
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 
     let mut stakers = Vec::with_capacity(initial_authorities.len());
+    identity
+        .secondary_keys
+        .reserve(initial_authorities.len() * 2 + other_funded_accounts.len());
+    let mut add_sk = |acc| {
+        identity
+            .secondary_keys
+            .push(SecondaryKey::from_account_id_with_full_perms(acc))
+    };
     for (stash, controller, ..) in initial_authorities {
         stakers.push((
             IdentityId::from(1),
@@ -318,20 +326,12 @@ fn dev_genesis_processed_data(
             BOOTSTRAP_STASH / 2,
             pallet_staking::StakerStatus::Validator,
         ));
-        identity
-            .secondary_keys
-            .push(SecondaryKey::from_account_id_with_full_perms(stash.clone()));
-        identity
-            .secondary_keys
-            .push(SecondaryKey::from_account_id_with_full_perms(
-                controller.clone(),
-            ));
+        add_sk(stash.clone());
+        add_sk(controller.clone());
     }
 
     for account in other_funded_accounts {
-        identity
-            .secondary_keys
-            .push(SecondaryKey::from_account_id_with_full_perms(account));
+        add_sk(account);
     }
 
     // Accumulate bridge transactions
