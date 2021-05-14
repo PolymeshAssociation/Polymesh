@@ -21,7 +21,6 @@ use frame_system::RawOrigin;
 use polymesh_common_utilities::{
     benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
-    constants::ENSURED_MAX_LEN,
     TestUtilsFn,
 };
 use polymesh_contracts::ExtensionInfo;
