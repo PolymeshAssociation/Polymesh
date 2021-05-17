@@ -26,7 +26,6 @@ pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", tag =
 pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 pallet-contracts-rpc = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
-pallet-finality-tracker = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
@@ -70,7 +69,6 @@ sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", tag 
 sp-core = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 sp-externalities = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 sp-finality-grandpa = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
-sp-finality-tracker = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 sp-io = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 sp-keyring = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }

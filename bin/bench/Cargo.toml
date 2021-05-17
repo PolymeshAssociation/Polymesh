@@ -30,7 +30,6 @@ sp-consensus = { version = "0.8.1" }
 sp-transaction-pool = { version = "3.0.0" }
 sc-basic-authorship = { version = "0.8.1" }
 sp-inherents = { version = "3.0.0" }
-sp-finality-tracker = { version = "3.0.0" }
 sp-timestamp = { version = "3.0.0" }
 sp-tracing = { version = "3.0.0" }
 hash-db = "0.15.2"

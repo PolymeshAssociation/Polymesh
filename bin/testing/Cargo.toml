@@ -44,7 +44,6 @@ pallet-timestamp = { version = "3.0.0" }
 pallet-treasury = { version = "3.0.0" }
 wabt = "0.10.0"
 sp-api = { version = "3.0.0" }
-sp-finality-tracker = { version = "3.0.0", default-features = false }
 sp-timestamp = { version = "3.0.0", default-features = false }
 sp-block-builder = { version = "3.0.0" }
 sc-block-builder = { version = "0.8.1" }
