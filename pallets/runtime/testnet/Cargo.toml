@@ -59,42 +59,42 @@ serde_derive = { version = "1.0.104", optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-sp-version = { version = "2.0.1", default-features = false }
-sp-api = { version = "2.0.1", default-features = false }
-sp-inherents = { version = "2.0.1", default-features = false }
-sp-offchain = { version = "2.0.1", default-features = false }
-sp-staking = { version = "2.0.1", default-features = false }
+sp-core = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-version = { version = "3.0.0", default-features = false }
+sp-api = { version = "3.0.0", default-features = false }
+sp-inherents = { version = "3.0.0", default-features = false }
+sp-offchain = { version = "3.0.0", default-features = false }
+sp-staking = { version = "3.0.0", default-features = false }
 sp-consensus-babe = { version = "0.8.1", default-features = false }
-sp-session = { version = "2.0.1", default-features = false }
-sp-authority-discovery = { version = "2.0.1", default-features = false }
-sp-transaction-pool = { version = "2.0.1", default-features = false }
-sp-block-builder = { version = "2.0.1", default-features = false }
-sp-arithmetic = { version = "2.0.1", default-features = false }
+sp-session = { version = "3.0.0", default-features = false }
+sp-authority-discovery = { version = "3.0.0", default-features = false }
+sp-transaction-pool = { version = "3.0.0", default-features = false }
+sp-block-builder = { version = "3.0.0", default-features = false }
+sp-arithmetic = { version = "3.0.0", default-features = false }
 
-pallet-authorship = { version = "2.0.1", default-features = false }
-pallet-contracts = { version = "2.0.1", default-features = false }
-pallet-contracts-primitives = { version = "2.0.1", default-features = false}
-pallet-executive = { package = "frame-executive", version = "2.0.1", default-features = false }
-pallet-finality-tracker = { version = "2.0.1", default-features = false }
-pallet-grandpa = { version = "2.0.1", default-features = false }
-pallet-im-online = { version = "2.0.1", default-features = false }
-pallet-indices = { version = "2.0.1", default-features = false }
-pallet-offences = { version = "2.0.1", default-features = false }
-pallet-session = { version = "2.0.1", default-features = false }
-pallet-timestamp = { version = "2.0.1", default-features = false }
-pallet-babe = { version = "2.0.1", default-features = false }
-pallet-authority-discovery = { version = "2.0.1", default-features = false }
-pallet-randomness-collective-flip = { version = "2.0.1", default-features = false }
-pallet-scheduler = { version = "2.0.1", default-features = false }
-pallet-staking-reward-curve = { version = "2.0.1", default-features = false }
+pallet-authorship = { version = "3.0.0", default-features = false }
+pallet-contracts = { version = "3.0.0", default-features = false }
+pallet-contracts-primitives = { version = "3.0.0", default-features = false}
+pallet-executive = { package = "frame-executive", version = "3.0.0", default-features = false }
+pallet-finality-tracker = { version = "3.0.0", default-features = false }
+pallet-grandpa = { version = "3.0.0", default-features = false }
+pallet-im-online = { version = "3.0.0", default-features = false }
+pallet-indices = { version = "3.0.0", default-features = false }
+pallet-offences = { version = "3.0.0", default-features = false }
+pallet-session = { version = "3.0.0", default-features = false }
+pallet-timestamp = { version = "3.0.0", default-features = false }
+pallet-babe = { version = "3.0.0", default-features = false }
+pallet-authority-discovery = { version = "3.0.0", default-features = false }
+pallet-randomness-collective-flip = { version = "3.0.0", default-features = false }
+pallet-scheduler = { version = "3.0.0", default-features = false }
+pallet-staking-reward-curve = { version = "3.0.0", default-features = false }
 
-frame-system = { version = "2.0.1", default-features = false }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system-rpc-runtime-api = { version = "2.0.1", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system-rpc-runtime-api = { version = "3.0.0", default-features = false }
 smallvec = "1.4.0"
 
 [build-dependencies]

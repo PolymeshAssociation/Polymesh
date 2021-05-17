@@ -229,7 +229,7 @@ sp-inherents = "2.0.1"
 sp-offchain = "2.0.1"
 sp-runtime = "2.0.1"
 sp-session = "2.0.1"
-sp-transaction-pool = { version = "2.0.1" }
+sp-transaction-pool = { version = "3.0.0" }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = "2.0.1"
