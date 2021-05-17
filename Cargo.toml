@@ -93,7 +93,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/PolymathNetwork/subs
 substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
 substrate-test-utils-derive = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0" }
-substrate-wasm-builder-runner = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0"}
+substrate-wasm-builder = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0"}
 
 [workspace]
 members = [
