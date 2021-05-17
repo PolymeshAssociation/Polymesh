@@ -46,7 +46,7 @@ export async function issueTokenToDid(
 		);
 		await sendTx(signer, transaction);
 	} else {
-		console.log("ticker exists already");
+		console.log("ticker already reserved");
 	}
 }
 
