@@ -9,11 +9,12 @@ chrono = {version = "0.4.18", default-features = false }
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true }
+rustc-hex = { version = "2.1.0", default-features = false }
 
 # Ours
 polymesh-primitives-derive = { path = "../primitives_derive", default-features = false }
 
-# Crypto 
+# Crypto
 blake2 = { version = "0.9.0", default-features = false }
 confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "MESH-1569/pius_v2_integration" }
 confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
@@ -32,6 +33,7 @@ sp-runtime = { version = "2.0.1", default-features = false }
 sp-runtime-interface = { version = "2.0.1", default-features = false }
 sp-std = { version = "2.0.1", default-features = false }
 sp-version = { version = "2.0.1", default-features = false }
+libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
 
 [dev-dependencies]
 hex = { version = "^0.4.0", default-features = false }

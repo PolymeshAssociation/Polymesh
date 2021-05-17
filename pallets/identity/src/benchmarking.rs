@@ -98,7 +98,7 @@ where
     let make_proof = v1::InvestorZKProofData::new;
     #[cfg(not(feature = "std"))]
     let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
-        let mut proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        let proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
         <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
     };
 
@@ -269,19 +269,6 @@ benchmarks! {
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
     }: _(caller.origin, target.did(), claim, Some(666u32.into()))
-
-    forwarded_call {
-        // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
-        // The weight of the forwarded call must be added to the weight calculated by this benchmark.
-        let target = UserBuilder::<T>::default().generate_did().build("target");
-        let key = UserBuilder::<T>::default().generate_did().build("key");
-
-        let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
-        let boxed_proposal = Box::new(call);
-
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &Signatory::Identity(key.did()));
-        Module::<T>::set_context_did(Some(key.did()));
-    }: _(key.origin, target.did(), boxed_proposal)
 
     revoke_claim {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");

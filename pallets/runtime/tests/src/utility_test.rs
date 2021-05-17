@@ -264,7 +264,7 @@ fn batch_secondary_with_permissions() {
 
     // Set and check Bob's permissions.
     let bob_pallet_permissions = vec![
-        PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
+        PalletPermissions::new(b"Identity".into(), SubsetRestriction::Whole),
         PalletPermissions::new(
             b"Portfolio".into(),
             SubsetRestriction::elems(vec![
@@ -274,7 +274,7 @@ fn batch_secondary_with_permissions() {
         ),
     ];
     let bob_permissions = Permissions {
-        extrinsic: SubsetRestriction(Some(bob_pallet_permissions.into_iter().collect())),
+        extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
         ..Permissions::default()
     };
     assert_ok!(Identity::set_permission_to_signer(

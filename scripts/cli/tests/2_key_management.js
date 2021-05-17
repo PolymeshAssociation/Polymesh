@@ -19,7 +19,7 @@ async function main() {
   let dave = await reqImports.generateRandomEntity(api);
 
   let primary_dev_seed = await reqImports.generateRandomKey(api);
-  
+
   let secondary_dev_seed = await reqImports.generateRandomKey(api);
 
   let primary_keys = await reqImports.generateKeys(api, 2, primary_dev_seed );

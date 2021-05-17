@@ -20,7 +20,7 @@ use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 use pallet_asset::benchmarking::make_document;
 use polymesh_common_utilities::{
-    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
+    benchs::{make_asset, user, AccountIdOf, User},
     TestUtilsFn,
 };
 
@@ -41,9 +41,7 @@ fn setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
-    let ticker =
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(&owner, None)
-            .expect("Asset cannot be created");
+    let ticker = make_asset::<T>(&owner, None);
     (owner, ticker)
 }
 
@@ -211,17 +209,6 @@ benchmarks! {
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
         assert_eq!(MaxDetailsLength::get(), 100, "Wrong length set");
-    }
-
-    reset_caa {
-        let (owner, ticker) = setup::<T>();
-        // Generally the code path for no CAA is more complex,
-        // but in this case having a different CAA already could cause more storage writes.
-        let caa = UserBuilder::<T>::default().generate_did().seed(SEED).build("caa");
-        Agent::insert(ticker, caa.did());
-    }: _(owner.origin(), ticker)
-    verify {
-        assert_eq!(Agent::get(ticker), None, "CAA not reset.");
     }
 
     set_default_targets {

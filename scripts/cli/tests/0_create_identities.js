@@ -37,7 +37,7 @@ async function createIdentities(api, accounts, alice) {
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
         let account_did = await reqImports.keyToIdentityIds(api, accounts[i].publicKey);
-   
+
         if(account_did == 0) {
 
             let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
@@ -51,7 +51,7 @@ async function createIdentities(api, accounts, alice) {
         }
         else {
           console.log('Identity Already Linked.');
-      }
+        }
       }
 
       for (let i = 0; i < accounts.length; i++) {
