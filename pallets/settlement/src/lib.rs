@@ -380,6 +380,7 @@ decl_event!(
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
         /// Instruction is rescheduled.
+        /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, u64),
     }
 );
