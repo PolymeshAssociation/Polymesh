@@ -3286,7 +3286,13 @@ fn reject_failed_instruction() {
         );
     });
 }
-fn create_instruction(alice: &User, bob: &User, venue_counter: u64, ticker: Ticker, amount: u128) -> u64 {
+fn create_instruction(
+    alice: &User,
+    bob: &User,
+    venue_counter: u64,
+    ticker: Ticker,
+    amount: u128,
+) -> u64 {
     let instruction_id = Settlement::instruction_counter();
     set_current_block_number(10);
     assert_ok!(Settlement::add_and_affirm_instruction(
