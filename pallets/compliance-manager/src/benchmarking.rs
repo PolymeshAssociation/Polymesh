@@ -25,8 +25,8 @@ use polymesh_primitives::{asset::AssetType, TrustedFor, TrustedIssuer};
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
-const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
-const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 5;
+const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
+const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
 /// Create a token issuer trusted for `Any`.

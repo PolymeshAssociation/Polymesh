@@ -28,10 +28,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
-    DispatchableName, IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions,
-    Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction,
-    Ticker, TransactionError,
+    investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -901,24 +901,7 @@ fn one_step_join_id_with_ext() {
     );
 }
 
-fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
-    test(Permissions {
-        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
-        ..<_>::default()
-    });
-    test(Permissions {
-        portfolio: SubsetRestriction::elems(
-            (0..=max_len() as u64)
-                .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
-        ),
-        ..<_>::default()
-    });
-    let test = |extrinsic| {
-        test(Permissions {
-            extrinsic,
-            ..<_>::default()
-        })
-    };
+crate fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
     test(SubsetRestriction::elems(
         (0..=max_len() as u64)
             .map(Ticker::generate)
@@ -940,6 +923,26 @@ fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
         "".into(),
         SubsetRestriction::elem(max_len_bytes(1)),
     )));
+}
+
+crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
+    test(Permissions {
+        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
+        ..<_>::default()
+    });
+    test(Permissions {
+        portfolio: SubsetRestriction::elems(
+            (0..=max_len() as u64)
+                .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
+        ),
+        ..<_>::default()
+    });
+    test_with_bad_ext_perms(|extrinsic| {
+        test(Permissions {
+            extrinsic,
+            ..<_>::default()
+        })
+    });
 }
 
 #[test]
@@ -1023,7 +1026,7 @@ fn adding_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let mut auth = Identity::get_authorization(&bob_did, auth_id);
+        let mut auth = Identity::authorizations(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
         assert_eq!(
@@ -1037,7 +1040,7 @@ fn adding_authorizations() {
             Some(100),
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        auth = Identity::get_authorization(&bob_did, auth_id);
+        auth = Identity::authorizations(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, Some(100));
         assert_eq!(
@@ -1079,7 +1082,7 @@ fn removing_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let auth = Identity::get_authorization(&bob_did, auth_id);
+        let auth = Identity::authorizations(&bob_did, auth_id);
         assert_eq!(
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
@@ -1664,7 +1667,7 @@ fn add_investor_uniqueness_claim() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Charlie.public()])
         .build()
-        .execute_with(|| do_add_investor_uniqueness_claim());
+        .execute_with(do_add_investor_uniqueness_claim);
 }
 
 fn do_add_investor_uniqueness_claim() {
@@ -1802,4 +1805,63 @@ fn add_investor_uniqueness_claim_v2_data(
             Err(IdentityError::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
+}
+
+fn setup_join_identity(source: &User, target: &User) {
+    assert_ok!(Identity::add_authorization(
+        source.origin(),
+        target.did.into(),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None
+    ));
+    let auth_id = get_last_auth_id(&target.did.into());
+    assert_ok!(Identity::join_identity(target.did.into(), auth_id));
+}
+
+#[test]
+fn ext_join_identity_as_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        // Check non-exist authorization
+        assert_noop!(
+            Identity::join_identity_as_identity(bob.origin(), 0),
+            "Authorization does not exist"
+        );
+
+        // Add add authorization to later accept
+        assert_ok!(Identity::add_authorization(
+            alice.origin(),
+            bob.did.into(),
+            AuthorizationData::Custom(Ticker::default()),
+            None
+        ));
+
+        // Try joining with wrong authorization type
+        let auth_id = get_last_auth_id(&bob.did.into());
+        assert_noop!(
+            Identity::join_identity_as_identity(bob.origin(), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        setup_join_identity(&alice, &bob);
+    });
+}
+#[test]
+fn ext_leave_identity_as_identity() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        setup_join_identity(&alice, &bob);
+
+        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
+        // Try to leave own identity
+        assert_noop!(leave(alice), IdentityError::NotASigner);
+        // Try to leave a identity that has no signers
+        assert_noop!(leave(charlie), IdentityError::NotASigner);
+        assert_ok!(leave(bob));
+    });
 }

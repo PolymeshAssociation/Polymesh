@@ -20,9 +20,9 @@ let nonces = new Map();
 
 let totalPermissions =
 {
-  "asset": null,
-  "extrinsic": null,
-  "portfolio": null
+  "asset": { "Whole": "" },
+  "extrinsic": { "Whole": "" },
+  "portfolio": { "Whole": "" }
 };
 
 let fail_count = 1;

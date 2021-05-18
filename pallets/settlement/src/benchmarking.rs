@@ -22,8 +22,9 @@ use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
-    benchs::{self, user, AccountIdOf, User, UserBuilder},
+    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
+    constants::ENSURED_MAX_LEN,
     traits::asset::AssetFnTrait,
     TestUtilsFn,
 };
@@ -40,7 +41,7 @@ use sp_std::prelude::*;
 use sp_core::sr25519::Signature;
 use sp_runtime::MultiSignature;
 
-const MAX_VENUE_DETAILS_LENGTH: u32 = 100000;
+const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
 const MAX_LEGS_IN_INSTRUCTION: u32 = 25;
@@ -60,11 +61,6 @@ impl<T: Trait> From<User<T>> for UserData<T> {
             did: user.did(),
         }
     }
-}
-
-fn make_asset<T: Trait>(owner: &User<T>, name: Option<Vec<u8>>) -> Ticker {
-    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Vec<u8>>(owner, name)
-        .expect("Asset cannot be created")
 }
 
 fn set_block_number<T: Trait>(new_block_no: u64) {
@@ -113,7 +109,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 
 // create asset
 fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
-    make_asset::<T>(owner, Some(Ticker::generate(8u64)))
+    make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
 }
 
 // fund portfolio
@@ -397,7 +393,10 @@ fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     let to_data = UserData::from(to);
 
     for n in 0..l {
-        tickers.push(make_asset::<T>(&from, Some(Ticker::generate(n as u64 + 1))));
+        tickers.push(make_asset::<T>(
+            &from,
+            Some(&Ticker::generate(n as u64 + 1)),
+        ));
         emulate_portfolios::<T>(
             Some(from_data.clone()),
             Some(to_data.clone()),

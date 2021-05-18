@@ -28,6 +28,9 @@ mod contract_test;
 #[cfg(test)]
 mod corporate_actions_test;
 #[cfg(test)]
+#[macro_use]
+mod external_agents_test;
+#[cfg(test)]
 mod fee_details;
 #[cfg(test)]
 mod group_test;

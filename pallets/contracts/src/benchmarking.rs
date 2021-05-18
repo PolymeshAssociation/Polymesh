@@ -17,11 +17,13 @@ use crate::*;
 
 use frame_benchmarking::benchmarks;
 use frame_support::storage::IterableStorageMap;
+use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use pallet_contracts::PristineCode;
 use parity_wasm::elements::FuncBody;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, UserBuilder},
+    constants::ENSURED_MAX_LEN,
     TestUtilsFn,
 };
 use polymesh_primitives::{MetaDescription, MetaUrl, SmartExtensionType, TemplateMetadata};
@@ -29,8 +31,8 @@ use sp_runtime::traits::Hash;
 
 type BaseContracts<T> = pallet_contracts::Module<T>;
 
-const MAX_URL_LENGTH: u32 = 100000;
-const MAX_DESCRIPTION_LENGTH: u32 = 100000;
+const MAX_URL_LENGTH: u32 = ENSURED_MAX_LEN;
+const MAX_DESCRIPTION_LENGTH: u32 = ENSURED_MAX_LEN;
 
 // Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L30
 macro_rules! load_module {
