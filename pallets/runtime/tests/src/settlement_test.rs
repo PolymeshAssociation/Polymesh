@@ -3107,27 +3107,7 @@ fn reject_instruction() {
             );
         };
 
-        let create_instruction = || {
-            let instruction_id = Settlement::instruction_counter();
-            set_current_block_number(10);
-            assert_ok!(Settlement::add_and_affirm_instruction(
-                alice_signed.clone(),
-                venue_counter,
-                SettlementType::SettleOnAffirmation,
-                None,
-                None,
-                vec![Leg {
-                    from: PortfolioId::default_portfolio(alice_did),
-                    to: PortfolioId::default_portfolio(bob_did),
-                    asset: ticker,
-                    amount: amount
-                }],
-                default_portfolio_vec(alice_did)
-            ));
-            instruction_id
-        };
-
-        let instruction_counter = create_instruction();
+        let instruction_counter = create_instruction(&alice, &bob, venue_counter, ticker, amount);
         assert_user_affirmatons(
             instruction_counter,
             AffirmationStatus::Affirmed,
@@ -3163,7 +3143,7 @@ fn reject_instruction() {
         );
 
         // Test that the receiver can also reject the instruction
-        let instruction_counter2 = create_instruction();
+        let instruction_counter2 = create_instruction(&alice, &bob, venue_counter, ticker, amount);
 
         assert_ok!(Settlement::reject_instruction(
             bob_signed.clone(),
@@ -3276,28 +3256,8 @@ fn reject_failed_instruction() {
         let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
         let amount = 100u128;
 
-        let create_instruction = || {
-            let instruction_id = Settlement::instruction_counter();
-            set_current_block_number(10);
-            assert_ok!(Settlement::add_and_affirm_instruction(
-                alice.origin(),
-                venue_counter,
-                SettlementType::SettleOnAffirmation,
-                None,
-                None,
-                vec![Leg {
-                    from: PortfolioId::default_portfolio(alice.did),
-                    to: PortfolioId::default_portfolio(bob.did),
-                    asset: ticker,
-                    amount: amount
-                }],
-                default_portfolio_vec(alice.did)
-            ));
-            instruction_id
-        };
+        let instruction_counter = create_instruction(&alice, &bob, venue_counter, ticker, amount);
 
-        let instruction_counter = create_instruction();
-        next_block();
         assert_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_counter,
@@ -3325,4 +3285,23 @@ fn reject_failed_instruction() {
             InstructionStatus::Unknown,
         );
     });
+}
+fn create_instruction(alice: &User, bob: &User, venue_counter: u64, ticker: Ticker, amount: u128) -> u64 {
+    let instruction_id = Settlement::instruction_counter();
+    set_current_block_number(10);
+    assert_ok!(Settlement::add_and_affirm_instruction(
+        alice.origin(),
+        venue_counter,
+        SettlementType::SettleOnAffirmation,
+        None,
+        None,
+        vec![Leg {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: ticker,
+            amount
+        }],
+        default_portfolio_vec(alice.did)
+    ));
+    instruction_id
 }
