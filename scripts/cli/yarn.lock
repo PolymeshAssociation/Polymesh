@@ -1203,6 +1203,11 @@ eventemitter3@^4.0.7:
   resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-4.0.7.tgz#2de9b68f6528d5644ef5c59526a1b4a07306169f"
   integrity sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==
 
+export-to-csv@^0.2.1:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/export-to-csv/-/export-to-csv-0.2.1.tgz#8f997156feebc1cf995096da16341aa0100cce4e"
+  integrity sha512-KTbrd3CAZ0cFceJEZr1e5uiMasabeCpXq1/5uvVxDl53o4jXJHnltasQoj2NkzrxD8hU9kdwjnMhoir/7nNx/A==
+
 ext@^1.1.2:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/ext/-/ext-1.4.0.tgz#89ae7a07158f79d35517882904324077e4379244"
