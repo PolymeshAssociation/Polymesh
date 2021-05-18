@@ -3264,3 +3264,65 @@ fn dirty_storage_with_tx() {
             );
         });
 }
+
+#[test]
+fn reject_failed_instruction() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
+        let token_name = b"ACME";
+        let ticker = Ticker::try_from(&token_name[..]).unwrap();
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+        let amount = 100u128;
+
+        let create_instruction = || {
+            let instruction_id = Settlement::instruction_counter();
+            set_current_block_number(10);
+            assert_ok!(Settlement::add_and_affirm_instruction(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![Leg {
+                    from: PortfolioId::default_portfolio(alice.did),
+                    to: PortfolioId::default_portfolio(bob.did),
+                    asset: ticker,
+                    amount: amount
+                }],
+                default_portfolio_vec(alice.did)
+            ));
+            instruction_id
+        };
+
+        let instruction_counter = create_instruction();
+        next_block();
+        assert_ok!(Settlement::affirm_instruction(
+            bob.origin(),
+            instruction_counter,
+            default_portfolio_vec(bob.did),
+            1
+        ));
+
+        next_block();
+        assert_eq!(
+            Settlement::instruction_details(instruction_counter).status,
+            InstructionStatus::Failed,
+        );
+
+        next_block();
+        assert_ok!(Settlement::reject_instruction(
+            bob.origin(),
+            instruction_counter,
+            default_portfolio_vec(bob.did),
+            1
+        ));
+
+        next_block();
+        assert_eq!(
+            Settlement::instruction_details(instruction_counter).status,
+            InstructionStatus::Unknown,
+        );
+    });
+}

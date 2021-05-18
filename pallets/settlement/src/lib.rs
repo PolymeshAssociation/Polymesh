@@ -826,6 +826,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Target instruction id to reschedule.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
@@ -1021,10 +1024,10 @@ impl<T: Trait> Module<T> {
 
     fn ensure_instruction_validity(instruction_id: u64) -> DispatchResult {
         let details = Self::instruction_details(instruction_id);
-        ensure!(
-            details.status == InstructionStatus::Pending,
-            Error::<T>::InstructionNotPending
-        );
+        // ensure!(
+        //     details.status == InstructionStatus::Pending,
+        //     Error::<T>::InstructionNotPending
+        // );
         if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
             ensure!(
                 value_date >= trade_date,
@@ -1045,9 +1048,11 @@ impl<T: Trait> Module<T> {
         if result.is_ok() {
             Self::prune_instruction(instruction_id);
         } else {
-            <InstructionDetails<T>>::mutate(instruction_id, |details| {
-                details.status = InstructionStatus::Failed
-            });
+            if <InstructionDetails<T>>::contains_key(instruction_id) {
+                <InstructionDetails<T>>::mutate(instruction_id, |details| {
+                    details.status = InstructionStatus::Failed
+                });
+            }
         }
         result
     }
