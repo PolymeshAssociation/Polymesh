@@ -22,7 +22,7 @@ confidential_identity_v1 = { package = "confidential_identity", git = "https://g
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 frame-support = { version = "3.0.0", default-features = false }
 frame-system = { version = "3.0.0", default-features = false }
 pallet-timestamp = { version = "3.0.0", default-features = false }

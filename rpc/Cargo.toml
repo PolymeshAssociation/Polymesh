@@ -16,7 +16,7 @@ pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0" }
+codec = { package = "parity-scale-codec", version = "2.0.0" }
 sp-core = {version = "3.0.0", default_features = false }
 sp-std = {version = "3.0.0", default_features = false }
 sp-runtime = { version = "3.0.0", default-features = false }

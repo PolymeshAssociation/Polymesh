@@ -16,7 +16,7 @@ pallet-permissions = { path = "../../permissions", default-features = false  }
 # Substrate
 frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 sp-runtime = { version = "3.0.0", default-features = false }
 sp-std = { version = "3.0.0", default-features = false }
 
