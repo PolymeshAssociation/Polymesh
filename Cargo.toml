@@ -100,8 +100,8 @@ members = [
     "bin/bench",
     "bin/crypto-cli",
     "bin/testing",
-    "migration-tests",
-    "migration-tests/remote-externalities",
+    #"migration-tests",
+    #"migration-tests/remote-externalities",
     "node-rpc",
     "node-rpc",
     "pallets/asset",
@@ -191,47 +191,47 @@ rustc-hex = "2.1.0"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
-frame-support = "2.0.1"
-frame-system = "2.0.1"
-frame-system-rpc-runtime-api = "2.0.1"
-grandpa = { package = "sc-finality-grandpa", version = "0.8.1" }
-pallet-contracts = "2.0.1"
-pallet-contracts-rpc-runtime-api = "0.8.1"
-pallet-im-online = "2.0.1"
-pallet-indices = "2.0.1"
-pallet-session = "2.0.1"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.8.1" }
-sc-authority-discovery = "0.8.1"
-sc-basic-authorship = "0.8.1"
-sc-chain-spec = "2.0.1"
-sc-cli = { version = "0.8.1", features = ["wasmtime"] }
-sc-client-api = "2.0.1"
-sc-client-db = "0.8.1"
-sc-consensus = "0.8.1"
-sc-consensus-babe = "0.8.1"
-sc-executor = { version = "0.8.1", features = ["wasmtime"] }
-sc-light = "2.0.1"
-sc-network = "0.8.1"
-sc-rpc = "2.0.1"
-sc-service = { version = "0.8.1", features = ["wasmtime"] }
-sc-telemetry = "2.0.1"
-sc-transaction-pool = "2.0.1"
-sp-api = "2.0.1"
-sp-authority-discovery = "2.0.1"
-sp-block-builder = "2.0.1"
-sp-blockchain = "2.0.1"
-sp-consensus = "0.8.1"
-sp-consensus-babe = "0.8.1"
-sp-core = "2.0.1"
-sp-inherents = "2.0.1"
-sp-offchain = "2.0.1"
-sp-runtime = "2.0.1"
-sp-session = "2.0.1"
+frame-support = "3.0.0"
+frame-system = "3.0.0"
+frame-system-rpc-runtime-api = "3.0.0"
+grandpa = { package = "sc-finality-grandpa", version = "0.9.0" }
+pallet-contracts = "3.0.0"
+pallet-contracts-rpc-runtime-api = "3.0.0"
+pallet-im-online = "3.0.0"
+pallet-indices = "3.0.0"
+pallet-session = "3.0.0"
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.9.0" }
+sc-authority-discovery = "0.9.0"
+sc-basic-authorship = "0.9.0"
+sc-chain-spec = "3.0.0"
+sc-cli = { version = "0.9.0", features = ["wasmtime"] }
+sc-client-api = "3.0.0"
+sc-client-db = "0.9.0"
+sc-consensus = "0.9.0"
+sc-consensus-babe = "0.9.0"
+sc-executor = { version = "0.9.0", features = ["wasmtime"] }
+sc-light = "3.0.0"
+sc-network = "0.9.0"
+sc-rpc = "3.0.0"
+sc-service = { version = "0.9.0", features = ["wasmtime"] }
+sc-telemetry = "3.0.0"
+sc-transaction-pool = "3.0.0"
+sp-api = "3.0.0"
+sp-authority-discovery = "3.0.0"
+sp-block-builder = "3.0.0"
+sp-blockchain = "3.0.0"
+sp-consensus = "0.9.0"
+sp-consensus-babe = "0.9.0"
+sp-core = "3.0.0"
+sp-inherents = "3.0.0"
+sp-offchain = "3.0.0"
+sp-runtime = "3.0.0"
+sp-session = "3.0.0"
 sp-transaction-pool = { version = "3.0.0" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = "2.0.1"
-frame-benchmarking-cli = "2.0.1"
+frame-benchmarking = "3.0.0"
+frame-benchmarking-cli = "3.0.0"
 
 [build-dependencies]
 vergen = "3.1.0"

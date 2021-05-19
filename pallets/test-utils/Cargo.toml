@@ -16,7 +16,7 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "miguel/b2.2.3-1" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
