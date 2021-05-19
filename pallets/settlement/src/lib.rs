@@ -830,6 +830,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
+        ///
+        /// # Errors
+        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
