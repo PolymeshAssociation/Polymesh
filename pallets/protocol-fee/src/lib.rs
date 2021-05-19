@@ -59,9 +59,9 @@ use sp_runtime::{
 };
 
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 type Identity<T> = identity::Module<T>;
@@ -71,8 +71,8 @@ pub trait WeightInfo {
     fn change_base_fee() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + IdentityTrait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Trait: frame_system::Config + IdentityTrait {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
@@ -107,7 +107,7 @@ decl_storage! {
 
 decl_event! {
     pub enum Event<T> where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
     {
         /// The protocol fee of an operation.

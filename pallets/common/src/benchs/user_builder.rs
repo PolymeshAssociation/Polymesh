@@ -33,7 +33,7 @@ pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
 
-pub type AccountIdOf<T> = <T as frame_system::Trait>::AccountId;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 pub struct UserBuilder<T: Trait> {
     account: Option<T::AccountId>,

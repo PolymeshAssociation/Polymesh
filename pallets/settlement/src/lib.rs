@@ -87,7 +87,7 @@ type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
+    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + CommonTrait
     + IdentityTrait
     + pallet_timestamp::Trait
@@ -95,11 +95,11 @@ pub trait Trait:
     + pallet_compliance_manager::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<
         Self::BlockNumber,
-        <Self as frame_system::Trait>::Call,
+        <Self as frame_system::Config>::Call,
         Self::SchedulerOrigin,
     >;
     /// Weight information for extrinsic of the settlement pallet.
@@ -332,8 +332,8 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
-        AccountId = <T as frame_system::Trait>::AccountId,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// A new venue has been created (did, venue_id, details, type)
         VenueCreated(IdentityId, u64, VenueDetails, VenueType),
@@ -480,7 +480,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -847,7 +847,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure origin call permission and the given instruction validity.
     fn ensure_origin_perm_and_instruction_validity(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
     ) -> Result<
         (
@@ -1345,7 +1345,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn base_affirm_with_receipts(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1469,7 +1469,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn base_affirm_instruction(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
@@ -1491,7 +1491,7 @@ impl<T: Trait> Module<T> {
     // It affirms the instruction and may schedule the instruction
     // depends on the settlement type.
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1516,7 +1516,7 @@ impl<T: Trait> Module<T> {
     /// Schedule settlement instruction execution in the next block, unless already scheduled.
     /// Used for general purpose settlement.
     pub fn affirm_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
@@ -1536,7 +1536,7 @@ impl<T: Trait> Module<T> {
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
@@ -1560,7 +1560,7 @@ impl<T: Trait> Module<T> {
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_with_receipts_and_execute_instruction(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
         instruction_id: u64,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,

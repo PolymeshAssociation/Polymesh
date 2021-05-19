@@ -42,7 +42,7 @@ use polymesh_common_utilities::constants::currency::POLY;
 
 pub struct Module<T: Trait>(pallet_session::Module<T>);
 pub trait Trait:
-    pallet_session::Trait + pallet_session::historical::Trait + pallet_staking::Trait
+    pallet_session::Config + pallet_session::historical::Config + pallet_staking::Trait
 {
 }
 
@@ -62,7 +62,7 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
     pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
     where
         <<T as pallet_staking::Trait>::Currency as Currency<
-            <T as frame_system::Trait>::AccountId,
+            <T as frame_system::Config>::AccountId,
         >>::Balance: From<u128>,
     {
         let balance: u32 = (4_000 * POLY).try_into().unwrap();
@@ -94,7 +94,7 @@ benchmarks! {
     where_clause {
         where
             T: TestUtilsFn<AccountIdOf<T>>,
-            <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance: From<u128>,
+            <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance: From<u128>,
     }
 
     _ {}

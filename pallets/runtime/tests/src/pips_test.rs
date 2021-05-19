@@ -39,7 +39,7 @@ type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 macro_rules! assert_last_event {
     ($event:pat) => {

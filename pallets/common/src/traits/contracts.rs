@@ -18,9 +18,9 @@ pub trait WeightInfo {
     fn set_put_code_flag() -> Weight;
 }
 
-pub trait Trait: pallet_contracts::Trait + identity::Trait + base::Trait {
+pub trait Trait: pallet_contracts::Config + identity::Trait + base::Trait {
     /// Event type
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
     type NetworkShareInFee: Get<Perbill>;
     /// Weight information for extrinsic in this pallet.
@@ -31,7 +31,7 @@ decl_event! {
     pub enum Event<T>
         where
         Balance = BalanceOf<T>,
-        CodeHash = <T as frame_system::Trait>::Hash,
+        CodeHash = <T as frame_system::Config>::Hash,
     {
         /// Emitted when instantiation fee of a template get changed.
         /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee.

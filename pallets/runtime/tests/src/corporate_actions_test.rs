@@ -34,7 +34,7 @@ use std::convert::TryInto;
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;

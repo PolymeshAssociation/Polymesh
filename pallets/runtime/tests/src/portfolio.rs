@@ -19,7 +19,7 @@ use test_client::AccountKeyring;
 type Asset = pallet_asset::Module<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 
 fn create_token() -> (Ticker, SecurityToken<u128>) {

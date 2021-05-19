@@ -45,9 +45,9 @@ pub struct Author<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> OnUnbalanced<NegativeImbalance<R>> for Author<R>
 where
-    R: balances::Trait + authorship::Trait,
-    <R as system::Trait>::AccountId: From<polymesh_primitives::AccountId>,
-    <R as system::Trait>::AccountId: Into<polymesh_primitives::AccountId>,
+    R: balances::Trait + authorship::Config,
+    <R as system::Config>::AccountId: From<polymesh_primitives::AccountId>,
+    <R as system::Config>::AccountId: Into<polymesh_primitives::AccountId>,
 {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
         <balances::Module<R>>::resolve_creating(&<authorship::Module<R>>::author(), amount);

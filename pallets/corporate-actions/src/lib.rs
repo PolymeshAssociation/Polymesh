@@ -322,12 +322,12 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
+pub trait Trait: frame_system::Config + BalancesTrait + IdentityTrait + asset::Trait {
     /// The overarching event type.
     type Event: From<Event>
         + From<ballot::Event<Self>>
         + From<distribution::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
+        + Into<<Self as frame_system::Config>::Event>;
 
     /// Max number of DID specified in `TargetIdentities`.
     type MaxTargetIds: Get<u32>;

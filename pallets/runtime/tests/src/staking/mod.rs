@@ -3719,7 +3719,7 @@ mod offchain_phragmen {
                         ElectionSize::default(),
                     ),
                     Error::<Test>::OffchainElectionEarlySubmission,
-                    Some(<Test as frame_system::Trait>::DbWeight::get().reads(1)),
+                    Some(<Test as frame_system::Config>::DbWeight::get().reads(1)),
                 );
             })
     }
@@ -3745,7 +3745,7 @@ mod offchain_phragmen {
                 assert_err_with_weight!(
                     submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
                     Error::<Test>::OffchainElectionWeakSubmission,
-                    Some(<Test as frame_system::Trait>::DbWeight::get().reads(3))
+                    Some(<Test as frame_system::Config>::DbWeight::get().reads(3))
                 );
             })
     }
@@ -4948,14 +4948,14 @@ fn bond_during_era_correctly_populates_claimed_rewards() {
 fn offences_weight_calculated_correctly() {
     ExtBuilder::default().nominate(true).build_and_execute(|| {
 		// On offence with zero offenders: 4 Reads, 1 Write
-		let zero_offence_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1);
+		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(Staking::on_offence(&[], &[Perbill::from_percent(50)], 0), Ok(zero_offence_weight));
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
-		let n_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 5);
+		let n_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 5);
 
-		let offenders: Vec<OffenceDetails<<Test as frame_system::Trait>::AccountId, pallet_session::historical::IdentificationTuple<Test>>>
+		let offenders: Vec<OffenceDetails<<Test as frame_system::Config>::AccountId, pallet_session::historical::IdentificationTuple<Test>>>
 			= (1..10).map(|i|
 				OffenceDetails {
 					offender: (i, Staking::eras_stakers(Staking::active_era().unwrap().index, i)),
@@ -4973,12 +4973,12 @@ fn offences_weight_calculated_correctly() {
 		];
 
 		let rw = 3; // rw reads and writes
-		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)
+		let one_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(rw, rw)
 			// One `slash_cost`
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(2, 2);
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
 		assert_eq!(Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0), Ok(one_offence_unapplied_weight));
 	});
@@ -4992,7 +4992,7 @@ fn on_initialize_weight_is_correct() {
             assert_eq!(mock::Staking::get_all_validators().iter().count(), 0);
             assert_eq!(Nominators::<Test>::iter().count(), 0);
             // When this pallet has nothing, we do 4 reads each block
-            let base_weight = <Test as frame_system::Trait>::DbWeight::get().reads(4);
+            let base_weight = <Test as frame_system::Config>::DbWeight::get().reads(4);
             assert_eq!(base_weight, Staking::on_initialize(0));
         });
 
@@ -5015,7 +5015,7 @@ fn on_initialize_weight_is_correct() {
             // - (4 + 5) reads
             // - 3 Writes
             let final_weight =
-                <Test as frame_system::Trait>::DbWeight::get().reads_writes(4 + 9, 3);
+                <Test as frame_system::Config>::DbWeight::get().reads_writes(4 + 9, 3);
             assert_eq!(final_weight, Staking::on_initialize(System::block_number()));
         });
 }

@@ -404,7 +404,7 @@ pub type OffchainAccuracy = PerU16;
 
 /// The balance type of this module.
 pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[cfg(debug_assertions)]
 impl CompactAssignments {
@@ -424,9 +424,9 @@ impl CompactAssignments {
 }
 
 type PositiveImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 pub type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug)]
@@ -786,7 +786,7 @@ impl<BlockNumber> Default for ElectionStatus<BlockNumber> {
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`
-pub trait SessionInterface<AccountId>: frame_system::Trait {
+pub trait SessionInterface<AccountId>: frame_system::Config {
     /// Disable a given validator by stash ID.
     ///
     /// Returns `true` if new era should be forced at the end of this session.
@@ -799,25 +799,25 @@ pub trait SessionInterface<AccountId>: frame_system::Trait {
     fn prune_historical_up_to(up_to: SessionIndex);
 }
 
-impl<T: Trait> SessionInterface<<T as frame_system::Trait>::AccountId> for T
+impl<T: Trait> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
-    T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
+    T: pallet_session::Trait<ValidatorId = <T as frame_system::Config>::AccountId>,
     T: pallet_session::historical::Trait<
-        FullIdentification = Exposure<<T as frame_system::Trait>::AccountId, BalanceOf<T>>,
+        FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
         FullIdentificationOf = ExposureOf<T>,
     >,
-    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Trait>::AccountId>,
-    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Trait>::AccountId>,
+    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
     T::ValidatorIdOf: Convert<
-        <T as frame_system::Trait>::AccountId,
-        Option<<T as frame_system::Trait>::AccountId>,
+        <T as frame_system::Config>::AccountId,
+        Option<<T as frame_system::Config>::AccountId>,
     >,
 {
-    fn disable_validator(validator: &<T as frame_system::Trait>::AccountId) -> Result<bool, ()> {
+    fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
         <pallet_session::Module<T>>::disable(validator)
     }
 
-    fn validators() -> Vec<<T as frame_system::Trait>::AccountId> {
+    fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
         <pallet_session::Module<T>>::validators()
     }
 
@@ -868,7 +868,7 @@ pub trait WeightInfo {
 }
 
 pub trait Trait:
-    frame_system::Trait + SendTransactionTypes<Call<Self>> + pallet_babe::Trait + IdentityTrait
+    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Trait + IdentityTrait
 {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -891,7 +891,7 @@ pub trait Trait:
     type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Handler for the unbalanced reduction when slashing a staker.
     type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -912,7 +912,7 @@ pub trait Trait:
     type SlashDeferDuration: Get<EraIndex>;
 
     /// The origin which can cancel a deferred slash. Root can always do this.
-    type SlashCancelOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type SlashCancelOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Interface for interacting with a session module.
     type SessionInterface: self::SessionInterface<Self::AccountId>;
@@ -1297,7 +1297,7 @@ decl_storage! {
 }
 
 decl_event!(
-    pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
+    pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Config>::AccountId {
         /// The era payout has been set; the first balance is the validator-payout; the second is
         /// the remainder from the maximum amount of reward.
         /// [era_index, validator_payout, remainder]
@@ -1431,7 +1431,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         /// Number of sessions per era.
         const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -2597,8 +2597,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Returns the `T::Origin` for given target AccountId.
-    fn get_origin(target: T::AccountId) -> <T as frame_system::Trait>::Origin {
-        <T as frame_system::Trait>::Origin::from(Some(target).into())
+    fn get_origin(target: T::AccountId) -> <T as frame_system::Config>::Origin {
+        <T as frame_system::Config>::Origin::from(Some(target).into())
     }
 
     /// The total balance that can be slashed from a stash account as of right now.
@@ -3817,16 +3817,16 @@ impl<T: Trait>
     OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
     for Module<T>
 where
-    T: pallet_session::Trait<ValidatorId = <T as frame_system::Trait>::AccountId>,
-    T: pallet_session::historical::Trait<
-        FullIdentification = Exposure<<T as frame_system::Trait>::AccountId, BalanceOf<T>>,
+    T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+    T: pallet_session::historical::Config<
+        FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
         FullIdentificationOf = ExposureOf<T>,
     >,
-    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Trait>::AccountId>,
-    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Trait>::AccountId>,
+    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
     T::ValidatorIdOf: Convert<
-        <T as frame_system::Trait>::AccountId,
-        Option<<T as frame_system::Trait>::AccountId>,
+        <T as frame_system::Config>::AccountId,
+        Option<<T as frame_system::Config>::AccountId>,
     >,
 {
     fn on_offence(

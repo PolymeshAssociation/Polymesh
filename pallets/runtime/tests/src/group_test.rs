@@ -11,7 +11,7 @@ use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use test_client::AccountKeyring;
 
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Identity = identity::Module<TestStorage>;
 
 #[test]

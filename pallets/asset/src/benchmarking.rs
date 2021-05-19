@@ -152,7 +152,7 @@ fn set_config<T: Trait>() {
     });
 }
 
-fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::AccountId>>(
+fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Config>::AccountId>>(
     n: u32,
     i: u32,
     f: u32,

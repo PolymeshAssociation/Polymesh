@@ -166,7 +166,7 @@ pub trait WeightInfo {
 
 /// Balance
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A wrapper for a proposal url.
 #[derive(
@@ -391,7 +391,7 @@ type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
-    frame_system::Trait<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
+    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + pallet_timestamp::Trait
     + IdentityTrait
     + CommonTrait
@@ -424,7 +424,7 @@ pub trait Trait:
     /// different.
     type Scheduler: ScheduleNamed<
         Self::BlockNumber,
-        <Self as frame_system::Trait>::Call,
+        <Self as frame_system::Config>::Call,
         Self::SchedulerOrigin,
     >;
 }
@@ -515,8 +515,8 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
-        <T as frame_system::Trait>::AccountId,
-        <T as frame_system::Trait>::BlockNumber,
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
     {
         /// Pruning Historical PIPs is enabled or disabled (caller DID, old value, new value)
         HistoricalPipsPruned(IdentityId, bool, bool),

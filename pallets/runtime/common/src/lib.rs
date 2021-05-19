@@ -36,7 +36,6 @@ use frame_support::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
-use frame_system::{self as system};
 use pallet_balances as balances;
 use polymesh_common_utilities::constants::currency::*;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
@@ -45,7 +44,7 @@ use smallvec::smallvec;
 pub use impls::{Author, CurrencyToVoteHandler};
 
 pub type NegativeImbalance<T> =
-    <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;

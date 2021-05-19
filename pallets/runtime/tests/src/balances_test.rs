@@ -22,7 +22,7 @@ use test_client::AccountKeyring;
 pub type Balances = balances::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Error = balances::Error<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.

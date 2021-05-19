@@ -115,14 +115,14 @@ type Identity<T> = identity::Module<T>;
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
-    sp_std::result::Result<<T as frame_system::Trait>::AccountId, DispatchError>;
+    sp_std::result::Result<<T as frame_system::Config>::AccountId, DispatchError>;
 /// Either the ID of a successfully created proposal or an error.
 pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 
 /// The multisig trait.
-pub trait Trait: frame_system::Trait + IdentityTrait {
+pub trait Trait: frame_system::Config + IdentityTrait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Scheduler of multisig proposals.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
@@ -582,7 +582,7 @@ decl_module! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event emitted after creation of a multisig.
         /// Arguments: caller DID, multisig address, signers (pending approval), signatures required.

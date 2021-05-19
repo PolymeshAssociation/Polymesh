@@ -159,10 +159,10 @@ pub trait WeightInfo {
 }
 
 pub trait Trait:
-    frame_system::Trait + identity::Trait + settlement::Trait + portfolio::Trait + pallet_base::Trait
+    frame_system::Config + identity::Trait + settlement::Trait + portfolio::Trait + pallet_base::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Weight information for extrinsic of the sto pallet.
     type WeightInfo: WeightInfo;
 }
@@ -245,7 +245,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;

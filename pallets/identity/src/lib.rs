@@ -1053,7 +1053,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that `expiry`, if provided, is in the future.
     fn ensure_auth_unexpired(
-        expiry: Option<<T as pallet_timestamp::Trait>::Moment>,
+        expiry: Option<<T as pallet_timestamp::Config>::Moment>,
     ) -> DispatchResult {
         if let Some(expiry) = expiry {
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1969,7 +1969,7 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn register_systematic_id(issuer: SystematicIssuers)
     where
-        <T as frame_system::Trait>::AccountId: core::fmt::Display,
+        <T as frame_system::Config>::AccountId: core::fmt::Display,
     {
         let acc = issuer.as_module_id().into_account();
         let id = issuer.as_id();
@@ -2029,7 +2029,7 @@ impl<T: Trait> Module<T> {
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
         let AccountCallPermissionsData {

@@ -72,9 +72,9 @@ use sp_std::prelude::*;
 pub type Multiplier = FixedU128;
 
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -147,7 +147,7 @@ impl MultiplierUpdate for () {
 
 impl<T, S, V, M> MultiplierUpdate for TargetedFeeAdjustment<T, S, V, M>
 where
-    T: frame_system::Trait,
+    T: frame_system::Config,
     S: Get<Perquintill>,
     V: Get<Multiplier>,
     M: Get<Multiplier>,
@@ -165,7 +165,7 @@ where
 
 impl<T, S, V, M> Convert<Multiplier, Multiplier> for TargetedFeeAdjustment<T, S, V, M>
 where
-    T: frame_system::Trait,
+    T: frame_system::Config,
     S: Get<Perquintill>,
     V: Get<Multiplier>,
     M: Get<Multiplier>,
@@ -178,8 +178,8 @@ where
         let previous = previous.max(min_multiplier);
 
         // the computed ratio is only among the normal class.
-        let normal_max_weight = <T as frame_system::Trait>::AvailableBlockRatio::get()
-            * <T as frame_system::Trait>::MaximumBlockWeight::get();
+        let normal_max_weight = <T as frame_system::Config>::AvailableBlockRatio::get()
+            * <T as frame_system::Config>::MaximumBlockWeight::get();
         let normal_block_weight = <frame_system::Module<T>>::block_weight()
             .get(frame_support::weights::DispatchClass::Normal)
             .min(normal_max_weight);
@@ -219,7 +219,7 @@ where
     }
 }
 
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
+pub trait Trait: frame_system::Config + pallet_timestamp::Config {
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
 
@@ -274,7 +274,7 @@ decl_module! {
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
                 Multiplier::checked_from_integer(
-                    <T as frame_system::Trait>::MaximumBlockWeight::get().try_into().unwrap()
+                    <T as frame_system::Config>::MaximumBlockWeight::get().try_into().unwrap()
                 ).unwrap(),
             );
 
@@ -428,7 +428,7 @@ where
     fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
         // cap the weight to the maximum defined in runtime, otherwise it will be the
         // `Bounded` maximum of its data type, which is not desired.
-        let capped_weight = weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
+        let capped_weight = weight.min(<T as frame_system::Config>::MaximumBlockWeight::get());
         T::WeightToFee::calc(&capped_weight)
     }
 
@@ -489,7 +489,7 @@ where
         let imbalance = T::Currency::withdraw(
             &payer_key,
             fee,
-            WithdrawReason::TransactionPayment.into(),
+            WithdrawReason::TRANSACTION_PAYMENT,
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| InvalidTransaction::Payment)?;

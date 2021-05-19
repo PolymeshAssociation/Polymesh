@@ -15,7 +15,7 @@ use test_client::AccountKeyring;
 pub type Balances = balances::Module<TestStorage>;
 pub type Treasury = treasury::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
 fn reimbursement_and_disbursement() {
