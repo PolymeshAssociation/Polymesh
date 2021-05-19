@@ -27,7 +27,7 @@ frame-support = { version = "3.0.0", default-features = false }
 pallet-timestamp = { version = "3.0.0", default-features = false }
 
 # Only for test in STD
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", tag = "v3.0.0", optional = true}
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "monthly-2021-05", optional = true}
 
 # Benchmarking
 frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
