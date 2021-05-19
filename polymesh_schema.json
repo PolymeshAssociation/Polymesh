@@ -980,7 +980,8 @@
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
-                "Pending": ""
+                "Pending": "",
+                "Failed": ""
             }
         },
         "LegStatus": {

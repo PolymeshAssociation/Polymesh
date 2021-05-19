@@ -886,4 +886,16 @@ benchmarks! {
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
+
+    reschedule_instruction {
+        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
+
+        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
+        let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
+        let to_portfolios = portfolios_to.clone();
+        Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
+    }: _(RawOrigin::Signed(to.account), instruction_id)
+    verify {
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
+    }
 }

@@ -834,6 +834,7 @@ decl_module! {
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
+            ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
             <InstructionDetails<T>>::mutate(instruction_id, |details| details.status = InstructionStatus::Pending);
 
             // Schedule instruction to be executed in the next block.
