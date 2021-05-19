@@ -899,3 +899,10 @@ benchmarks! {
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
     }
 }
+
+pub fn next_block<T: Trait>() {
+    use frame_support::traits::OnInitialize;
+    let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
+    frame_system::Module::<T>::set_block_number(block_number);
+    pallet_scheduler::Module::<T>::on_initialize(block_number);
+}
