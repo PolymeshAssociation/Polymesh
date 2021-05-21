@@ -41,7 +41,7 @@ pub mod benchmarking;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
 use frame_system::ensure_root;
@@ -216,7 +216,7 @@ impl<T: Trait> Module<T> {
         let ret = T::Currency::withdraw(
             &account,
             fee,
-            WithdrawReason::Fee.into(),
+            WithdrawReasons::FEE,
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;

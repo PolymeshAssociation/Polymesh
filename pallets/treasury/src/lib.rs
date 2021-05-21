@@ -38,7 +38,7 @@ pub mod benchmarking;
 
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
 use frame_system::ensure_root;
@@ -162,7 +162,7 @@ impl<T: Trait> Module<T> {
         let _ = T::Currency::withdraw(
             &Self::account_id(),
             amount,
-            WithdrawReason::Transfer.into(),
+            WithdrawReasons::TRANSFER,
             ExistenceRequirement::AllowDeath,
         );
         let primary_key = Identity::<T>::did_records(target).primary_key;
