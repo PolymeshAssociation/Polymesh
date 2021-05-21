@@ -49,7 +49,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(iter_advance_by)]
-#![feature(array_value_iter)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

@@ -82,7 +82,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(or_patterns, const_option, bool_to_option)]
+#![feature(const_option, bool_to_option)]
 
 pub mod types;
 pub use types::{

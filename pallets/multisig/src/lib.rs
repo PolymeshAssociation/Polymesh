@@ -571,7 +571,7 @@ decl_module! {
             multisig: T::AccountId,
             proposal_id: u64,
             multisig_did: IdentityId,
-            proposal_weight: Weight
+            _proposal_weight: Weight
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::execute_proposal(multisig, proposal_id, multisig_did)

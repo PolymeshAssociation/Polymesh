@@ -83,8 +83,6 @@
 //! - [`Imbalance`](../frame_support/traits/trait.Imbalance.html): Functions for handling
 //! imbalances between total issuance in the system and account balances. Must be used when a function
 //! creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
-//! - [`IsDeadAccount`](../srml_system/trait.IsDeadAccount.html): Determiner to say whether a
-//! given account is unused.
 //!
 //! ## Interface
 //!
@@ -174,9 +172,9 @@ use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
-        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance, IsDeadAccount,
+        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance,
         LockIdentifier, LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap,
-        WithdrawReason, WithdrawReasons,
+        WithdrawReasons,
     },
     StorageValue,
 };
@@ -193,12 +191,13 @@ use polymesh_common_utilities::{
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
+        StoredMapError,
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
         Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
+use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 
 pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
@@ -254,7 +253,7 @@ decl_storage! {
         config(balances): Vec<(T::AccountId, T::Balance)>;
         build(|config: &GenesisConfig<T>| {
             for (who, free) in &config.balances {
-                T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() });
+                T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() }).unwrap();
             }
         });
     }
@@ -411,7 +410,7 @@ decl_module! {
                 amount,
                 // There is no specific "burn" reason in Substrate. However, if the caller is
                 // allowed to transfer then they should also be allowed to burn.
-                WithdrawReason::Transfer.into(),
+                WithdrawReasons::TRANSFER,
                 ExistenceRequirement::AllowDeath,
             )?;
             Self::deposit_event(RawEvent::AccountBalanceBurned(caller_id, who, amount));
@@ -481,7 +480,7 @@ impl<T: Trait> Module<T> {
         who: &T::AccountId,
         f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
     ) -> R {
-        Self::try_mutate_account(who, |a, _| -> Result<R, Infallible> { Ok(f(a)) })
+        Self::try_mutate_account(who, |a, _| -> Result<R, StoredMapError> { Ok(f(a)) })
             .expect("Error is infallible; qed")
     }
 
@@ -493,7 +492,7 @@ impl<T: Trait> Module<T> {
     ///
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
-    fn try_mutate_account<R, E>(
+    fn try_mutate_account<R, E: From<StoredMapError>>(
         who: &T::AccountId,
         f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
     ) -> Result<R, E> {
@@ -607,7 +606,7 @@ impl<T: Trait> Module<T> {
                 Self::ensure_can_withdraw(
                     transactor,
                     value,
-                    WithdrawReason::Transfer.into(),
+                    WithdrawReasons::TRANSFER,
                     from_account.free,
                 )?;
 
@@ -678,7 +677,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
             return NegativeImbalance::zero();
         }
         let brr = Self::block_rewards_reserve();
-        Self::try_mutate_account(&brr, |account, _| -> Result<NegativeImbalance<T>, ()> {
+        Self::try_mutate_account(&brr, |account, _| -> Result<NegativeImbalance<T>, StoredMapError> {
             let amount_to_mint = if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;
                 let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
@@ -880,18 +879,18 @@ where
 
         Self::try_mutate_account(
             who,
-            |account, _| -> Result<Self::PositiveImbalance, Self::PositiveImbalance> {
+            |account, _| -> Result<Self::PositiveImbalance, DispatchError> {
                 // Polymesh modified code. Removed existential deposit requirements.
                 // This function is now logically equivalent to `deposit_into_existing`.
-                account.free = account
-                    .free
-                    .checked_add(&value)
-                    .ok_or_else(Self::PositiveImbalance::zero)?;
+                account.free = match account.free.checked_add(&value) {
+                    Some(x) => x,
+                    None => return Ok(Self::PositiveImbalance::zero()),
+                };
 
                 Ok(PositiveImbalance::new(value))
             },
         )
-        .unwrap_or_else(|x| x)
+        .unwrap_or_else(|_| Self::PositiveImbalance::zero())
     }
 
     /// Withdraw some free balance from an account
@@ -933,7 +932,7 @@ where
     ) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
         Self::try_mutate_account(
             who,
-            |account, _| -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, ()> {
+            |account, _| -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, DispatchError> {
                 // Polymesh modified code. Removed existential deposit requirements.
 
                 let imbalance = if account.free <= value {
@@ -964,7 +963,7 @@ where
             .free
             .checked_sub(&value)
             .map_or(false, |new_balance| {
-                Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), new_balance)
+                Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
                     .is_ok()
             })
     }
@@ -990,7 +989,7 @@ where
                 .reserved
                 .checked_add(&value)
                 .ok_or(Error::<T>::Overflow)?;
-            Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), account.free)
+            Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, account.free)
         })?;
         Self::deposit_event(RawEvent::Reserved(who.clone(), value));
         Ok(())
@@ -1109,14 +1108,14 @@ where
     // of performance (ours uses in-place modification), but are functionally equivalent.
 
     // Set a lock on the balance of `who`.
-    // Is a no-op if lock amount is zero or `reasons` `is_none()`.
+    // Is a no-op if lock amount is zero or `reasons` `is_empty()`.
     fn set_lock(
         id: LockIdentifier,
         who: &T::AccountId,
         amount: T::Balance,
         reasons: WithdrawReasons,
     ) {
-        if amount.is_zero() || reasons.is_none() {
+        if amount.is_zero() || reasons.is_empty() {
             return;
         }
         let new_lock = BalanceLock {
@@ -1134,14 +1133,14 @@ where
     }
 
     // Extend a lock on the balance of `who`.
-    // Is a no-op if lock amount is zero or `reasons` `is_none()`.
+    // Is a no-op if lock amount is zero or `reasons` `is_empty()`.
     fn extend_lock(
         id: LockIdentifier,
         who: &T::AccountId,
         amount: T::Balance,
         reasons: WithdrawReasons,
     ) {
-        if amount.is_zero() || reasons.is_none() {
+        if amount.is_zero() || reasons.is_empty() {
             return;
         }
         let reasons = reasons.into();
@@ -1199,7 +1198,7 @@ where
         reasons: WithdrawReasons,
         check_sum: impl FnOnce(T::Balance) -> DispatchResult,
     ) -> DispatchResult {
-        if amount.is_zero() || reasons.is_none() {
+        if amount.is_zero() || reasons.is_empty() {
             return Ok(());
         }
         let reasons = reasons.into();
@@ -1222,15 +1221,5 @@ where
         })?;
         Self::update_locks(who, &locks[..]);
         Ok(())
-    }
-}
-
-impl<T: Trait> IsDeadAccount<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
-    fn is_dead_account(who: &T::AccountId) -> bool {
-        // this should always be exactly equivalent to `Self::account(who).total().is_zero()`
-        !T::AccountStore::is_explicit(who)
     }
 }
