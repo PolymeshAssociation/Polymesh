@@ -801,8 +801,8 @@ pub trait SessionInterface<AccountId>: frame_system::Config {
 
 impl<T: Trait> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
-    T: pallet_session::Trait<ValidatorId = <T as frame_system::Config>::AccountId>,
-    T: pallet_session::historical::Trait<
+    T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+    T: pallet_session::historical::Config<
         FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
         FullIdentificationOf = ExposureOf<T>,
     >,
@@ -868,7 +868,7 @@ pub trait WeightInfo {
 }
 
 pub trait Trait:
-    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Trait + IdentityTrait
+    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityTrait
 {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -3628,10 +3628,10 @@ impl<T: Trait> Module<T> {
 
     pub fn get_bonding_duration_period() -> u64 {
         let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
-        let session_length = <T as pallet_babe::Trait>::EpochDuration::get();
+        let session_length = <T as pallet_babe::Config>::EpochDuration::get();
         total_session as u64
             * session_length
-            * (<T as pallet_babe::Trait>::ExpectedBlockTime::get()).saturated_into::<u64>()
+            * (<T as pallet_babe::Config>::ExpectedBlockTime::get()).saturated_into::<u64>()
     }
 
     /// Update commision in ValidatorPrefs to given value
@@ -3770,7 +3770,7 @@ impl<T: Trait> historical::SessionManager<T::AccountId, Exposure<T::AccountId, B
 /// * 1 point to the producer of each referenced uncle block.
 impl<T> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Module<T>
 where
-    T: Trait + pallet_authorship::Trait + pallet_session::Trait,
+    T: Trait + pallet_authorship::Config + pallet_session::Config,
 {
     fn note_author(author: T::AccountId) {
         Self::reward_by_ids(vec![(author, 20)])
