@@ -241,13 +241,17 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
+
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
-            let mut errors = Vec::new();
-            for (index, call) in calls.into_iter().enumerate() {
-                if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
-                    errors.push((index as u32, e.error));
-                }
-            }
+            let errors = calls.into_iter().enumerate()
+                .filter_map(|(index, call)| {
+                    // Dispatch the call in a modified metadata context.
+                    let res = Self::dispatch_call(origin.clone(), is_root, call);
+
+                    // only keep errors.
+                    res.map_err(|e| (index as u32, e.error)).err()
+                }).collect::<Vec<_>>();
+
             Self::deposit_event(if errors.is_empty() {
                 Event::BatchCompleted
             } else {
