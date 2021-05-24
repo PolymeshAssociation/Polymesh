@@ -147,18 +147,6 @@ impl<C> UniqueCall<C> {
     }
 }
 
-fn dispatch_call<T: Trait>(
-    origin: T::Origin,
-    is_root: bool,
-    call: <T as Trait>::Call,
-) -> DispatchResultWithPostInfo {
-    if is_root {
-        call.dispatch_bypass_filter(origin)
-    } else {
-        call.dispatch(origin)
-    }
-}
-
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
@@ -186,11 +174,11 @@ decl_module! {
         /// event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root_or_signed::<T>(origin.clone()).is_ok();
+            let is_root = Self::ensure_root_or_signed(origin.clone()).is_ok();
             for (index, call) in calls.into_iter().enumerate() {
                 // Dispatch the call in a modified metadata context.
                 let result = with_call_metadata(call.get_call_metadata(), || {
-                    dispatch_call::<T>(origin.clone(), is_root, call).map_err(|e| {
+                    Self::dispatch_call(origin.clone(), is_root, call).map_err(|e| {
                         Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
                         e
                     })
@@ -224,11 +212,11 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root_or_signed::<T>(origin.clone())?;
+            let is_root = Self::ensure_root_or_signed(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
                     if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
-                        dispatch_call::<T>(origin.clone(), is_root, call)
+                        Self::dispatch_call(origin.clone(), is_root, call)
                     }) {
                         // Abort the batch.
                         return Err((index as u32, e.error));
@@ -262,12 +250,12 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root_or_signed::<T>(origin.clone())?;
+            let is_root = Self::ensure_root_or_signed(origin.clone())?;
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
                 if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
-                    dispatch_call::<T>(origin.clone(), is_root, call)
+                    Self::dispatch_call(origin.clone(), is_root, call)
                 }) {
                     errors.push((index as u32, e.error));
                 }
@@ -340,10 +328,24 @@ decl_module! {
     }
 }
 
-fn ensure_root_or_signed<T: Trait>(origin: T::Origin) -> Result<bool, DispatchError> {
-    let is_root = ensure_root(origin.clone()).is_ok();
-    if !is_root {
-        ensure_signed(origin)?;
+impl<T: Trait> Module<T> {
+    fn dispatch_call(
+        origin: T::Origin,
+        is_root: bool,
+        call: <T as Trait>::Call,
+    ) -> DispatchResultWithPostInfo {
+        if is_root {
+            call.dispatch_bypass_filter(origin)
+        } else {
+            call.dispatch(origin)
+        }
     }
-    Ok(is_root)
+
+    fn ensure_root_or_signed(origin: T::Origin) -> Result<bool, DispatchError> {
+        let is_root = ensure_root(origin.clone()).is_ok();
+        if !is_root {
+            ensure_signed(origin)?;
+        }
+        Ok(is_root)
+    }
 }
