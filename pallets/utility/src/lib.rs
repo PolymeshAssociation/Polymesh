@@ -175,15 +175,9 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone()).is_ok();
-            for (index, call) in calls.into_iter().enumerate() {
-                // Dispatch the call in a modified metadata context.
-                if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
-                    // Interrupt the batch.
-                    Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
-                    return Ok(());
-                }
-            }
-            Self::deposit_event(Event::BatchCompleted);
+
+            // Run batch
+            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls));
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -208,17 +202,20 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
+
+            // Run batch inside a transaction
             Self::deposit_event(match with_transaction(|| {
-                for (index, call) in calls.into_iter().enumerate() {
-                    if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
-                        // Abort the batch.
-                        return Err((index as u32, e.error));
+                // Run batch
+                match Self::run_batch(origin.clone(), is_root, calls) {
+                    Event::BatchCompleted => Ok(Event::BatchCompleted),
+                    ev => {
+                        // Batch didn't complete.  Abort transaction
+                        Err(ev)
                     }
                 }
-                Ok(())
             }) {
-                Ok(()) => Event::BatchCompleted,
-                Err((i, e)) => Event::BatchInterrupted(i, e)
+                Ok(ev) => ev,
+                Err(ev) => ev
             });
         }
 
@@ -329,6 +326,21 @@ impl<T: Trait> Module<T> {
                 call.dispatch(origin)
             }
         })
+    }
+
+    fn run_batch(
+        origin: T::Origin,
+        is_root: bool,
+        calls: Vec<<T as Trait>::Call>,
+    ) -> Event {
+        for (index, call) in calls.into_iter().enumerate() {
+            // Dispatch the call in a modified metadata context.
+            if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
+                // Interrupt the batch.
+                return Event::BatchInterrupted(index as u32, e.error);
+            }
+        }
+        Event::BatchCompleted
     }
 
     fn ensure_root_or_signed(origin: T::Origin) -> Result<bool, DispatchError> {
