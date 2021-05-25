@@ -1047,7 +1047,7 @@
         "MovePortfolioItem": {
             "ticker": "Ticker",
             "amount": "Balance",
-            "memo": "Memo"
+            "memo": "Option<Memo>"
         },
         "WeightToFeeCoefficient": {
             "coeffInteger": "Balance",
