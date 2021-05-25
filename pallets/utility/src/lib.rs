@@ -60,7 +60,7 @@ use frame_support::{
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, RawOrigin, Module as System};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
@@ -72,6 +72,9 @@ use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDeb
 use sp_std::prelude::*;
 
 type CallPermissions<T> = pallet_permissions::Module<T>;
+
+/// The results of a call in a batch.
+pub type BatchCallResult = sp_std::result::Result<u32, DispatchError>;
 
 /// Configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
@@ -121,13 +124,13 @@ decl_event! {
     pub enum Event
     {
         /// Batch of dispatches did not complete fully.
-        /// Index of first failing dispatch given, as well as the error.
-        BatchInterrupted(u32, DispatchError),
+        /// Includes the `BatchCallResult` for each call in the batch up until the first error.
+        BatchInterrupted(Vec<BatchCallResult>),
         /// Batch of dispatches did not complete fully.
-        /// Includes any failed dispatches with their indices and their associated error.
-        BatchOptimisticFailed(Vec<(u32, DispatchError)>),
+        /// Includes the `BatchCallResult` for each call in the batch.
+        BatchOptimisticFailed(Vec<BatchCallResult>),
         /// Batch of dispatches completed fully with no error.
-        BatchCompleted,
+        BatchCompleted(Vec<BatchCallResult>),
     }
 }
 
@@ -177,7 +180,7 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone()).is_ok();
 
             // Run batch
-            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls));
+            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, true));
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -206,8 +209,8 @@ decl_module! {
             // Run batch inside a transaction
             Self::deposit_event(match with_transaction(|| {
                 // Run batch
-                match Self::run_batch(origin.clone(), is_root, calls) {
-                    Event::BatchCompleted => Ok(Event::BatchCompleted),
+                match Self::run_batch(origin.clone(), is_root, calls, true) {
+                    Event::BatchCompleted(res) => Ok(Event::BatchCompleted(res)),
                     ev => {
                         // Batch didn't complete.  Abort transaction
                         Err(ev)
@@ -229,6 +232,7 @@ decl_module! {
         ///# Parameters
         /// - `calls`: The calls to be dispatched from the same origin.
         ///
+        ///
         /// # Weight
         /// - The sum of the weights of the `calls`.
         /// - One event.
@@ -236,27 +240,14 @@ decl_module! {
         /// This will return `Ok` in all circumstances.
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchOptimisticFailed` is deposited,
-        /// with a vector of `(index, error)`.
+        /// with a vector of `BatchCallResult`.
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
-            let errors = calls.into_iter().enumerate()
-                .filter_map(|(index, call)| {
-                    // Dispatch the call in a modified metadata context.
-                    let res = Self::dispatch_call(origin.clone(), is_root, call);
-
-                    // only keep errors.
-                    res.map_err(|e| (index as u32, e.error)).err()
-                }).collect::<Vec<_>>();
-
-            Self::deposit_event(if errors.is_empty() {
-                Event::BatchCompleted
-            } else {
-                Event::BatchOptimisticFailed(errors)
-            })
+            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, false));
         }
 
         /// Relay a call for a target from an origin
@@ -332,15 +323,36 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    fn run_batch(origin: T::Origin, is_root: bool, calls: Vec<<T as Trait>::Call>) -> Event {
-        for (index, call) in calls.into_iter().enumerate() {
+    fn run_batch(
+        origin: T::Origin,
+        is_root: bool,
+        calls: Vec<<T as Trait>::Call>,
+        stop_on_errors: bool,
+    ) -> Event {
+        let mut no_errors = true;
+        let mut results = Vec::with_capacity(calls.len());
+        for call in calls.into_iter() {
+            let count = System::<T>::event_count();
             // Dispatch the call in a modified metadata context.
-            if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
-                // Interrupt the batch.
-                return Event::BatchInterrupted(index as u32, e.error);
+            match Self::dispatch_call(origin.clone(), is_root, call) {
+                Ok(_) => {
+                    results.push(Ok(System::<T>::event_count().saturating_sub(count)))
+                },
+                Err(e) => {
+                    results.push(Err(e.error));
+                    if stop_on_errors {
+                        // Interrupt the batch on first error
+                        return Event::BatchInterrupted(results);
+                    }
+                    no_errors = false;
+                }
             }
         }
-        Event::BatchCompleted
+        if no_errors {
+            Event::BatchCompleted(results)
+        } else {
+            Event::BatchOptimisticFailed(results)
+        }
     }
 
     fn ensure_root_or_signed(origin: T::Origin) -> Result<bool, DispatchError> {
