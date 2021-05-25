@@ -25,6 +25,10 @@ use sp_std::prelude::*;
 
 const PORTFOLIO_NAME_LEN: usize = 500;
 
+fn make_worst_memo() -> Option<Memo> {
+    Some(Memo([7u8; 32]))
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -66,9 +70,11 @@ benchmarks! {
 
         for x in 0..a as u64 {
             let ticker = Ticker::generate_into(x);
+            let memo = make_worst_memo();
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,
+                memo,
             });
             <PortfolioAssetBalances<T>>::insert(&default_portfolio, &ticker, amount);
         }

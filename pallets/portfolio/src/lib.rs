@@ -52,6 +52,7 @@ use frame_support::{
     weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
+use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::portfolio::{Event, RawEvent, Trait, WeightInfo};
 use polymesh_common_utilities::CommonTrait;
@@ -73,6 +74,8 @@ pub struct MovePortfolioItem<Balance> {
     pub ticker: Ticker,
     /// The balance of the asset to be moved.
     pub amount: Balance,
+    /// The memo of the asset to be moved.
+    pub memo: Option<Memo>,
 }
 
 decl_storage! {
@@ -243,7 +246,8 @@ decl_module! {
                     from,
                     to,
                     item.ticker,
-                    item.amount
+                    item.amount,
+                    item.memo
                 ));
             }
         }

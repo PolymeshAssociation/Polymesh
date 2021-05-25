@@ -110,6 +110,7 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
@@ -136,6 +137,7 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
         ensure_balances(token.total_supply, 0);
@@ -174,6 +176,7 @@ fn do_move_asset_from_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply * 2,
+                memo: None,
             }]
         ),
         Error::InsufficientPortfolioBalance
@@ -194,7 +197,11 @@ fn do_move_asset_from_portfolio() {
             owner.origin(),
             owner_default_portfolio,
             owner_default_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: None
+            }]
         ),
         Error::DestinationIsSamePortfolio
     );
@@ -225,7 +232,11 @@ fn do_move_asset_from_portfolio() {
             bob.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: None
+            }]
         ),
         Error::UnauthorizedCustodian
     );
@@ -239,6 +250,7 @@ fn do_move_asset_from_portfolio() {
         vec![MovePortfolioItem {
             ticker,
             amount: move_amount,
+            memo: None,
         }]
     ));
     assert_ok!(Portfolio::ensure_portfolio_transfer_validity(
@@ -295,6 +307,7 @@ fn can_lock_unlock_assets() {
                 vec![MovePortfolioItem {
                     ticker,
                     amount: token.total_supply,
+                    memo: None,
                 }]
             ),
             Error::InsufficientPortfolioBalance
@@ -308,6 +321,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(
@@ -329,7 +343,11 @@ fn can_lock_unlock_assets() {
                 owner.origin(),
                 owner_default_portfolio,
                 owner_user_portfolio,
-                vec![MovePortfolioItem { ticker, amount: 1 }]
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: 1,
+                    memo: None
+                }]
             ),
             Error::InsufficientPortfolioBalance
         );
@@ -362,6 +380,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply - lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(Portfolio::default_portfolio_balance(owner.did, &ticker), 0,);
