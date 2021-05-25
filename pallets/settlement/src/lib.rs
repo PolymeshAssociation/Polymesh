@@ -1048,6 +1048,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Execute the instruction with `instruction_id`, pruning it on success.
+    /// On error, set the instruction status to failed.
     fn execute_instruction_retryable(instruction_id: u64) -> Result<u32, DispatchError> {
         let result = Self::execute_instruction(instruction_id);
         if result.is_ok() {
