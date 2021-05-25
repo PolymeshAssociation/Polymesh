@@ -60,7 +60,7 @@ use frame_support::{
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{ensure_root, ensure_signed, RawOrigin, Module as System};
+use frame_system::{ensure_root, ensure_signed, Module as System, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
@@ -335,9 +335,7 @@ impl<T: Trait> Module<T> {
             let count = System::<T>::event_count();
             // Dispatch the call in a modified metadata context.
             match Self::dispatch_call(origin.clone(), is_root, call) {
-                Ok(_) => {
-                    results.push(Ok(System::<T>::event_count().saturating_sub(count)))
-                },
+                Ok(_) => results.push(Ok(System::<T>::event_count().saturating_sub(count))),
                 Err(e) => {
                     results.push(Err(e.error));
                     if stop_on_errors {
