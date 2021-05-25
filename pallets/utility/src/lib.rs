@@ -332,11 +332,7 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    fn run_batch(
-        origin: T::Origin,
-        is_root: bool,
-        calls: Vec<<T as Trait>::Call>,
-    ) -> Event {
+    fn run_batch(origin: T::Origin, is_root: bool, calls: Vec<<T as Trait>::Call>) -> Event {
         for (index, call) in calls.into_iter().enumerate() {
             // Dispatch the call in a modified metadata context.
             if let Err(e) = Self::dispatch_call(origin.clone(), is_root, call) {
