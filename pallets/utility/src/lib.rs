@@ -74,7 +74,7 @@ use sp_std::prelude::*;
 type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The results of a call in a batch.
-pub type BatchCallResult = sp_std::result::Result<u32, DispatchError>;
+pub type BatchCallResult = Result<u32, DispatchError>;
 
 /// Configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
