@@ -132,6 +132,7 @@ decl_event! {
         /// a vector of any failed dispatches with their indices and associated error.
         BatchOptimisticFailed(EventCounts, Vec<ErrorAt>),
         /// Batch of dispatches completed fully with no error.
+        /// Includes a vector of event counts for each dispatch.
         BatchCompleted(EventCounts),
     }
 }
@@ -341,11 +342,11 @@ impl<T: Trait> Module<T> {
             let res = Self::dispatch_call(origin.clone(), is_root, call);
             counts.push(System::<T>::event_count().saturating_sub(count));
 
-            // handle call error
+            // Handle call error.
             if let Err(e) = res {
                 let err_at = (index as u32, e.error);
                 if stop_on_errors {
-                    // Interrupt the batch on first error
+                    // Interrupt the batch on first error.
                     return Event::BatchInterrupted(counts, err_at);
                 }
                 errors.push(err_at);

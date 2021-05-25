@@ -310,7 +310,7 @@ fn batch_secondary_with_permissions() {
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted(_)));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchInterrupted(events, err)),
-        events.len() == 1 && events[0] == 0 && err.0 == 0
+        events == &[0] && err.0 == 0
     );
     check_name(low_risk_name);
 
@@ -318,11 +318,7 @@ fn batch_secondary_with_permissions() {
     assert_ok!(Utility::batch_optimistic(bob_origin, calls));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchOptimisticFailed(events, errors)),
-        events.len() == 2
-            && events[0] == 0
-            && events[1] == 1
-            && errors.len() == 1
-            && errors[0].0 == 0
+        events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0
     );
     check_name(high_risk_name);
 }
