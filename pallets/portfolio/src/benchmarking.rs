@@ -70,11 +70,10 @@ benchmarks! {
 
         for x in 0..a as u64 {
             let ticker = Ticker::generate_into(x);
-            let memo = make_worst_memo();
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,
-                memo,
+                memo: make_worst_memo(),
             });
             <PortfolioAssetBalances<T>>::insert(&default_portfolio, &ticker, amount);
         }

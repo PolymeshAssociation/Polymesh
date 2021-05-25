@@ -75,6 +75,7 @@ pub struct MovePortfolioItem<Balance> {
     /// The balance of the asset to be moved.
     pub amount: Balance,
     /// The memo of the asset to be moved.
+    /// Currently only used in events.
     pub memo: Option<Memo>,
 }
 
