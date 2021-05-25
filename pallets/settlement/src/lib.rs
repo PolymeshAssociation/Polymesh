@@ -1052,12 +1052,10 @@ impl<T: Trait> Module<T> {
         let result = Self::execute_instruction(instruction_id);
         if result.is_ok() {
             Self::prune_instruction(instruction_id);
-        } else {
-            if <InstructionDetails<T>>::contains_key(instruction_id) {
-                <InstructionDetails<T>>::mutate(instruction_id, |details| {
-                    details.status = InstructionStatus::Failed
-                });
-            }
+        } else if <InstructionDetails<T>>::contains_key(instruction_id) {
+            <InstructionDetails<T>>::mutate(instruction_id, |details| {
+                details.status = InstructionStatus::Failed
+            });
         }
         result
     }
