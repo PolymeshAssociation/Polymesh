@@ -515,7 +515,7 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Trait }
 
     _{}
 
@@ -888,19 +888,25 @@ benchmarks! {
     }
 
     reschedule_instruction {
-        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
 
-        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
+        let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
+        tickers.iter().for_each(|ticker| Asset::<T>::freeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
         Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
+        next_block::<T>();
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed);
+        tickers.iter().for_each(|ticker| Asset::<T>::unfreeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
     }: _(RawOrigin::Signed(to.account), instruction_id)
     verify {
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
+        next_block::<T>();
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
     }
 }
 
-pub fn next_block<T: Trait>() {
+pub fn next_block<T: Trait + pallet_scheduler::Trait>() {
     use frame_support::traits::OnInitialize;
     let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
     frame_system::Module::<T>::set_block_number(block_number);
