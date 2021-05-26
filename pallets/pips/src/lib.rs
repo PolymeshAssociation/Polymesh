@@ -84,7 +84,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
-#![feature(or_patterns)]
 #![feature(bool_to_option)]
 #![feature(associated_type_bounds)]
 
