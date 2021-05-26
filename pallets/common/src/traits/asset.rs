@@ -15,6 +15,7 @@
 
 use crate::traits::{
     checkpoint, compliance_manager, contracts, external_agents, portfolio, statistics,
+    contracts::ContractsFn,
 };
 use crate::CommonTrait;
 use codec::{Decode, Encode};
@@ -166,6 +167,8 @@ pub trait Trait:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
+
+    type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Errors of migration on this pallet.

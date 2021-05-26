@@ -3,7 +3,7 @@ use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use pallet_contracts::BalanceOf;
-use polymesh_primitives::{IdentityId, MetaUrl};
+use polymesh_primitives::{IdentityId, ExtensionAttributes, MetaUrl};
 use sp_runtime::Perbill;
 
 pub trait WeightInfo {
@@ -58,4 +58,8 @@ decl_event! {
         /// (new flag state)
         PutCodeFlagChanged(bool),
     }
+}
+
+pub trait ContractsFn<AccountId, Balance> {
+    fn extension_info(acc: AccountId) -> ExtensionAttributes<Balance>;
 }

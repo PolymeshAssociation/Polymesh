@@ -19,7 +19,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::Encode;
 use core::mem;
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -30,62 +29,36 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
-use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
+use pallet_contracts::{weights::WeightInfo as _, BalanceOf, CodeHash, Schedule};
 use pallet_identity as identity;
 pub use polymesh_common_utilities::traits::contracts::{Event, Trait, WeightInfo};
 use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::contracts::RawEvent,
+    traits::contracts::ContractsFn,
     with_transaction,
 };
 use polymesh_primitives::{
-    ExtensionAttributes, IdentityId, MetaUrl, SmartExtensionType, TemplateDetails, TemplateMetadata,
+    ExtensionAttributes, Gas, IdentityId, MetaUrl, SmartExtensionType, TemplateDetails,
+    TemplateMetadata,
 };
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
-    traits::{Hash, Saturating, StaticLookup},
+    traits::{Hash, StaticLookup},
     Perbill, SaturatedConversion,
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
+type Contracts<T> = pallet_contracts::Module<T>;
 
-/// Nonce based contract address determiner.
-///
-/// Address calculated from the code (of the constructor), input data to the constructor,
-/// the account id that requested the account creation and the latest nonce of the account id.
-///
-/// Formula: `blake2_256(blake2_256(code) + blake2_256(data) + origin + blake2_256(nonce))`
-pub struct NonceBasedAddressDeterminer<T: Trait>(PhantomData<T>);
-impl<T: Trait> ContractAddressFor<CodeHash<T>, T::AccountId> for NonceBasedAddressDeterminer<T>
-where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    fn contract_address_for(
-        code_hash: &CodeHash<T>,
-        data: &[u8],
-        origin: &T::AccountId,
-    ) -> T::AccountId {
-        let data_hash = T::Hashing::hash(data);
-        let nonce = ExtensionNonce::get();
-        let nonce_hash = T::Hashing::hash(&(nonce.encode()));
-        let mut buf = Vec::with_capacity(
-            code_hash.as_ref().len()
-                + data_hash.as_ref().len()
-                + origin.as_ref().len()
-                + nonce_hash.as_ref().len(),
-        );
-        buf.extend_from_slice(code_hash.as_ref());
-        buf.extend_from_slice(data_hash.as_ref());
-        buf.extend_from_slice(origin.as_ref());
-        buf.extend_from_slice(nonce_hash.as_ref());
-
-        UncheckedFrom::unchecked_from(T::Hashing::hash(&buf[..]))
-    }
-}
+const INSTANTIATE_WITH_CODE_EXTRA: u64 = 50_000_000;
+const INSTANTIATE_EXTRA: u64 = 500_000_000;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as ContractsWrapper {
+    trait Store for Module<T: Trait> as ContractsWrapper
+    where
+       T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>
+    {
         /// Store the meta details of the smart extension template.
         pub MetadataOfTemplate get(fn get_metadata_of): map hasher(identity) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
         /// Store the details of the template (Ex- owner, frozen etc).
@@ -101,7 +74,11 @@ decl_storage! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Trait>
+    where
+        T::AccountId: UncheckedFrom<T::Hash>,
+        T::AccountId: AsRef<[u8]>,
+    {
         /// Instantiation is not allowed.
         InstantiationIsNotAllowed,
         /// Smart extension template not exist in the storage.
@@ -123,7 +100,12 @@ decl_error! {
 
 decl_module! {
     // Wrap dispatchable functions for contracts so that we can add additional gating logic.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call
+    where
+        origin: T::Origin,
+        T::AccountId: UncheckedFrom<T::Hash>,
+        T::AccountId: AsRef<[u8]>,
+    {
 
         /// Initialize the default event for this module.
         fn deposit_event() = default;
@@ -135,9 +117,9 @@ decl_module! {
         const NetworkShareInInstantiationFee: Perbill = T::NetworkShareInFee::get();
 
         // Simply forwards to the `update_schedule` function in the Contract module.
-        #[weight = pallet_contracts::Call::<T>::update_schedule(schedule.clone()).get_dispatch_info().weight]
-        pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
-            <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
+        #[weight = <T as pallet_contracts::Config>::WeightInfo::update_schedule()]
+        pub fn update_schedule(origin, schedule: Schedule<T>) -> DispatchResultWithPostInfo {
+            Contracts::<T>::update_schedule(origin, schedule)
         }
 
         /// Enable or disable the extrinsic `put_code` in this module.
@@ -172,13 +154,24 @@ decl_module! {
         /// setting for `pallet_contrats::max_code_size`.
         /// - Before `code` is inserted, some checks are performed on it, and them could raise up
         /// some errors. Please see `pallet_contracts::wasm::prepare_contract` for details.
-        #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.to_vec()).get_dispatch_info().weight)]
-        pub fn put_code(
+        #[weight =
+        <T as pallet_contracts::Config>::WeightInfo::instantiate_with_code(
+            code.len() as u32 / 1024,
+            salt.len() as u32 / 1024,
+            )
+            .saturating_add(*gas_limit)
+            .saturating_add(INSTANTIATE_WITH_CODE_EXTRA)
+        ]
+        pub fn instantiate_with_code(
             origin,
+            #[compact] endowment: BalanceOf<T>,
+            #[compact] gas_limit: Gas,
+            code: Vec<u8>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
             meta_info: TemplateMetadata<BalanceOf<T>>,
             instantiation_fee: BalanceOf<T>,
-            code: Vec<u8>
-        ) {
+        ) -> DispatchResultWithPostInfo {
             ensure!(Self::is_put_code_enabled(), Error::<T>::PutCodeIsNotAllowed);
             let did = Identity::<T>::ensure_perms(origin.clone())?;
 
@@ -195,12 +188,14 @@ decl_module! {
             let code_hash = T::Hashing::hash(&code);
 
             // Rollback the `put_code()` if user is not able to pay the protocol-fee.
-            with_transaction(|| {
-                // Call underlying function
-                <pallet_contracts::Module<T>>::put_code(origin, code)?;
+            let post_info = with_transaction(|| -> DispatchResultWithPostInfo {
                 // Charge the protocol fee
-                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
+                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
+
+                // Call underlying function
+                Contracts::<T>::instantiate_with_code(origin, endowment, gas_limit, code, data, salt)
             })?;
+
             // Update the storage.
             <TemplateInfo<T>>::insert(code_hash, TemplateDetails {
                 instantiation_fee,
@@ -208,10 +203,14 @@ decl_module! {
                 frozen: false
             });
             <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
+
+            Ok(post_info)
         }
 
         // Simply forwards to the `call` function in the Contract module.
-        #[weight = pallet_contracts::Call::<T>::call(dest.clone(), *value, *gas_limit, data.clone()).get_dispatch_info().weight]
+        #[weight = <T as pallet_contracts::Config>::WeightInfo::call(
+            <T as pallet_contracts::Config>::MaxCodeSize::get() / 1024
+        ).saturating_add(*gas_limit)]
         pub fn call(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -219,7 +218,7 @@ decl_module! {
             #[compact] gas_limit: Gas,
             data: Vec<u8>
         ) -> DispatchResultWithPostInfo {
-            <pallet_contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
+            Contracts::<T>::call(origin, dest, value, gas_limit, data)
         }
 
         /// Simply forwards to the `instantiate` function in the Contract module.
@@ -238,6 +237,7 @@ decl_module! {
             #[compact] gas_limit: Gas,
             code_hash: CodeHash<T>,
             data: Vec<u8>,
+            salt: Vec<u8>,
             max_fee: BalanceOf<T>
         ) -> DispatchResultWithPostInfo {
             let sender = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.sender;
@@ -251,25 +251,28 @@ decl_module! {
             let instantiation_fee = template_details.get_instantiation_fee();
             ensure!(instantiation_fee <= max_fee, Error::<T>::InsufficientMaxFee);
 
-            let mut actual_weight = None;
-            let mut contract_address = T::AccountId::default();
-
-            with_transaction(|| {
+            let contract_address = Contracts::<T>::contract_address(&sender, &code_hash, &salt);
+            let mut post_info = with_transaction(|| {
                 // Update the extension nonce.
                 ExtensionNonce::mutate(|n| *n = *n + 1u64);
-                // Generate the contract address. Generating here to avoid cloning of the vec.
-                contract_address = T::DetermineContractAddress::contract_address_for(&code_hash, &data, &sender);
-                // transmit the call to the base `pallet-contracts` module.
-                actual_weight = <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data).map(|post_info| post_info.actual_weight).map_err(|err| err.error)?;
                 // Charge instantiation fee
-                T::ProtocolFee::charge_extension_instantiation_fee((instantiation_fee.saturated_into::<u128>()).into(), Self::get_primary_key(&template_details.owner), T::NetworkShareInFee::get())
+                let fee = (instantiation_fee.saturated_into::<u128>()).into();
+                let owner_pk = Self::get_primary_key(&template_details.owner);
+                T::ProtocolFee::charge_extension_instantiation_fee(fee, owner_pk, T::NetworkShareInFee::get())?;
+
+                // Generate the contract address. Generating here to avoid cloning of the vec.
+                // transmit the call to the base `pallet-contracts` module.
+                Contracts::<T>::instantiate(origin, endowment, gas_limit, code_hash, data, salt)
             })?;
+            if let Some(ref mut actual_weight) = post_info.actual_weight {
+                *actual_weight = actual_weight.saturating_add(INSTANTIATE_EXTRA);
+            }
 
             // Update the usage fee for the extension instance.
             <ExtensionInfo<T>>::insert(contract_address, Self::ext_details(&code_hash));
 
             // Update the actual weight of the extrinsic.
-            Ok(actual_weight.map(|w| w.saturating_add(500_000_000)).into())
+            Ok(post_info)
         }
 
         /// Allows a smart extension template owner to freeze the instantiation.
@@ -288,7 +291,7 @@ decl_module! {
             <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.frozen = true);
 
             // Emit event.
-            Self::deposit_event(RawEvent::InstantiationFreezed(did, code_hash));
+            Self::deposit_event(Event::<T>::InstantiationFreezed(did, code_hash));
             Ok(())
         }
 
@@ -308,7 +311,7 @@ decl_module! {
             <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.frozen = false);
 
             // Emit event.
-            Self::deposit_event(RawEvent::InstantiationUnFreezed(did, code_hash));
+            Self::deposit_event(Event::<T>::InstantiationUnFreezed(did, code_hash));
             Ok(())
         }
 
@@ -331,7 +334,7 @@ decl_module! {
             <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.owner = new_owner);
 
             // Emit event.
-            Self::deposit_event(RawEvent::TemplateOwnershipTransferred(did, code_hash, new_owner));
+            Self::deposit_event(Event::<T>::TemplateOwnershipTransferred(did, code_hash, new_owner));
             Ok(())
         }
 
@@ -352,13 +355,13 @@ decl_module! {
                 // Update the usage fee for a given code hash.
                 let old_usage_fee = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.usage_fee, usage_fee));
                 // Emit event with the old & new usage fee.
-                Self::deposit_event(RawEvent::TemplateUsageFeeChanged(did, code_hash, old_usage_fee, usage_fee));
+                Self::deposit_event(Event::<T>::TemplateUsageFeeChanged(did, code_hash, old_usage_fee, usage_fee));
             }
             if let Some(instantiation_fee) = new_instantiation_fee {
                 // Update the instantiation fee for a given code_hash.
                 let old_instantiation_fee = <TemplateInfo<T>>::mutate(&code_hash, |template_details| mem::replace(&mut template_details.instantiation_fee, instantiation_fee));
                 // Emit event with the old & new instantiation fee.
-                Self::deposit_event(RawEvent::TemplateInstantiationFeeChanged(did, code_hash, old_instantiation_fee, instantiation_fee));
+                Self::deposit_event(Event::<T>::TemplateInstantiationFeeChanged(did, code_hash, old_instantiation_fee, instantiation_fee));
             }
             Ok(())
         }
@@ -378,13 +381,17 @@ decl_module! {
             // Update the usage fee for a given code hash.
             let old_url = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url.clone()));
             // Emit event with old and new url.
-            Self::deposit_event(RawEvent::TemplateMetaUrlChanged(did, code_hash, old_url, new_url));
+            Self::deposit_event(Event::<T>::TemplateMetaUrlChanged(did, code_hash, old_url, new_url));
             Ok(())
         }
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>
+where
+    T::AccountId: UncheckedFrom<T::Hash>,
+    T::AccountId: AsRef<[u8]>,
+{
     // Internal function
     // Perform some basic sanity checks
     fn ensure_signed_and_template_exists(
@@ -426,7 +433,16 @@ impl<T: Trait> Module<T> {
     fn base_set_put_code_flag(origin: T::Origin, is_enabled: bool) -> DispatchResult {
         ensure_root(origin)?;
         EnablePutCode::put(is_enabled);
-        Self::deposit_event(RawEvent::PutCodeFlagChanged(is_enabled));
+        Self::deposit_event(Event::<T>::PutCodeFlagChanged(is_enabled));
         Ok(())
+    }
+}
+
+impl<T: Trait> ContractsFn<T::AccountId, BalanceOf<T>> for Module<T>
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
+    fn extension_info(acc: T::AccountId) -> ExtensionAttributes<BalanceOf<T>> {
+        Self::extension_info(acc)
     }
 }
