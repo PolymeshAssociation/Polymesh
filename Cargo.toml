@@ -190,7 +190,7 @@ structopt = "0.3.15"
 rustc-hex = "2.1.0"
 
 # Substrate
-codec = { version = "1.2.0", package = "parity-scale-codec" }
+codec = { version = "2.0.0", package = "parity-scale-codec" }
 frame-support = "3.0.0"
 frame-system = "3.0.0"
 frame-system-rpc-runtime-api = "3.0.0"
