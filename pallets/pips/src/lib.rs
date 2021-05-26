@@ -392,7 +392,7 @@ type Identity<T> = identity::Module<T>;
 /// The module's configuration trait.
 pub trait Trait:
     frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
-    + pallet_timestamp::Trait
+    + pallet_timestamp::Config
     + IdentityTrait
     + CommonTrait
     + pallet_base::Trait
@@ -404,7 +404,7 @@ pub trait Trait:
     type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Committee
-    type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+    type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Config>::Moment>;
 
     /// Voting majority origin for Technical Committee.
     type TechnicalCommitteeVMO: EnsureOrigin<Self::Origin>;
@@ -413,7 +413,7 @@ pub trait Trait:
     type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     /// Weight calaculation.
     type WeightInfo: WeightInfo;

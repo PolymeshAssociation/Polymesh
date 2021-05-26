@@ -90,7 +90,7 @@ pub trait Trait:
     frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
     + CommonTrait
     + IdentityTrait
-    + pallet_timestamp::Trait
+    + pallet_timestamp::Config
     + asset::Trait
     + pallet_compliance_manager::Trait
 {
@@ -331,7 +331,7 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = <T as CommonTrait>::Balance,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
+        Moment = <T as pallet_timestamp::Config>::Moment,
         BlockNumber = <T as frame_system::Config>::BlockNumber,
         AccountId = <T as frame_system::Config>::AccountId,
     {
@@ -801,8 +801,8 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
-        fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
+        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*_legs_count)]
+        fn execute_scheduled_instruction(origin, instruction_id: u64, _legs_count: u32) {
             ensure_root(origin)?;
             Self::execute_instruction_retryable(instruction_id)?;
         }
