@@ -89,7 +89,7 @@ macro_rules! misc_pallet_impls {
             type MaxLen = MaxLen;
         }
 
-        impl pallet_babe::Trait for Runtime {
+        impl pallet_babe::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
             type EpochDuration = EpochDuration;
             type ExpectedBlockTime = ExpectedBlockTime;
@@ -111,7 +111,7 @@ macro_rules! misc_pallet_impls {
                 pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences>;
         }
 
-        impl pallet_indices::Trait for Runtime {
+        impl pallet_indices::Config for Runtime {
             type AccountIndex = polymesh_primitives::AccountIndex;
             type Currency = Balances;
             type Deposit = IndexDeposit;
@@ -119,7 +119,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
         }
 
-        impl pallet_transaction_payment::Trait for Runtime {
+        impl pallet_transaction_payment::Config for Runtime {
             type Currency = Balances;
             type OnTransactionPayment = DealWithFees;
             type TransactionByteFee = polymesh_runtime_common::TransactionByteFee;
@@ -154,7 +154,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
         }
 
-        impl pallet_timestamp::Trait for Runtime {
+        impl pallet_timestamp::Config for Runtime {
             type Moment = polymesh_primitives::Moment;
             type OnTimestampSet = Babe;
             type MinimumPeriod = MinimumPeriod;
@@ -162,7 +162,7 @@ macro_rules! misc_pallet_impls {
         }
 
         // TODO: substrate#2986 implement this properly
-        impl pallet_authorship::Trait for Runtime {
+        impl pallet_authorship::Config for Runtime {
             type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
             type UncleGenerations = UncleGenerations;
             type FilterUncle = ();
@@ -178,7 +178,7 @@ macro_rules! misc_pallet_impls {
             }
         }
 
-        impl pallet_session::Trait for Runtime {
+        impl pallet_session::Config for Runtime {
             type Event = Event;
             type ValidatorId = polymesh_primitives::AccountId;
             type ValidatorIdOf = pallet_staking::StashOf<Self>;
@@ -192,7 +192,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
         }
 
-        impl pallet_session::historical::Trait for Runtime {
+        impl pallet_session::historical::Config for Runtime {
             type FullIdentification = pallet_staking::Exposure<
                 polymesh_primitives::AccountId,
                 polymesh_primitives::Balance,
@@ -200,7 +200,7 @@ macro_rules! misc_pallet_impls {
             type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
         }
 
-        impl pallet_staking::Trait for Runtime {
+        impl pallet_staking::Config for Runtime {
             type Currency = Balances;
             type UnixTime = Timestamp;
             type CurrencyToVote = polymesh_runtime_common::impls::CurrencyToVoteHandler<Self>;
@@ -235,9 +235,9 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
         }
 
-        impl pallet_authority_discovery::Trait for Runtime {}
+        impl pallet_authority_discovery::Config for Runtime {}
 
-        impl pallet_finality_tracker::Trait for Runtime {
+        impl pallet_finality_tracker::Config for Runtime {
             type OnFinalizationStalled = ();
             type WindowSize = WindowSize;
             type ReportLatency = ReportLatency;
@@ -289,7 +289,7 @@ macro_rules! misc_pallet_impls {
             type NetworkShareInFee = NetworkShareInFee;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
-        impl pallet_contracts::Trait for Runtime {
+        impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
             type Randomness = RandomnessCollectiveFlip;
             type Currency = Balances;
@@ -338,7 +338,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
         }
 
-        impl pallet_scheduler::Trait for Runtime {
+        impl pallet_scheduler::Config for Runtime {
             type Event = Event;
             type Origin = Origin;
             type PalletsOrigin = OriginCaller;
@@ -349,7 +349,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
         }
 
-        impl pallet_offences::Trait for Runtime {
+        impl pallet_offences::Config for Runtime {
             type Event = Event;
             type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
             type OnOffenceHandler = Staking;
@@ -358,7 +358,7 @@ macro_rules! misc_pallet_impls {
 
         type GrandpaKey = (sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId);
 
-        impl pallet_im_online::Trait for Runtime {
+        impl pallet_im_online::Config for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
             type Event = Event;
             type UnsignedPriority = ImOnlineUnsignedPriority;
@@ -367,7 +367,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
         }
 
-        impl pallet_grandpa::Trait for Runtime {
+        impl pallet_grandpa::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_grandpa::WeightInfo;
             type Event = Event;
             type Call = Call;
