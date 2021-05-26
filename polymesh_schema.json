@@ -76,7 +76,7 @@
             "total_supply": "Balance",
             "owner_did": "IdentityId",
             "divisible": "bool",
-            "asset_type": "AssetType",
+            "asset_type": "AssetType"
         },
         "PalletName": "Text",
         "DispatchableName": "Text",
