@@ -35,7 +35,6 @@ use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::{
     self as settlement, Leg, ReceiptDetails, SettlementType, VenueInfo, VenueType,
 };
-use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
@@ -54,7 +53,7 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Settlement<T> = settlement::Module<T>;
-type Timestamp<T> = timestamp::Module<T>;
+type Timestamp<T> = pallet_timestamp::Module<T>;
 
 /// Status of a Fundraiser.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord, Debug)]
@@ -171,7 +170,7 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = <T as CommonTrait>::Balance,
-        Moment = <T as TimestampTrait>::Moment,
+        Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// A new fundraiser has been created.
         /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
