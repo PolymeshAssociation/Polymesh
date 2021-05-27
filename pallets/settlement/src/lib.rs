@@ -837,7 +837,10 @@ decl_module! {
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
-            let (did, _, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             <InstructionDetails<T>>::try_mutate(instruction_id, |details| {
                 ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
@@ -849,7 +852,7 @@ decl_module! {
             let execution_at = system::Module::<T>::block_number() + One::one();
             Self::schedule_instruction(instruction_id, execution_at, <InstructionLegs<T>>::iter_prefix(instruction_id).count() as u32);
 
-            Self::deposit_event(RawEvent::InstructionRescheduled(did, instruction_id));
+            Self::deposit_event(RawEvent::InstructionRescheduled(primary_did, instruction_id));
         }
     }
 }
