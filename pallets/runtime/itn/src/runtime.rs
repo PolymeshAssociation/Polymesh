@@ -113,10 +113,6 @@ parameter_types! {
     pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 
-    // Finality tracker:
-    pub const WindowSize: BlockNumber = pallet_finality_tracker::DEFAULT_WINDOW_SIZE;
-    pub const ReportLatency: BlockNumber = pallet_finality_tracker::DEFAULT_REPORT_LATENCY;
-
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
@@ -330,7 +326,7 @@ construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 26,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 27,
+        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 27,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 28,
 
         // Asset: Genesis config deps: Timestamp,
