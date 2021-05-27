@@ -1666,7 +1666,7 @@ fn failed_execution() {
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
         assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
-        // Reschedule instruction and ensure the state is identical to the original state
+        // Reschedule instruction and ensure the state is identical to the original state.
         assert_ok!(Settlement::reschedule_instruction(
             alice_signed.clone(),
             instruction_counter
