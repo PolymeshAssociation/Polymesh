@@ -1439,13 +1439,13 @@ fn failed_execution() {
                 from: PortfolioId::default_portfolio(alice_did),
                 to: PortfolioId::default_portfolio(bob_did),
                 asset: ticker,
-                amount: amount,
+                amount,
             },
             Leg {
                 from: PortfolioId::default_portfolio(bob_did),
                 to: PortfolioId::default_portfolio(alice_did),
                 asset: ticker2,
-                amount: amount,
+                amount,
             },
         ];
 
@@ -1507,6 +1507,7 @@ fn failed_execution() {
             vec![instruction_counter]
         );
 
+        // Ensure balances have not changed.
         assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
         assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
@@ -1518,6 +1519,7 @@ fn failed_execution() {
             alice_did
         );
 
+        // Ensure affirms are in correct state.
         assert_eq!(
             Settlement::instruction_affirms_pending(instruction_counter),
             1
@@ -1550,6 +1552,8 @@ fn failed_execution() {
             ),
             AffirmationStatus::Unknown
         );
+
+        // Ensure legs are in a correct state.
         assert_eq!(
             Settlement::instruction_leg_status(instruction_counter, 0),
             LegStatus::ExecutionPending
@@ -1558,11 +1562,14 @@ fn failed_execution() {
             Settlement::instruction_leg_status(instruction_counter, 1),
             LegStatus::PendingTokenLock
         );
+
+        // Check that tokens are locked for settlement execution.
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
             amount
         );
 
+        // Ensure balances have not changed.
         assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
         assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
@@ -1570,6 +1577,7 @@ fn failed_execution() {
 
         assert_affirm_instruction_with_one_leg!(bob_signed.clone(), instruction_counter, bob_did);
 
+        // Ensure all affirms were successful.
         assert_eq!(
             Settlement::instruction_affirms_pending(instruction_counter),
             0
@@ -1602,6 +1610,8 @@ fn failed_execution() {
             ),
             AffirmationStatus::Affirmed
         );
+
+        // Ensure legs are in a pending state.
         assert_eq!(
             Settlement::instruction_leg_status(instruction_counter, 0),
             LegStatus::ExecutionPending
@@ -1610,6 +1620,8 @@ fn failed_execution() {
             Settlement::instruction_leg_status(instruction_counter, 1),
             LegStatus::ExecutionPending
         );
+
+        // Check that tokens are locked for settlement execution.
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
             amount
@@ -1619,18 +1631,26 @@ fn failed_execution() {
             amount
         );
 
+        // Ensure balances have not changed.
         assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
         assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
         assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
+        assert_eq!(
+            Settlement::instruction_details(instruction_counter).status,
+            InstructionStatus::Pending
+        );
+
+        // Instruction should execute on the next block and settlement should fail.
         next_block();
 
-        // Instruction should've settled
         assert_eq!(
             Settlement::instruction_details(instruction_counter).status,
             InstructionStatus::Failed
         );
+
+        // Check that tokens were unlocked after settlement execution.
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
             0
@@ -1639,10 +1659,22 @@ fn failed_execution() {
             Portfolio::locked_assets(PortfolioId::default_portfolio(bob_did), &ticker2),
             0
         );
+
+        // Ensure balances have not changed.
         assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
         assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
         assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+
+        // Reschedule instruction and ensure the state is identical to the original state
+        assert_ok!(Settlement::reschedule_instruction(
+            alice_signed.clone(),
+            instruction_counter
+        ));
+        assert_eq!(
+            Settlement::instruction_details(instruction_counter),
+            instruction_details
+        );
     });
 }
 
@@ -3081,9 +3113,9 @@ fn multiple_custodian_settlement() {
 #[test]
 fn reject_instruction() {
     ExtBuilder::default().build().execute_with(|| {
-        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (charlie_signed, _) = make_account(AccountKeyring::Charlie.public()).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
@@ -3093,14 +3125,14 @@ fn reject_instruction() {
         let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
             assert_eq!(
                 Settlement::user_affirmations(
-                    PortfolioId::default_portfolio(alice_did),
+                    PortfolioId::default_portfolio(alice.did),
                     instruction_id
                 ),
                 alice_status
             );
             assert_eq!(
                 Settlement::user_affirmations(
-                    PortfolioId::default_portfolio(bob_did),
+                    PortfolioId::default_portfolio(bob.did),
                     instruction_id
                 ),
                 bob_status
@@ -3114,24 +3146,24 @@ fn reject_instruction() {
             AffirmationStatus::Pending,
         );
         assert_noop!(
-            Settlement::reject_instruction(bob_signed.clone(), instruction_counter, vec![], 0),
+            Settlement::reject_instruction(bob.origin(), instruction_counter, vec![], 0),
             Error::NoPortfolioProvided
         );
 
         assert_noop!(
             Settlement::reject_instruction(
-                charlie_signed.clone(),
+                charlie.origin(),
                 instruction_counter,
-                default_portfolio_vec(bob_did),
+                default_portfolio_vec(bob.did),
                 0
             ),
             PortfolioError::UnauthorizedCustodian
         );
         next_block();
         assert_ok!(Settlement::reject_instruction(
-            alice_signed.clone(),
+            alice.origin(),
             instruction_counter,
-            default_portfolio_vec(alice_did),
+            default_portfolio_vec(alice.did),
             1
         ));
         next_block();
@@ -3146,9 +3178,9 @@ fn reject_instruction() {
         let instruction_counter2 = create_instruction(&alice, &bob, venue_counter, ticker, amount);
 
         assert_ok!(Settlement::reject_instruction(
-            bob_signed.clone(),
+            bob.origin(),
             instruction_counter2,
-            default_portfolio_vec(bob_did),
+            default_portfolio_vec(bob.did),
             0
         ));
         next_block();
@@ -3286,6 +3318,7 @@ fn reject_failed_instruction() {
         );
     });
 }
+
 fn create_instruction(
     alice: &User,
     bob: &User,
