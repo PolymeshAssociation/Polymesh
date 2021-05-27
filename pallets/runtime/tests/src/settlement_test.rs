@@ -1597,7 +1597,8 @@ fn failed_execution() {
 
         ensure_instruction_status(instruction_counter, InstructionStatus::Pending);
 
-        // Instruction should execute on the next block and settlement should fail.
+        // Instruction should execute on the next block and settlement should fail,
+        // since the tokens are still locked for settlement execution.
         next_block();
 
         ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
