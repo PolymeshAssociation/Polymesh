@@ -76,8 +76,7 @@
             "total_supply": "Balance",
             "owner_did": "IdentityId",
             "divisible": "bool",
-            "asset_type": "AssetType",
-            "primary_issuance_agent": "Option<IdentityId>"
+            "asset_type": "AssetType"
         },
         "PalletName": "Text",
         "DispatchableName": "Text",
@@ -689,7 +688,8 @@
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": "",
-                "TransferCorporateActionAgent": "Ticker"
+                "TransferCorporateActionAgent": "Ticker",
+                "BecomeAgent": "(Ticker, AgentGroup)"
             }
         },
         "SmartExtensionType": {
