@@ -3291,10 +3291,11 @@ fn reject_failed_instruction() {
             1
         ));
 
+        // Go to next block to have the scheduled execution run and ensure it has failed.
         next_block();
         ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
 
-        next_block();
+        // Reject instruction so that it is pruned on next execution.
         assert_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_counter,
@@ -3302,6 +3303,7 @@ fn reject_failed_instruction() {
             1
         ));
 
+        // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
         next_block();
         ensure_instruction_status(instruction_counter, InstructionStatus::Unknown);
     });
