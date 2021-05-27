@@ -1593,6 +1593,9 @@ impl<T: Trait> Module<T> {
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
+            // We use execute_instruction here directly
+            // and not the execute_instruction_retryable variant
+            // because direct settlement is not retryable.
             Self::execute_instruction(instruction_id)?;
         }
         Ok(())
