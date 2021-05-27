@@ -433,7 +433,9 @@ decl_error! {
         /// Scheduling of an instruction fails.
         FailedToSchedule,
         /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
-        LegCountTooSmall
+        LegCountTooSmall,
+        /// Instruction status is unknown
+        UnknownInstruction,
     }
 }
 
@@ -635,12 +637,12 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
-            if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
+            if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
             }
@@ -656,7 +658,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*max_legs_count as u32)]
         pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             ensure!(!portfolios.is_empty(), Error::<T>::NoPortfolioProvided);
 
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -715,7 +717,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
-            let (primary_did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
                 primary_did,
                 instruction_id,
@@ -734,7 +736,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
             let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
@@ -835,10 +837,13 @@ decl_module! {
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
-            let did = Identity::<T>::ensure_perms(origin)?;
+            let (did, _, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
-            ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
-            <InstructionDetails<T>>::mutate(instruction_id, |details| details.status = InstructionStatus::Pending);
+            <InstructionDetails<T>>::try_mutate(instruction_id, |details| {
+                ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                details.status = InstructionStatus::Pending;
+                Result::<_, Error<T>>::Ok(())
+            })?;
 
             // Schedule instruction to be executed in the next block.
             let execution_at = system::Module::<T>::block_number() + One::one();
@@ -862,14 +867,24 @@ impl<T: Trait> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
-    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
+    ) -> Result<
+        (
+            IdentityId,
+            Option<SecondaryKey<T::AccountId>>,
+            Instruction<T::Moment, T::BlockNumber>,
+        ),
+        DispatchError,
+    > {
         let PermissionedCallOriginData {
             primary_did,
             secondary_key,
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        Self::ensure_instruction_validity(instruction_id)?;
-        Ok((primary_did, secondary_key))
+        Ok((
+            primary_did,
+            secondary_key,
+            Self::ensure_instruction_validity(instruction_id)?,
+        ))
     }
 
     pub fn base_add_instruction(
@@ -1027,12 +1042,14 @@ impl<T: Trait> Module<T> {
         Ok(total_leg_count)
     }
 
-    fn ensure_instruction_validity(instruction_id: u64) -> DispatchResult {
+    fn ensure_instruction_validity(
+        instruction_id: u64,
+    ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(instruction_id);
-        // ensure!(
-        //     details.status == InstructionStatus::Pending,
-        //     Error::<T>::InstructionNotPending
-        // );
+        ensure!(
+            details.status != InstructionStatus::Unknown,
+            Error::<T>::UnknownInstruction
+        );
         if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
             ensure!(
                 value_date >= trade_date,
@@ -1045,7 +1062,7 @@ impl<T: Trait> Module<T> {
                 Error::<T>::InstructionSettleBlockPassed
             );
         }
-        Ok(())
+        Ok(details)
     }
 
     /// Execute the instruction with `instruction_id`, pruning it on success.
@@ -1352,7 +1369,7 @@ impl<T: Trait> Module<T> {
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, secondary_key) =
+        let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
@@ -1366,8 +1383,6 @@ impl<T: Trait> Module<T> {
             receipt_ids.len() == receipt_details.len(),
             Error::<T>::ReceiptAlreadyClaimed
         );
-
-        let instruction_details = Self::instruction_details(instruction_id);
 
         // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
         Self::ensure_portfolios_and_affirmation_status(
@@ -1477,7 +1492,7 @@ impl<T: Trait> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, secondary_key) =
+        let (did, secondary_key, _) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
