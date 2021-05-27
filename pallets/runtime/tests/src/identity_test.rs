@@ -17,7 +17,7 @@ use frame_support::{
     StorageMap,
 };
 use pallet_balances as balances;
-use pallet_identity::{self as identity, DidRecords, Error};
+use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
@@ -49,7 +49,8 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
-type IdentityError = pallet_identity::Error<TestStorage>;
+type Error = pallet_identity::Error<TestStorage>;
+type PError = pallet_permissions::Error<TestStorage>;
 
 // Identity Test Helper functions
 // =======================================
@@ -300,7 +301,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(bob_key),
             Permissions::default().into()
         ),
-        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        PError::UnauthorizedCaller
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
@@ -310,7 +311,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(charlie_key),
             Permissions::empty().into()
         ),
-        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+        PError::UnauthorizedCaller
     );
 
     // Alice over-write some permissions.
@@ -368,7 +369,7 @@ fn freeze_secondary_keys_with_externalities() {
     // Freeze secondary keys: bob & charlie.
     assert_noop!(
         Identity::freeze_secondary_keys(bob.clone()),
-        Error::<TestStorage>::KeyNotAllowed
+        Error::KeyNotAllowed
     );
     assert_ok!(Identity::freeze_secondary_keys(alice.clone()));
 
@@ -698,7 +699,7 @@ fn leave_identity_test_with_externalities() {
     // multisig tries leaving identity while it has funds
     assert_noop!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
-        Error::<TestStorage>::MultiSigHasBalance
+        Error::MultiSigHasBalance
     );
 
     // Check DidRecord.
@@ -758,7 +759,7 @@ fn enforce_uniqueness_keys_in_identity() {
     );
     assert_noop!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
-        Error::<TestStorage>::AlreadyLinked
+        Error::AlreadyLinked
     );
 }
 
@@ -861,7 +862,7 @@ fn one_step_join_id_with_ext() {
 
     assert_noop!(
         add(a, secondary_keys_with_auth[2..].to_owned()),
-        Error::<TestStorage>::InvalidAuthorizationSignature
+        Error::InvalidAuthorizationSignature
     );
 
     // Check revoke off-chain authorization.
@@ -881,7 +882,7 @@ fn one_step_join_id_with_ext() {
     ));
     assert_noop!(
         add(a, vec![eve_secondary_key_with_auth]),
-        Error::<TestStorage>::AuthorizationHasBeenRevoked
+        Error::AuthorizationHasBeenRevoked
     );
 
     // Check expire
@@ -897,7 +898,7 @@ fn one_step_join_id_with_ext() {
 
     assert_noop!(
         add(f, vec![ferdie_secondary_key_with_auth]),
-        Error::<TestStorage>::AuthorizationExpired
+        Error::AuthorizationExpired
     );
 }
 
@@ -1106,40 +1107,43 @@ fn changing_primary_key() {
         .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
-        .execute_with(|| changing_primary_key_we());
+        .execute_with(changing_primary_key_we);
 }
 
 fn changing_primary_key_we() {
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_key = AccountKeyring::Alice.public();
-
-    let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let new_key = AccountKeyring::Bob.public();
-    let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
 
     // Primary key matches Alice's key
-    assert_eq!(Identity::did_records(alice_did).primary_key, alice_key);
+    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    assert_eq!(alice_pk(), alice.acc());
 
-    // Alice triggers change of primary key
-    let owner_auth_id = Identity::add_auth(
-        alice_did,
-        Signatory::Account(new_key),
-        AuthorizationData::RotatePrimaryKey(alice_did),
-        None,
-    );
+    let add = |ring: AccountKeyring| {
+        Identity::add_auth(
+            alice.did,
+            Signatory::Account(ring.public()),
+            AuthorizationData::RotatePrimaryKey(alice.did),
+            None,
+        )
+    };
+    let accept = |ring: AccountKeyring, auth| {
+        Identity::accept_primary_key(Origin::signed(ring.public()), auth, None)
+    };
 
-    // Accept the authorization with the new key
-    assert_ok!(Identity::accept_primary_key(
-        new_key_origin.clone(),
-        owner_auth_id.clone(),
-        None
-    ));
+    // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
+    let auth = add(alice.ring);
+    assert_noop!(accept(alice.ring, auth), Error::AlreadyLinked);
 
-    // Alice's primary key is now Bob's
-    assert_eq!(
-        Identity::did_records(alice_did).primary_key,
-        AccountKeyring::Bob.public()
-    );
+    // Add and accept auth with new key to become new primary key.
+    // Unfortunately, the new key is still linked to Bob's DID.
+    let auth = add(bob.ring);
+    assert_noop!(accept(bob.ring, auth), Error::AlreadyLinked);
+
+    // Do it again, but for Charlie, who isn't attached to a DID.
+    // Alice's primary key will be Charlie's.'
+    let charlie = AccountKeyring::Charlie;
+    assert_ok!(accept(charlie, add(charlie)));
+    assert_eq!(alice_pk(), charlie.public());
 }
 
 #[test]
@@ -1155,7 +1159,6 @@ fn changing_primary_key_with_cdd_auth_we() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_key = AccountKeyring::Alice.public();
 
-    let _target_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let new_key = AccountKeyring::Bob.public();
     let new_key_origin = Origin::signed(AccountKeyring::Bob.public());
 
@@ -1361,7 +1364,7 @@ fn add_identity_signers() {
 
         assert_noop!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
-            Error::<TestStorage>::AlreadyLinked
+            Error::AlreadyLinked
         );
 
         let alice_secondary_keys = Identity::did_records(alice_did).secondary_keys;
@@ -1427,7 +1430,7 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
-        Error::<TestStorage>::UnAuthorizedCddProvider
+        Error::UnAuthorizedCddProvider
     );
 
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
@@ -1435,7 +1438,7 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
-        Error::<TestStorage>::UnAuthorizedCddProvider
+        Error::UnAuthorizedCddProvider
     );
 }
 
@@ -1780,29 +1783,29 @@ fn add_investor_uniqueness_claim_v2_data(
         // Invalid claim.
         (
             (user, Scope::Ticker(invalid_ticker), claim.clone(), proof),
-            Err(IdentityError::InvalidScopeClaim.into()),
+            Err(Error::InvalidScopeClaim.into()),
         ),
         // Valid ZKProof v2
         ((user, scope.clone(), claim.clone(), proof), Ok(())),
         // Not allowed claim.
         (
             (user, scope.clone(), Claim::NoData, proof),
-            Err(IdentityError::ClaimVariantNotAllowed.into()),
+            Err(Error::ClaimVariantNotAllowed.into()),
         ),
         // Missing CDD id.
         (
             (user_no_cdd_id, scope.clone(), claim.clone(), proof),
-            Err(IdentityError::ConfidentialScopeClaimNotAllowed.into()),
+            Err(Error::ConfidentialScopeClaimNotAllowed.into()),
         ),
         // Invalid ZKProof
         (
             (user, scope.clone(), claim, invalid_proof),
-            Err(IdentityError::InvalidScopeClaim.into()),
+            Err(Error::InvalidScopeClaim.into()),
         ),
         // Claim version does NOT match.
         (
             (user, scope.clone(), invalid_version_claim, proof),
-            Err(IdentityError::ClaimAndProofVersionsDoNotMatch.into()),
+            Err(Error::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
 }
@@ -1859,9 +1862,9 @@ fn ext_leave_identity_as_identity() {
 
         let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
         // Try to leave own identity
-        assert_noop!(leave(alice), IdentityError::NotASigner);
+        assert_noop!(leave(alice), Error::NotASigner);
         // Try to leave a identity that has no signers
-        assert_noop!(leave(charlie), IdentityError::NotASigner);
+        assert_noop!(leave(charlie), Error::NotASigner);
         assert_ok!(leave(bob));
     });
 }
