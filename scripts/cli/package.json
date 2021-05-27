@@ -32,6 +32,7 @@
     "11_B_settlement": "node ./tests/11_B_settlement.js",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./util/offchain_worker_test.js",
+    "polyx_balances": "node ./util/userBalancePOLYX.js",
     "test": "./test.sh"
   },
   "author": "Polymath Network",
