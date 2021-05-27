@@ -1433,6 +1433,37 @@ fn failed_execution() {
         let alice_init_balance2 = Asset::balance_of(&ticker2, alice_did);
         let bob_init_balance2 = Asset::balance_of(&ticker2, bob_did);
 
+        let ensure_balance_unchanged = || {
+            assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
+            assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
+            assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
+            assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+        };
+
+        let ensure_user_affirm_status = |did, status| {
+            assert_eq!(
+                Settlement::user_affirmations(
+                    PortfolioId::default_portfolio(did),
+                    instruction_counter
+                ),
+                status
+            );
+
+            let affirms_received_status = match status {
+                AffirmationStatus::Pending => AffirmationStatus::Unknown,
+                AffirmationStatus::Affirmed => AffirmationStatus::Affirmed,
+                _ => return,
+            };
+
+            assert_eq!(
+                Settlement::affirms_received(
+                    instruction_counter,
+                    PortfolioId::default_portfolio(did)
+                ),
+                affirms_received_status
+            );
+        };
+
         let amount = 100u128;
         let legs = vec![
             Leg {
@@ -1460,20 +1491,8 @@ fn failed_execution() {
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(alice_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Pending
-        );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(bob_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Pending
-        );
+        ensure_user_affirm_status(alice_did, AffirmationStatus::Pending);
+        ensure_user_affirm_status(bob_did, AffirmationStatus::Pending);
 
         for i in 0..legs.len() {
             assert_eq!(
@@ -1508,10 +1527,7 @@ fn failed_execution() {
         );
 
         // Ensure balances have not changed.
-        assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
-        assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
-        assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+        ensure_balance_unchanged();
 
         assert_affirm_instruction_with_one_leg!(
             alice_signed.clone(),
@@ -1524,34 +1540,8 @@ fn failed_execution() {
             Settlement::instruction_affirms_pending(instruction_counter),
             1
         );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(alice_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Affirmed
-        );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(bob_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Pending
-        );
-        assert_eq!(
-            Settlement::affirms_received(
-                instruction_counter,
-                PortfolioId::default_portfolio(alice_did)
-            ),
-            AffirmationStatus::Affirmed
-        );
-        assert_eq!(
-            Settlement::affirms_received(
-                instruction_counter,
-                PortfolioId::default_portfolio(bob_did)
-            ),
-            AffirmationStatus::Unknown
-        );
+        ensure_user_affirm_status(alice_did, AffirmationStatus::Affirmed);
+        ensure_user_affirm_status(bob_did, AffirmationStatus::Pending);
 
         // Ensure legs are in a correct state.
         assert_eq!(
@@ -1570,10 +1560,7 @@ fn failed_execution() {
         );
 
         // Ensure balances have not changed.
-        assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
-        assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
-        assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+        ensure_balance_unchanged();
 
         assert_affirm_instruction_with_one_leg!(bob_signed.clone(), instruction_counter, bob_did);
 
@@ -1582,34 +1569,8 @@ fn failed_execution() {
             Settlement::instruction_affirms_pending(instruction_counter),
             0
         );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(alice_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Affirmed
-        );
-        assert_eq!(
-            Settlement::user_affirmations(
-                PortfolioId::default_portfolio(bob_did),
-                instruction_counter
-            ),
-            AffirmationStatus::Affirmed
-        );
-        assert_eq!(
-            Settlement::affirms_received(
-                instruction_counter,
-                PortfolioId::default_portfolio(alice_did)
-            ),
-            AffirmationStatus::Affirmed
-        );
-        assert_eq!(
-            Settlement::affirms_received(
-                instruction_counter,
-                PortfolioId::default_portfolio(bob_did)
-            ),
-            AffirmationStatus::Affirmed
-        );
+        ensure_user_affirm_status(alice_did, AffirmationStatus::Affirmed);
+        ensure_user_affirm_status(bob_did, AffirmationStatus::Affirmed);
 
         // Ensure legs are in a pending state.
         assert_eq!(
@@ -1632,10 +1593,7 @@ fn failed_execution() {
         );
 
         // Ensure balances have not changed.
-        assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
-        assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
-        assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+        ensure_balance_unchanged();
 
         ensure_instruction_status(instruction_counter, InstructionStatus::Pending);
 
@@ -1655,10 +1613,7 @@ fn failed_execution() {
         );
 
         // Ensure balances have not changed.
-        assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
-        assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
-        assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
+        ensure_balance_unchanged();
 
         // Reschedule instruction and ensure the state is identical to the original state.
         assert_ok!(Settlement::reschedule_instruction(
