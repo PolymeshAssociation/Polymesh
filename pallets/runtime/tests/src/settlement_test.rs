@@ -1637,18 +1637,12 @@ fn failed_execution() {
         assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
         assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
-        assert_eq!(
-            Settlement::instruction_details(instruction_counter).status,
-            InstructionStatus::Pending
-        );
+        ensure_instruction_status(instruction_counter, InstructionStatus::Pending);
 
         // Instruction should execute on the next block and settlement should fail.
         next_block();
 
-        assert_eq!(
-            Settlement::instruction_details(instruction_counter).status,
-            InstructionStatus::Failed
-        );
+        ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
 
         // Check that tokens were unlocked after settlement execution.
         assert_eq!(
@@ -3298,10 +3292,7 @@ fn reject_failed_instruction() {
         ));
 
         next_block();
-        assert_eq!(
-            Settlement::instruction_details(instruction_counter).status,
-            InstructionStatus::Failed,
-        );
+        ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
 
         next_block();
         assert_ok!(Settlement::reject_instruction(
@@ -3312,10 +3303,7 @@ fn reject_failed_instruction() {
         ));
 
         next_block();
-        assert_eq!(
-            Settlement::instruction_details(instruction_counter).status,
-            InstructionStatus::Unknown,
-        );
+        ensure_instruction_status(instruction_counter, InstructionStatus::Unknown);
     });
 }
 
@@ -3343,4 +3331,11 @@ fn create_instruction(
         default_portfolio_vec(alice.did)
     ));
     instruction_id
+}
+
+fn ensure_instruction_status(instruction_id: u64, status: InstructionStatus) {
+    assert_eq!(
+        Settlement::instruction_details(instruction_id).status,
+        status
+    );
 }
