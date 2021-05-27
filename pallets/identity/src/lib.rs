@@ -816,7 +816,7 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// One secondary key can only belong to one DID
+        /// One secondary or primary key can only belong to one DID
         AlreadyLinked,
         /// Missing current identity on the transaction
         MissingCurrentIdentity,
@@ -1130,6 +1130,11 @@ impl<T: Trait> Module<T> {
                 Ok(())
             })?;
         }
+
+        ensure!(
+            Self::can_link_account_key_to_did(&sender),
+            Error::<T>::AlreadyLinked,
+        );
 
         // Replace primary key of the owner that initiated key rotation
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
