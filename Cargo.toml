@@ -1,4 +1,5 @@
 [package]
+name = "polymesh"
 version = "3.0.3"
 authors = ["Polymath"]
 build = "build.rs"
