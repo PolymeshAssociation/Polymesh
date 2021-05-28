@@ -107,7 +107,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait + TestUtilsFn<Acco
     // Give the validator n nominators, but keep total users in the system the same.
     for i in 0..upper_bound {
         let (n_stash, n_controller) = if !dead {
-            create_stash_controller_with_balance::<T>(u32::max_value() - i, INIT_BALANCE).unwrap()
+            create_stash_controller_with_balance::<T>(u32::max_value() - i, INIT_BALANCE)?
         } else {
             create_stash_with_dead_controller::<T>(u32::max_value() - i, INIT_BALANCE).unwrap()
         };
@@ -115,7 +115,7 @@ pub fn create_validator_with_nominators_with_balance<T: Trait + TestUtilsFn<Acco
             Staking::<T>::nominate(
                 RawOrigin::Signed(n_controller.clone()).into(),
                 vec![stash_lookup.clone()],
-            ).unwrap();
+            )?;
             nominators.push((n_stash, n_controller));
         }
     }
@@ -378,7 +378,7 @@ benchmarks! {
     }
 
     chill {
-        let (_, controller) = create_stash_controller::<T>(10, INIT_BALANCE).unwrap();
+        let (_, controller) = create_stash_controller::<T>(10, INIT_BALANCE)?;
         whitelist_account!(controller.account());
     }: _(controller.origin())
 
@@ -531,8 +531,8 @@ benchmarks! {
         create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
         let session_index = SessionIndex::one();
     }: {
-        let validators = Staking::<T>::new_era(session_index).expect("`new_era` failed");
-        assert_eq!(validators.len(), v as usize);
+        let validators = Staking::<T>::new_era(session_index).ok_or("`new_era` failed")?;
+        assert!(validators.len() == v as usize);
     }
 
     payout_all {
