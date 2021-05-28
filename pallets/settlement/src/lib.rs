@@ -840,7 +840,7 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin)?;
 
             <InstructionDetails<T>>::try_mutate(instruction_id, |details| {
-                ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
                 details.status = InstructionStatus::Pending;
                 Result::<_, Error<T>>::Ok(())
             })?;
