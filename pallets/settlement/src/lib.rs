@@ -837,10 +837,7 @@ decl_module! {
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
-            let PermissionedCallOriginData {
-                primary_did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             <InstructionDetails<T>>::try_mutate(instruction_id, |details| {
                 ensure!(<InstructionDetails<T>>::get(instruction_id).status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
