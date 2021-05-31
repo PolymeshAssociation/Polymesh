@@ -199,6 +199,8 @@ decl_module! {
         /// identity. Must be called by the custodian of the sender.
         /// Funds from deleted portfolios can also be recovered via this method.
         ///
+        /// A short memo can be added to to each token amount moved.
+        ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
         /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same
