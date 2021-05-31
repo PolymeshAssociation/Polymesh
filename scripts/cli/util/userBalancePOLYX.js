@@ -41,27 +41,14 @@ async function getUserBalances(api) {
 			let skDid = await api.query.identity.keyToIdentityIds(sk);
 			// getting secondary key balance info
 			let skAccountData = await api.query.system.account(sk);
-			data.push({
-				AccountId: sk,
-				Identity: skDid,
-				free: JSON.stringify(skAccountData.data.free),
-				reserved: JSON.stringify(skAccountData.data.reserved),
-				miscFrozen: JSON.stringify(skAccountData.data.miscFrozen),
-			});
+			
+			pushData(data, skDid, empty_did, skAccountData, sk, false);
 		}
 
 		let did = await api.query.identity.keyToIdentityIds(pk);
 		let accountData = await api.query.system.account(pk);
 
-		if (did.toString() != empty_did) {
-			data.push({
-				AccountId: pk,
-				Identity: did,
-				free: JSON.stringify(accountData.data.free),
-				reserved: JSON.stringify(accountData.data.reserved),
-				miscFrozen: JSON.stringify(accountData.data.miscFrozen),
-			});
-		}
+		pushData(data, did, empty_did, accountData, pk, true);
 		// update the progress bar
 		progressBar.increment();
 	}
@@ -69,6 +56,19 @@ async function getUserBalances(api) {
 	await createCSV(data);
 	// stop the progress bar
 	progressBar.stop();
+}
+
+function pushData(dataArray, did, emptyDid, accountData, key, keyType) {
+	if (did.toString() != emptyDid) {
+		dataArray.push({
+			AccountId: key,
+			isPrimaryKey: keyType,
+			Identity: did,
+			free: JSON.stringify(accountData.data.free),
+			reserved: JSON.stringify(accountData.data.reserved),
+			miscFrozen: JSON.stringify(accountData.data.miscFrozen),
+		});
+	}
 }
 
 // Creates CSV file using an array of user balances
