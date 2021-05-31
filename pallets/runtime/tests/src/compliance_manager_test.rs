@@ -2,7 +2,7 @@ use super::{
     asset_test::{a_token, basic_asset},
     storage::{
         create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties,
-        register_keyring_account, TestStorage, User
+        register_keyring_account, TestStorage, User,
     },
     ExtBuilder,
 };
