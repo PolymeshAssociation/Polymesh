@@ -1,4 +1,4 @@
-{
+export default {
     "types": {
         "AccountInfo": "AccountInfoWithRefCount",
         "Address": "IndicesLookupSource",
@@ -49,8 +49,7 @@
                 "RevenueShareAgreement": "",
                 "StructuredProduct": "",
                 "Derivative": "",
-                "Custom": "Vec<u8>",
-                "StableCoin": ""
+                "Custom": "Vec<u8>"
             }
         },
         "AssetIdentifier": {
@@ -76,46 +75,19 @@
             "total_supply": "Balance",
             "owner_did": "IdentityId",
             "divisible": "bool",
-            "asset_type": "AssetType"
+            "asset_type": "AssetType",
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "PalletName": "Text",
         "DispatchableName": "Text",
-        "AssetPermissions": {
-            "_enum": {
-                "Whole": "",
-                "These": "Vec<Ticker>",
-                "Except": "Vec<Ticker>"
-            }
-        },
-        "PortfolioPermissions": {
-            "_enum": {
-                "Whole": "",
-                "These": "Vec<PortfolioId>",
-                "Except": "Vec<PortfolioId>"
-            }
-        },
-        "DispatchableNames": {
-            "_enum": {
-                "Whole": "",
-                "These": "Vec<DispatchableName>",
-                "Except": "Vec<DispatchableName>"
-            }
-        },
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "dispatchable_names": "DispatchableNames"
-        },
-        "ExtrinsicPermissions": {
-            "_enum": {
-                "Whole": "",
-                "These": "Vec<PalletPermissions>",
-                "Except": "Vec<PalletPermissions>"
-            }
+            "dispatchable_names": "Option<Vec<DispatchableName>>"
         },
         "Permissions": {
-            "asset": "AssetPermissions",
-            "extrinsic": "ExtrinsicPermissions",
-            "portfolio": "PortfolioPermissions"
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<PalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioId>>"
         },
         "LegacyPalletPermissions": {
             "pallet_name": "PalletName",
@@ -429,18 +401,6 @@
             }
         },
         "InvestorZKProofData": "Signature",
-        "Scalar": "[u8; 32]",
-        "RistrettoPoint": "[u8; 32]",
-        "ZkProofData": {
-            "challenge_responses": "[Scalar; 2]",
-            "subtract_expressions_res": "RistrettoPoint",
-            "blinded_scope_did_hash": "RistrettoPoint"
-        },
-        "ScopeClaimProof": {
-            "proof_scope_id_wellformed": "Signature",
-            "proof_scope_id_cdd_id_match": "ZkProofData",
-            "scope_id": "RistrettoPoint"
-        },
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -453,8 +413,7 @@
                 "Exempted": "Scope",
                 "Blocked": "Scope",
                 "InvestorUniqueness": "(Scope, ScopeId, CddId)",
-                "NoData": "",
-                "InvestorUniquenessV2": "(CddId)"
+                "NoData": ""
             }
         },
         "ClaimType": {
@@ -469,8 +428,7 @@
                 "Exempted": "",
                 "Blocked": "",
                 "InvestorUniqueness": "",
-                "NoData": "",
-                "InvestorUniquenessV2": ""
+                "NoData": ""
             }
         },
         "IdentityClaim": {
@@ -688,9 +646,12 @@
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": "",
-                "TransferCorporateActionAgent": "Ticker",
-                "BecomeAgent": "(Ticker, AgentGroup)"
+                "TransferCorporateActionAgent": "Ticker"
             }
+        },
+        "AuthIdentifier": {
+            "signatory": "Signatory",
+            "auth_id": "u64"
         },
         "SmartExtensionType": {
             "_enum": {
@@ -857,6 +818,8 @@
             "pip": "PipId",
             "vote": "Vote"
         },
+        "HistoricalVotingByAddress": "Vec<VoteByPip>",
+        "HistoricalVotingById": "Vec<(AccountId, HistoricalVotingByAddress)>",
         "BridgeTxDetail": {
             "amount": "Balance",
             "status": "BridgeTxStatus",
@@ -1046,8 +1009,7 @@
         },
         "MovePortfolioItem": {
             "ticker": "Ticker",
-            "amount": "Balance",
-            "memo": "Option<Memo>"
+            "amount": "Balance"
         },
         "WeightToFeeCoefficient": {
             "coeffInteger": "Balance",
@@ -1057,7 +1019,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "ExternalAgent": "",
+                "PrimaryIssuanceAgent": "",
                 "Specific": "IdentityId"
             }
         },
@@ -1160,7 +1122,6 @@
         "Distribution": {
             "from": "PortfolioId",
             "currency": "Ticker",
-            "per_share": "Balance",
             "amount": "Balance",
             "remaining": "Balance",
             "reclaimed": "bool",
@@ -1192,355 +1153,6 @@
         "PermissionedIdentityPrefs": {
             "intended_count": "u32",
             "running_count": "u32"
-        },
-        "GranularCanTransferResult": {
-            "invalid_granularity": "bool",
-            "self_transfer": "bool",
-            "invalid_receiver_cdd": "bool",
-            "invalid_sender_cdd": "bool",
-            "missing_scope_claim": "bool",
-            "receiver_custodian_error": "bool",
-            "sender_custodian_error": "bool",
-            "sender_insufficient_balance": "bool",
-            "portfolio_validity_result": "PortfolioValidityResult",
-            "asset_frozen": "bool",
-            "statistics_result": "Vec<TransferManagerResult>",
-            "compliance_result": "AssetComplianceResult",
-            "result": "bool"
-        },
-        "PortfolioValidityResult": {
-            "receiver_is_same_portfolio": "bool",
-            "sender_portfolio_does_not_exist": "bool",
-            "receiver_portfolio_does_not_exist": "bool",
-            "sender_insufficient_balance": "bool",
-            "result": "bool"
-        },
-        "TransferManagerResult": {
-            "tm": "TransferManager",
-            "result": "bool"
-        },
-        "AGId": "u32",
-        "AgentGroup": {
-            "_enum": {
-                "Full": "",
-                "Custom": "AGId",
-                "Meta": "",
-                "PolymeshV1CAA": "",
-                "PolymeshV1PIA": ""
-            }
-        }
-    },
-    "rpc": {
-        "compliance": {
-            "canTransfer": {
-                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager conditions",
-                "params": [
-                    {
-                        "name": "ticker",
-                        "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "AssetComplianceResult"
-            }
-        },
-        "identity": {
-            "isIdentityHasValidCdd": {
-                "description": "use to tell whether the given did has valid cdd claim or not",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "buffer_time",
-                        "type": "u64",
-                        "isOptional": true
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "CddStatus"
-            },
-            "getAssetDid": {
-                "description": "function is used to query the given ticker DID",
-                "params": [
-                    {
-                        "name": "ticker",
-                        "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "AssetDidResult"
-            },
-            "getDidRecords": {
-                "description": "Used to get the did record values for a given DID",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "IdentityId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "DidRecords"
-            },
-            "getDidStatus": {
-                "description": "Retrieve status of the DID",
-                "params": [
-                    {
-                        "name": "did",
-                        "type": "Vec<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<DidStatus>"
-            },
-            "getFilteredAuthorizations": {
-                "description": "Retrieve authorizations data for a given signatory and filtered using the given authorization type",
-                "params": [
-                    {
-                        "name": "signatory",
-                        "type": "Signatory",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "allow_expired",
-                        "type": "bool",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "auth_type",
-                        "type": "AuthorizationType",
-                        "isOptional": true
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<Authorization>"
-            },
-            "getKeyIdentityData": {
-                "description": "Query relation between a signing key and a DID",
-                "params": [
-                    {
-                        "name": "acc",
-                        "type": "AccountId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Option<KeyIdentityData>"
-            }
-        },
-        "pips": {
-            "getVotes": {
-                "description": "Summary of votes of a proposal given by index",
-                "params": [
-                    {
-                        "name": "index",
-                        "type": "u32",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "VoteCount"
-            },
-            "proposedBy": {
-                "description": "Retrieves proposal indices started by address",
-                "params": [
-                    {
-                        "name": "address",
-                        "type": "AccountId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<u32>"
-            },
-            "votedOn": {
-                "description": "Retrieves proposal address indices voted on",
-                "params": [
-                    {
-                        "name": "address",
-                        "type": "AccountId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<u32>"
-            }
-        },
-        "protocolFee": {
-            "computeFee": {
-                "description": "Gets the fee of a chargeable extrinsic operation",
-                "params": [
-                    {
-                        "name": "op",
-                        "type": "ProtocolOp",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "CappedFee"
-            }
-        },
-        "staking": {
-            "getCurve": {
-                "description": "Retrieves curves parameters",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<(Perbill, Perbill)>"
-            }
-        },
-        "asset": {
-            "canTransfer": {
-                "description": "Checks whether a transaction with given parameters can take place or not",
-                "params": [
-                    {
-                        "name": "sender",
-                        "type": "AccountId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_custodian",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_portfolio",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_custodian",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_portfolio",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "ticker",
-                        "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "value",
-                        "type": "Balance",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "CanTransferResult"
-            },
-            "canTransferGranular": {
-                "description": "Checks whether a transaction with given parameters can take place or not. The result is granular meaning each check is run and returned regardless of outcome.",
-                "params": [
-                    {
-                        "name": "from_custodian",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_portfolio",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_custodian",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_portfolio",
-                        "type": "PortfolioId",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "ticker",
-                        "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "value",
-                        "type": "Balance",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "GranularCanTransferResult"
-            }
         }
     }
 }
