@@ -33,22 +33,25 @@
 use std::sync::Arc;
 
 use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey,
     Signatory, Ticker,
 };
+
 use sc_client_api::light::{Fetcher, RemoteBlockchain};
-use sc_consensus_babe::Epoch;
-use sc_finality_grandpa::FinalityProofProvider;
+use sc_client_api::AuxStore;
+use sc_consensus_babe::{Config, Epoch};
+use sc_consensus_epochs::SharedEpochChanges;
+use sc_finality_grandpa::{
+    FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
+};
 use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
-use txpool_api::TransactionPool;
-
-/// A type representing all RPC extensions.
-pub type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
+use sp_keystore::SyncCryptoStorePtr;
+use sp_transaction_pool::TransactionPool;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {
@@ -57,7 +60,7 @@ pub struct LightDeps<C, F, P> {
     /// Transaction pool instance.
     pub pool: Arc<P>,
     /// Remote access to the blockchain (async).
-    pub remote_blockchain: Arc<dyn RemoteBlockchain<Block>>,
+    pub remote_blockchain: Arc<dyn sc_client_api::light::RemoteBlockchain<Block>>,
     /// Fetcher instance.
     pub fetcher: Arc<F>,
 }
@@ -65,28 +68,28 @@ pub struct LightDeps<C, F, P> {
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
     /// BABE protocol config.
-    pub babe_config: sc_consensus_babe::Config,
+    pub babe_config: Config,
     /// BABE pending epoch changes.
-    pub shared_epoch_changes: sc_consensus_epochs::SharedEpochChanges<Block, Epoch>,
+    pub shared_epoch_changes: SharedEpochChanges<Block, Epoch>,
     /// The keystore that manages the keys of the node.
-    pub keystore: sc_keystore::KeyStorePtr,
+    pub keystore: SyncCryptoStorePtr,
 }
 
-/// Dependencies for GRANDPA
+/// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
     /// Voting round info.
-    pub shared_voter_state: sc_finality_grandpa::SharedVoterState,
+    pub shared_voter_state: SharedVoterState,
     /// Authority set info.
-    pub shared_authority_set: sc_finality_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
+    pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
     /// Receives notifications about justification events from Grandpa.
-    pub justification_stream: sc_finality_grandpa::GrandpaJustificationStream<Block>,
+    pub justification_stream: GrandpaJustificationStream<Block>,
     /// Executor to drive the subscription manager in the Grandpa RPC handler.
     pub subscription_executor: SubscriptionTaskExecutor,
     /// Finality proof provider.
     pub finality_provider: Arc<FinalityProofProvider<B, Block>>,
 }
 
-/// Full client dependencies
+/// Full client dependencies.
 pub struct FullDeps<C, P, SC, B> {
     /// The client instance to use.
     pub client: Arc<C>,
@@ -94,6 +97,8 @@ pub struct FullDeps<C, P, SC, B> {
     pub pool: Arc<P>,
     /// The SelectChain Strategy
     pub select_chain: SC,
+    /// A copy of the chain spec.
+    pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
     /// Whether to deny unsafe calls
     pub deny_unsafe: DenyUnsafe,
     /// BABE specific dependencies.
@@ -102,15 +107,23 @@ pub struct FullDeps<C, P, SC, B> {
     pub grandpa: GrandpaDeps<B>,
 }
 
-/// Instantiate all RPC extensions.
-pub fn create_full<C, P, UE, SC, B>(deps: FullDeps<C, P, SC, B>) -> RpcExtension
+/// A IO handler that uses all Full RPC extensions.
+pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
+
+/// Instantiate all Full RPC extensions.
+pub fn create_full<C, P, UE, SC, B>(
+    deps: FullDeps<C, P, SC, B>,
+) -> jsonrpc_core::IoHandler<sc_rpc_api::Metadata>
 where
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
-    C: Send + Sync + 'static,
-    C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+    C: ProvideRuntimeApi<Block>
+        + HeaderBackend<Block>
+        + AuxStore
+        + HeaderMetadata<Block, Error = BlockChainError>
+        + Sync
+        + Send
+        + 'static,
+    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-    // C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId, Balance>,
@@ -129,13 +142,12 @@ where
     C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
-    P: TransactionPool + Sync + Send + 'static,
+    P: TransactionPool + 'static,
     UE: codec::Codec + Send + Sync + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
-    use frame_rpc_system::{FullSystem, SystemApi};
     use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
     use node_rpc::{
         asset::{Asset, AssetApi},
@@ -149,16 +161,19 @@ where
     use pallet_staking_rpc::{Staking, StakingApi};
     use sc_consensus_babe_rpc::BabeRpcHandler;
     use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
+    use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     let mut io = jsonrpc_core::IoHandler::default();
     let FullDeps {
         client,
         pool,
         select_chain,
+        chain_spec,
         deny_unsafe,
         babe,
         grandpa,
     } = deps;
+
     let BabeDeps {
         keystore,
         babe_config,
@@ -177,6 +192,9 @@ where
         pool,
         deny_unsafe,
     )));
+    // Making synchronous calls in light client freezes the browser currently,
+    // more context: https://github.com/paritytech/substrate/pull/3480
+    // These RPCs should use an asynchronous caller instead.
     io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
@@ -184,20 +202,32 @@ where
     io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
         BabeRpcHandler::new(
             client.clone(),
-            shared_epoch_changes,
+            shared_epoch_changes.clone(),
             keystore,
             babe_config,
             select_chain,
             deny_unsafe,
         ),
     ));
-    io.extend_with(GrandpaApi::to_delegate(GrandpaRpcHandler::new(
-        shared_authority_set,
-        shared_voter_state,
-        justification_stream,
-        subscription_executor,
-        finality_provider,
-    )));
+    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
+        GrandpaRpcHandler::new(
+            shared_authority_set.clone(),
+            shared_voter_state,
+            justification_stream,
+            subscription_executor,
+            finality_provider,
+        ),
+    ));
+
+    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
+        sc_sync_state_rpc::SyncStateRpcHandler::new(
+            chain_spec,
+            client.clone(),
+            shared_authority_set,
+            shared_epoch_changes,
+            deny_unsafe,
+        ),
+    ));
     io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
     io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));
     io.extend_with(IdentityApi::to_delegate(Identity::new(client.clone())));
@@ -213,19 +243,20 @@ where
     io
 }
 
-/// Instantiate all RPC extensions for light node.
-pub fn create_light<C, P, F, UE>(deps: LightDeps<C, F, P>) -> RpcExtension
+/// Instantiate all Light RPC extensions.
+pub fn create_light<C, P, M, F, UE>(deps: LightDeps<C, F, P>) -> jsonrpc_core::IoHandler<M>
 where
+    C: sp_blockchain::HeaderBackend<Block>,
     C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
     C: Send + Sync + 'static,
-    C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
-    P: TransactionPool + Sync + Send + 'static,
-    F: Fetcher<Block> + 'static,
-    UE: codec::Codec + Send + Sync + 'static,
+    F: sc_client_api::light::Fetcher<Block> + 'static,
+    P: TransactionPool + 'static,
+    M: jsonrpc_core::Metadata + Default,
+    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
+        + node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+    UE: codec::Codec + 'static,
 {
-    use frame_rpc_system::{LightSystem, SystemApi};
+    use substrate_frame_rpc_system::{LightSystem, SystemApi};
 
     let LightDeps {
         client,
@@ -234,8 +265,9 @@ where
         fetcher,
     } = deps;
     let mut io = jsonrpc_core::IoHandler::default();
-    io.extend_with(SystemApi::<Hash, AccountId, Nonce>::to_delegate(
+    io.extend_with(SystemApi::<Hash, AccountId, Index>::to_delegate(
         LightSystem::new(client, remote_blockchain, fetcher, pool),
     ));
+
     io
 }
