@@ -532,6 +532,59 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn add_secondary_keys_with_permissions_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_secondary_keys_with_permissions_test);
+}
+
+fn do_add_secondary_keys_with_permissions_test() {
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_signer = Signatory::Account(bob_key);
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+
+    // Add bob with default permissions
+    add_secondary_key(alice_did, Signatory::Account(bob_key));
+
+    // Try adding bob again with custom permissions
+    let auth_id = Identity::add_auth(
+        alice_did,
+        bob_signer,
+        AuthorizationData::JoinIdentity(Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+            b"identity".into(),
+        )])),
+        None,
+    );
+    assert_noop!(
+        Identity::join_identity(bob_signer, auth_id),
+        Error::AlreadyLinked
+    );
+
+    // Check KeyToIdentityIds map
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice_did);
+    assert_eq!(keys.len(), 1);
+
+    // Try remove bob using alice
+    TestStorage::set_current_identity(&alice_did);
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.clone(),
+        vec![Signatory::Account(bob_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice_did);
+    assert_eq!(keys.len(), 0);
+}
+
+#[test]
 fn remove_secondary_keys_test() {
     ExtBuilder::default()
         .monied(true)
@@ -556,7 +609,7 @@ fn do_remove_secondary_keys_test() {
     let keys = get_secondary_keys(alice_did);
     assert_eq!(keys.len(), 2);
 
-    // Try remove bob using alice
+    // Try remove bob & dave using alice
     TestStorage::set_current_identity(&alice_did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.clone(),
