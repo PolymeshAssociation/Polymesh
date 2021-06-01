@@ -150,6 +150,12 @@ crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -
     asset_with_ids(owner, ticker, token, vec![])
 }
 
+crate fn create_token(owner: User) -> (Ticker, SecurityToken<u128>) {
+    let r = a_token(owner.did);
+    assert_ok!(basic_asset(owner, r.0, &r.1));
+    r
+}
+
 crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),

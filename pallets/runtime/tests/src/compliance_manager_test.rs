@@ -1,5 +1,5 @@
 use super::{
-    asset_test::{a_token, basic_asset},
+    asset_test::create_token,
     storage::{
         create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties,
         register_keyring_account, TestStorage, User,
@@ -8,7 +8,6 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
@@ -73,13 +72,6 @@ macro_rules! assert_add_claim {
     };
 }
 
-fn create_token() -> (Ticker, SecurityToken<u128>) {
-    let owner = User::existing(AccountKeyring::Alice);
-    let r = a_token(owner.did);
-    assert_ok!(basic_asset(owner, r.0, &r.1));
-    r
-}
-
 #[test]
 fn should_add_and_verify_compliance_requirement() {
     ExtBuilder::default()
@@ -98,7 +90,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
     // Create & mint token
-    let (ticker, token) = create_token();
+    let (ticker, token) = create_token(owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
@@ -293,7 +285,7 @@ fn should_replace_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
@@ -340,7 +332,7 @@ fn should_reset_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
@@ -378,7 +370,7 @@ fn pause_resume_asset_compliance_we() {
     let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
@@ -457,7 +449,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
 
     // 1. Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     /*
     assert_ok!(Asset::remove_primary_issuance_agent(
@@ -599,7 +591,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // 1. Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
@@ -766,7 +758,7 @@ fn jurisdiction_asset_compliance_we() {
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
@@ -831,7 +823,7 @@ fn scope_asset_compliance_we() {
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
@@ -880,7 +872,7 @@ fn cm_test_case_9_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![Condition::from_dids(
@@ -978,7 +970,7 @@ fn cm_test_case_11_we() {
     let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1090,7 +1082,7 @@ fn cm_test_case_13_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
@@ -1214,7 +1206,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Create a token.
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
     let auth_id = Identity::add_auth(
         owner.did,
         Signatory::from(issuer_id),
@@ -1279,7 +1271,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     let owner = User::new(AccountKeyring::Alice);
 
     // 1. Create & mint token
-    let (ticker, _token) = create_token();
+    let (ticker, _) = create_token(owner);
 
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
@@ -1338,7 +1330,7 @@ fn check_new_return_type_of_rpc() {
         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
         // 1. Create & mint token
-        let (ticker, _token) = create_token();
+        let (ticker, _) = create_token(owner);
 
         Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
