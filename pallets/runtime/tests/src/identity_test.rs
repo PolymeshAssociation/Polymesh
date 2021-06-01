@@ -542,19 +542,20 @@ fn add_secondary_keys_with_permissions_test() {
 fn do_add_secondary_keys_with_permissions_test() {
     let bob_key = AccountKeyring::Bob.public();
     let bob_signer = Signatory::Account(bob_key);
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let alice = User::new(AccountKeyring::Alice);
 
     // Add bob with default permissions
-    add_secondary_key(alice_did, Signatory::Account(bob_key));
+    add_secondary_key(alice.did, bob_signer);
 
+    let permissions =
+        Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+            b"identity".into(),
+        )]);
     // Try adding bob again with custom permissions
     let auth_id = Identity::add_auth(
-        alice_did,
+        alice.did,
         bob_signer,
-        AuthorizationData::JoinIdentity(Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-            b"identity".into(),
-        )])),
+        AuthorizationData::JoinIdentity(permissions.clone()),
         None,
     );
     assert_noop!(
@@ -562,17 +563,40 @@ fn do_add_secondary_keys_with_permissions_test() {
         Error::AlreadyLinked
     );
 
+    // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
+    let expires_at = 100u64;
+    let target_id_auth = |user: User| TargetIdAuthorization {
+        target_id: user.did,
+        nonce: Identity::offchain_authorization_nonce(user.did),
+        expires_at,
+    };
+    let authorization = target_id_auth(alice);
+    let auth_encoded = authorization.encode();
+    let auth_signature = H512::from(alice.ring.sign(&auth_encoded));
+
+    let bob_key_2 = SecondaryKey::new(bob_signer, permissions);
+    let key_with_auth = SecondaryKeyWithAuth {
+        auth_signature,
+        secondary_key: bob_key_2.into(),
+    };
+
+    assert_noop!(
+        Identity::add_secondary_keys_with_authorization(alice.origin(), vec![key_with_auth], expires_at),
+        Error::AlreadyLinked
+    );
+
+
     // Check KeyToIdentityIds map
-    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Check DidRecords
-    let keys = get_secondary_keys(alice_did);
+    let keys = get_secondary_keys(alice.did);
     assert_eq!(keys.len(), 1);
 
     // Try remove bob using alice
-    TestStorage::set_current_identity(&alice_did);
+    TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
-        alice.clone(),
+        alice.origin(),
         vec![Signatory::Account(bob_key)]
     ));
 
@@ -580,7 +604,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Check DidRecords
-    let keys = get_secondary_keys(alice_did);
+    let keys = get_secondary_keys(alice.did);
     assert_eq!(keys.len(), 0);
 }
 
