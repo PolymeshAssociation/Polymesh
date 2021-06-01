@@ -5,7 +5,7 @@ use super::{
     storage::{
         add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
         provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
-        GovernanceCommittee, TestStorage, User,
+        GovernanceCommittee, TestStorage, User, AccountId
     },
     ExtBuilder,
 };
@@ -18,6 +18,7 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, DidRecords};
+use pallet_identity::types::{DidRecords as RpcDidRecords};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
@@ -75,6 +76,15 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
         SystematicIssuers::CDDProvider.as_id(),
         None,
     )
+}
+
+fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
+    match Identity::get_did_records(target) {
+        RpcDidRecords::Success { secondary_keys, .. } => {
+            secondary_keys
+        }
+        _ => vec![],
+    }
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -526,10 +536,51 @@ fn remove_secondary_keys_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&remove_secondary_keys_test_with_externalities);
+        .execute_with(&do_remove_secondary_keys_test);
 }
 
+fn do_remove_secondary_keys_test() {
+    let bob_key = AccountKeyring::Bob.public();
+    let dave_key = AccountKeyring::Dave.public();
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+
+    add_secondary_key(alice_did, Signatory::Account(bob_key));
+    add_secondary_key(alice_did, Signatory::Account(dave_key));
+
+    // Check KeyToIdentityIds map
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice_did);
+    assert_eq!(keys.len(), 2);
+
+    // Try remove bob using alice
+    TestStorage::set_current_identity(&alice_did);
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.clone(),
+        vec![Signatory::Account(bob_key), Signatory::Account(dave_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&bob_key), None);
+    assert_eq!(Identity::get_identity(&dave_key), None);
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice_did);
+    assert_eq!(keys.len(), 0);
+}
+
+#[test]
 fn remove_secondary_keys_test_with_externalities() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_remove_secondary_keys_test_with_externalities);
+}
+
+fn do_remove_secondary_keys_test_with_externalities() {
     let bob_key = AccountKeyring::Bob.public();
     let alice_key = AccountKeyring::Alice.public();
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
