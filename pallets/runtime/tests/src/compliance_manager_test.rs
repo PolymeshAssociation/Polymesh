@@ -1,8 +1,8 @@
 use super::{
     asset_test::create_token,
     storage::{
-        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties,
-        register_keyring_account, TestStorage, User,
+        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, TestStorage,
+        User,
     },
     ExtBuilder,
 };
@@ -83,34 +83,29 @@ fn should_add_and_verify_compliance_requirement_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let owner = User::new(AccountKeyring::Alice);
-    let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let eve = AccountKeyring::Eve.public();
-    let cdd_signed = Origin::signed(eve);
-    let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
+    let token_rec = User::new(AccountKeyring::Charlie);
+    let cdd = User::new(AccountKeyring::Eve);
 
-    assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
+    assert_ok!(CDDGroup::reset_members(root, vec![cdd.did]));
     // Create & mint token
     let (ticker, token) = create_token(owner);
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    let claim_issuer_acc = AccountKeyring::Bob.public();
-    Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-    let claim_issuer_signed = Origin::signed(AccountKeyring::Bob.public());
-    let claim_issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
-    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let claim_issuer = User::new(AccountKeyring::Bob);
+    Balances::make_free_balance_be(&claim_issuer.acc(), 1_000_000);
+    let ferdie = User::new(AccountKeyring::Ferdie);
 
     assert_ok!(Identity::add_claim(
-        claim_issuer_signed.clone(),
+        claim_issuer.origin(),
         owner.did,
         Claim::NoData,
         None,
     ));
 
     assert_ok!(Identity::add_claim(
-        claim_issuer_signed.clone(),
-        token_rec_did,
+        claim_issuer.origin(),
+        token_rec.did,
         Claim::NoData,
         None,
     ));
@@ -119,22 +114,22 @@ fn should_add_and_verify_compliance_requirement_we() {
     Timestamp::set_timestamp(now.timestamp() as u64);
 
     let sender_condition =
-        Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer_did]);
+        Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer.did]);
 
     let receiver_condition1 = Condition::from_dids(
-        ConditionType::IsAbsent(Claim::KnowYourCustomer(owner.did.into())),
-        &[cdd_id],
+        ConditionType::IsAbsent(Claim::KnowYourCustomer(owner.into())),
+        &[cdd.did],
     );
 
     let receiver_condition2 = Condition {
-        condition_type: ConditionType::IsPresent(Claim::Accredited(owner.did.into())),
+        condition_type: ConditionType::IsPresent(Claim::Accredited(owner.into())),
         issuers: vec![
             TrustedIssuer {
-                issuer: claim_issuer_did,
+                issuer: claim_issuer.did,
                 trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
             },
             TrustedIssuer {
-                issuer: ferdie_did,
+                issuer: ferdie.did,
                 trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate, ClaimType::BuyLockup]),
             },
         ],
@@ -148,22 +143,22 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     assert_ok!(Identity::add_claim(
-        claim_issuer_signed.clone(),
-        token_rec_did,
-        Claim::Accredited(claim_issuer_did.into()),
+        claim_issuer.origin(),
+        token_rec.did,
+        Claim::Accredited(claim_issuer.into()),
         None,
     ));
 
     // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(&[owner.did, token_rec_did], ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[owner.did, token_rec.did], ticker, cdd.acc());
 
     //Transfer tokens to investor - fails wrong Accredited scope
-    assert_invalid_transfer!(ticker, owner.did, token_rec_did, token.total_supply);
+    assert_invalid_transfer!(ticker, owner.did, token_rec.did, token.total_supply);
     let get_result = || {
         ComplianceManager::verify_restriction_granular(
             &ticker,
             Some(owner.did),
-            Some(token_rec_did),
+            Some(token_rec.did),
         )
     };
     let second_unpassed = |result: AssetComplianceResult| {
@@ -189,22 +184,22 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     // Ferdie isn't trusted for `Accredited`, so the claim isn't enough.
     assert_ok!(Identity::add_claim(
-        ferdie_signer,
-        token_rec_did,
-        Claim::Accredited(owner.did.into()),
+        ferdie.origin(),
+        token_rec.did,
+        Claim::Accredited(owner.into()),
         None,
     ));
-    assert_invalid_transfer!(ticker, owner.did, token_rec_did, 10);
+    assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
     second_unpassed(get_result());
 
     // Now we add a claim from a trusted issuer, so the transfer will be valid.
     assert_ok!(Identity::add_claim(
-        claim_issuer_signed.clone(),
-        token_rec_did,
-        Claim::Accredited(owner.did.into()),
+        claim_issuer.origin(),
+        token_rec.did,
+        Claim::Accredited(owner.into()),
         None,
     ));
-    assert_valid_transfer!(ticker, owner.did, token_rec_did, 10);
+    assert_valid_transfer!(ticker, owner.did, token_rec.did, 10);
     let result = get_result();
     assert!(result.result);
     assert!(result.requirements[0].result);
@@ -225,13 +220,13 @@ fn should_add_and_verify_compliance_requirement_we() {
     );
 
     assert_ok!(Identity::add_claim(
-        cdd_signed.clone(),
-        token_rec_did,
-        Claim::KnowYourCustomer(owner.did.into()),
+        cdd.origin(),
+        token_rec.did,
+        Claim::KnowYourCustomer(owner.into()),
         None,
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, token_rec_did, 10);
+    assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
     let result = get_result();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
@@ -366,8 +361,7 @@ fn pause_resume_asset_compliance() {
 fn pause_resume_asset_compliance_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
-    let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let receiver = User::new(AccountKeyring::Charlie);
 
     // 1. Create & mint token
     let (ticker, _) = create_token(owner);
@@ -375,8 +369,8 @@ fn pause_resume_asset_compliance_we() {
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
     assert_ok!(Identity::add_claim(
-        receiver_signed.clone(),
-        receiver_did.clone(),
+        receiver.origin(),
+        receiver.did.clone(),
         Claim::NoData,
         Some(99999999999999999u64),
     ));
@@ -387,7 +381,7 @@ fn pause_resume_asset_compliance_we() {
     // 4. Define conditions
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsAbsent(Claim::NoData),
-        &[receiver_did],
+        &[receiver.did],
     )];
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -399,14 +393,14 @@ fn pause_resume_asset_compliance_we() {
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver_did],
+        &[owner.did, receiver.did],
         ticker,
         AccountKeyring::Eve.public(),
     );
 
     // 5. Verify pause/resume mechanism.
     // 5.1. Transfer should be cancelled.
-    assert_invalid_transfer!(ticker, owner.did, receiver_did, 10);
+    assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 
     Context::set_current_identity::<Identity>(Some(owner.did));
     // 5.2. Pause asset compliance, and run the transaction.
@@ -415,7 +409,7 @@ fn pause_resume_asset_compliance_we() {
         ticker
     ));
     Context::set_current_identity::<Identity>(None);
-    assert_valid_transfer!(ticker, owner.did, receiver_did, 10);
+    assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
 
     Context::set_current_identity::<Identity>(Some(owner.did));
     // 5.3. Resume asset compliance, and new transfer should fail again.
@@ -424,7 +418,7 @@ fn pause_resume_asset_compliance_we() {
         ticker
     ));
     Context::set_current_identity::<Identity>(None);
-    assert_invalid_transfer!(ticker, owner.did, receiver_did, 10);
+    assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 }
 
 #[test]
@@ -438,15 +432,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let owner = User::new(AccountKeyring::Alice);
-    let trusted_issuer_signed = Origin::signed(AccountKeyring::Charlie.public());
-    let trusted_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let eve_signed = Origin::signed(AccountKeyring::Eve.public());
-    let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
-    let ferdie_signed = Origin::signed(AccountKeyring::Ferdie.public());
-    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let trusted_issuer = User::new(AccountKeyring::Charlie);
+    let receiver = User::new(AccountKeyring::Dave);
+    let eve = User::new(AccountKeyring::Eve);
+    let ferdie = User::new(AccountKeyring::Ferdie);
 
-    assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
+    assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer.did]));
 
     // 1. Create & mint token
     let (ticker, _) = create_token(owner);
@@ -477,13 +468,13 @@ fn should_successfully_add_and_use_default_issuers_we() {
     };
 
     let trusted_issuers = vec![
-        trusted_issuer_did.into(),
+        trusted_issuer.into(),
         TrustedIssuer {
-            issuer: eve_did,
+            issuer: eve.did,
             trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate]),
         },
         TrustedIssuer {
-            issuer: ferdie_did,
+            issuer: ferdie.did,
             trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
         },
     ];
@@ -497,13 +488,13 @@ fn should_successfully_add_and_use_default_issuers_we() {
         trusted_issuers
     );
     let (cdd_id, _) = create_cdd_id(
-        receiver_did,
+        receiver.did,
         Ticker::default(),
-        create_investor_uid(Identity::did_records(receiver_did).primary_key),
+        create_investor_uid(Identity::did_records(receiver.did).primary_key),
     );
     assert_ok!(Identity::add_claim(
-        trusted_issuer_signed.clone(),
-        receiver_did.clone(),
+        trusted_issuer.origin(),
+        receiver.did.clone(),
         Claim::CustomerDueDiligence(cdd_id),
         Some(u64::MAX),
     ));
@@ -511,8 +502,8 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let claim_need_to_posses_1 = Claim::Affiliate(owner.did.into());
-    let claim_need_to_posses_2 = Claim::Accredited(owner.did.into());
+    let claim_need_to_posses_1 = Claim::Affiliate(owner.into());
+    let claim_need_to_posses_2 = Claim::Accredited(owner.into());
     let sender_condition: Condition =
         ConditionType::IsPresent(claim_need_to_posses_1.clone()).into();
     let receiver_condition1 = sender_condition.clone();
@@ -526,7 +517,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     let provide_affiliated_claim = |claim_for| {
         assert_ok!(Identity::add_claim(
-            eve_signed.clone(),
+            eve.origin(),
             claim_for,
             claim_need_to_posses_1.clone(),
             Some(u64::MAX),
@@ -536,34 +527,34 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let provide_accredited_claim = |claim_by| {
         assert_ok!(Identity::add_claim(
             claim_by,
-            receiver_did,
+            receiver.did,
             claim_need_to_posses_2.clone(),
             Some(u64::MAX),
         ));
     };
 
-    provide_affiliated_claim(receiver_did);
+    provide_affiliated_claim(receiver.did);
     provide_affiliated_claim(owner.did);
 
     // fail when token owner doesn't has the valid claim
-    assert_invalid_transfer!(ticker, owner.did, receiver_did, 100);
+    assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver_did],
+        &[owner.did, receiver.did],
         ticker,
-        AccountKeyring::Charlie.public(),
+        trusted_issuer.acc(),
     );
 
     // Right claim, but Eve not trusted for this asset.
-    provide_accredited_claim(eve_signed);
+    provide_accredited_claim(eve.origin());
 
-    assert_invalid_transfer!(ticker, owner.did, receiver_did, 100);
+    assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
 
     // Right claim, and Ferdie is trusted for this asset.
-    provide_accredited_claim(ferdie_signed);
+    provide_accredited_claim(ferdie.origin());
 
-    assert_valid_transfer!(ticker, owner.did, receiver_did, 100);
+    assert_valid_transfer!(ticker, owner.did, receiver.did, 100);
 }
 
 #[test]
@@ -577,17 +568,14 @@ fn should_modify_vector_of_trusted_issuer_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let owner = User::new(AccountKeyring::Alice);
-    let trusted_issuer_signed_1 = Origin::signed(AccountKeyring::Charlie.public());
-    let trusted_issuer_did_1 = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let trusted_issuer_signed_2 = Origin::signed(AccountKeyring::Ferdie.public());
-    let trusted_issuer_did_2 = register_keyring_account(AccountKeyring::Ferdie).unwrap();
-    let receiver_signed = Origin::signed(AccountKeyring::Dave.public());
-    let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let trusted_issuer_1 = User::new(AccountKeyring::Charlie);
+    let trusted_issuer_2 = User::new(AccountKeyring::Ferdie);
+    let receiver = User::new(AccountKeyring::Dave);
 
     // Providing a random DID to root but in real world Root should posses a DID
     assert_ok!(CDDGroup::reset_members(
         root,
-        vec![trusted_issuer_did_1, trusted_issuer_did_2]
+        vec![trusted_issuer_1.did, trusted_issuer_2.did]
     ));
 
     // 1. Create & mint token
@@ -596,19 +584,19 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        trusted_issuer_did_1.into()
+        trusted_issuer_1.into()
     ));
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        trusted_issuer_did_2.into()
+        trusted_issuer_2.into()
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_did_1.into(), trusted_issuer_did_2.into()]
+        vec![trusted_issuer_1.into(), trusted_issuer_2.into()]
     );
 
     let accredited_claim = Claim::Accredited(Scope::Custom(vec![b't']));
@@ -619,17 +607,17 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // adding claim by trusted issuer 1
     provide_claim(
-        trusted_issuer_signed_1.clone(),
-        receiver_did,
+        trusted_issuer_1.origin(),
+        receiver.did,
         accredited_claim.clone(),
     );
 
     // adding claim by trusted issuer 1
-    provide_claim(trusted_issuer_signed_1.clone(), receiver_did, Claim::NoData);
+    provide_claim(trusted_issuer_1.origin(), receiver.did, Claim::NoData);
 
     // adding claim by trusted issuer 2
     provide_claim(
-        trusted_issuer_signed_2.clone(),
+        trusted_issuer_2.origin(),
         owner.did,
         accredited_claim.clone(),
     );
@@ -662,39 +650,39 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, receiver_did],
+        &[owner.did, receiver.did],
         ticker,
-        AccountKeyring::Charlie.public(),
+        trusted_issuer_1.acc(),
     );
 
-    assert_valid_transfer!(ticker, owner.did, receiver_did, 10);
+    assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
 
     // Remove the trusted issuer 1 from the list
     assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        trusted_issuer_did_1
+        trusted_issuer_1.did
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_did_2.into()]
+        vec![trusted_issuer_2.into()]
     );
 
     // Transfer should fail as issuer doesn't exist anymore but the compliance data still exist
-    assert_invalid_transfer!(ticker, owner.did, receiver_did, 500);
+    assert_invalid_transfer!(ticker, owner.did, receiver.did, 500);
 
     // Change the compliance requirement to all the transfer happen again
 
     let receiver_condition_1 = Condition::from_dids(
         ConditionType::IsPresent(accredited_claim.clone()),
-        &[trusted_issuer_did_1],
+        &[trusted_issuer_1.did],
     );
 
     let receiver_condition_2 = Condition::from_dids(
         ConditionType::IsPresent(Claim::NoData),
-        &[trusted_issuer_did_1],
+        &[trusted_issuer_1.did],
     );
 
     let x = vec![sender_condition];
@@ -709,7 +697,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     // Failed because sender is not an agent of the ticker
     assert_noop!(
         ComplianceManager::change_compliance_requirement(
-            receiver_signed.clone(),
+            receiver.origin(),
             ticker,
             compliance_requirement.clone()
         ),
@@ -740,7 +728,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // Now the transfer should pass
-    assert_valid_transfer!(ticker, owner.did, receiver_did, 500);
+    assert_valid_transfer!(ticker, owner.did, receiver.did, 500);
 }
 
 #[test]
@@ -753,16 +741,15 @@ fn jurisdiction_asset_compliance() {
 fn jurisdiction_asset_compliance_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
-    let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let cdd = User::new(AccountKeyring::Bob);
+    let user = User::new(AccountKeyring::Charlie);
 
     // 1. Create & mint token
     let (ticker, _) = create_token(owner);
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, user_id],
+        &[owner.did, user.did],
         ticker,
         AccountKeyring::Eve.public(),
     );
@@ -775,7 +762,7 @@ fn jurisdiction_asset_compliance_we() {
                 Claim::Jurisdiction(CountryCode::CA, scope.clone()),
                 Claim::Jurisdiction(CountryCode::ES, scope.clone()),
             ]),
-            &[cdd_id],
+            &[cdd.did],
         ),
         Condition::from_dids(
             ConditionType::IsAbsent(Claim::Blocked(scope.clone())),
@@ -790,23 +777,23 @@ fn jurisdiction_asset_compliance_we() {
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_invalid_transfer!(ticker, owner.did, user_id, 10);
+    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
-        cdd_signed.clone(),
-        user_id,
+        cdd.origin(),
+        user.did,
         Claim::Jurisdiction(CountryCode::CA, scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, user_id, 10);
+    assert_valid_transfer!(ticker, owner.did, user.did, 10);
     // 3.3. Add user to Blocked
     assert_ok!(Identity::add_claim(
         owner.origin(),
-        user_id,
+        user.did,
         Claim::Blocked(scope.clone()),
         None,
     ));
-    assert_invalid_transfer!(ticker, owner.did, user_id, 10);
+    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
 }
 
 #[test]
@@ -819,15 +806,14 @@ fn scope_asset_compliance() {
 fn scope_asset_compliance_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
-    let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let cdd = User::new(AccountKeyring::Bob);
+    let user = User::new(AccountKeyring::Charlie);
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, user_id],
+        &[owner.did, user.did],
         ticker,
         AccountKeyring::Eve.public(),
     );
@@ -836,7 +822,7 @@ fn scope_asset_compliance_we() {
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsPresent(Claim::Affiliate(scope.clone())),
-        &[cdd_id],
+        &[cdd.did],
     )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
@@ -846,15 +832,15 @@ fn scope_asset_compliance_we() {
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_invalid_transfer!(ticker, owner.did, user_id, 10);
+    assert_invalid_transfer!(ticker, owner.did, user.did, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
-        cdd_signed.clone(),
-        user_id,
+        cdd.origin(),
+        user.did,
         Claim::Affiliate(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, user_id, 10);
+    assert_valid_transfer!(ticker, owner.did, user.did, 10);
 }
 
 #[test]
@@ -868,8 +854,7 @@ fn cm_test_case_9() {
 fn cm_test_case_9_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
-    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let issuer = User::new(AccountKeyring::Bob);
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
@@ -882,7 +867,7 @@ fn cm_test_case_9_we() {
             Claim::Accredited(scope.clone()),
             Claim::Exempted(scope.clone()),
         ]),
-        &[issuer_id],
+        &[issuer.did],
     )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
@@ -892,62 +877,62 @@ fn cm_test_case_9_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
-    let ferdie = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let charlie = User::new(AccountKeyring::Charlie);
+    let dave = User::new(AccountKeyring::Dave);
+    let eve = User::new(AccountKeyring::Eve);
+    let ferdie = User::new(AccountKeyring::Ferdie);
 
     // Provide scope claim
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, charlie, dave, eve, ferdie],
+        &[owner, charlie, dave, eve, ferdie].map(|u| u.did),
         ticker,
         AccountKeyring::One.public(),
     );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        charlie,
+        issuer.origin(),
+        charlie.did,
         Claim::KnowYourCustomer(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, charlie, 100);
+    assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie.did));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.2. Dave has a 'Affiliate' Claim
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        dave,
+        issuer.origin(),
+        dave.did,
         Claim::Affiliate(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, dave, 100);
+    assert_valid_transfer!(ticker, owner.did, dave.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave.did));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        eve,
+        issuer.origin(),
+        eve.did,
         Claim::Exempted(scope.clone()),
         None
     ));
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
-    assert_invalid_transfer!(ticker, owner.did, ferdie, 100);
+    assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -965,8 +950,7 @@ fn cm_test_case_11() {
 fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
-    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let issuer = User::new(AccountKeyring::Bob);
     let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
@@ -981,14 +965,14 @@ fn cm_test_case_11_we() {
                 Claim::Accredited(scope.clone()),
                 Claim::Exempted(scope.clone()),
             ]),
-            &[issuer_id],
+            &[issuer.did],
         ),
         Condition::from_dids(
             ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(CountryCode::US, scope.clone()),
                 Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
-            &[issuer_id],
+            &[issuer.did],
         ),
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -999,23 +983,27 @@ fn cm_test_case_11_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+    let charlie = User::new(AccountKeyring::Charlie);
+    let dave = User::new(AccountKeyring::Dave);
+    let eve = User::new(AccountKeyring::Eve);
 
     // Provide scope claim
-    provide_scope_claim_to_multiple_parties(&[owner.did, charlie, dave, eve], ticker, ferdie);
+    provide_scope_claim_to_multiple_parties(
+        &[owner, charlie, dave, eve].map(|u| u.did),
+        ticker,
+        ferdie,
+    );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        charlie,
+        issuer.origin(),
+        charlie.did,
         Claim::KnowYourCustomer(scope.clone()),
         None
     ));
-    assert_valid_transfer!(ticker, owner.did, charlie, 100);
+    assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie.did));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1023,21 +1011,21 @@ fn cm_test_case_11_we() {
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        dave,
+        issuer.origin(),
+        dave.did,
         Claim::Affiliate(scope.clone()),
         None
     ));
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        dave,
+        issuer.origin(),
+        dave.did,
         Claim::Jurisdiction(CountryCode::US, scope.clone()),
         None
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, dave, 100);
+    assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1045,21 +1033,21 @@ fn cm_test_case_11_we() {
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        eve,
+        issuer.origin(),
+        eve.did,
         Claim::Exempted(scope.clone()),
         None
     ));
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        eve,
+        issuer.origin(),
+        eve.did,
         Claim::Jurisdiction(CountryCode::GB, scope.clone()),
         None
     ));
 
-    assert_valid_transfer!(ticker, owner.did, eve, 100);
+    assert_valid_transfer!(ticker, owner.did, eve.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1078,8 +1066,7 @@ fn cm_test_case_13() {
 fn cm_test_case_13_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
-    let issuer = Origin::signed(AccountKeyring::Bob.public());
-    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let issuer = User::new(AccountKeyring::Bob);
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
@@ -1088,7 +1075,7 @@ fn cm_test_case_13_we() {
     let receiver_conditions = vec![
         Condition::from_dids(
             ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
-            &[issuer_id],
+            &[issuer.did],
         ),
         Condition::from_dids(
             ConditionType::IsAnyOf(vec![
@@ -1096,14 +1083,14 @@ fn cm_test_case_13_we() {
                 Claim::Accredited(scope.clone()),
                 Claim::Exempted(scope.clone()),
             ]),
-            &[issuer_id],
+            &[issuer.did],
         ),
         Condition::from_dids(
             ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(CountryCode::US, scope.clone()),
                 Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
-            &[issuer_id],
+            &[issuer.did],
         ),
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -1114,13 +1101,13 @@ fn cm_test_case_13_we() {
     ));
 
     // 3. Validate behaviour.
-    let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
-    let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+    let charlie = User::new(AccountKeyring::Charlie);
+    let dave = User::new(AccountKeyring::Dave);
+    let eve = User::new(AccountKeyring::Eve);
 
     // Provide scope claim
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, charlie, dave, eve],
+        &[owner, charlie, dave, eve].map(|u| u.did),
         ticker,
         AccountKeyring::Ferdie.public(),
     );
@@ -1128,14 +1115,14 @@ fn cm_test_case_13_we() {
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
     //   'Accredited', 'Exempted'}.
     assert_ok!(Identity::add_claim(
-        issuer.clone(),
-        charlie,
+        issuer.origin(),
+        charlie.did,
         Claim::KnowYourCustomer(scope.clone()),
         None
     ));
 
-    assert_invalid_transfer!(ticker, owner.did, charlie, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(charlie));
+    assert_invalid_transfer!(ticker, owner.did, charlie.did, 100);
+    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(charlie.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1144,22 +1131,27 @@ fn cm_test_case_13_we() {
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
 
-    assert_add_claim!(issuer.clone(), dave, Claim::Exempted(scope.clone()), None);
     assert_add_claim!(
-        issuer.clone(),
-        dave,
+        issuer.origin(),
+        dave.did,
+        Claim::Exempted(scope.clone()),
+        None
+    );
+    assert_add_claim!(
+        issuer.origin(),
+        dave.did,
         Claim::KnowYourCustomer(scope.clone()),
         None
     );
     assert_add_claim!(
-        issuer.clone(),
-        dave,
+        issuer.origin(),
+        dave.did,
         Claim::Jurisdiction(CountryCode::US, scope.clone()),
         None
     );
 
-    assert_invalid_transfer!(ticker, owner.did, dave, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(dave));
+    assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
+    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(dave.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1167,23 +1159,28 @@ fn cm_test_case_13_we() {
     assert!(!result.requirements[0].receiver_conditions[2].result);
 
     // 3.3. Eve has a 'Exempted' Claim
-    assert_add_claim!(issuer.clone(), eve, Claim::Exempted(scope.clone()), None);
     assert_add_claim!(
-        issuer.clone(),
-        eve,
+        issuer.origin(),
+        eve.did,
+        Claim::Exempted(scope.clone()),
+        None
+    );
+    assert_add_claim!(
+        issuer.origin(),
+        eve.did,
         Claim::KnowYourCustomer(scope.clone()),
         None
     );
     assert_add_claim!(
-        issuer.clone(),
-        eve,
+        issuer.origin(),
+        eve.did,
         Claim::Jurisdiction(CountryCode::GB, scope.clone()),
         None
     );
 
-    assert_valid_transfer!(ticker, owner.did, eve, 100);
+    assert_valid_transfer!(ticker, owner.did, eve.did, 100);
     let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve));
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1201,63 +1198,61 @@ fn can_verify_restriction_with_primary_issuance_agent() {
 
 fn can_verify_restriction_with_primary_issuance_agent_we() {
     let owner = User::new(AccountKeyring::Alice);
-    let issuer = AccountKeyring::Bob.public();
-    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let issuer = User::new(AccountKeyring::Bob);
+    let other = User::new(AccountKeyring::Charlie);
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
     let auth_id = Identity::add_auth(
         owner.did,
-        Signatory::from(issuer_id),
+        Signatory::from(issuer.did),
         AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
     );
-    assert_ok!(Identity::accept_authorization(
-        Origin::signed(issuer),
-        auth_id
-    ));
+    assert_ok!(Identity::accept_authorization(issuer.origin(), auth_id));
     let amount = 1_000;
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
-        &[owner.did, random_guy_id, issuer_id],
+        &[owner, other, issuer].map(|u| u.did),
         ticker,
         AccountKeyring::Eve.public(),
     );
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount),
+        ComplianceManager::verify_restriction(&ticker, None, Some(issuer.did), amount),
         ERC1400_TRANSFER_FAILURE
     );
 
+    let conditions = |ident: TargetIdentity| {
+        vec![Condition {
+            condition_type: ConditionType::IsIdentity(ident),
+            issuers: vec![],
+        }]
+    };
+
     // Add compliance requirement that requires sender to be primary issuance agent (dynamic)
-    // and receiver to be a specific random_guy_id.
+    // and receiver to be a specific other id.
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
         ticker,
-        vec![Condition {
-            condition_type: ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
-            issuers: vec![],
-        }],
-        vec![Condition {
-            condition_type: ConditionType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
-            issuers: vec![],
-        }]
+        conditions(TargetIdentity::ExternalAgent),
+        conditions(TargetIdentity::Specific(other.did)),
     ));
 
-    let verify =
-        |from, to| ComplianceManager::verify_restriction(&ticker, Some(from), Some(to), amount);
+    let verify = |from: User, to: User| {
+        ComplianceManager::verify_restriction(&ticker, Some(from.did), Some(to.did), amount)
+    };
 
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(verify(issuer_id, random_guy_id), ERC1400_TRANSFER_SUCCESS);
+    assert_ok!(verify(issuer, other), ERC1400_TRANSFER_SUCCESS);
 
     // From primary issuance agent to owner should fail
-    assert_ok!(verify(issuer_id, owner.did), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(verify(issuer, owner), ERC1400_TRANSFER_FAILURE);
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(verify(random_guy_id, issuer_id), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(verify(other, issuer), ERC1400_TRANSFER_FAILURE);
 }
 
 #[test]
@@ -1304,17 +1299,13 @@ fn should_limit_compliance_requirements_complexity_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        owner.did.into(),
+        owner.into(),
     ));
 
     // Complexity = 30*1 + 15*2 = 60
-    let other_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let other = User::new(AccountKeyring::Bob);
     assert_noop!(
-        ComplianceManager::add_default_trusted_claim_issuer(
-            owner.origin(),
-            ticker,
-            other_did.into(),
-        ),
+        ComplianceManager::add_default_trusted_claim_issuer(owner.origin(), ticker, other.into(),),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
@@ -1327,7 +1318,7 @@ fn check_new_return_type_of_rpc() {
     ExtBuilder::default().build().execute_with(|| {
         // 0. Create accounts
         let owner = User::new(AccountKeyring::Alice);
-        let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let receiver = User::new(AccountKeyring::Charlie);
 
         // 1. Create & mint token
         let (ticker, _) = create_token(owner);
@@ -1345,7 +1336,7 @@ fn check_new_return_type_of_rpc() {
         let result = ComplianceManager::verify_restriction_granular(
             &ticker,
             Some(owner.did),
-            Some(receiver_did),
+            Some(receiver.did),
         );
 
         let compliance_requirement = ComplianceRequirementResult {
@@ -1360,6 +1351,6 @@ fn check_new_return_type_of_rpc() {
         assert_eq!(result.result, true);
 
         // Should fail txn as implicit requirements are active.
-        assert_invalid_transfer!(ticker, owner.did, receiver_did, 100);
+        assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
     });
 }

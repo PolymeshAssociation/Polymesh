@@ -45,7 +45,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, Authorization, AuthorizationData, CddId, Claim,
     IdentityId, InvestorUid, Permissions, PortfolioId, PortfolioNumber, Scope, ScopeId, Signatory,
-    Ticker,
+    Ticker, TrustedFor, TrustedIssuer,
 };
 use polymesh_runtime_common::cdd_check::CddChecker;
 use smallvec::smallvec;
@@ -177,6 +177,28 @@ impl User {
 
     pub fn uid(&self) -> InvestorUid {
         create_investor_uid(self.acc())
+    }
+}
+
+impl From<User> for Scope {
+    fn from(user: User) -> Self {
+        Self::Identity(user.did)
+    }
+}
+
+impl From<User> for IdentityId {
+    fn from(user: User) -> Self {
+        user.did
+    }
+}
+
+/// Create a `TrustedIssuer` trusted from a User
+impl From<User> for TrustedIssuer {
+    fn from(user: User) -> Self {
+        Self {
+            issuer: user.did,
+            trusted_for: TrustedFor::Any,
+        }
     }
 }
 
@@ -973,7 +995,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     ticker: Ticker,
     cdd_provider: AccountId,
 ) {
-    parties.into_iter().enumerate().for_each(|(_, id)| {
+    parties.into_iter().for_each(|id| {
         let uid = create_investor_uid(Identity::did_records(id).primary_key);
         provide_scope_claim(*id, ticker, uid, cdd_provider, None).0;
     });
