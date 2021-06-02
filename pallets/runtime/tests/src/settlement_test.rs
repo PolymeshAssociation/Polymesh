@@ -2753,7 +2753,11 @@ fn multiple_portfolio_settlement() {
                 alice_signed.clone(),
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(alice_did, alice_num),
-                vec![MovePortfolioItem { ticker, amount }]
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount,
+                    memo: None
+                }]
             ));
             set_current_block_number(15);
             // Alice is now able to approve the instruction with the user portfolio
@@ -2889,7 +2893,11 @@ fn multiple_custodian_settlement() {
                 alice_signed.clone(),
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(alice_did, alice_num),
-                vec![MovePortfolioItem { ticker, amount }]
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount,
+                    memo: None
+                }]
             ));
 
             // An instruction is created with multiple legs referencing multiple portfolios

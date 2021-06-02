@@ -36,7 +36,11 @@ fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, a
         origin,
         PortfolioId::default_portfolio(did),
         PortfolioId::user_portfolio(did, pnum),
-        vec![MovePortfolioItem { ticker, amount }],
+        vec![MovePortfolioItem {
+            ticker,
+            amount,
+            memo: None,
+        }],
     )
     .unwrap();
 }
