@@ -1,11 +1,14 @@
 use super::{
+    assert_last_event,
     asset_test::{a_token, basic_asset, max_len_bytes},
-    storage::{TestStorage, User},
+    storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_system::EventRecord;
 use pallet_asset::SecurityToken;
-use pallet_portfolio::MovePortfolioItem;
+use pallet_portfolio::{MovePortfolioItem, RawEvent};
+use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
@@ -96,6 +99,8 @@ fn can_create_rename_delete_portfolio() {
 #[test]
 fn can_recover_funds_from_deleted_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1); // This is needed to enable events.
+
         let (owner, num) = create_portfolio();
         let (ticker, token) = create_token();
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
@@ -110,8 +115,21 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
+        // check MovedBetweenPortfolios event
+        assert_last_event!(
+            EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+                did, from, to, i_ticker, i_amount, i_memo
+            )),
+            did == &owner.did
+                && from == &owner_default_portfolio
+                && to == &owner_user_portfolio
+                && i_ticker == &ticker
+                && i_amount == &move_amount
+                && i_memo.is_none()
+        );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
             assert_eq!(
                 Portfolio::default_portfolio_balance(owner.did, &ticker),
@@ -136,6 +154,7 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
         ensure_balances(token.total_supply, 0);
@@ -146,10 +165,19 @@ fn can_recover_funds_from_deleted_portfolio() {
 fn can_move_asset_from_portfolio() {
     ExtBuilder::default()
         .build()
-        .execute_with(do_move_asset_from_portfolio);
+        .execute_with(|| do_move_asset_from_portfolio(None));
 }
 
-fn do_move_asset_from_portfolio() {
+#[test]
+fn can_move_asset_from_portfolio_with_memo() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| do_move_asset_from_portfolio(Some(Memo::from("Test memo"))));
+}
+
+fn do_move_asset_from_portfolio(memo: Option<Memo>) {
+    System::set_block_number(1); // This is needed to enable events.
+
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
     let (ticker, token) = create_token();
@@ -174,6 +202,7 @@ fn do_move_asset_from_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply * 2,
+                memo: memo.clone()
             }]
         ),
         Error::InsufficientPortfolioBalance
@@ -194,7 +223,11 @@ fn do_move_asset_from_portfolio() {
             owner.origin(),
             owner_default_portfolio,
             owner_default_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: memo.clone()
+            }]
         ),
         Error::DestinationIsSamePortfolio
     );
@@ -225,7 +258,11 @@ fn do_move_asset_from_portfolio() {
             bob.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: memo.clone()
+            }]
         ),
         Error::UnauthorizedCustodian
     );
@@ -239,8 +276,21 @@ fn do_move_asset_from_portfolio() {
         vec![MovePortfolioItem {
             ticker,
             amount: move_amount,
+            memo: memo.clone()
         }]
     ));
+    // check MovedBetweenPortfolios event
+    assert_last_event!(
+        EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+            did, from, to, i_ticker, i_amount, i_memo
+        )),
+        did == &owner.did
+            && from == &owner_default_portfolio
+            && to == &owner_user_portfolio
+            && i_ticker == &ticker
+            && i_amount == &move_amount
+            && i_memo == &memo
+    );
     assert_ok!(Portfolio::ensure_portfolio_transfer_validity(
         &owner_default_portfolio,
         &owner_user_portfolio,
@@ -295,6 +345,7 @@ fn can_lock_unlock_assets() {
                 vec![MovePortfolioItem {
                     ticker,
                     amount: token.total_supply,
+                    memo: None,
                 }]
             ),
             Error::InsufficientPortfolioBalance
@@ -308,6 +359,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(
@@ -329,7 +381,11 @@ fn can_lock_unlock_assets() {
                 owner.origin(),
                 owner_default_portfolio,
                 owner_user_portfolio,
-                vec![MovePortfolioItem { ticker, amount: 1 }]
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: 1,
+                    memo: None
+                }]
             ),
             Error::InsufficientPortfolioBalance
         );
@@ -362,6 +418,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply - lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(Portfolio::default_portfolio_balance(owner.did, &ticker), 0,);

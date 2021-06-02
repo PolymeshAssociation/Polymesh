@@ -52,6 +52,7 @@ use frame_support::{
     weights::Weight, IterableStorageDoubleMap,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
+use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::portfolio::{Event, RawEvent, Trait, WeightInfo};
 use polymesh_common_utilities::CommonTrait;
@@ -73,6 +74,9 @@ pub struct MovePortfolioItem<Balance> {
     pub ticker: Ticker,
     /// The balance of the asset to be moved.
     pub amount: Balance,
+    /// The memo of the asset to be moved.
+    /// Currently only used in events.
+    pub memo: Option<Memo>,
 }
 
 decl_storage! {
@@ -195,6 +199,8 @@ decl_module! {
         /// identity. Must be called by the custodian of the sender.
         /// Funds from deleted portfolios can also be recovered via this method.
         ///
+        /// A short memo can be added to to each token amount moved.
+        ///
         /// # Errors
         /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
         /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same
@@ -243,7 +249,8 @@ decl_module! {
                     from,
                     to,
                     item.ticker,
-                    item.amount
+                    item.amount,
+                    item.memo
                 ));
             }
         }
