@@ -70,3 +70,5 @@ pub fn ensure_opt_string_limited<T: Trait>(s: Option<&[u8]>) -> DispatchResult {
         Some(s) => ensure_string_limited::<T>(s),
     }
 }
+
+impl<T: Trait> frame_support::traits::IntegrityTest for Module<T> {}
