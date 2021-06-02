@@ -735,36 +735,14 @@ benchmarks! {
 
 
     reject_instruction {
-        // At least one portfolio needed
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(MAX_LEGS_IN_INSTRUCTION, true).unwrap();
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-        let s_portfolios = portfolios.clone();
-    }: _(origin, instruction_id, s_portfolios, l.into())
+    }: _(origin, instruction_id)
     verify {
-        for p in portfolios.iter() {
-            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
-        }
-    }
-
-
-    reject_instruction_with_no_pre_affirmations {
-        // At least one portfolio needed
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
-        let instruction_id: u64 = 1;
-        let s_portfolios = portfolios.clone();
-    }: reject_instruction(origin, instruction_id, s_portfolios, l.into())
-    verify {
-        for p in portfolios.iter() {
-            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
-        }
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
     }
 
 

@@ -1603,14 +1603,14 @@ fn failed_execution() {
 
         ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
 
-        // Check that tokens were unlocked after settlement execution.
+        // Check that tokens stay locked after settlement execution failure.
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
-            0
+            amount
         );
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(bob_did), &ticker2),
-            0
+            amount
         );
 
         // Ensure balances have not changed.
@@ -1728,16 +1728,12 @@ fn basic_fuzzing() {
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
-            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
-            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-            let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
-            let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            let dave_signed = Origin::signed(AccountKeyring::Dave.public());
-            let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let alice = User::new(AccountKeyring::Alice);
+            let bob = User::new(AccountKeyring::Bob);
+            let charlie = User::new(AccountKeyring::Charlie);
+            let dave = User::new(AccountKeyring::Dave);
+            let eve = User::existing(AccountKeyring::Eve);
             let venue_counter = Settlement::venue_counter();
-            let eve = AccountKeyring::Eve.public();
             assert_ok!(Settlement::create_venue(
                 Origin::signed(AccountKeyring::Alice.public()),
                 VenueDetails::default(),
@@ -1746,13 +1742,7 @@ fn basic_fuzzing() {
             ));
             let mut tickers = Vec::with_capacity(40);
             let mut balances = HashMap::with_capacity(320);
-            let dids = vec![alice_did, bob_did, charlie_did, dave_did];
-            let signers = vec![
-                alice_signed.clone(),
-                bob_signed.clone(),
-                charlie_signed.clone(),
-                dave_signed.clone(),
-            ];
+            let users = vec![alice, bob, charlie, dave];
 
             for i in 0..10 {
                 let mut create = |x: usize, key: AccountKeyring| {
@@ -1772,14 +1762,17 @@ fn basic_fuzzing() {
             // initialize balances
             for i in 0..10 {
                 for j in 0..4 {
-                    balances.insert((tickers[i * 4 + j], dids[j], "init").encode(), 100_000);
-                    balances.insert((tickers[i * 4 + j], dids[j], "final").encode(), 100_000);
+                    balances.insert((tickers[i * 4 + j], users[j].did, "init").encode(), 100_000);
+                    balances.insert(
+                        (tickers[i * 4 + j], users[j].did, "final").encode(),
+                        100_000,
+                    );
                     for k in 0..4 {
                         if j == k {
                             continue;
                         }
-                        balances.insert((tickers[i * 4 + j], dids[k], "init").encode(), 0);
-                        balances.insert((tickers[i * 4 + j], dids[k], "final").encode(), 0);
+                        balances.insert((tickers[i * 4 + j], users[k].did, "init").encode(), 0);
+                        balances.insert((tickers[i * 4 + j], users[k].did, "final").encode(), 0);
                     }
                 }
             }
@@ -1791,53 +1784,62 @@ fn basic_fuzzing() {
             for i in 0..10 {
                 for j in 0..4 {
                     let mut final_i = 100_000;
-                    balances.insert((tickers[i * 4 + j], dids[j], "init").encode(), 100_000);
+                    balances.insert((tickers[i * 4 + j], users[j].did, "init").encode(), 100_000);
                     for k in 0..4 {
                         if j == k {
                             continue;
                         }
-                        balances.insert((tickers[i * 4 + j], dids[k], "init").encode(), 0);
+                        balances.insert((tickers[i * 4 + j], users[k].did, "init").encode(), 0);
                         if random() {
                             // This leg should happen
                             if random() {
                                 // Receipt to be claimed
-                                balances.insert((tickers[i * 4 + j], dids[k], "final").encode(), 0);
+                                balances.insert(
+                                    (tickers[i * 4 + j], users[k].did, "final").encode(),
+                                    0,
+                                );
                                 receipts.push(Receipt {
                                     receipt_uid: u64::try_from(k * 1000 + i * 4 + j).unwrap(),
-                                    from: PortfolioId::default_portfolio(dids[j]),
-                                    to: PortfolioId::default_portfolio(dids[k]),
+                                    from: PortfolioId::default_portfolio(users[j].did),
+                                    to: PortfolioId::default_portfolio(users[k].did),
                                     asset: tickers[i * 4 + j],
                                     amount: 1u128,
                                 });
                                 receipt_legs.insert(receipts.last().unwrap().encode(), legs.len());
                             } else {
-                                balances.insert((tickers[i * 4 + j], dids[k], "final").encode(), 1);
+                                balances.insert(
+                                    (tickers[i * 4 + j], users[k].did, "final").encode(),
+                                    1,
+                                );
                                 final_i -= 1;
                             }
                             // Provide scope claim for all the dids
                             provide_scope_claim_to_multiple_parties(
-                                &[dids[j], dids[k]],
+                                &[users[j].did, users[k].did],
                                 tickers[i * 4 + j],
-                                eve,
+                                eve.acc(),
                             );
                             legs.push(Leg {
-                                from: PortfolioId::default_portfolio(dids[j]),
-                                to: PortfolioId::default_portfolio(dids[k]),
+                                from: PortfolioId::default_portfolio(users[j].did),
+                                to: PortfolioId::default_portfolio(users[k].did),
                                 asset: tickers[i * 4 + j],
                                 amount: 1,
                             });
-                            let count = if legs_count.contains_key(&dids[j]) {
-                                *legs_count.get(&dids[j]).unwrap() + 1
+                            let count = if legs_count.contains_key(&users[j].did) {
+                                *legs_count.get(&users[j].did).unwrap() + 1
                             } else {
                                 1
                             };
-                            legs_count.insert(dids[j], count);
+                            legs_count.insert(users[j].did, count);
                             if legs.len() >= 100 {
                                 break;
                             }
                         }
                     }
-                    balances.insert((tickers[i * 4 + j], dids[j], "final").encode(), final_i);
+                    balances.insert(
+                        (tickers[i * 4 + j], users[j].did, "final").encode(),
+                        final_i,
+                    );
                     if legs.len() >= 100 {
                         break;
                     }
@@ -1847,7 +1849,7 @@ fn basic_fuzzing() {
                 }
             }
             assert_ok!(Settlement::add_instruction(
-                alice_signed.clone(),
+                alice.origin(),
                 venue_counter,
                 SettlementType::SettleOnBlock(block_number),
                 None,
@@ -1856,39 +1858,40 @@ fn basic_fuzzing() {
             ));
 
             // Authorize instructions and do a few authorize/deny in between
-            for (i, signer) in signers.clone().iter().enumerate() {
-                let leg_count = *legs_count.get(&dids[i]).unwrap_or(&0);
+            for (_, user) in users.clone().iter().enumerate() {
+                let leg_count = *legs_count.get(&user.did).unwrap_or(&0);
                 for _ in 0..2 {
                     if random() {
                         assert_affirm_instruction!(
-                            signer.clone(),
+                            user.origin(),
                             instruction_counter,
-                            dids[i],
+                            user.did,
                             leg_count
                         );
                         assert_ok!(Settlement::withdraw_affirmation(
-                            signer.clone(),
+                            user.origin(),
                             instruction_counter,
-                            default_portfolio_vec(dids[i]),
+                            default_portfolio_vec(user.did),
                             leg_count
                         ));
                     }
                 }
-                assert_affirm_instruction!(signer.clone(), instruction_counter, dids[i], leg_count);
+                assert_affirm_instruction!(user.origin(), instruction_counter, user.did, leg_count);
             }
 
             // Claim receipts and do a few claim/unclaims in between
             for receipt in receipts {
                 let leg_num =
                     u64::try_from(*receipt_legs.get(&(receipt.encode())).unwrap()).unwrap();
-                let signer = &signers[dids
+                let user = users
                     .iter()
-                    .position(|&from| PortfolioId::default_portfolio(from) == receipt.from)
-                    .unwrap()];
+                    .filter(|&from| PortfolioId::default_portfolio(from.did) == receipt.from)
+                    .next()
+                    .unwrap();
                 for _ in 0..2 {
                     if random() {
                         assert_ok!(Settlement::claim_receipt(
-                            signer.clone(),
+                            user.origin(),
                             instruction_counter,
                             ReceiptDetails {
                                 receipt_uid: receipt.receipt_uid,
@@ -1901,14 +1904,14 @@ fn basic_fuzzing() {
                             }
                         ));
                         assert_ok!(Settlement::unclaim_receipt(
-                            signer.clone(),
+                            user.origin(),
                             instruction_counter,
                             leg_num
                         ));
                     }
                 }
                 assert_ok!(Settlement::claim_receipt(
-                    signer.clone(),
+                    user.origin(),
                     instruction_counter,
                     ReceiptDetails {
                         receipt_uid: receipt.receipt_uid,
@@ -1927,10 +1930,10 @@ fn basic_fuzzing() {
                 let mut rng = thread_rng();
                 let i = rng.gen_range(0, 4);
                 assert_ok!(Settlement::withdraw_affirmation(
-                    signers[i].clone(),
+                    users[i].origin(),
                     instruction_counter,
-                    default_portfolio_vec(dids[i]),
-                    *legs_count.get(&dids[i]).unwrap_or(&0)
+                    default_portfolio_vec(users[i].did),
+                    *legs_count.get(&users[i].did).unwrap_or(&0)
                 ));
             }
 
@@ -1941,26 +1944,34 @@ fn basic_fuzzing() {
                     if fail {
                         assert_eq!(
                             Portfolio::locked_assets(
-                                PortfolioId::default_portfolio(dids[j]),
+                                PortfolioId::default_portfolio(users[j].did),
                                 &tickers[i]
                             ),
-                            0
+                            1
                         );
                         assert_eq!(
-                            Asset::balance_of(&tickers[i], dids[j]),
+                            Asset::balance_of(&tickers[i], users[j].did),
                             u128::try_from(
                                 *balances
-                                    .get(&(tickers[i], dids[j], "init").encode())
+                                    .get(&(tickers[i], users[j].did, "init").encode())
                                     .unwrap()
                             )
                             .unwrap()
                         );
+                        assert_eq!(
+                            Settlement::instruction_details(instruction_counter).status,
+                            InstructionStatus::Failed
+                        );
+                        assert_ok!(Settlement::reject_instruction(
+                            users[j].origin(),
+                            instruction_counter
+                        ));
                     } else {
                         assert_eq!(
-                            Asset::balance_of(&tickers[i], dids[j]),
+                            Asset::balance_of(&tickers[i], users[j].did),
                             u128::try_from(
                                 *balances
-                                    .get(&(tickers[i], dids[j], "final").encode())
+                                    .get(&(tickers[i], users[j].did, "final").encode())
                                     .unwrap()
                             )
                             .unwrap()
@@ -3065,7 +3076,6 @@ fn reject_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
@@ -3095,26 +3105,10 @@ fn reject_instruction() {
             AffirmationStatus::Affirmed,
             AffirmationStatus::Pending,
         );
-        assert_noop!(
-            Settlement::reject_instruction(bob.origin(), instruction_counter, vec![], 0),
-            Error::NoPortfolioProvided
-        );
-
-        assert_noop!(
-            Settlement::reject_instruction(
-                charlie.origin(),
-                instruction_counter,
-                default_portfolio_vec(bob.did),
-                0
-            ),
-            PortfolioError::UnauthorizedCustodian
-        );
         next_block();
         assert_ok!(Settlement::reject_instruction(
             alice.origin(),
             instruction_counter,
-            default_portfolio_vec(alice.did),
-            1
         ));
         next_block();
         // Instruction should've been deleted
@@ -3130,8 +3124,6 @@ fn reject_instruction() {
         assert_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_counter2,
-            default_portfolio_vec(bob.did),
-            0
         ));
         next_block();
         // Instruction should've been deleted
@@ -3255,8 +3247,6 @@ fn reject_failed_instruction() {
         assert_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_counter,
-            default_portfolio_vec(bob.did),
-            1
         ));
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
