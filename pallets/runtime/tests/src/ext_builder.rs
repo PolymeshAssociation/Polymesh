@@ -1,6 +1,6 @@
-use super::storage::AccountId;
 use crate::TestStorage;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use frame_support::traits::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -8,16 +8,17 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
+use polymesh_common_utilities::{
+    constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
+};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
     Signatory, SmartExtensionType,
 };
-use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
 use sp_std::{cell::RefCell, convert::From, iter};
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -40,6 +41,7 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
+#[derive(Clone)]
 pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
 
 impl Default for MockProtocolBaseFees {
@@ -101,12 +103,12 @@ pub struct ExtBuilder {
     monied: bool,
     vesting: bool,
     /// CDD Service provides. Their DID will be generated.
-    cdd_providers: Vec<Public>,
+    cdd_providers: Vec<AccountId>,
     /// Governance committee members. Their DID will be generated.
-    governance_committee_members: Vec<Public>,
+    governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
     /// Regular users. Their DID will be generated.
-    regular_users: Vec<Identity<Public>>,
+    regular_users: Vec<Identity<AccountId>>,
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
@@ -185,7 +187,7 @@ impl ExtBuilder {
         self
     }
 
-    pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
+    pub fn governance_committee(mut self, members: Vec<AccountId>) -> Self {
         self.governance_committee_members = members;
         self.governance_committee_members.sort();
         self
@@ -200,21 +202,25 @@ impl ExtBuilder {
     }
 
     /// It sets `providers` as CDD providers.
-    pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
+    pub fn cdd_providers(mut self, providers: Vec<AccountId>) -> Self {
         self.cdd_providers = providers;
         self.cdd_providers.sort();
         self
     }
 
     /// Adds DID to `users` accounts.
-    pub fn add_regular_users(mut self, users: &[Identity<Public>]) -> Self {
+    pub fn add_regular_users(mut self, users: &[Identity<AccountId>]) -> Self {
         self.regular_users.extend_from_slice(users);
         self
     }
 
     pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
-        self.regular_users
-            .extend(accounts.iter().cloned().map(Identity::<AccountId>::from));
+        let identities = accounts
+            .iter()
+            .map(|acc: &AccountId| Identity::new(acc.clone()))
+            .collect::<Vec<_>>();
+
+        self.regular_users.extend(identities);
         self
     }
 
@@ -292,19 +298,28 @@ impl ExtBuilder {
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
     }
 
-    fn make_balances(&self) -> Vec<(Public, u128)> {
+    fn make_balances(&self) -> Vec<(AccountId, u128)> {
         if self.monied {
             vec![
-                (AccountKeyring::Alice.public(), 1_000 * self.balance_factor),
-                (AccountKeyring::Bob.public(), 2_000 * self.balance_factor),
                 (
-                    AccountKeyring::Charlie.public(),
-                    3_000 * self.balance_factor,
+                    AccountKeyring::Alice.to_account_id(),
+                    1_000 * POLY * self.balance_factor,
                 ),
-                (AccountKeyring::Dave.public(), 4_000 * self.balance_factor),
+                (
+                    AccountKeyring::Bob.to_account_id(),
+                    2_000 * POLY * self.balance_factor,
+                ),
+                (
+                    AccountKeyring::Charlie.to_account_id(),
+                    3_000 * POLY * self.balance_factor,
+                ),
+                (
+                    AccountKeyring::Dave.to_account_id(),
+                    4_000 * POLY * self.balance_factor,
+                ),
                 // CDD Accounts
-                (AccountKeyring::Eve.public(), 1_000_000),
-                (AccountKeyring::Ferdie.public(), 1_000_000),
+                (AccountKeyring::Eve.to_account_id(), 1_000_000),
+                (AccountKeyring::Ferdie.to_account_id(), 1_000_000),
             ]
         } else {
             vec![]
@@ -544,7 +559,7 @@ impl ExtBuilder {
             .map(|gen_id| gen_id.did)
             .next()
             .unwrap_or(SystematicIssuers::CDDProvider.as_id());
-        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key);
+        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key.clone());
 
         // Create regular user identities + .
         let mut user_identities = Self::make_identities(
