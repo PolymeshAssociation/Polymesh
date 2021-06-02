@@ -31,13 +31,10 @@
 #![warn(missing_docs)]
 
 use std::sync::Arc;
-
 use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey,
     Signatory, Ticker,
 };
-
-use sc_client_api::light::{Fetcher, RemoteBlockchain};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
@@ -160,7 +157,7 @@ where
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
     use sc_consensus_babe_rpc::BabeRpcHandler;
-    use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
+    use sc_finality_grandpa_rpc::GrandpaRpcHandler;
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     let mut io = jsonrpc_core::IoHandler::default();

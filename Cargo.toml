@@ -71,6 +71,7 @@ sp-externalities = { git = "https://github.com/paritytech/substrate", tag = "pal
 sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 sp-io = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 sp-npos-elections = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 sp-npos-elections-compact = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
@@ -102,7 +103,6 @@ members = [
     "bin/testing",
     #"migration-tests",
     #"migration-tests/remote-externalities",
-    "node-rpc",
     "node-rpc",
     "pallets/asset",
     "pallets/balances",

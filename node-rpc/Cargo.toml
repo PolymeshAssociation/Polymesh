@@ -28,7 +28,6 @@ sp-consensus = { version = "0.9.0" }
 sp-consensus-babe = { version = "0.9.0" }
 sp-block-builder = { version = "3.0.0" }
 sp-keystore = { version = "0.9.0" }
-txpool-api = { package = "sp-transaction-pool", version = "3.0.0" }
 
 sc-rpc = { version = "3.0.0" }
 sc-rpc-api = { version = "0.9.0" }
