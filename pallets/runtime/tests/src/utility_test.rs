@@ -15,19 +15,20 @@ use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory, SubsetRestriction,
+    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory,
+    SubsetRestriction,
 };
-use sp_core::sr25519::{Public, Signature};
+use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 
-fn transfer(to: Public, amount: u128) -> Call {
-    Call::Balances(BalancesCall::transfer(to, amount))
+fn transfer(to: AccountId, amount: u128) -> Call {
+    Call::Balances(BalancesCall::transfer(to.into(), amount))
 }
 
 const ERROR: DispatchError = DispatchError::Module {
-    index: 0,
+    index: 4,
     error: 2,
     message: None,
 };
@@ -39,15 +40,15 @@ fn assert_event(event: Event) {
     )
 }
 
-fn batch_test(test: impl FnOnce(Public, Public)) {
+fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice = AccountKeyring::Alice.public();
+        let alice = AccountKeyring::Alice.to_account_id();
         TestStorage::set_payer_context(Some(alice));
         let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-        let bob = AccountKeyring::Bob.public();
+        let bob = AccountKeyring::Bob.to_account_id();
         TestStorage::set_payer_context(Some(bob));
         let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
@@ -143,13 +144,13 @@ fn relay_happy_case() {
 }
 
 fn _relay_happy_case() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.public();
+    let bob = AccountKeyring::Bob.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
-    let charlie = AccountKeyring::Charlie.public();
+    let charlie = AccountKeyring::Charlie.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
 
     // 41 Extra for registering a DID
@@ -159,7 +160,7 @@ fn _relay_happy_case() {
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob),
-        Call::Balances(BalancesCall::transfer(charlie, 50)),
+        Call::Balances(BalancesCall::transfer(charlie.into(), 50)),
     );
 
     assert_ok!(Utility::relay_tx(
@@ -181,17 +182,17 @@ fn relay_unhappy_cases() {
 }
 
 fn _relay_unhappy_cases() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.public();
+    let bob = AccountKeyring::Bob.to_account_id();
 
-    let charlie = AccountKeyring::Charlie.public();
+    let charlie = AccountKeyring::Charlie.to_account_id();
 
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob),
-        Call::Balances(BalancesCall::transfer(charlie, 59)),
+        Call::Balances(BalancesCall::transfer(charlie.into(), 59)),
     );
 
     assert_noop!(
@@ -218,7 +219,7 @@ fn _relay_unhappy_cases() {
 
     let transaction = UniqueCall::new(
         Utility::nonce(bob) + 1,
-        Call::Balances(BalancesCall::transfer(charlie, 59)),
+        Call::Balances(BalancesCall::transfer(charlie.into(), 59)),
     );
 
     assert_noop!(
@@ -242,7 +243,7 @@ fn batch_secondary_with_permissions_works() {
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
     let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let bob_key = AccountKeyring::Bob.public();
+    let bob_key = AccountKeyring::Bob.to_account_id();
     let bob_origin = Origin::signed(bob_key);
     let bob_signer = Signatory::Account(bob_key);
     let check_name = |name| {
@@ -256,7 +257,7 @@ fn batch_secondary_with_permissions() {
         bob_origin.clone(),
         low_risk_name.clone()
     ));
-    assert_last_event!(EventTest::portfolio(
+    assert_last_event!(EventTest::pallet_portfolio(
         pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)
     ));
     check_name(low_risk_name.clone());
