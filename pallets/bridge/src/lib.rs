@@ -119,12 +119,9 @@ use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use polymesh_common_utilities::traits::balances::Trait as BalancesTrait;
 use polymesh_common_utilities::{
-    traits::{
-        balances::{CheckCdd, Trait as BalancesTrait},
-        identity::Trait as IdentityTrait,
-        CommonTrait,
-    },
+    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId, Signatory};
@@ -132,7 +129,7 @@ use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
@@ -588,7 +585,6 @@ impl<T: Trait> Module<T> {
         exempted_did: Option<IdentityId>,
     ) -> DispatchResult {
         let did = exempted_did
-            .clone()
             .or_else(|| T::CddChecker::get_key_cdd_did(&recipient))
             .ok_or(Error::<T>::NoValidCdd)?;
         let is_exempted = exempted_did.is_some() || Self::bridge_exempted(did);
