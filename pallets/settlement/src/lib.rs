@@ -1054,7 +1054,10 @@ impl<T: Trait> Module<T> {
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
         let details = Self::instruction_details(instruction_id);
         // Ignore instructions in Failed and Unknown state
-        ensure!(details.status == InstructionStatus::Pending, Error::<T>::InstructionNotPending);
+        ensure!(
+            details.status == InstructionStatus::Pending,
+            Error::<T>::InstructionNotPending
+        );
 
         let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
