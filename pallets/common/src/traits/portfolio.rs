@@ -18,7 +18,7 @@
 //! The interface allows to accept portfolio custody
 
 use crate::{
-    traits::{base, identity},
+    traits::{balances::Memo, base, identity},
     CommonTrait,
 };
 use codec::{Decode, Encode};
@@ -125,7 +125,8 @@ decl_event! {
             PortfolioId,
             PortfolioId,
             Ticker,
-            Balance
+            Balance,
+            Option<Memo>,
         ),
         /// The portfolio identified with `num` has been renamed to `name`.
         ///
