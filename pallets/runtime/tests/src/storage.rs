@@ -254,12 +254,6 @@ impl frame_system::Config for TestStorage {
     type Origin = Origin;
     /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
     type BlockHashCount = BlockHashCount;
-    /// Maximum weight of each block.
-    type MaximumBlockWeight = MaximumBlockWeight;
-    /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
-    type MaximumBlockLength = MaximumBlockLength;
-    /// Portion of the block weight that is available to all normal transactions.
-    type AvailableBlockRatio = AvailableBlockRatio;
     /// Version of the runtime.
     type Version = Version;
     /// Converts a module to the index of the module in `construct_runtime!`.
@@ -274,16 +268,6 @@ impl frame_system::Config for TestStorage {
     type AccountData = AccountData<<TestStorage as CommonTrait>::Balance>;
     /// The weight of database operations that the runtime can invoke.
     type DbWeight = DbWeight;
-    /// The weight of the overhead invoked on the block import process, independent of the
-    /// extrinsics included in that block.
-    type BlockExecutionWeight = BlockExecutionWeight;
-    /// The base weight of any extrinsic processed by the runtime, independent of the
-    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
-    /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-    /// independent of the logic of that extrinsics. (Roughly max block weight - average on
-    /// initialize cost).
-    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     type SystemWeightInfo = ();
 }
 
@@ -395,9 +379,8 @@ impl WeightToFeePolynomial for WeightToFee {
     }
 }
 
-impl pallet_transaction_payment::Trait for TestStorage {
+impl pallet_transaction_payment::Config for TestStorage {
     type Currency = Balances;
-    type OnTransactionPayment = ();
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
@@ -495,19 +478,14 @@ parameter_types! {
     pub const MaxValueSize: u32 = 16_384;
 }
 
-impl pallet_contracts::Trait for TestStorage {
+impl pallet_contracts::Config for TestStorage {
     type Time = Timestamp;
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
-    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<TestStorage>;
-    type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
     type SignedClaimHandicap = SignedClaimHandicap;
     type TombstoneDeposit = TombstoneDeposit;
-    type StorageSizeOffset = StorageSizeOffset;
-    type RentByteFee = RentByteFee;
-    type RentDepositOffset = RentDepositOffset;
     type SurchargeReward = SurchargeReward;
     type MaxDepth = MaxDepth;
     type MaxValueSize = MaxValueSize;
@@ -651,7 +629,7 @@ parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 }
 
-impl pallet_session::Trait for TestStorage {
+impl pallet_session::Config for TestStorage {
     type Event = Event;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
@@ -690,7 +668,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 }
 
-impl pallet_scheduler::Trait for TestStorage {
+impl pallet_scheduler::Config for TestStorage {
     type Event = Event;
     type Origin = Origin;
     type PalletsOrigin = OriginCaller;

@@ -263,13 +263,7 @@ impl frame_system::Config for Test {
     type Header = Header;
     type Event = MetaEvent;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = RocksDbWeight;
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type MaximumBlockLength = MaximumBlockLength;
     type Version = ();
     type PalletInfo = ();
     type AccountData = AccountData<Balance>;
@@ -309,7 +303,7 @@ sp_runtime::impl_opaque_keys! {
         pub other: OtherSessionHandler,
     }
 }
-impl pallet_session::Trait for Test {
+impl pallet_session::Config for Test {
     type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
     type Keys = SessionKeys;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -322,7 +316,7 @@ impl pallet_session::Trait for Test {
     type WeightInfo = ();
 }
 
-impl pallet_session::historical::Trait for Test {
+impl pallet_session::historical::Config for Test {
     type FullIdentification = Exposure<AccountId, Balance>;
     type FullIdentificationOf = ExposureOf<Test>;
 }
@@ -344,7 +338,7 @@ impl pallet_treasury::Trait for Test {
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
 
-impl pallet_authorship::Trait for Test {
+impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
@@ -405,7 +399,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 }
 
-impl pallet_scheduler::Trait for Test {
+impl pallet_scheduler::Config for Test {
     type Event = MetaEvent;
     type Origin = Origin;
     type PalletsOrigin = OriginCaller;
@@ -588,7 +582,7 @@ impl From<pallet_babe::Call<Test>> for Call {
     }
 }
 
-impl pallet_babe::Trait for Test {
+impl pallet_babe::Config for Test {
     type WeightInfo = ();
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
@@ -603,7 +597,7 @@ impl pallet_babe::Trait for Test {
         KeyTypeId,
         pallet_babe::AuthorityId,
     )>>::IdentificationTuple;
-    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ()>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -656,7 +650,7 @@ impl Contains<u64> for TwoThousand {
     }
 }
 
-impl Trait for Test {
+impl Config for Test {
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler;
@@ -1282,7 +1276,7 @@ pub(crate) fn start_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
     inflation::compute_total_payout(
-        <Test as Trait>::RewardCurve::get(),
+        <Test as Config>::RewardCurve::get(),
         Staking::eras_total_stake(Staking::active_era().unwrap().index),
         Balances::total_issuance(),
         duration,
@@ -1293,7 +1287,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 }
 
 pub fn reward_all_elected() {
-    let rewards = <Test as Trait>::SessionInterface::validators()
+    let rewards = <Test as Config>::SessionInterface::validators()
         .into_iter()
         .map(|v| (v, 1));
 
