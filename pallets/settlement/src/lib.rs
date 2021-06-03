@@ -656,6 +656,8 @@ decl_module! {
             let (did, _, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let legs = Self::prune_instruction(instruction_id);
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
+            Self::unchecked_release_locks(instruction_id, &legs);
+            let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
         }
 

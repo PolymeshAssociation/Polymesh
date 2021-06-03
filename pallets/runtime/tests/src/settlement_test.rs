@@ -1966,6 +1966,17 @@ fn basic_fuzzing() {
                             users[j].origin(),
                             instruction_counter
                         ));
+                        assert_eq!(
+                            Settlement::instruction_details(instruction_counter).status,
+                            InstructionStatus::Unknown
+                        );
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(users[j].did),
+                                &tickers[i]
+                            ),
+                            0
+                        );
                     } else {
                         assert_eq!(
                             Asset::balance_of(&tickers[i], users[j].did),
