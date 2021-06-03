@@ -653,12 +653,20 @@ decl_module! {
         /// * `instruction_id` - Instruction id to reject.
         #[weight = <T as Trait>::WeightInfo::reject_instruction()]
         pub fn reject_instruction(origin, instruction_id: u64) {
-            let (did, _, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
-            let legs = Self::prune_instruction(instruction_id);
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            ensure!(
+                Self::instruction_details(instruction_id).status != InstructionStatus::Unknown,
+                Error::<T>::UnknownInstruction
+            );
+            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
             let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
-            Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
+            Self::prune_instruction(instruction_id);
+            Self::deposit_event(RawEvent::InstructionRejected(primary_did, instruction_id));
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -1132,7 +1140,7 @@ impl<T: Trait> Module<T> {
         Ok(instructions_processed)
     }
 
-    fn prune_instruction(instruction_id: u64) -> Vec<(u64, Leg<T::Balance>)> {
+    fn prune_instruction(instruction_id: u64) {
         let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
@@ -1150,8 +1158,6 @@ impl<T: Trait> Module<T> {
         for counter_party in counter_parties {
             UserAffirmations::remove(counter_party, instruction_id);
         }
-
-        legs
     }
 
     pub fn unsafe_affirm_instruction(

@@ -1926,14 +1926,14 @@ fn basic_fuzzing() {
             }
 
             let fail: bool = random();
+            let mut rng = thread_rng();
+            let failed_user = rng.gen_range(0, 4);
             if fail {
-                let mut rng = thread_rng();
-                let i = rng.gen_range(0, 4);
                 assert_ok!(Settlement::withdraw_affirmation(
-                    users[i].origin(),
+                    users[failed_user].origin(),
                     instruction_counter,
-                    default_portfolio_vec(users[i].did),
-                    *legs_count.get(&users[i].did).unwrap_or(&0)
+                    default_portfolio_vec(users[failed_user].did),
+                    *legs_count.get(&users[failed_user].did).unwrap_or(&0)
                 ));
             }
 
@@ -1947,7 +1947,7 @@ fn basic_fuzzing() {
                                 PortfolioId::default_portfolio(users[j].did),
                                 &tickers[i]
                             ),
-                            1
+                            if failed_user == j { 0 } else { 1 }
                         );
                         assert_eq!(
                             Asset::balance_of(&tickers[i], users[j].did),
@@ -1962,21 +1962,6 @@ fn basic_fuzzing() {
                             Settlement::instruction_details(instruction_counter).status,
                             InstructionStatus::Failed
                         );
-                        assert_ok!(Settlement::reject_instruction(
-                            users[j].origin(),
-                            instruction_counter
-                        ));
-                        assert_eq!(
-                            Settlement::instruction_details(instruction_counter).status,
-                            InstructionStatus::Unknown
-                        );
-                        assert_eq!(
-                            Portfolio::locked_assets(
-                                PortfolioId::default_portfolio(users[j].did),
-                                &tickers[i]
-                            ),
-                            0
-                        );
                     } else {
                         assert_eq!(
                             Asset::balance_of(&tickers[i], users[j].did),
@@ -1987,7 +1972,37 @@ fn basic_fuzzing() {
                             )
                             .unwrap()
                         );
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(users[j].did),
+                                &tickers[i]
+                            ),
+                            0
+                        );
                     }
+                }
+            }
+
+            if fail {
+                assert_ok!(Settlement::reject_instruction(
+                    users[0].origin(),
+                    instruction_counter
+                ));
+                assert_eq!(
+                    Settlement::instruction_details(instruction_counter).status,
+                    InstructionStatus::Unknown
+                );
+            }
+
+            for i in 0..40 {
+                for j in 0..4 {
+                    assert_eq!(
+                        Portfolio::locked_assets(
+                            PortfolioId::default_portfolio(users[j].did),
+                            &tickers[i]
+                        ),
+                        0
+                    );
                 }
             }
         });
