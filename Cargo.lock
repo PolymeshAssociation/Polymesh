@@ -5775,6 +5775,7 @@ dependencies = [
  "pallet-external-agents",
  "pallet-identity 0.1.0",
  "pallet-portfolio 0.1.0",
+ "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-statistics 0.1.0",
  "pallet-timestamp 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "parity-scale-codec",
