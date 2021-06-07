@@ -74,7 +74,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 use std::convert::From;
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
@@ -152,7 +152,7 @@ frame_support::construct_runtime!(
     UncheckedExtrinsic = UncheckedExtrinsic,
 {
         System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
+        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
 
@@ -229,7 +229,8 @@ frame_support::construct_runtime!(
         CapitalDistribution: capital_distributions::{Module, Call, Storage, Event<T>} = 48,
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
-        Base: pallet_base::{Module, Call, Storage, Event} = 51,
+        Base: pallet_base::{Module, Call, Event} = 51,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
     }
 );
 
@@ -698,12 +699,12 @@ pub fn next_block() -> Weight {
     pallet_scheduler::Module::<TestStorage>::on_initialize(block_number)
 }
 
-pub fn fast_forward_to_block(n: u64) -> Weight {
+pub fn fast_forward_to_block(n: u32) -> Weight {
     let i = System::block_number();
     (i..=n).map(|_| next_block()).sum()
 }
 
-pub fn fast_forward_blocks(offset: u64) -> Weight {
+pub fn fast_forward_blocks(offset: u32) -> Weight {
     fast_forward_to_block(offset + System::block_number())
 }
 

@@ -13,19 +13,19 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    Signatory, SmartExtensionType,
+    Signatory, SmartExtensionType, AccountId,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
 use sp_std::{cell::RefCell, convert::From, iter};
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
-pub const COOL_OFF_PERIOD: u64 = 100;
+pub const COOL_OFF_PERIOD: u32 = 100;
 const DEFAULT_BRIGDE_LIMIT: u128 = 1_000_000_000_000_000;
-const DEFAULT_BRIDGE_TIMELOCK: u64 = 3;
+const DEFAULT_BRIDGE_TIMELOCK: u32 = 3;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -75,15 +75,15 @@ struct BridgeConfig {
     /// Complete TXs
     pub complete_txs: Vec<BridgeTx<AccountId, u128>>,
     /// Bridge admin key. See `Bridge` documentation for details.
-    pub admin: Option<Public>,
+    pub admin: Option<AccountId>,
     /// signers of the controller multisig account.
-    pub signers: Vec<Signatory<Public>>,
+    pub signers: Vec<Signatory<AccountId>>,
     /// # of signers required for controller multisig account.
     pub signatures_required: u64,
     /// Bridge limit.
     pub limit: Option<u128>,
     /// Bridge timelock.
-    pub timelock: Option<u64>,
+    pub timelock: Option<u32>,
 }
 
 #[derive(Default)]
@@ -267,8 +267,8 @@ impl ExtBuilder {
     /// Sets the bridge controller.
     pub fn set_bridge_controller(
         mut self,
-        admin: Public,
-        signers: Vec<Public>,
+        admin: AccountId,
+        signers: Vec<AccountId>,
         signatures_required: u64,
     ) -> Self {
         self.bridge.admin = Some(admin);
@@ -285,7 +285,7 @@ impl ExtBuilder {
         self
     }
 
-    pub fn set_bridge_timelock(mut self, timelock: u64) -> Self {
+    pub fn set_bridge_timelock(mut self, timelock: u32) -> Self {
         self.bridge.timelock = Some(timelock);
         self
     }
@@ -364,7 +364,7 @@ impl ExtBuilder {
     }
 
     fn build_bridge(&self, storage: &mut Storage) {
-        if let Some(creator) = self.bridge.admin {
+        if let Some(creator) = &self.bridge.admin {
             pallet_bridge::GenesisConfig::<TestStorage> {
                 creator: creator.clone(),
                 signers: self.bridge.signers.clone(),

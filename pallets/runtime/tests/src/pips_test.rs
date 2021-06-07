@@ -148,12 +148,12 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 
 fn alice_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    standard_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+    standard_proposal(&Origin::signed(acc.clone()), &Proposer::Community(acc), deposit)
 }
 
 fn alice_remark_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    remark_proposal(&Origin::signed(acc), &Proposer::Community(acc), deposit)
+    remark_proposal(&Origin::signed(acc.clone()), &Proposer::Community(acc), deposit)
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
@@ -575,9 +575,9 @@ fn vote_bond_additional_deposit_works() {
         assert_balance(acc.clone(), init_free, 0);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_balance(acc.clone(), init_free, init_amount);
         assert_ok!(Pips::vote(signer, 0, true, amount));
-        assert_balance(acc, init_free, amount);
+        assert_balance(acc.clone(), init_free, amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, amount);
     });
@@ -639,9 +639,9 @@ fn vote_unbond_deposit_works() {
         assert_eq!(Balances::free_balance(&acc), init_free);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_balance(acc.clone(), init_free, init_amount);
         assert_ok!(Pips::vote(signer, 0, true, then_amount));
-        assert_balance(acc, init_free, then_amount);
+        assert_balance(acc.clone(), init_free, then_amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, then_amount);
     });

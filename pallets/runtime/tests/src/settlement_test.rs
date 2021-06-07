@@ -22,7 +22,7 @@ use pallet_settlement::{
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AccountId, AuthorizationData, BlockNumber, Claim, Condition, ConditionType,
+    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType,
     IdentityId, PortfolioId, PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
@@ -84,10 +84,10 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
 }
 
 fn init(token_name: &[u8], ticker: Ticker, keyring: AccountId) -> u64 {
-    create_token(token_name, ticker, keyring);
+    create_token(token_name, ticker, keyring.clone());
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         VenueDetails::default(),
         vec![keyring],
         VenueType::Other
@@ -97,7 +97,7 @@ fn init(token_name: &[u8], ticker: Ticker, keyring: AccountId) -> u64 {
 
 fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
     assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         token_name.into(),
         ticker,
         100_000,
@@ -114,7 +114,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
     ));
 }
 
-pub fn set_current_block_number(block: u64) {
+pub fn set_current_block_number(block: u32) {
     System::set_block_number(block);
 }
 
@@ -498,7 +498,7 @@ fn token_swap() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Provide scope claim to parties involved in a instruction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -734,7 +734,7 @@ fn claiming_receipt() {
             let bob_init_balance2 = Asset::balance_of(&ticker2, bob_did);
 
             // Provide scope claims to multiple parties of a transactions.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             let amount = 100u128;
@@ -1254,7 +1254,7 @@ fn settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Before authorization need to provide the scope claim for both the parties of a transaction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -2470,7 +2470,7 @@ fn test_weights_for_settlement_transaction() {
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.to_account_id();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
             let bob = AccountKeyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();

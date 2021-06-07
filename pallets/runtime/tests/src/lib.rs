@@ -48,8 +48,10 @@ mod protocol_fee;
 mod settlement_test;
 #[cfg(test)]
 mod signed_extra;
+/*
 #[cfg(test)]
 mod staking;
+*/
 #[cfg(test)]
 mod statistics_test;
 #[cfg(test)]

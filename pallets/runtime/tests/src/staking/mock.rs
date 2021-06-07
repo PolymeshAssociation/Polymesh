@@ -265,7 +265,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type DbWeight = RocksDbWeight;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();

@@ -20,9 +20,8 @@ use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
 use polymesh_contracts::{Call as ContractsCall, MetadataOfTemplate, INSTANTIATE_WITH_CODE_EXTRA};
 use polymesh_primitives::{
-    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata, Gas,
+    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata, Gas, AccountId
 };
-use sp_core::sr25519::Public;
 use sp_runtime::{traits::Hash, Perbill};
 use test_client::AccountKeyring;
 
@@ -53,7 +52,7 @@ pub fn flipper() -> (CodeHash, Vec<u8>) {
 }
 
 pub fn create_se_template(
-    template_creator: Public,
+    template_creator: AccountId,
     template_creator_did: IdentityId,
     instantiation_fee: u128,
     code_hash: CodeHash,
@@ -62,7 +61,7 @@ pub fn create_se_template(
     let wasm_length_weight = 11_608_392_000;
 
     // Set payer in context
-    TestStorage::set_payer_context(Some(template_creator));
+    TestStorage::set_payer_context(Some(template_creator.clone()));
 
     // Create smart extension metadata
     let se_meta_data = TemplateMetadata {
@@ -125,7 +124,7 @@ pub fn create_se_template(
 }
 
 pub fn create_contract_instance(
-    instance_creator: Public,
+    instance_creator: AccountId,
     code_hash: CodeHash,
     salt: Vec<u8>,
     max_fee: u128,
@@ -133,7 +132,7 @@ pub fn create_contract_instance(
 ) -> DispatchResultWithPostInfo {
     let input_data = hex!("0222FF18");
     // Set payer of the transaction
-    TestStorage::set_payer_context(Some(instance_creator));
+    TestStorage::set_payer_context(Some(instance_creator.clone()));
 
     // Access the extension nonce.
     let current_extension_nonce = WrapperContracts::extension_nonce();
@@ -182,7 +181,7 @@ fn execute_externalities_with_wasm(
         .execute_with(|| f(wasm, code_hash))
 }
 
-fn free(acc: Public) -> u128 {
+fn free(acc: AccountId) -> u128 {
     System::account(acc).data.free
 }
 
@@ -191,14 +190,14 @@ fn check_put_code_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
     execute_externalities_with_wasm(0, protocol_fee.clone(), |wasm, code_hash| {
-        let alice = AccountKeyring::Alice.public();
+        let alice = AccountKeyring::Alice.to_account_id();
         // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
+        let (_, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
         // Get the balance of the Alice.
-        let alice_balance = free(alice);
+        let alice_balance = free(alice.clone());
 
-        create_se_template(alice, alice_did, 0, code_hash, wasm);
+        create_se_template(alice.clone(), alice_did, 0, code_hash, wasm);
 
         // Check the storage of the base pallet.
         assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
@@ -307,7 +306,7 @@ fn allow_network_share_deduction() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // Create instance of contract.
         let salt = b"1".to_vec();
@@ -401,7 +400,7 @@ fn check_behavior_when_instantiation_fee_changes() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // create instance of contract
         let salt = b"1".to_vec();
@@ -493,7 +492,7 @@ fn validate_transfer_template_ownership_functionality() {
 
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
@@ -502,7 +501,7 @@ fn validate_transfer_template_ownership_functionality() {
             let alice = User::new(AccountKeyring::Alice);
 
             // Create Bob account & the identity for her.
-            let bob = AccountKeyring::Bob.public();
+            let bob = AccountKeyring::Bob.to_account_id();
             let bob_uid = InvestorUid::from("bob_take_1");
             let (_, bob_did) = make_account_with_uid(bob, bob_uid).unwrap();
 
@@ -638,20 +637,20 @@ fn check_meta_url_functionality() {
 
 #[test]
 fn check_put_code_flag() {
-    let user = AccountKeyring::Charlie.public();
+    let user = AccountKeyring::Charlie.to_account_id();
 
     ExtBuilder::default()
         .monied(true)
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
-        .add_regular_users_from_accounts(&[user])
+        .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
+        .add_regular_users_from_accounts(&[user.clone()])
         .build()
         .execute_with(|| check_put_code_flag_ext(user))
 }
 
-fn check_put_code_flag_ext(user: Public) {
+fn check_put_code_flag_ext(user: AccountId) {
     let (_, wasm) = flipper();
     let subsistence = Contracts::subsistence_threshold();
-    let put_code = |acc: Public| -> DispatchResultWithPostInfo {
+    let put_code = |acc: AccountId| -> DispatchResultWithPostInfo {
         WrapperContracts::instantiate_with_code(
             Origin::signed(acc),
             subsistence,
@@ -665,11 +664,11 @@ fn check_put_code_flag_ext(user: Public) {
     };
 
     // Flag is disable, so `put_code` should fail.
-    assert_noop!(put_code(user), WrapperContractsError::PutCodeIsNotAllowed);
+    assert_noop!(put_code(user.clone()), WrapperContractsError::PutCodeIsNotAllowed);
 
     // Non GC member cannot update the flag.
     assert_noop!(
-        WrapperContracts::set_put_code_flag(Origin::signed(user), true),
+        WrapperContracts::set_put_code_flag(Origin::signed(user.clone()), true),
         DispatchError::BadOrigin
     );
 

@@ -24,7 +24,7 @@ type AssetError = asset::Error<TestStorage>;
 
 fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
     assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         token_name.into(),
         ticker,
         1_000_000,

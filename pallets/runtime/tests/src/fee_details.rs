@@ -79,7 +79,7 @@ fn cdd_checks() {
             // call to accept being a multisig signer should fail when authorizer does not have a valid cdd (expired)
             assert_ok!(MultiSig::create_multisig(
                 alice_signed.clone(),
-                vec![alice_key_signatory],
+                vec![alice_key_signatory.clone()],
                 1,
             ));
 
@@ -124,7 +124,7 @@ fn cdd_checks() {
             // check that authorisation can be removed correctly
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![alice_key_signatory],
+                vec![alice_key_signatory.clone()],
                 1,
             ));
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);

@@ -115,7 +115,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let eve = AccountKeyring::Eve.to_account_id();
-    let cdd_signed = Origin::signed(eve);
+    let cdd_signed = Origin::signed(eve.clone());
     let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
