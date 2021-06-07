@@ -382,8 +382,17 @@ fn do_add_permissions_to_multiple_tokens() {
     // remove all permissions
     set_bob_asset_permissions(0);
 
-    // bulk add
-    set_bob_asset_permissions(max_tokens);
+    // bulk add, reverse order
+    assert_ok!(Identity::set_permission_to_signer(
+        alice.origin(),
+        bob_signer,
+        Permissions {
+            asset: AssetPermissions::elems(
+                tokens[0..max_tokens].into_iter().rev().map(|t| t.clone())
+            ),
+            ..Default::default()
+        },
+    ));
 }
 
 #[test]
