@@ -1,11 +1,11 @@
 use super::{
-    asset_test::{an_asset, token, basic_asset, max_len, max_len_bytes},
+    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, token},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
         provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
-        GovernanceCommittee, TestStorage, User, AccountId
+        AccountId, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -18,8 +18,8 @@ use frame_support::{
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
+use pallet_identity::types::DidRecords as RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
-use pallet_identity::types::{DidRecords as RpcDidRecords};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
@@ -30,11 +30,11 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
-    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
-    AssetPermissions,
+    investor_zkproof_data::v2, AssetPermissions, AuthorizationData, AuthorizationError,
+    AuthorizationType, CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions,
+    IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
+    TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -82,9 +82,7 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
 
 fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
     match Identity::get_did_records(target) {
-        RpcDidRecords::Success { secondary_keys, .. } => {
-            secondary_keys
-        }
+        RpcDidRecords::Success { secondary_keys, .. } => secondary_keys,
         _ => vec![],
     }
 }
@@ -357,19 +355,20 @@ fn do_add_permissions_to_multiple_tokens() {
 
     // Create some tokens
     let max_tokens = 30;
-    let tokens: Vec<Ticker> = (0..max_tokens).map(|i| {
-        let name = format!("TOKEN_{}", i);
-        let (ticker, _) = create_new_token(name.as_bytes(), alice);
-        ticker
-    }).collect();
+    let tokens: Vec<Ticker> = (0..max_tokens)
+        .map(|i| {
+            let name = format!("TOKEN_{}", i);
+            let (ticker, _) = create_new_token(name.as_bytes(), alice);
+            ticker
+        })
+        .collect();
 
     let set_bob_asset_permissions = |num_token| {
         assert_ok!(Identity::set_permission_to_signer(
             alice.origin(),
             bob_signer,
             Permissions {
-                asset: AssetPermissions::elems(
-                    tokens[0..num_token].into_iter().map(|t| t.clone())),
+                asset: AssetPermissions::elems(tokens[0..num_token].into_iter().map(|t| t.clone())),
                 ..Default::default()
             },
         ));
@@ -377,7 +376,7 @@ fn do_add_permissions_to_multiple_tokens() {
 
     // add one-by-one
     for num in 0..max_tokens {
-      set_bob_asset_permissions(num);
+        set_bob_asset_permissions(num);
     }
 
     // remove all permissions
@@ -602,10 +601,9 @@ fn do_add_secondary_keys_with_permissions_test() {
     // Add bob with default permissions
     add_secondary_key(alice.did, bob_signer);
 
-    let permissions =
-        Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-            b"identity".into(),
-        )]);
+    let permissions = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
     // Try adding bob again with custom permissions
     let auth_id = Identity::add_auth(
         alice.did,
@@ -636,10 +634,13 @@ fn do_add_secondary_keys_with_permissions_test() {
     };
 
     assert_noop!(
-        Identity::add_secondary_keys_with_authorization(alice.origin(), vec![key_with_auth], expires_at),
+        Identity::add_secondary_keys_with_authorization(
+            alice.origin(),
+            vec![key_with_auth],
+            expires_at
+        ),
         Error::AlreadyLinked
     );
-
 
     // Check KeyToIdentityIds map
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
@@ -701,7 +702,8 @@ fn do_remove_secondary_keys_test() {
         Signatory::Account(bob_key),
         Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
             b"identity".into(),
-        )]).into(),
+        )])
+        .into(),
     );
     assert_ok!(result);
     // FIXME: use this after the fix.
@@ -740,7 +742,8 @@ fn do_remove_secondary_keys_test() {
 
     // Check DidRecords
     let keys = get_secondary_keys(alice.did);
-    assert_eq!(keys.len(), 2); // 2 x bob_key
+    // 2 x bob_key
+    assert_eq!(keys.len(), 2);
     // FIXME: used this after the fix
     //assert_eq!(keys.len(), 0);
 }
