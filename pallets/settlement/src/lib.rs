@@ -78,7 +78,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{One, Verify, Zero};
+use sp_runtime::traits::{One, Verify};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -119,6 +119,8 @@ pub enum InstructionStatus {
     Unknown,
     /// Instruction is pending execution
     Pending,
+    /// Instruction has failed execution
+    Failed,
 }
 
 impl Default for InstructionStatus {
@@ -307,7 +309,6 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
     fn withdraw_affirmation(u: u32) -> Weight;
-    fn reject_instruction(l: u32) -> Weight;
     fn affirm_with_receipts(r: u32) -> Weight;
     fn claim_receipt() -> Weight;
     fn unclaim_receipt() -> Weight;
@@ -315,7 +316,7 @@ pub trait WeightInfo {
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
-    fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight;
+    fn reject_instruction() -> Weight;
     fn change_receipt_validity() -> Weight;
 
     // Some multiple paths based extrinsic.
@@ -377,6 +378,9 @@ decl_event!(
         VenueUnauthorized(IdentityId, Ticker, u64),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
+        /// Instruction is rescheduled.
+        /// (caller DID, instruction_id)
+        InstructionRescheduled(IdentityId, u64),
     }
 );
 
@@ -393,6 +397,8 @@ decl_error! {
         InstructionNotAffirmed,
         /// Provided instruction is not pending execution.
         InstructionNotPending,
+        /// Provided instruction is not failing execution.
+        InstructionNotFailed,
         /// Provided leg is not pending execution.
         LegNotPending,
         /// Signer is not authorized by the venue.
@@ -426,7 +432,9 @@ decl_error! {
         /// Scheduling of an instruction fails.
         FailedToSchedule,
         /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
-        LegCountTooSmall
+        LegCountTooSmall,
+        /// Instruction status is unknown
+        UnknownInstruction,
     }
 }
 
@@ -628,12 +636,12 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
             Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
-            if Self::instruction_details(instruction_id).settlement_type == SettlementType::SettleOnAffirmation {
+            if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
             }
@@ -643,39 +651,22 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
-        /// * `portfolios` - Portfolios that the sender controls and wants them to reject this instruction
-        ///
-        /// # Permissions
-        /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::reject_instruction_with_no_pre_affirmations(*max_legs_count as u32)]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
-            ensure!(!portfolios.is_empty(), Error::<T>::NoPortfolioProvided);
-
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
-            // If the instruction was affirmed by the portfolio, the affirmation must be withdrawn.
-            // The sender must have custodian permission over the portfolio.
-            let mut affirmed_portfolios = BTreeSet::new();
-            for portfolio in &portfolios_set {
-                let user_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
-                match user_affirmation_status {
-                    AffirmationStatus::Affirmed => { affirmed_portfolios.insert(*portfolio); },
-                    AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody_and_permission(*portfolio, did, secondary_key.as_ref())?,
-                    _ => return Err(Error::<T>::NoPendingAffirm.into())
-                };
-            }
-            let legs_count = Self::unsafe_withdraw_instruction_affirmation(did, instruction_id, affirmed_portfolios, secondary_key.as_ref(), max_legs_count)?;
-
-            // Updates storage to mark the instruction as rejected.
-            for portfolio in portfolios_set {
-                UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
-                AffirmsReceived::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
-            }
-
-            Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
-            // Schedule the instruction to execute in the next block only if it was meant to be executed on affirmation.
-            Self::maybe_schedule_instruction(Zero::zero(), instruction_id, legs_count)
+        #[weight = <T as Trait>::WeightInfo::reject_instruction()]
+        pub fn reject_instruction(origin, instruction_id: u64) {
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            ensure!(
+                Self::instruction_details(instruction_id).status != InstructionStatus::Unknown,
+                Error::<T>::UnknownInstruction
+            );
+            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+            Self::unsafe_unclaim_receipts(instruction_id, &legs);
+            Self::unchecked_release_locks(instruction_id, &legs);
+            let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
+            Self::prune_instruction(instruction_id);
+            Self::deposit_event(RawEvent::InstructionRejected(primary_did, instruction_id));
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -708,7 +699,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
-            let (primary_did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
                 primary_did,
                 instruction_id,
@@ -727,7 +718,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) {
-            let (did, secondary_key) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
             let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
@@ -813,7 +804,34 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
         fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
             ensure_root(origin)?;
-            Self::execute_instruction(instruction_id)?;
+            Self::execute_instruction_retryable(instruction_id)?;
+        }
+
+        /// Reschedules a failed instruction.
+        ///
+        /// # Arguments
+        /// * `instruction_id` - Target instruction id to reschedule.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        ///
+        /// # Errors
+        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
+        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        pub fn reschedule_instruction(origin, instruction_id: u64) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+
+            <InstructionDetails<T>>::try_mutate(instruction_id, |details| {
+                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                details.status = InstructionStatus::Pending;
+                Result::<_, Error<T>>::Ok(())
+            })?;
+
+            // Schedule instruction to be executed in the next block.
+            let execution_at = system::Module::<T>::block_number() + One::one();
+            Self::schedule_instruction(instruction_id, execution_at, <InstructionLegs<T>>::iter_prefix(instruction_id).count() as u32);
+
+            Self::deposit_event(RawEvent::InstructionRescheduled(did, instruction_id));
         }
     }
 }
@@ -831,14 +849,24 @@ impl<T: Trait> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Trait>::Origin,
         instruction_id: u64,
-    ) -> Result<(IdentityId, Option<SecondaryKey<T::AccountId>>), DispatchError> {
+    ) -> Result<
+        (
+            IdentityId,
+            Option<SecondaryKey<T::AccountId>>,
+            Instruction<T::Moment, T::BlockNumber>,
+        ),
+        DispatchError,
+    > {
         let PermissionedCallOriginData {
             primary_did,
             secondary_key,
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-        Self::ensure_instruction_validity(instruction_id)?;
-        Ok((primary_did, secondary_key))
+        Ok((
+            primary_did,
+            secondary_key,
+            Self::ensure_instruction_validity(instruction_id)?,
+        ))
     }
 
     pub fn base_add_instruction(
@@ -996,11 +1024,13 @@ impl<T: Trait> Module<T> {
         Ok(total_leg_count)
     }
 
-    fn ensure_instruction_validity(instruction_id: u64) -> DispatchResult {
+    fn ensure_instruction_validity(
+        instruction_id: u64,
+    ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(instruction_id);
         ensure!(
-            details.status == InstructionStatus::Pending,
-            Error::<T>::InstructionNotPending
+            details.status != InstructionStatus::Unknown,
+            Error::<T>::UnknownInstruction
         );
         if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
             ensure!(
@@ -1014,10 +1044,31 @@ impl<T: Trait> Module<T> {
                 Error::<T>::InstructionSettleBlockPassed
             );
         }
-        Ok(())
+        Ok(details)
+    }
+
+    /// Execute the instruction with `instruction_id`, pruning it on success.
+    /// On error, set the instruction status to failed.
+    fn execute_instruction_retryable(instruction_id: u64) -> Result<u32, DispatchError> {
+        let result = Self::execute_instruction(instruction_id);
+        if result.is_ok() {
+            Self::prune_instruction(instruction_id);
+        } else if <InstructionDetails<T>>::contains_key(instruction_id) {
+            <InstructionDetails<T>>::mutate(instruction_id, |details| {
+                details.status = InstructionStatus::Failed
+            });
+        }
+        result
     }
 
     fn execute_instruction(instruction_id: u64) -> Result<u32, DispatchError> {
+        let details = Self::instruction_details(instruction_id);
+        // Ignore instructions in Failed and Unknown state
+        ensure!(
+            details.status == InstructionStatus::Pending,
+            Error::<T>::InstructionNotPending
+        );
+
         let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
         // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
@@ -1027,90 +1078,78 @@ impl<T: Trait> Module<T> {
         // Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
         legs.sort_by_key(|leg| leg.0);
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
-        Self::unchecked_release_locks(instruction_id, &legs);
-        let mut result = DispatchResult::Ok(());
         if Self::instruction_affirms_pending(instruction_id) > 0 {
-            // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
-            // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
-            Self::unsafe_unclaim_receipts(instruction_id, &legs);
-            Self::deposit_event(RawEvent::InstructionRejected(
-                SettlementDID.as_id(),
-                instruction_id,
-            ));
-            result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-        } else {
-            // Verify that the venue still has the required permissions for the tokens involved.
-            let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
-            let venue_id = Self::instruction_details(instruction_id).venue_id;
-            for ticker in &tickers {
-                if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, venue_id) {
-                    Self::deposit_event(RawEvent::VenueUnauthorized(
-                        SettlementDID.as_id(),
-                        *ticker,
-                        venue_id,
-                    ));
-                    result = DispatchResult::Err(Error::<T>::UnauthorizedVenue.into());
+            // Instruction does not have enough affirmations.
+            return Err(Error::<T>::InstructionFailed.into());
+        }
+        // Verify that the venue still has the required permissions for the tokens involved.
+        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
+        for ticker in &tickers {
+            if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, details.venue_id) {
+                Self::deposit_event(RawEvent::VenueUnauthorized(
+                    SettlementDID.as_id(),
+                    *ticker,
+                    details.venue_id,
+                ));
+                return Err(Error::<T>::UnauthorizedVenue.into());
+            }
+        }
+
+        match with_transaction(|| {
+            Self::unchecked_release_locks(instruction_id, &legs);
+
+            for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
+                let status = Self::instruction_leg_status(instruction_id, leg_id);
+                status == LegStatus::ExecutionPending
+            }) {
+                if <Asset<T>>::base_transfer(
+                    leg_details.from,
+                    leg_details.to,
+                    &leg_details.asset,
+                    leg_details.amount,
+                )
+                .is_err()
+                {
+                    return Err(leg_id);
                 }
             }
-
-            if result.is_ok() {
-                match with_transaction(|| {
-                    for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
-                        let status = Self::instruction_leg_status(instruction_id, leg_id);
-                        status == LegStatus::ExecutionPending
-                    }) {
-                        if <Asset<T>>::base_transfer(
-                            leg_details.from,
-                            leg_details.to,
-                            &leg_details.asset,
-                            leg_details.amount,
-                        )
-                        .is_err()
-                        {
-                            return Err(leg_id);
-                        }
-                    }
-                    Ok(())
-                }) {
-                    Ok(_) => {
-                        Self::deposit_event(RawEvent::InstructionExecuted(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                        ));
-                    }
-                    Err(leg_id) => {
-                        Self::deposit_event(RawEvent::LegFailedExecution(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                            leg_id.clone(),
-                        ));
-                        Self::deposit_event(RawEvent::InstructionFailed(
-                            SettlementDID.as_id(),
-                            instruction_id,
-                        ));
-                        // We need to unclaim receipts for the failed transaction so that they can be reused
-                        Self::unsafe_unclaim_receipts(instruction_id, &legs);
-                        result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
-                    }
-                }
+            Ok(())
+        }) {
+            Ok(_) => {
+                Self::deposit_event(RawEvent::InstructionExecuted(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
             }
-        };
+            Err(leg_id) => {
+                Self::deposit_event(RawEvent::LegFailedExecution(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                    leg_id.clone(),
+                ));
+                Self::deposit_event(RawEvent::InstructionFailed(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
+                // We need to unclaim receipts for the failed transaction so that they can be reused
+                Self::unsafe_unclaim_receipts(instruction_id, &legs);
+                return Err(Error::<T>::InstructionFailed.into());
+            }
+        }
 
-        // Clean up instruction details to reduce chain bloat
-        <InstructionLegs<T>>::remove_prefix(instruction_id);
+        Ok(instructions_processed)
+    }
+
+    fn prune_instruction(instruction_id: u64) {
+        let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
-        Self::prune_user_affirmations(&legs, instruction_id);
 
-        result.map_or_else(|e| Err(e), |_k| Ok(instructions_processed))
-    }
-
-    fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
-        for (_, leg) in legs {
+        for (_, leg) in &legs {
             counter_parties.push(leg.from);
             counter_parties.push(leg.to);
         }
@@ -1312,7 +1351,7 @@ impl<T: Trait> Module<T> {
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, secondary_key) =
+        let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
@@ -1326,8 +1365,6 @@ impl<T: Trait> Module<T> {
             receipt_ids.len() == receipt_details.len(),
             Error::<T>::ReceiptAlreadyClaimed
         );
-
-        let instruction_details = Self::instruction_details(instruction_id);
 
         // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
         Self::ensure_portfolios_and_affirmation_status(
@@ -1437,7 +1474,7 @@ impl<T: Trait> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, secondary_key) =
+        let (did, secondary_key, _) =
             Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
@@ -1553,6 +1590,9 @@ impl<T: Trait> Module<T> {
         // We assume `settlement_type == SettleOnAffirmation`,
         // to be defensive, however, this is checked before instruction execution.
         if settlement_type == SettlementType::SettleOnAffirmation && affirms_pending == 0 {
+            // We use execute_instruction here directly
+            // and not the execute_instruction_retryable variant
+            // because direct settlement is not retryable.
             Self::execute_instruction(instruction_id)?;
         }
         Ok(())

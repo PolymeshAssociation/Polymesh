@@ -65,10 +65,7 @@ impl<A: Ord> Default for SubsetRestriction<A> {
     }
 }
 
-impl<A> LatticeOrd for SubsetRestriction<A>
-where
-    A: Clone + Ord + PartialEq,
-{
+impl<A: Ord> LatticeOrd for SubsetRestriction<A> {
     fn lattice_cmp(&self, other: &Self) -> LatticeOrdering {
         // Normalize `U \ {}` to just `U`.
         let left = match self {
@@ -125,10 +122,7 @@ where
     }
 }
 
-impl<A> SubsetRestriction<A>
-where
-    A: Clone + Ord + PartialEq,
-{
+impl<A: Ord> SubsetRestriction<A> {
     /// Constructs the empty subset.
     pub fn empty() -> Self {
         Self::These(BTreeSet::new())
@@ -175,6 +169,13 @@ where
         }
     }
 
+    /// Checks whether there is no restriction.
+    pub fn is_unrestricted(&self) -> bool {
+        matches!(self, Self::Whole)
+    }
+}
+
+impl<A: Clone + Ord> SubsetRestriction<A> {
     /// Set union operation on `self` and `other`.
     pub fn union(&self, other: &Self) -> Self {
         match (self, other) {
@@ -187,11 +188,6 @@ where
                 Self::Except(r.sub(&l))
             }
         }
-    }
-
-    /// Checks whether there is no restriction.
-    pub fn is_unrestricted(&self) -> bool {
-        matches!(self, Self::Whole)
     }
 }
 

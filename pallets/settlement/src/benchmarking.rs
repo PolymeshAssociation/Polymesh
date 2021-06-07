@@ -515,7 +515,7 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Trait }
 
     _{}
 
@@ -735,36 +735,14 @@ benchmarks! {
 
 
     reject_instruction {
-        // At least one portfolio needed
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(MAX_LEGS_IN_INSTRUCTION, true).unwrap();
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-        let s_portfolios = portfolios.clone();
-    }: _(origin, instruction_id, s_portfolios, l.into())
+    }: _(origin, instruction_id)
     verify {
-        for p in portfolios.iter() {
-            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
-        }
-    }
-
-
-    reject_instruction_with_no_pre_affirmations {
-        // At least one portfolio needed
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
-        let instruction_id: u64 = 1;
-        let s_portfolios = portfolios.clone();
-    }: reject_instruction(origin, instruction_id, s_portfolios, l.into())
-    verify {
-        for p in portfolios.iter() {
-            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Rejected, "Settlement: Failed to reject instruction");
-        }
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
     }
 
 
@@ -886,4 +864,29 @@ benchmarks! {
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
+
+    reschedule_instruction {
+        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
+
+        let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
+        let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
+        let to_portfolios = portfolios_to.clone();
+        tickers.iter().for_each(|ticker| Asset::<T>::freeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
+        Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
+        next_block::<T>();
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed);
+        tickers.iter().for_each(|ticker| Asset::<T>::unfreeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
+    }: _(RawOrigin::Signed(to.account), instruction_id)
+    verify {
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
+        next_block::<T>();
+        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
+    }
+}
+
+pub fn next_block<T: Trait + pallet_scheduler::Trait>() {
+    use frame_support::traits::OnInitialize;
+    let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
+    frame_system::Module::<T>::set_block_number(block_number);
+    pallet_scheduler::Module::<T>::on_initialize(block_number);
 }
