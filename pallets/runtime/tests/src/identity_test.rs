@@ -1,5 +1,5 @@
 use super::{
-    asset_test::{an_asset, max_len, max_len_bytes},
+    asset_test::{an_asset, token, basic_asset, max_len, max_len_bytes},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
@@ -16,6 +16,7 @@ use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap,
 };
+use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{self as identity, DidRecords};
 use pallet_identity::types::{DidRecords as RpcDidRecords};
@@ -33,6 +34,7 @@ use polymesh_primitives::{
     Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
     InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
     SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    AssetPermissions,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -85,6 +87,12 @@ fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
         }
         _ => vec![],
     }
+}
+
+fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken<u128>) {
+    let r = token(name, owner.did);
+    assert_ok!(basic_asset(owner, r.0, &r.1));
+    r
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -330,6 +338,53 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Signatory::Account(bob_key),
         Permissions::empty().into()
     ));
+}
+
+#[test]
+fn add_permissions_to_multiple_tokens() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_permissions_to_multiple_tokens);
+}
+fn do_add_permissions_to_multiple_tokens() {
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_signer = Signatory::Account(bob_key);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Add bob with default permissions
+    add_secondary_key(alice.did, bob_signer);
+
+    // Create some tokens
+    let max_tokens = 30;
+    let tokens: Vec<Ticker> = (0..max_tokens).map(|i| {
+        let name = format!("TOKEN_{}", i);
+        let (ticker, _) = create_new_token(name.as_bytes(), alice);
+        ticker
+    }).collect();
+
+    let set_bob_asset_permissions = |num_token| {
+        assert_ok!(Identity::set_permission_to_signer(
+            alice.origin(),
+            bob_signer,
+            Permissions {
+                asset: AssetPermissions::elems(
+                    tokens[0..num_token].into_iter().map(|t| t.clone())),
+                ..Default::default()
+            },
+        ));
+    };
+
+    // add one-by-one
+    for num in 0..max_tokens {
+      set_bob_asset_permissions(num);
+    }
+
+    // remove all permissions
+    set_bob_asset_permissions(0);
+
+    // bulk add
+    set_bob_asset_permissions(max_tokens);
 }
 
 #[test]
