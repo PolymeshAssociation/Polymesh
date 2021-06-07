@@ -27,7 +27,7 @@ function get_tests_filenames() {
     done
 }
 
-#run_tests
+run_tests
 
 cargo profdata -- merge -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
