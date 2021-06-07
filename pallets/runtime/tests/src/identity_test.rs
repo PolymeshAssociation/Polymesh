@@ -714,15 +714,11 @@ fn do_remove_secondary_keys_test() {
         )])
         .into(),
     );
-    assert_ok!(result);
-    // FIXME: use this after the fix.
-    //assert_noop!(result, Error::NotASigner);
+    assert_noop!(result, Error::NotASigner);
 
     // Check DidRecords
     let keys = get_secondary_keys(alice.did);
-    assert_eq!(keys.len(), 2);
-    // FIXME: used this after the fix
-    //assert_eq!(keys.len(), 1);
+    assert_eq!(keys.len(), 1);
 
     // Check identity map
     assert_eq!(Identity::get_identity(&bob_key), None);
@@ -751,10 +747,7 @@ fn do_remove_secondary_keys_test() {
 
     // Check DidRecords
     let keys = get_secondary_keys(alice.did);
-    // 2 x bob_key
-    assert_eq!(keys.len(), 2);
-    // FIXME: used this after the fix
-    //assert_eq!(keys.len(), 0);
+    assert_eq!(keys.len(), 0);
 }
 
 #[test]

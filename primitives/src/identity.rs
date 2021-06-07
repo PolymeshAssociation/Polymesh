@@ -57,10 +57,14 @@ where
     /// It removes `keys_to_remove` from secondary keys.
     pub fn remove_secondary_keys(
         &mut self,
-        mut signers_to_remove: impl Iterator<Item = Signatory<AccountId>>,
+        signers_to_remove: &[Signatory<AccountId>],
     ) -> &mut Self {
-        self.secondary_keys
-            .retain(|curr_si| !signers_to_remove.any(|signer| curr_si.signer == signer));
+        self.secondary_keys.retain(|curr_si| {
+            signers_to_remove
+                .into_iter()
+                .find(|&signer| curr_si.signer == *signer)
+                .is_none()
+        });
         self
     }
 }

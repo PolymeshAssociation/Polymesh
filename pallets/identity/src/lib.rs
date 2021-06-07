@@ -371,7 +371,7 @@ decl_module! {
 
             // Update secondary keys at Identity.
             <DidRecords<T>>::mutate(did, |record| {
-                (*record).remove_secondary_keys(signers_to_remove.clone().into_iter());
+                (*record).remove_secondary_keys(&signers_to_remove);
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
@@ -1821,7 +1821,7 @@ impl<T: Trait> Module<T> {
         }
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
-            record.remove_secondary_keys(iter::once(signer.clone()));
+            record.remove_secondary_keys(&[signer.clone()]);
         });
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
