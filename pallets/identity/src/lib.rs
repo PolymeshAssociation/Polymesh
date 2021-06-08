@@ -932,10 +932,10 @@ impl<T: Trait> Module<T> {
                     Self::can_link_account_key_to_did(key),
                     Error::<T>::AlreadyLinked
                 );
-                // Charge the protocol fee after all checks.
-                charge_fee()?;
                 // Check that the new Identity has a valid CDD claim.
                 ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+                // Charge the protocol fee after all checks.
+                charge_fee()?;
                 // Update current did of the transaction to the newly joined did.
                 // This comes handy when someone uses a batch transaction to leave their identity, join another identity,
                 // and then do something as the new identity.
