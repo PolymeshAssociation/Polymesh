@@ -47,7 +47,6 @@ where
     }
 
     /// It adds `new_secondary_keys` to `self`.
-    /// It also keeps its internal list sorted and removes duplicate elements.
     pub fn add_secondary_keys(
         &mut self,
         new_secondary_keys: impl IntoIterator<Item = SecondaryKey<AccountId>>,
