@@ -18,7 +18,7 @@ use pallet_balances as balances;
 use pallet_contracts::ContractInfoOf;
 use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
-use polymesh_contracts::{Call as ContractsCall, MetadataOfTemplate, INSTANTIATE_WITH_CODE_EXTRA};
+use polymesh_contracts::{Call as ContractsCall, MetadataOfTemplate};
 use polymesh_primitives::{
     IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata, Gas, AccountId
 };
@@ -58,8 +58,6 @@ pub fn create_se_template(
     code_hash: CodeHash,
     wasm: Vec<u8>,
 ) {
-    let wasm_length_weight = 11_608_392_000;
-
     // Set payer in context
     TestStorage::set_payer_context(Some(template_creator.clone()));
 
@@ -88,7 +86,7 @@ pub fn create_se_template(
     .get_dispatch_info()
     .weight;
     assert_eq!(
-        wasm_length_weight + INSTANTIATE_WITH_CODE_EXTRA,
+        11_864_975_000,
         weight_of_extrinsic
     );
 

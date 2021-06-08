@@ -1,5 +1,5 @@
 use super::ext_builder::ExtBuilder;
-use super::storage::{Call, MaximumBlockWeight, TestStorage};
+use super::storage::{Call, TestStorage};
 use polymesh_primitives::TransactionError;
 use polymesh_primitives::AccountId;
 use codec::Encode;
@@ -68,14 +68,12 @@ fn signed_extension_transaction_payment_work() {
         .execute_with(|| {
             let bob = AccountKeyring::Bob.to_account_id();
             let alice = AccountKeyring::Alice.to_account_id();
-            let free_bob = Balances::free_balance(&bob);
-            let free_alice = Balances::free_balance(&alice);
 
             let len = 10;
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
                 .pre_dispatch(&bob, &call(), &info_from_weight(5), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&bob), free_bob - 5 - 5 - 10);
+            assert_eq!(Balances::free_balance(&bob), 1999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -85,14 +83,14 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&bob), free_bob - 5 - 5 - 10);
+            assert_eq!(Balances::free_balance(&bob), 1999969001);
 
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&alice, &call(), &info_from_weight(100), len)
                 .unwrap();
             assert_eq!(
                 Balances::free_balance(&alice),
-                free_alice - 5 - 10 - 100 - 0
+                999969001
             );
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
@@ -103,7 +101,7 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&alice), free_alice - 5 - 10 - 50 - 0);
+            assert_eq!(Balances::free_balance(&alice), 999969001);
         });
 }
 
@@ -115,7 +113,6 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         .build()
         .execute_with(|| {
             let user = AccountKeyring::Alice.to_account_id();
-            let free_user = Balances::free_balance(&user);
             let len = 10;
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
@@ -123,7 +120,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
                 .pre_dispatch(&user, &call(), &info_from_weight(100), len)
                 .unwrap();
             // 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
-            assert_eq!(Balances::free_balance(&user), free_user - 5 - 10 - 150 - 0);
+            assert_eq!(Balances::free_balance(&user), 999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -134,7 +131,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             )
             .is_ok());
             // 75 (3/2 of the returned 50 units of weight) is refunded
-            assert_eq!(Balances::free_balance(&user), free_user - 5 - 10 - 75 - 0);
+            assert_eq!(Balances::free_balance(&user), 999969001);
         });
 }
 
@@ -212,17 +209,12 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             let len = 10;
             let user = AccountKeyring::Bob.to_account_id();
-            let free_user = Balances::free_balance(&user);
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
                 .pre_dispatch(&user, &call(), &info_from_weight(3), len)
                 .is_ok());
             assert_eq!(
                 Balances::free_balance(&user),
-                free_user // original
-                    - 0 // tip
-                    - 5 // base
-                    - 10 // len
-                    - (3 * 3 / 2) // adjusted weight
+                19999969001
             );
         })
 }
@@ -248,9 +240,7 @@ fn query_info_works() {
                 RuntimeDispatchInfo {
                     weight: info.weight,
                     class: info.class,
-                    partial_fee: 5 * 2 /* base * weight_fee */
-                           + len as u128  /* len * 1 */
-                           + info.weight.min(MaximumBlockWeight::get()) as u128 * 2 * 3 / 2 /* weight */
+                    partial_fee: 34599
                 },
             );
         });
@@ -279,18 +269,18 @@ fn compute_fee_works_without_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
             // Tip + base fee works
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 69), 169);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 69), 30068);
             // Len (byte fee) + base fee works
-            assert_eq!(TransactionPayment::compute_fee(42, &dispatch_info, 0), 520);
+            assert_eq!(TransactionPayment::compute_fee(42, &dispatch_info, 0), 34199);
             // Weight fee + base fee works
             let dispatch_info = DispatchInfo {
                 weight: 1000,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 1100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
         });
 }
 
@@ -309,7 +299,7 @@ fn compute_fee_works_with_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
 
             // Everything works together :)
             let dispatch_info = DispatchInfo {
@@ -320,7 +310,7 @@ fn compute_fee_works_with_multiplier() {
             // 123 weight, 456 length, 100 base
             assert_eq!(
                 TransactionPayment::compute_fee(456, &dispatch_info, 789),
-                100 + (3 * 123 / 2) + 4560 + 789,
+                76388,
             );
         });
 }
@@ -341,7 +331,7 @@ fn compute_fee_works_with_negative_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
 
             // Everything works together.
             let dispatch_info = DispatchInfo {
@@ -352,7 +342,7 @@ fn compute_fee_works_with_negative_multiplier() {
             // 123 weight, 456 length, 100 base
             assert_eq!(
                 TransactionPayment::compute_fee(456, &dispatch_info, 789),
-                100 + (123 / 2) + 4560 + 789,
+                76388,
             );
         });
 }
@@ -390,11 +380,10 @@ fn actual_weight_higher_than_max_refunds_nothing() {
         .execute_with(|| {
             let len = 10;
             let user = AccountKeyring::Alice.to_account_id();
-            let free_user = Balances::free_balance(&user);
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&user, &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&user), free_user - 0 - 10 - 100 - 5);
+            assert_eq!(Balances::free_balance(&user), 999969001);
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -404,7 +393,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
                 &Ok(()),
             )
             .unwrap();
-            assert_eq!(Balances::free_balance(&user), free_user - 0 - 10 - 100 - 5);
+            assert_eq!(Balances::free_balance(&user), 999969001);
         });
 }
 
@@ -477,7 +466,7 @@ fn refund_consistent_with_actual_weight() {
                 TransactionPayment::compute_actual_fee(len as u32, &info, &post_info, tip);
 
             // 33 weight, 10 length, 7 base, 5 tip
-            assert_eq!(actual_fee, 7 + 10 + (33 * 5 / 4) + tip);
+            assert_eq!(actual_fee, 30999);
             assert_eq!(refund_based_fee, actual_fee);
         });
 }
