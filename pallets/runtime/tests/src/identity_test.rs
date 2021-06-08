@@ -555,7 +555,7 @@ fn do_add_secondary_keys_with_ident_signer_test() {
         Identity::add_secondary_keys_with_authorization(
             alice.origin(),
             vec![key_with_auth],
-            expires_at
+            expires_at,
         )
     };
 
