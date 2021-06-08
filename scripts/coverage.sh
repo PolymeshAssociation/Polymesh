@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function run_tests() {
-    RUSTFLAGS="-Zinstrument-coverage" \
+    RUSTFLAGS="-Zinstrument-coverage -Clink-dead-code" \
     LLVM_PROFILE_FILE="json5format-%m.profraw" \
     BUILD_DUMMY_WASM_BINARY=1 \
     cargo test --tests \
