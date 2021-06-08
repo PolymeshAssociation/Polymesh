@@ -42,10 +42,7 @@ where
     }
 
     /// Check if `signer` is already a secondary key.
-    pub fn contains_secondary_key(
-        &self,
-        signer: &Signatory<AccountId>,
-    ) -> bool {
+    pub fn contains_secondary_key(&self, signer: &Signatory<AccountId>) -> bool {
         self.secondary_keys.iter().any(|sk| sk.signer == *signer)
     }
 

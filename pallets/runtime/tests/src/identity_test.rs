@@ -703,7 +703,6 @@ fn do_join_identity_as_identity_with_perm_test() {
     assert_eq!(count_keys(), 1);
 }
 
-
 #[test]
 fn add_secondary_keys_with_permissions_test() {
     ExtBuilder::default()
