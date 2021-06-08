@@ -566,6 +566,7 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_proposal().saturating_add(*proposal_weight)]
+        #[allow(unused_variables)]
         fn execute_scheduled_proposal(
             origin,
             multisig: T::AccountId,

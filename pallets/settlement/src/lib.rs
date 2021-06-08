@@ -811,6 +811,7 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*legs_count)]
+        #[allow(unused_variables)]
         fn execute_scheduled_instruction(origin, instruction_id: u64, legs_count: u32) {
             ensure_root(origin)?;
             Self::execute_instruction(instruction_id)?;
