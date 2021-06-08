@@ -26,8 +26,8 @@ use sp_std::prelude::*;
 #[cfg_attr(feature = "std", derive(Debug))]
 #[cfg_attr(
     feature = "serde",
-    serde(rename_all = "camelCase"),
-    derive(Serialize, Deserialize)
+    derive(Serialize, Deserialize),
+    serde(rename_all = "camelCase")
 )]
 pub struct RuntimeDispatchInfo<Balance> {
     /// Weight of this dispatch.
