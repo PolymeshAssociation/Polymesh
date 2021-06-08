@@ -310,7 +310,7 @@ where
     AccountId: Encode + Decode + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.signer == other.signer && self.permissions == other.permissions
+        self.signer == other.signer
     }
 }
 

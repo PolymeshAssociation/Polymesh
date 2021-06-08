@@ -648,17 +648,15 @@ fn do_add_secondary_keys_with_ident_signer_test() {
     let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
     // FIXME
     //assert_noop!(res, Error::AlreadyLinked);
-    //assert_eq!(count_keys(), 1);
     assert_ok!(res);
-    assert_eq!(count_keys(), 2);
+    assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again.
     let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
     // FIXME
     //assert_noop!(res, Error::AlreadyLinked);
-    //assert_eq!(count_keys(), 1);
     assert_ok!(res);
-    assert_eq!(count_keys(), 3);
+    assert_eq!(count_keys(), 1);
 }
 
 #[test]
