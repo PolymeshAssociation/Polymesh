@@ -1163,15 +1163,15 @@ impl<T: Trait> Module<T> {
         Self::ensure_perms_length_limited(&permissions)?;
 
         <DidRecords<T>>::mutate(target_did, |record| {
-            if let Some(mut secondary_key) = (*record)
+            if let Some(position) = (*record)
                 .secondary_keys
                 .iter()
-                .find(|si| si.signer == *signer)
-                .cloned()
+                .position(|si| si.signer == *signer)
             {
-                let old_perms = replace(&mut secondary_key.permissions, permissions.clone());
-                (*record).secondary_keys.retain(|si| si.signer != *signer);
-                (*record).secondary_keys.push(secondary_key.clone());
+                let old_perms = replace(
+                    &mut (*record).secondary_keys[position].permissions,
+                    permissions.clone(),
+                );
                 Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                     target_did,
                     secondary_key.into(),
