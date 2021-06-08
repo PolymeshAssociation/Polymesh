@@ -595,6 +595,73 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn add_secondary_keys_with_ident_signer_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_secondary_keys_with_ident_signer_test);
+}
+
+fn do_add_secondary_keys_with_ident_signer_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let bob_identity_signer = Signatory::Identity(bob.did);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
+    let add_secondary_key_with_auth = |signer, perms| {
+        let expires_at = 100u64;
+        let target_id_auth = |user: User| TargetIdAuthorization {
+            target_id: user.did,
+            nonce: Identity::offchain_authorization_nonce(user.did),
+            expires_at,
+        };
+        let authorization = target_id_auth(alice);
+        let auth_encoded = authorization.encode();
+        let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
+
+        let bob_key = SecondaryKey::new(signer, perms);
+        let key_with_auth = SecondaryKeyWithAuth {
+            auth_signature,
+            secondary_key: bob_key.into(),
+        };
+        Identity::add_secondary_keys_with_authorization(
+            alice.origin(),
+            vec![key_with_auth],
+            expires_at,
+        )
+    };
+
+    let perm1 = Permissions::empty();
+    let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
+
+    // count alice's secondary keys.
+    let count_keys = || get_secondary_keys(alice.did).len();
+
+    // Add bob's identity signatory with empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    assert_ok!(res);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again with non-empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
+    // FIXME
+    //assert_noop!(res, Error::AlreadyLinked);
+    //assert_eq!(count_keys(), 1);
+    assert_ok!(res);
+    assert_eq!(count_keys(), 2);
+
+    // Add bob's identity signatory again.
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    // FIXME
+    //assert_noop!(res, Error::AlreadyLinked);
+    //assert_eq!(count_keys(), 1);
+    assert_ok!(res);
+    assert_eq!(count_keys(), 3);
+}
+
+#[test]
 fn add_secondary_keys_with_permissions_test() {
     ExtBuilder::default()
         .monied(true)
