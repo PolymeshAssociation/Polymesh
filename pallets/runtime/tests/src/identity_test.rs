@@ -564,9 +564,7 @@ fn do_add_secondary_keys_with_ident_signer_test() {
     )]);
 
     // count alice's secondary keys.
-    let count_keys = || {
-        Identity::did_records(&alice.did).secondary_keys.len()
-    };
+    let count_keys = || Identity::did_records(&alice.did).secondary_keys.len();
 
     // Add bob's identity signatory with empty permissions
     let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
