@@ -531,12 +531,11 @@ fn add_secondary_keys_with_ident_signer_test() {
 
 fn do_add_secondary_keys_with_ident_signer_test() {
     let bob = User::new(AccountKeyring::Bob);
-    let bob_account_signer = Signatory::Account(bob.acc());
     let bob_identity_signer = Signatory::Identity(bob.did);
     let alice = User::new(AccountKeyring::Alice);
 
     // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
-    let add_secondary_key_with_auth = |signer| {
+    let add_secondary_key_with_auth = |signer, perms| {
         let expires_at = 100u64;
         let target_id_auth = |user: User| TargetIdAuthorization {
             target_id: user.did,
@@ -547,7 +546,7 @@ fn do_add_secondary_keys_with_ident_signer_test() {
         let auth_encoded = authorization.encode();
         let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
 
-        let bob_key = SecondaryKey::new(signer, Permissions::empty());
+        let bob_key = SecondaryKey::new(signer, perms);
         let key_with_auth = SecondaryKeyWithAuth {
             auth_signature,
             secondary_key: bob_key.into(),
@@ -559,27 +558,36 @@ fn do_add_secondary_keys_with_ident_signer_test() {
         )
     };
 
-    // Add bob with account signatory
-    assert_noop!(
-        add_secondary_key_with_auth(bob_account_signer),
-        Error::AlreadyLinked
-    );
+    let perm1 = Permissions::empty();
+    let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
 
-    // Add bob with identity signatory
-    let res = add_secondary_key_with_auth(bob_identity_signer);
+    // count alice's secondary keys.
+    let count_keys = || {
+        Identity::did_records(&alice.did).secondary_keys.len()
+    };
+
+    // Add bob's identity signatory with empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    assert_ok!(res);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again with non-empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
     // FIXME
     //assert_noop!(res, Error::AlreadyLinked);
+    //assert_eq!(count_keys(), 1);
     assert_ok!(res);
-    // Add bob again with identity signatory
-    let res = add_secondary_key_with_auth(bob_identity_signer);
+    assert_eq!(count_keys(), 2);
+
+    // Add bob's identity signatory again.
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
     // FIXME
     //assert_noop!(res, Error::AlreadyLinked);
+    //assert_eq!(count_keys(), 1);
     assert_ok!(res);
-    // Add bob with identity signatory
-    let res = add_secondary_key_with_auth(bob_identity_signer);
-    // FIXME
-    //assert_noop!(res, Error::AlreadyLinked);
-    assert_ok!(res);
+    assert_eq!(count_keys(), 3);
 }
 
 #[test]
