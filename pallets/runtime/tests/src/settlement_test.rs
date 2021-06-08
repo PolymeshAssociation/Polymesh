@@ -25,11 +25,12 @@ use polymesh_primitives::{
     asset::AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
     PortfolioName, Signatory, Ticker,
 };
-use rand::{prelude::*, thread_rng};
+use rand::prelude::*;
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::time::{SystemTime, UNIX_EPOCH};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -1728,6 +1729,15 @@ fn basic_fuzzing() {
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(|| {
+            // Use seconds since unix epoch to seed the random generator.
+            let seed = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            eprintln!("========== USING SEED: {:?}", seed);
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut random = || -> bool { rng.gen() };
+
             let alice = User::new(AccountKeyring::Alice);
             let bob = User::new(AccountKeyring::Bob);
             let charlie = User::new(AccountKeyring::Charlie);
@@ -1926,7 +1936,6 @@ fn basic_fuzzing() {
             }
 
             let fail: bool = random();
-            let mut rng = thread_rng();
             let failed_user = rng.gen_range(0, 4);
             if fail {
                 assert_ok!(Settlement::withdraw_affirmation(
