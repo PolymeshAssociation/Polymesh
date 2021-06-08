@@ -646,18 +646,63 @@ fn do_add_secondary_keys_with_ident_signer_test() {
 
     // Add bob's identity signatory again with non-empty permissions
     let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
-    // FIXME
-    //assert_noop!(res, Error::AlreadyLinked);
-    assert_ok!(res);
+    assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again.
     let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
-    // FIXME
-    //assert_noop!(res, Error::AlreadyLinked);
-    assert_ok!(res);
+    assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 }
+
+#[test]
+fn join_identity_as_identity_with_perm_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_join_identity_as_identity_with_perm_test);
+}
+
+fn do_join_identity_as_identity_with_perm_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let bob_identity_signer = Signatory::Identity(bob.did);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Use `add_auth` and `join_identity` to add a secondary key.
+    let join_identity_with_perms = |signer, perms| {
+        let auth_id = Identity::add_auth(
+            alice.did,
+            signer,
+            AuthorizationData::JoinIdentity(perms),
+            None,
+        );
+        Identity::join_identity(signer, auth_id)
+    };
+
+    let perm1 = Permissions::empty();
+    let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
+
+    // count alice's secondary keys.
+    let count_keys = || get_secondary_keys(alice.did).len();
+
+    // Add bob's identity signatory with empty permissions
+    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    assert_ok!(res);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again with non-empty permissions
+    let res = join_identity_with_perms(bob_identity_signer, perm2.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again.
+    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+}
+
 
 #[test]
 fn add_secondary_keys_with_permissions_test() {

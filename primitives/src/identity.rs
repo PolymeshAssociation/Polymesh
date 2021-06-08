@@ -41,6 +41,14 @@ where
         }
     }
 
+    /// Check if `signer` is already a secondary key.
+    pub fn contains_secondary_key(
+        &self,
+        signer: &Signatory<AccountId>,
+    ) -> bool {
+        self.secondary_keys.iter().any(|sk| sk.signer == *signer)
+    }
+
     /// It adds `new_secondary_keys` to `self`.
     /// It also keeps its internal list sorted and removes duplicate elements.
     pub fn add_secondary_keys(
@@ -48,8 +56,6 @@ where
         new_secondary_keys: impl IntoIterator<Item = SecondaryKey<AccountId>>,
     ) -> &mut Self {
         self.secondary_keys.extend(new_secondary_keys);
-        self.secondary_keys.sort();
-        self.secondary_keys.dedup();
 
         self
     }

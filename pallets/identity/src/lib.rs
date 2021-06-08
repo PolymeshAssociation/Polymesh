@@ -680,6 +680,11 @@ decl_module! {
                         Error::<T>::AlreadyLinked
                     );
                 }
+                // 1.15. Check if secondary keys already contains this signer
+                ensure!(
+                    !record.contains_secondary_key(&si.signer),
+                    Error::<T>::AlreadyLinked
+                );
                 // 1.2. Offchain authorization is not revoked explicitly.
                 let si_signer_authorization = &(si.signer.clone(), authorization.clone());
                 ensure!(
@@ -925,6 +930,12 @@ impl<T: Trait> Module<T> {
         let charge_fee =
             || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
 
+        // Check if secondary keys already contains this signer
+        let record = <DidRecords<T>>::get(target_did);
+        ensure!(
+            !record.contains_secondary_key(signer),
+            Error::<T>::AlreadyLinked
+        );
         // Link the secondary key.
         match signer {
             Signatory::Account(key) => {
