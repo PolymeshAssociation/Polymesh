@@ -200,13 +200,13 @@ jobs:
           command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
           background: true
       - run:
-          name: cli scripts install
-          command: npm install
+          name: cli scripts install and build
+          command: yarn install && yarn build
           working_directory: ./scripts/cli
           no_output_timeout: 1h
       - run:
           name: cli scripts test
-          command: npm test
+          command: yarn test
           working_directory: ./scripts/cli
           no_output_timeout: 10m
       - save_cache:
