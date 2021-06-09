@@ -7,14 +7,14 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::Weight,
 };
+use pallet_contracts::weights::WeightInfo;
 use pallet_asset::checkpoint as pallet_checkpoint;
-use pallet_contracts::WeightInfo;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
-use polymesh_primitives::{Balance, BlockNumber, Gas, Moment};
+use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
@@ -295,7 +295,7 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
+        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 4,

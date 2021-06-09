@@ -209,6 +209,7 @@ sc-client-api = "3.0.0"
 sc-client-db = "0.9.0"
 sc-consensus = "0.9.0"
 sc-consensus-babe = "0.9.0"
+sc-consensus-slots = "0.9.0"
 sc-executor = { version = "0.9.0", features = ["wasmtime"] }
 sc-light = "3.0.0"
 sc-network = "0.9.0"

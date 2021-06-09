@@ -1,31 +1,32 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, general_chain_ops, itn_chain_ops, new_full_base, testnet_chain_ops, GeneralExecutor,
-    ITNExecutor, IsNetwork, Network, NewChainOps, NewFullBase, TestnetExecutor,
+    self, general_chain_ops, itn_chain_ops, testnet_chain_ops, GeneralExecutor,
+    ITNExecutor, IsNetwork, Network, NewChainOps, TestnetExecutor,
 };
+use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
+use sc_service::{config::Role, Configuration, TaskManager};
+
 use core::future::Future;
 use log::info;
 use polymesh_primitives::Block;
-use sc_cli::{ChainSpec, RuntimeVersion};
-pub use sc_cli::{Result, SubstrateCli};
-use sc_service::{config::Role, Configuration, TaskManager};
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -56,7 +57,7 @@ impl SubstrateCli for Cli {
         "polymesh".into()
     }
 
-    fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+    fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
             "dev" => Box::new(chain_spec::general::develop_config()),
             "local" => Box::new(chain_spec::general::local_config()),
@@ -99,8 +100,8 @@ pub fn run() -> Result<()> {
     }
     match &cli.subcommand {
         None => {
-            let runtime = cli.create_runner(&cli.run.base)?;
-            let chain_spec = &runtime.config().chain_spec;
+            let runner = cli.create_runner(&cli.run.base)?;
+            let network = runner.config().chain_spec.network();
 
             //let authority_discovery_enabled = cli.run.authority_discovery_enabled;
             info!(
@@ -108,83 +109,21 @@ pub fn run() -> Result<()> {
                 cli.run.base.network_params.reserved_nodes
             );
 
-            let network = chain_spec.network();
-            runtime.run_node_until_exit(|config| match (network, &config.role) {
-                (Network::ITN, Role::Light) => service::itn_new_light(config),
-                (Network::ITN, _) => service::itn_new_full(config),
-                (Network::Testnet, Role::Light) => service::testnet_new_light(config),
-                (Network::Testnet, _) => service::testnet_new_full(config),
-                (Network::Other, Role::Light) => service::general_new_light(config),
-                (Network::Other, _) => service::general_new_full(config),
+            runner.run_node_until_exit(|config| async move {
+                match (network, &config.role) {
+                    (Network::ITN, Role::Light) => service::itn_new_light(config),
+                    (Network::ITN, _) => service::itn_new_full(config),
+                    (Network::Testnet, Role::Light) => service::testnet_new_light(config),
+                    (Network::Testnet, _) => service::testnet_new_full(config),
+                    (Network::Other, Role::Light) => service::general_new_light(config),
+                    (Network::Other, _) => service::general_new_full(config),
+                }
+                .map_err(sc_cli::Error::Service)
             })
         }
         Some(Subcommand::BuildSpec(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-        }
-        Some(Subcommand::BuildSyncSpec(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-            match runner.config().chain_spec.network() {
-                Network::ITN => runner.async_run(|config| {
-                    let chain_spec = config.chain_spec.cloned_box();
-                    let network_config = config.network.clone();
-                    let NewFullBase {
-                        task_manager,
-                        client,
-                        network_status_sinks,
-                        ..
-                    } = new_full_base::<polymesh_runtime_itn::RuntimeApi, ITNExecutor, _, _>(
-                        config,
-                        |_, _| (),
-                    )?;
-                    Ok((
-                        cmd.run(chain_spec, network_config, client, network_status_sinks),
-                        task_manager,
-                    ))
-                }),
-                Network::Testnet => {
-                    runner.async_run(|config| {
-                        let chain_spec = config.chain_spec.cloned_box();
-                        let network_config = config.network.clone();
-                        let NewFullBase {
-                            task_manager,
-                            client,
-                            network_status_sinks,
-                            ..
-                        } = new_full_base::<
-                            polymesh_runtime_testnet::RuntimeApi,
-                            TestnetExecutor,
-                            _,
-                            _,
-                        >(config, |_, _| ())?;
-                        Ok((
-                            cmd.run(chain_spec, network_config, client, network_status_sinks),
-                            task_manager,
-                        ))
-                    })
-                }
-                Network::Other => {
-                    runner.async_run(|config| {
-                        let chain_spec = config.chain_spec.cloned_box();
-                        let network_config = config.network.clone();
-                        let NewFullBase {
-                            task_manager,
-                            client,
-                            network_status_sinks,
-                            ..
-                        } = new_full_base::<
-                            polymesh_runtime_develop::RuntimeApi,
-                            GeneralExecutor,
-                            _,
-                            _,
-                        >(config, |_, _| ())?;
-                        Ok((
-                            cmd.run(chain_spec, network_config, client, network_status_sinks),
-                            task_manager,
-                        ))
-                    })
-                }
-            }
         }
         Some(Subcommand::CheckBlock(cmd)) => async_run(
             &cli,
@@ -228,9 +167,9 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Benchmark(cmd)) => {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
-                let chain_spec = &runner.config().chain_spec;
+                let network = runner.config().chain_spec.network();
 
-                match chain_spec.network() {
+                match network {
                     Network::ITN => {
                         runner.sync_run(|config| cmd.run::<Block, service::ITNExecutor>(config))
                     }
@@ -256,20 +195,20 @@ fn async_run<F, G, H>(
     itn: impl FnOnce(
         NewChainOps<polymesh_runtime_itn::RuntimeApi, ITNExecutor>,
         Configuration,
-    ) -> Result<(F, TaskManager)>,
+    ) -> sc_cli::Result<(F, TaskManager)>,
     testnet: impl FnOnce(
         NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>,
         Configuration,
-    ) -> Result<(G, TaskManager)>,
+    ) -> sc_cli::Result<(G, TaskManager)>,
     general: impl FnOnce(
         NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
         Configuration,
-    ) -> Result<(H, TaskManager)>,
+    ) -> sc_cli::Result<(H, TaskManager)>,
 ) -> sc_service::Result<(), sc_cli::Error>
 where
-    F: Future<Output = Result<()>>,
-    G: Future<Output = Result<()>>,
-    H: Future<Output = Result<()>>,
+    F: Future<Output = sc_cli::Result<()>>,
+    G: Future<Output = sc_cli::Result<()>>,
+    H: Future<Output = sc_cli::Result<()>>,
 {
     let runner = cli.create_runner(cmd)?;
     match runner.config().chain_spec.network() {
