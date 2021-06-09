@@ -63,7 +63,7 @@ where
     ) -> &mut Self {
         self.secondary_keys.retain(|curr_si| {
             signers_to_remove
-                .into_iter()
+                .iter()
                 .find(|&signer| curr_si.signer == *signer)
                 .is_none()
         });

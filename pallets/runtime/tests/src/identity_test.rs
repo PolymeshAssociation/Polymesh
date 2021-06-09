@@ -368,7 +368,7 @@ fn do_add_permissions_to_multiple_tokens() {
             alice.origin(),
             bob_signer,
             Permissions {
-                asset: AssetPermissions::elems(tokens[0..num_token].into_iter().map(|t| t.clone())),
+                asset: AssetPermissions::elems(tokens[0..num_token].into_iter().cloned()),
                 ..Default::default()
             },
         ));
@@ -387,9 +387,7 @@ fn do_add_permissions_to_multiple_tokens() {
         alice.origin(),
         bob_signer,
         Permissions {
-            asset: AssetPermissions::elems(
-                tokens[0..max_tokens].into_iter().rev().map(|t| t.clone())
-            ),
+            asset: AssetPermissions::elems(tokens[0..max_tokens].into_iter().rev().cloned()),
             ..Default::default()
         },
     ));
