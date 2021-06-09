@@ -363,34 +363,27 @@ fn do_add_permissions_to_multiple_tokens() {
         })
         .collect();
 
-    let set_bob_asset_permissions = |num_token| {
+    let test_set_perms = |asset| {
         assert_ok!(Identity::set_permission_to_signer(
             alice.origin(),
             bob_signer,
             Permissions {
-                asset: AssetPermissions::elems(tokens[0..num_token].into_iter().cloned()),
+                asset,
                 ..Default::default()
             },
         ));
     };
 
-    // add one-by-one
+    // add one-by-one.
     for num in 0..max_tokens {
-        set_bob_asset_permissions(num);
+        test_set_perms(AssetPermissions::elems(tokens[0..num].into_iter().cloned()));
     }
 
-    // remove all permissions
-    set_bob_asset_permissions(0);
+    // remove all permissions.
+    test_set_perms(AssetPermissions::empty());
 
-    // bulk add, reverse order
-    assert_ok!(Identity::set_permission_to_signer(
-        alice.origin(),
-        bob_signer,
-        Permissions {
-            asset: AssetPermissions::elems(tokens[0..max_tokens].into_iter().rev().cloned()),
-            ..Default::default()
-        },
-    ));
+    // bulk add in reverse order.
+    test_set_perms(AssetPermissions::elems(tokens[0..max_tokens].into_iter().rev().cloned()));
 }
 
 #[test]
@@ -605,7 +598,7 @@ fn do_add_secondary_keys_with_ident_signer_test() {
     let bob_identity_signer = Signatory::Identity(bob.did);
     let alice = User::new(AccountKeyring::Alice);
 
-    // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
+    // Try adding the same `secondary_key` using `add_secondary_keys_with_authorization`.
     let add_secondary_key_with_auth = |signer, perms| {
         let expires_at = 100u64;
         let target_id_auth = |user: User| TargetIdAuthorization {
