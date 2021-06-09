@@ -383,7 +383,9 @@ fn do_add_permissions_to_multiple_tokens() {
     test_set_perms(AssetPermissions::empty());
 
     // bulk add in reverse order.
-    test_set_perms(AssetPermissions::elems(tokens[0..max_tokens].into_iter().rev().cloned()));
+    test_set_perms(AssetPermissions::elems(
+        tokens[0..max_tokens].into_iter().rev().cloned(),
+    ));
 }
 
 #[test]
