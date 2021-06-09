@@ -673,18 +673,17 @@ decl_module! {
                     Signatory::Identity(id) => Self::identity_record_of(id).map(|r| r.primary_key),
                 }.ok_or(Error::<T>::InvalidAccountKey)?;
 
-                if let Signatory::Account(key) = &si.signer {
-                    // 1.1. Constraint 1-to-1 account to DID
-                    ensure!(
-                        Self::can_link_account_key_to_did(key),
-                        Error::<T>::AlreadyLinked
-                    );
-                }
-                // 1.15. Check if secondary keys already contains this signer
-                ensure!(
-                    !record.contains_secondary_key(&si.signer),
-                    Error::<T>::AlreadyLinked
-                );
+                ensure!(match si.signer {
+                    Signatory::Account(ref key) => {
+                        // 1.1. Constraint 1-to-1 account to DID.
+                        Self::can_link_account_key_to_did(key)
+                    },
+                    Signatory::Identity(_) => {
+                        // 1.1. Check if identity is already a secondary key.
+                        !record.contains_secondary_key(&si.signer)
+                    }
+                }, Error::<T>::AlreadyLinked);
+
                 // 1.2. Offchain authorization is not revoked explicitly.
                 let si_signer_authorization = &(si.signer.clone(), authorization.clone());
                 ensure!(
@@ -930,12 +929,6 @@ impl<T: Trait> Module<T> {
         let charge_fee =
             || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
 
-        // Check if secondary keys already contains this signer
-        let record = <DidRecords<T>>::get(target_did);
-        ensure!(
-            !record.contains_secondary_key(signer),
-            Error::<T>::AlreadyLinked
-        );
         // Link the secondary key.
         match signer {
             Signatory::Account(key) => {
@@ -954,7 +947,15 @@ impl<T: Trait> Module<T> {
 
                 Self::link_account_key_to_did(key, target_did);
             }
-            Signatory::Identity(_) => charge_fee()?,
+            Signatory::Identity(_) => {
+                // Check if secondary keys already contains this signer.
+                ensure!(
+                    !<DidRecords<T>>::get(target_did).contains_secondary_key(signer),
+                    Error::<T>::AlreadyLinked
+                );
+                // Charge the protocol fee after all checks.
+                charge_fee()?;
+            }
         }
 
         Self::unsafe_join_identity(target_did, permissions, signer);
