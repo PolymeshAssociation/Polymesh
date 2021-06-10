@@ -36,7 +36,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-common-utilities = { path = "../../common", default-features = false }
-polymesh-contracts = { path = "../../contracts", default-features = false }
+#polymesh-contracts = { path = "../../contracts", default-features = false }
 polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
@@ -64,9 +64,9 @@ ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", de
 pallet-authority-discovery = { version = "3.0.0", default-features = false }
 pallet-authorship = { version = "3.0.0", default-features = false }
 pallet-babe = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "3.0.0", default-features = false }
-pallet-contracts-primitives = { version = "3.0.0", default-features = false }
-pallet-contracts-rpc-runtime-api = { version = "3.0.0", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
+#pallet-contracts-primitives = { version = "3.0.0", default-features = false }
+#pallet-contracts-rpc-runtime-api = { version = "3.0.0", default-features = false }
 pallet-executive = { package = "frame-executive", version = "3.0.0", default-features = false }
 pallet-grandpa = { version = "3.0.0", default-features = false }
 pallet-im-online = { version = "3.0.0", default-features = false }
@@ -132,7 +132,7 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts/std",
+    #"pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-external-agents/std",
     "polymesh-weights/std",
@@ -155,7 +155,7 @@ std = [
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
-    "polymesh-contracts/std",
+    #"polymesh-contracts/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-arithmetic/std",

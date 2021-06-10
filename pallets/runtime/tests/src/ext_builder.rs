@@ -120,8 +120,10 @@ pub struct ExtBuilder {
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
+    /*
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
+    */
     /// Bridge configuration
     bridge: BridgeConfig,
 }
@@ -252,12 +254,14 @@ impl ExtBuilder {
         self
     }
 
+    /*
     /// Enables `contracts::put_code` at genesis if `enable` is `true`.
     /// By default, it is disabled.
     pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
         self.enable_contracts_put_code = enable;
         self
     }
+    */
 
     pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
         self.bridge.complete_txs = txs;
@@ -504,6 +508,7 @@ impl ExtBuilder {
         .unwrap();
     }
 
+    /*
     fn build_contracts_genesis(&self, storage: &mut Storage) {
         polymesh_contracts::GenesisConfig {
             enable_put_code: self.enable_contracts_put_code,
@@ -512,6 +517,7 @@ impl ExtBuilder {
         .assimilate_storage(storage)
         .unwrap();
     }
+    */
 
     fn build_bridge_genesis(&self, storage: &mut Storage) {
         pallet_bridge::GenesisConfig::<TestStorage> {
@@ -597,7 +603,7 @@ impl ExtBuilder {
         self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);
-        self.build_contracts_genesis(&mut storage);
+        //self.build_contracts_genesis(&mut storage);
         self.build_bridge_genesis(&mut storage);
 
         self.build_bridge(&mut storage);

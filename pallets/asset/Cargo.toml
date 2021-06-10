@@ -13,13 +13,13 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
 pallet-base = { path = "../base", default-features = false  }
-pallet-contracts = { version = "3.0.0", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
 pallet-external-agents = { path = "../external-agents", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
-polymesh-contracts = { path = "../contracts", default-features = false }
+#polymesh-contracts = { path = "../contracts", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -56,8 +56,8 @@ std = [
     "frame-system/std",
     "pallet-balances/std",
     "pallet-identity/std",
-    "polymesh-contracts/std",
-    "pallet-contracts/std",
+    #"polymesh-contracts/std",
+    #"pallet-contracts/std",
     "pallet-portfolio/std",
     "pallet-session/std",
     "pallet-timestamp/std",

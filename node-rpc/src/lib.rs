@@ -120,7 +120,7 @@ where
         + Send
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-    C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+    //C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId, Balance>,
@@ -152,7 +152,7 @@ where
         pips::{Pips, PipsApi},
         transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
-    use pallet_contracts_rpc::{Contracts, ContractsApi};
+    //use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
@@ -192,7 +192,7 @@ where
     // Making synchronous calls in light client freezes the browser currently,
     // more context: https://github.com/paritytech/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
-    io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
+    //io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
     )));

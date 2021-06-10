@@ -529,12 +529,14 @@ pub mod general {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governance Council:
             pallet_group_Instance1: Some(group_membership!(1)),
             pallet_committee_Instance1: Some(committee!(1)),
@@ -665,12 +667,14 @@ pub mod testnet {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governing council
             pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
             pallet_committee_Instance1: Some(committee!(1, (2, 4))),
@@ -800,12 +804,14 @@ pub mod polymesh_itn {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governing council
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required

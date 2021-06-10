@@ -12,7 +12,7 @@ pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { version = "3.0.0", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
@@ -52,7 +52,7 @@ std = [
     "pallet-authorship/std",
     "pallet-balances/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts/std",
+    #"pallet-contracts/std",
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",

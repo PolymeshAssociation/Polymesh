@@ -23,7 +23,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY,
     TestUtilsFn,
 };
-use polymesh_contracts::ExtensionInfo;
+//use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
     asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, Signatory, SmartExtension, Ticker,
 };
@@ -67,6 +67,7 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
         .expect("`reserve_classic_ticker` failed");
 }
 
+/*
 fn make_extension<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> SmartExtension<T::AccountId> {
@@ -103,6 +104,7 @@ fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         .expect("Extension cannot be added");
     (owner, ticker, ext_id)
 }
+*/
 
 fn emulate_controller_transfer<T: Trait>(
     ticker: Ticker,

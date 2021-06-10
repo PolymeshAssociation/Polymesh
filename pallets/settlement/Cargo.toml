@@ -15,7 +15,7 @@ pallet-external-agents = { path = "../external-agents", default-features = false
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
-polymesh-contracts = { path = "../contracts", default-features = false }
+#polymesh-contracts = { path = "../contracts", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
@@ -34,7 +34,7 @@ sp-api = { version = "3.0.0", default-features = false }
 frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
 pallet-timestamp = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "3.0.0", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
 pallet-scheduler = { version = "3.0.0", default-features = false }
 
 # Only in STD
@@ -50,8 +50,8 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-contracts/std",
-    "polymesh-contracts/std",
+    #"pallet-contracts/std",
+    #"polymesh-contracts/std",
     "pallet-balances/std",
     "pallet-asset/std",
     "pallet-identity/std",

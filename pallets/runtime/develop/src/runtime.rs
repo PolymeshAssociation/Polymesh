@@ -10,7 +10,7 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
-use pallet_contracts::weights::WeightInfo;
+//use pallet_contracts::weights::WeightInfo;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
@@ -23,8 +23,7 @@ use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
     runtime::{GovernanceCommittee, VMO},
-    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance, RuntimeBlockWeights,
-    AVERAGE_ON_INITIALIZE_RATIO,
+    AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
 };
 use sp_core::u32_trait::{_1, _4};
 use sp_runtime::transaction_validity::TransactionPriority;
@@ -139,6 +138,7 @@ parameter_types! {
     // Identity:
     pub const InitialPOLYX: Balance = 0;
 
+    /*
     /// The fraction of the deposit that should be used as rent per block.
     pub RentFraction: Perbill = Perbill::from_rational_approximation(1u32, 30 * DAYS);
     // The lazy deletion runs inside on_initialize.
@@ -150,6 +150,7 @@ parameter_types! {
                 <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(1) -
                 <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(0)
                 )) / 5) as u32;
+    */
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -350,9 +351,11 @@ construct_runtime!(
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
 
+        /*
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
+        */
 
         // Polymesh Governance Committees
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
@@ -441,7 +444,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
-            add_benchmark!(params, batches, polymesh_contracts, Contracts);
+            //add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_treasury, Treasury);

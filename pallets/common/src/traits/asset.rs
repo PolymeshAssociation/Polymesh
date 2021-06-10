@@ -14,8 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-    checkpoint, compliance_manager, contracts, external_agents, portfolio, statistics,
-    contracts::ContractsFn,
+    checkpoint, compliance_manager, external_agents, portfolio, statistics,
 };
 use crate::CommonTrait;
 use codec::{Decode, Encode};
@@ -137,7 +136,7 @@ pub trait Trait:
     + external_agents::Trait
     + pallet_session::Config
     + statistics::Trait
-    + contracts::Trait
+    //+ contracts::Trait
     + portfolio::Trait
 {
     /// The overarching event type.
@@ -168,7 +167,7 @@ pub trait Trait:
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
-    type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
+    //type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Errors of migration on this pallet.

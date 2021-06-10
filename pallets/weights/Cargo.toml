@@ -36,7 +36,7 @@ pallet-sto = { path = "../sto", default-features = false  }
 pallet-treasury = { path = "../treasury", default-features = false }
 pallet-utility = { path = "../utility", default-features = false }
 pallet-test-utils = { path = "../test-utils", default-features = false }
-polymesh-contracts = { path = "../contracts", default-features = false }
+#polymesh-contracts = { path = "../contracts", default-features = false }
 polymesh-runtime-common = { path = "../runtime/common", default-features = false }
 
 [features]
@@ -66,5 +66,5 @@ std = [
     "pallet-timestamp/std",
     "pallet-treasury/std",
     "pallet-utility/std",
-    "polymesh-contracts/std",
+    #"polymesh-contracts/std",
 ]

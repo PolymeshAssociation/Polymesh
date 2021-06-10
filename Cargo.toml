@@ -22,10 +22,10 @@ pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", 
 pallet-authorship = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 pallet-babe = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
-pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
-pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
+#pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
+#pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
+#pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
+#pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
 pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0" }
@@ -111,7 +111,7 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
-    "pallets/contracts",
+    #"pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
     "pallets/group",
@@ -195,8 +195,8 @@ frame-support = "3.0.0"
 frame-system = "3.0.0"
 frame-system-rpc-runtime-api = "3.0.0"
 grandpa = { package = "sc-finality-grandpa", version = "0.9.0" }
-pallet-contracts = "3.0.0"
-pallet-contracts-rpc-runtime-api = "3.0.0"
+#pallet-contracts = "3.0.0"
+#pallet-contracts-rpc-runtime-api = "3.0.0"
 pallet-im-online = "3.0.0"
 pallet-indices = "3.0.0"
 pallet-session = "3.0.0"

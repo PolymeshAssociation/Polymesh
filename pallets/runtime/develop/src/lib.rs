@@ -17,8 +17,8 @@ pub use pallet_staking::StakerStatus;
 pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, BalancesCall, BaseContracts, Bridge, Call, CheckedExtrinsic,
-    Contracts, MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, SystemCall,
+    api, Asset, Authorship, Balances, BalancesCall, Bridge, Call, CheckedExtrinsic,
+    MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, SystemCall,
     TransactionPayment, UncheckedExtrinsic,
 };
 

@@ -40,7 +40,7 @@ pallet-test-utils = { path = "../../test-utils", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
-polymesh-contracts = { path = "../../contracts", default-features = false }
+#polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
 
 # Others
@@ -65,8 +65,8 @@ sp-block-builder = { version = "3.0.0", default-features = false }
 sp-arithmetic = { version = "3.0.0", default-features = false }
 #
 pallet-authorship = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "3.0.0", default-features = false }
-pallet-contracts-primitives = { version = "3.0.0", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
+#pallet-contracts-primitives = { version = "3.0.0", default-features = false }
 pallet-executive = { package = "frame-executive", version = "3.0.0", default-features = false }
 pallet-grandpa = { version = "3.0.0", default-features = false }
 pallet-im-online = { version = "3.0.0", default-features = false }
@@ -89,7 +89,7 @@ cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git
 frame-system-rpc-runtime-api = { version = "3.0.0", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { version = "3.0.0", default-features = false }
+#pallet-contracts-rpc-runtime-api = { version = "3.0.0", default-features = false }
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 
@@ -133,9 +133,9 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts-primitives/std",
-    "pallet-contracts-rpc-runtime-api/std",
-    "pallet-contracts/std",
+    #"pallet-contracts-primitives/std",
+    #"pallet-contracts-rpc-runtime-api/std",
+    #"pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
@@ -185,7 +185,7 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "polymesh-contracts/std",
+    #"polymesh-contracts/std",
     "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
@@ -222,7 +222,7 @@ runtime-benchmarks = [
     "pallet-test-utils/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
     "polymesh-common-utilities/runtime-benchmarks",
-    "polymesh-contracts/runtime-benchmarks",
+    #"polymesh-contracts/runtime-benchmarks",
     "polymesh-primitives/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",

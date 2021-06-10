@@ -1,5 +1,5 @@
 use crate::{
-    contract_test::{create_se_template, flipper},
+    //contract_test::{create_se_template, flipper},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
@@ -43,7 +43,7 @@ use polymesh_primitives::{
     },
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId,
     IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName, SecondaryKey,
-    Signatory, SmartExtension, SmartExtensionType, Ticker,
+    Signatory, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -56,7 +56,7 @@ use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Contracts = pallet_contracts::Module<TestStorage>;
+//type Contracts = pallet_contracts::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
@@ -158,6 +158,7 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     ));
 }
 
+/*
 fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
     let (code_hash, wasm) = flipper();
 
@@ -168,6 +169,7 @@ fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
 
     Contracts::contract_address(&creator.acc(), &code_hash, &[])
 }
+*/
 
 crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
@@ -836,6 +838,7 @@ fn adding_removing_documents() {
     });
 }
 
+/*
 fn add_smart_ext(
     owner: User,
     ticker: Ticker,
@@ -1009,6 +1012,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         assert_noop!(unarchive(), AssetError::AlreadyUnArchived);
     });
 }
+*/
 
 #[test]
 fn freeze_unfreeze_asset() {
@@ -1217,6 +1221,7 @@ fn test_can_transfer_rpc() {
         })
 }
 
+/*
 #[test]
 fn check_functionality_of_remove_extension() {
     smart_ext_test(|owner, ticker| {
@@ -1233,6 +1238,7 @@ fn check_functionality_of_remove_extension() {
         assert_noop!(remove(), AssetError::NoSuchSmartExtension);
     });
 }
+*/
 
 // Classic token tests:
 

@@ -277,9 +277,10 @@ macro_rules! misc_pallet_impls {
             type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
-            type ContractsFn = polymesh_contracts::Module<Runtime>;
+            //type ContractsFn = polymesh_contracts::Module<Runtime>;
         }
 
+        /*
         impl polymesh_contracts::Trait for Runtime {
             type Event = Event;
             type NetworkShareInFee = NetworkShareInFee;
@@ -307,6 +308,7 @@ macro_rules! misc_pallet_impls {
             type DeletionWeightLimit = DeletionWeightLimit;
             type MaxCodeSize = polymesh_runtime_common::ContractsMaxCodeSize;
         }
+        */
 
         impl pallet_compliance_manager::Trait for Runtime {
             type Event = Event;
@@ -474,7 +476,7 @@ macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        use pallet_contracts_primitives::ContractExecResult;
+        //use pallet_contracts_primitives::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -671,6 +673,7 @@ macro_rules! runtime_apis {
                 }
             }
 
+            /*
             impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, polymesh_primitives::AccountId, Balance, BlockNumber>
                 for Runtime
             {
@@ -697,6 +700,7 @@ macro_rules! runtime_apis {
                     BaseContracts::rent_projection(address)
                 }
             }
+            */
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,

@@ -100,7 +100,7 @@ use polymesh_common_utilities::{
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::contracts::ContractsFn,
+    //traits::contracts::ContractsFn,
     with_transaction, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -660,6 +660,7 @@ decl_module! {
             Self::base_update_identifiers(origin, ticker, identifiers)
         }
 
+        /*
         /// Permissioning the Smart-Extension address for a given ticker.
         ///
         /// # Arguments
@@ -727,6 +728,7 @@ decl_module! {
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             Self::set_archive_on_extension(origin, ticker, extension_id, false)
         }
+        */
 
         /// Claim a systematically reserved Polymath Classic (PMC) `ticker`
         /// and transfer it to the `origin`'s identity.
@@ -1580,6 +1582,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /*
     // Return bool to know whether the given extension is compatible with the supported version of asset.
     fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: T::AccountId) -> bool {
         // Access version.
@@ -1618,6 +1621,7 @@ impl<T: Trait> Module<T> {
         );
         Ok(did)
     }
+    */
 
     pub fn base_create_asset_and_mint(
         origin: T::Origin,
@@ -1930,6 +1934,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /*
     fn base_add_extension(
         origin: T::Origin,
         ticker: Ticker,
@@ -2023,6 +2028,7 @@ impl<T: Trait> Module<T> {
             Ok(())
         })
     }
+    */
 
     fn base_claim_classic_ticker(
         origin: T::Origin,

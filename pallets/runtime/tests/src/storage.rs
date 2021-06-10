@@ -47,7 +47,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
 use polymesh_runtime_develop::{
     constants::time::{EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK},
-    runtime::{DeletionQueueDepth, DeletionWeightLimit, RentFraction},
+    //runtime::{DeletionQueueDepth, DeletionWeightLimit, RentFraction},
 };
 use smallvec::smallvec;
 use sp_core::{
@@ -186,9 +186,11 @@ frame_support::construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
         MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
+        /*
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
+        */
 
         // Polymesh Governance Committees
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
@@ -550,7 +552,7 @@ pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
-pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
+//pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 
 pub fn make_account(

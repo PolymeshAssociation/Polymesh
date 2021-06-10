@@ -18,7 +18,7 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::RawOrigin;
-use pallet_contracts::ContractAddressFor;
+//use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
@@ -421,6 +421,7 @@ fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     (portfolios_to, from_data, to_data, tickers, legs)
 }
 
+/*
 #[allow(dead_code)]
 fn add_smart_extension_to_ticker<T: Trait>(
     code_hash: <T::Hashing as Hash>::Output,
@@ -451,6 +452,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
     <pallet_asset::Module<T>>::add_extension(origin.into(), ticker, extension_details)
         .expect("Settlement: Fail to add the smart extension to a given asset");
 }
+*/
 
 fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
