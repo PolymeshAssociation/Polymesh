@@ -371,7 +371,7 @@ decl_module! {
 
             // Update secondary keys at Identity.
             <DidRecords<T>>::mutate(did, |record| {
-                (*record).remove_secondary_keys(signers_to_remove.clone().into_iter());
+                (*record).remove_secondary_keys(&signers_to_remove);
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
@@ -673,13 +673,17 @@ decl_module! {
                     Signatory::Identity(id) => Self::identity_record_of(id).map(|r| r.primary_key),
                 }.ok_or(Error::<T>::InvalidAccountKey)?;
 
-                if let Signatory::Account(key) = &si.signer {
-                    // 1.1. Constraint 1-to-1 account to DID
-                    ensure!(
-                        Self::can_link_account_key_to_did(key),
-                        Error::<T>::AlreadyLinked
-                    );
-                }
+                ensure!(match si.signer {
+                    Signatory::Account(ref key) => {
+                        // 1.1. Constraint 1-to-1 account to DID.
+                        Self::can_link_account_key_to_did(key)
+                    },
+                    Signatory::Identity(_) => {
+                        // 1.1. Check if identity is already a secondary key.
+                        !record.contains_secondary_key(&si.signer)
+                    }
+                }, Error::<T>::AlreadyLinked);
+
                 // 1.2. Offchain authorization is not revoked explicitly.
                 let si_signer_authorization = &(si.signer.clone(), authorization.clone());
                 ensure!(
@@ -932,10 +936,10 @@ impl<T: Trait> Module<T> {
                     Self::can_link_account_key_to_did(key),
                     Error::<T>::AlreadyLinked
                 );
-                // Charge the protocol fee after all checks.
-                charge_fee()?;
                 // Check that the new Identity has a valid CDD claim.
                 ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+                // Charge the protocol fee after all checks.
+                charge_fee()?;
                 // Update current did of the transaction to the newly joined did.
                 // This comes handy when someone uses a batch transaction to leave their identity, join another identity,
                 // and then do something as the new identity.
@@ -943,7 +947,15 @@ impl<T: Trait> Module<T> {
 
                 Self::link_account_key_to_did(key, target_did);
             }
-            Signatory::Identity(_) => charge_fee()?,
+            Signatory::Identity(_) => {
+                // Check if secondary keys already contains this signer.
+                ensure!(
+                    !<DidRecords<T>>::get(target_did).contains_secondary_key(signer),
+                    Error::<T>::AlreadyLinked
+                );
+                // Charge the protocol fee after all checks.
+                charge_fee()?;
+            }
         }
 
         Self::unsafe_join_identity(target_did, permissions, signer);
@@ -1814,7 +1826,7 @@ impl<T: Trait> Module<T> {
         }
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
-            record.remove_secondary_keys(iter::once(signer.clone()));
+            record.remove_secondary_keys(&[signer.clone()]);
         });
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())

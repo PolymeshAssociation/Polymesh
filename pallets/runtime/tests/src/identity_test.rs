@@ -1,11 +1,11 @@
 use super::{
-    asset_test::{an_asset, max_len, max_len_bytes},
+    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, token},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
         provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
-        GovernanceCommittee, TestStorage, User,
+        AccountId, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -16,7 +16,9 @@ use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap,
 };
+use pallet_asset::SecurityToken;
 use pallet_balances as balances;
+use pallet_identity::types::DidRecords as RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
@@ -28,10 +30,11 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
-    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    investor_zkproof_data::v2, AssetPermissions, AuthorizationData, AuthorizationError,
+    AuthorizationType, CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions,
+    IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
+    TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::{crypto::AccountId32, sr25519::Public, H512};
@@ -75,6 +78,19 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
         SystematicIssuers::CDDProvider.as_id(),
         None,
     )
+}
+
+fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
+    match Identity::get_did_records(target) {
+        RpcDidRecords::Success { secondary_keys, .. } => secondary_keys,
+        _ => vec![],
+    }
+}
+
+fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken<u128>) {
+    let r = token(name, owner.did);
+    assert_ok!(basic_asset(owner, r.0, &r.1));
+    r
 }
 
 macro_rules! assert_add_cdd_claim {
@@ -323,6 +339,56 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
 }
 
 #[test]
+fn add_permissions_to_multiple_tokens() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_permissions_to_multiple_tokens);
+}
+fn do_add_permissions_to_multiple_tokens() {
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_signer = Signatory::Account(bob_key);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Add bob with default permissions
+    add_secondary_key(alice.did, bob_signer);
+
+    // Create some tokens
+    let max_tokens = 30;
+    let tokens: Vec<Ticker> = (0..max_tokens)
+        .map(|i| {
+            let name = format!("TOKEN_{}", i);
+            let (ticker, _) = create_new_token(name.as_bytes(), alice);
+            ticker
+        })
+        .collect();
+
+    let test_set_perms = |asset| {
+        assert_ok!(Identity::set_permission_to_signer(
+            alice.origin(),
+            bob_signer,
+            Permissions {
+                asset,
+                ..Default::default()
+            },
+        ));
+    };
+
+    // add one-by-one.
+    for num in 0..max_tokens {
+        test_set_perms(AssetPermissions::elems(tokens[0..num].into_iter().cloned()));
+    }
+
+    // remove all permissions.
+    test_set_perms(AssetPermissions::empty());
+
+    // bulk add in reverse order.
+    test_set_perms(AssetPermissions::elems(
+        tokens[0..max_tokens].into_iter().rev().cloned(),
+    ));
+}
+
+#[test]
 fn set_permission_to_signer_with_bad_perms() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
@@ -522,14 +588,279 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn add_secondary_keys_with_ident_signer_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_secondary_keys_with_ident_signer_test);
+}
+
+fn do_add_secondary_keys_with_ident_signer_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let bob_identity_signer = Signatory::Identity(bob.did);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Try adding the same `secondary_key` using `add_secondary_keys_with_authorization`.
+    let add_secondary_key_with_auth = |signer, perms| {
+        let expires_at = 100u64;
+        let target_id_auth = |user: User| TargetIdAuthorization {
+            target_id: user.did,
+            nonce: Identity::offchain_authorization_nonce(user.did),
+            expires_at,
+        };
+        let authorization = target_id_auth(alice);
+        let auth_encoded = authorization.encode();
+        let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
+
+        let bob_key = SecondaryKey::new(signer, perms);
+        let key_with_auth = SecondaryKeyWithAuth {
+            auth_signature,
+            secondary_key: bob_key.into(),
+        };
+        Identity::add_secondary_keys_with_authorization(
+            alice.origin(),
+            vec![key_with_auth],
+            expires_at,
+        )
+    };
+
+    let perm1 = Permissions::empty();
+    let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
+
+    // count alice's secondary keys.
+    let count_keys = || get_secondary_keys(alice.did).len();
+
+    // Add bob's identity signatory with empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    assert_ok!(res);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again with non-empty permissions
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again.
+    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+}
+
+#[test]
+fn join_identity_as_identity_with_perm_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_join_identity_as_identity_with_perm_test);
+}
+
+fn do_join_identity_as_identity_with_perm_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let bob_identity_signer = Signatory::Identity(bob.did);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Use `add_auth` and `join_identity` to add a secondary key.
+    let join_identity_with_perms = |signer, perms| {
+        let auth_id = Identity::add_auth(
+            alice.did,
+            signer,
+            AuthorizationData::JoinIdentity(perms),
+            None,
+        );
+        Identity::join_identity(signer, auth_id)
+    };
+
+    let perm1 = Permissions::empty();
+    let perm2 = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
+
+    // count alice's secondary keys.
+    let count_keys = || get_secondary_keys(alice.did).len();
+
+    // Add bob's identity signatory with empty permissions
+    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    assert_ok!(res);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again with non-empty permissions
+    let res = join_identity_with_perms(bob_identity_signer, perm2.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+
+    // Add bob's identity signatory again.
+    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    assert_noop!(res, Error::AlreadyLinked);
+    assert_eq!(count_keys(), 1);
+}
+
+#[test]
+fn add_secondary_keys_with_permissions_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_add_secondary_keys_with_permissions_test);
+}
+
+fn do_add_secondary_keys_with_permissions_test() {
+    let bob_key = AccountKeyring::Bob.public();
+    let bob_signer = Signatory::Account(bob_key);
+    let alice = User::new(AccountKeyring::Alice);
+
+    // Add bob with default permissions
+    add_secondary_key(alice.did, bob_signer);
+
+    let permissions = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+        b"identity".into(),
+    )]);
+    // Try adding bob again with custom permissions
+    let auth_id = Identity::add_auth(
+        alice.did,
+        bob_signer,
+        AuthorizationData::JoinIdentity(permissions.clone()),
+        None,
+    );
+    assert_noop!(
+        Identity::join_identity(bob_signer, auth_id),
+        Error::AlreadyLinked
+    );
+
+    // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
+    let expires_at = 100u64;
+    let target_id_auth = |user: User| TargetIdAuthorization {
+        target_id: user.did,
+        nonce: Identity::offchain_authorization_nonce(user.did),
+        expires_at,
+    };
+    let authorization = target_id_auth(alice);
+    let auth_encoded = authorization.encode();
+    let auth_signature = H512::from(alice.ring.sign(&auth_encoded));
+
+    let bob_key_2 = SecondaryKey::new(bob_signer, permissions);
+    let key_with_auth = SecondaryKeyWithAuth {
+        auth_signature,
+        secondary_key: bob_key_2.into(),
+    };
+
+    assert_noop!(
+        Identity::add_secondary_keys_with_authorization(
+            alice.origin(),
+            vec![key_with_auth],
+            expires_at
+        ),
+        Error::AlreadyLinked
+    );
+
+    // Check KeyToIdentityIds map
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice.did);
+    assert_eq!(keys.len(), 1);
+
+    // Try remove bob using alice
+    TestStorage::set_current_identity(&alice.did);
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.origin(),
+        vec![Signatory::Account(bob_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice.did);
+    assert_eq!(keys.len(), 0);
+}
+
+#[test]
 fn remove_secondary_keys_test() {
     ExtBuilder::default()
         .monied(true)
         .build()
-        .execute_with(&remove_secondary_keys_test_with_externalities);
+        .execute_with(&do_remove_secondary_keys_test);
 }
 
+fn do_remove_secondary_keys_test() {
+    let bob_key = AccountKeyring::Bob.public();
+    let dave_key = AccountKeyring::Dave.public();
+    let alice = User::new(AccountKeyring::Alice);
+
+    add_secondary_key(alice.did, Signatory::Account(bob_key));
+    add_secondary_key(alice.did, Signatory::Account(dave_key));
+
+    // Check KeyToIdentityIds map
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice.did));
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice.did);
+    assert_eq!(keys.len(), 2);
+
+    // Try remove bob using alice
+    TestStorage::set_current_identity(&alice.did);
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.origin(),
+        vec![Signatory::Account(bob_key)]
+    ));
+
+    // try changing the permissions for bob's key
+    // This should fail.
+    let result = Identity::set_permission_to_signer(
+        alice.origin(),
+        Signatory::Account(bob_key),
+        Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+            b"identity".into(),
+        )])
+        .into(),
+    );
+    assert_noop!(result, Error::NotASigner);
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice.did);
+    assert_eq!(keys.len(), 1);
+
+    // Check identity map
+    assert_eq!(Identity::get_identity(&bob_key), None);
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice.did));
+
+    // try re-adding bob's key
+    add_secondary_key(alice.did, Signatory::Account(bob_key));
+
+    // Check identity map
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
+
+    // remove bob's key again
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.origin(),
+        vec![Signatory::Account(bob_key)]
+    ));
+
+    // Try remove dave using alice
+    assert_ok!(Identity::remove_secondary_keys(
+        alice.origin(),
+        vec![Signatory::Account(dave_key)]
+    ));
+
+    // Check identity map
+    assert_eq!(Identity::get_identity(&dave_key), None);
+
+    // Check DidRecords
+    let keys = get_secondary_keys(alice.did);
+    assert_eq!(keys.len(), 0);
+}
+
+#[test]
 fn remove_secondary_keys_test_with_externalities() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_remove_secondary_keys_test_with_externalities);
+}
+
+fn do_remove_secondary_keys_test_with_externalities() {
     let bob_key = AccountKeyring::Bob.public();
     let alice_key = AccountKeyring::Alice.public();
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
