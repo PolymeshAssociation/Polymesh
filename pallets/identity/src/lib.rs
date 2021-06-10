@@ -148,7 +148,7 @@ use sp_runtime::{
     },
     AnySignature,
 };
-use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
+use sp_std::{convert::TryFrom, iter, mem::replace, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -1240,33 +1240,26 @@ impl<T: Trait> Module<T> {
     fn update_secondary_key_permissions(
         target_did: IdentityId,
         signer: &Signatory<T::AccountId>,
-        mut permissions: Permissions,
+        permissions: Permissions,
     ) -> DispatchResult {
         Self::ensure_perms_length_limited(&permissions)?;
 
-        let mut new_s_item: Option<SecondaryKey<T::AccountId>> = None;
-
         <DidRecords<T>>::mutate(target_did, |record| {
-            if let Some(mut secondary_key) = (*record)
+            if let Some(secondary_key) = (*record)
                 .secondary_keys
-                .iter()
+                .iter_mut()
                 .find(|si| si.signer == *signer)
-                .cloned()
             {
-                swap(&mut secondary_key.permissions, &mut permissions);
-                (*record).secondary_keys.retain(|si| si.signer != *signer);
-                (*record).secondary_keys.push(secondary_key.clone());
-                new_s_item = Some(secondary_key);
+                let old_perms = replace(&mut secondary_key.permissions, permissions.clone());
+                Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
+                    target_did,
+                    secondary_key.clone().into(),
+                    old_perms,
+                    permissions,
+                ));
             }
         });
 
-        if let Some(s) = new_s_item {
-            Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
-                target_did,
-                s.into(),
-                permissions.into(),
-            ));
-        }
         Ok(())
     }
 
