@@ -202,7 +202,7 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId: Encode + Decode> {
     /// The account or identity that is the signatory of this key.
@@ -278,15 +278,6 @@ where
     }
 }
 
-impl<AccountId> PartialEq for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode + PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.signer == other.signer && self.permissions == other.permissions
-    }
-}
-
 impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId>
 where
     AccountId: Encode + Decode,
@@ -297,25 +288,6 @@ where
         } else {
             false
         }
-    }
-}
-
-impl<AccountId> PartialOrd for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode + Ord,
-{
-    /// Any key is less than any Identity.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.signer.partial_cmp(&other.signer)
-    }
-}
-
-impl<AccountId> Ord for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode + Ord,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.signer.cmp(&other.signer)
     }
 }
 
