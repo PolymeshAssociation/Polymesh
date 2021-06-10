@@ -1174,7 +1174,7 @@ impl<T: Trait> Module<T> {
                 );
                 Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                     target_did,
-                    secondary_key.into(),
+                    secondary_key.clone().into(),
                     old_perms,
                     permissions,
                 ));
