@@ -1168,10 +1168,7 @@ impl<T: Trait> Module<T> {
                 .iter_mut()
                 .find(|si| si.signer == *signer)
             {
-                let old_perms = replace(
-                    &mut secondary_key.permissions,
-                    permissions.clone(),
-                );
+                let old_perms = replace(&mut secondary_key.permissions, permissions.clone());
                 Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                     target_did,
                     secondary_key.clone().into(),
