@@ -5,7 +5,7 @@ use super::{
     storage::{
         add_secondary_key, create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id,
         provide_scope_claim, register_keyring_account, register_keyring_account_with_balance,
-        AccountId, GovernanceCommittee, TestStorage, User,
+        GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -345,12 +345,12 @@ fn add_permissions_to_multiple_tokens() {
         .execute_with(&do_add_permissions_to_multiple_tokens);
 }
 fn do_add_permissions_to_multiple_tokens() {
-    let bob_key = AccountKeyring::Bob.public();
+    let bob_key = AccountKeyring::Bob.to_account_id();
     let bob_signer = Signatory::Account(bob_key);
     let alice = User::new(AccountKeyring::Alice);
 
     // Add bob with default permissions
-    add_secondary_key(alice.did, bob_signer);
+    add_secondary_key(alice.did, bob_signer.clone());
 
     // Create some tokens
     let max_tokens = 30;
@@ -365,7 +365,7 @@ fn do_add_permissions_to_multiple_tokens() {
     let test_set_perms = |asset| {
         assert_ok!(Identity::set_permission_to_signer(
             alice.origin(),
-            bob_signer,
+            bob_signer.clone(),
             Permissions {
                 asset,
                 ..Default::default()
@@ -632,12 +632,12 @@ fn do_add_secondary_keys_with_ident_signer_test() {
     let count_keys = || get_secondary_keys(alice.did).len();
 
     // Add bob's identity signatory with empty permissions
-    let res = add_secondary_key_with_auth(bob_identity_signer, perm1.clone());
+    let res = add_secondary_key_with_auth(bob_identity_signer.clone(), perm1.clone());
     assert_ok!(res);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again with non-empty permissions
-    let res = add_secondary_key_with_auth(bob_identity_signer, perm2.clone());
+    let res = add_secondary_key_with_auth(bob_identity_signer.clone(), perm2.clone());
     assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 
@@ -657,14 +657,14 @@ fn join_identity_as_identity_with_perm_test() {
 
 fn do_join_identity_as_identity_with_perm_test() {
     let bob = User::new(AccountKeyring::Bob);
-    let bob_identity_signer = Signatory::Identity(bob.did);
     let alice = User::new(AccountKeyring::Alice);
 
     // Use `add_auth` and `join_identity` to add a secondary key.
-    let join_identity_with_perms = |signer, perms| {
+    let join_identity_with_perms = |perms| {
+        let signer = Signatory::Identity(bob.did);
         let auth_id = Identity::add_auth(
             alice.did,
-            signer,
+            signer.clone(),
             AuthorizationData::JoinIdentity(perms),
             None,
         );
@@ -680,17 +680,17 @@ fn do_join_identity_as_identity_with_perm_test() {
     let count_keys = || get_secondary_keys(alice.did).len();
 
     // Add bob's identity signatory with empty permissions
-    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    let res = join_identity_with_perms(perm1.clone());
     assert_ok!(res);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again with non-empty permissions
-    let res = join_identity_with_perms(bob_identity_signer, perm2.clone());
+    let res = join_identity_with_perms(perm2.clone());
     assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again.
-    let res = join_identity_with_perms(bob_identity_signer, perm1.clone());
+    let res = join_identity_with_perms(perm1.clone());
     assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 }
@@ -704,12 +704,12 @@ fn add_secondary_keys_with_permissions_test() {
 }
 
 fn do_add_secondary_keys_with_permissions_test() {
-    let bob_key = AccountKeyring::Bob.public();
-    let bob_signer = Signatory::Account(bob_key);
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let bob_signer = Signatory::Account(bob_key.clone());
     let alice = User::new(AccountKeyring::Alice);
 
     // Add bob with default permissions
-    add_secondary_key(alice.did, bob_signer);
+    add_secondary_key(alice.did, bob_signer.clone());
 
     let permissions = Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
         b"identity".into(),
@@ -717,12 +717,12 @@ fn do_add_secondary_keys_with_permissions_test() {
     // Try adding bob again with custom permissions
     let auth_id = Identity::add_auth(
         alice.did,
-        bob_signer,
+        bob_signer.clone(),
         AuthorizationData::JoinIdentity(permissions.clone()),
         None,
     );
     assert_noop!(
-        Identity::join_identity(bob_signer, auth_id),
+        Identity::join_identity(bob_signer.clone(), auth_id),
         Error::AlreadyLinked
     );
 
@@ -763,7 +763,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(bob_key)]
+        vec![Signatory::Account(bob_key.clone())]
     ));
 
     // Check DidRecord.
@@ -783,12 +783,12 @@ fn remove_secondary_keys_test() {
 }
 
 fn do_remove_secondary_keys_test() {
-    let bob_key = AccountKeyring::Bob.public();
-    let dave_key = AccountKeyring::Dave.public();
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let dave_key = AccountKeyring::Dave.to_account_id();
     let alice = User::new(AccountKeyring::Alice);
 
-    add_secondary_key(alice.did, Signatory::Account(bob_key));
-    add_secondary_key(alice.did, Signatory::Account(dave_key));
+    add_secondary_key(alice.did, Signatory::Account(bob_key.clone()));
+    add_secondary_key(alice.did, Signatory::Account(dave_key.clone()));
 
     // Check KeyToIdentityIds map
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
@@ -802,14 +802,14 @@ fn do_remove_secondary_keys_test() {
     TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(bob_key)]
+        vec![Signatory::Account(bob_key.clone())]
     ));
 
     // try changing the permissions for bob's key
     // This should fail.
     let result = Identity::set_permission_to_signer(
         alice.origin(),
-        Signatory::Account(bob_key),
+        Signatory::Account(bob_key.clone()),
         Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
             b"identity".into(),
         )])
@@ -826,7 +826,7 @@ fn do_remove_secondary_keys_test() {
     assert_eq!(Identity::get_identity(&dave_key), Some(alice.did));
 
     // try re-adding bob's key
-    add_secondary_key(alice.did, Signatory::Account(bob_key));
+    add_secondary_key(alice.did, Signatory::Account(bob_key.clone()));
 
     // Check identity map
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
@@ -840,7 +840,7 @@ fn do_remove_secondary_keys_test() {
     // Try remove dave using alice
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(dave_key)]
+        vec![Signatory::Account(dave_key.clone())]
     ));
 
     // Check identity map
@@ -1462,13 +1462,13 @@ fn changing_primary_key_we() {
     let add = |ring: AccountKeyring| {
         Identity::add_auth(
             alice.did,
-            Signatory::Account(ring.public()),
+            Signatory::Account(ring.to_account_id()),
             AuthorizationData::RotatePrimaryKey(alice.did),
             None,
         )
     };
     let accept = |ring: AccountKeyring, auth| {
-        Identity::accept_primary_key(Origin::signed(ring.public()), auth, None)
+        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth, None)
     };
 
     // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
@@ -1770,7 +1770,7 @@ fn invalidate_cdd_claims_we() {
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_noop!(
-        Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
+        Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
         Error::UnAuthorizedCddProvider
     );
 

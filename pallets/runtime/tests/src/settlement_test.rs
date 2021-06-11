@@ -3316,7 +3316,7 @@ fn reject_failed_instruction() {
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
         let amount = 100u128;
 
         let instruction_counter = create_instruction(&alice, &bob, venue_counter, ticker, amount);
