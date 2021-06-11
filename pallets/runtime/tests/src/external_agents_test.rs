@@ -278,7 +278,9 @@ fn agent_of_mapping_works() {
             ));
         };
         let check = |user: User| {
-            let mut agents = AgentOf::iter_prefix(user.did).map(|(ticker, _)| ticker).collect::<Vec<_>>();
+            let mut agents = AgentOf::iter_prefix(user.did)
+                .map(|(ticker, _)| ticker)
+                .collect::<Vec<_>>();
             agents.sort();
             assert_eq!(agents, tickers);
         };
