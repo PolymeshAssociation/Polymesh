@@ -26,7 +26,7 @@ pub use sc_service::{
     TFullClient, TLightBackend, TLightCallExecutor, TLightClient, TransactionPoolOptions,
 };
 use sc_service::{RpcHandlers, TaskManager};
-use sc_telemetry::{TelemetryConnectionNotifier, TelemetrySpan};
+use sc_telemetry::TelemetryConnectionNotifier;
 pub use sp_api::{ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
 pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
@@ -87,9 +87,10 @@ native_executor_instance!(
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
-pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
+pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::ApiExt<Block>
+    + sp_api::ApiErrorExt<Error = sp_blockchain::Error>
     + sp_consensus_babe::BabeApi<Block>
     + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
@@ -115,15 +116,15 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_group_rpc_runtime_api::GroupApi<Block>
     + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
 where
-    Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
 
-impl<Api, Extrinsic> RuntimeApiCollection<Extrinsic> for Api
+impl<Api, Extrinsic: RuntimeExtrinsic> RuntimeApiCollection<Extrinsic> for Api
 where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block>
+        + sp_api::ApiErrorExt<Error = sp_blockchain::Error>
         + sp_consensus_babe::BabeApi<Block>
         + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
@@ -148,7 +149,6 @@ where
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>,
-    Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
@@ -247,7 +247,7 @@ where
         client.clone(),
         select_chain.clone(),
         inherent_data_providers.clone(),
-        &task_manager.spawn_essential_handle(),
+        &task_manager.spawn_handle(),
         config.prometheus_registry(),
         sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
     )?;
@@ -418,7 +418,6 @@ where
             remote_blockchain: None,
             network_status_sinks: network_status_sinks.clone(),
             system_rpc_tx,
-            telemetry_span: Some(TelemetrySpan::new()),
         })?;
 
     let (block_import, grandpa_link, babe_link) = import_setup;
@@ -674,7 +673,7 @@ where
         client.clone(),
         select_chain.clone(),
         inherent_data_providers.clone(),
-        &task_manager.spawn_essential_handle(),
+        &task_manager.spawn_handle(),
         config.prometheus_registry(),
         sp_consensus::NeverCanAuthor,
     )?;
@@ -724,7 +723,6 @@ where
             system_rpc_tx,
             network: network.clone(),
             task_manager: &mut task_manager,
-            telemetry_span: Some(TelemetrySpan::new()),
         })?;
 
     Ok((

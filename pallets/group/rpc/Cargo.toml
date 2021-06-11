@@ -27,4 +27,4 @@ sp-std = {version = "3.0.0", default_features = false }
 sp-api = {version = "3.0.0", default_features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "pallet-contracts-v3.0.0"}
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0"}

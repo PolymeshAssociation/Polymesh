@@ -488,7 +488,7 @@ pub mod general {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
@@ -629,7 +629,7 @@ pub mod testnet {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
@@ -762,7 +762,7 @@ pub mod polymesh_itn {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {

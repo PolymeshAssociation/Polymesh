@@ -28,7 +28,7 @@ frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
 
 # Benchmarking
-frame-benchmarking = { default-features = false, version = "3.0.0", optional = true }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 
 [features]
 equalize = []

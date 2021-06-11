@@ -38,7 +38,7 @@ pallet-timestamp = { version = "3.0.0", default-features = false }
 pallet-authorship = { version = "3.0.0", default-features = false }
 
 # Only benchmarking
-frame-benchmarking = { default-features = false, version = "3.0.0", optional = true }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 
 [features]
 equalize = []
