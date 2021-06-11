@@ -18,8 +18,8 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, general_chain_ops, itn_chain_ops, testnet_chain_ops, GeneralExecutor,
-    ITNExecutor, IsNetwork, Network, NewChainOps, TestnetExecutor,
+    self, general_chain_ops, itn_chain_ops, testnet_chain_ops, GeneralExecutor, ITNExecutor,
+    IsNetwork, Network, NewChainOps, TestnetExecutor,
 };
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{config::Role, Configuration, TaskManager};

@@ -13,6 +13,7 @@ pub use polymesh_primitives::{
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet;
+use prometheus_endpoint::Registry;
 use sc_client_api::ExecutorProvider;
 pub use sc_client_api::{backend::Backend, RemoteBackend};
 pub use sc_consensus::LongestChain;
@@ -33,7 +34,6 @@ use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-use prometheus_endpoint::Registry;
 
 /// Known networks based on name.
 pub enum Network {
@@ -519,10 +519,9 @@ where
 
         // the GRANDPA voter task is considered infallible, i.e.
         // if it fails we take down the service with it.
-        task_manager.spawn_essential_handle().spawn_blocking(
-            "grandpa-voter",
-            grandpa::run_grandpa_voter(grandpa_config)?,
-        );
+        task_manager
+            .spawn_essential_handle()
+            .spawn_blocking("grandpa-voter", grandpa::run_grandpa_voter(grandpa_config)?);
     }
 
     network_starter.start_network();

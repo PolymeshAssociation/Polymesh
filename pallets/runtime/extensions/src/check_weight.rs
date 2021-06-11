@@ -20,12 +20,10 @@
 
 use codec::{Decode, Encode};
 use frame_support::weights::{DispatchClass, DispatchInfo, PostDispatchInfo};
-use frame_system::{Config, CheckWeight as CW};
+use frame_system::{CheckWeight as CW, Config};
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-    transaction_validity::{
-        InvalidTransaction, TransactionValidity, TransactionValidityError,
-    },
+    transaction_validity::{InvalidTransaction, TransactionValidity, TransactionValidityError},
     DispatchResult,
 };
 

@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use grandpa::AuthorityId as GrandpaId;
 use pallet_asset::{ClassicTickerImport, TickerRegistrationConfig};
 use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -12,7 +13,6 @@ use polymesh_primitives::{
     Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
-use grandpa::AuthorityId as GrandpaId;
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;

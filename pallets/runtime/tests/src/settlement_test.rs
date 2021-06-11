@@ -22,8 +22,8 @@ use pallet_settlement::{
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType,
-    IdentityId, PortfolioId, PortfolioName, Signatory, Ticker,
+    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType, IdentityId,
+    PortfolioId, PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;

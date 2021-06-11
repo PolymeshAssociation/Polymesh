@@ -172,9 +172,8 @@ use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
-        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance,
-        LockIdentifier, LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap,
-        WithdrawReasons,
+        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance, LockIdentifier,
+        LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap, WithdrawReasons,
     },
     StorageValue,
 };
@@ -191,9 +190,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
-        StoredMapError,
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-        Saturating, StaticLookup, Zero,
+        Saturating, StaticLookup, StoredMapError, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
@@ -677,25 +675,28 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
             return NegativeImbalance::zero();
         }
         let brr = Self::block_rewards_reserve();
-        Self::try_mutate_account(&brr, |account, _| -> Result<NegativeImbalance<T>, StoredMapError> {
-            let amount_to_mint = if account.free > Zero::zero() {
-                let old_brr_free_balance = account.free;
-                let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
-                account.free = new_brr_free_balance;
-                // Calculate how much amount to mint that is not available with the Brr
-                // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
-                amount - (old_brr_free_balance - new_brr_free_balance)
-            } else {
-                amount
-            };
-            <TotalIssuance<T>>::mutate(|issued| {
-                *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
-                    amount = T::Balance::max_value() - *issued;
-                    T::Balance::max_value()
-                })
-            });
-            Ok(NegativeImbalance::new(amount))
-        })
+        Self::try_mutate_account(
+            &brr,
+            |account, _| -> Result<NegativeImbalance<T>, StoredMapError> {
+                let amount_to_mint = if account.free > Zero::zero() {
+                    let old_brr_free_balance = account.free;
+                    let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
+                    account.free = new_brr_free_balance;
+                    // Calculate how much amount to mint that is not available with the Brr
+                    // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
+                    amount - (old_brr_free_balance - new_brr_free_balance)
+                } else {
+                    amount
+                };
+                <TotalIssuance<T>>::mutate(|issued| {
+                    *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
+                        amount = T::Balance::max_value() - *issued;
+                        T::Balance::max_value()
+                    })
+                });
+                Ok(NegativeImbalance::new(amount))
+            },
+        )
         .unwrap_or_else(|_x| NegativeImbalance::new(Zero::zero()))
     }
 
@@ -963,8 +964,7 @@ where
             .free
             .checked_sub(&value)
             .map_or(false, |new_balance| {
-                Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-                    .is_ok()
+                Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance).is_ok()
             })
     }
 

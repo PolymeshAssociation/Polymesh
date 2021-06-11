@@ -235,7 +235,10 @@ fn burn_account_balance_works() {
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
         assert_noop!(
-            Balances::burn_account_balance(Origin::signed(alice_pub.clone()), fat_finger_burn_amount),
+            Balances::burn_account_balance(
+                Origin::signed(alice_pub.clone()),
+                fat_finger_burn_amount
+            ),
             Error::InsufficientBalance
         );
         let alice_free_balance2 = Balances::free_balance(&alice_pub);

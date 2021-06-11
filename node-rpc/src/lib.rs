@@ -30,7 +30,6 @@
 
 #![warn(missing_docs)]
 
-use std::sync::Arc;
 use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey,
     Signatory, Ticker,
@@ -49,6 +48,7 @@ use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_transaction_pool::TransactionPool;
+use std::sync::Arc;
 
 /// Light client extra dependencies.
 pub struct LightDeps<C, F, P> {

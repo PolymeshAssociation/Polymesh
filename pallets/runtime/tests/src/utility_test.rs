@@ -73,7 +73,11 @@ fn batch_with_signed_works() {
 #[test]
 fn batch_early_exit_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 900), transfer(bob.clone(), 400)];
+        let calls = vec![
+            transfer(bob.clone(), 400),
+            transfer(bob.clone(), 900),
+            transfer(bob.clone(), 400),
+        ];
         assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
@@ -85,7 +89,10 @@ fn batch_early_exit_works() {
 fn batch_optimistic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_optimistic(Origin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch_optimistic(
+            Origin::signed(alice.clone()),
+            calls
+        ));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);

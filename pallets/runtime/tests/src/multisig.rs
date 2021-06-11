@@ -544,7 +544,8 @@ fn make_multisig_signer() {
                 b"multisig".as_ref().into(),
             )]);
         // The desired secondary key record.
-        let musig_secondary = SecondaryKey::new(Signatory::Account(musig_address.clone()), permissions);
+        let musig_secondary =
+            SecondaryKey::new(Signatory::Account(musig_address.clone()), permissions);
         let secondary_keys = Identity::did_records(alice_did).secondary_keys;
         assert!(secondary_keys
             .iter()

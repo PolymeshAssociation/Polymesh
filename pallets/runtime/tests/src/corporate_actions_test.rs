@@ -114,7 +114,12 @@ fn create_asset(ticker: &[u8], owner: User) -> Ticker {
 fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
     let sig: Signatory<_> = to.did.into();
     let data = AuthorizationData::BecomeAgent(ticker, AgentGroup::Full);
-    assert_ok!(Identity::add_authorization(from.origin(), sig.clone(), data, None));
+    assert_ok!(Identity::add_authorization(
+        from.origin(),
+        sig.clone(),
+        data,
+        None
+    ));
     Authorizations::iter_prefix_values(sig)
         .next()
         .unwrap()

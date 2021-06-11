@@ -148,12 +148,20 @@ fn committee_proposal(deposit: u128) -> DispatchResult {
 
 fn alice_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    standard_proposal(&Origin::signed(acc.clone()), &Proposer::Community(acc), deposit)
+    standard_proposal(
+        &Origin::signed(acc.clone()),
+        &Proposer::Community(acc),
+        deposit,
+    )
 }
 
 fn alice_remark_proposal(deposit: u128) -> DispatchResult {
     let acc = AccountKeyring::Alice.to_account_id();
-    remark_proposal(&Origin::signed(acc.clone()), &Proposer::Community(acc), deposit)
+    remark_proposal(
+        &Origin::signed(acc.clone()),
+        &Proposer::Community(acc),
+        deposit,
+    )
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {

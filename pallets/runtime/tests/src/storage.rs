@@ -45,9 +45,8 @@ use polymesh_primitives::{
     PortfolioNumber, Scope, ScopeId,
 };
 use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
-use polymesh_runtime_develop::{
-    constants::time::{EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK},
-    //runtime::{DeletionQueueDepth, DeletionWeightLimit, RentFraction},
+use polymesh_runtime_develop::constants::time::{
+    EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK,
 };
 use smallvec::smallvec;
 use sp_core::{

@@ -101,7 +101,9 @@ use polymesh_common_utilities::{
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     //traits::contracts::ContractsFn,
-    with_transaction, Context, SystematicIssuers,
+    with_transaction,
+    Context,
+    SystematicIssuers,
 };
 use polymesh_primitives::{
     agent::AgentGroup,

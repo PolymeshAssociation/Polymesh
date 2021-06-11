@@ -10,8 +10,8 @@ use frame_support::{
 use pallet_bridge::{
     self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
 };
-use test_client::AccountKeyring::*;
 use polymesh_primitives::AccountId;
+use test_client::AccountKeyring::*;
 
 type Bridge = bridge::Module<TestStorage>;
 type BridgeGenesis = bridge::GenesisConfig<TestStorage>;
@@ -42,8 +42,16 @@ fn test_with_controller(test: &dyn Fn(&[AccountId])) {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .add_regular_users_from_accounts(&[admin.clone(), Eve.to_account_id(), Ferdie.to_account_id()])
-        .set_bridge_controller(admin, [bob.clone(), charlie.clone(), dave.clone()].into(), MIN_SIGNS_REQUIRED)
+        .add_regular_users_from_accounts(&[
+            admin.clone(),
+            Eve.to_account_id(),
+            Ferdie.to_account_id(),
+        ])
+        .set_bridge_controller(
+            admin,
+            [bob.clone(), charlie.clone(), dave.clone()].into(),
+            MIN_SIGNS_REQUIRED,
+        )
         .build()
         .execute_with(|| test(&[bob, charlie, dave]));
 }
@@ -108,7 +116,8 @@ fn signers_approve_proposal(proposal: Call, signers: &[AccountId]) -> BridgeTx {
                 // Fetch proposal ID if unknown.
                 let p_id = proposal_id
                     .get_or_insert_with(|| {
-                        MultiSig::proposal_ids(&controller.clone(), proposal.clone()).unwrap_or_default()
+                        MultiSig::proposal_ids(&controller.clone(), proposal.clone())
+                            .unwrap_or_default()
                     })
                     .clone();
                 assert_eq!(
@@ -164,7 +173,10 @@ fn can_change_controller() {
     test_with_controller(&|_signers| {
         let controller = Bob.to_account_id();
 
-        assert_ok!(Bridge::change_controller(signed_admin(), controller.clone()));
+        assert_ok!(Bridge::change_controller(
+            signed_admin(),
+            controller.clone()
+        ));
         assert_eq!(Bridge::controller(), controller);
     });
 }

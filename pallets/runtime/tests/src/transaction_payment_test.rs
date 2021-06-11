@@ -1,7 +1,5 @@
 use super::ext_builder::ExtBuilder;
 use super::storage::{Call, TestStorage};
-use polymesh_primitives::TransactionError;
-use polymesh_primitives::AccountId;
 use codec::Encode;
 use frame_support::{
     traits::Currency,
@@ -9,6 +7,8 @@ use frame_support::{
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
+use polymesh_primitives::AccountId;
+use polymesh_primitives::TransactionError;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
@@ -20,7 +20,7 @@ use test_client::AccountKeyring;
 fn call() -> <TestStorage as frame_system::Config>::Call {
     Call::Balances(BalancesCall::transfer(
         MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
-        69
+        69,
     ))
 }
 
@@ -88,10 +88,7 @@ fn signed_extension_transaction_payment_work() {
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
                 .pre_dispatch(&alice, &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(
-                Balances::free_balance(&alice),
-                999969001
-            );
+            assert_eq!(Balances::free_balance(&alice), 999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 pre,
@@ -212,10 +209,7 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
                 .pre_dispatch(&user, &call(), &info_from_weight(3), len)
                 .is_ok());
-            assert_eq!(
-                Balances::free_balance(&user),
-                19999969001
-            );
+            assert_eq!(Balances::free_balance(&user), 19999969001);
         })
 }
 
@@ -271,9 +265,15 @@ fn compute_fee_works_without_multiplier() {
             };
             assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 29999);
             // Tip + base fee works
-            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 69), 30068);
+            assert_eq!(
+                TransactionPayment::compute_fee(0, &dispatch_info, 69),
+                30068
+            );
             // Len (byte fee) + base fee works
-            assert_eq!(TransactionPayment::compute_fee(42, &dispatch_info, 0), 34199);
+            assert_eq!(
+                TransactionPayment::compute_fee(42, &dispatch_info, 0),
+                34199
+            );
             // Weight fee + base fee works
             let dispatch_info = DispatchInfo {
                 weight: 1000,

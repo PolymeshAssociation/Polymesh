@@ -693,7 +693,6 @@ where
     BalanceOf<T>: FixedPointOperand,
     T::Call: Dispatchable<Info = DispatchInfo>,
 {
-
     fn charge_fee(len: u32, info: DispatchInfoOf<T::Call>) -> TransactionValidity {
         let fee = Self::compute_fee(len as u32, &info, 0u32.into());
         if let Some(payer) = T::CddHandler::get_payer_from_context() {
