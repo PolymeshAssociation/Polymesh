@@ -1,13 +1,16 @@
-use crate::asset_test::{a_token, an_asset, basic_asset};
+use crate::asset_test::{a_token, an_asset, basic_asset, token};
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
-use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
-use pallet_external_agents::{AGIdSequence, GroupOfAgent, NumFullAgents};
+use frame_support::{
+    assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+};
+use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
+    Ticker,
 };
 use test_client::AccountKeyring;
 
@@ -245,5 +248,69 @@ fn add_works() {
         NumFullAgents::insert(ticker, u32::MAX);
         let id = add(owner, dave, AgentGroup::Full);
         assert_noop!(accept(dave, id), Error::NumFullAgentsOverflow);
+    });
+}
+
+fn create_asset(ticker: &[u8], owner: User) -> Ticker {
+    let (ticker, token) = token(ticker, owner.did);
+    assert_ok!(basic_asset(owner, ticker, &token));
+    ticker
+}
+
+#[test]
+fn agent_of_mapping_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let dave = User::new(AccountKeyring::Dave);
+        let tickers = (b'A'..b'Z')
+            .into_iter()
+            .map(|ticker| create_asset(&[ticker], owner))
+            .collect::<Vec<_>>();
+
+        let add = |ticker, from: User, to: User, group| {
+            let data = AuthorizationData::BecomeAgent(ticker, group);
+            let sig = Signatory::Identity(to.did);
+            assert_ok!(Id::accept_authorization(
+                to.origin(),
+                Id::add_auth(from.did, sig, data, None)
+            ));
+        };
+        let check = |user: User| {
+            let mut agents = AgentOf::iter_prefix(user.did).map(|(ticker, _)| ticker).collect::<Vec<_>>();
+            agents.sort();
+            assert_eq!(agents, tickers);
+        };
+        let empty = |user: User| {
+            assert!(AgentOf::iter_prefix(user.did).next().is_none());
+        };
+        let remove = |ticker, user: User| {
+            assert_ok!(ExternalAgents::abdicate(user.origin(), ticker));
+        };
+
+        for ticker in &tickers {
+            add(*ticker, owner, bob, AgentGroup::Full);
+            add(*ticker, owner, charlie, AgentGroup::ExceptMeta);
+            add(*ticker, owner, dave, AgentGroup::PolymeshV1CAA);
+            assert_eq!(ExternalAgents::num_full_agents(ticker), 2);
+        }
+
+        check(owner);
+        check(bob);
+        check(charlie);
+        check(dave);
+
+        for ticker in &tickers {
+            remove(*ticker, bob);
+            remove(*ticker, charlie);
+            remove(*ticker, dave);
+            assert_eq!(ExternalAgents::num_full_agents(ticker), 1);
+        }
+
+        check(owner);
+        empty(bob);
+        empty(charlie);
+        empty(dave);
     });
 }

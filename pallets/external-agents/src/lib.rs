@@ -66,6 +66,7 @@ use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{
     ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
 };
+use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
@@ -79,6 +80,13 @@ decl_storage! {
         pub AGIdSequence get(fn agent_group_id_sequence):
             map hasher(blake2_128_concat) Ticker
                 => AGId;
+
+        /// Maps an agent (`IdentityId`) to all all `Ticker`s they belong to, if any.
+        pub AgentOf get(fn agent_of):
+            double_map
+                hasher(blake2_128_concat) IdentityId,
+                hasher(blake2_128_concat) Ticker
+                => ();
 
         /// Maps agents (`IdentityId`) for a `Ticker` to what AG they belong to, if any.
         pub GroupOfAgent get(fn agents):
@@ -348,8 +356,15 @@ impl<T: Trait> Module<T> {
             match (*slot, group) {
                 // Identity transition. No change in count.
                 (Some(AgentGroup::Full), Some(AgentGroup::Full)) => {}
-                // Demotion / Removal. Count is decrementing.
-                (Some(AgentGroup::Full), _) => Self::dec_full_count(ticker)?,
+                // Demotion. Count is decrementing.
+                (Some(AgentGroup::Full), Some(_)) => Self::dec_full_count(ticker)?,
+                // Removal. Count is decrementing.
+                (Some(group), None) => {
+                    if let AgentGroup::Full = group {
+                        Self::dec_full_count(ticker)?;
+                    }
+                    AgentOf::remove(agent, ticker);
+                }
                 // Promotion. Count is incrementing.
                 (_, Some(AgentGroup::Full)) => Self::inc_full_count(ticker)?,
                 // Just a change in groups.
@@ -370,6 +385,7 @@ impl<T: Trait> Module<T> {
             Self::inc_full_count(ticker)?;
         }
         GroupOfAgent::insert(ticker, did, group);
+        AgentOf::insert(did, ticker, ());
         Ok(())
     }
 
