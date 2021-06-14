@@ -79,7 +79,7 @@ pub mod benchmarking;
 
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
-    group::{GroupTrait, InactiveMember, MemberCount, RawEvent, Trait, WeightInfo},
+    group::{Config, GroupTrait, InactiveMember, MemberCount, RawEvent, WeightInfo},
     Context, GC_DID,
 };
 use polymesh_primitives::IdentityId;
@@ -98,7 +98,7 @@ pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Group {
+    trait Store for Module<T: Config<I>, I: Instance=DefaultInstance> as Group {
         /// The current "active" membership, stored as an ordered Vec.
         pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
         /// The current "inactive" membership, stored as an ordered Vec.
@@ -121,7 +121,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait<I>, I: Instance=DefaultInstance>
+    pub struct Module<T: Config<I>, I: Instance=DefaultInstance>
         for enum Call
         where origin: T::Origin
     {
@@ -133,7 +133,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `limit` - the numer of active members there may be concurrently.
-        #[weight = <T as Trait<I>>::WeightInfo::set_active_members_limit()]
+        #[weight = <T as Config<I>>::WeightInfo::set_active_members_limit()]
         pub fn set_active_members_limit(origin, limit: MemberCount) {
             T::LimitOrigin::ensure_origin(origin)?;
             let old = <ActiveMembersLimit<I>>::mutate(|slot| core::mem::replace(slot, limit));
@@ -156,7 +156,7 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = <T as Trait<I>>::WeightInfo::disable_member()]
+        #[weight = <T as Config<I>>::WeightInfo::disable_member()]
         pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
@@ -172,7 +172,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = <T as Trait<I>>::WeightInfo::add_member()]
+        #[weight = <T as Config<I>>::WeightInfo::add_member()]
         pub fn add_member(origin, who: IdentityId) -> DispatchResult {
             T::AddOrigin::ensure_origin(origin)?;
             <Self as GroupTrait<T::Moment>>::add_member(who)
@@ -188,7 +188,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = <T as Trait<I>>::WeightInfo::remove_member()]
+        #[weight = <T as Config<I>>::WeightInfo::remove_member()]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
             Self::base_remove_member(who)
@@ -202,7 +202,7 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = <T as Trait<I>>::WeightInfo::swap_member()]
+        #[weight = <T as Config<I>>::WeightInfo::swap_member()]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::ensure_origin(origin)?;
 
@@ -230,7 +230,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = <T as Trait<I>>::WeightInfo::reset_members( members.len() as u32)]
+        #[weight = <T as Config<I>>::WeightInfo::reset_members( members.len() as u32)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::ensure_origin(origin)?;
 
@@ -256,7 +256,7 @@ decl_module! {
         ///
         /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = <T as Trait<I>>::WeightInfo::abdicate_membership()]
+        #[weight = <T as Config<I>>::WeightInfo::abdicate_membership()]
         pub fn abdicate_membership(origin) {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
@@ -283,7 +283,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait<I>, I: Instance> {
+    pub enum Error for Module<T: Config<I>, I: Instance> {
         /// Only primary key of the identity is allowed.
         OnlyPrimaryKeyAllowed,
         /// Group member was added already.
@@ -299,7 +299,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Module<T, I> {
     /// Ensure that updating the active set to `members` will not exceed the set limit.
     fn ensure_within_active_members_limit(members: &[IdentityId]) -> DispatchResult {
         ensure!(
@@ -368,7 +368,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
 /// Retrieve all members of this group
 /// Is the given `IdentityId` a valid member?
-impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Returns the "active members".
     #[inline]
     fn get_members() -> Vec<IdentityId> {

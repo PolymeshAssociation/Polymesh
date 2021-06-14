@@ -45,7 +45,7 @@ pub struct Author<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> OnUnbalanced<NegativeImbalance<R>> for Author<R>
 where
-    R: balances::Trait + authorship::Config,
+    R: balances::Config + authorship::Config,
     <R as system::Config>::AccountId: From<polymesh_primitives::AccountId>,
     <R as system::Config>::AccountId: Into<polymesh_primitives::AccountId>,
 {
@@ -60,7 +60,7 @@ pub struct CurrencyToVoteHandler<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> CurrencyToVoteHandler<R>
 where
-    R: balances::Trait,
+    R: balances::Config,
     R::Balance: Into<Balance>,
 {
     fn factor() -> Balance {
@@ -71,7 +71,7 @@ where
 
 impl<R> Convert<Balance, u64> for CurrencyToVoteHandler<R>
 where
-    R: balances::Trait,
+    R: balances::Config,
     R::Balance: Into<Balance>,
 {
     fn convert(x: Balance) -> u64 {
@@ -81,7 +81,7 @@ where
 
 impl<R> Convert<u128, Balance> for CurrencyToVoteHandler<R>
 where
-    R: balances::Trait,
+    R: balances::Config,
     R::Balance: Into<Balance>,
 {
     fn convert(x: u128) -> Balance {

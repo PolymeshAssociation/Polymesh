@@ -16,7 +16,7 @@ use crate::{
     benchs::{SecretKey, User},
     traits::{
         group::GroupTrait,
-        identity::{IdentityFnTrait, Trait},
+        identity::{Config, IdentityFnTrait},
         TestUtilsFn,
     },
 };
@@ -35,7 +35,7 @@ pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-pub struct UserBuilder<T: Trait> {
+pub struct UserBuilder<T: Config> {
     account: Option<T::AccountId>,
     uid: Option<InvestorUid>,
     did: Option<IdentityId>,
@@ -53,7 +53,7 @@ macro_rules! self_update {
     }};
 }
 
-impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
+impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
     /// Create an account based on the builder configuration.
     pub fn build(self, name: &'static str) -> User<T> {
         let (account, secret) = self
@@ -95,7 +95,7 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
     }
 }
 
-impl<T: Trait> UserBuilder<T> {
+impl<T: Config> UserBuilder<T> {
     pub fn generate_did(self) -> Self {
         assert!(self.did.is_none());
         self_update!(self, generate_did, true)
@@ -145,7 +145,7 @@ impl<T: Trait> UserBuilder<T> {
 }
 
 // Derive macro from `Default` is not supported due to trait T.
-impl<T: Trait> Default for UserBuilder<T> {
+impl<T: Config> Default for UserBuilder<T> {
     fn default() -> Self {
         Self {
             account: None,

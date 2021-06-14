@@ -29,10 +29,10 @@ use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, ensure};
 
-pub use polymesh_common_utilities::traits::base::{Event, Trait};
+pub use polymesh_common_utilities::traits::base::{Config, Event};
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
         fn deposit_event() = default;
         const MaxLen: u32 = T::MaxLen::get();
@@ -40,12 +40,12 @@ decl_module! {
 }
 
 /// Emit an unexpected error event that should be investigated manually
-pub fn emit_unexpected_error<T: Trait>(error: Option<DispatchError>) {
+pub fn emit_unexpected_error<T: Config>(error: Option<DispatchError>) {
     Module::<T>::deposit_event(Event::UnexpectedError(error));
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Exceeded a generic length limit.
         /// The limit could be for any sort of lists of things, including a string.
         TooLong,
@@ -53,22 +53,22 @@ decl_error! {
 }
 
 /// Ensure that the `len` provided is within the generic length limit.
-pub fn ensure_length_ok<T: Trait>(len: usize) -> DispatchResult {
+pub fn ensure_length_ok<T: Config>(len: usize) -> DispatchResult {
     ensure!(len <= T::MaxLen::get() as usize, Error::<T>::TooLong);
     Ok(())
 }
 
 /// Ensure that `s.len()` is within the generic length limit.
-pub fn ensure_string_limited<T: Trait>(s: &[u8]) -> DispatchResult {
+pub fn ensure_string_limited<T: Config>(s: &[u8]) -> DispatchResult {
     ensure_length_ok::<T>(s.len())
 }
 
 /// Ensure that given `Some(s)`, `s.len()` is within the generic length limit.
-pub fn ensure_opt_string_limited<T: Trait>(s: Option<&[u8]>) -> DispatchResult {
+pub fn ensure_opt_string_limited<T: Config>(s: Option<&[u8]>) -> DispatchResult {
     match s {
         None => Ok(()),
         Some(s) => ensure_string_limited::<T>(s),
     }
 }
 
-impl<T: Trait> frame_support::traits::IntegrityTest for Module<T> {}
+impl<T: Config> frame_support::traits::IntegrityTest for Module<T> {}

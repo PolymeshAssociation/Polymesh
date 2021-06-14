@@ -70,7 +70,9 @@ use polymesh_common_utilities::{
         queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
         schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
     },
-    traits::{asset, identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait},
+    traits::{
+        asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
+    },
     with_transaction,
     SystematicIssuers::Settlement as SettlementDID,
 };
@@ -86,13 +88,13 @@ type System<T> = frame_system::Module<T>;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
-pub trait Trait:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
-    + CommonTrait
-    + IdentityTrait
+pub trait Config:
+    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
+    + CommonConfig
+    + IdentityConfig
     + pallet_timestamp::Config
-    + asset::Trait
-    + pallet_compliance_manager::Trait
+    + asset::Config
+    + pallet_compliance_manager::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -330,7 +332,7 @@ pub trait WeightInfo {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
         BlockNumber = <T as frame_system::Config>::BlockNumber,
         AccountId = <T as frame_system::Config>::AccountId,
@@ -386,7 +388,7 @@ decl_event!(
 
 decl_error! {
     /// Errors for the Settlement module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Venue does not exist.
         InvalidVenue,
         /// Sender does not have required permissions.
@@ -443,7 +445,7 @@ decl_error! {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Settlement {
+    trait Store for Module<T: Config> as Settlement {
         /// Info about a venue. venue_id -> venue_details
         pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Option<Venue>;
         /// Signers allowed by the venue. (venue_id, signer) -> bool
@@ -480,7 +482,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -506,7 +508,7 @@ decl_module! {
         /// * `details` - Extra details about a venue
         /// * `signers` - Array of signers that are allowed to sign receipts for this venue
         /// * `venue_type` - Type of venue being created
-        #[weight = <T as Trait>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
@@ -527,7 +529,7 @@ decl_module! {
         /// * `venue_id` - ID of the venue to edit
         /// * `details` - Extra details about a venue
         /// * `type` - Type of venue being created
-        #[weight = <T as Trait>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
+        #[weight = <T as Config>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
         pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, typ: Option<VenueType>) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;
             VenueInfo::try_mutate(venue_id, |venue| {
@@ -561,9 +563,9 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Trait>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
         )]
         pub fn add_instruction(
             origin,
@@ -590,9 +592,9 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Trait>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
         )]
         pub fn add_and_affirm_instruction(
             origin,
@@ -621,7 +623,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32)]
+        #[weight = <T as Config>::WeightInfo::affirm_instruction(*max_legs_count as u32)]
         pub fn affirm_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
             Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios.into_iter(), max_legs_count)
         }
@@ -634,7 +636,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
             let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -651,7 +653,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
-        #[weight = <T as Trait>::WeightInfo::reject_instruction()]
+        #[weight = <T as Config>::WeightInfo::reject_instruction()]
         pub fn reject_instruction(origin, instruction_id: u64) {
             let PermissionedCallOriginData {
                 primary_did,
@@ -681,7 +683,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::affirm_with_receipts(*max_legs_count as u32).max(<T as Trait>::WeightInfo::affirm_instruction(*max_legs_count as u32))]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(*max_legs_count as u32).max(<T as Config>::WeightInfo::affirm_instruction(*max_legs_count as u32))]
         pub fn affirm_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
             Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, instruction_id, receipt_details, portfolios, max_legs_count)
         }
@@ -697,7 +699,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::claim_receipt()]
+        #[weight = <T as Config>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, instruction_id: u64, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
             let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             Self::unsafe_claim_receipt(
@@ -716,7 +718,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::unclaim_receipt()]
+        #[weight = <T as Config>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: u64, leg_id: u64) {
             let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
@@ -741,7 +743,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::set_venue_filtering()]
+        #[weight = <T as Config>::WeightInfo::set_venue_filtering()]
         pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             if enabled {
@@ -759,7 +761,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::allow_venues(venues.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::allow_venues(venues.len() as u32)]
         pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
@@ -775,7 +777,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::disallow_venues(venues.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::disallow_venues(venues.len() as u32)]
         pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
@@ -789,7 +791,7 @@ decl_module! {
         ///
         /// * `receipt_uid` - Unique ID of the receipt.
         /// * `validity` - New validity of the receipt.
-        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
         pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
             let PermissionedCallOriginData {
                 primary_did,
@@ -801,7 +803,7 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Trait>::WeightInfo::execute_scheduled_instruction(*_legs_count)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count)]
         fn execute_scheduled_instruction(origin, instruction_id: u64, _legs_count: u32) {
             ensure_root(origin)?;
             Self::execute_instruction_retryable(instruction_id)?;
@@ -817,7 +819,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Trait>::WeightInfo::change_receipt_validity()]
+        #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
@@ -836,7 +838,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
         T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
     }

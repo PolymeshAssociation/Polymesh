@@ -198,7 +198,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-impl polymesh_common_utilities::traits::identity::Trait for Runtime {
+impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = MultiSig;
@@ -218,7 +218,7 @@ impl polymesh_common_utilities::traits::identity::Trait for Runtime {
     type InitialPOLYX = InitialPOLYX;
 }
 
-impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
+impl pallet_committee::Config<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -226,7 +226,7 @@ impl pallet_committee::Trait<GovernanceCommittee> for Runtime {
 }
 
 /// PolymeshCommittee as an instance of group
-impl pallet_group::Trait<pallet_group::Instance1> for Runtime {
+impl pallet_group::Config<pallet_group::Instance1> for Runtime {
     type Event = Event;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = Self::LimitOrigin;
@@ -240,14 +240,14 @@ impl pallet_group::Trait<pallet_group::Instance1> for Runtime {
 
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
-        impl pallet_committee::Trait<pallet_committee::$instance> for Runtime {
+        impl pallet_committee::Config<pallet_committee::$instance> for Runtime {
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
         }
-        impl pallet_group::Trait<pallet_group::$instance> for Runtime {
+        impl pallet_group::Config<pallet_group::$instance> for Runtime {
             type Event = Event;
             // Committee cannot alter its own active membership limit.
             type LimitOrigin = polymesh_primitives::EnsureRoot;
@@ -267,7 +267,7 @@ macro_rules! committee_config {
 committee_config!(TechnicalCommittee, Instance3);
 committee_config!(UpgradeCommittee, Instance4);
 
-impl pallet_pips::Trait for Runtime {
+impl pallet_pips::Config for Runtime {
     type Currency = Balances;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
@@ -279,7 +279,7 @@ impl pallet_pips::Trait for Runtime {
 }
 
 /// CddProviders instance of group
-impl pallet_group::Trait<pallet_group::Instance2> for Runtime {
+impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type Event = Event;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;

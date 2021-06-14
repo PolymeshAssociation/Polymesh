@@ -94,10 +94,10 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-pub use polymesh_common_utilities::traits::asset::{Event, RawEvent, Trait, WeightInfo};
+pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetMigrationError, AssetSubTrait},
-    compliance_manager::Trait as ComplianceManagerTrait,
+    compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     //traits::contracts::ContractsFn,
@@ -254,7 +254,7 @@ pub struct ClassicTickerRegistration {
 storage_migration_ver!(3);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Asset {
+    trait Store for Module<T: Config> as Asset {
         /// Ticker registration details.
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
@@ -352,7 +352,7 @@ type Identity<T> = identity::Module<T>;
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
         type Error = Error<T>;
 
@@ -408,7 +408,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::register_ticker()]
+        #[weight = <T as Config>::WeightInfo::register_ticker()]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             Self::base_register_ticker(origin, ticker)
         }
@@ -425,7 +425,7 @@ decl_module! {
         /// ## Errors
         /// - `NoTickerTransferAuth` if `auth_id` is not a valid ticket transfer authorization.
         ///
-        #[weight = <T as Trait>::WeightInfo::accept_ticker_transfer()]
+        #[weight = <T as Config>::WeightInfo::accept_ticker_transfer()]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let to_did = Identity::<T>::ensure_perms(origin)?;
             Self::base_accept_ticker_transfer(to_did, auth_id)
@@ -437,7 +437,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
-        #[weight = <T as Trait>::WeightInfo::accept_asset_ownership_transfer()]
+        #[weight = <T as Config>::WeightInfo::accept_asset_ownership_transfer()]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let to_did = Identity::<T>::ensure_perms(origin)?;
             Self::base_accept_token_ownership_transfer(to_did, auth_id)
@@ -467,7 +467,7 @@ decl_module! {
         ///
         /// ## Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::create_asset(
+        #[weight = <T as Config>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,
             funding_round.as_ref().map_or(0, |name| name.len()) as u32
@@ -496,7 +496,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::freeze()]
+        #[weight = <T as Config>::WeightInfo::freeze()]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             Self::set_freeze(origin, ticker, true)
         }
@@ -512,7 +512,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::unfreeze()]
+        #[weight = <T as Config>::WeightInfo::unfreeze()]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             Self::set_freeze(origin, ticker, false)
         }
@@ -530,7 +530,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::rename_asset(ticker.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::rename_asset(ticker.len() as u32)]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             Self::base_rename_asset(origin, ticker, name)
         }
@@ -546,7 +546,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::issue()]
+        #[weight = <T as Config>::WeightInfo::issue()]
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
             let PermissionedCallOriginData {
@@ -573,7 +573,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::redeem()]
+        #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             Self::base_redeem(origin, ticker, value)
         }
@@ -589,7 +589,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::make_divisible()]
+        #[weight = <T as Config>::WeightInfo::make_divisible()]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             Self::base_make_divisible(origin, ticker)
         }
@@ -603,7 +603,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::add_documents(docs.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::add_documents(docs.len() as u32)]
         pub fn add_documents(origin, docs: Vec<Document>, ticker: Ticker) -> DispatchResult {
             Self::base_add_documents(origin, docs, ticker)
         }
@@ -617,7 +617,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::remove_documents(ids.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::remove_documents(ids.len() as u32)]
         pub fn remove_documents(origin, ids: Vec<DocumentId>, ticker: Ticker) -> DispatchResult {
             Self::base_remove_documents(origin, ids, ticker)
         }
@@ -635,7 +635,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::set_funding_round( name.len() as u32 )]
+        #[weight = <T as Config>::WeightInfo::set_funding_round( name.len() as u32 )]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) -> DispatchResult {
             Self::base_set_funding_round(origin, ticker, name)
         }
@@ -653,7 +653,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::update_identifiers( identifiers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::update_identifiers( identifiers.len() as u32)]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
@@ -676,7 +676,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::add_extension()]
+        #[weight = <T as Config>::WeightInfo::add_extension()]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             Self::base_add_extension(origin, ticker, extension_details)
         }
@@ -692,7 +692,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::remove_smart_extension()]
+        #[weight = <T as Config>::WeightInfo::remove_smart_extension()]
         pub fn remove_smart_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             Self::base_remove_smart_extension(origin, ticker, extension_id)
         }
@@ -709,7 +709,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::archive_extension()]
+        #[weight = <T as Config>::WeightInfo::archive_extension()]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             Self::set_archive_on_extension(origin, ticker, extension_id, true)
         }
@@ -726,7 +726,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::unarchive_extension()]
+        #[weight = <T as Config>::WeightInfo::unarchive_extension()]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             Self::set_archive_on_extension(origin, ticker, extension_id, false)
         }
@@ -746,7 +746,7 @@ decl_module! {
         /// - `BadOrigin` if not signed.
         /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
         /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
-        #[weight = <T as Trait>::WeightInfo::claim_classic_ticker()]
+        #[weight = <T as Config>::WeightInfo::claim_classic_ticker()]
         pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: EcdsaSignature) -> DispatchResult {
             Self::base_claim_classic_ticker(origin, ticker, ethereum_signature)
         }
@@ -764,7 +764,7 @@ decl_module! {
         /// * `AssetAlreadyCreated` if `classic_ticker_import.ticker` was created as an asset.
         /// * `TickerTooLong` if the `config` considers the `classic_ticker_import.ticker` too long.
         /// * `TickerAlreadyRegistered` if `classic_ticker_import.ticker` was already registered.
-        #[weight = <T as Trait>::WeightInfo::reserve_classic_ticker()]
+        #[weight = <T as Config>::WeightInfo::reserve_classic_ticker()]
         pub fn reserve_classic_ticker(
             origin,
             classic_ticker_import: ClassicTickerImport,
@@ -782,7 +782,7 @@ decl_module! {
         /// * `ticker` Ticker symbol of the asset.
         /// * `value`  Amount of tokens need to force transfer.
         /// * `from_portfolio` From whom portfolio tokens gets transferred.
-        #[weight = <T as Trait>::WeightInfo::controller_transfer()]
+        #[weight = <T as Config>::WeightInfo::controller_transfer()]
         pub fn controller_transfer(origin, ticker: Ticker, value: T::Balance, from_portfolio: PortfolioId) -> DispatchResult {
             Self::base_controller_transfer(origin, ticker, value, from_portfolio)
         }
@@ -790,7 +790,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
         /// Not a primary issuance agent transfer auth.
@@ -860,7 +860,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
+impl<T: Config> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> T::Balance {
         Self::balance_of(ticker, &who)
@@ -937,7 +937,7 @@ impl<T: Trait> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> {
     }
 }
 
-impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
+impl<T: Config> AssetSubTrait<T::Balance> for Module<T> {
     fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
         Self::ensure_asset_fresh(&ticker)?;
 
@@ -1010,7 +1010,7 @@ impl<T: Trait> AssetSubTrait<T::Balance> for Module<T> {
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Ensure that all `idents` are valid.
     fn ensure_asset_idents_valid(idents: &[AssetIdentifier]) -> DispatchResult {
         ensure!(

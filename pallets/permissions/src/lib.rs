@@ -30,9 +30,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::{CallMetadata, GetCallMetadata},
 };
-use polymesh_common_utilities::traits::{
-    AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
-};
+use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::{DispatchableName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
@@ -40,8 +38,10 @@ use sp_runtime::{
 };
 use sp_std::{fmt, marker::PhantomData, result::Result};
 
+pub use polymesh_common_utilities::traits::permissions::Config;
+
 decl_storage! {
-    trait Store for Module<T: Trait> as Permissions {
+    trait Store for Module<T: Config> as Permissions {
         /// The name of the current pallet (aka module name).
         pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
@@ -50,7 +50,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // This definition is needed because the construct_runtime! macro uses it to generate metadata.
         // Without this definition, the metadata won't have details about the errors of this module.
         // That will lead to UIs either throwing fits or showing incorrect error messages.
@@ -59,14 +59,14 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The caller is not authorized to call the current extrinsic.
         UnauthorizedCaller,
         RecursionNotAllowed,
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Checks if the caller identified with the account `who` is permissioned to call the current
     /// extrinsic. Returns `Ok(data)` if successful. Otherwise returns an `Err`.
     pub fn ensure_call_permissions(
@@ -83,9 +83,9 @@ impl<T: Trait> Module<T> {
 
 /// A signed extension used in checking call permissions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
-pub struct StoreCallMetadata<T: Trait>(PhantomData<T>);
+pub struct StoreCallMetadata<T: Config>(PhantomData<T>);
 
-impl<T: Trait> fmt::Debug for StoreCallMetadata<T> {
+impl<T: Config> fmt::Debug for StoreCallMetadata<T> {
     #[cfg(feature = "std")]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StoreCallMetadata<{:?}>", self.0)
@@ -97,7 +97,7 @@ impl<T: Trait> fmt::Debug for StoreCallMetadata<T> {
     }
 }
 
-impl<T: Trait> StoreCallMetadata<T> {
+impl<T: Config> StoreCallMetadata<T> {
     /// Constructs a new store for call metadata.
     pub fn new() -> Self {
         Self(Default::default())
@@ -118,7 +118,7 @@ impl<T: Trait> StoreCallMetadata<T> {
 
 impl<T> SignedExtension for StoreCallMetadata<T>
 where
-    T: Trait + Send + Sync,
+    T: Config + Send + Sync,
     <T as frame_system::Config>::Call: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";

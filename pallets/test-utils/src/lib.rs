@@ -52,7 +52,7 @@ use frame_support::{
 use frame_system::{ensure_signed, RawOrigin};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
-    protocol_fee::ProtocolOp, traits::identity::Trait as IdentityTrait, TestUtilsFn,
+    protocol_fee::ProtocolOp, traits::identity::Config as IdentityConfig, TestUtilsFn,
 };
 use polymesh_primitives::{secondary_key, CddId, Claim, IdentityId, InvestorUid, SecondaryKey};
 use sp_std::{prelude::*, vec};
@@ -67,7 +67,7 @@ pub trait WeightInfo {
     fn get_cdd_of() -> Weight;
 }
 
-pub trait Trait: IdentityTrait {
+pub trait Config: IdentityConfig {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
@@ -92,16 +92,16 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as testnet {
+    trait Store for Module<T: Config> as testnet {
     }
 }
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
         type Error = Error<T>;
 
@@ -117,7 +117,7 @@ decl_module! {
         /// - `AlreadyLinked` if the caller account or if any of the given `secondary_keys` has already linked to an `IdentityID`
         /// - `SecondaryKeysContainPrimaryKey` if `secondary_keys` contains the caller account.
         /// - `DidAlreadyExists` if auto-generated DID already exists.
-        #[weight = <T as Trait>::WeightInfo::register_did(secondary_keys.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::register_did(secondary_keys.len() as u32)]
         pub fn register_did(
             origin,
             uid: InvestorUid,
@@ -144,7 +144,7 @@ decl_module! {
         /// claims.
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
-        #[weight = <T as Trait>::WeightInfo::mock_cdd_register_did()]
+        #[weight = <T as Config>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
             let cdd_id = Identity::<T>::ensure_perms(origin)?;
             let target_did = Identity::<T>::base_cdd_register_did(cdd_id, target_account, vec![])?;
@@ -158,7 +158,7 @@ decl_module! {
         }
 
         /// Emits an event with caller's identity.
-        #[weight = <T as Trait>::WeightInfo::get_my_did()]
+        #[weight = <T as Config>::WeightInfo::get_my_did()]
         pub fn get_my_did(origin) {
             let PermissionedCallOriginData {
                 sender,
@@ -169,7 +169,7 @@ decl_module! {
         }
 
         /// Emits an event with caller's identity and CDD status.
-        #[weight = <T as Trait>::WeightInfo::get_cdd_of()]
+        #[weight = <T as Config>::WeightInfo::get_cdd_of()]
         pub fn get_cdd_of(origin, of: T::AccountId) {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
@@ -181,7 +181,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> TestUtilsFn<T::AccountId> for Module<T> {
+impl<T: Config> TestUtilsFn<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,

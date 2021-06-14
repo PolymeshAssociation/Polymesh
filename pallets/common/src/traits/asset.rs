@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
-use crate::CommonTrait;
+use crate::CommonConfig;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
@@ -129,13 +129,13 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait:
-    crate::balances::Trait
-    + external_agents::Trait
+pub trait Config:
+    crate::balances::Config
+    + external_agents::Config
     + pallet_session::Config
-    + statistics::Trait
+    + statistics::Config
     //+ contracts::Trait
-    + portfolio::Trait
+    + portfolio::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>>
@@ -144,7 +144,7 @@ pub trait Trait:
 
     type Currency: Currency<Self::AccountId>;
 
-    type ComplianceManager: compliance_manager::Trait<Self::Balance>;
+    type ComplianceManager: compliance_manager::Config<Self::Balance>;
 
     /// Maximum number of smart extensions can attach to an asset.
     /// This hard limit is set to avoid the cases where an asset transfer
@@ -178,7 +178,7 @@ pub enum AssetMigrationError {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
         AccountId = <T as frame_system::Config>::AccountId,
     {

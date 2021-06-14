@@ -39,7 +39,7 @@ fn make_proposal<T, I>(
 )
 where
     I: Instance,
-    T: Trait<I>,
+    T: Config<I>,
     <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     let bytes: [u8; 4] = n.to_be_bytes();
@@ -52,7 +52,7 @@ where
 fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
-    T: Trait<I>,
+    T: Config<I>,
     <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     assert!(
@@ -85,7 +85,7 @@ where
 fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
-    T: Trait<I> + TestUtilsFn<AccountIdOf<T>>,
+    T: Config<I> + TestUtilsFn<AccountIdOf<T>>,
     <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
@@ -106,7 +106,7 @@ fn vote_verify<T, I>(
 ) -> DispatchResult
 where
     I: Instance,
-    T: Trait<I>,
+    T: Config<I>,
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
@@ -131,8 +131,6 @@ benchmarks_instance! {
             T: TestUtilsFn<AccountIdOf<T>>,
             <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
     }
-
-    _ {}
 
     set_vote_threshold {
         let n = 1;

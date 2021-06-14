@@ -109,13 +109,13 @@ use pallet_base::ensure_opt_string_limited;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
-    identity::Trait as IdentityTrait,
+    identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
+    with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -165,7 +165,7 @@ pub trait WeightInfo {
 
 /// Balance
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A wrapper for a proposal url.
 #[derive(
@@ -182,7 +182,7 @@ pub struct PipDescription(pub Vec<u8>);
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<T: Trait> {
+pub struct Pip<T: Config> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
@@ -239,7 +239,7 @@ pub enum Proposer<AccountId> {
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata<T: Trait> {
+pub struct PipsMetadata<T: Config> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
@@ -331,7 +331,7 @@ pub type SnapshotId = u32;
 /// The priority queue is stored separately (see `SnapshottedPip`).
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SnapshotMetadata<T: Trait> {
+pub struct SnapshotMetadata<T: Config> {
     /// The block when the snapshot was made.
     pub created_at: T::BlockNumber,
     /// Who triggered this snapshot? Should refer to someone in the GC.
@@ -389,12 +389,12 @@ pub type SkippedCount = u8;
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>>
+pub trait Config:
+    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
     + pallet_timestamp::Config
-    + IdentityTrait
-    + CommonTrait
-    + pallet_base::Trait
+    + IdentityConfig
+    + CommonConfig
+    + pallet_base::Config
 {
     /// Currency type for this module.
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
@@ -430,7 +430,7 @@ pub trait Trait:
 
 // This module's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Pips {
+    trait Store for Module<T: Config> as Pips {
         /// Determines whether historical PIP data is persisted or removed
         pub PruneHistoricalPips get(fn prune_historical_pips) config(): bool;
 
@@ -582,7 +582,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Only the GC release coordinator is allowed to reschedule proposal execution.
         RescheduleNotByReleaseCoordinator,
         /// The given dispatchable call is not valid for this proposal.
@@ -628,7 +628,7 @@ decl_error! {
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -648,7 +648,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `prune` specifies whether completed PIPs should be pruned.
-        #[weight = (<T as Trait>::WeightInfo::set_prune_historical_pips(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_prune_historical_pips(), Operational)]
         pub fn set_prune_historical_pips(origin, prune: bool) {
             Self::config::<PruneHistoricalPips, _, _>(origin, prune, RawEvent::HistoricalPipsPruned)?;
         }
@@ -658,7 +658,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (<T as Trait>::WeightInfo::set_min_proposal_deposit(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_min_proposal_deposit(), Operational)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             Self::config::<MinimumProposalDeposit<T>, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
         }
@@ -668,7 +668,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` the new default enactment period it takes for a scheduled PIP to be executed.
-        #[weight = (<T as Trait>::WeightInfo::set_default_enactment_period(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_default_enactment_period(), Operational)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             Self::config::<DefaultEnactmentPeriod<T>, _, _>(origin, duration, RawEvent::DefaultEnactmentPeriodChanged)?;
         }
@@ -679,7 +679,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `expiry` the block-time it takes for a still-`Pending` PIP to expire.
-        #[weight = (<T as Trait>::WeightInfo::set_pending_pip_expiry(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_pending_pip_expiry(), Operational)]
         pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
             Self::config::<PendingPipExpiry<T>, _, _>(origin, expiry, RawEvent::PendingPipExpiryChanged)?;
         }
@@ -689,7 +689,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `max` skips before a PIP cannot be skipped by GC anymore.
-        #[weight = (<T as Trait>::WeightInfo::set_max_pip_skip_count(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_max_pip_skip_count(), Operational)]
         pub fn set_max_pip_skip_count(origin, max: SkippedCount) {
             Self::config::<MaxPipSkipCount, _, _>(origin, max, RawEvent::MaxPipSkipCountChanged)?;
         }
@@ -699,7 +699,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `limit` of concurrent active PIPs.
-        #[weight = (<T as Trait>::WeightInfo::set_active_pip_limit(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::set_active_pip_limit(), Operational)]
         pub fn set_active_pip_limit(origin, limit: u32) {
             Self::config::<ActivePipLimit, _, _>(origin, limit, RawEvent::ActivePipLimitChanged)?;
         }
@@ -713,7 +713,7 @@ decl_module! {
         /// * `proposal` a dispatchable call
         /// * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
         /// * `url` a link to a website for proposal discussion
-        #[weight = <T as Trait>::WeightInfo::propose_from_community()]
+        #[weight = <T as Config>::WeightInfo::propose_from_community()]
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
@@ -835,7 +835,7 @@ decl_module! {
         /// * `NotFromCommunity` if proposal was made by a committee.
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
-        #[weight = <T as Trait>::WeightInfo::vote()]
+        #[weight = <T as Config>::WeightInfo::vote()]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
             let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
@@ -890,7 +890,7 @@ decl_module! {
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal isn't pending.
         /// * `NotByCommittee` if the proposal isn't by a committee.
-        #[weight = (<T as Trait>::WeightInfo::approve_committee_proposal(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::approve_committee_proposal(), Operational)]
         pub fn approve_committee_proposal(origin, id: PipId) {
             // 1. Only GC can do this.
             T::VotingMajorityOrigin::ensure_origin(origin)?;
@@ -914,7 +914,7 @@ decl_module! {
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal was cancelled or executed.
-        #[weight = (<T as Trait>::WeightInfo::reject_proposal(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::reject_proposal(), Operational)]
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
@@ -933,7 +933,7 @@ decl_module! {
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal is active.
-        #[weight = (<T as Trait>::WeightInfo::prune_proposal(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::prune_proposal(), Operational)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
@@ -950,7 +950,7 @@ decl_module! {
         /// # Errors
         /// * `RescheduleNotByReleaseCoordinator` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
-        #[weight = (<T as Trait>::WeightInfo::reschedule_execution(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::reschedule_execution(), Operational)]
         pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
@@ -980,7 +980,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (<T as Trait>::WeightInfo::clear_snapshot(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::clear_snapshot(), Operational)]
         pub fn clear_snapshot(origin) {
             // 1. Check that a GC member is executing this.
             let did = Identity::<T>::ensure_perms(origin)?;
@@ -1001,7 +1001,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (<T as Trait>::WeightInfo::snapshot(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::snapshot(), Operational)]
         pub fn snapshot(origin) {
             // Ensure a GC member is executing this.
             let PermissionedCallOriginData {
@@ -1108,7 +1108,7 @@ decl_module! {
         }
 
         /// Internal dispatchable that handles execution of a PIP.
-        #[weight = (<T as Trait>::WeightInfo::execute_scheduled_pip(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::execute_scheduled_pip(), Operational)]
         pub fn execute_scheduled_pip(origin, id: PipId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <PipToSchedule<T>>::remove(id);
@@ -1116,7 +1116,7 @@ decl_module! {
         }
 
         /// Internal dispatchable that handles expiration of a PIP.
-        #[weight = (<T as Trait>::WeightInfo::expire_scheduled_pip(), Operational)]
+        #[weight = (<T as Config>::WeightInfo::expire_scheduled_pip(), Operational)]
         pub fn expire_scheduled_pip(origin, did: IdentityId, id: PipId) {
             ensure_root(origin)?;
             if Self::is_proposal_state(id, ProposalState::Pending).is_ok() {
@@ -1127,7 +1127,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn config<SV, X, E>(origin: T::Origin, new: X, event: E) -> DispatchResult
     where
         SV: StorageValue<X, Query = X>,
@@ -1365,17 +1365,17 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Increase `acc`'s locked deposit for all PIPs by `amount`,
     /// or fail if there's not enough free balance after adding `amount` to lock.
     fn increase_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-        <T as Trait>::Currency::increase_lock(
+        <T as Config>::Currency::increase_lock(
             PIPS_LOCK_ID,
             acc,
             amount,
             WithdrawReasons::all(),
             |sum| {
-                <T as Trait>::Currency::free_balance(acc)
+                <T as Config>::Currency::free_balance(acc)
                     .checked_sub(&sum)
                     .ok_or(Error::<T>::InsufficientDeposit.into())
                     .map(drop)
@@ -1386,7 +1386,7 @@ impl<T: Trait> Module<T> {
     /// Reduce `acc`'s locked deposit for all PIPs by `amount`,
     /// or fail if `amount` hasn't been locked for PIPs.
     fn reduce_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-        <T as Trait>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
+        <T as Config>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
     }
 
     /// Retrieve votes for a proposal represented by PipId `id`.
@@ -1546,7 +1546,7 @@ impl<T: Trait> Module<T> {
 
 /// Returns the `Weight` based on the number of approves, rejects, and skips from `results`.
 /// The `enact_snapshot_results` is always a `DispatchClass::Operational` transaction.
-pub fn enact_snapshot_results<T: Trait>(results: &[(PipId, SnapshotResult)]) -> Weight {
+pub fn enact_snapshot_results<T: Config>(results: &[(PipId, SnapshotResult)]) -> Weight {
     let mut approves = 0;
     let mut rejects = 0;
     let mut skips = 0;
@@ -1558,7 +1558,7 @@ pub fn enact_snapshot_results<T: Trait>(results: &[(PipId, SnapshotResult)]) -> 
         }
     }
 
-    <T as Trait>::WeightInfo::enact_snapshot_results(approves, rejects, skips)
+    <T as Config>::WeightInfo::enact_snapshot_results(approves, rejects, skips)
         .min(PipsEnactSnapshotMaximumWeight::get())
 }
 

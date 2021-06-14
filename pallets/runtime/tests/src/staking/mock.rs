@@ -40,12 +40,12 @@ use polymesh_common_utilities::{
     traits::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
-        group::{GroupTrait, InactiveMember},
-        identity::{IdentityToExternalAgents, Trait as IdentityTrait},
+        group::{GroupConfig, InactiveMember},
+        identity::{Config as IdentityConfig, IdentityToExternalAgents},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonTrait, PermissionChecker,
+        CommonConfig,
     },
 };
 use polymesh_primitives::{
@@ -230,7 +230,7 @@ impl pallet_base::Trait for Test {
     type MaxLen = MaxLen;
 }
 
-impl CommonTrait for Test {
+impl CommonConfig for Test {
     type Balance = Balance;
     type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = pallet_balances::Module<Test>;
@@ -526,7 +526,7 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
-impl PermissionChecker for Test {
+impl polymesh_common_utilities::traits::permissions::Config for Test {
     type Checker = Identity;
 }
 
@@ -1598,7 +1598,7 @@ pub fn make_account_with_uid(
 /// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
-    balance: <Test as CommonTrait>::Balance,
+    balance: <Test as CommonConfig>::Balance,
     expiry: Option<Moment>,
 ) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());

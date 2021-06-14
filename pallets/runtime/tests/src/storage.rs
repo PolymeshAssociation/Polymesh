@@ -33,9 +33,9 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::Trait as IdentityTrait,
+        identity::Config as IdentityConfig,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonTrait,
+        CommonConfig,
     },
     Context,
 };
@@ -399,7 +399,7 @@ impl WeightToFeePolynomial for WeightToFee {
 }
 
 /// PolymeshCommittee as an instance of group
-impl group::Trait<group::Instance1> for TestStorage {
+impl group::Config<group::Instance1> for TestStorage {
     type Event = Event;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
@@ -411,7 +411,7 @@ impl group::Trait<group::Instance1> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl group::Trait<group::Instance2> for TestStorage {
+impl group::Config<group::Instance2> for TestStorage {
     type Event = Event;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
@@ -423,7 +423,7 @@ impl group::Trait<group::Instance2> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl group::Trait<group::Instance3> for TestStorage {
+impl group::Config<group::Instance3> for TestStorage {
     type Event = Event;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
@@ -435,7 +435,7 @@ impl group::Trait<group::Instance3> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl group::Trait<group::Instance4> for TestStorage {
+impl group::Config<group::Instance4> for TestStorage {
     type Event = Event;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
@@ -449,21 +449,21 @@ impl group::Trait<group::Instance4> for TestStorage {
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
-impl committee::Trait<committee::Instance1> for TestStorage {
+impl committee::Config<committee::Instance1> for TestStorage {
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
-impl committee::Trait<committee::Instance3> for TestStorage {
+impl committee::Config<committee::Instance3> for TestStorage {
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
-impl committee::Trait<committee::Instance4> for TestStorage {
+impl committee::Config<committee::Instance4> for TestStorage {
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -529,7 +529,7 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
     }
 }
 
-impl pips::Trait for TestStorage {
+impl pips::Config for TestStorage {
     type Currency = balances::Module<Self>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
@@ -540,7 +540,7 @@ impl pips::Trait for TestStorage {
     type Scheduler = Scheduler;
 }
 
-impl pallet_test_utils::Trait for TestStorage {
+impl pallet_test_utils::Config for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
@@ -602,7 +602,7 @@ pub fn make_account_with_uid(
 pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
-    balance: <TestStorage as CommonTrait>::Balance,
+    balance: <TestStorage as CommonConfig>::Balance,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
@@ -648,7 +648,7 @@ pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'sta
 
 pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
-    balance: <TestStorage as CommonTrait>::Balance,
+    balance: <TestStorage as CommonConfig>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_id = acc.to_account_id();
     let uid = create_investor_uid(acc_id.clone());

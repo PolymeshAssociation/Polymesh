@@ -318,7 +318,7 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
+use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     generate_solution_type, is_score_better, seq_phragmen, to_support_map, Assignment,
@@ -888,7 +888,7 @@ pub trait WeightInfo {
 }
 
 pub trait Config:
-    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityTrait
+    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityConfig
 {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;

@@ -54,8 +54,8 @@ use frame_support::{
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::portfolio::{Event, RawEvent, Trait, WeightInfo};
-use polymesh_common_utilities::CommonTrait;
+pub use polymesh_common_utilities::traits::portfolio::{Config, Event, RawEvent, WeightInfo};
+use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::{
     identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId, PortfolioId,
     PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
@@ -80,7 +80,7 @@ pub struct MovePortfolioItem<Balance> {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Portfolio {
+    trait Store for Module<T: Config> as Portfolio {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
@@ -113,7 +113,7 @@ decl_storage! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The portfolio doesn't exist.
         PortfolioDoesNotExist,
         /// Insufficient balance for a transaction.
@@ -136,7 +136,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         /// The event logger.
@@ -160,7 +160,7 @@ decl_module! {
         }
 
         /// Creates a portfolio with the given `name`.
-        #[weight = <T as Trait>::WeightInfo::create_portfolio()]
+        #[weight = <T as Config>::WeightInfo::create_portfolio()]
         pub fn create_portfolio(origin, name: PortfolioName) {
             let primary_did = Identity::<T>::ensure_perms(origin)?;
             Self::ensure_name_unique(&primary_did, &name)?;
@@ -177,7 +177,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::delete_portfolio()]
+        #[weight = <T as Config>::WeightInfo::delete_portfolio()]
         pub fn delete_portfolio(origin, num: PortfolioNumber) {
             let PermissionedCallOriginData {
                 primary_did,
@@ -210,12 +210,12 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::move_portfolio_funds(items.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::move_portfolio_funds(items.len() as u32)]
         pub fn move_portfolio_funds(
             origin,
             from: PortfolioId,
             to: PortfolioId,
-            items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
+            items: Vec<MovePortfolioItem<<T as CommonConfig>::Balance>>,
         ) {
             let PermissionedCallOriginData {
                 primary_did,
@@ -262,7 +262,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::rename_portfolio(to_name.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::rename_portfolio(to_name.len() as u32)]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,
@@ -292,7 +292,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::quit_portfolio_custody()]
+        #[weight = <T as Config>::WeightInfo::quit_portfolio_custody()]
         pub fn quit_portfolio_custody(origin, portfolio_id: PortfolioId) {
             let primary_did = Identity::<T>::ensure_perms(origin)?;
 
@@ -311,12 +311,12 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Returns the ticker balance of the identity's default portfolio.
     pub fn default_portfolio_balance(
         did: IdentityId,
         ticker: &Ticker,
-    ) -> <T as CommonTrait>::Balance {
+    ) -> <T as CommonConfig>::Balance {
         Self::portfolio_asset_balances(PortfolioId::default_portfolio(did), ticker)
     }
 
@@ -325,7 +325,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         num: PortfolioNumber,
         ticker: &Ticker,
-    ) -> <T as CommonTrait>::Balance {
+    ) -> <T as CommonConfig>::Balance {
         Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), ticker)
     }
 
@@ -333,7 +333,7 @@ impl<T: Trait> Module<T> {
     pub fn set_default_portfolio_balance(
         did: IdentityId,
         ticker: &Ticker,
-        balance: <T as CommonTrait>::Balance,
+        balance: <T as CommonConfig>::Balance,
     ) {
         <PortfolioAssetBalances<T>>::insert(PortfolioId::default_portfolio(did), ticker, balance);
     }
@@ -358,7 +358,7 @@ impl<T: Trait> Module<T> {
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: <T as CommonTrait>::Balance,
+        amount: <T as CommonConfig>::Balance,
     ) {
         <PortfolioAssetBalances<T>>::mutate(from_portfolio, ticker, |from_balance| {
             *from_balance = from_balance.saturating_sub(amount)
@@ -424,7 +424,7 @@ impl<T: Trait> Module<T> {
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: &<T as CommonTrait>::Balance,
+        amount: &<T as CommonConfig>::Balance,
     ) -> DispatchResult {
         // 1. Ensure from and to portfolio are different
         ensure!(
@@ -445,7 +445,7 @@ impl<T: Trait> Module<T> {
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: &<T as CommonTrait>::Balance,
+        amount: &<T as CommonConfig>::Balance,
     ) -> PortfolioValidityResult {
         let receiver_is_same_portfolio = from_portfolio == to_portfolio;
         let sender_portfolio_does_not_exist =
@@ -471,7 +471,7 @@ impl<T: Trait> Module<T> {
     pub fn reduce_portfolio_balance(
         portfolio: &PortfolioId,
         ticker: &Ticker,
-        amount: &<T as CommonTrait>::Balance,
+        amount: &<T as CommonConfig>::Balance,
     ) -> DispatchResult {
         // Ensure portfolio has enough free balance
         let total_balance = Self::portfolio_asset_balances(&portfolio, ticker);
@@ -519,7 +519,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
+impl<T: Config> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
     fn accept_portfolio_custody(
         to: IdentityId,
         from: IdentityId,

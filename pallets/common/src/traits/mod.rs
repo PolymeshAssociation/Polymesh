@@ -35,7 +35,7 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait CommonTrait: frame_system::Config + PermissionChecker {
+pub trait CommonConfig: frame_system::Config + permissions::Config {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -77,7 +77,7 @@ pub mod portfolio;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
-pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};
+pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod statistics;
 
 pub trait TestUtilsFn<AccountId> {
@@ -101,7 +101,7 @@ pub mod base {
         }
     }
 
-    pub trait Trait: frame_system::Config {
+    pub trait Config: frame_system::Config {
         /// The overarching event type.
         type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 

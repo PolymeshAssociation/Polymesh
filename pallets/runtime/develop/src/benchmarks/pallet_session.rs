@@ -40,28 +40,28 @@ use sp_std::vec;
 
 use polymesh_common_utilities::constants::currency::POLY;
 
-pub struct Module<T: Trait>(pallet_session::Module<T>);
-pub trait Trait:
-    pallet_session::Config + pallet_session::historical::Config + pallet_staking::Trait
+pub struct Module<T: Config>(pallet_session::Module<T>);
+pub trait Config:
+    pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
 {
 }
 
-impl<T: Trait> OnInitialize<T::BlockNumber> for Module<T> {
+impl<T: Config> OnInitialize<T::BlockNumber> for Module<T> {
     fn on_initialize(n: T::BlockNumber) -> frame_support::weights::Weight {
         pallet_session::Module::<T>::on_initialize(n)
     }
 }
 
-struct ValidatorInfo<T: Trait> {
+struct ValidatorInfo<T: Config> {
     controller: T::AccountId,
     keys: T::Keys,
     proof: Vec<u8>,
 }
 
-impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
+impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
     pub fn build(nominators: u32) -> Result<ValidatorInfo<T>, &'static str>
     where
-        <<T as pallet_staking::Trait>::Currency as Currency<
+        <<T as pallet_staking::Config>::Currency as Currency<
             <T as frame_system::Config>::AccountId,
         >>::Balance: From<u128>,
     {
@@ -72,7 +72,9 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
             balance,
             false,
         )
-        .unwrap();
+        .unwrap()
+        .0
+        .account();
         let controller = pallet_staking::Module::<T>::bonded(&stash).expect("not stash");
 
         let keys = T::Keys::default();
@@ -94,10 +96,8 @@ benchmarks! {
     where_clause {
         where
             T: TestUtilsFn<AccountIdOf<T>>,
-            <<T as pallet_staking::Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance: From<u128>,
+            <<T as pallet_staking::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance: From<u128>,
     }
-
-    _ {}
 
     set_keys {
         let n = MAX_NOMINATIONS as u32;

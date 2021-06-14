@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{identity::Trait as IdentityTrait, CommonTrait, NegativeImbalance};
+use crate::traits::{identity::Config as IdentityConfig, CommonConfig, NegativeImbalance};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
@@ -113,7 +113,7 @@ impl BitOr for Reasons {
 decl_event!(
     pub enum Event<T> where
     <T as frame_system::Config>::AccountId,
-    <T as CommonTrait>::Balance
+    <T as CommonConfig>::Balance
     {
          /// An account was created with some free balance. \[did, account, free_balance]
         Endowed(Option<IdentityId>, AccountId, Balance),
@@ -144,7 +144,7 @@ pub trait WeightInfo {
     fn burn_account_balance() -> Weight;
 }
 
-pub trait Trait: IdentityTrait {
+pub trait Config: IdentityConfig {
     /// The means of storing the balances of an account.
     type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
 
@@ -156,7 +156,7 @@ pub trait Trait: IdentityTrait {
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
-    type ExistentialDeposit: Get<<Self as CommonTrait>::Balance>;
+    type ExistentialDeposit: Get<<Self as CommonConfig>::Balance>;
 
     /// Used to check if an account is linked to a CDD'd identity
     type CddChecker: CheckCdd<Self::AccountId>;

@@ -4,7 +4,7 @@ pub type VMO<Instance> =
 
 pub type GovernanceCommittee = pallet_committee::Instance1;
 
-/// Provides miscellaneous and common pallet-`Trait` implementations for a `Runtime`.
+/// Provides miscellaneous and common pallet-`Config` implementations for a `Runtime`.
 #[macro_export]
 macro_rules! misc_pallet_impls {
     () => {
@@ -78,7 +78,7 @@ macro_rules! misc_pallet_impls {
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
         }
 
-        impl pallet_base::Trait for Runtime {
+        impl pallet_base::Config for Runtime {
             type Event = Event;
             type MaxLen = MaxLen;
         }
@@ -129,13 +129,13 @@ macro_rules! misc_pallet_impls {
             type Identity = Identity;
         }
 
-        impl polymesh_common_utilities::traits::CommonTrait for Runtime {
+        impl polymesh_common_utilities::traits::CommonConfig for Runtime {
             type Balance = polymesh_primitives::Balance;
             type AssetSubTraitTarget = Asset;
             type BlockRewardsReserve = pallet_balances::Module<Runtime>;
         }
 
-        impl pallet_balances::Trait for Runtime {
+        impl pallet_balances::Config for Runtime {
             type MaxLocks = MaxLocks;
             type DustRemoval = ();
             type Event = Event;
@@ -145,7 +145,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
         }
 
-        impl pallet_protocol_fee::Trait for Runtime {
+        impl pallet_protocol_fee::Config for Runtime {
             type Event = Event;
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
@@ -238,35 +238,35 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_authority_discovery::Config for Runtime {}
 
-        impl pallet_sudo::Trait for Runtime {
+        impl pallet_sudo::Config for Runtime {
             type Event = Event;
             type Call = Call;
         }
 
-        impl pallet_multisig::Trait for Runtime {
+        impl pallet_multisig::Config for Runtime {
             type Event = Event;
             type Scheduler = Scheduler;
             type SchedulerCall = Call;
             type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
         }
 
-        impl pallet_bridge::Trait for Runtime {
+        impl pallet_bridge::Config for Runtime {
             type Event = Event;
             type Proposal = Call;
             type Scheduler = Scheduler;
         }
 
-        impl pallet_portfolio::Trait for Runtime {
+        impl pallet_portfolio::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
         }
 
-        impl pallet_external_agents::Trait for Runtime {
+        impl pallet_external_agents::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
         }
 
-        impl pallet_asset::Trait for Runtime {
+        impl pallet_asset::Config for Runtime {
             type Event = Event;
             type Currency = Balances;
             type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
@@ -281,7 +281,7 @@ macro_rules! misc_pallet_impls {
         }
 
         /*
-        impl polymesh_contracts::Trait for Runtime {
+        impl polymesh_contracts::Config for Runtime {
             type Event = Event;
             type NetworkShareInFee = NetworkShareInFee;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
@@ -310,14 +310,14 @@ macro_rules! misc_pallet_impls {
         }
         */
 
-        impl pallet_compliance_manager::Trait for Runtime {
+        impl pallet_compliance_manager::Config for Runtime {
             type Event = Event;
             type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
             type MaxConditionComplexity = MaxConditionComplexity;
         }
 
-        impl pallet_corporate_actions::Trait for Runtime {
+        impl pallet_corporate_actions::Config for Runtime {
             type Event = Event;
             type MaxTargetIds = MaxTargetIds;
             type MaxDidWhts = MaxDidWhts;
@@ -326,14 +326,14 @@ macro_rules! misc_pallet_impls {
             type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
         }
 
-        impl pallet_statistics::Trait for Runtime {
+        impl pallet_statistics::Config for Runtime {
             type Event = Event;
             type Asset = Asset;
             type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
         }
 
-        impl pallet_utility::Trait for Runtime {
+        impl pallet_utility::Config for Runtime {
             type Event = Event;
             type Call = Call;
             type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
@@ -389,24 +389,24 @@ macro_rules! misc_pallet_impls {
             >;
         }
 
-        impl pallet_treasury::Trait for Runtime {
+        impl pallet_treasury::Config for Runtime {
             type Event = Event;
             type Currency = Balances;
             type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
         }
 
-        impl pallet_settlement::Trait for Runtime {
+        impl pallet_settlement::Config for Runtime {
             type Event = Event;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
         }
 
-        impl pallet_sto::Trait for Runtime {
+        impl pallet_sto::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
         }
 
-        impl polymesh_common_utilities::traits::PermissionChecker for Runtime {
+        impl polymesh_common_utilities::traits::permissions::Config for Runtime {
             type Checker = Identity;
         }
 
@@ -843,7 +843,7 @@ macro_rules! runtime_apis {
                     to_did: Option<IdentityId>,
                 ) -> AssetComplianceResult
                 {
-                    use polymesh_common_utilities::compliance_manager::Trait;
+                    use polymesh_common_utilities::compliance_manager::Config;
                     ComplianceManager::verify_restriction_granular(&ticker, from_did, to_did)
                 }
             }

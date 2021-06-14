@@ -49,12 +49,12 @@ const MAX_LEGS_IN_INSTRUCTION: u32 = 25;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[derive(Encode, Decode, Clone, Copy)]
-pub struct UserData<T: Trait> {
+pub struct UserData<T: Config> {
     pub account: T::AccountId,
     pub did: IdentityId,
 }
 
-impl<T: Trait> From<User<T>> for UserData<T> {
+impl<T: Config> From<User<T>> for UserData<T> {
     fn from(user: User<T>) -> Self {
         Self {
             account: user.account(),
@@ -63,12 +63,12 @@ impl<T: Trait> From<User<T>> for UserData<T> {
     }
 }
 
-fn set_block_number<T: Trait>(new_block_no: u64) {
+fn set_block_number<T: Config>(new_block_no: u64) {
     system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
 }
 
 /// Set venue related storage without any sanity checks.
-fn create_venue_<T: Trait>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
+fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
     // Worst case length for the venue details.
     let venue_details = VenueDetails::from(vec![b'A'; 200 as usize].as_slice());
     let venue = Venue::new(did, venue_details, VenueType::Distribution);
@@ -83,7 +83,7 @@ fn create_venue_<T: Trait>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
 }
 
 /// Set instruction leg status to `LegStatus::ExecutionToBeSkipped` without any sanity checks.
-fn set_instruction_leg_status_to_skipped<T: Trait>(
+fn set_instruction_leg_status_to_skipped<T: Config>(
     instruction_id: u64,
     leg_id: u64,
     signer: T::AccountId,
@@ -98,7 +98,7 @@ fn set_instruction_leg_status_to_skipped<T: Trait>(
 }
 
 /// Set Leg status to `LegStatus::ExecutionPending`
-fn set_instruction_leg_status_to_pending<T: Trait>(instruction_id: u64, leg_id: u64) {
+fn set_instruction_leg_status_to_pending<T: Config>(instruction_id: u64, leg_id: u64) {
     <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
 }
 
@@ -108,16 +108,16 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 }
 
 // create asset
-pub fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
+pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
 }
 
 // fund portfolio
-fn fund_portfolio<T: Trait>(portfolio: &PortfolioId, ticker: &Ticker, amount: T::Balance) {
+fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: T::Balance) {
     <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
 }
 
-fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
@@ -140,7 +140,7 @@ fn setup_leg_and_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     sender_portfolios.push(portfolio_from);
 }
 
-fn generate_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn generate_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     portfolio_to: &'static str,
     pseudo_random_no: u32,
     user: Option<UserData<T>>,
@@ -166,7 +166,7 @@ fn generate_portfolio<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
 }
 
-fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn populate_legs_for_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     legs: &mut Vec<Leg<T::Balance>>,
 ) {
@@ -178,7 +178,7 @@ fn populate_legs_for_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     });
 }
 
-fn verify_add_instruction<T: Trait>(
+fn verify_add_instruction<T: Config>(
     v_id: u64,
     s_type: SettlementType<T::BlockNumber>,
 ) -> DispatchResult {
@@ -199,7 +199,7 @@ fn verify_add_instruction<T: Trait>(
     Ok(())
 }
 
-fn verify_add_and_affirm_instruction<T: Trait>(
+fn verify_add_and_affirm_instruction<T: Config>(
     venue_id: u64,
     settlement_type: SettlementType<T::BlockNumber>,
     portfolios: Vec<PortfolioId>,
@@ -217,7 +217,7 @@ fn verify_add_and_affirm_instruction<T: Trait>(
     Ok(())
 }
 
-fn emulate_add_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
     create_portfolios: bool,
 ) -> Result<
@@ -271,7 +271,7 @@ fn emulate_add_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     ))
 }
 
-fn emulate_portfolios<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     sender: Option<UserData<T>>,
     receiver: Option<UserData<T>>,
     ticker: Ticker,
@@ -295,13 +295,13 @@ fn emulate_portfolios<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Trait>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
+fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded
 }
 
-fn add_trusted_issuer<T: Trait>(
+fn add_trusted_issuer<T: Config>(
     origin: RawOrigin<T::AccountId>,
     ticker: Ticker,
     issuer: TrustedIssuer,
@@ -314,7 +314,7 @@ fn add_trusted_issuer<T: Trait>(
     .expect("Default trusted claim issuer cannot be added");
 }
 
-pub fn setup_conditions<T: Trait>(
+pub fn setup_conditions<T: Config>(
     count: u32,
     trusted_issuer: TrustedIssuer,
     dids: Vec<IdentityId>,
@@ -342,7 +342,7 @@ pub fn setup_conditions<T: Trait>(
         .collect()
 }
 
-pub fn compliance_setup<T: Trait>(
+pub fn compliance_setup<T: Config>(
     max_complexity: u32,
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
@@ -351,8 +351,10 @@ pub fn compliance_setup<T: Trait>(
     trusted_issuer: TrustedIssuer,
 ) {
     // Add investor uniqueness claim.
-    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(from_did, ticker);
-    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(to_did, ticker);
+    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
+        from_did, ticker,
+    );
+    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(to_did, ticker);
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
@@ -371,7 +373,7 @@ pub fn compliance_setup<T: Trait>(
     .expect("Failed to add the asset compliance");
 }
 
-fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
 ) -> (
     Vec<PortfolioId>,
@@ -423,7 +425,7 @@ fn setup_affirm_instruction<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
 
 /*
 #[allow(dead_code)]
-fn add_smart_extension_to_ticker<T: Trait>(
+fn add_smart_extension_to_ticker<T: Config>(
     code_hash: <T::Hashing as Hash>::Output,
     origin: RawOrigin<T::AccountId>,
     account: T::AccountId,
@@ -454,7 +456,7 @@ fn add_smart_extension_to_ticker<T: Trait>(
 }
 */
 
-fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg<T::Balance>,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
@@ -489,7 +491,7 @@ fn create_receipt_details<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-pub fn add_transfer_managers<T: Trait>(
+pub fn add_transfer_managers<T: Config>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     exempted_entity: IdentityId,
@@ -517,9 +519,7 @@ pub fn add_transfer_managers<T: Trait>(
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Trait }
-
-    _{}
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
     create_venue {
         // Variations for the venue_details length.
@@ -886,7 +886,7 @@ benchmarks! {
     }
 }
 
-pub fn next_block<T: Trait + pallet_scheduler::Trait>() {
+pub fn next_block<T: Config + pallet_scheduler::Config>() {
     use frame_support::traits::OnInitialize;
     let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
     frame_system::Module::<T>::set_block_number(block_number);

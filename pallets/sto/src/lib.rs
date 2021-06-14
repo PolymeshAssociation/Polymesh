@@ -38,7 +38,7 @@ use pallet_settlement::{
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
-    with_transaction, CommonTrait,
+    with_transaction, CommonConfig,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -157,8 +157,12 @@ pub trait WeightInfo {
     fn stop() -> Weight;
 }
 
-pub trait Trait:
-    frame_system::Config + identity::Trait + settlement::Trait + portfolio::Trait + pallet_base::Trait
+pub trait Config:
+    frame_system::Config
+    + identity::Config
+    + settlement::Config
+    + portfolio::Config
+    + pallet_base::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -169,7 +173,7 @@ pub trait Trait:
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// A new fundraiser has been created.
@@ -202,7 +206,7 @@ decl_event!(
 
 decl_error! {
     /// Errors for the Settlement module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Sender does not have required permissions.
         Unauthorized,
         /// An arithmetic operation overflowed.
@@ -231,7 +235,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as StoCapped {
+    trait Store for Module<T: Config> as StoCapped {
         /// All fundraisers that are currently running.
         /// (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
@@ -244,7 +248,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -265,7 +269,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::create_fundraiser(tiers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::create_fundraiser(tiers.len() as u32)]
         pub fn create_fundraiser(
             origin,
             offering_portfolio: PortfolioId,
@@ -345,7 +349,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Trait>::WeightInfo::invest()]
+        #[weight = <T as Config>::WeightInfo::invest()]
         pub fn invest(
             origin,
             investment_portfolio: PortfolioId,
@@ -480,7 +484,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::freeze_fundraiser()]
+        #[weight = <T as Config>::WeightInfo::freeze_fundraiser()]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, true)
         }
@@ -492,7 +496,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::unfreeze_fundraiser()]
+        #[weight = <T as Config>::WeightInfo::unfreeze_fundraiser()]
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             Self::set_frozen(origin, offering_asset, fundraiser_id, false)
         }
@@ -506,7 +510,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::modify_fundraiser_window()]
+        #[weight = <T as Config>::WeightInfo::modify_fundraiser_window()]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
 
@@ -533,7 +537,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::stop()]
+        #[weight = <T as Config>::WeightInfo::stop()]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
             let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
@@ -561,7 +565,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn set_frozen(
         origin: T::Origin,
         offering_asset: Ticker,

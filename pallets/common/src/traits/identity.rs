@@ -19,7 +19,7 @@ use crate::{
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonTrait,
+        CommonConfig,
     },
     ChargeProtocolFee, SystematicIssuers,
 };
@@ -110,7 +110,7 @@ pub trait IdentityToExternalAgents {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Config + crate::traits::base::Trait {
+pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// An extrinsic call.

@@ -59,7 +59,7 @@ pub fn create_funded_user<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     user
 }
 
-pub fn create_stash_controller_with_balance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+pub fn create_stash_controller_with_balance<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     balance: u32,
 ) -> Result<(User<T>, User<T>), DispatchError> {
@@ -136,6 +136,7 @@ pub fn create_validators<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         let (stash, controller) = create_stash_controller::<T>(i, balance_factor)?;
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
+            ..Default::default()
         };
         Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), stash.did(), Some(2))
             .expect("Failed to add permissioned validator");
@@ -146,7 +147,7 @@ pub fn create_validators<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     Ok(validators)
 }
 
-pub fn emulate_validator_setup<T: Trait>(min_bond: u32, validator_count: u32, cap: Perbill) {
+pub fn emulate_validator_setup<T: Config>(min_bond: u32, validator_count: u32, cap: Perbill) {
     Staking::<T>::set_min_bond_threshold(RawOrigin::Root.into(), min_bond.into())
         .expect("Failed to set the min bond threshold");
     Staking::<T>::set_validator_count(RawOrigin::Root.into(), validator_count)
@@ -190,6 +191,7 @@ pub fn create_validators_with_nominators_for_era<T: Config + TestUtilsFn<Account
         let (v_stash, v_controller) = create_stash_controller::<T>(i, balance_factor)?;
         let validator_prefs = ValidatorPrefs {
             commission: Perbill::from_percent(50),
+            ..Default::default()
         };
         Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), v_stash.did(), Some(2))
             .expect("Failed to add permissioned validator");

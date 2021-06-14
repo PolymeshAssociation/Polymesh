@@ -2,7 +2,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{make_asset, AccountIdOf, User, UserBuilder},
-    traits::{asset::Trait as Asset, TestUtilsFn},
+    traits::{asset::Config as Asset, TestUtilsFn},
 };
 use polymesh_primitives::IdentityId;
 use sp_std::prelude::*;
@@ -13,7 +13,7 @@ fn init_ticker<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
-fn init_ctm<T: Trait + Asset + TestUtilsFn<AccountIdOf<T>>>(
+fn init_ctm<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     max_transfer_manager_per_asset: u32,
 ) -> (User<T>, Ticker, Vec<TransferManager>) {
     let (owner, ticker) = init_ticker::<T>();
@@ -36,8 +36,6 @@ mod limits {
 
 benchmarks! {
     where_clause { where T: Asset, T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     add_transfer_manager {
         let max_tm = T::MaxTransferManagersPerAsset::get().saturating_sub(1);

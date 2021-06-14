@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity::Trait as IdentityTrait;
+use crate::identity::Config as IdentityConfig;
 
 use polymesh_primitives::IdentityId;
 
@@ -90,7 +90,7 @@ pub trait WeightInfo {
     fn abdicate_membership() -> Weight;
 }
 
-pub trait Trait<I>: frame_system::Config + pallet_timestamp::Config + IdentityTrait {
+pub trait Config<I>: frame_system::Config + pallet_timestamp::Config + IdentityConfig {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -126,7 +126,7 @@ pub trait Trait<I>: frame_system::Config + pallet_timestamp::Config + IdentityTr
 decl_event!(
     pub enum Event<T, I> where
     <T as frame_system::Config>::AccountId,
-    <T as Trait<I>>::Event,
+    <T as Config<I>>::Event,
     {
         /// The given member was added; see the transaction for who.
         /// caller DID, New member DID.

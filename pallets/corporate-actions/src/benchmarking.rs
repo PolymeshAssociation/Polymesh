@@ -37,7 +37,7 @@ const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 // NOTE(Centril): A non-owner CAA is the less complex code path.
 // Therefore, in general, we'll be using the owner as the CAA.
 
-fn setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+fn setup<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
     let owner = user("owner", SEED);
@@ -45,11 +45,11 @@ fn setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     (owner, ticker)
 }
 
-fn target<T: Trait + TestUtilsFn<AccountIdOf<T>>>(u: u32) -> IdentityId {
+fn target<T: Config + TestUtilsFn<AccountIdOf<T>>>(u: u32) -> IdentityId {
     user::<T>("target", u).did()
 }
 
-crate fn target_ids<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+crate fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     treatment: TargetTreatment,
 ) -> TargetIdentities {
@@ -63,14 +63,14 @@ crate fn target_ids<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-crate fn did_whts<T: Trait + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(IdentityId, Tax)> {
+crate fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(IdentityId, Tax)> {
     (0..n)
         .map(target::<T>)
         .map(|did| (did, TAX))
         .collect::<Vec<_>>()
 }
 
-fn init_did_whts<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn init_did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     ticker: Ticker,
     n: u32,
 ) -> Vec<(IdentityId, Tax)> {
@@ -87,14 +87,14 @@ fn details(len: u32) -> CADetails {
         .into()
 }
 
-fn add_docs<T: Trait>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
+fn add_docs<T: Config>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
     let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
     let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
     <Asset<T>>::add_documents(origin.clone(), docs, ticker).unwrap();
     ids
 }
 
-crate fn setup_ca<T: Trait + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
+crate fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -121,7 +121,7 @@ crate fn setup_ca<T: Trait + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User
     (owner, ca_id)
 }
 
-fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
+fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
     let range = ballot::BallotTimeRange {
         start: 4000,
         end: 5000,
@@ -138,7 +138,7 @@ fn attach<T: Trait>(owner: &User<T>, ca_id: CAId) {
     <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
 
-crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
+crate fn currency<T: Config>(owner: &User<T>) -> Ticker {
     let currency = Ticker::try_from(b"B" as &[_]).unwrap();
     Asset::<T>::base_create_asset_and_mint(
         owner.origin().into(),
@@ -154,7 +154,7 @@ crate fn currency<T: Trait>(owner: &User<T>) -> Ticker {
     currency
 }
 
-fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
+fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
     let currency = currency::<T>(owner);
     <Distribution<T>>::distribute(
         owner.origin().into(),
@@ -169,7 +169,7 @@ fn distribute<T: Trait>(owner: &User<T>, ca_id: CAId) {
     .unwrap();
 }
 
-crate fn set_ca_targets<T: Trait + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
+crate fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
     CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();
@@ -177,12 +177,12 @@ crate fn set_ca_targets<T: Trait + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: 
     });
 }
 
-fn check_ca_created<T: Trait>(ca_id: CAId) -> DispatchResult {
+fn check_ca_created<T: Config>(ca_id: CAId) -> DispatchResult {
     assert_eq!(CAIdSequence::get(ca_id.ticker).0, 1, "CA not created");
     Ok(())
 }
 
-fn check_ca_exists<T: Trait>(ca_id: CAId) -> DispatchResult {
+fn check_ca_exists<T: Config>(ca_id: CAId) -> DispatchResult {
     assert_eq!(
         CorporateActions::get(ca_id.ticker, ca_id.local_id),
         None,
@@ -191,7 +191,7 @@ fn check_ca_exists<T: Trait>(ca_id: CAId) -> DispatchResult {
     Ok(())
 }
 
-fn check_rd<T: Trait>(ca_id: CAId) -> DispatchResult {
+fn check_rd<T: Config>(ca_id: CAId) -> DispatchResult {
     let rd = CorporateActions::get(ca_id.ticker, ca_id.local_id)
         .unwrap()
         .record_date
@@ -203,8 +203,6 @@ fn check_rd<T: Trait>(ca_id: CAId) -> DispatchResult {
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     set_max_details_length {}: _(RawOrigin::Root, 100)
     verify {
