@@ -356,19 +356,17 @@ impl<T: Trait> Module<T> {
             match (*slot, group) {
                 // Identity transition. No change in count.
                 (Some(AgentGroup::Full), Some(AgentGroup::Full)) => {}
-                // Demotion. Count is decrementing.
-                (Some(AgentGroup::Full), Some(_)) => Self::dec_full_count(ticker)?,
-                // Removal. Count is decrementing.
-                (Some(group), None) => {
-                    if let AgentGroup::Full = group {
-                        Self::dec_full_count(ticker)?;
-                    }
-                    AgentOf::remove(agent, ticker);
-                }
+                // Demotion/Removal. Count is decrementing.
+                (Some(AgentGroup::Full), _) => Self::dec_full_count(ticker)?,
                 // Promotion. Count is incrementing.
                 (_, Some(AgentGroup::Full)) => Self::inc_full_count(ticker)?,
                 // Just a change in groups.
                 _ => {}
+            }
+
+            // Removal
+            if slot.is_none() {
+                AgentOf::remove(agent, ticker);
             }
 
             *slot = group;

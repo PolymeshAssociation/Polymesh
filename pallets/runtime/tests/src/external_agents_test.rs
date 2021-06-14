@@ -1,4 +1,4 @@
-use crate::asset_test::{a_token, an_asset, basic_asset, token};
+use crate::asset_test::{a_token, an_asset, basic_asset};
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
@@ -7,11 +7,13 @@ use frame_support::{
 };
 use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
+use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
     Ticker,
 };
+use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
@@ -27,6 +29,15 @@ fn set_extrinsic(name: &str) {
 
 fn make_perms(pallet: &str) -> ExtrinsicPermissions {
     SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
+}
+
+fn add_become_agent(ticker: Ticker, from: User, to: User, group: AgentGroup) {
+    let data = AuthorizationData::BecomeAgent(ticker, group);
+    let sig = Signatory::Identity(to.did);
+    assert_ok!(Id::accept_authorization(
+        to.origin(),
+        Id::add_auth(from.did, sig, data, None)
+    ));
 }
 
 #[test]
@@ -240,8 +251,7 @@ fn add_works() {
         assert_noop!(accept_bob(id), Error::AlreadyAnAgent);
 
         // Add another full agent and make sure count is incremented.
-        let id = add(owner, charlie, AgentGroup::Full);
-        assert_ok!(accept(charlie, id));
+        add_become_agent(ticker, owner, charlie, AgentGroup::Full);
         check_num(2);
 
         // Force the count to overflow and test for graceful error.
@@ -251,12 +261,6 @@ fn add_works() {
     });
 }
 
-fn create_asset(ticker: &[u8], owner: User) -> Ticker {
-    let (ticker, token) = token(ticker, owner.did);
-    assert_ok!(basic_asset(owner, ticker, &token));
-    ticker
-}
-
 #[test]
 fn agent_of_mapping_works() {
     ExtBuilder::default().build().execute_with(|| {
@@ -264,45 +268,54 @@ fn agent_of_mapping_works() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         let dave = User::new(AccountKeyring::Dave);
-        let tickers = (b'A'..b'Z')
-            .into_iter()
-            .map(|ticker| create_asset(&[ticker], owner))
+        let mut tickers = (b'A'..b'Z')
+            .map(|ticker| {
+                let ticker = Ticker::try_from(&[ticker] as &[u8]).unwrap();
+                crate::sto_test::create_asset(owner.origin(), ticker, POLY);
+                ticker
+            })
             .collect::<Vec<_>>();
+        tickers.sort();
 
-        let add = |ticker, from: User, to: User, group| {
-            let data = AuthorizationData::BecomeAgent(ticker, group);
-            let sig = Signatory::Identity(to.did);
-            assert_ok!(Id::accept_authorization(
-                to.origin(),
-                Id::add_auth(from.did, sig, data, None)
-            ));
-        };
         let check = |user: User| {
-            let mut agents = AgentOf::iter_prefix(user.did)
+            let mut agent_of_tickers = AgentOf::iter_prefix(user.did)
                 .map(|(ticker, _)| ticker)
                 .collect::<Vec<_>>();
-            agents.sort();
-            assert_eq!(agents, tickers);
+            let mut group_of_tickers = GroupOfAgent::iter()
+                .filter(|(_, d, _)| *d == user.did)
+                .map(|(t, ..)| t)
+                .collect::<Vec<_>>();
+            agent_of_tickers.sort();
+            group_of_tickers.sort();
+            assert_eq!(agent_of_tickers, tickers);
+            assert_eq!(agent_of_tickers, group_of_tickers);
         };
         let empty = |user: User| {
             assert!(AgentOf::iter_prefix(user.did).next().is_none());
+            assert!(GroupOfAgent::iter()
+                .filter(|(_, d, _)| *d == user.did)
+                .next()
+                .is_none());
         };
         let remove = |ticker, user: User| {
             assert_ok!(ExternalAgents::abdicate(user.origin(), ticker));
         };
 
+        // Add EAs
         for ticker in &tickers {
-            add(*ticker, owner, bob, AgentGroup::Full);
-            add(*ticker, owner, charlie, AgentGroup::ExceptMeta);
-            add(*ticker, owner, dave, AgentGroup::PolymeshV1CAA);
+            add_become_agent(*ticker, owner, bob, AgentGroup::Full);
+            add_become_agent(*ticker, owner, charlie, AgentGroup::ExceptMeta);
+            add_become_agent(*ticker, owner, dave, AgentGroup::PolymeshV1CAA);
             assert_eq!(ExternalAgents::num_full_agents(ticker), 2);
         }
 
+        // Check the reverse mappings
         check(owner);
         check(bob);
         check(charlie);
         check(dave);
 
+        // Remove EAs
         for ticker in &tickers {
             remove(*ticker, bob);
             remove(*ticker, charlie);
@@ -310,6 +323,7 @@ fn agent_of_mapping_works() {
             assert_eq!(ExternalAgents::num_full_agents(ticker), 1);
         }
 
+        // Check the reverse mappings are correct or empty
         check(owner);
         empty(bob);
         empty(charlie);
