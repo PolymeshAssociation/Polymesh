@@ -349,12 +349,20 @@ decl_module! {
         #[weight = <T as Trait>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
             // Ensure DID is the dist creator, they haven't reclaimed, and that expiry has passed.
-            let did = <Identity<T>>::ensure_perms(origin)?;
+            let did = <Identity<T>>::ensure_perms(origin.clone())?;
             let dist = Self::ensure_distribution_exists(ca_id)?;
             ensure!(did == dist.from.did, Error::<T>::NotDistributionCreator);
             let did = did.for_event();
             ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
             ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
+            let caa = <ExternalAgents<T>>::ensure_perms(origin.clone(), ca_id.ticker)?.for_event();
+            let PermissionedCallOriginData {
+                primary_did: caa,
+                secondary_key,
+                ..
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
+            <Portfolio<T>>::ensure_portfolio_custody(dist.from, caa)?;
+            <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), dist.from)?;
 
             // Unlock `remaining` of `currency` from DID's portfolio.
             // This won't fail, as we've already locked the requisite amount prior.
