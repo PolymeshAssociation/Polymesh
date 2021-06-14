@@ -1,0 +1,23 @@
+[package]
+name = "pallet-relayer"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+# Common
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+frame-system = { version = "2.0.1", default-features = false }
+frame-support = { version = "2.0.1", default-features = false }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+]

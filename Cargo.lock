@@ -5689,6 +5689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-relayer"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "parity-scale-codec",
+ "polymesh-common-utilities 0.1.0",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "2.0.1"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.1#2cd20966cc09b059817c3ebe12fc130cdd850d62"
@@ -7163,6 +7173,7 @@ dependencies = [
  "pallet-protocol-fee 0.1.0",
  "pallet-protocol-fee-rpc-runtime-api 0.1.0",
  "pallet-randomness-collective-flip 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-relayer",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-settlement 0.1.0",
@@ -7243,6 +7254,7 @@ dependencies = [
  "pallet-protocol-fee 0.1.0",
  "pallet-protocol-fee-rpc-runtime-api 0.1.0",
  "pallet-randomness-collective-flip 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-relayer",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-settlement 0.1.0",
@@ -7324,6 +7336,7 @@ dependencies = [
  "pallet-protocol-fee 0.1.0",
  "pallet-protocol-fee-rpc-runtime-api 0.1.0",
  "pallet-randomness-collective-flip 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-relayer",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-settlement 0.1.0",
@@ -7479,6 +7492,7 @@ dependencies = [
  "pallet-portfolio 0.1.0",
  "pallet-protocol-fee 0.1.0",
  "pallet-randomness-collective-flip 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-relayer",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-settlement 0.1.0",
@@ -7539,6 +7553,7 @@ dependencies = [
  "pallet-pips 0.1.0",
  "pallet-portfolio 0.1.0",
  "pallet-protocol-fee 0.1.0",
+ "pallet-relayer",
  "pallet-scheduler 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-session 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "pallet-settlement 0.1.0",
