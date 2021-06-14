@@ -14,7 +14,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use pallet_portfolio::MovePortfolioItem;
+use pallet_portfolio::{MovePortfolioItem, PortfolioLockedAssets};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
@@ -1744,11 +1744,11 @@ fn basic_fuzzing() {
             let mut balances = HashMap::with_capacity(320);
             let users = vec![alice, bob, charlie, dave];
 
-            for i in 0..10 {
+            for ticker_id in 0..10 {
                 let mut create = |x: usize, key: AccountKeyring| {
-                    let tn = [b'!' + u8::try_from(i * 4 + x).unwrap()];
+                    let tn = [b'!' + u8::try_from(ticker_id * 4 + x).unwrap()];
                     tickers.push(Ticker::try_from(&tn[..]).unwrap());
-                    create_token(&tn, tickers[i * 4 + x], key.public());
+                    create_token(&tn, tickers[ticker_id * 4 + x], key.public());
                 };
                 create(0, AccountKeyring::Alice);
                 create(1, AccountKeyring::Bob);
@@ -1760,19 +1760,33 @@ fn basic_fuzzing() {
             let instruction_counter = Settlement::instruction_counter();
 
             // initialize balances
-            for i in 0..10 {
-                for j in 0..4 {
-                    balances.insert((tickers[i * 4 + j], users[j].did, "init").encode(), 100_000);
+            for ticker_id in 0..10 {
+                for user_id in 0..4 {
                     balances.insert(
-                        (tickers[i * 4 + j], users[j].did, "final").encode(),
+                        (tickers[ticker_id * 4 + user_id], users[user_id].did, "init").encode(),
+                        100_000,
+                    );
+                    balances.insert(
+                        (
+                            tickers[ticker_id * 4 + user_id],
+                            users[user_id].did,
+                            "final",
+                        )
+                            .encode(),
                         100_000,
                     );
                     for k in 0..4 {
-                        if j == k {
+                        if user_id == k {
                             continue;
                         }
-                        balances.insert((tickers[i * 4 + j], users[k].did, "init").encode(), 0);
-                        balances.insert((tickers[i * 4 + j], users[k].did, "final").encode(), 0);
+                        balances.insert(
+                            (tickers[ticker_id * 4 + user_id], users[k].did, "init").encode(),
+                            0,
+                        );
+                        balances.insert(
+                            (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
+                            0,
+                        );
                     }
                 }
             }
@@ -1781,63 +1795,72 @@ fn basic_fuzzing() {
             let mut receipts = Vec::with_capacity(100);
             let mut receipt_legs = HashMap::with_capacity(100);
             let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
-            for i in 0..10 {
-                for j in 0..4 {
+            for ticker_id in 0..10 {
+                for user_id in 0..4 {
                     let mut final_i = 100_000;
-                    balances.insert((tickers[i * 4 + j], users[j].did, "init").encode(), 100_000);
+                    balances.insert(
+                        (tickers[ticker_id * 4 + user_id], users[user_id].did, "init").encode(),
+                        100_000,
+                    );
                     for k in 0..4 {
-                        if j == k {
+                        if user_id == k {
                             continue;
                         }
-                        balances.insert((tickers[i * 4 + j], users[k].did, "init").encode(), 0);
+                        balances.insert(
+                            (tickers[ticker_id * 4 + user_id], users[k].did, "init").encode(),
+                            0,
+                        );
                         if random() {
                             // This leg should happen
                             if random() {
                                 // Receipt to be claimed
                                 balances.insert(
-                                    (tickers[i * 4 + j], users[k].did, "final").encode(),
+                                    (tickers[ticker_id * 4 + user_id], users[k].did, "final")
+                                        .encode(),
                                     0,
                                 );
                                 receipts.push(Receipt {
-                                    receipt_uid: u64::try_from(k * 1000 + i * 4 + j).unwrap(),
-                                    from: PortfolioId::default_portfolio(users[j].did),
+                                    receipt_uid: u64::try_from(k * 1000 + ticker_id * 4 + user_id)
+                                        .unwrap(),
+                                    from: PortfolioId::default_portfolio(users[user_id].did),
                                     to: PortfolioId::default_portfolio(users[k].did),
-                                    asset: tickers[i * 4 + j],
+                                    asset: tickers[ticker_id * 4 + user_id],
                                     amount: 1u128,
                                 });
                                 receipt_legs.insert(receipts.last().unwrap().encode(), legs.len());
                             } else {
                                 balances.insert(
-                                    (tickers[i * 4 + j], users[k].did, "final").encode(),
+                                    (tickers[ticker_id * 4 + user_id], users[k].did, "final")
+                                        .encode(),
                                     1,
                                 );
                                 final_i -= 1;
                             }
                             // Provide scope claim for all the dids
                             provide_scope_claim_to_multiple_parties(
-                                &[users[j].did, users[k].did],
-                                tickers[i * 4 + j],
+                                &[users[user_id].did, users[k].did],
+                                tickers[ticker_id * 4 + user_id],
                                 eve.acc(),
                             );
                             legs.push(Leg {
-                                from: PortfolioId::default_portfolio(users[j].did),
+                                from: PortfolioId::default_portfolio(users[user_id].did),
                                 to: PortfolioId::default_portfolio(users[k].did),
-                                asset: tickers[i * 4 + j],
+                                asset: tickers[ticker_id * 4 + user_id],
                                 amount: 1,
                             });
-                            let count = if legs_count.contains_key(&users[j].did) {
-                                *legs_count.get(&users[j].did).unwrap() + 1
-                            } else {
-                                1
-                            };
-                            legs_count.insert(users[j].did, count);
+                            *legs_count.entry(users[user_id].did).or_insert(0) += 1;
                             if legs.len() >= 100 {
                                 break;
                             }
                         }
                     }
                     balances.insert(
-                        (tickers[i * 4 + j], users[j].did, "final").encode(),
+                        (
+                            tickers[ticker_id * 4 + user_id],
+                            users[user_id].did,
+                            "final",
+                        )
+                            .encode(),
                         final_i,
                     );
                     if legs.len() >= 100 {
@@ -1854,7 +1877,7 @@ fn basic_fuzzing() {
                 SettlementType::SettleOnBlock(block_number),
                 None,
                 None,
-                legs
+                legs.clone()
             ));
 
             // Authorize instructions and do a few authorize/deny in between
@@ -1937,45 +1960,46 @@ fn basic_fuzzing() {
                 ));
             }
 
+            // Get state of locked tokens
+            let mut locked_assets = HashMap::new();
+            for user in &users {
+                locked_assets.insert(
+                    user.did,
+                    <PortfolioLockedAssets<TestStorage>>::iter_prefix(
+                        PortfolioId::default_portfolio(user.did),
+                    )
+                    .collect::<Vec<_>>(),
+                );
+            }
+
             next_block();
 
-            for i in 0..40 {
-                for j in 0..4 {
+            for ticker in &tickers {
+                for user in &users {
                     if fail {
-                        assert_eq!(
-                            Portfolio::locked_assets(
-                                PortfolioId::default_portfolio(users[j].did),
-                                &tickers[i]
-                            ),
-                            if failed_user == j { 0 } else { 1 }
-                        );
-                        assert_eq!(
-                            Asset::balance_of(&tickers[i], users[j].did),
-                            u128::try_from(
-                                *balances
-                                    .get(&(tickers[i], users[j].did, "init").encode())
-                                    .unwrap()
-                            )
-                            .unwrap()
-                        );
                         assert_eq!(
                             Settlement::instruction_details(instruction_counter).status,
                             InstructionStatus::Failed
                         );
+                        assert_eq!(
+                            Asset::balance_of(&ticker, user.did),
+                            u128::try_from(
+                                *balances.get(&(ticker, user.did, "init").encode()).unwrap()
+                            )
+                            .unwrap()
+                        );
                     } else {
                         assert_eq!(
-                            Asset::balance_of(&tickers[i], users[j].did),
+                            Asset::balance_of(&ticker, user.did),
                             u128::try_from(
-                                *balances
-                                    .get(&(tickers[i], users[j].did, "final").encode())
-                                    .unwrap()
+                                *balances.get(&(ticker, user.did, "final").encode()).unwrap()
                             )
                             .unwrap()
                         );
                         assert_eq!(
                             Portfolio::locked_assets(
-                                PortfolioId::default_portfolio(users[j].did),
-                                &tickers[i]
+                                PortfolioId::default_portfolio(user.did),
+                                &ticker
                             ),
                             0
                         );
@@ -1984,6 +2008,16 @@ fn basic_fuzzing() {
             }
 
             if fail {
+                // Ensure tokens stayed locked when instruction failed
+                for user in &users {
+                    assert_eq!(
+                        *locked_assets.get(&user.did).unwrap(),
+                        <PortfolioLockedAssets<TestStorage>>::iter_prefix(
+                            PortfolioId::default_portfolio(user.did,)
+                        )
+                        .collect::<Vec<_>>()
+                    );
+                }
                 assert_ok!(Settlement::reject_instruction(
                     users[0].origin(),
                     instruction_counter
@@ -1994,13 +2028,10 @@ fn basic_fuzzing() {
                 );
             }
 
-            for i in 0..40 {
-                for j in 0..4 {
+            for ticker in &tickers {
+                for user in &users {
                     assert_eq!(
-                        Portfolio::locked_assets(
-                            PortfolioId::default_portfolio(users[j].did),
-                            &tickers[i]
-                        ),
+                        Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), ticker),
                         0
                     );
                 }
