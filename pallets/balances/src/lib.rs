@@ -542,12 +542,12 @@ impl<T: Config> Module<T> {
             if existed {
                 // TODO: use Locks::<T, I>::hashed_key
                 // https://github.com/paritytech/substrate/issues/4969
-                system::Module::<T>::dec_ref(who);
+                system::Module::<T>::dec_consumers(who);
             }
         } else {
             Locks::<T>::insert(who, locks);
             if !existed {
-                system::Module::<T>::inc_ref(who);
+                system::Module::<T>::inc_consumers(who);
             }
         }
     }
