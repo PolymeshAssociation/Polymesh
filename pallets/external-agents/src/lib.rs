@@ -365,7 +365,7 @@ impl<T: Trait> Module<T> {
             }
 
             // Removal
-            if slot.is_none() {
+            if group.is_none() {
                 AgentOf::remove(agent, ticker);
             }
 
