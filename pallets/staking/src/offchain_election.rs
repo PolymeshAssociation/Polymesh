@@ -485,7 +485,7 @@ mod test {
         unimplemented_weight_fn!(set_history_depth, u32);
         unimplemented_weight_fn!(reap_stash, u32);
         unimplemented_weight_fn!(payout_stakers, u32);
-        unimplemented_weight_fn!(payout_stakers_alive_controller);
+        unimplemented_weight_fn!(payout_stakers_alive_controller, u32);
         unimplemented_weight_fn!(payout_all, u32, u32);
         unimplemented_weight_fn!(new_era, u32, u32);
         unimplemented_weight_fn!(submit_solution_initial, u32, u32, u32);
