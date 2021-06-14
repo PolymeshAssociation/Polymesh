@@ -106,34 +106,56 @@ macro_rules! assert_add_cdd_claim {
 
 // Tests
 // ======================================
-/// TODO Add `Signatory::Identity(..)` test.
 #[test]
 fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let owner_signer = Signatory::Account(AccountKeyring::Alice.public());
+        let alice = User::new(AccountKeyring::Alice);
+        let alice_signer = Signatory::Account(alice.acc());
 
-        let a_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let a = Origin::signed(AccountKeyring::Bob.public());
-        let b_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let bob = User::new(AccountKeyring::Bob);
+        let dave = User::new(AccountKeyring::Dave);
+        let dave_ident_signer = Signatory::Identity(dave.did);
 
         let charlie_key = AccountKeyring::Charlie.public();
         let charlie_signer = Signatory::Account(charlie_key);
 
-        add_secondary_key(a_did, charlie_signer);
+        // Add charlie's key as a secondary key of bob.
+        add_secondary_key(bob.did, charlie_signer);
 
-        // Check primary key on primary and secondary_keys.
-        assert!(Identity::is_signer_authorized(owner_did, &owner_signer));
-        assert!(Identity::is_signer_authorized(a_did, &charlie_signer));
+        // Add dave's identity as a secondary key of alice.
+        add_secondary_key(alice.did, dave_ident_signer);
 
-        assert!(Identity::is_signer_authorized(b_did, &charlie_signer) == false);
+        // Check primary key.  `Signatory::Account`
+        assert!(Identity::is_signer_authorized(alice.did, &alice_signer));
+        // Check secondary_keys.  `Signatory::Account`
+        assert!(Identity::is_signer_authorized(bob.did, &charlie_signer));
 
-        // ... and remove that key.
+        // charlie's key isn't a signer for dave
+        assert!(Identity::is_signer_authorized(dave.did, &charlie_signer) == false);
+
+        // Check dave's identity as a signer for alice.
+        assert!(Identity::is_signer_authorized(alice.did, &dave_ident_signer));
+
+        // Remove charlie's key from the secondary keys of bob.
         assert_ok!(Identity::remove_secondary_keys(
-            a.clone(),
+            bob.origin(),
             vec![charlie_signer.clone()]
         ));
-        assert!(Identity::is_signer_authorized(a_did, &charlie_signer) == false);
+
+        // Verify the secondary key was removed.
+        assert!(Identity::is_signer_authorized(bob.did, &charlie_signer) == false);
+
+        // Switch to Alice's identity
+        TestStorage::set_current_identity(&alice.did);
+
+        // Remove dave's identity from the secondary keys of alice.
+        assert_ok!(Identity::remove_secondary_keys(
+            alice.origin(),
+            vec![dave_ident_signer.clone()]
+        ));
+
+        // Verify the secondary key was removed.
+        assert!(Identity::is_signer_authorized(alice.did, &dave_ident_signer) == false);
     });
 }
 
