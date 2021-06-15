@@ -455,8 +455,8 @@ impl<T: Trait> Module<T> {
     fn agent_permissions(ticker: Ticker, agent: IdentityId) -> ExtrinsicPermissions {
         let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
         let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
-        fn elems<const N: usize>(elems: [PalletPermissions; N]) -> ExtrinsicPermissions {
-            ExtrinsicPermissions::elems(IntoIter::new(elems))
+        fn elems<T: Ord, const N: usize>(elems: [T; N]) -> SubsetRestriction<T> {
+            SubsetRestriction::elems(IntoIter::new(elems))
         }
         match GroupOfAgent::get(ticker, agent) {
             None => ExtrinsicPermissions::empty(),
@@ -465,7 +465,7 @@ impl<T: Trait> Module<T> {
                 GroupPermissions::get(ticker, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
             }
             // Anything but extrinsics in this pallet & `accept_authorization`.
-            Some(AgentGroup::ExceptMeta) => elems([
+            Some(AgentGroup::ExceptMeta) => SubsetRestriction::excepts(IntoIter::new([
                 // `Identity::accept_authorization` needs to be excluded.
                 in_pallet(
                     "Identity",
@@ -473,7 +473,7 @@ impl<T: Trait> Module<T> {
                 ),
                 // `ExternalAgents` needs to be excluded.
                 pallet("ExternalAgents"),
-            ]),
+            ])),
             // Pallets `CorporateAction`, `CorporateBallot`, and `CapitalDistribution`.
             Some(AgentGroup::PolymeshV1CAA) => elems([
                 pallet("CorporateAction"),
@@ -486,11 +486,11 @@ impl<T: Trait> Module<T> {
                 // Asset::{issue, redeem, controller_transfer}.
                 in_pallet(
                     "Asset",
-                    SubsetRestriction::elems(IntoIter::new([
+                    elems([
                         "issue".into(),
                         "redeem".into(),
                         "controller_transfer".into(),
-                    ])),
+                    ]),
                 ),
             ]),
         }

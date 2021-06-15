@@ -8,6 +8,8 @@
         },
         "IdentityId": "[u8; 32]",
         "EventDid": "IdentityId",
+        "EventCounts": "Vec<u32>",
+        "ErrorAt": "(u32, DispatchError)",
         "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
@@ -980,7 +982,8 @@
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
-                "Pending": ""
+                "Pending": "",
+                "Failed": ""
             }
         },
         "LegStatus": {
@@ -1224,7 +1227,7 @@
             "_enum": {
                 "Full": "",
                 "Custom": "AGId",
-                "Meta": "",
+                "ExceptMeta": "",
                 "PolymeshV1CAA": "",
                 "PolymeshV1PIA": ""
             }

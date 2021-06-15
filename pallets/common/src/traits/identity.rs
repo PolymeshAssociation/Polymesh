@@ -173,8 +173,13 @@ decl_event!(
         /// A signer left their identity. (did, signer)
         SignerLeft(IdentityId, Signatory<AccountId>),
 
-        /// DID, updated secondary key, previous permissions
-        SecondaryKeyPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Permissions),
+        /// DID, updated secondary key, previous permissions, new permissions
+        SecondaryKeyPermissionsUpdated(
+            IdentityId,
+            SecondaryKey<AccountId>,
+            Permissions,
+            Permissions,
+        ),
 
         /// DID, old primary key account ID, new ID
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
