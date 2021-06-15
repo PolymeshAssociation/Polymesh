@@ -17,8 +17,8 @@ use crate::{
     traits::{
         group::GroupTrait,
         multisig::MultiSigSubTrait,
-        relayer::RelayerSubTrait,
         portfolio::PortfolioSubTrait,
+        relayer::RelayerSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait,
     },

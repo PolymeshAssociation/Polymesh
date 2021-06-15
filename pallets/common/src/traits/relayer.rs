@@ -1,9 +1,6 @@
-use crate::{
-    traits::identity,
-    CommonTrait,
-};
-use frame_support::{decl_event, weights::Weight};
+use crate::{traits::identity, CommonTrait};
 use frame_support::dispatch::DispatchResult;
+use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{EventDid, IdentityId, Signatory};
 
 pub trait WeightInfo {
