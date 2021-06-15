@@ -881,12 +881,7 @@ fn cm_test_case_9_we() {
     );
 
     let verify_restriction_granular = |user: User, claim| {
-        assert_ok!(Identity::add_claim(
-            issuer.origin(),
-            user.did,
-            claim,
-            None
-        ));
+        assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
         assert_valid_transfer!(ticker, owner.did, user.did, 100);
         ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(user.did))
     };
@@ -910,7 +905,8 @@ fn cm_test_case_9_we() {
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
+    let result =
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
