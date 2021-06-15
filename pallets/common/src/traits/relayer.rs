@@ -1,3 +1,7 @@
+use crate::{
+    traits::identity,
+    CommonTrait,
+};
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::EventDid;
 
@@ -5,7 +9,7 @@ pub trait WeightInfo {
     fn set_paying_key() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: CommonTrait + identity::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 

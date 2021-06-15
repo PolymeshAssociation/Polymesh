@@ -8,6 +8,7 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl pallet_relayer::WeightInfo for WeightInfo {
     fn set_paying_key() -> Weight {
+        // TODO: run benchmarks to re-generate this file
         (10_000 as Weight)
     }
 }

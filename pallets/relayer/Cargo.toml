@@ -12,6 +12,10 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 frame-system = { version = "2.0.1", default-features = false }
 frame-support = { version = "2.0.1", default-features = false }
+sp-std = { version = "2.0.1", default-features = false }
+
+# Only Benchmarking
+frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -20,4 +24,9 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "sp-std/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
 ]

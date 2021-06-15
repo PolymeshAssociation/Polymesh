@@ -19,10 +19,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use frame_support::{
-    debug, decl_error, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    debug, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
+use frame_system::ensure_signed;
 
 pub use polymesh_common_utilities::traits::relayer::{Event, Trait, WeightInfo};
 
@@ -41,7 +44,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Set paying key for `userKey`
-        #[weight = 10_000]
+        #[weight = <T as Trait>::WeightInfo::set_paying_key()]
         pub fn set_paying_key(origin, user_key: T::AccountId) -> DispatchResult {
             Self::base_set_paying_key(origin, user_key)
         }
@@ -56,12 +59,20 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    fn base_set_paying_key(
-        origin: T::Origin,
-        user_key: T::AccountId,
-    ) -> DispatchResult {
+    fn base_set_paying_key(origin: T::Origin, user_key: T::AccountId) -> DispatchResult {
         debug::info!("set_paying_key(): user_key={:?}", user_key);
-        todo!("set_paying_key");
+        let sender = ensure_signed(origin)?;
+
+        ensure!(
+            <PayingKeys<T>>::contains_key(&user_key),
+            Error::<T>::AlreadyHasPayingKey
+        );
+
+        // TODO: generate Nonce for `auth_id` and store auth data.
+
+        // TODO: move this to `accept_paying_key`
+        <PayingKeys<T>>::insert(sender, user_key);
+
         Ok(())
     }
 }

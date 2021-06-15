@@ -429,8 +429,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
-            // TODO: add benchmarks
-            //add_benchmark!(params, batches, pallet_relayer, Relayer);
+            add_benchmark!(params, batches, pallet_relayer, Relayer);
             add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
