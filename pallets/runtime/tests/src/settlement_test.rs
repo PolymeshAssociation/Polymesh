@@ -14,7 +14,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use pallet_portfolio::{MovePortfolioItem, PortfolioLockedAssets};
+use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
@@ -1795,6 +1795,7 @@ fn basic_fuzzing() {
             let mut receipts = Vec::with_capacity(100);
             let mut receipt_legs = HashMap::with_capacity(100);
             let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
+            let mut locked_assets = HashMap::with_capacity(100);
             for ticker_id in 0..10 {
                 for user_id in 0..4 {
                     let mut final_i = 100_000;
@@ -1835,6 +1836,9 @@ fn basic_fuzzing() {
                                     1,
                                 );
                                 final_i -= 1;
+                                *locked_assets
+                                    .entry((users[user_id].did, tickers[ticker_id * 4 + user_id]))
+                                    .or_insert(0) += 1;
                             }
                             // Provide scope claim for all the dids
                             provide_scope_claim_to_multiple_parties(
@@ -1948,6 +1952,35 @@ fn basic_fuzzing() {
                 ));
             }
 
+            fn check_locked_assets(
+                locked_assets: &HashMap<(IdentityId, Ticker), i32>,
+                tickers: &Vec<Ticker>,
+                users: &Vec<User>,
+            ) {
+                for ((did, ticker), balance) in locked_assets {
+                    assert_eq!(
+                        Portfolio::locked_assets(PortfolioId::default_portfolio(*did), ticker),
+                        *balance as u128
+                    );
+                }
+                for ticker in tickers {
+                    for user in users {
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(user.did),
+                                &ticker
+                            ),
+                            locked_assets
+                                .get(&(user.did, *ticker))
+                                .cloned()
+                                .unwrap_or(0) as u128
+                        );
+                    }
+                }
+            }
+
+            check_locked_assets(&locked_assets, &tickers, &users);
+
             let fail: bool = random();
             let mut rng = thread_rng();
             let failed_user = rng.gen_range(0, 4);
@@ -1958,35 +1991,38 @@ fn basic_fuzzing() {
                     default_portfolio_vec(users[failed_user].did),
                     *legs_count.get(&users[failed_user].did).unwrap_or(&0)
                 ));
-            }
-
-            // Get state of locked tokens
-            let mut locked_assets = HashMap::new();
-            for user in &users {
-                locked_assets.insert(
-                    user.did,
-                    <PortfolioLockedAssets<TestStorage>>::iter_prefix(
-                        PortfolioId::default_portfolio(user.did),
-                    )
-                    .collect::<Vec<_>>(),
-                );
+                locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
             }
 
             next_block();
 
+            if fail {
+                assert_eq!(
+                    Settlement::instruction_details(instruction_counter).status,
+                    InstructionStatus::Failed
+                );
+                check_locked_assets(&locked_assets, &tickers, &users);
+            }
+
             for ticker in &tickers {
                 for user in &users {
                     if fail {
-                        assert_eq!(
-                            Settlement::instruction_details(instruction_counter).status,
-                            InstructionStatus::Failed
-                        );
                         assert_eq!(
                             Asset::balance_of(&ticker, user.did),
                             u128::try_from(
                                 *balances.get(&(ticker, user.did, "init").encode()).unwrap()
                             )
                             .unwrap()
+                        );
+                        assert_eq!(
+                            Portfolio::locked_assets(
+                                PortfolioId::default_portfolio(user.did),
+                                &ticker
+                            ),
+                            locked_assets
+                                .get(&(user.did, *ticker))
+                                .cloned()
+                                .unwrap_or(0) as u128
                         );
                     } else {
                         assert_eq!(
@@ -2008,16 +2044,6 @@ fn basic_fuzzing() {
             }
 
             if fail {
-                // Ensure tokens stayed locked when instruction failed
-                for user in &users {
-                    assert_eq!(
-                        *locked_assets.get(&user.did).unwrap(),
-                        <PortfolioLockedAssets<TestStorage>>::iter_prefix(
-                            PortfolioId::default_portfolio(user.did,)
-                        )
-                        .collect::<Vec<_>>()
-                    );
-                }
                 assert_ok!(Settlement::reject_instruction(
                     users[0].origin(),
                     instruction_counter
