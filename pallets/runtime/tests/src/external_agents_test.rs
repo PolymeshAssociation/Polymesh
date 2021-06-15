@@ -32,9 +32,9 @@ fn make_perms(pallet: &str) -> ExtrinsicPermissions {
 }
 
 fn add_become_agent(ticker: Ticker, from: User, to: User, group: AgentGroup) {
-    let auth = Id::add_auth(from.did, sig, data, None);
     let data = AuthorizationData::BecomeAgent(ticker, group);
     let sig = Signatory::Identity(to.did);
+    let auth = Id::add_auth(from.did, sig, data, None);
     assert_ok!(Id::accept_authorization(to.origin(), auth));
 }
 
