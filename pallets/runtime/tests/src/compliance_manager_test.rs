@@ -880,50 +880,37 @@ fn cm_test_case_9_we() {
         AccountKeyring::One.public(),
     );
 
+    let verify_restriction_granular = |user: User, claim| {
+        assert_ok!(Identity::add_claim(
+            issuer.origin(),
+            user.did,
+            claim,
+            None
+        ));
+        assert_valid_transfer!(ticker, owner.did, user.did, 100);
+        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(user.did))
+    };
+
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
-    assert_ok!(Identity::add_claim(
-        issuer.origin(),
-        charlie.did,
-        Claim::KnowYourCustomer(scope.clone()),
-        None
-    ));
-    assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie.did));
+    let result = verify_restriction_granular(charlie, Claim::KnowYourCustomer(scope.clone()));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.2. Dave has a 'Affiliate' Claim
-    assert_ok!(Identity::add_claim(
-        issuer.origin(),
-        dave.did,
-        Claim::Affiliate(scope.clone()),
-        None
-    ));
-    assert_valid_transfer!(ticker, owner.did, dave.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave.did));
+    let result = verify_restriction_granular(dave, Claim::Affiliate(scope.clone()));
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.3. Eve has a 'Exempted' Claim
-    assert_ok!(Identity::add_claim(
-        issuer.origin(),
-        eve.did,
-        Claim::Exempted(scope.clone()),
-        None
-    ));
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
+    let result = verify_restriction_granular(eve, Claim::Exempted(scope.clone()));
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
+    let result = ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
