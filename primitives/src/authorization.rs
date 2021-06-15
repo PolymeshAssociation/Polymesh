@@ -55,6 +55,9 @@ pub enum AuthorizationData<AccountId> {
     TransferCorporateActionAgent(Ticker),
     /// Authorization to become an agent of the `Ticker` with the `AgentGroup`.
     BecomeAgent(Ticker, AgentGroup),
+    /// Add Relayer paying key to user key
+    /// Must be issued by the paying key.
+    AddRelayerPayingKey(AccountId, AccountId),
 }
 
 impl<T> AuthorizationData<T> {
@@ -75,6 +78,7 @@ impl<T> AuthorizationData<T> {
             Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
             Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
             Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
+            Self::AddRelayerPayingKey(..) => AuthorizationType::AddRelayerPayingKey,
             Self::Custom(..) => AuthorizationType::Custom,
             Self::NoData => AuthorizationType::NoData,
         }
@@ -110,6 +114,8 @@ pub enum AuthorizationType {
     TransferCorporateActionAgent,
     /// Authorization to become an agent of a ticker.
     BecomeAgent,
+    /// Authorization to add a Relayer paying key.
+    AddRelayerPayingKey,
 }
 
 impl<AccountId> Default for AuthorizationData<AccountId> {

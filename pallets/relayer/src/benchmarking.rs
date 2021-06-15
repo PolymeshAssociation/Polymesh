@@ -22,6 +22,8 @@ use polymesh_common_utilities::{
 };
 use sp_std::prelude::*;
 
+type Relayer<T> = crate::Module<T>;
+
 pub(crate) const SEED: u32 = 0;
 
 benchmarks! {
@@ -33,4 +35,21 @@ benchmarks! {
         let payer = user::<T>("payer", SEED);
         let user = user::<T>("user", SEED);
     }: _(payer.origin(), user.account())
+
+    accept_paying_key {
+        let payer = user::<T>("payer", SEED);
+        let user = user::<T>("user", SEED);
+        // setup authorization
+        let auth_id = <Relayer<T>>::unsafe_add_auth_for_paying_key(
+            payer.did(), user.account(), payer.account()
+        );
+    }: _(user.origin(), auth_id)
+
+    remove_paying_key {
+        let payer = user::<T>("payer", SEED);
+        let user = user::<T>("user", SEED);
+        let user_signer = Signatory::Account(user.account());
+        // accept paying key
+        <Relayer<T>>::auth_accept_paying_key(user_signer, payer.did(), user.account(), payer.account()).unwrap();
+    }: _(payer.origin(), user.account(), payer.account())
 }

@@ -5695,8 +5695,10 @@ dependencies = [
  "frame-benchmarking 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-support 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
  "frame-system 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
+ "pallet-identity 0.1.0",
  "parity-scale-codec",
  "polymesh-common-utilities 0.1.0",
+ "polymesh-primitives 2.0.0",
  "sp-std 2.0.1 (git+https://github.com/PolymathNetwork/substrate?tag=v2.0.1-2)",
 ]
 

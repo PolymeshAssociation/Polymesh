@@ -5,6 +5,8 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 #[derive(Encode, Decode)]
 pub enum CallType {
     AcceptMultiSigSigner,
+    // TODO:
+    //AcceptRelayerPayingKey,
     AcceptIdentitySecondary,
     AcceptIdentityPrimary,
     /// Matches any call to `remove_authorization`,

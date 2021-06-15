@@ -5,8 +5,9 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-# Common
+pallet-identity = { path = "../identity", default-features = false}
 polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false}
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -25,6 +26,9 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "sp-std/std",
+    "pallet-identity/std",
+    "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

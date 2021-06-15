@@ -11,4 +11,12 @@ impl pallet_relayer::WeightInfo for WeightInfo {
         // TODO: run benchmarks to re-generate this file
         (10_000 as Weight)
     }
+    fn accept_paying_key() -> Weight {
+        // TODO: run benchmarks to re-generate this file
+        (10_000 as Weight)
+    }
+    fn remove_paying_key() -> Weight {
+        // TODO: run benchmarks to re-generate this file
+        (10_000 as Weight)
+    }
 }

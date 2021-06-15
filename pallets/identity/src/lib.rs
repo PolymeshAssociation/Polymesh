@@ -123,6 +123,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
+        relayer::RelayerSubTrait,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -523,8 +524,14 @@ decl_module! {
             expiry: Option<T::Moment>
         ) {
             let from_did = Self::ensure_perms(origin)?;
-            if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
-                Self::ensure_perms_length_limited(perms)?;
+            match &authorization_data {
+                AuthorizationData::JoinIdentity(perms) => {
+                    Self::ensure_perms_length_limited(perms)?;
+                }
+                AuthorizationData::AddRelayerPayingKey(user_key, paying_key) => {
+                    T::Relayer::ensure_set_paying_key(from_did, user_key, paying_key)?;
+                }
+                _ => ()
             }
             Self::add_auth(from_did, target, authorization_data, expiry);
         }
@@ -584,6 +591,7 @@ decl_module! {
 
             match (signer.clone(), auth.authorization_data) {
                 (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
+                (sig, AuthorizationData::AddRelayerPayingKey(user_key, paying_key)) => T::Relayer::auth_accept_paying_key(sig, from, user_key, paying_key),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
