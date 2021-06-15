@@ -547,7 +547,7 @@ impl<T: Config> Module<T> {
         } else {
             Locks::<T>::insert(who, locks);
             if !existed {
-                system::Module::<T>::inc_consumers(who);
+                let _ = system::Module::<T>::inc_consumers(who);
             }
         }
     }
