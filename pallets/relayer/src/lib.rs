@@ -24,9 +24,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use frame_support::{
-    debug, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::ensure_signed;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
@@ -96,7 +94,6 @@ decl_error! {
 
 impl<T: Trait> Module<T> {
     fn base_set_paying_key(origin: T::Origin, user_key: T::AccountId) -> DispatchResult {
-        debug::info!("set_paying_key(): user_key={:?}", user_key);
         let PermissionedCallOriginData {
             sender: paying_key,
             primary_did: paying_did,
@@ -111,7 +108,6 @@ impl<T: Trait> Module<T> {
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
-        debug::info!("accept_paying_key(): auth_id={:?}", auth_id);
         let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender);
 
@@ -132,11 +128,6 @@ impl<T: Trait> Module<T> {
         user_key: T::AccountId,
         paying_key: T::AccountId,
     ) -> DispatchResult {
-        debug::info!(
-            "remove_paying_key(): user_key={:?}, paying_key={:?}",
-            user_key,
-            paying_key
-        );
         let _sender = ensure_signed(origin)?;
         // TOOD: check: `origin == user_key` or `origin == primary key of user_key's identity` or `origin == paying_key`
 
