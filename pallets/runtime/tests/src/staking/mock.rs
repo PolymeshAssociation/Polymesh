@@ -575,11 +575,7 @@ impl RelayerSubTrait<AccountId> for Test {
     ) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_set_paying_key(
-        _: IdentityId,
-        _: &AccountId,
-        _: &AccountId,
-    ) -> DispatchResult {
+    fn ensure_set_paying_key(_: IdentityId, _: &AccountId, _: &AccountId) -> DispatchResult {
         unimplemented!()
     }
 }
