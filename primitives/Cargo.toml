@@ -76,6 +76,4 @@ std = [
 ]
 
 runtime-benchmarks = [
-    "sp-io/disable_oom",
-    "sp-io/disable_panic_handler",
 ]

@@ -403,7 +403,7 @@ polymesh_runtime_common::runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-            use frame_system_benchmarking::Module as SystemBench;
+            //use frame_system_benchmarking::Module as SystemBench;
             use crate::benchmarks::pallet_session::Module as SessionBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
