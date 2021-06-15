@@ -33,7 +33,6 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::Config as IdentityConfig,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
@@ -470,7 +469,7 @@ impl committee::Config<committee::Instance4> for TestStorage {
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
-impl IdentityTrait for TestStorage {
+impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;

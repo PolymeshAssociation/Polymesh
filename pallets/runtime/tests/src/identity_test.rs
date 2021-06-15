@@ -24,7 +24,7 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::{SecondaryKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
+        identity::{Config as IdentityConfig, SecondaryKeyWithAuth, TargetIdAuthorization},
         transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers, GC_DID,
@@ -51,7 +51,7 @@ type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
+type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
 

@@ -19,8 +19,8 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
-    ClassicTickers, ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig,
-    Tickers, Trait as AssetTrait,
+    ClassicTickers, Config as AssetConfig, ScopeIdOf, SecurityToken, TickerRegistration,
+    TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -83,7 +83,7 @@ fn set_time_to_now() {
 }
 
 crate fn max_len() -> u32 {
-    <TestStorage as pallet_base::Trait>::MaxLen::get()
+    <TestStorage as pallet_base::Config>::MaxLen::get()
 }
 
 crate fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
@@ -203,10 +203,10 @@ fn new_portfolio(owner: AccountId, name: &str) -> PortfolioId {
     PortfolioId::user_portfolio(did, portfolio_num)
 }
 
-/// Returns a `FundingRoundName` which exceeds the maximum length defined in `AssetTrait`.
+/// Returns a `FundingRoundName` which exceeds the maximum length defined in `AssetConfig`.
 fn exceeded_funding_round_name() -> FundingRoundName {
     let funding_round_max_length =
-        <TestStorage as AssetTrait>::FundingRoundNameMaxLength::get() + 1;
+        <TestStorage as AssetConfig>::FundingRoundNameMaxLength::get() + 1;
 
     iter::repeat(b'A')
         .take(funding_round_max_length as usize)
@@ -1928,7 +1928,7 @@ fn next_checkpoint_is_updated_we() {
     };
     let period_ms = period_secs * 1000;
     Timestamp::set_timestamp(start);
-    assert_eq!(start, <TestStorage as asset::Trait>::UnixTime::now());
+    assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
@@ -2000,7 +2000,7 @@ fn non_recurring_schedule_works_we() {
     // Non-recuring schedule.
     let period = CalendarPeriod::default();
     Timestamp::set_timestamp(start);
-    assert_eq!(start, <TestStorage as asset::Trait>::UnixTime::now());
+    assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
@@ -2297,7 +2297,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
     let name: AssetName = ticker.as_ref().into();
     let atype = AssetType::default();
 
-    let name_max_length = <TestStorage as AssetTrait>::AssetNameMaxLength::get() + 1;
+    let name_max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
     let input_expected = vec![
         (
             bytes_of_len(b'A', name_max_length as usize),

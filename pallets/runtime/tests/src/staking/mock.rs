@@ -40,8 +40,8 @@ use polymesh_common_utilities::{
     traits::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
-        group::{GroupConfig, InactiveMember},
-        identity::{Config as IdentityConfig, IdentityToExternalAgents},
+        group::{GroupTrait, InactiveMember},
+        identity::IdentityToExternalAgents,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -53,19 +53,15 @@ use polymesh_primitives::{
     Claim, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey,
     Signatory, Ticker,
 };
-use sp_core::{
-    u32_trait::{_1, _4},
-    H256,
-};
+use sp_core::H256;
 use sp_npos_elections::{
     reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
     StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
-    generic,
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, Convert, IdentityLookup, SaturatedConversion, StaticLookup, Zero},
+    traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId, Perbill, Permill,
 };
@@ -225,7 +221,7 @@ impl frame_system::Config for Test {
     type SS58Prefix = ();
 }
 
-impl pallet_base::Trait for Test {
+impl pallet_base::Config for Test {
     type Event = Event;
     type MaxLen = MaxLen;
 }
@@ -236,7 +232,7 @@ impl CommonConfig for Test {
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
     type DustRemoval = ();
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
@@ -268,7 +264,7 @@ impl pallet_session::Config for Test {
     type WeightInfo = ();
 }
 
-impl pallet_committee::Trait<pallet_committee::Instance1> for Test {
+impl pallet_committee::Config<pallet_committee::Instance1> for Test {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -280,7 +276,7 @@ impl pallet_session::historical::Config for Test {
     type FullIdentificationOf = ExposureOf<Test>;
 }
 
-impl pallet_pips::Trait for Test {
+impl pallet_pips::Config for Test {
     type Currency = pallet_balances::Module<Self>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = crate::storage::Committee;
@@ -291,7 +287,7 @@ impl pallet_pips::Trait for Test {
     type Scheduler = Scheduler;
 }
 
-impl pallet_treasury::Trait for Test {
+impl pallet_treasury::Config for Test {
     type Event = Event;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
@@ -313,7 +309,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl group::Trait<group::Instance2> for Test {
+impl group::Config<group::Instance2> for Test {
     type Event = Event;
     type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
@@ -325,14 +321,14 @@ impl group::Trait<group::Instance2> for Test {
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
 }
 
-impl protocol_fee::Trait for Test {
+impl protocol_fee::Config for Test {
     type Event = Event;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
     type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
 }
 
-impl IdentityTrait for Test {
+impl polymesh_common_utilities::traits::identity::Config for Test {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = Test;
@@ -369,7 +365,7 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = ();
 }
 
-impl pallet_test_utils::Trait for Test {
+impl pallet_test_utils::Config for Test {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
