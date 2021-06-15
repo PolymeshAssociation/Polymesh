@@ -178,27 +178,23 @@ impl User {
     pub fn uid(&self) -> InvestorUid {
         create_investor_uid(self.acc())
     }
-}
 
-impl From<User> for Scope {
-    fn from(user: User) -> Self {
-        Self::Identity(user.did)
+    /// Create a `Scope::Identity` from a User
+    pub fn scope(&self) -> Scope {
+        Scope::Identity(self.did)
     }
-}
 
-impl From<User> for IdentityId {
-    fn from(user: User) -> Self {
-        user.did
-    }
-}
-
-/// Create a `TrustedIssuer` trusted from a User
-impl From<User> for TrustedIssuer {
-    fn from(user: User) -> Self {
-        Self {
-            issuer: user.did,
-            trusted_for: TrustedFor::Any,
+    /// Create a `TrustedIssuer` trusted from a User
+    pub fn trusted_issuer_for(&self, trusted_for: TrustedFor) -> TrustedIssuer {
+        TrustedIssuer {
+            issuer: self.did,
+            trusted_for,
         }
+    }
+
+    /// Create a `TrustedIssuer` trusted from a User
+    pub fn issuer(&self) -> TrustedIssuer {
+        self.did.into()
     }
 }
 

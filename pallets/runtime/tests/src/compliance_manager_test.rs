@@ -23,7 +23,7 @@ use polymesh_primitives::{
         AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
     },
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
+    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor,
 };
 use sp_std::prelude::*;
 use test_client::AccountKeyring;
@@ -117,21 +117,18 @@ fn should_add_and_verify_compliance_requirement_we() {
         Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer.did]);
 
     let receiver_condition1 = Condition::from_dids(
-        ConditionType::IsAbsent(Claim::KnowYourCustomer(owner.into())),
+        ConditionType::IsAbsent(Claim::KnowYourCustomer(owner.scope())),
         &[cdd.did],
     );
 
     let receiver_condition2 = Condition {
-        condition_type: ConditionType::IsPresent(Claim::Accredited(owner.into())),
+        condition_type: ConditionType::IsPresent(Claim::Accredited(owner.scope())),
         issuers: vec![
-            TrustedIssuer {
-                issuer: claim_issuer.did,
-                trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
-            },
-            TrustedIssuer {
-                issuer: ferdie.did,
-                trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate, ClaimType::BuyLockup]),
-            },
+            claim_issuer.trusted_issuer_for(TrustedFor::Specific(vec![ClaimType::Accredited])),
+            ferdie.trusted_issuer_for(TrustedFor::Specific(vec![
+                ClaimType::Affiliate,
+                ClaimType::BuyLockup,
+            ])),
         ],
     };
 
@@ -145,7 +142,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         claim_issuer.origin(),
         token_rec.did,
-        Claim::Accredited(claim_issuer.into()),
+        Claim::Accredited(claim_issuer.scope()),
         None,
     ));
 
@@ -186,7 +183,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         ferdie.origin(),
         token_rec.did,
-        Claim::Accredited(owner.into()),
+        Claim::Accredited(owner.scope()),
         None,
     ));
     assert_invalid_transfer!(ticker, owner.did, token_rec.did, 10);
@@ -196,7 +193,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         claim_issuer.origin(),
         token_rec.did,
-        Claim::Accredited(owner.into()),
+        Claim::Accredited(owner.scope()),
         None,
     ));
     assert_valid_transfer!(ticker, owner.did, token_rec.did, 10);
@@ -222,7 +219,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         cdd.origin(),
         token_rec.did,
-        Claim::KnowYourCustomer(owner.into()),
+        Claim::KnowYourCustomer(owner.scope()),
         None,
     ));
 
@@ -468,15 +465,9 @@ fn should_successfully_add_and_use_default_issuers_we() {
     };
 
     let trusted_issuers = vec![
-        trusted_issuer.into(),
-        TrustedIssuer {
-            issuer: eve.did,
-            trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate]),
-        },
-        TrustedIssuer {
-            issuer: ferdie.did,
-            trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
-        },
+        trusted_issuer.issuer(),
+        eve.trusted_issuer_for(TrustedFor::Specific(vec![ClaimType::Affiliate])),
+        ferdie.trusted_issuer_for(TrustedFor::Specific(vec![ClaimType::Accredited])),
     ];
     for ti in trusted_issuers.clone() {
         add_issuer(ti);
@@ -502,8 +493,8 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let claim_need_to_posses_1 = Claim::Affiliate(owner.into());
-    let claim_need_to_posses_2 = Claim::Accredited(owner.into());
+    let claim_need_to_posses_1 = Claim::Affiliate(owner.scope());
+    let claim_need_to_posses_2 = Claim::Accredited(owner.scope());
     let sender_condition: Condition =
         ConditionType::IsPresent(claim_need_to_posses_1.clone()).into();
     let receiver_condition1 = sender_condition.clone();
@@ -584,19 +575,19 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        trusted_issuer_1.into()
+        trusted_issuer_1.issuer()
     ));
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        trusted_issuer_2.into()
+        trusted_issuer_2.issuer()
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_1.into(), trusted_issuer_2.into()]
+        vec![trusted_issuer_1.issuer(), trusted_issuer_2.issuer()]
     );
 
     let accredited_claim = Claim::Accredited(Scope::Custom(vec![b't']));
@@ -667,7 +658,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_2.into()]
+        vec![trusted_issuer_2.issuer()]
     );
 
     // Transfer should fail as issuer doesn't exist anymore but the compliance data still exist
@@ -1299,13 +1290,13 @@ fn should_limit_compliance_requirements_complexity_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         owner.origin(),
         ticker,
-        owner.into(),
+        owner.issuer(),
     ));
 
     // Complexity = 30*1 + 15*2 = 60
     let other = User::new(AccountKeyring::Bob);
     assert_noop!(
-        ComplianceManager::add_default_trusted_claim_issuer(owner.origin(), ticker, other.into(),),
+        ComplianceManager::add_default_trusted_claim_issuer(owner.origin(), ticker, other.issuer(),),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
