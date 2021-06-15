@@ -25,10 +25,7 @@
 
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
-use frame_support::{
-    storage::StorageMap,
-    traits::{Currency, OnInitialize},
-};
+use frame_support::traits::{Currency, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_session::{Module as Session, *};
 use pallet_staking::{

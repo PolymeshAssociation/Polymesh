@@ -16,7 +16,7 @@
 use crate::*;
 
 pub use frame_benchmarking::{account, benchmarks};
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 //use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
@@ -30,10 +30,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     statistics::TransferManager, Claim, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, PortfolioName, PortfolioNumber, Scope, SmartExtension, SmartExtensionType, Ticker,
-    TrustedIssuer,
+    PortfolioId, PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
-use sp_runtime::traits::Hash;
+//use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
