@@ -28,6 +28,7 @@ use pallet_multisig as multisig;
 use pallet_pips as pips;
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
+use pallet_relayer as relayer;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_sto as sto;
@@ -133,6 +134,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         polymesh_contracts<T>,
+        relayer<T>,
         pallet_scheduler<T>,
         corporate_actions,
         corporate_ballots<T>,
@@ -475,6 +477,7 @@ impl IdentityTrait for TestStorage {
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
+    type Relayer = relayer::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
     type ExternalAgents = ExternalAgents;
@@ -550,6 +553,11 @@ impl protocol_fee::Trait for TestStorage {
 impl portfolio::Trait for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
+}
+
+impl relayer::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_relayer::WeightInfo;
 }
 
 parameter_types! {

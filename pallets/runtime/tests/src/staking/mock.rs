@@ -43,6 +43,7 @@ use polymesh_common_utilities::{
         identity::{IdentityToExternalAgents, Trait as IdentityTrait},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
+        relayer::RelayerSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait, PermissionChecker,
     },
@@ -384,6 +385,7 @@ impl IdentityTrait for Test {
     type Proposal = Call;
     type MultiSig = Test;
     type Portfolio = Test;
+    type Relayer = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -559,6 +561,24 @@ impl PortfolioSubTrait<Balance, AccountId> for Test {
         _: PortfolioId,
         _: IdentityId,
         _: Option<&SecondaryKey<AccountId>>,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
+}
+
+impl RelayerSubTrait<AccountId> for Test {
+    fn auth_accept_paying_key(
+        _: Signatory<AccountId>,
+        _: IdentityId,
+        _: AccountId,
+        _: AccountId,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_set_paying_key(
+        _: IdentityId,
+        _: &AccountId,
+        _: &AccountId,
     ) -> DispatchResult {
         unimplemented!()
     }
