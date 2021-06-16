@@ -2,13 +2,19 @@ use crate::asset_test::{a_token, an_asset, basic_asset};
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
-use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
-use pallet_external_agents::{AGIdSequence, GroupOfAgent, NumFullAgents};
+use frame_support::dispatch::DispatchResult;
+use frame_support::{
+    assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
+};
+use pallet_external_agents::{AGIdSequence, AgentOf, GroupOfAgent, NumFullAgents};
 use pallet_permissions::StoreCallMetadata;
+use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{
     agent::{AGId, AgentGroup},
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
+    Ticker,
 };
+use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
@@ -24,6 +30,26 @@ fn set_extrinsic(name: &str) {
 
 fn make_perms(pallet: &str) -> ExtrinsicPermissions {
     SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
+}
+
+fn add_become_agent(
+    ticker: Ticker,
+    from: User,
+    to: User,
+    group: AgentGroup,
+    expected: DispatchResult,
+) {
+    let data = AuthorizationData::BecomeAgent(ticker, group);
+    let sig = Signatory::Identity(to.did);
+    let auth = Id::add_auth(from.did, sig, data, None);
+    match expected {
+        Ok(_) => {
+            assert_ok!(Id::accept_authorization(to.origin(), auth));
+        }
+        Err(e) => {
+            assert_noop!(Id::accept_authorization(to.origin(), auth), e);
+        }
+    };
 }
 
 #[test]
@@ -200,50 +226,125 @@ fn add_works() {
         let dave = User::new(AccountKeyring::Dave);
         let ticker = an_asset(owner, false);
 
-        // We only test the specifics of `BecomeAgent` here,
-        // under the assumption that the generic auth infra is tested elsewhere.
-        let add = |from: User, to: User, group| {
-            let data = AuthorizationData::BecomeAgent(ticker, group);
-            let sig = Signatory::Identity(to.did);
-            Id::add_auth(from.did, sig, data, None)
-        };
-        let accept = |to: User, id| Id::accept_authorization(to.origin(), id);
         let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(ticker), n);
 
         check_num(1);
 
         // Other is not an agent, so auths from them are not valid.
-        let id = add(bob, owner, AgentGroup::Full);
-        assert_noop!(accept(owner, id), Error::UnauthorizedAgent);
+        add_become_agent(
+            ticker,
+            bob,
+            owner,
+            AgentGroup::Full,
+            Err(Error::UnauthorizedAgent.into()),
+        );
         check_num(1);
 
-        // CAG is not valid.
-        let add_bob = || add(owner, bob, AgentGroup::Custom(AGId(1)));
-        let accept_bob = |id| {
-            let r = accept(bob, id);
-            check_num(1);
-            r
-        };
-        let id = add_bob();
-        assert_noop!(accept_bob(id), Error::NoSuchAG);
+        // CAG is not valid
+        add_become_agent(
+            ticker,
+            owner,
+            bob,
+            AgentGroup::Custom(AGId(1)),
+            Err(Error::NoSuchAG.into()),
+        );
 
         // Make a CAG & Other an agent of it.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(ExternalAgents::create_group(owner.origin(), ticker, perms));
-        assert_ok!(accept_bob(add_bob()));
+        add_become_agent(ticker, owner, bob, AgentGroup::Custom(AGId(1)), Ok(()));
 
         // Just made them an agent, cannot do it again.
-        let id = add_bob();
-        assert_noop!(accept_bob(id), Error::AlreadyAnAgent);
+        add_become_agent(
+            ticker,
+            owner,
+            bob,
+            AgentGroup::Custom(AGId(1)),
+            Err(Error::AlreadyAnAgent.into()),
+        );
 
         // Add another full agent and make sure count is incremented.
-        let id = add(owner, charlie, AgentGroup::Full);
-        assert_ok!(accept(charlie, id));
+        add_become_agent(ticker, owner, charlie, AgentGroup::Full, Ok(()));
         check_num(2);
 
         // Force the count to overflow and test for graceful error.
         NumFullAgents::insert(ticker, u32::MAX);
-        let id = add(owner, dave, AgentGroup::Full);
-        assert_noop!(accept(dave, id), Error::NumFullAgentsOverflow);
+        add_become_agent(
+            ticker,
+            owner,
+            dave,
+            AgentGroup::Full,
+            Err(Error::NumFullAgentsOverflow.into()),
+        )
+    });
+}
+
+#[test]
+fn agent_of_mapping_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let dave = User::new(AccountKeyring::Dave);
+        let mut tickers = (b'A'..b'Z')
+            .map(|ticker| {
+                let ticker = Ticker::try_from(&[ticker] as &[u8]).unwrap();
+                crate::sto_test::create_asset(owner.origin(), ticker, POLY);
+                ticker
+            })
+            .collect::<Vec<_>>();
+        tickers.sort();
+
+        let check = |user: User| {
+            let mut agent_of_tickers = AgentOf::iter_prefix(user.did)
+                .map(|(ticker, _)| ticker)
+                .collect::<Vec<_>>();
+            let mut group_of_tickers = GroupOfAgent::iter()
+                .filter(|(_, d, _)| *d == user.did)
+                .map(|(t, ..)| t)
+                .collect::<Vec<_>>();
+            agent_of_tickers.sort();
+            group_of_tickers.sort();
+            assert_eq!(agent_of_tickers, tickers);
+            assert_eq!(agent_of_tickers, group_of_tickers);
+        };
+        let empty = |user: User| {
+            assert!(AgentOf::iter_prefix(user.did).next().is_none());
+            assert!(GroupOfAgent::iter()
+                .filter(|(_, d, _)| *d == user.did)
+                .next()
+                .is_none());
+        };
+        let remove = |ticker, user: User| {
+            assert_ok!(ExternalAgents::abdicate(user.origin(), ticker));
+        };
+
+        // Add EAs
+        for ticker in &tickers {
+            add_become_agent(*ticker, owner, bob, AgentGroup::Full, Ok(()));
+            add_become_agent(*ticker, owner, charlie, AgentGroup::ExceptMeta, Ok(()));
+            add_become_agent(*ticker, owner, dave, AgentGroup::PolymeshV1CAA, Ok(()));
+            assert_eq!(ExternalAgents::num_full_agents(ticker), 2);
+        }
+
+        // Check the reverse mappings
+        check(owner);
+        check(bob);
+        check(charlie);
+        check(dave);
+
+        // Remove EAs
+        for ticker in &tickers {
+            remove(*ticker, bob);
+            remove(*ticker, charlie);
+            remove(*ticker, dave);
+            assert_eq!(ExternalAgents::num_full_agents(ticker), 1);
+        }
+
+        // Check the reverse mappings are correct or empty
+        check(owner);
+        empty(bob);
+        empty(charlie);
+        empty(dave);
     });
 }
