@@ -2,6 +2,7 @@ use crate::asset_test::{a_token, an_asset, basic_asset};
 use crate::ext_builder::ExtBuilder;
 use crate::identity_test::test_with_bad_ext_perms;
 use crate::storage::{TestStorage, User};
+use frame_support::dispatch::DispatchResult;
 use frame_support::{
     assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
@@ -31,11 +32,24 @@ fn make_perms(pallet: &str) -> ExtrinsicPermissions {
     SubsetRestriction::elem(PalletPermissions::entire_pallet(pallet.into()))
 }
 
-fn add_become_agent(ticker: Ticker, from: User, to: User, group: AgentGroup) {
+fn add_become_agent(
+    ticker: Ticker,
+    from: User,
+    to: User,
+    group: AgentGroup,
+    expected: DispatchResult,
+) {
     let data = AuthorizationData::BecomeAgent(ticker, group);
     let sig = Signatory::Identity(to.did);
     let auth = Id::add_auth(from.did, sig, data, None);
-    assert_ok!(Id::accept_authorization(to.origin(), auth));
+    match expected {
+        Ok(_) => {
+            assert_ok!(Id::accept_authorization(to.origin(), auth));
+        }
+        Err(e) => {
+            assert_noop!(Id::accept_authorization(to.origin(), auth), e);
+        }
+    };
 }
 
 #[test]
@@ -212,50 +226,56 @@ fn add_works() {
         let dave = User::new(AccountKeyring::Dave);
         let ticker = an_asset(owner, false);
 
-        // We only test the specifics of `BecomeAgent` here,
-        // under the assumption that the generic auth infra is tested elsewhere.
-        let add = |from: User, to: User, group| {
-            let data = AuthorizationData::BecomeAgent(ticker, group);
-            let sig = Signatory::Identity(to.did);
-            Id::add_auth(from.did, sig, data, None)
-        };
-        let accept = |to: User, id| Id::accept_authorization(to.origin(), id);
         let check_num = |n| assert_eq!(ExternalAgents::num_full_agents(ticker), n);
 
         check_num(1);
 
         // Other is not an agent, so auths from them are not valid.
-        let id = add(bob, owner, AgentGroup::Full);
-        assert_noop!(accept(owner, id), Error::UnauthorizedAgent);
+        add_become_agent(
+            ticker,
+            bob,
+            owner,
+            AgentGroup::Full,
+            Err(Error::UnauthorizedAgent.into()),
+        );
         check_num(1);
 
-        // CAG is not valid.
-        let add_bob = || add(owner, bob, AgentGroup::Custom(AGId(1)));
-        let accept_bob = |id| {
-            let r = accept(bob, id);
-            check_num(1);
-            r
-        };
-        let id = add_bob();
-        assert_noop!(accept_bob(id), Error::NoSuchAG);
+        // CAG is not valid
+        add_become_agent(
+            ticker,
+            owner,
+            bob,
+            AgentGroup::Custom(AGId(1)),
+            Err(Error::NoSuchAG.into()),
+        );
 
         // Make a CAG & Other an agent of it.
         let perms = make_perms("pallet_external_agent");
         assert_ok!(ExternalAgents::create_group(owner.origin(), ticker, perms));
-        assert_ok!(accept_bob(add_bob()));
+        add_become_agent(ticker, owner, bob, AgentGroup::Custom(AGId(1)), Ok(()));
 
         // Just made them an agent, cannot do it again.
-        let id = add_bob();
-        assert_noop!(accept_bob(id), Error::AlreadyAnAgent);
+        add_become_agent(
+            ticker,
+            owner,
+            bob,
+            AgentGroup::Custom(AGId(1)),
+            Err(Error::AlreadyAnAgent.into()),
+        );
 
         // Add another full agent and make sure count is incremented.
-        add_become_agent(ticker, owner, charlie, AgentGroup::Full);
+        add_become_agent(ticker, owner, charlie, AgentGroup::Full, Ok(()));
         check_num(2);
 
         // Force the count to overflow and test for graceful error.
         NumFullAgents::insert(ticker, u32::MAX);
-        let id = add(owner, dave, AgentGroup::Full);
-        assert_noop!(accept(dave, id), Error::NumFullAgentsOverflow);
+        add_become_agent(
+            ticker,
+            owner,
+            dave,
+            AgentGroup::Full,
+            Err(Error::NumFullAgentsOverflow.into()),
+        )
     });
 }
 
@@ -301,9 +321,9 @@ fn agent_of_mapping_works() {
 
         // Add EAs
         for ticker in &tickers {
-            add_become_agent(*ticker, owner, bob, AgentGroup::Full);
-            add_become_agent(*ticker, owner, charlie, AgentGroup::ExceptMeta);
-            add_become_agent(*ticker, owner, dave, AgentGroup::PolymeshV1CAA);
+            add_become_agent(*ticker, owner, bob, AgentGroup::Full, Ok(()));
+            add_become_agent(*ticker, owner, charlie, AgentGroup::ExceptMeta, Ok(()));
+            add_become_agent(*ticker, owner, dave, AgentGroup::PolymeshV1CAA, Ok(()));
             assert_eq!(ExternalAgents::num_full_agents(ticker), 2);
         }
 
