@@ -90,6 +90,7 @@ pub fn create_validator_with_nominators_with_balance<T: Config + TestUtilsFn<Acc
     balance: u32,
     dead: bool,
 ) -> Result<(User<T>, Vec<(User<T>, User<T>)>), DispatchError> {
+    clear_validators_and_nominators::<T>();
     let mut points_total = 0;
     let mut points_individual = Vec::new();
 
@@ -122,7 +123,7 @@ pub fn create_validator_with_nominators_with_balance<T: Config + TestUtilsFn<Acc
         let (n_stash, n_controller) = if !dead {
             create_stash_controller_with_balance::<T>(u32::max_value() - i, INIT_BALANCE)?
         } else {
-            create_stash_with_dead_controller::<T>(u32::max_value() - i, INIT_BALANCE).unwrap()
+            create_stash_with_dead_controller::<T>(u32::max_value() - i, INIT_BALANCE)?
         };
         if i < n {
             Staking::<T>::nominate(
@@ -133,15 +134,14 @@ pub fn create_validator_with_nominators_with_balance<T: Config + TestUtilsFn<Acc
         }
     }
 
-    ValidatorCount::put(2);
+    ValidatorCount::put(1);
 
     // Start a new Era
     let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
-
     assert!(new_validators.len() == 1);
     assert!(
         new_validators[0] == v_stash.account(),
-        "Our validator was not selected!"
+        "Our validator was not selected!",
     );
 
     // Give Era Points
@@ -205,6 +205,7 @@ benchmarks! {
     }
 
     bond_extra {
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(5, INIT_BALANCE).unwrap();
         let max_additional = 2_000_000u32;
         let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
@@ -218,6 +219,7 @@ benchmarks! {
     }
 
     unbond {
+        clear_validators_and_nominators::<T>();
         let (_, controller) = create_stash_controller::<T>(500, INIT_BALANCE).unwrap();
         let amount = 20u32;
         let ledger = Ledger::<T>::get(&controller.account()).expect("ledger not created before");
@@ -234,6 +236,7 @@ benchmarks! {
     withdraw_unbonded_update {
         // Slashing Spans
         let s in 0 .. MAX_SPANS;
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(0, INIT_BALANCE).unwrap();
         add_slashing_spans::<T>(&stash.account(), s);
         let amount = 50u32; // Half of total
@@ -253,6 +256,7 @@ benchmarks! {
     withdraw_unbonded_kill {
         // Slashing Spans
         let s in 0 .. MAX_SPANS;
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(0, INIT_BALANCE).unwrap();
         add_slashing_spans::<T>(&stash.account(), s);
         let amount = INIT_BALANCE;
@@ -267,6 +271,7 @@ benchmarks! {
     }
 
     validate {
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(70, INIT_BALANCE)?;
         add_perm_validator::<T>(stash.did(), Some(2));
         let prefs = ValidatorPrefs::default();
@@ -282,6 +287,8 @@ benchmarks! {
         // each nominator should have `MAX_NOMINATIONS` validators nominated, and our validator
         // should be somewhere in there.
         let k in 1 .. 128;
+
+        clear_validators_and_nominators::<T>();
 
         // these are the other validators; there are `MAX_NOMINATIONS - 1` of them, so there are a
         // total of `MAX_NOMINATIONS` validators in the system.
@@ -342,6 +349,7 @@ benchmarks! {
     }
 
     add_permissioned_validator {
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(5, INIT_BALANCE).unwrap();
         Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10).unwrap();
     }: _(RawOrigin::Root, stash.did(), Some(1))
@@ -352,6 +360,7 @@ benchmarks! {
     }
 
     remove_permissioned_validator {
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(5, INIT_BALANCE).unwrap();
         add_perm_validator::<T>(stash.did(), Some(1));
     }: _(RawOrigin::Root, stash.did())
@@ -379,6 +388,7 @@ benchmarks! {
     // Worst case scenario, MAX_NOMINATIONS
     nominate {
         let n in 1 .. MAX_NOMINATIONS as u32;
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(n + 1, INIT_BALANCE)?;
         let validators = create_validators::<T>(n, INIT_BALANCE)?;
         whitelist_account!(controller);
@@ -388,11 +398,13 @@ benchmarks! {
     }
 
     chill {
+        clear_validators_and_nominators::<T>();
         let (_, controller) = create_stash_controller::<T>(10, INIT_BALANCE)?;
         whitelist_account!(controller);
     }: _(controller.origin())
 
     set_payee {
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(10, INIT_BALANCE).unwrap();
         assert_eq!(Payee::<T>::get(&stash.account()), RewardDestination::Staked);
         whitelist_account!(controller);
@@ -402,6 +414,7 @@ benchmarks! {
     }
 
     set_controller {
+        clear_validators_and_nominators::<T>();
         let (stash, _) = create_stash_controller::<T>(10, INIT_BALANCE).unwrap();
         let new_controller = create_funded_user::<T>("new_controller", 10, INIT_BALANCE);
         let new_controller_lookup = new_controller.lookup();
@@ -442,6 +455,7 @@ benchmarks! {
     force_unstake {
         // Slashing Spans
         let s in 0 .. MAX_SPANS;
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(0, INIT_BALANCE).unwrap();
         add_slashing_spans::<T>(&stash.account(), s);
     }: _(RawOrigin::Root, stash.account(), s)
@@ -488,6 +502,7 @@ benchmarks! {
         // User account seed
         let u in 0 .. 1000;
         let l in 1 .. MAX_UNLOCKING_CHUNKS as u32;
+        clear_validators_and_nominators::<T>();
         let (_, controller) = create_stash_controller::<T>(u, INIT_BALANCE).unwrap();
         let mut staking_ledger = Ledger::<T>::get(controller.account()).unwrap();
         let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
@@ -527,6 +542,7 @@ benchmarks! {
 
     reap_stash {
         let s in 1 .. MAX_SPANS;
+        clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(0, INIT_BALANCE).unwrap();
         add_slashing_spans::<T>(&stash.account(), s);
         T::Currency::make_free_balance_be(&stash.account(), 0u32.into());
@@ -597,12 +613,11 @@ benchmarks! {
             staking_ledger.unlocking.push(unlock_chunk.clone())
         }
         Ledger::<T>::insert(controller.account(), staking_ledger);
-        let slash_amount = T::Currency::minimum_balance() * 10u32.into();
         let balance_before = T::Currency::free_balance(&stash.account());
     }: {
         crate::slashing::do_slash::<T>(
             &stash.account(),
-            slash_amount,
+            10u32.into(),
             &mut BalanceOf::<T>::zero(),
             &mut NegativeImbalanceOf::<T>::zero()
         );
