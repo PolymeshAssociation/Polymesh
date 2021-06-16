@@ -108,7 +108,7 @@ fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: Af
 }
 
 // create asset
-fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
+pub fn create_asset_<T: Trait>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
 }
 
