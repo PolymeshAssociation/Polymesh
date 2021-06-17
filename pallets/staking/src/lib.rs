@@ -2484,12 +2484,7 @@ decl_module! {
         /// # <weight>
         /// See `crate::weight` module.
         /// # </weight>
-        #[weight = <T as Trait>::WeightInfo::submit_solution_better(
-            size.validators.into(),
-            size.nominators.into(),
-            compact.len() as u32,
-            winners.len() as u32,
-        )]
+        #[weight = (T::MaximumExtrinsicWeight::get(), Operational)]
         pub fn submit_election_solution(
             origin,
             winners: Vec<ValidatorIndex>,
@@ -2518,12 +2513,7 @@ decl_module! {
         /// # <weight>
         /// See `crate::weight` module.
         /// # </weight>
-        #[weight = <T as Trait>::WeightInfo::submit_solution_better(
-            size.validators.into(),
-            size.nominators.into(),
-            compact.len() as u32,
-            winners.len() as u32,
-        )]
+        #[weight = (T::MaximumExtrinsicWeight::get(), Operational)]
         pub fn submit_election_solution_unsigned(
             origin,
             winners: Vec<ValidatorIndex>,
