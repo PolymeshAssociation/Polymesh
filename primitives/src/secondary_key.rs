@@ -404,10 +404,10 @@ pub mod api {
         fn from(p: LegacyPalletPermissions) -> PalletPermissions {
             PalletPermissions {
                 pallet_name: p.pallet_name,
-                dispatchable_names: if !p.total {
-                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
-                } else {
+                dispatchable_names: if p.total {
                     SubsetRestriction::Whole
+                } else {
+                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
                 },
             }
         }
