@@ -1072,6 +1072,7 @@ enum Releases {
     V5_0_0,
     V6_0_0,
     V6_0_1,
+    V7_0_0,
 }
 
 impl Default for Releases {
@@ -1324,6 +1325,29 @@ decl_storage! {
     }
 }
 
+pub mod migrations {
+    use super::*;
+
+    #[derive(Decode)]
+    struct OldValidatorPrefs {
+        #[codec(compact)]
+        pub commission: Perbill,
+    }
+    impl OldValidatorPrefs {
+        fn upgraded(self) -> ValidatorPrefs {
+            ValidatorPrefs {
+                commission: self.commission,
+                ..Default::default()
+            }
+        }
+    }
+    pub fn migrate_to_blockable<T: Config>() -> frame_support::weights::Weight {
+        Validators::<T>::translate::<OldValidatorPrefs, _>(|_, p| Some(p.upgraded()));
+        ErasValidatorPrefs::<T>::translate::<OldValidatorPrefs, _>(|_, _, p| Some(p.upgraded()));
+        T::BlockWeights::get().max_block
+    }
+}
+
 decl_event!(
     pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Config>::AccountId {
         /// The era payout has been set; the first balance is the validator-payout; the second is
@@ -1552,6 +1576,11 @@ decl_module! {
                     PermissionedIdentity::insert(permissioned_validator, prefs);
                 }
                 StorageVersion::put(Releases::V6_0_1);
+            }
+
+            if StorageVersion::get() == Releases::V6_0_1 {
+                StorageVersion::put(Releases::V7_0_0);
+                migrations::migrate_to_blockable::<T>();
             }
 
             1_000
