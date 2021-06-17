@@ -16,7 +16,7 @@
 
 // # Modified by Polymath Inc - 23rd March 2020
 // This module is inspired by the `membership` module of the substrate framework
-// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
 // It get customize as per the Polymesh requirements
 // - Change member type from `AccountId` to `IdentityId`.
 // - Remove `change_key` function from the implementation in the favour of "User can hold only single identity on Polymesh blockchain".

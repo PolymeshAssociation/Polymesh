@@ -541,7 +541,7 @@ impl<T: Config> Module<T> {
             Locks::<T>::remove(who);
             if existed {
                 // TODO: use Locks::<T, I>::hashed_key
-                // https://github.com/paritytech/substrate/issues/4969
+                // https://github.com/PolymathNetwork/substrate/issues/4969
                 system::Module::<T>::dec_consumers(who);
             }
         } else {

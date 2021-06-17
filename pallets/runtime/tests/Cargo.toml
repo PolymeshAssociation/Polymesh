@@ -94,7 +94,7 @@ sp-std = { version = "3.0.0", default-features = false }
 sp-transaction-pool = { version = "3.0.0", default-features = false }
 sp-version = { version = "3.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v3.0.0", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0", optional = true }
 substrate-test-utils = { version = "3.0.0", optional = true }
 
 [dev-dependencies]

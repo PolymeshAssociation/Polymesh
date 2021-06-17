@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate"
+repository = "https://github.com/PolymathNetwork/substrate"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

@@ -32,7 +32,7 @@ schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
 
 [features]
 default = ["std", "equalize"]

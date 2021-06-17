@@ -190,7 +190,7 @@ where
         deny_unsafe,
     )));
     // Making synchronous calls in light client freezes the browser currently,
-    // more context: https://github.com/paritytech/substrate/pull/3480
+    // more context: https://github.com/PolymathNetwork/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
     //io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(

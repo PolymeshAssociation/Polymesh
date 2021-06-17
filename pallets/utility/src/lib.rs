@@ -16,7 +16,7 @@
 //
 // Modified by Polymath Inc - 2020
 // This module is inspired from the `pallet-utility`.
-// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
+// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
 //
 // Polymesh changes:
 // - Pseudonymal dispatch has been removed.
