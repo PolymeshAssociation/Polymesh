@@ -19,39 +19,22 @@ use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{self, AccountIdOf, User, UserBuilder},
+    benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
     TestUtilsFn,
 };
 use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
-    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, SmartExtension, Ticker,
+    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, Signatory, SmartExtension, Ticker,
 };
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 const MAX_DOCS_PER_ASSET: u32 = 64;
-const MAX_DOC_URI: usize = 4096;
+const MAX_DOC_URI: usize = 1024;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
-
-pub fn make_ticker<T: Trait>(owner: T::Origin) -> Ticker {
-    benchs::make_ticker::<T::AssetFn, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
-        .expect("Ticker cannot be created")
-}
-
-fn make_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(owner, None)
-        .expect("Asset cannot be created")
-}
-
-pub fn make_indivisible_asset<T: Trait>(owner: &User<T>) -> Ticker {
-    benchs::make_indivisible_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, &str>(
-        owner, None,
-    )
-    .expect("Indivisible asset cannot be created")
-}
 
 pub fn make_document() -> Document {
     Document {
@@ -113,7 +96,7 @@ fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> (User<T>, Ticker, T::AccountId) {
     let owner = owner::<T>();
-    let ticker = make_asset::<T>(&owner);
+    let ticker = make_asset::<T>(&owner, None);
     let ext_details = make_extension::<T>(is_archive);
     let ext_id = ext_details.extension_id.clone();
     Module::<T>::add_extension(owner.origin().into(), ticker, ext_details)
@@ -145,7 +128,7 @@ fn owner<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
 
 pub fn owned_ticker<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = owner::<T>();
-    let ticker = make_asset::<T>(&owner);
+    let ticker = make_asset::<T>(&owner, None);
     (owner, ticker)
 }
 
@@ -169,6 +152,39 @@ fn set_config<T: Trait>() {
     });
 }
 
+fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::AccountId>>(
+    n: u32,
+    i: u32,
+    f: u32,
+    total_supply: u128,
+) -> (
+    RawOrigin<T::AccountId>,
+    AssetName,
+    Ticker,
+    SecurityToken<T::Balance>,
+    Vec<AssetIdentifier>,
+    Option<FundingRoundName>,
+) {
+    set_config::<T>();
+    let ticker = Ticker::repeating(b'A');
+    let name = AssetName::from(vec![b'N'; n as usize].as_slice());
+
+    let identifiers: Vec<_> = iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap())
+        .take(i as usize)
+        .collect();
+    let fundr = Some(FundingRoundName::from(vec![b'F'; f as usize].as_slice()));
+    let owner = owner::<T>();
+
+    let token = SecurityToken {
+        name: name.clone(),
+        owner_did: owner.did(),
+        total_supply: total_supply.into(),
+        divisible: true,
+        asset_type: AssetType::default(),
+    };
+    (owner.origin, name, ticker, token, identifiers, fundr)
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -186,7 +202,7 @@ benchmarks! {
 
     accept_ticker_transfer {
         let owner = owner::<T>();
-        let ticker = make_ticker::<T>(owner.origin().into());
+        let ticker = make_ticker::<T>(owner.origin().into(), None);
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
         let did = new_owner.did();
 
@@ -227,28 +243,10 @@ benchmarks! {
         // Funding round name length.
         let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
 
-        set_config::<T>();
-        let ticker = Ticker::repeating(b'A');
-        let name = AssetName::from(vec![b'N'; n as usize].as_slice());
-
-        let identifiers: Vec<_> = iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap())
-            .take(i as usize)
-            .collect();
-        let identifiers2 = identifiers.clone();
-        let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let owner = owner::<T>();
-        let total_supply: T::Balance = 1_000_000u32.into();
-
-        let asset_type = AssetType::default();
-        let token = SecurityToken {
-            name: name.clone(),
-            owner_did: owner.did(),
-            total_supply: total_supply.clone(),
-            divisible: true,
-            asset_type: asset_type.clone(),
-            primary_issuance_agent: None,
-        };
-    }: _(owner.origin, name, ticker, total_supply, token.divisible, asset_type, identifiers, Some(fundr))
+       let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 0);
+       let identifiers2 = identifiers.clone();
+       let asset_type = token.asset_type.clone();
+    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr)
     verify {
         assert_eq!(Module::<T>::token_details(ticker), token);
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
@@ -301,7 +299,7 @@ benchmarks! {
 
     make_divisible {
         let owner = owner::<T>();
-        let ticker = make_indivisible_asset::<T>(&owner);
+        let ticker = make_indivisible_asset::<T>(&owner, None);
     }: _(owner.origin, ticker)
     verify {
         assert_eq!(Module::<T>::token_details(ticker).divisible, true);
@@ -397,13 +395,6 @@ benchmarks! {
         assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id2)), false);
     }
 
-    remove_primary_issuance_agent {
-        let (owner, ticker) = owned_ticker::<T>();
-    }: _(owner.origin, ticker)
-    verify {
-        assert_eq!(Module::<T>::token_details(ticker).primary_issuance_agent, None);
-    }
-
     claim_classic_ticker {
         let owner = owner::<T>();
         let did = owner.did();
@@ -435,21 +426,6 @@ benchmarks! {
         assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
     }
 
-    accept_primary_issuance_agent_transfer {
-        let (owner, ticker) = owned_ticker::<T>();
-        let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
-
-        let auth_id = identity::Module::<T>::add_auth(
-            owner.did(),
-            Signatory::from(pia.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
-            None,
-        );
-    }: _(pia.origin, auth_id)
-    verify {
-        assert_eq!(Module::<T>::token_details(&ticker).primary_issuance_agent, pia.did);
-    }
-
     controller_transfer {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
@@ -457,10 +433,10 @@ benchmarks! {
         let auth_id = identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(pia.did()),
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
+            AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
         );
-        Module::<T>::accept_primary_issuance_agent_transfer(pia.origin().into(), auth_id)?;
+        identity::Module::<T>::accept_authorization(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)

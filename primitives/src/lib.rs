@@ -146,6 +146,9 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
+/// External agents.
+pub mod agent;
+
 /// Asset identifiers.
 pub mod asset_identifier;
 pub use asset_identifier::AssetIdentifier;
@@ -199,13 +202,10 @@ pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
+pub use authorization::{Authorization, AuthorizationData, AuthorizationError, AuthorizationType};
+
 /// Pub Traits
 pub mod traits;
-pub use authorization::AuthIdentifier;
-pub use authorization::Authorization;
-pub use authorization::AuthorizationData;
-pub use authorization::AuthorizationError;
-pub use authorization::AuthorizationType;
 
 pub mod ticker;
 pub use ticker::Ticker;
@@ -253,6 +253,8 @@ pub mod compliance_manager;
 
 /// Host functions.
 pub mod host_functions;
+
+pub mod ethereum;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

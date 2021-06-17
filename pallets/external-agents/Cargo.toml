@@ -1,0 +1,47 @@
+[package]
+name = "pallet-external-agents"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+# Common
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+# Our Pallets
+pallet-identity = { path = "../identity", default-features = false }
+pallet-permissions = { path = "../permissions", default-features = false }
+
+# Other
+serde = { version = "1.0.104", default-features = false }
+serde_derive = { version = "1.0.104", optional = true, default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+frame-system = { version = "2.0.1", default-features = false }
+frame-support = { version = "2.0.1", default-features = false }
+sp-std = { version = "2.0.1", default-features = false }
+
+# Only in STD
+frame-benchmarking = { default-features = false, version = "2.0.1", optional = true }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-identity/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "serde/std",
+    "serde_derive",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "polymesh-common-utilities/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
+]

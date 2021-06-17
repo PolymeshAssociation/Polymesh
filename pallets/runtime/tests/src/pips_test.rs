@@ -20,7 +20,7 @@ use pallet_group as group;
 use pallet_pips::{
     self as pips, DepositInfo, LiveQueue, Pip, PipDescription, PipsMetadata, ProposalState,
     Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
-    VoteByPip, VoteCount, VotingResult,
+    VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{pip::PipId, MaybeBlock, GC_DID};

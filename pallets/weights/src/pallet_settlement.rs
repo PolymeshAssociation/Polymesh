@@ -96,21 +96,10 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(12 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn reject_instruction(l: u32) -> Weight {
+    fn reject_instruction() -> Weight {
         (207_786_000 as Weight)
-            .saturating_add((125_125_000 as Weight).saturating_mul(l as Weight))
             .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().writes(3 as Weight))
-            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
-    }
-    fn reject_instruction_with_no_pre_affirmations(l: u32) -> Weight {
-        (179_419_000 as Weight)
-            .saturating_add((49_318_000 as Weight).saturating_mul(l as Weight))
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
     }
     fn affirm_instruction(l: u32) -> Weight {
         (161_962_000 as Weight)

@@ -113,17 +113,21 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // WARNING! Some components were not used: ["n"]
-    fn payout_stakers(_: u32) -> Weight {
-        (413_730_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
+    fn payout_stakers(n: u32) -> Weight {
+        (440_233_000 as Weight)
+            .saturating_add((30_620_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().reads((6 as Weight).saturating_mul(n as Weight)))
             .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }
-    // WARNING! Some components were not used: ["n"]
-    fn payout_stakers_alive_controller() -> Weight {
-        (408_981_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
+    fn payout_stakers_alive_controller(n: u32) -> Weight {
+        (0 as Weight)
+            .saturating_add((39_555_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
             .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(n as Weight)))
     }
     fn rebond(l: u32) -> Weight {
         (68_629_000 as Weight)

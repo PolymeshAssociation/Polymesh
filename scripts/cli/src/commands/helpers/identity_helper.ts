@@ -1,7 +1,7 @@
 import { nonces, sendTransaction } from "../util/init";
 import { IKeyringPair } from "@polkadot/types/types";
 import { ApiPromise } from "@polkadot/api";
-import { SecondaryKey } from "../types";
+import { SecondaryKey } from "../../types";
 
 export default async function createIdentities(
   api: ApiPromise,

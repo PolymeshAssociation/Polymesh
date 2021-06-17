@@ -18,35 +18,16 @@
 pub mod benchmarking;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get, weights::Weight,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
-use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
+pub use polymesh_common_utilities::traits::statistics::{Event, Trait, WeightInfo};
 use polymesh_primitives::{
     statistics::{Counter, Percentage, TransferManager, TransferManagerResult},
-    IdentityId, ScopeId, Ticker,
+    ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
 
-/// The main trait for statistics module
-pub trait Trait: frame_system::Trait + IdentityTrait {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
-    /// Asset module
-    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
-    /// Maximum transfer managers that can be enabled for an Asset
-    type MaxTransferManagersPerAsset: Get<u32>;
-    /// Weights for extrinsics
-    type WeightInfo: WeightInfo;
-}
-
-/// Weight info for extrinsics
-pub trait WeightInfo {
-    fn add_transfer_manager() -> Weight;
-    fn remove_transfer_manager() -> Weight;
-    fn add_exempted_entities(i: u32) -> Weight;
-    fn remove_exempted_entities(i: u32) -> Weight;
-}
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
@@ -91,7 +72,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_transfer_manager()]
         pub fn add_transfer_manager(origin, ticker: Ticker, new_transfer_manager: TransferManager) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
                 ensure!((transfer_managers.len() as u32) < T::MaxTransferManagersPerAsset::get(), Error::<T>::TransferManagersLimitReached);
                 ensure!(!transfer_managers.contains(&new_transfer_manager), Error::<T>::DuplicateTransferManager);
@@ -116,7 +97,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_transfer_manager()]
         pub fn remove_transfer_manager(origin, ticker: Ticker, transfer_manager: TransferManager) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             ActiveTransferManagers::try_mutate(&ticker, |transfer_managers| {
                 let before = transfer_managers.len();
                 transfer_managers.retain(|tm| *tm != transfer_manager);
@@ -141,7 +122,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::add_exempted_entities(exempted_entities.len() as u32)]
         pub fn add_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, exempted_entities: Vec<ScopeId>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &exempted_entities {
                 ExemptEntities::insert(&ticker_tm, entity, true);
@@ -164,7 +145,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Trait>::WeightInfo::remove_exempted_entities(entities.len() as u32)]
         pub fn remove_exempted_entities(origin, ticker: Ticker, transfer_manager: TransferManager, entities: Vec<ScopeId>) {
-            let did = T::Asset::ensure_perms_owner_asset(origin, &ticker)?;
+            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             let ticker_tm = (ticker, transfer_manager.clone());
             for entity in &entities {
                 ExemptEntities::remove(&ticker_tm, entity);
@@ -331,19 +312,6 @@ impl<T: Trait> Module<T> {
         InvestorCountPerAsset::insert(ticker, count);
     }
 }
-
-decl_event!(
-    pub enum Event {
-        /// A new transfer manager was added.
-        TransferManagerAdded(IdentityId, Ticker, TransferManager),
-        /// An existing transfer manager was removed.
-        TransferManagerRemoved(IdentityId, Ticker, TransferManager),
-        /// `ScopeId`s were added to the exemption list.
-        ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-        /// `ScopeId`s were removed from the exemption list.
-        ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-    }
-);
 
 decl_error! {
     /// Statistics module errors.

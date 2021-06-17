@@ -65,7 +65,7 @@ fn batch_with_signed_works() {
         assert_ok!(Utility::batch(Origin::signed(alice), calls));
         assert_balance(alice, 200, 0);
         assert_balance(bob, 1000 + 400 + 400, 0);
-        assert_event(Event::BatchCompleted);
+        assert_event(Event::BatchCompleted(vec![1, 1]));
     });
 }
 
@@ -76,7 +76,7 @@ fn batch_early_exit_works() {
         assert_ok!(Utility::batch(Origin::signed(alice), calls));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
-        assert_event(Event::BatchInterrupted(1, ERROR));
+        assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
     })
 }
 
@@ -85,7 +85,7 @@ fn batch_optimistic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
         assert_ok!(Utility::batch_optimistic(Origin::signed(alice), calls));
-        assert_event(Event::BatchCompleted);
+        assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -104,11 +104,10 @@ fn batch_optimistic_failures_listed() {
                 transfer(bob, 403), // NAY.
             ]
         ));
-        assert_event(Event::BatchOptimisticFailed(vec![
-            (1, ERROR),
-            (2, ERROR),
-            (4, ERROR),
-        ]));
+        assert_event(Event::BatchOptimisticFailed(
+            vec![1, 0, 0, 1, 0],
+            vec![(1, ERROR), (2, ERROR), (4, ERROR)],
+        ));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -119,7 +118,7 @@ fn batch_atomic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
         assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
-        assert_event(Event::BatchCompleted);
+        assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
     });
@@ -132,7 +131,7 @@ fn batch_atomic_early_exit_works() {
         assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
-        assert_event(Event::BatchInterrupted(1, ERROR));
+        assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
     })
 }
 
@@ -264,7 +263,7 @@ fn batch_secondary_with_permissions() {
 
     // Set and check Bob's permissions.
     let bob_pallet_permissions = vec![
-        PalletPermissions::new(b"Identity".into(), SubsetRestriction(None)),
+        PalletPermissions::new(b"Identity".into(), SubsetRestriction::Whole),
         PalletPermissions::new(
             b"Portfolio".into(),
             SubsetRestriction::elems(vec![
@@ -274,7 +273,7 @@ fn batch_secondary_with_permissions() {
         ),
     ];
     let bob_permissions = Permissions {
-        extrinsic: SubsetRestriction(Some(bob_pallet_permissions.into_iter().collect())),
+        extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
         ..Permissions::default()
     };
     assert_ok!(Identity::set_permission_to_signer(
@@ -308,15 +307,18 @@ fn batch_secondary_with_permissions() {
         )),
     ];
     assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
-    assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted));
-    assert_event_exists!(EventTest::pallet_utility(Event::BatchInterrupted(0, _)));
+    assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted(_)));
+    assert_event_exists!(
+        EventTest::pallet_utility(Event::BatchInterrupted(events, err)),
+        events == &[0] && err.0 == 0
+    );
     check_name(low_risk_name);
 
     // Call the same extrinsics optimistically.
     assert_ok!(Utility::batch_optimistic(bob_origin, calls));
     assert_event_exists!(
-        EventTest::pallet_utility(Event::BatchOptimisticFailed(errors)),
-        errors.len() == 1 && errors[0].0 == 0
+        EventTest::pallet_utility(Event::BatchOptimisticFailed(events, errors)),
+        events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0
     );
     check_name(high_risk_name);
 }

@@ -24,12 +24,12 @@ use polymesh_primitives_derive::Migrate;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
+/// Defines a static / dynamic identity.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
-/// It defines a static/dynamic identity
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TargetIdentity {
-    /// Current primary issuance agent of an asset. Resolved dynamically.
-    PrimaryIssuanceAgent,
+    /// Matches any of the external agents of an asset. Resolved dynamically.
+    ExternalAgent,
     /// A static identity.
     Specific(IdentityId),
 }

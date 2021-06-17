@@ -137,6 +137,7 @@ impl_outer_event! {
         corporate_actions,
         corporate_ballots<T>,
         capital_distributions<T>,
+        pallet_external_agents,
         checkpoint<T>,
         statistics,
         test_utils<T>,
@@ -476,7 +477,7 @@ impl IdentityTrait for TestStorage {
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateActions;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -555,6 +556,11 @@ parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+}
+
+impl pallet_external_agents::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
 }
 
 impl asset::Trait for TestStorage {
@@ -724,6 +730,7 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 pub type Settlement = pallet_settlement::Module<TestStorage>;
 pub type TestUtils = pallet_test_utils::Module<TestStorage>;
+pub type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
@@ -863,16 +870,22 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
     identity::Authorizations::<TestStorage>::iter_prefix_values(to).collect::<Vec<_>>()
 }
 
-pub fn fast_forward_to_block(n: u64) {
-    let next_block = System::block_number() + 1;
-    (next_block..=n).for_each(|block| {
-        System::set_block_number(block);
-        Scheduler::on_initialize(block);
-    });
+/// Advances the system `block_number` and run any scheduled task.
+pub fn next_block() -> Weight {
+    let block_number = frame_system::Module::<TestStorage>::block_number() + 1;
+    frame_system::Module::<TestStorage>::set_block_number(block_number);
+
+    // Call the timelocked tx handler.
+    pallet_scheduler::Module::<TestStorage>::on_initialize(block_number)
 }
 
-pub fn fast_forward_blocks(n: u64) {
-    fast_forward_to_block(n + System::block_number());
+pub fn fast_forward_to_block(n: u64) -> Weight {
+    let i = System::block_number();
+    (i..=n).map(|_| next_block()).sum()
+}
+
+pub fn fast_forward_blocks(offset: u64) -> Weight {
+    fast_forward_to_block(offset + System::block_number())
 }
 
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential

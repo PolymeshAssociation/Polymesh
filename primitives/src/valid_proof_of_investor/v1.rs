@@ -67,14 +67,12 @@ mod tests {
         let context = Context {
             claims: vec![].into_iter(),
             id: investor_id,
-            primary_issuance_agent: investor_id,
         };
         assert_eq!(proposition.evaluate(context), false);
 
         let context = Context {
             claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))].into_iter(),
             id: investor_id,
-            primary_issuance_agent: investor_id,
         };
         assert_eq!(proposition.evaluate(context), true);
 
