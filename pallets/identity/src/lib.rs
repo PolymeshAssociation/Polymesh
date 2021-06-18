@@ -130,6 +130,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
+    extract_auth,
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migrate_on, storage_migration_ver, valid_proof_of_investor, Authorization,
@@ -583,7 +584,6 @@ decl_module! {
             Self::ensure_auth_unexpired(auth.expiry)?;
 
             match (signer.clone(), auth.authorization_data) {
-                (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
@@ -599,6 +599,7 @@ decl_module! {
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
                     | AuthorizationData::NoData
+                    | AuthorizationData::AddMultiSigSigner(..)
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
                 )
@@ -608,7 +609,7 @@ decl_module! {
                     | AuthorizationData::BecomeAgent(..)
                     | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::PortfolioCustody(..)
-                ) => Err(Error::<T>::UnknownAuthorization.into())
+                ) => fail!(AuthorizationError::BadType)
             }?;
 
             Self::unchecked_take_auth(&signer, auth_id, auth.authorized_by);
@@ -826,8 +827,6 @@ decl_error! {
         MissingCurrentIdentity,
         /// Signatory is not pre authorized by the identity
         Unauthorized,
-        /// Given authorization is not pre-known
-        UnknownAuthorization,
         /// Account Id cannot be extracted from signer
         InvalidAccountKey,
         /// Only CDD service providers are allowed.
@@ -910,10 +909,7 @@ impl<T: Config> Module<T> {
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
         Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
-            let permissions = match data {
-                AuthorizationData::JoinIdentity(p) => Ok(p),
-                _ => Err(AuthorizationError::Invalid),
-            }?;
+            let permissions = extract_auth!(data, JoinIdentity(p));
             // Not really needed unless we allow identities to be deleted.
             Self::ensure_id_record_exists(auth_by)?;
             Self::base_join_identity(auth_by, permissions.into(), &signer)
@@ -1104,10 +1100,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let signer = Signatory::Account(sender.clone());
         Self::accept_auth_with(&signer, rotation_auth_id, |data, _| {
-            let rotation_for_did = match data {
-                AuthorizationData::RotatePrimaryKey(r) => r,
-                _ => fail!(Error::<T>::UnknownAuthorization),
-            };
+            let rotation_for_did = extract_auth!(data, RotatePrimaryKey(r));
             Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
         })
     }
@@ -1125,10 +1118,7 @@ impl<T: Config> Module<T> {
 
             let signer = Signatory::Account(sender.clone());
             Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
-                let attestation_for_did = match data {
-                    AuthorizationData::AttestPrimaryKeyRotation(a) => a,
-                    _ => fail!(Error::<T>::UnknownAuthorization),
-                };
+                let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
                 // Attestor must be a CDD service provider.
                 ensure!(
                     T::CddServiceProviders::is_member(&auth_by),

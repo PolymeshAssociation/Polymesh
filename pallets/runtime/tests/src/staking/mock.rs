@@ -469,13 +469,6 @@ impl IdentityToExternalAgents for Test {
 }
 
 impl MultiSigSubTrait<AccountId> for Test {
-    fn accept_multisig_signer(
-        _: Signatory<AccountId>,
-        _: IdentityId,
-        _: AccountId,
-    ) -> DispatchResult {
-        unimplemented!()
-    }
     fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }

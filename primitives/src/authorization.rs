@@ -64,12 +64,8 @@ impl<T> AuthorizationData<T> {
             Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
             Self::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
             Self::TransferTicker(..) => AuthorizationType::TransferTicker,
-            Self::TransferPrimaryIssuanceAgent(..) => {
-                AuthorizationType::TransferPrimaryIssuanceAgent
-            }
-            Self::TransferCorporateActionAgent(..) => {
-                AuthorizationType::TransferCorporateActionAgent
-            }
+            Self::TransferPrimaryIssuanceAgent(..) => AuthorizationType::NoData,
+            Self::TransferCorporateActionAgent(..) => AuthorizationType::NoData,
             Self::BecomeAgent(..) => AuthorizationType::BecomeAgent,
             Self::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
             Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
@@ -92,8 +88,6 @@ pub enum AuthorizationType {
     RotatePrimaryKey,
     /// Authorization to transfer a ticker.
     TransferTicker,
-    /// Authorization to transfer a token's primary issuance agent.
-    TransferPrimaryIssuanceAgent,
     /// Authorization to add some key int a multi signer.
     AddMultiSigSigner,
     /// Authorization to transfer the asset ownership to other identity.
@@ -106,8 +100,6 @@ pub enum AuthorizationType {
     Custom,
     /// Undefined authorization.
     NoData,
-    /// Not in use anymore.
-    TransferCorporateActionAgent,
     /// Authorization to become an agent of a ticker.
     BecomeAgent,
 }
@@ -121,13 +113,17 @@ impl<AccountId> Default for AuthorizationData<AccountId> {
 /// Status of an Authorization after consume is called on it.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationError {
-    /// Auth does not exist
+    /// Auth identified by an `auth_id` for a given `target` does not exist.
+    /// The `target` might be wrong or the `auth_id` was never created at all.
     Invalid,
     /// Caller not authorized or the identity who created
-    /// this authorization is not authorized to create this authorization
+    /// this authorization is not authorized to create this authorization.
     Unauthorized,
-    /// Auth expired already
+    /// Auth expired already.
     Expired,
+    /// The extrinsic expected a different `AuthorizationType`
+    /// than what the `data.auth_type()` is.
+    BadType,
 }
 
 impl From<AuthorizationError> for DispatchError {
@@ -138,6 +134,7 @@ impl From<AuthorizationError> for DispatchError {
                 DispatchError::Other("Illegal use of Authorization")
             }
             AuthorizationError::Expired => DispatchError::Other("Authorization expired"),
+            AuthorizationError::BadType => DispatchError::Other("Authorization type is wrong"),
         }
     }
 }
@@ -157,4 +154,15 @@ pub struct Authorization<AccountId, Moment> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+}
+
+/// Extract the authoriation variant's data, or bail.
+#[macro_export]
+macro_rules! extract_auth {
+    ($data:expr, $variant:ident ( $($f:ident),*) ) => {
+        match $data {
+            $crate::authorization::AuthorizationData::$variant($($f),*) => $($f),*,
+            _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
+        }
+    }
 }

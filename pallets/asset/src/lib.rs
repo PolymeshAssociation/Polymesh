@@ -110,10 +110,10 @@ use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
+    extract_auth,
     statistics::TransferManagerResult,
-    storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
-    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
-    SmartExtensionType, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -423,7 +423,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         ///
         /// ## Errors
-        /// - `NoTickerTransferAuth` if `auth_id` is not a valid ticket transfer authorization.
+        /// - `AuthorizationError::BadType` if `auth_id` is not a valid ticket transfer authorization.
         ///
         #[weight = <T as Config>::WeightInfo::accept_ticker_transfer()]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
@@ -791,12 +791,6 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// Not a ticker transfer auth.
-        NoTickerTransferAuth,
-        /// Not a primary issuance agent transfer auth.
-        NoPrimaryIssuanceAgentTransferAuth,
-        /// Not a token ownership transfer auth.
-        NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
         Unauthorized,
         /// When extension already archived.
@@ -1456,10 +1450,7 @@ impl<T: Config> Module<T> {
     /// Accepts and executes the ticker transfer.
     pub fn base_accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         <Identity<T>>::accept_auth_with(&to_did.into(), auth_id, |data, auth_by| {
-            let ticker = match data {
-                AuthorizationData::TransferTicker(t) => t,
-                _ => fail!(Error::<T>::NoTickerTransferAuth),
-            };
+            let ticker = extract_auth!(data, TransferTicker(t));
             <Self as AssetSubTrait<_>>::accept_ticker_transfer(to_did, auth_by, ticker)
         })
     }
@@ -1475,10 +1466,7 @@ impl<T: Config> Module<T> {
     /// Accept and process a token ownership transfer.
     pub fn base_accept_token_ownership_transfer(to: IdentityId, id: u64) -> DispatchResult {
         <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
-            let ticker = match data {
-                AuthorizationData::TransferAssetOwnership(t) => t,
-                _ => fail!(Error::<T>::NotTickerOwnershipTransferAuth),
-            };
+            let ticker = extract_auth!(data, TransferAssetOwnership(t));
             <Self as AssetSubTrait<_>>::accept_asset_ownership_transfer(to, auth_by, ticker)
         })
     }
