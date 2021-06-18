@@ -86,14 +86,14 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_base::ensure_length_ok;
-use pallet_external_agents::Trait as EATrait;
+use pallet_external_agents::Config as EAConfig;
 pub use polymesh_common_utilities::traits::compliance_manager::WeightInfo;
 use polymesh_common_utilities::{
     asset::AssetFnTrait,
-    balances::Trait as BalancesTrait,
-    compliance_manager::Trait as ComplianceManagerTrait,
+    balances::Config as BalancesConfig,
+    compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
-    identity::Trait as IdentityTrait,
+    identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
 use polymesh_primitives::{
@@ -112,11 +112,11 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait + EATrait
+pub trait Config:
+    pallet_timestamp::Config + frame_system::Config + BalancesConfig + IdentityConfig + EAConfig
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Asset module
     type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
@@ -131,11 +131,11 @@ pub trait Trait:
 pub mod weight_for {
     use super::*;
 
-    pub fn weight_for_verify_restriction<T: Trait>(no_of_compliance_requirements: u64) -> Weight {
+    pub fn weight_for_verify_restriction<T: Config>(no_of_compliance_requirements: u64) -> Weight {
         no_of_compliance_requirements * 100_000_000
     }
 
-    pub fn weight_for_reading_asset_compliance<T: Trait>() -> Weight {
+    pub fn weight_for_reading_asset_compliance<T: Config>() -> Weight {
         T::DbWeight::get().reads(1) + 1_000_000
     }
 }
@@ -145,7 +145,7 @@ pub mod weight_for {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as ComplianceManager {
+    trait Store for Module<T: Config> as ComplianceManager {
         /// Asset compliance for a ticker (Ticker -> AssetCompliance)
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) Ticker => AssetCompliance;
         /// List of trusted claim issuer Ticker -> Issuer Identity
@@ -156,7 +156,7 @@ decl_storage! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// User is not authorized.
         Unauthorized,
         /// Did not exist
@@ -174,7 +174,7 @@ decl_error! {
 
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -204,7 +204,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -239,7 +239,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::remove_compliance_requirement()]
+        #[weight = <T as Config>::WeightInfo::remove_compliance_requirement()]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -265,7 +265,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -295,7 +295,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::reset_asset_compliance()]
+        #[weight = <T as Config>::WeightInfo::reset_asset_compliance()]
         pub fn reset_asset_compliance(origin, ticker: Ticker) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             AssetCompliances::remove(ticker);
@@ -310,7 +310,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::pause_asset_compliance()]
+        #[weight = <T as Config>::WeightInfo::pause_asset_compliance()]
         pub fn pause_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, true)?;
             Self::deposit_event(Event::AssetCompliancePaused(did, ticker));
@@ -324,7 +324,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::resume_asset_compliance()]
+        #[weight = <T as Config>::WeightInfo::resume_asset_compliance()]
         pub fn resume_asset_compliance(origin, ticker: Ticker) {
             let did = Self::pause_resume_asset_compliance(origin, ticker, false)?;
             Self::deposit_event(Event::AssetComplianceResumed(did, ticker));
@@ -339,7 +339,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::add_default_trusted_claim_issuer()]
+        #[weight = <T as Config>::WeightInfo::add_default_trusted_claim_issuer()]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
@@ -376,7 +376,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::remove_default_trusted_claim_issuer()]
+        #[weight = <T as Config>::WeightInfo::remove_default_trusted_claim_issuer()]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: IdentityId) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             TrustedClaimIssuer::try_mutate(ticker, |issuers| {
@@ -397,7 +397,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::change_compliance_requirement(
+        #[weight = <T as Config>::WeightInfo::change_compliance_requirement(
             new_req.sender_conditions.len() as u32,
             new_req.receiver_conditions.len() as u32,
         )]
@@ -452,7 +452,7 @@ decl_event!(
     }
 );
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Fetches all claims of `target` identity with type
     /// and scope from `claim` and generated by any of `issuers`.
     fn fetch_claims<'a>(
@@ -629,7 +629,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
+impl<T: Config> ComplianceManagerConfig<T::Balance> for Module<T> {
     ///  Sender restriction verification
     fn verify_restriction(
         ticker: &Ticker,

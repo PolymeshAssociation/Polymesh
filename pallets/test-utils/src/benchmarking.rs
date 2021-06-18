@@ -40,8 +40,6 @@ use limits::*;
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    _ {}
-
     register_did {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
