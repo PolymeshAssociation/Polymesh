@@ -13,10 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{
-    checkpoint, compliance_manager, contracts, external_agents, portfolio, statistics,
-};
-use crate::CommonTrait;
+use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
+use crate::CommonConfig;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
@@ -131,22 +129,22 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait:
-    crate::balances::Trait
-    + external_agents::Trait
-    + pallet_session::Trait
-    + statistics::Trait
-    + contracts::Trait
-    + portfolio::Trait
+pub trait Config:
+    crate::balances::Config
+    + external_agents::Config
+    + pallet_session::Config
+    + statistics::Config
+    //+ contracts::Trait
+    + portfolio::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>>
         + From<checkpoint::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
+        + Into<<Self as frame_system::Config>::Event>;
 
     type Currency: Currency<Self::AccountId>;
 
-    type ComplianceManager: compliance_manager::Trait<Self::Balance>;
+    type ComplianceManager: compliance_manager::Config<Self::Balance>;
 
     /// Maximum number of smart extensions can attach to an asset.
     /// This hard limit is set to avoid the cases where an asset transfer
@@ -166,6 +164,8 @@ pub trait Trait:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
+
+    //type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 /// Errors of migration on this pallet.
@@ -178,9 +178,9 @@ pub enum AssetMigrationError {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
-        AccountId = <T as frame_system::Trait>::AccountId,
+        Balance = <T as CommonConfig>::Balance,
+        Moment = <T as pallet_timestamp::Config>::Moment,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Event for transfer of tokens.
         /// caller DID, ticker, from portfolio, to portfolio, value

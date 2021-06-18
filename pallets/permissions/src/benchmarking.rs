@@ -12,8 +12,6 @@ fn make_name(m: u32) -> Vec<u8> {
 }
 
 benchmarks! {
-    _ {}
-
     set_call_metadata {
         let pallet_name: PalletName = make_name(MAX_PALLET_NAME_LENGTH).into();
         let pallet_name_exp = pallet_name.clone();

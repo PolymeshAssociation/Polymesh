@@ -10,13 +10,13 @@ lazy_static = "1.4.0"
 
 # Old migration helpers
 remote-externalities-old = { package = "remote-externalities", git = "https://github.com/PolymathNetwork/Polymesh", rev = "065ea0c243c7e6f6d665d769cf79647d2ecfca00" }
-frame-support-old = { package = "frame-support", git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
-sp-state-machine-old = { package = "sp-state-machine", git = "https://github.com/paritytech/substrate", tag = "v2.0.1" }
+frame-support-old = { package = "frame-support", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1" }
+sp-state-machine-old = { package = "sp-state-machine", git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1" }
 
 # New migration helpers
 remote-externalities = { path = "remote-externalities" }
-frame-support = { version = "2.0.1" }
-sp-core = { version = "2.0.1" }
+frame-support = { version = "3.0.0" }
+sp-core = { version = "3.0.0" }
 
 # Old pallets
 polymesh-runtime-old = { package = "polymesh-runtime-testnet", git = "https://github.com/PolymathNetwork/Polymesh", rev = "14951c75b778d5ee75c8ecdc02b70b6eb6d7b172" }

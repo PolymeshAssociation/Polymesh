@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::identity::Trait;
+use crate::traits::identity::Config;
 use frame_system::RawOrigin;
 use polymesh_primitives::{crypto::native_schnorrkel, IdentityId, InvestorUid};
 use sp_core::sr25519::Signature;
@@ -23,7 +23,7 @@ pub use schnorrkel::keys::{PublicKey, SecretKey};
 
 /// Helper class to create accounts and its DID to simplify benchmarks and UT.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct User<T: Trait> {
+pub struct User<T: Config> {
     pub account: T::AccountId,
     pub secret: Option<SecretKey>,
     pub origin: RawOrigin<T::AccountId>,
@@ -31,7 +31,7 @@ pub struct User<T: Trait> {
     pub did: Option<IdentityId>,
 }
 
-impl<T: Trait> User<T> {
+impl<T: Config> User<T> {
     pub fn did(&self) -> IdentityId {
         self.did.expect("User without DID")
     }

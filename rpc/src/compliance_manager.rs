@@ -25,12 +25,12 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Config {
     type Currency: Currency<Self::AccountId>;
 }
 
 pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[rpc]
 pub trait ComplianceManagerApi<BlockHash, AccountId, T> {

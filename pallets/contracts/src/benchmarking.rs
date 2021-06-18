@@ -34,7 +34,7 @@ type BaseContracts<T> = pallet_contracts::Module<T>;
 const MAX_URL_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_DESCRIPTION_LENGTH: u32 = ENSURED_MAX_LEN;
 
-// Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L30
+// Copied from - https://github.com/PolymathNetwork/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L30
 macro_rules! load_module {
     ($name:expr) => {{
         let code = include_bytes!(concat!("../fixtures/", $name, ".wat"));
@@ -42,7 +42,7 @@ macro_rules! load_module {
     }};
 }
 
-// Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L37
+// Copied from - https://github.com/PolymathNetwork/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L37
 pub fn compile_module<T: Trait>(code: &[u8]) -> (Vec<u8>, <T::Hashing as Hash>::Output) {
     let code = sp_std::str::from_utf8(code).expect("Invalid utf8 in wat file.");
     let binary = wat::parse_str(code).expect("Failed to compile wat file.");
@@ -50,7 +50,7 @@ pub fn compile_module<T: Trait>(code: &[u8]) -> (Vec<u8>, <T::Hashing as Hash>::
     (binary, hash)
 }
 
-// Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L54
+// Copied from - https://github.com/PolymathNetwork/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L54
 fn contract_with_call_body<T: Trait>(body: FuncBody) -> (Vec<u8>, <T::Hashing as Hash>::Output) {
     use parity_wasm::elements::{Instruction::End, Instructions};
     let contract = parity_wasm::builder::ModuleBuilder::new()
@@ -88,7 +88,7 @@ fn contract_with_call_body<T: Trait>(body: FuncBody) -> (Vec<u8>, <T::Hashing as
     (bytes, hash)
 }
 
-// Copied from - https://github.com/paritytech/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L77
+// Copied from - https://github.com/PolymathNetwork/substrate/blob/v2.0.0/frame/contracts/src/benchmarking.rs#L77
 fn expanded_contract<T: Trait>(target_bytes: u32) -> (Vec<u8>, <T::Hashing as Hash>::Output) {
     use parity_wasm::elements::{
         BlockType,

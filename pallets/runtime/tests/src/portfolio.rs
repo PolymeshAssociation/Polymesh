@@ -19,7 +19,7 @@ use test_client::AccountKeyring;
 type Asset = pallet_asset::Module<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 
 fn create_token() -> (Ticker, SecurityToken<u128>) {
@@ -120,7 +120,7 @@ fn can_recover_funds_from_deleted_portfolio() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+            EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -281,7 +281,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+        EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did

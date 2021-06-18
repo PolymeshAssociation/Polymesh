@@ -43,7 +43,7 @@ fn meta(n_motions: u32, n_choices: u32) -> BallotMeta {
     }
 }
 
-fn attach<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn attach<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n_motions: u32,
     n_choices: u32,
 ) -> (User<T>, CAId) {
@@ -55,8 +55,6 @@ fn attach<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     attach_ballot {
         let c in 0..MAX_CHOICES;

@@ -16,15 +16,15 @@ pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-core = {version = "2.0.1", default_features = false }
-sp-std = {version = "2.0.1", default_features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-sp-api = { version = "2.0.1", default-features = false }
-sp-blockchain = { version = "2.0.1" }
-sp-rpc = { version = "2.0.1" }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0" }
+sp-core = {version = "3.0.0", default_features = false }
+sp-std = {version = "3.0.0", default_features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-api = { version = "3.0.0", default-features = false }
+sp-blockchain = { version = "3.0.0" }
+sp-rpc = { version = "3.0.0" }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
 
 # Others
 jsonrpc-core = "15.0.0"

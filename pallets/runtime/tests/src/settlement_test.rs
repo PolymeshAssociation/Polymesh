@@ -22,11 +22,10 @@ use pallet_settlement::{
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
-    PortfolioName, Signatory, Ticker,
+    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType, IdentityId,
+    PortfolioId, PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
-use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -41,7 +40,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
@@ -84,11 +83,11 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
     };
 }
 
-fn init(token_name: &[u8], ticker: Ticker, keyring: Public) -> u64 {
-    create_token(token_name, ticker, keyring);
+fn init(token_name: &[u8], ticker: Ticker, keyring: AccountId) -> u64 {
+    create_token(token_name, ticker, keyring.clone());
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         VenueDetails::default(),
         vec![keyring],
         VenueType::Other
@@ -96,9 +95,9 @@ fn init(token_name: &[u8], ticker: Ticker, keyring: Public) -> u64 {
     venue_counter
 }
 
-fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
+fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
     assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(keyring),
+        Origin::signed(keyring.clone()),
         token_name.into(),
         ticker,
         100_000,
@@ -115,7 +114,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
     ));
 }
 
-pub fn set_current_block_number(block: u64) {
+pub fn set_current_block_number(block: u32) {
     System::set_block_number(block);
 }
 
@@ -136,13 +135,16 @@ fn venue_details_length_limited() {
 #[test]
 fn venue_registration() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let venue_counter = Settlement::venue_counter();
         assert_ok!(Settlement::create_venue(
             alice_signed.clone(),
             VenueDetails::default(),
-            vec![AccountKeyring::Alice.public(), AccountKeyring::Bob.public()],
+            vec![
+                AccountKeyring::Alice.to_account_id(),
+                AccountKeyring::Bob.to_account_id()
+            ],
             VenueType::Exchange
         ));
         let venue_info = Settlement::venue_info(venue_counter).unwrap();
@@ -153,15 +155,15 @@ fn venue_registration() {
         assert_eq!(venue_info.details, VenueDetails::default());
         assert_eq!(venue_info.venue_type, VenueType::Exchange);
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Alice.public()),
+            Settlement::venue_signers(venue_counter, AccountKeyring::Alice.to_account_id()),
             true
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.public()),
+            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
             true
         );
         assert_eq!(
-            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.public()),
+            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
             false
         );
 
@@ -169,7 +171,10 @@ fn venue_registration() {
         assert_ok!(Settlement::create_venue(
             alice_signed.clone(),
             VenueDetails::default(),
-            vec![AccountKeyring::Alice.public(), AccountKeyring::Bob.public()],
+            vec![
+                AccountKeyring::Alice.to_account_id(),
+                AccountKeyring::Bob.to_account_id()
+            ],
             VenueType::Exchange
         ));
         assert_eq!(
@@ -195,21 +200,21 @@ fn venue_registration() {
 #[test]
 fn basic_settlement() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount = 100u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -263,21 +268,21 @@ fn basic_settlement() {
 #[test]
 fn create_and_affirm_instruction() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount = 100u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to both the parties of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -350,13 +355,13 @@ fn create_and_affirm_instruction() {
 #[test]
 fn overdraft_failure() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let _bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
         let instruction_counter = Settlement::instruction_counter();
         let alice_init_balance = Asset::balance_of(&ticker, alice_did);
         let bob_init_balance = Asset::balance_of(&ticker, bob_did);
@@ -394,20 +399,20 @@ fn overdraft_failure() {
 #[test]
 fn token_swap() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             let token_name2 = b"ACME2";
             let ticker2 = Ticker::try_from(&token_name2[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-            let eve = AccountKeyring::Eve.public();
-            init(token_name2, ticker2, AccountKeyring::Bob.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
+            let eve = AccountKeyring::Eve.to_account_id();
+            init(token_name2, ticker2, AccountKeyring::Bob.to_account_id());
 
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
@@ -493,7 +498,7 @@ fn token_swap() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Provide scope claim to parties involved in a instruction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -707,20 +712,20 @@ fn token_swap() {
 #[test]
 fn claiming_receipt() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             let token_name2 = b"ACME2";
             let ticker2 = Ticker::try_from(&token_name2[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-            let eve = AccountKeyring::Eve.public();
-            init(token_name2, ticker2, AccountKeyring::Bob.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
+            let eve = AccountKeyring::Eve.to_account_id();
+            init(token_name2, ticker2, AccountKeyring::Bob.to_account_id());
 
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
@@ -729,7 +734,7 @@ fn claiming_receipt() {
             let bob_init_balance2 = Asset::balance_of(&ticker2, bob_did);
 
             // Provide scope claims to multiple parties of a transactions.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             let amount = 100u128;
@@ -816,7 +821,7 @@ fn claiming_receipt() {
                 asset: ticker,
                 amount: amount,
             };
-            let signature = OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode()));
+            let signature = AccountKeyring::Alice.sign(&msg.encode());
 
             let claim_receipt = |signature, metadata| {
                 Settlement::claim_receipt(
@@ -825,7 +830,7 @@ fn claiming_receipt() {
                     ReceiptDetails {
                         receipt_uid: 0,
                         leg_id: 0,
-                        signer: AccountKeyring::Alice.public(),
+                        signer: AccountKeyring::Alice.to_account_id(),
                         signature,
                         metadata,
                     },
@@ -833,7 +838,7 @@ fn claiming_receipt() {
             };
 
             assert_noop!(
-                claim_receipt(signature.clone(), ReceiptMetadata::default()),
+                claim_receipt(signature.clone().into(), ReceiptMetadata::default()),
                 Error::LegNotPending
             );
             set_current_block_number(4);
@@ -901,10 +906,10 @@ fn claiming_receipt() {
                 asset: ticker,
                 amount: amount,
             };
-            let signature2 = OffChainSignature::from(AccountKeyring::Alice.sign(&msg2.encode()));
+            let signature2 = AccountKeyring::Alice.sign(&msg2.encode());
 
             assert_noop!(
-                claim_receipt(signature2, ReceiptMetadata::default()),
+                claim_receipt(signature2.into(), ReceiptMetadata::default()),
                 Error::InvalidSignature
             );
 
@@ -920,16 +925,16 @@ fn claiming_receipt() {
             };
             change_receipt_validity(false);
             assert_noop!(
-                claim_receipt(signature.clone(), metadata.clone()),
+                claim_receipt(signature.clone().into(), metadata.clone()),
                 Error::ReceiptAlreadyClaimed
             );
             change_receipt_validity(true);
 
             // Claiming, unclaiming and claiming receipt
-            assert_ok!(claim_receipt(signature, metadata.clone()));
+            assert_ok!(claim_receipt(signature.into(), metadata.clone()));
 
             assert_eq!(
-                Settlement::receipts_used(AccountKeyring::Alice.public(), 0),
+                Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
                 true
             );
             assert_eq!(
@@ -966,7 +971,7 @@ fn claiming_receipt() {
             );
             assert_eq!(
                 Settlement::instruction_leg_status(instruction_counter, 0),
-                LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.public(), 0)
+                LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
             );
             assert_eq!(
                 Settlement::instruction_leg_status(instruction_counter, 1),
@@ -1044,14 +1049,14 @@ fn claiming_receipt() {
                 ReceiptDetails {
                     receipt_uid: 0,
                     leg_id: 0,
-                    signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg.encode())),
+                    signer: AccountKeyring::Alice.to_account_id(),
+                    signature: AccountKeyring::Alice.sign(&msg.encode()).into(),
                     metadata: ReceiptMetadata::default()
                 }
             ));
 
             assert_eq!(
-                Settlement::receipts_used(AccountKeyring::Alice.public(), 0),
+                Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
                 true
             );
             assert_eq!(
@@ -1088,7 +1093,7 @@ fn claiming_receipt() {
             );
             assert_eq!(
                 Settlement::instruction_leg_status(instruction_counter, 0),
-                LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.public(), 0)
+                LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
             );
             assert_eq!(
                 Settlement::instruction_leg_status(instruction_counter, 1),
@@ -1148,21 +1153,21 @@ fn claiming_receipt() {
 #[test]
 fn settle_on_block() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             let token_name2 = b"ACME2";
             let ticker2 = Ticker::try_from(&token_name2[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-            init(token_name2, ticker2, AccountKeyring::Bob.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
+            init(token_name2, ticker2, AccountKeyring::Bob.to_account_id());
             let block_number = System::block_number() + 1;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
@@ -1249,7 +1254,7 @@ fn settle_on_block() {
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
             // Before authorization need to provide the scope claim for both the parties of a transaction.
-            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve.clone());
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker2, eve);
 
             assert_affirm_instruction_with_one_leg!(
@@ -1411,18 +1416,18 @@ fn settle_on_block() {
 #[test]
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         let token_name2 = b"ACME2";
         let ticker2 = Ticker::try_from(&token_name2[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-        init(token_name2, ticker2, AccountKeyring::Bob.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
+        init(token_name2, ticker2, AccountKeyring::Bob.to_account_id());
         assert_ok!(ComplianceManager::reset_asset_compliance(
-            Origin::signed(AccountKeyring::Bob.public()),
+            Origin::signed(AccountKeyring::Bob.to_account_id()),
             ticker2,
         ));
         let block_number = System::block_number() + 1;
@@ -1631,19 +1636,19 @@ fn failed_execution() {
 #[test]
 fn venue_filtering() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let block_number = System::block_number() + 1;
             let instruction_counter = Settlement::instruction_counter();
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // provide scope claim.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -1725,7 +1730,7 @@ fn venue_filtering() {
 #[test]
 fn basic_fuzzing() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             let alice = User::new(AccountKeyring::Alice);
@@ -1735,9 +1740,9 @@ fn basic_fuzzing() {
             let eve = User::existing(AccountKeyring::Eve);
             let venue_counter = Settlement::venue_counter();
             assert_ok!(Settlement::create_venue(
-                Origin::signed(AccountKeyring::Alice.public()),
+                Origin::signed(AccountKeyring::Alice.to_account_id()),
                 VenueDetails::default(),
-                vec![AccountKeyring::Alice.public()],
+                vec![AccountKeyring::Alice.to_account_id()],
                 VenueType::Other
             ));
             let mut tickers = Vec::with_capacity(40);
@@ -1748,7 +1753,7 @@ fn basic_fuzzing() {
                 let mut create = |x: usize, key: AccountKeyring| {
                     let tn = [b'!' + u8::try_from(ticker_id * 4 + x).unwrap()];
                     tickers.push(Ticker::try_from(&tn[..]).unwrap());
-                    create_token(&tn, tickers[ticker_id * 4 + x], key.public());
+                    create_token(&tn, tickers[ticker_id * 4 + x], key.to_account_id());
                 };
                 create(0, AccountKeyring::Alice);
                 create(1, AccountKeyring::Bob);
@@ -1923,10 +1928,8 @@ fn basic_fuzzing() {
                             ReceiptDetails {
                                 receipt_uid: receipt.receipt_uid,
                                 leg_id: leg_num,
-                                signer: AccountKeyring::Alice.public(),
-                                signature: OffChainSignature::from(
-                                    AccountKeyring::Alice.sign(&receipt.encode())
-                                ),
+                                signer: AccountKeyring::Alice.to_account_id(),
+                                signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
                                 metadata: ReceiptMetadata::default()
                             }
                         ));
@@ -1943,10 +1946,8 @@ fn basic_fuzzing() {
                     ReceiptDetails {
                         receipt_uid: receipt.receipt_uid,
                         leg_id: leg_num,
-                        signer: AccountKeyring::Alice.public(),
-                        signature: OffChainSignature::from(
-                            AccountKeyring::Alice.sign(&receipt.encode())
-                        ),
+                        signer: AccountKeyring::Alice.to_account_id(),
+                        signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
                         metadata: ReceiptMetadata::default()
                     }
                 ));
@@ -2068,16 +2069,16 @@ fn basic_fuzzing() {
 #[test]
 fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         let token_name2 = b"ACME2";
         let ticker2 = Ticker::try_from(&token_name2[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
-        init(token_name2, ticker2, AccountKeyring::Bob.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
+        init(token_name2, ticker2, AccountKeyring::Bob.to_account_id());
 
         let instruction_counter = Settlement::instruction_counter();
         let alice_init_balance = Asset::balance_of(&ticker, alice_did);
@@ -2145,19 +2146,15 @@ fn claim_multiple_receipts_during_authorization() {
                     ReceiptDetails {
                         receipt_uid: 0,
                         leg_id: 0,
-                        signer: AccountKeyring::Alice.public(),
-                        signature: OffChainSignature::from(
-                            AccountKeyring::Alice.sign(&msg1.encode())
-                        ),
+                        signer: AccountKeyring::Alice.to_account_id(),
+                        signature: AccountKeyring::Alice.sign(&msg1.encode()).into(),
                         metadata: ReceiptMetadata::default()
                     },
                     ReceiptDetails {
                         receipt_uid: 0,
                         leg_id: 0,
-                        signer: AccountKeyring::Alice.public(),
-                        signature: OffChainSignature::from(
-                            AccountKeyring::Alice.sign(&msg2.encode())
-                        ),
+                        signer: AccountKeyring::Alice.to_account_id(),
+                        signature: AccountKeyring::Alice.sign(&msg2.encode()).into(),
                         metadata: ReceiptMetadata::default()
                     },
                 ],
@@ -2174,15 +2171,15 @@ fn claim_multiple_receipts_during_authorization() {
                 ReceiptDetails {
                     receipt_uid: 0,
                     leg_id: 0,
-                    signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg1.encode())),
+                    signer: AccountKeyring::Alice.to_account_id(),
+                    signature: AccountKeyring::Alice.sign(&msg1.encode()).into(),
                     metadata: ReceiptMetadata::default()
                 },
                 ReceiptDetails {
                     receipt_uid: 1,
                     leg_id: 1,
-                    signer: AccountKeyring::Alice.public(),
-                    signature: OffChainSignature::from(AccountKeyring::Alice.sign(&msg3.encode())),
+                    signer: AccountKeyring::Alice.to_account_id(),
+                    signature: AccountKeyring::Alice.sign(&msg3.encode()).into(),
                     metadata: ReceiptMetadata::default()
                 },
             ],
@@ -2224,11 +2221,11 @@ fn claim_multiple_receipts_during_authorization() {
         );
         assert_eq!(
             Settlement::instruction_leg_status(instruction_counter, 0),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.public(), 0)
+            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
         );
         assert_eq!(
             Settlement::instruction_leg_status(instruction_counter, 1),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.public(), 1)
+            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1)
         );
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -2274,20 +2271,20 @@ fn claim_multiple_receipts_during_authorization() {
 #[test]
 fn overload_settle_on_block() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
             let block_number = System::block_number() + 1;
 
             let legs = vec![
@@ -2468,17 +2465,17 @@ fn encode_receipt() {
 #[test]
 fn test_weights_for_settlement_transaction() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
+        .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
         .set_max_tms_allowed(4) // set maximum no. of tms an asset can have.
         .build()
         .execute_with(|| {
-            let alice = AccountKeyring::Alice.public();
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let alice = AccountKeyring::Alice.to_account_id();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
-            let bob = AccountKeyring::Bob.public();
+            let bob = AccountKeyring::Bob.to_account_id();
             let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
 
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
 
             let token_name = b"ACME";
@@ -2487,7 +2484,7 @@ fn test_weights_for_settlement_transaction() {
             let venue_counter = init(token_name, ticker, alice);
             let instruction_counter = Settlement::instruction_counter();
 
-            let dave = AccountKeyring::Dave.public();
+            let dave = AccountKeyring::Dave.to_account_id();
 
             // Get token Id.
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
@@ -2593,12 +2590,12 @@ fn test_weights_for_settlement_transaction() {
 #[test]
 fn cross_portfolio_settlement() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let name = PortfolioName::from([42u8].to_vec());
             let num = Portfolio::next_portfolio_number(&bob_did);
@@ -2608,12 +2605,12 @@ fn cross_portfolio_settlement() {
             ));
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount = 100u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -2723,12 +2720,12 @@ fn cross_portfolio_settlement() {
 #[test]
 fn multiple_portfolio_settlement() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
             let name = PortfolioName::from([42u8].to_vec());
             let alice_num = Portfolio::next_portfolio_number(&alice_did);
@@ -2743,12 +2740,12 @@ fn multiple_portfolio_settlement() {
             ));
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount = 100u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -2926,12 +2923,12 @@ fn multiple_portfolio_settlement() {
 #[test]
 fn multiple_custodian_settlement() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_signed = Origin::signed(AccountKeyring::Bob.to_account_id());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
             // Create portfolios
@@ -2962,12 +2959,12 @@ fn multiple_custodian_settlement() {
             // Create a token
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount = 100u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -3170,7 +3167,7 @@ fn reject_instruction() {
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
         let amount = 100u128;
 
         let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
@@ -3229,20 +3226,21 @@ fn reject_instruction() {
 #[test]
 fn dirty_storage_with_tx() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let (alice_signed, alice_did) =
+                make_account(AccountKeyring::Alice.to_account_id()).unwrap();
+            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.to_account_id()).unwrap();
             let token_name = b"ACME";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
-            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+            let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
             let instruction_counter = Settlement::instruction_counter();
             let alice_init_balance = Asset::balance_of(&ticker, alice_did);
             let bob_init_balance = Asset::balance_of(&ticker, bob_did);
             let amount1 = 100u128;
             let amount2 = 50u128;
-            let eve = AccountKeyring::Eve.public();
+            let eve = AccountKeyring::Eve.to_account_id();
 
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
@@ -3318,7 +3316,7 @@ fn reject_failed_instruction() {
 
         let token_name = b"ACME";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.public());
+        let venue_counter = init(token_name, ticker, AccountKeyring::Alice.to_account_id());
         let amount = 100u128;
 
         let instruction_counter = create_instruction(&alice, &bob, venue_counter, ticker, amount);

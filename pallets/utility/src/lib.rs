@@ -16,7 +16,7 @@
 //
 // Modified by Polymath Inc - 2020
 // This module is inspired from the `pallet-utility`.
-// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
+// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
 //
 // Polymesh changes:
 // - Pseudonymal dispatch has been removed.
@@ -64,8 +64,8 @@ use frame_system::{ensure_root, ensure_signed, Module as System, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
-    balances::{CheckCdd, Trait as BalancesTrait},
-    identity::{AuthorizationNonce, Trait as IdentityTrait},
+    balances::{CheckCdd, Config as BalancesConfig},
+    identity::{AuthorizationNonce, Config as IdentityConfig},
     with_transaction,
 };
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
@@ -77,9 +77,9 @@ pub type EventCounts = Vec<u32>;
 pub type ErrorAt = (u32, DispatchError);
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
+pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// The overarching call type.
     type Call: Parameter
@@ -101,13 +101,13 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Utility {
+    trait Store for Module<T: Config> as Utility {
         Nonces get(fn nonce): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
     }
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Offchain signature is invalid
         InvalidSignature,
         /// Target does not have a valid CDD
@@ -154,7 +154,7 @@ impl<C> UniqueCall<C> {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         /// Deposit one of this module's events by using the default implementation.
@@ -178,8 +178,8 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = <T as Trait>::WeightInfo::batch(&calls)]
-        pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
+        #[weight = <T as Config>::WeightInfo::batch(&calls)]
+        pub fn batch(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone()).is_ok();
 
             // Run batch
@@ -205,8 +205,8 @@ decl_module! {
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Trait>::WeightInfo::batch_atomic(&calls)]
-        pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
+        #[weight = <T as Config>::WeightInfo::batch_atomic(&calls)]
+        pub fn batch_atomic(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch inside a transaction
@@ -246,8 +246,8 @@ decl_module! {
         /// with a vector of event counts for each call as well as a vector
         /// of errors.
         /// If all were successful, then the `BatchCompleted` event is deposited.
-        #[weight = <T as Trait>::WeightInfo::batch_optimistic(&calls)]
-        pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
+        #[weight = <T as Config>::WeightInfo::batch_optimistic(&calls)]
+        pub fn batch_optimistic(origin, calls: Vec<<T as Config>::Call>) {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
@@ -266,12 +266,12 @@ decl_module! {
         /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
-        #[weight = <T as Trait>::WeightInfo::relay_tx(&*call.call)]
+        #[weight = <T as Config>::WeightInfo::relay_tx(&*call.call)]
         pub fn relay_tx(
             origin,
             target: T::AccountId,
             signature: T::OffChainSignature,
-            call: UniqueCall<<T as Trait>::Call>
+            call: UniqueCall<<T as Config>::Call>
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
@@ -312,11 +312,11 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn dispatch_call(
         origin: T::Origin,
         is_root: bool,
-        call: <T as Trait>::Call,
+        call: <T as Config>::Call,
     ) -> DispatchResultWithPostInfo {
         with_call_metadata(call.get_call_metadata(), || {
             if is_root {
@@ -330,7 +330,7 @@ impl<T: Trait> Module<T> {
     fn run_batch(
         origin: T::Origin,
         is_root: bool,
-        calls: Vec<<T as Trait>::Call>,
+        calls: Vec<<T as Config>::Call>,
         stop_on_errors: bool,
     ) -> Event {
         let mut counts = EventCounts::with_capacity(calls.len());

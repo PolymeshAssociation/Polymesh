@@ -17,7 +17,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User};
 use polymesh_common_utilities::identity::IdentityToExternalAgents as _;
-use polymesh_common_utilities::traits::asset::Trait as Asset;
+use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::{ExtrinsicPermissions, PalletPermissions, Ticker};
 use sp_std::prelude::*;
@@ -44,14 +44,12 @@ fn setup_removal<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>,
     (owner, other, ticker)
 }
 
-fn custom_group<T: Trait>(owner: User<T>, ticker: Ticker) {
+fn custom_group<T: Config>(owner: User<T>, ticker: Ticker) {
     Module::<T>::create_group(owner.origin().into(), ticker, <_>::default()).unwrap();
 }
 
 benchmarks! {
     where_clause { where T: Asset, T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     create_group {
         let p in 0..MAX_PALLETS;
