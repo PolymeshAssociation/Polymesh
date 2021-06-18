@@ -1716,7 +1716,7 @@ impl<T: Config> Module<T> {
 
         // Charge protocol fees.
         T::ProtocolFee::charge_fees(&{
-            let mut fees = ArrayVec::<[_; 2]>::new();
+            let mut fees = ArrayVec::<_, 2>::new();
             if available {
                 fees.push(ProtocolOp::AssetRegisterTicker);
             }
