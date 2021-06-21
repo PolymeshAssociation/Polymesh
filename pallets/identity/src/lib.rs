@@ -554,50 +554,6 @@ decl_module! {
             Self::unsafe_remove_auth(&target, auth_id, &auth.authorized_by, revoked);
         }
 
-        /// Accepts an authorization.
-        ///
-        /// Does not check extrinsic permission checks for the caller in order to allow it to be an
-        /// account without an identity.
-        /// NB: The current weight is a defensive approximation.
-        #[weight =
-            (500_000_000 as Weight)
-                .saturating_add(T::DbWeight::get().reads(10 as Weight))
-                .saturating_add(T::DbWeight::get().writes(5 as Weight))
-        ]
-        pub fn accept_authorization(
-            origin,
-            auth_id: u64
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let signer_key = Signatory::Account(sender.clone());
-            let signer_did = Context::current_identity_or::<Self>(&sender)
-                .map_or_else(|_error| signer_key.clone(), Signatory::from);
-
-            // Get auth by key or by id.
-            let (auth, signer) = Self::ensure_authorization(&signer_did, auth_id)
-                .map(|a| (a, signer_did))
-                .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
-
-            Self::ensure_auth_unexpired(auth.expiry)?;
-
-            match (signer.clone(), auth.authorization_data) {
-                (_,
-                    AuthorizationData::AttestPrimaryKeyRotation(..)
-                    | AuthorizationData::Custom(..)
-                    | AuthorizationData::NoData
-                    | AuthorizationData::AddMultiSigSigner(..)
-                    | AuthorizationData::JoinIdentity(..)
-                    | AuthorizationData::TransferTicker(..)
-                    | AuthorizationData::TransferAssetOwnership(..)
-                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
-                    | AuthorizationData::TransferCorporateActionAgent(..)
-                    | AuthorizationData::RotatePrimaryKey(..)
-                    | AuthorizationData::PortfolioCustody(..)
-                    | AuthorizationData::BecomeAgent(..)
-                ) => fail!(AuthorizationError::BadType)
-            }
-        }
-
         /// It adds secondary keys to target identity `id`.
         /// Keys are directly added to identity because each of them has an authorization.
         ///
@@ -1000,21 +956,6 @@ impl<T: Config> Module<T> {
         Self::deposit_event(event(id, acc, auth_id))
     }
 
-    /// Consumes an authorization, removing it from storage.
-    fn unchecked_take_auth(
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-        authorized_by: IdentityId,
-    ) {
-        <Authorizations<T>>::remove(&target, auth_id);
-        <AuthorizationsGiven<T>>::remove(authorized_by, auth_id);
-        Self::deposit_event(RawEvent::AuthorizationConsumed(
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
-            auth_id,
-        ));
-    }
-
     /// Given that `auth_by` is the DID that issued an authorization,
     /// ensure that it matches `from`, or otherwise return an error.
     pub fn ensure_auth_by(auth_by: IdentityId, from: IdentityId) -> DispatchResult {
@@ -1022,31 +963,36 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure that `expiry`, if provided, is in the future.
-    fn ensure_auth_unexpired(
-        expiry: Option<<T as pallet_timestamp::Config>::Moment>,
-    ) -> DispatchResult {
-        if let Some(expiry) = expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
-            ensure!(expiry > now, AuthorizationError::Expired);
-        }
-        Ok(())
-    }
-
-    /// Accepts an authorization `auth_id` as `signer`,
+    /// Accepts an authorization `auth_id` as `target`,
     /// executing `accepter` for case-specific additional validation and storage changes.
     ///
     /// Used when encoding one-off authorization-accepting extrinsics,
     /// as opposed to `accept_authorization`.
     pub fn accept_auth_with(
-        signer: &Signatory<T::AccountId>,
+        target: &Signatory<T::AccountId>,
         auth_id: u64,
         accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
-        let auth = Self::ensure_authorization(signer, auth_id)?;
-        Self::ensure_auth_unexpired(auth.expiry)?;
+        // Extract authorization.
+        let auth = Self::ensure_authorization(target, auth_id)?;
+
+        // Ensure that `auth.expiry`, if provided, is in the future.
+        if let Some(expiry) = auth.expiry {
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(expiry > now, AuthorizationError::Expired);
+        }
+
+        // Run custom per-type validation and updates.
         accepter(auth.authorization_data, auth.authorized_by)?;
-        Self::unchecked_take_auth(signer, auth.auth_id, auth.authorized_by);
+
+        // Remove authorization from storage and emit event.
+        <Authorizations<T>>::remove(&target, auth_id);
+        <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
+        Self::deposit_event(RawEvent::AuthorizationConsumed(
+            target.as_identity().cloned(),
+            target.as_account().cloned(),
+            auth_id,
+        ));
         Ok(())
     }
 
