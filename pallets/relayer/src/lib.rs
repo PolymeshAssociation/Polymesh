@@ -106,8 +106,7 @@ impl<T: Config> Module<T> {
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
         let PermissionedCallOriginData {
-            sender: user_key,
-            ..
+            sender: user_key, ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let signer = Signatory::Account(user_key);
 
@@ -136,11 +135,11 @@ impl<T: Config> Module<T> {
 
         // allow: `origin == user_key` or `origin == paying_key`
         if sender != user_key && sender != paying_key {
-          // allow: `origin == primary key of user_key's identity`
-          ensure!(
-              <Identity<T>>::get_identity(&user_key) == Some(sender_did),
-              Error::<T>::NotAuthorizedForUserKey
-          );
+            // allow: `origin == primary key of user_key's identity`
+            ensure!(
+                <Identity<T>>::get_identity(&user_key) == Some(sender_did),
+                Error::<T>::NotAuthorizedForUserKey
+            );
         }
 
         // Check if there is a paying key.
