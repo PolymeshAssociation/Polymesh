@@ -524,9 +524,6 @@ impl IdentityToRelayer<AccountId> for Test {
     ) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_set_paying_key(_: IdentityId, _: &AccountId, _: &AccountId) -> DispatchResult {
-        unimplemented!()
-    }
 }
 
 impl CheckCdd<AccountId> for Test {

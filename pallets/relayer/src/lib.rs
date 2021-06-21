@@ -25,7 +25,6 @@
 pub mod benchmarking;
 
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use frame_system::ensure_signed;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
     Config, Event, IdentityToRelayer, RawEvent, WeightInfo,
@@ -98,9 +97,7 @@ impl<T: Config> Module<T> {
             sender: paying_key,
             primary_did: paying_did,
             ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-
-        Self::ensure_set_paying_key(paying_did, &user_key, &paying_key)?;
+        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Create authorization for setting the `paying_key` to the `user_key`
         Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key);
@@ -108,8 +105,11 @@ impl<T: Config> Module<T> {
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        let signer = Signatory::Account(sender);
+        let PermissionedCallOriginData {
+            sender: user_key,
+            ..
+        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let signer = Signatory::Account(user_key);
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
             let (user_key, paying_key) = match data {
@@ -128,8 +128,20 @@ impl<T: Config> Module<T> {
         user_key: T::AccountId,
         paying_key: T::AccountId,
     ) -> DispatchResult {
-        let _sender = ensure_signed(origin)?;
-        // TOOD: check: `origin == user_key` or `origin == primary key of user_key's identity` or `origin == paying_key`
+        let PermissionedCallOriginData {
+            sender,
+            primary_did: sender_did,
+            ..
+        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+
+        // allow: `origin == user_key` or `origin == paying_key`
+        if sender != user_key && sender != paying_key {
+          // allow: `origin == primary key of user_key's identity`
+          ensure!(
+              <Identity<T>>::get_identity(&user_key) == Some(sender_did),
+              Error::<T>::NotAuthorizedForUserKey
+          );
+        }
 
         // Check if there is a paying key.
         ensure!(
@@ -177,6 +189,32 @@ impl<T: Config> Module<T> {
             false
         }
     }
+
+    fn ensure_set_paying_key(
+        from: IdentityId,
+        user_key: &T::AccountId,
+        paying_key: &T::AccountId,
+    ) -> DispatchResult {
+        ensure!(
+            <Identity<T>>::get_identity(paying_key) == Some(from),
+            Error::<T>::NotAuthorizedForPayingKey
+        );
+
+        ensure!(
+            Self::key_has_valid_cdd(user_key),
+            Error::<T>::UserKeyCddMissing
+        );
+        ensure!(
+            Self::key_has_valid_cdd(paying_key),
+            Error::<T>::PayingKeyCddMissing
+        );
+        ensure!(
+            !<PayingKeys<T>>::contains_key(user_key),
+            Error::<T>::AlreadyHasPayingKey
+        );
+
+        Ok(())
+    }
 }
 
 impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
@@ -206,32 +244,6 @@ impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
         );
 
         <PayingKeys<T>>::insert(user_key, paying_key);
-        Ok(())
-    }
-
-    fn ensure_set_paying_key(
-        from: IdentityId,
-        user_key: &T::AccountId,
-        paying_key: &T::AccountId,
-    ) -> DispatchResult {
-        ensure!(
-            <Identity<T>>::get_identity(paying_key) == Some(from),
-            Error::<T>::NotAuthorizedForPayingKey
-        );
-
-        ensure!(
-            Self::key_has_valid_cdd(user_key),
-            Error::<T>::UserKeyCddMissing
-        );
-        ensure!(
-            Self::key_has_valid_cdd(paying_key),
-            Error::<T>::PayingKeyCddMissing
-        );
-        ensure!(
-            !<PayingKeys<T>>::contains_key(user_key),
-            Error::<T>::AlreadyHasPayingKey
-        );
-
         Ok(())
     }
 }

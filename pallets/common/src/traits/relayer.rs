@@ -24,18 +24,6 @@ pub trait IdentityToRelayer<AccountId> {
         user_key: AccountId,
         paying_key: AccountId,
     ) -> DispatchResult;
-
-    /// Check if the signer can set `paying_key` for `user_key`
-    ///
-    /// # Arguments
-    /// * `from` - The DID that sent the authorization.
-    /// * `user_key` - The user key.
-    /// * `paying_key` - The paying key.
-    fn ensure_set_paying_key(
-        from: IdentityId,
-        user_key: &AccountId,
-        paying_key: &AccountId,
-    ) -> DispatchResult;
 }
 
 pub trait Config: CommonConfig + identity::Config {
