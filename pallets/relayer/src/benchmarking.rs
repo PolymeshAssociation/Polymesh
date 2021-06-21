@@ -26,19 +26,23 @@ type Relayer<T> = crate::Module<T>;
 
 pub(crate) const SEED: u32 = 0;
 
+fn setup_users() -> (User, User) {
+    let payer = user::<T>("payer", SEED);
+    let user = user::<T>("user", SEED);
+    (payer, user)
+}
+
 benchmarks! {
     where_clause { where T: Trait, T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 
     set_paying_key {
-        let payer = user::<T>("payer", SEED);
-        let user = user::<T>("user", SEED);
+        let (payer, user) = setup_users();
     }: _(payer.origin(), user.account())
 
     accept_paying_key {
-        let payer = user::<T>("payer", SEED);
-        let user = user::<T>("user", SEED);
+        let (payer, user) = setup_users();
         // setup authorization
         let auth_id = <Relayer<T>>::unsafe_add_auth_for_paying_key(
             payer.did(), user.account(), payer.account()
@@ -46,8 +50,7 @@ benchmarks! {
     }: _(user.origin(), auth_id)
 
     remove_paying_key {
-        let payer = user::<T>("payer", SEED);
-        let user = user::<T>("user", SEED);
+        let (payer, user) = setup_users();
         let user_signer = Signatory::Account(user.account());
         // accept paying key
         <Relayer<T>>::auth_accept_paying_key(user_signer, payer.did(), user.account(), payer.account()).unwrap();
