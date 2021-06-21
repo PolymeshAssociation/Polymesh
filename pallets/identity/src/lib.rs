@@ -387,8 +387,7 @@ decl_module! {
         /// * `cdd_auth_id` Authorization from a CDD service provider
         #[weight = <T as Config>::WeightInfo::accept_primary_key()]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            Self::accept_primary_key_rotation(sender, rotation_auth_id, optional_cdd_auth_id)
+            Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.
@@ -588,8 +587,6 @@ decl_module! {
                     T::ExternalAgents::accept_become_agent(did, from, ticker, group),
                 (Signatory::Identity(did), AuthorizationData::PortfolioCustody(pid)) =>
                     T::Portfolio::accept_portfolio_custody(did, from, pid),
-                (Signatory::Account(key), AuthorizationData::RotatePrimaryKey(_)) =>
-                    Self::unsafe_primary_key_rotation(key, from, None),
                 (_,
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
@@ -600,8 +597,8 @@ decl_module! {
                     | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
+                    | AuthorizationData::RotatePrimaryKey(..)
                 )
-                | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
                 | (Signatory::Account(_),
                     | AuthorizationData::BecomeAgent(..)
                     | AuthorizationData::PortfolioCustody(..)
@@ -1082,10 +1079,11 @@ impl<T: Config> Module<T> {
 
     /// Accepts a primary key rotation.
     fn accept_primary_key_rotation(
-        sender: T::AccountId,
+        origin: T::Origin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
+        let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender.clone());
         Self::accept_auth_with(&signer, rotation_auth_id, |data, _| {
             let rotation_for_did = extract_auth!(data, RotatePrimaryKey(r));
