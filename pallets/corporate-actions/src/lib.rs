@@ -109,7 +109,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, traits::asset,
+    balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
@@ -322,12 +322,12 @@ pub trait WeightInfo {
 }
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
+pub trait Config: frame_system::Config + BalancesConfig + IdentityConfig + asset::Config {
     /// The overarching event type.
     type Event: From<Event>
         + From<ballot::Event<Self>>
         + From<distribution::Event<Self>>
-        + Into<<Self as frame_system::Trait>::Event>;
+        + Into<<Self as frame_system::Config>::Event>;
 
     /// Max number of DID specified in `TargetIdentities`.
     type MaxTargetIds: Get<u32>;
@@ -352,7 +352,7 @@ type Distribution<T> = distribution::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as CorporateAction {
+    trait Store for Module<T: Config> as CorporateAction {
         /// Determines the maximum number of bytes that the free-form `details` of a CA can store.
         ///
         /// Note that this is not the number of `char`s or the number of [graphemes].
@@ -412,7 +412,7 @@ storage_migration_ver!(2);
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         /// initialize the default event for this module
@@ -440,7 +440,7 @@ decl_module! {
 
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.
-        #[weight = <T as Trait>::WeightInfo::set_max_details_length()]
+        #[weight = <T as Config>::WeightInfo::set_max_details_length()]
         pub fn set_max_details_length(origin, length: u32) {
             ensure_root(origin)?;
             MaxDetailsLength::put(length);
@@ -460,7 +460,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -486,7 +486,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
+        #[weight = <T as Config>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
@@ -509,7 +509,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
+        #[weight = <T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
@@ -559,11 +559,11 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::initiate_corporate_action_use_defaults(
+        #[weight = <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
                 T::MaxDidWhts::get(),
                 T::MaxTargetIds::get(),
             )
-            .max(<T as Trait>::WeightInfo::initiate_corporate_action_provided(
+            .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
                 withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
                 targets.as_ref().map_or(0, |t| t.identities.len() as u32),
             ))
@@ -669,7 +669,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::link_ca_doc(docs.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
             // Ensure that CAA is calling and that CA and the docs exists.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, id.ticker)?;
@@ -701,8 +701,8 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::remove_ca_with_ballot()
-            .max(<T as Trait>::WeightInfo::remove_ca_with_dist())]
+        #[weight = <T as Config>::WeightInfo::remove_ca_with_ballot()
+            .max(<T as Config>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
             // Ensure origin is CAA + CA exists.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
@@ -745,8 +745,8 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::change_record_date_with_ballot()
-            .max(<T as Trait>::WeightInfo::change_record_date_with_dist())]
+        #[weight = <T as Config>::WeightInfo::change_record_date_with_ballot()
+            .max(<T as Config>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
             // Ensure origin is CAA + CA exists.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
@@ -817,7 +817,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The authorization type is not to transfer the CAA to another DID.
         AuthNotCAATransfer,
         /// The `details` of a CA exceeded the max allowed length.
@@ -851,7 +851,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Ensure number of identities in `TargetIdentities` are limited.
     fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
         ensure!(

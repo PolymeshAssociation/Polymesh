@@ -48,4 +48,4 @@ pub mod pallet_test_utils;
 pub mod pallet_timestamp;
 pub mod pallet_treasury;
 pub mod pallet_utility;
-pub mod polymesh_contracts;
+//pub mod polymesh_contracts;

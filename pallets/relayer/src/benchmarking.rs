@@ -18,7 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     benchs::{user, AccountIdOf},
-    traits::{relayer::Trait, TestUtilsFn},
+    traits::{relayer::Config, TestUtilsFn},
 };
 use sp_std::prelude::*;
 
@@ -33,7 +33,7 @@ fn setup_users() -> (User, User) {
 }
 
 benchmarks! {
-    where_clause { where T: Trait, T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
 
     _ {}
 

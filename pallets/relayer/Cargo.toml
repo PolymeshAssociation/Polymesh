@@ -10,13 +10,13 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false}
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-frame-system = { version = "2.0.1", default-features = false }
-frame-support = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-system = { version = "3.0.0", default-features = false }
+frame-support = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
 
 # Only Benchmarking
-frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 
 [features]
 default = ["std"]

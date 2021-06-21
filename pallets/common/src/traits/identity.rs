@@ -20,7 +20,7 @@ use crate::{
         portfolio::PortfolioSubTrait,
         relayer::IdentityToRelayer,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonTrait,
+        CommonConfig,
     },
     ChargeProtocolFee, SystematicIssuers,
 };
@@ -111,12 +111,12 @@ pub trait IdentityToExternalAgents {
 }
 
 /// The module's configuration trait.
-pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Trait {
+pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
+        + Dispatchable<Origin = <Self as frame_system::Config>::Origin, PostInfo = PostDispatchInfo>
         + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>;
@@ -133,7 +133,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Trait>::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
@@ -161,8 +161,8 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
-        Moment = <T as pallet_timestamp::Trait>::Moment,
+        AccountId = <T as frame_system::Config>::AccountId,
+        Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// DID, primary key account ID, secondary keys
         DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),

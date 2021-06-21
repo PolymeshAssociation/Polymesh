@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::CommonTrait;
+use crate::traits::CommonConfig;
 use frame_support::traits::{Imbalance, TryDrop};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_arithmetic::traits::{Saturating, Zero};
@@ -25,22 +25,22 @@ use sp_std::{mem, result};
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been created without any equal and opposite accounting.
 #[must_use]
-pub struct PositiveImbalance<T: CommonTrait>(T::Balance);
+pub struct PositiveImbalance<T: CommonConfig>(T::Balance);
 
-impl<T: CommonTrait> PositiveImbalance<T> {
+impl<T: CommonConfig> PositiveImbalance<T> {
     /// Create a new positive imbalance from a balance.
     pub fn new(amount: T::Balance) -> Self {
         PositiveImbalance(amount)
     }
 }
 
-impl<T: CommonTrait> TryDrop for PositiveImbalance<T> {
+impl<T: CommonConfig> TryDrop for PositiveImbalance<T> {
     fn try_drop(self) -> result::Result<(), Self> {
         self.drop_zero()
     }
 }
 
-impl<T: CommonTrait> Imbalance<T::Balance> for PositiveImbalance<T> {
+impl<T: CommonConfig> Imbalance<T::Balance> for PositiveImbalance<T> {
     type Opposite = NegativeImbalance<T>;
 
     fn zero() -> Self {
@@ -91,7 +91,7 @@ impl<T: CommonTrait> Imbalance<T::Balance> for PositiveImbalance<T> {
     }
 }
 
-impl<T: CommonTrait> Drop for PositiveImbalance<T> {
+impl<T: CommonConfig> Drop for PositiveImbalance<T> {
     /// Basic drop handler will just square up the total issuance.
     fn drop(&mut self) {
         T::BlockRewardsReserve::drop_positive_imbalance(self.0);
@@ -101,22 +101,22 @@ impl<T: CommonTrait> Drop for PositiveImbalance<T> {
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been destroyed without any equal and opposite accounting.
 #[must_use]
-pub struct NegativeImbalance<T: CommonTrait>(T::Balance);
+pub struct NegativeImbalance<T: CommonConfig>(T::Balance);
 
-impl<T: CommonTrait> NegativeImbalance<T> {
+impl<T: CommonConfig> NegativeImbalance<T> {
     /// Create a new negative imbalance from a balance.
     pub fn new(amount: T::Balance) -> Self {
         NegativeImbalance(amount)
     }
 }
 
-impl<T: CommonTrait> TryDrop for NegativeImbalance<T> {
+impl<T: CommonConfig> TryDrop for NegativeImbalance<T> {
     fn try_drop(self) -> result::Result<(), Self> {
         self.drop_zero()
     }
 }
 
-impl<T: CommonTrait> Imbalance<T::Balance> for NegativeImbalance<T> {
+impl<T: CommonConfig> Imbalance<T::Balance> for NegativeImbalance<T> {
     type Opposite = PositiveImbalance<T>;
 
     fn zero() -> Self {
@@ -167,7 +167,7 @@ impl<T: CommonTrait> Imbalance<T::Balance> for NegativeImbalance<T> {
     }
 }
 
-impl<T: CommonTrait> Drop for NegativeImbalance<T> {
+impl<T: CommonConfig> Drop for NegativeImbalance<T> {
     /// Basic drop handler will just square up the total issuance.
     fn drop(&mut self) {
         T::BlockRewardsReserve::drop_negative_imbalance(self.0);

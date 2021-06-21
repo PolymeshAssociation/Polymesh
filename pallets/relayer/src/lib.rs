@@ -28,14 +28,14 @@ use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchRes
 use frame_system::ensure_signed;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
-    Event, RawEvent, IdentityToRelayer, Trait, WeightInfo,
+    Config, Event, IdentityToRelayer, RawEvent, WeightInfo,
 };
 use polymesh_primitives::{AuthorizationData, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Relayer {
+    trait Store for Module<T: Config> as Relayer {
         /// map `user_key` to `paying_key`
         pub PayingKeys get(fn paying_keys):
             map hasher(blake2_128_concat) T::AccountId => T::AccountId;
@@ -43,28 +43,28 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
 
         /// Set paying key for `user_key`
         /// TODO: Add docs.
-        #[weight = <T as Trait>::WeightInfo::set_paying_key()]
+        #[weight = <T as Config>::WeightInfo::set_paying_key()]
         pub fn set_paying_key(origin, user_key: T::AccountId) -> DispatchResult {
             Self::base_set_paying_key(origin, user_key)
         }
 
         /// Accept paying key for `origin = user_key`
         /// TODO: Add docs.
-        #[weight = <T as Trait>::WeightInfo::accept_paying_key()]
+        #[weight = <T as Config>::WeightInfo::accept_paying_key()]
         pub fn accept_paying_key(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_paying_key(origin, auth_id)
         }
 
         /// Remove paying key for `user_key`
         /// TODO: Add docs.
-        #[weight = <T as Trait>::WeightInfo::remove_paying_key()]
+        #[weight = <T as Config>::WeightInfo::remove_paying_key()]
         pub fn remove_paying_key(origin, user_key: T::AccountId, paying_key: T::AccountId) -> DispatchResult {
             Self::base_remove_paying_key(origin, user_key, paying_key)
         }
@@ -72,7 +72,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The `user_key` is not attached to a CDD'd identity.
         UserKeyCddMissing,
         /// The `user_key` is not attached to a CDD'd identity.
@@ -92,7 +92,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn base_set_paying_key(origin: T::Origin, user_key: T::AccountId) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
@@ -179,7 +179,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> IdentityToRelayer<T::AccountId> for Module<T> {
+impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
     fn auth_accept_paying_key(
         signer: Signatory<T::AccountId>,
         from: IdentityId,

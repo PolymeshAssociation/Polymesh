@@ -1,4 +1,4 @@
-use crate::{traits::identity, CommonTrait};
+use crate::{traits::identity, CommonConfig};
 use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{EventDid, IdentityId, Signatory};
@@ -38,9 +38,9 @@ pub trait IdentityToRelayer<AccountId> {
     ) -> DispatchResult;
 }
 
-pub trait Trait: CommonTrait + identity::Trait {
+pub trait Config: CommonConfig + identity::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type WeightInfo: WeightInfo;
 }
@@ -48,7 +48,7 @@ pub trait Trait: CommonTrait + identity::Trait {
 decl_event! {
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Authorization given for `paying_key` to `user_key`.
         ///
