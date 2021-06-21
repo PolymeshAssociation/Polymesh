@@ -15,6 +15,7 @@ pallet-indices = { version = "3.0.0", default-features = false }
 pallet-grandpa = { version = "3.0.0", default-features = false }
 pallet-scheduler = { version = "3.0.0", default-features = false }
 pallet-session = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
 
 # our pallets
 pallet-asset = { path = "../asset", default-features = false }
@@ -44,6 +45,7 @@ polymesh-runtime-common = { path = "../runtime/common", default-features = false
 default = ["std"]
 no_std = []
 std = [
+    "sp-std/std",
     "frame-system/std",
     "pallet-asset/std",
     "pallet-babe/std",

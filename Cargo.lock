@@ -6380,6 +6380,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-runtime-common",
+ "sp-std",
 ]
 
 [[package]]
