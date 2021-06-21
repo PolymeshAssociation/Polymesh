@@ -57,6 +57,7 @@ pub enum AuthorizationData<AccountId> {
     BecomeAgent(Ticker, AgentGroup),
     /// Add Relayer paying key to user key
     /// Must be issued by the paying key.
+    /// `AddRelayerPayingKey(user_key, paying_key)`
     AddRelayerPayingKey(AccountId, AccountId),
 }
 
