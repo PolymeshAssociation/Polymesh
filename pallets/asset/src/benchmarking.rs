@@ -439,7 +439,7 @@ benchmarks! {
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
             None,
         );
-        identity::Module::<T>::accept_authorization(pia.origin().into(), auth_id)?;
+        pallet_external_agents::Module::<T>::accept_become_agent(pia.origin().into(), auth_id)?;
         emulate_controller_transfer::<T>(ticker, investor.did(), pia.did());
         let portfolio_to = PortfolioId::default_portfolio(investor.did());
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)
