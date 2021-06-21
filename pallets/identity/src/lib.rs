@@ -528,9 +528,6 @@ decl_module! {
                 AuthorizationData::JoinIdentity(perms) => {
                     Self::ensure_perms_length_limited(perms)?;
                 }
-                AuthorizationData::AddRelayerPayingKey(user_key, paying_key) => {
-                    T::Relayer::ensure_set_paying_key(from_did, user_key, paying_key)?;
-                }
                 _ => ()
             }
             Self::add_auth(from_did, target, authorization_data, expiry);
