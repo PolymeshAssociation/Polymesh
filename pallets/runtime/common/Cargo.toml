@@ -12,7 +12,7 @@ pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { version = "2.0.1", default-features = false }
+#pallet-contracts = { version = "3.0.0", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
@@ -26,19 +26,19 @@ rand = { version = "0.7.3", default-features = false }
 smallvec = "1.4.0"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "2.0.1", default-features = false }
-sp-std = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+sp-core = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
 
-pallet-timestamp = { version = "2.0.1", default-features = false }
-pallet-authorship = { version = "2.0.1", default-features = false }
+pallet-timestamp = { version = "3.0.0", default-features = false }
+pallet-authorship = { version = "3.0.0", default-features = false }
 
 # Only benchmarking
-frame-benchmarking = { default-features = false, version = "2.0.1", optional = true }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -52,7 +52,7 @@ std = [
     "pallet-authorship/std",
     "pallet-balances/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts/std",
+    #"pallet-contracts/std",
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",

@@ -7,11 +7,11 @@ use polymesh_primitives::{IdentityId, ScopeId, Ticker};
 use sp_std::vec::Vec;
 
 /// The main trait for statistics module
-pub trait Trait:
-    frame_system::Trait + crate::traits::identity::Trait + crate::traits::external_agents::Trait
+pub trait Config:
+    frame_system::Config + crate::traits::identity::Config + crate::traits::external_agents::Config
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
     /// Asset module
     type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
     /// Maximum transfer managers that can be enabled for an Asset

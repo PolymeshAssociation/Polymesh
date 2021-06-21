@@ -1,4 +1,4 @@
-use crate::{BridgeTx, Module, StorageVersion, Trait, Version};
+use crate::{BridgeTx, Config, Module, StorageVersion, Version};
 
 use frame_support::{
     migration::StorageKeyIterator, storage::StorageValue, weights::Weight, Twox64Concat,
@@ -7,7 +7,7 @@ use polymesh_primitives::storage_migrate_on;
 use sp_runtime::traits::One;
 use sp_std::prelude::*;
 
-pub(crate) fn on_runtime_upgrade<T: Trait>() -> Weight {
+pub(crate) fn on_runtime_upgrade<T: Config>() -> Weight {
     let storage_ver = Module::<T>::storage_version();
 
     storage_migrate_on!(storage_ver, 1, {
