@@ -17,7 +17,7 @@ use crate::*;
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{AccountIdOf, UserBuilder},
+    benchs::{AccountIdOf, user, User},
     TestUtilsFn,
 };
 use polymesh_primitives::{AuthorizationData, PortfolioName, Signatory};
@@ -29,11 +29,36 @@ fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))
 }
 
+fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>() -> (User<T>, PortfolioId) {
+    let owner = user::<T>("owner", 0);
+
+    let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
+    let num = NextPortfolioNumber::get(&owner.did());
+    Module::<T>::create_portfolio(owner.origin.clone().into(), name.clone()).unwrap();
+    let pid = PortfolioId::user_portfolio(owner.did(), num.clone());
+
+    (owner, pid)
+}
+
+fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -> u64 {
+    identity::Module::<T>::add_auth(
+        owner.did(),
+        Signatory::from(custodian.did()),
+        AuthorizationData::PortfolioCustody(pid),
+        None,
+    )
+}
+
+fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: bool) {
+    assert_eq!(PortfolioCustodian::get(&pid), holds.then(|| custodian.did()));
+    assert_eq!(PortfoliosInCustody::get(&custodian.did(), &pid), holds);
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     create_portfolio {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -43,7 +68,7 @@ benchmarks! {
     }
 
     delete_portfolio {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -58,7 +83,7 @@ benchmarks! {
         // Number of assets being moved
         let a in 1 .. 500;
         let mut items = Vec::with_capacity(a as usize);
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let first_ticker = Ticker::generate_into(0u64);
         let amount = T::Balance::from(10u32);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
@@ -90,7 +115,7 @@ benchmarks! {
         // Length of portfolio name
         let i in 1 .. PORTFOLIO_NAME_LEN.try_into().unwrap();
 
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let did = target.did();
         let portfolio_name = PortfolioName(vec![65u8; i as usize]);
         let next_portfolio_num = NextPortfolioNumber::get(&did);
@@ -104,27 +129,27 @@ benchmarks! {
     }
 
     quit_portfolio_custody {
-        let owner = UserBuilder::<T>::default().generate_did().build("owner");
-        let custodian = UserBuilder::<T>::default().generate_did().build("custodian");
-        let portfolio_name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
-        let next_portfolio_num = NextPortfolioNumber::get(&owner.did());
-        Module::<T>::create_portfolio(owner.origin.clone().into(), portfolio_name.clone())?;
-        let user_portfolio = PortfolioId::user_portfolio(owner.did(), next_portfolio_num.clone());
+        let (owner, user_portfolio) = owner_portfolio::<T>();
 
         // Transfer the custody of the portfolio from `owner` to `custodian`.
-        let auth_id = identity::Module::<T>::add_auth(
-            owner.did(),
-            Signatory::from(custodian.did()),
-            AuthorizationData::PortfolioCustody(user_portfolio),
-            None,
-        );
-        identity::Module::<T>::accept_authorization(custodian.origin.clone().into(), auth_id)?;
+        let custodian = user::<T>("custodian", 0);
+        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio);
+        Module::<T>::accept_portfolio_custody(custodian.origin.clone().into(), auth_id)?;
 
-        assert_eq!(PortfolioCustodian::get(&user_portfolio), Some(custodian.did()));
-        assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), true);
+        assert_custodian::<T>(user_portfolio, &custodian, true);
     }: _(custodian.origin.clone(), user_portfolio)
     verify {
-        assert_eq!(PortfolioCustodian::get(&user_portfolio), None);
-        assert_eq!(PortfoliosInCustody::get(&custodian.did(), &user_portfolio), false);
+        assert_custodian::<T>(user_portfolio, &custodian, false);
+    }
+
+    accept_portfolio_custody {
+        let (owner, user_portfolio) = owner_portfolio::<T>();
+
+        let custodian = user::<T>("custodian", 0);
+        let auth_id = add_auth::<T>(&owner, &custodian, user_portfolio);
+        assert_custodian::<T>(user_portfolio, &custodian, false);
+    }: _(custodian.origin.clone(), auth_id)
+    verify {
+        assert_custodian::<T>(user_portfolio, &custodian, true);
     }
 }

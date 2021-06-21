@@ -58,7 +58,7 @@ pub use polymesh_common_utilities::traits::portfolio::{Config, Event, RawEvent, 
 use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::{
     identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, extract_auth,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};
@@ -293,20 +293,23 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::quit_portfolio_custody()]
-        pub fn quit_portfolio_custody(origin, portfolio_id: PortfolioId) {
-            let primary_did = Identity::<T>::ensure_perms(origin)?;
+        pub fn quit_portfolio_custody(origin, pid: PortfolioId) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            let custodian = PortfolioCustodian::get(&pid).unwrap_or(pid.did);
+            ensure!(did == custodian, Error::<T>::UnauthorizedCustodian);
 
-            let custodian = PortfolioCustodian::get(&portfolio_id).unwrap_or(portfolio_id.did);
-
-            ensure!(primary_did == custodian, Error::<T>::UnauthorizedCustodian);
-            PortfolioCustodian::remove(&portfolio_id);
-            PortfoliosInCustody::remove(&custodian, &portfolio_id);
-
+            PortfolioCustodian::remove(&pid);
+            PortfoliosInCustody::remove(&custodian, &pid);
             Self::deposit_event(RawEvent::PortfolioCustodianChanged(
-                primary_did,
-                portfolio_id,
-                portfolio_id.did,
+                did,
+                pid,
+                pid.did,
             ));
+        }
+
+        #[weight = <T as Config>::WeightInfo::accept_portfolio_custody()]
+        pub fn accept_portfolio_custody(origin, auth_id: u64) -> DispatchResult {
+            Self::base_accept_portfolio_custody(origin, auth_id)
         }
     }
 }
@@ -517,31 +520,32 @@ impl<T: Config> Module<T> {
     pub fn unchecked_lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &T::Balance) {
         <PortfolioLockedAssets<T>>::mutate(portfolio, ticker, |l| *l = l.saturating_add(*amount));
     }
+
+    fn base_accept_portfolio_custody(origin: T::Origin, auth_id: u64) -> DispatchResult {
+        let to = Identity::<T>::ensure_perms(origin)?;
+        Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
+            let pid = extract_auth!(data, PortfolioCustody(p));
+
+            let curr = PortfolioCustodian::get(&pid).unwrap_or(pid.did);
+            <Identity<T>>::ensure_auth_by(from, curr)?;
+
+            // Transfer custody of `pid` over to `to`, removing it from `curr`.
+            PortfoliosInCustody::remove(&curr, &pid);
+            if pid.did == to {
+                // Set the custodian to the default value `None` meaning that the owner is the custodian.
+                PortfolioCustodian::remove(&pid);
+            } else {
+                PortfolioCustodian::insert(&pid, to);
+                PortfoliosInCustody::insert(&to, &pid, true);
+            }
+
+            Self::deposit_event(RawEvent::PortfolioCustodianChanged(to, pid, to));
+            Ok(())
+        })
+    }
 }
 
 impl<T: Config> PortfolioSubTrait<T::Balance, T::AccountId> for Module<T> {
-    fn accept_portfolio_custody(
-        to: IdentityId,
-        from: IdentityId,
-        pid: PortfolioId,
-    ) -> DispatchResult {
-        let curr = PortfolioCustodian::get(&pid).unwrap_or(pid.did);
-        <Identity<T>>::ensure_auth_by(from, curr)?;
-
-        // Transfer custody of `pid` over to `to`, removing it from `curr`.
-        PortfoliosInCustody::remove(&curr, &pid);
-        if pid.did == to {
-            // Set the custodian to the default value `None` meaning that the owner is the custodian.
-            PortfolioCustodian::remove(&pid);
-        } else {
-            PortfolioCustodian::insert(&pid, to);
-            PortfoliosInCustody::insert(&to, &pid, true);
-        }
-
-        Self::deposit_event(RawEvent::PortfolioCustodianChanged(to, pid, to));
-        Ok(())
-    }
-
     /// Locks some user tokens so that they can not be used for transfers.
     /// This is used internally by the settlement engine to prevent users from using the same funds
     /// in multiple ongoing settlements

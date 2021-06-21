@@ -476,9 +476,6 @@ impl MultiSigSubTrait<AccountId> for Test {
 }
 
 impl PortfolioSubTrait<Balance, AccountId> for Test {
-    fn accept_portfolio_custody(_: IdentityId, _: IdentityId, _: PortfolioId) -> DispatchResult {
-        unimplemented!()
-    }
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }

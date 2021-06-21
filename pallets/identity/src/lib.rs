@@ -122,7 +122,6 @@ use polymesh_common_utilities::{
             SecondaryKeyWithAuth, TargetIdAuthorization,
         },
         multisig::MultiSigSubTrait,
-        portfolio::PortfolioSubTrait,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -585,8 +584,6 @@ decl_module! {
             match (signer.clone(), auth.authorization_data) {
                 (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
                     T::ExternalAgents::accept_become_agent(did, from, ticker, group),
-                (Signatory::Identity(did), AuthorizationData::PortfolioCustody(pid)) =>
-                    T::Portfolio::accept_portfolio_custody(did, from, pid),
                 (_,
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
@@ -598,10 +595,10 @@ decl_module! {
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
                     | AuthorizationData::RotatePrimaryKey(..)
+                    | AuthorizationData::PortfolioCustody(..)
                 )
                 | (Signatory::Account(_),
                     | AuthorizationData::BecomeAgent(..)
-                    | AuthorizationData::PortfolioCustody(..)
                 ) => fail!(AuthorizationError::BadType)
             }?;
 
@@ -906,8 +903,9 @@ impl<T: Config> Module<T> {
             // Not really needed unless we allow identities to be deleted.
             Self::ensure_id_record_exists(target_did)?;
 
-            let charge_fee =
-                || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
+            let charge_fee = || {
+                T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)
+            };
 
             // Link the secondary key.
             match &signer {
